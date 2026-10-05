@@ -1,0 +1,14 @@
+# SyDent — Supabase CLI config (deploy-only scope)
+# الغرض الوحيد: تثبيت verify_jwt=false إعلانياً لكل Edge Function،
+# فيبقى الإعداد محفوظاً بالريبو حتى لو نُشرت function بدون علم --no-verify-jwt.
+# (نموذج الأمان: المصادقة كاملة داخل الـ handler — انظر رأس كل index.ts.)
+# لا يُستعمل هذا الملف للتطوير المحلي (لا supabase start) ولا للميغريشنات
+# (تُطبَّق يدوياً في SQL Editor حسب منهجية المشروع).
+
+project_id = "peeydqtjwklixphuzvzg"
+
+[functions.admin-ops]
+verify_jwt = false
+
+[functions.ai-assist]
+verify_jwt = false

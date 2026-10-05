@@ -1,0 +1,2228 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SyDent">
+<meta name="theme-color" content="#0d8577">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=4">
+<link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<title>قائمة العلاجات — SyDent</title>
+<!-- Theme system: MUST load before inline <style>
+/* ── Modal ── v447: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
+   (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
+ to apply data-theme synchronously and prevent FOUC. -->
+<script src="theme.js?v=20261005a"></script>
+<script src="/vendor/supabase-2.110.8.min.js"></script>
+<script src="supabase-init.js?v=20261005a"></script>
+<script src="sy-modal.js?v=20261005a"></script>
+<script src="sidebar.js?v=20261005a"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a1628;--bg2:#0f2038;--bg3:#132840;
+  --border:rgba(var(--green-rgb),0.15);
+  --red:#ef5350;--yellow:#f5c842;
+  --blue:#63b3ed;--purple:#a78bfa;
+  --text:#e1f4ee;--text2:#8a9ab5;--radius:12px;
+}
+body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* ── Topbar ── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px;background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:20;gap:12px;
+}
+.tb-title{font-size:18px;font-weight:800;color:var(--green);}
+.tb-sub{font-size:12px;color:var(--text2);margin-top:2px;}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 18px;border-radius:10px;
+  font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;border:none;transition:all .2s;
+}
+.btn-primary{background:var(--green);color:var(--bg);}
+.btn-primary:hover{background:var(--green2);}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2);}
+.btn-outline:hover{border-color:var(--green);color:var(--green);}
+.btn-sm{padding:7px 14px;font-size:12px;}
+
+.page{padding:24px 28px;max-width:1200px;margin:0 auto;}
+
+/* ── Info box ── */
+.info-box{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--radius);padding:16px 20px;
+  margin-bottom:20px;
+  display:flex;align-items:center;gap:12px;
+  font-size:13px;color:var(--text2);
+}
+.info-box .info-icon{font-size:24px;}
+
+/* ── Treatments grid — Redesign v1 (clinical cards) ── */
+.treat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px;margin-bottom:20px;}
+.treat-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;overflow:hidden;position:relative;transition:transform .18s,box-shadow .18s,border-color .18s;box-shadow:var(--shadow-card);}
+.treat-card:hover{transform:translateY(-2px);border-color:rgba(var(--green-rgb),.45);box-shadow:0 10px 28px -8px rgba(16,42,67,.14),0 0 0 3px rgba(var(--green-rgb),.08);}
+.treat-color-bar{height:4px;width:100%;}
+.treat-body{padding:14px 16px 13px;}
+.treat-head{display:flex;align-items:flex-start;gap:11px;margin-bottom:6px;}
+.treat-swatch{width:34px;height:34px;border-radius:10px;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(16,42,67,.06);}
+.treat-head-main{flex:1;min-width:0;}
+.treat-name{font-size:15px;font-weight:800;color:var(--text);line-height:1.35;}
+.treat-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;}
+.treat-key{font-size:11px;color:var(--text3);margin-top:5px;}
+.treat-layman{color:var(--cyan);}
+.treat-fav-star{flex-shrink:0;font-size:19px;line-height:1;color:var(--text3);opacity:.5;}
+.treat-fav-star.on{color:var(--yellow);opacity:1;}
+.treat-price{display:flex;align-items:baseline;gap:5px;font-size:21px;font-weight:800;color:var(--green);margin-top:11px;font-variant-numeric:tabular-nums;}
+.treat-price .currency{font-size:11px;color:var(--text3);font-weight:600;}
+.treat-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:13px;padding-top:12px;border-top:1px solid var(--border);}
+/* DeepCode #15 (v564): «⋯ المزيد» — الخليةُ الثالثة؛ تنفتح بعرض البطاقة وتُظهر الأزرارَ الأربعة بشبكتها */
+.trt-more{min-width:0;}
+.trt-more > summary{list-style:none;width:100%;min-width:0;justify-content:center;cursor:pointer;user-select:none;}
+.trt-more > summary::-webkit-details-marker{display:none;}
+.trt-more[open]{grid-column:1 / -1;}
+.trt-more[open] > summary{margin-bottom:7px;}
+.trt-more-menu{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;width:100%;}
+/* v474: أزرارُ البطاقة على طقم أزرار الصفوف (.sy-acts-grid) — قواعدُها المحلية السبع حُذفت بعد نقل قيمها:
+   «تعديل» كان أخضرَ و«المفضّل» أصفرَ؛ صار الأخضر لـ«تفعيل» (الفعل المتقدِّم)، والبرتقالي لـ«تعطيل» (إيقافٌ قابلٌ للتراجع)،
+   والأحمر للحذف، والباقي محايد. */
+/* v289: press feedback + card is a button */
+.btn:active:not(:disabled),.btn-save-m:active:not(:disabled),.btn-primary:active:not(:disabled){transform:scale(.96);}
+.treat-card{cursor:pointer;}
+.treat-card:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
+.treat-toolbar{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}
+.search-wrap{position:relative;width:100%;}
+.search-icon{position:absolute;top:50%;right:14px;transform:translateY(-50%);font-size:15px;opacity:.55;pointer-events:none;}
+#treatSearch{width:100%;padding:12px 42px 12px 14px;font-size:14px;background:var(--bg2);border:1px solid var(--border);border-radius:11px;color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s;}
+#treatSearch:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(var(--green-rgb),.10);}
+.filter-chips{display:flex;flex-wrap:wrap;gap:7px;}
+.chip{padding:7px 13px;font-size:12px;font-weight:700;border-radius:10px;background:var(--bg2);border:1px solid var(--border);color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.chip:hover{border-color:var(--green);color:var(--green);}
+.chip-active{background:var(--green);color:var(--on-accent);border-color:var(--green);}
+.chip-active:hover{color:var(--on-accent);}
+.chip .chip-n{display:inline-block;min-width:18px;margin-inline-start:6px;padding:0 5px;font-size:10.5px;font-weight:800;line-height:17px;text-align:center;border-radius:9px;background:var(--bg3);color:var(--text2);}
+.chip-active .chip-n{background:rgba(0,0,0,.18);color:inherit;}
+.flt-row{display:flex;align-items:flex-start;gap:10px;}
+.flt-lbl{flex:0 0 74px;padding-top:8px;font-size:11.5px;font-weight:800;color:var(--text2);white-space:nowrap;}
+.flt-row .filter-chips{flex:1;min-width:0;}
+.flt-meta{display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:12px;font-weight:700;color:var(--text2);min-height:22px;}
+.flt-reset{padding:4px 10px;font-family:inherit;font-size:11.5px;font-weight:800;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--text);cursor:pointer;}
+.flt-reset:hover{border-color:var(--green);color:var(--green);}
+@media (max-width:640px){
+  .flt-row{flex-direction:column;gap:5px;}
+  .flt-lbl{flex:none;padding-top:0;}
+  /* v547 (الفحص الشامل): شرائحُ التصنيفات كانت تتمرّر أفقياً بشريطٍ مخفي فتختفي «جراحي/تعويضي/زراعة…» خارج الشاشة؛
+     تلتفّ الآن وكلُّها ظاهرة (نفسُ إصلاح تبويبات التقارير v543). */
+  .flt-row .filter-chips{flex:none;width:100%;flex-wrap:wrap;}
+}   /* v367: navy label on the dark mint (white was 1.4:1) */
+/* Drag handle — top-RIGHT corner so it never overlaps the color swatch (top-left) */
+.drag-handle{position:absolute;top:9px;right:9px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--text3);cursor:grab;font-size:13px;font-weight:900;letter-spacing:-2px;line-height:1;user-select:none;border-radius:8px;background:var(--bg3);opacity:0;transition:opacity .15s,background .15s,color .15s;z-index:2;}
+.treat-card:hover .drag-handle{opacity:.75;}
+.drag-handle:hover{background:var(--green-dim);color:var(--green);opacity:1;}
+.drag-handle:active{cursor:grabbing;}
+.treat-card.dragging{opacity:.9;transform:rotate(1.5deg) scale(1.02);box-shadow:0 22px 46px -12px rgba(16,42,67,.32),0 0 0 1px var(--green);cursor:grabbing;}
+.treat-card.drag-ghost{background:transparent !important;border:2px dashed rgba(var(--green-rgb),.5) !important;box-shadow:none !important;}
+.treat-card.drag-ghost>*{visibility:hidden;}
+.treat-builtin-tag{position:absolute;top:9px;left:9px;background:var(--blue-bg);color:var(--blue-fg);border:1px solid var(--blue-bd);border-radius:8px;padding:2px 8px;font-size:10px;font-weight:700;}
+
+/* ── Modal ── */
+.modal-overlay.open{display:flex;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}}
+.modal-head h3{font-size:16px;font-weight:700;}
+.modal-body::-webkit-scrollbar{display:none;}
+.form-group{margin-bottom:15px;}
+.form-group label{display:block;font-size:12px;color:var(--text2);font-weight:600;margin-bottom:5px;}
+.form-group input,.form-group select,.form-group textarea{
+  width:100%;background:var(--bg3);border:1px solid var(--border);
+  border-radius:10px;padding:10px 13px;color:var(--text);
+  font-family:'Cairo',sans-serif;font-size:14px;
+  outline:none;transition:border-color .2s;direction:rtl;
+}
+.form-group input:focus,.form-group select:focus{border-color:var(--green);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.btn-cancel-m{padding:9px 22px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:600;cursor:pointer;}
+.btn-save-m{padding:9px 26px;background:var(--green);border:none;color:var(--bg);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+
+/* Phase 6 N: legacy palette CSS (.color-picker / .color-opt) removed.
+   Phase 6 K2.2: native <input type="color"> replaced by the shared
+   SyDentColorPicker (in supabase-init.js) — same UX on iOS/Windows/Android.
+   See modal markup for the swatch button + hidden input pattern. */
+
+/* target-part picker */
+.target-opt{
+  padding:12px 10px;
+  background:var(--bg3);
+  border:2px solid var(--border);
+  border-radius:10px;
+  cursor:pointer;
+  text-align:center;
+  transition:all .15s;
+}
+.target-opt .target-title{font-size:12px;font-weight:700;color:var(--text);}
+.target-opt .target-sub{font-size:10px;color:var(--text2);margin-top:2px;}
+.target-opt:hover{background:rgba(var(--green-rgb),0.06);}
+.target-opt.selected{
+  border-color:var(--green);
+  background:rgba(var(--green-rgb),0.1);
+  box-shadow:0 0 0 1px var(--green);
+}
+
+/* preview */
+.tooth-preview{
+  display:flex;align-items:center;gap:12px;
+  padding:14px;background:var(--bg3);border-radius:10px;
+  margin-bottom:10px;
+}
+.preview-tooth{
+  width:36px;height:46px;border-radius:6px 6px 10px 10px;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:13px;
+  border:2px solid;
+  box-shadow:inset 0 -3px 6px rgba(0,0,0,.1);
+}
+.preview-text{font-size:12px;color:var(--text2);}
+
+/* toast */
+
+/* Lab toggle switch */
+.lab-toggle-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--bg);border:1px solid var(--border);border-radius:24px;transition:.25s;}
+.lab-toggle-slider:before{position:absolute;content:"";height:18px;width:18px;right:2px;top:2px;background:var(--text2);border-radius:50%;transition:.25s;}
+.lab-toggle-switch input:checked + .lab-toggle-slider{background:rgba(var(--green-rgb),.18);border-color:var(--green);}
+.lab-toggle-switch input:checked + .lab-toggle-slider:before{transform:translateX(-22px);background:var(--green);}
+
+/* Lab tag on treatment card */
+.treat-lab-tag{display:inline-flex;align-items:center;gap:3px;background:var(--blue-bg);color:var(--blue-fg);border:1px solid var(--blue-bd);padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700;margin-right:5px;vertical-align:middle;}
+
+@media(max-width:900px){
+  .page{padding:16px;}
+  .topbar{padding:12px 16px;flex-wrap:wrap;gap:10px;}
+  .treat-grid{grid-template-columns:1fr;}
+}
+@media(max-width:600px){
+  .form-row{grid-template-columns:1fr;}
+}
+.ovr-row{display:flex;align-items:center;gap:10px;margin-bottom:7px;}
+.ovr-row .ovr-name{flex:1;font-size:13px;font-weight:600;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ovr-row input{width:130px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-family:'Cairo',sans-serif;font-size:13px;font-variant-numeric:tabular-nums;}
+.ovr-hint{font-size:11px;color:var(--text2);margin-top:4px;}
+.ovr-empty{font-size:12px;color:var(--text2);padding:4px 0;}
+.treat-ovr-badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:var(--text2);background:var(--bg2);border:1px solid var(--border);border-radius:999px;padding:2px 8px;margin-top:6px;}
+/* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
+html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAddModal("],[onclick*="saveTreatment("],[onclick*="matAddRow("],[onclick*="saveMaterials("],[onclick*="toggleFavorite("],[onclick*="editTreatment("],[onclick*="duplicateTreatment("],[onclick*="openMaterialsModal("],[onclick*="toggleActive("],[onclick*="deleteTreatment("],.drag-handle){display:none !important;}
+
+/* ── v405: مودال العلاج — أقسامٌ معنونة + هرميةٌ بثلاثة مستويات ── */
+#treatModal .modal-box{max-width:620px;display:flex;flex-direction:column;max-height:calc(100dvh - 40px);}
+#treatModal .tm-body{flex:1;min-height:0;max-height:none;padding:18px 20px 6px;}
+#treatModal .msec{margin-bottom:22px;}
+#treatModal .msec-last{margin-bottom:6px;}
+#treatModal .msec-h{display:flex;align-items:center;gap:9px;margin:0 0 14px;padding-bottom:9px;border-bottom:1px solid var(--border);font-size:13.5px;font-weight:800;color:var(--text);}
+#treatModal .msec-n{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;border-radius:50%;background:rgba(var(--green-rgb),.14);color:var(--green);font-size:11.5px;font-weight:800;flex-shrink:0;}
+#treatModal .form-group{margin-bottom:14px;}
+/* v407: مبدّل العملة (.cur-pick) يُحقن بين عنوان السعر وحقله فيُنزل الحقل سطراً عن حقل الاسم
+   بالعيادات ثنائية العملة ⇒ العنوانُ والمبدّل بسطرٍ واحد، والحقلان يُحاذيان من الأسفل. */
+#treatModal .form-row{align-items:end;}
+#treatModal .fg-price{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;column-gap:8px;}
+#treatModal .fg-price > label{margin-bottom:6px;}
+#treatModal .fg-price > .cur-pick{margin-bottom:6px !important;padding:1px !important;}
+#treatModal .fg-price > .cur-pick button{padding:1px 11px !important;font-size:11.5px !important;line-height:1.5;}
+#treatModal .fg-price > input{flex:0 0 100%;}
+#treatModal .form-group > label:not(.tgl){font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:6px;}
+#treatModal .opt{display:inline-block;margin-inline-start:6px;padding:1px 7px;font-size:10.5px;font-weight:700;color:var(--text2);background:var(--bg3);border:1px solid var(--border);border-radius:6px;vertical-align:1px;}
+#treatModal .fhint{margin-top:6px;font-size:11.5px;line-height:1.6;color:var(--text2);}
+#treatModal .fhint-warn{margin:0 0 8px;color:var(--yellow-ink);font-weight:600;}
+#treatModal textarea{min-height:64px;resize:vertical;font-size:13.5px;line-height:1.6;}
+#treatModal .target-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;}
+#treatModal .target-opt{padding:10px 4px;}
+#treatModal .tg-ic{display:block;margin:0 auto 5px;overflow:visible;}
+#treatModal .tg-m{fill:none;stroke:var(--text2);stroke-opacity:.5;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round;}
+#treatModal .tg-dash{stroke-dasharray:3 3;}
+#treatModal .tg-h{fill:rgba(var(--green-rgb),.16);stroke:var(--green);stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round;}
+#treatModal .tg-solid,#treatModal .tg-s{fill:var(--green);}
+#treatModal .tg-s{stroke:none;}
+#treatModal .tg-x{fill:none;stroke-width:3;}
+#treatModal .tg-a{fill:none;stroke-width:5;stroke-linecap:round;stroke-dasharray:.1 6.1;}
+#treatModal .tg-am{stroke:var(--text2);stroke-opacity:.4;}
+#treatModal .tg-ah{stroke:var(--green);}
+#treatModal .target-opt .target-title{font-size:12.5px;}
+#treatModal .target-opt .target-sub{font-size:10.5px;line-height:1.45;}
+#treatModal .tgl{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0;padding:11px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;cursor:pointer;}
+#treatModal .tgl-txt{display:flex;flex-direction:column;gap:2px;min-width:0;}
+#treatModal .tgl-t{font-size:13.5px;font-weight:700;color:var(--text);}
+#treatModal .tgl-s{font-size:11.5px;font-weight:500;line-height:1.55;color:var(--text2);}
+#treatModal .lab-toggle-switch{position:relative;display:inline-block;width:46px;height:24px;flex-shrink:0;}
+#treatModal .lab-toggle-switch input{position:absolute;opacity:0;width:0;height:0;padding:0;border:0;}
+#treatModal .lab-toggle-switch input:focus-visible + .lab-toggle-slider{outline:2px solid var(--green);outline-offset:2px;}
+#treatModal .tm-color{display:flex;align-items:stretch;gap:10px;}
+#treatModal .tm-swatch{font-size:17px;line-height:1;text-shadow:0 0 3px rgba(255,255,255,.9);width:46px;min-height:44px;padding:0;flex-shrink:0;cursor:pointer;border-radius:10px;border:1px solid var(--border);background:var(--green);}
+#treatModal .tm-color .tooth-preview{flex:1;min-width:0;margin:0;padding:6px 10px;}
+#treatModal .tm-color .preview-text{font-size:11.5px;line-height:1.45;}
+#treatModal .ovr-hint{display:none;}
+@media (max-width:600px){
+  #treatModal .modal-box{max-height:calc(100dvh - 16px);}
+  #treatModal .tm-body{padding:16px 14px 4px;}
+  #treatModal .target-grid{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+<!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
+<link rel="stylesheet" href="theme.css?v=20261005a">
+</head>
+<body>
+<div class="main" id="sbMainContent">
+
+<div class="topbar">
+  <div>
+    <div class="tb-title">قائمة العلاجات</div>
+    <div class="tb-sub">إدارة الأنواع والأسعار والألوان</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="btn btn-outline" onclick="printLegend()" title="طباعة دليل العلاجات والألوان">طباعة الدليل</button>
+    <button class="btn btn-outline" onclick="resetToDefaults()">استعادة الافتراضي</button>
+    <button class="btn btn-primary" onclick="openAddModal()">＋ علاج جديد</button>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- Search + filter toolbar -->
+  <div class="treat-toolbar">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="search" id="treatSearch" placeholder="ابحث باسم العلاج..." autocomplete="off">
+    </div>
+    <!-- v403: بُعدٌ واحد لكل صف + أعدادٌ حيّة؛ الشرائح تُرسم من renderFilterBar() -->
+    <div class="flt-row"><span class="flt-lbl">التصنيف</span><div class="filter-chips" id="catChips" role="group" aria-label="التصنيف"></div></div>
+    <div class="flt-row"><span class="flt-lbl">يطبَّق على</span><div class="filter-chips" id="filterChips" role="group" aria-label="يطبَّق على"></div></div>
+    <div class="flt-row"><span class="flt-lbl">خصائص</span><div class="filter-chips" id="flagChips" role="group" aria-label="خصائص"></div></div>
+    <div class="flt-meta">
+      <span id="fltCount"></span>
+      <button type="button" class="flt-reset" id="fltReset" onclick="resetFilters()" style="display:none;">✕ مسح الفلاتر</button>
+      <span id="fltDragHint" style="display:none;">↕️ إعادة الترتيب بالسحب متوقفة أثناء الفلترة</span>
+    </div>
+  </div>
+
+  <div class="treat-grid" id="treatGrid"></div>
+  <div id="treatEmpty" style="display:none;text-align:center;padding:40px 20px;color:var(--text2);">
+    <div style="font-size:40px;margin-bottom:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
+    <div>لا توجد علاجات تطابق البحث</div>
+  </div>
+
+</div>
+</div>
+
+<!-- Modal: Add/Edit Treatment -->
+<div class="modal-overlay sy-m" id="treatModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="modalTitle">＋ إضافة علاج جديد</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body tm-body">
+
+      <!-- v405: أربعةُ أقسامٍ معنونة بدل عمودٍ مسطّح من عشرة حقول (نمط Dentally/Open Dental:
+           مجموعاتٌ مسمّاة، الأساسيُّ أولاً). ثلاثةُ مستوياتٍ بصرية: عنوان قسم · عنوان حقل · شرح.
+           المعرّفاتُ (id) ومنطقُ الحفظ كما هي حرفياً — إعادةُ ترتيبٍ وتنسيقٍ بحتة. -->
+
+      <!-- ① الأساسيات -->
+      <section class="msec">
+        <h4 class="msec-h"><span class="msec-n">1</span>الأساسيات</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="tName">اسم العلاج</label>
+            <input type="text" id="tName" placeholder="مثال: حشوة كومبوزيت">
+          </div>
+          <div class="form-group fg-price">
+            <label for="tPrice">السعر (<span data-cur>ل.س</span>)</label>
+            <input type="number" id="tPrice" placeholder="50000" min="0" inputmode="numeric">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="tCategory">التصنيف</label>
+          <select id="tCategory">
+          <option value="diagnostic">تشخيصي (أشعة، استشارة)</option>
+          <option value="preventive">وقائي (تنظيف، فلوريد)</option>
+          <option value="restorative" selected>ترميمي (حشوات)</option>
+          <option value="endodontics">معالجة لبية (قناة جذر)</option>
+          <option value="surgical">جراحي (قلع، جراحة فموية)</option>
+          <option value="prosthodontics">تعويضي (تاج، جسر، طقم)</option>
+          <option value="implantology">زراعة الأسنان</option>
+          <option value="cosmetic">تجميلي (تبييض)</option>
+          <option value="prosth_cosmetic">تعويض تجميلي (فينير، زركون)</option>
+          <option value="orthodontics">تقويم الأسنان</option>
+          <option value="periodontics">معالجة لثوية (تقليح، كحت)</option>
+          <option value="pediatric">أطفال (لبني، حافظ مسافة)</option>
+          <option value="other">أخرى</option>
+          </select>
+        </div>
+        <div class="form-group" id="tOvrGroup" style="display:none;">
+          <label>أسعار مخصصة للأطباء <span class="opt">اختياري</span></label>
+          <div id="tOvrList"></div>
+          <div class="fhint">اتركه فارغاً ليتبع الطبيبُ السعرَ الأساسي.</div>
+        </div>
+      </section>
+
+      <!-- ② على المخطط -->
+      <section class="msec">
+        <h4 class="msec-h"><span class="msec-n">2</span>على مخطط الأسنان</h4>
+        <div class="form-group">
+          <label>يطبَّق على</label>
+          <div id="targetLockHint" class="fhint fhint-warn" style="display:none;">🔒 نطاق هذا العلاج ثابت — هندسته خاصة بمخطط الأسنان ولا يمكن تغييرها</div>
+          <div id="targetPartPicker" class="target-grid">
+          <div class="target-opt selected" data-target="crown">
+            <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-m" d="M12 10C12 6 17 5 20 7C22 8.5 26 8.5 28 7C31 5 36 6 36 10C37 16 35 21 34 24L14 24C13 21 11 16 12 10Z"/><path class="tg-m" d="M14 24C14 32 15 40 18 43C20 44.5 21 42 21.5 38C22 34 22.5 30 24 30C25.5 30 26 34 26.5 38C27 42 28 44.5 30 43C33 40 34 32 34 24"/><path class="tg-s" d="M19 11C21 9.5 27 9.5 29 11C30.5 13 30 17 28 18.5C26 20 22 20 20 18.5C18 17 17.5 13 19 11Z"/></svg>
+            <div class="target-title">سطح تاج</div>
+            <div class="target-sub">حشوة، ترميم</div>
+          </div>
+          <div class="target-opt" data-target="root">
+            <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-m" d="M12 10C12 6 17 5 20 7C22 8.5 26 8.5 28 7C31 5 36 6 36 10C37 16 35 21 34 24L14 24C13 21 11 16 12 10Z"/><path class="tg-h" d="M14 24C14 32 15 40 18 43C20 44.5 21 42 21.5 38C22 34 22.5 30 24 30C25.5 30 26 34 26.5 38C27 42 28 44.5 30 43C33 40 34 32 34 24Z"/></svg>
+            <div class="target-title">جذر السن</div>
+            <div class="target-sub">معالجة لبية</div>
+          </div>
+          <div class="target-opt" data-target="whole">
+            <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-h" d="M12 10C12 6 17 5 20 7C22 8.5 26 8.5 28 7C31 5 36 6 36 10C37 16 35 21 34 24C34 32 33 40 30 43C28 44.5 27 42 26.5 38C26 34 25.5 30 24 30C22.5 30 22 34 21.5 38C21 42 20 44.5 18 43C15 40 14 32 14 24C13 21 11 16 12 10Z"/></svg>
+            <div class="target-title">السن كاملاً</div>
+            <div class="target-sub">أشعة، بتر لب</div>
+          </div>
+          <div class="target-opt" data-target="crown_full">
+            <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-m" d="M14 24C14 32 15 40 18 43C20 44.5 21 42 21.5 38C22 34 22.5 30 24 30C25.5 30 26 34 26.5 38C27 42 28 44.5 30 43C33 40 34 32 34 24"/><path class="tg-h tg-solid" d="M12 10C12 6 17 5 20 7C22 8.5 26 8.5 28 7C31 5 36 6 36 10C37 16 35 21 34 24L14 24C13 21 11 16 12 10Z"/></svg>
+            <div class="target-title">التاج كامل</div>
+            <div class="target-sub">تلبيسة</div>
+          </div>
+          <div class="target-opt" data-target="bridge">
+            <svg class="tg-ic" width="55" height="40" viewBox="0 0 66 48" aria-hidden="true"><path class="tg-m" d="M6 24C6 32 7 39 9 42C10.5 43 11 40 12 36C13 40 13.5 43 15 42C17 39 18 32 18 24"/><path class="tg-m" d="M48 24C48 32 49 39 51 42C52.5 43 53 40 54 36C55 40 55.5 43 57 42C59 39 60 32 60 24"/><path class="tg-h" d="M5 12C5 8 9 7 12 9C15 7 19 8 19 12C19.5 17 19 21 18 24L6 24C5 21 4.5 17 5 12Z"/><path class="tg-h tg-solid" d="M26 12C26 8 30 7 33 9C36 7 40 8 40 12C40.5 17 40 21 39 24L27 24C26 21 25.5 17 26 12Z"/><path class="tg-h" d="M47 12C47 8 51 7 54 9C57 7 61 8 61 12C61.5 17 61 21 60 24L48 24C47 21 46.5 17 47 12Z"/><path class="tg-h" d="M19 16L26 16M40 16L47 16"/></svg>
+            <div class="target-title">جسر</div>
+            <div class="target-sub">تعويض سنّ مفقود</div>
+          </div>
+          <div class="target-opt" data-target="extraction">
+            <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-m tg-dash" d="M12 10C12 6 17 5 20 7C22 8.5 26 8.5 28 7C31 5 36 6 36 10C37 16 35 21 34 24C34 32 33 40 30 43C28 44.5 27 42 26.5 38C26 34 25.5 30 24 30C22.5 30 22 34 21.5 38C21 42 20 44.5 18 43C15 40 14 32 14 24C13 21 11 16 12 10Z"/><path class="tg-h tg-x" d="M16 14L32 32M32 14L16 32"/></svg>
+            <div class="target-title">قلع</div>
+            <div class="target-sub">يُخفي السن</div>
+          </div>
+          <div class="target-opt" data-target="implant">
+            <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-m" d="M12 10C12 6 17 5 20 7C22 8.5 26 8.5 28 7C31 5 36 6 36 10C37 16 35 21 34 24L14 24C13 21 11 16 12 10Z"/><path class="tg-h" d="M19 26L29 26L27.5 42C27 44 21 44 20.5 42Z"/><path class="tg-h" d="M18.5 30.5L29.5 30.5M19 35L29 35M19.8 39.5L28.2 39.5"/></svg>
+            <div class="target-title">زراعة</div>
+            <div class="target-sub">غرسة + تاج</div>
+          </div>
+          <!-- Phase 3 Feature G: regional treatment areas -->
+          <div class="target-opt" data-target="quadrant">
+            <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-a tg-am" d="M10 18C10 8 17 4 24 4"/><path class="tg-a tg-ah" d="M24 4C31 4 38 8 38 18"/><path class="tg-a tg-am" d="M10 30C10 40 17 44 24 44C31 44 38 40 38 30"/></svg>
+            <div class="target-title">ربع</div>
+            <div class="target-sub">تقليح ربع</div>
+          </div>
+          <div class="target-opt" data-target="arch">
+            <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-a tg-ah" d="M10 18C10 8 17 4 24 4C31 4 38 8 38 18"/><path class="tg-a tg-am" d="M10 30C10 40 17 44 24 44C31 44 38 40 38 30"/></svg>
+            <div class="target-title">فك كامل</div>
+            <div class="target-sub">طقم، تقويم</div>
+          </div>
+          <div class="target-opt" data-target="mouth">
+            <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-a tg-ah" d="M10 18C10 8 17 4 24 4C31 4 38 8 38 18"/><path class="tg-a tg-ah" d="M10 30C10 40 17 44 24 44C31 44 38 40 38 30"/></svg>
+            <div class="target-title">فم كامل</div>
+            <div class="target-sub">فحص، تنظيف</div>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <!-- M146: مخفيٌّ حتى يوجد العمود -->
+          <div class="form-group" id="dentScopeWrap">
+            <label for="tDentScope">نوع الأسنان</label>
+            <select id="tDentScope">
+              <option value="all" selected>الكل (لبنية ودائمة)</option>
+              <option value="primary">لبنية فقط</option>
+              <option value="permanent">دائمة فقط</option>
+            </select>
+            <div class="fhint">على أيّ أسنانٍ يظهر العلاج عند النقر على سنّ.</div>
+          </div>
+          <div class="form-group">
+            <label>اللون والمعاينة</label>
+            <!-- Phase 6 K2.2: replaced the native <input type="color"> with a
+             swatch button that opens the shared SyDentColorPicker (defined
+             in supabase-init.js). The native HTML5 picker varies wildly
+             across OS (tiny RGB-only on Windows Chrome/Brave vs. the full
+             Grid/Spectrum/Sliders panel on iOS), so we emulate the iOS
+             experience everywhere via our shared component. Hidden
+             #fTreatmentColor preserves the get/set .value API used by the
+             rest of the file — pickedFill/pickedStroke flow unchanged. -->
+            <div class="tm-color">
+              <input type="hidden" id="fTreatmentColor" value="#0d8577">
+              <button type="button" id="fTreatmentColorSwatch" class="tm-swatch" onclick="openTreatColorPicker()" aria-label="اختيار اللون" title="تغيير اللون">🎨</button>
+              <div class="tooth-preview">
+                <div class="preview-tooth" id="previewTooth">ح</div>
+                <div class="preview-text" id="previewText">هكذا سيظهر العلاج على المخطط</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- M151: «يقبل عدد وحدات» — مفتاحٌ صريح بتعريف العلاج لا استنتاجٌ من التصنيف
+             (نمط Open Dental «Unit Quantity» وDenticon/Dentrix: سلوكُ الإدخال يُضبط
+             للإجراء نفسه). مخفيٌّ حتى يوجد العمود. -->
+        <div class="form-group" id="acceptsUnitsWrap">
+          <label class="tgl">
+            <span class="tgl-txt">
+              <span class="tgl-t">يقبل عدد وحدات</span>
+              <span class="tgl-s">يُظهر حقل «عدد الوحدات» بمودال العلاج فيضرب السعر (أشعة ×4، تقليح بأربعة أرباع). التكلفة المحفوظة تبقى الإجمالي.</span>
+            </span>
+            <span class="lab-toggle-switch"><input type="checkbox" id="tAcceptsUnits"><span class="lab-toggle-slider"></span></span>
+          </label>
+        </div>
+        <!-- M61: مخفيٌّ حتى يوجد العمود -->
+        <div class="form-group" id="postExtWrap">
+          <label class="tgl">
+            <span class="tgl-txt">
+              <span class="tgl-t">يظهر عند النقر على سنّ مقلوع</span>
+              <span class="tgl-s">لعلاجات موقع القلع (ضماد سنخ، طعم عظمي) — يبقى السن مقلوعاً.</span>
+            </span>
+            <span class="lab-toggle-switch"><input type="checkbox" id="tPostExt"><span class="lab-toggle-slider"></span></span>
+          </label>
+        </div>
+      </section>
+
+      <!-- ③ سير العمل -->
+      <section class="msec">
+        <h4 class="msec-h"><span class="msec-n">3</span>سير العمل</h4>
+        <div class="form-group">
+          <label class="tgl">
+            <span class="tgl-txt">
+              <span class="tgl-t">يحتاج إرسالاً للمخبر</span>
+              <span class="tgl-s">يفتح طلبَ مخبرٍ تلقائياً عند تسجيل العلاج.</span>
+            </span>
+            <span class="lab-toggle-switch"><input type="checkbox" id="tNeedsLab"><span class="lab-toggle-slider"></span></span>
+          </label>
+        </div>
+        <!-- M161: مدّةُ المخبر المعتادة — مصدرُ الاستحقاق التلقائي بطلب المخبر (lab-due.js)؛ تظهر مع «يحتاج مخبر» -->
+        <div class="form-group" id="tLabDaysGroup" hidden>
+          <label for="tLabDays">مدّة المخبر المعتادة <span class="opt">أيام دوام · اختياري</span></label>
+          <input type="number" id="tLabDays" min="1" max="60" step="1" inputmode="numeric" placeholder="مثال: 5">
+          <div class="fhint">يُحسب منها تاريخُ الاستحقاق تلقائياً بطلب المخبر، وتُستثنى أيامُ عطلة العيادة.</div>
+        </div>
+        <div class="form-group">
+          <label for="tDefaultNote">ملاحظات افتراضية للجلسة <span class="opt">اختياري</span></label>
+          <textarea id="tDefaultNote" placeholder="مثال: المخدّر المستخدم، التقنية…"></textarea>
+          <div class="fhint">تُعبّأ تلقائياً بالجلسة المنجزة، ويمكن تعديلها في كل جلسة.</div>
+        </div>
+      </section>
+
+      <!-- ④ للمريض -->
+      <section class="msec msec-last">
+        <h4 class="msec-h"><span class="msec-n">4</span>ما يراه المريض</h4>
+        <div class="form-group">
+          <label for="tLaymanName">الاسم المبسّط <span class="opt">اختياري</span></label>
+          <input type="text" id="tLaymanName" placeholder="مثال: حشوة بيضاء صغيرة" maxlength="100" autocomplete="off">
+          <div class="fhint">يظهر بدليل العلاجات المطبوع والإيصالات؛ إن تُرك فارغاً يُعرض اسم العلاج.</div>
+        </div>
+      </section>
+
+      <!-- Hidden label input (auto-generated from name) -->
+      <input type="hidden" id="tLabel" value="">
+
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel-m" onclick="closeModal()">إلغاء</button>
+      <button class="btn-save-m" onclick="saveTreatment()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: ربط مواد المخزون بالعلاج (P3-B) -->
+<div class="modal-overlay sy-m sy-m-md" id="materialsModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="matModalTitle">المواد المستهلكة</h3>
+      <button class="modal-close" onclick="closeMaterialsModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
+        المواد المرتبطة هنا تُخصم تلقائياً من المخزون عند تسجيل جلسة بهذا العلاج (بعد تأكيدك).
+        <br><strong style="color:var(--cyan);">الكمية = ما يُستهلك بنفس وحدة الصنف في المخزون</strong>
+        (مثال: إن كانت وحدة الكفوف «زوج»، اكتب 1 = زوج واحد لكل جلسة).
+      </div>
+      <div id="matNoInventory" style="display:none;background:var(--yellow-soft);border:1px solid var(--yellow-bd);border-radius:10px;padding:14px;font-size:13px;color:var(--text);margin-bottom:14px;">
+        لا توجد أصناف في المخزون بعد. أضف أصنافاً من صفحة <strong>المخزون</strong> أولاً.
+      </div>
+      <div id="matColHeaders" style="display:none;gap:8px;align-items:center;margin-bottom:6px;font-size:11px;color:var(--text2);font-weight:700;">
+        <span style="flex:1;">الصنف</span>
+        <span style="width:80px;text-align:center;">الكمية</span>
+        <span style="min-width:42px;">الوحدة</span>
+        <span style="width:38px;"></span>
+      </div>
+      <div id="matRowsWrap"></div>
+      <button class="btn btn-outline" id="matAddBtn" onclick="matAddRow()" style="margin-top:8px;font-size:13px;padding:8px 16px;">إضافة مادة</button>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel-m" onclick="closeMaterialsModal()">إلغاء</button>
+      <button class="btn-save-m" id="matSaveBtn" onclick="saveMaterials()">حفظ المواد</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Supabase-backed treatments ──
+var treatments = []; // populated from Supabase
+var currentDoctor = null;
+
+/* مصدرٌ واحد للتصنيفات الثلاثة عشر — يخدم البطاقة وكشف الطباعة معاً.
+   كان لكلٍّ منهما خريطته، وخريطةُ الطباعة توقّفت عند 11 (بلا «لثوية» و«أطفال»)
+   فكان الدليل يُسقط علاجاتهما بصمت. الترتيب مرآةُ منتقي التصنيف بالماركب. */
+var CAT_ORDER = ['diagnostic','preventive','restorative','endodontics','surgical','prosthodontics',
+                 'implantology','cosmetic','prosth_cosmetic','orthodontics','periodontics','pediatric','other'];
+var CAT_MAP = {
+  'diagnostic':      '🔍 تشخيصي',
+  'preventive':      '🛡️ وقائي',
+  'restorative':     '🦷 ترميمي',
+  'endodontics':     '🌱 معالجة لبية',
+  'surgical':        '🔪 جراحي',
+  'prosthodontics':  '🔗 تعويضي',
+  'implantology':    '🔩 زراعة',
+  'cosmetic':        '✨ تجميلي',
+  'prosth_cosmetic': '💎 تعويض تجميلي',
+  'orthodontics':    '⚓ تقويم',
+  'periodontics':    '🌿 معالجة لثوية',
+  'pediatric':       '🧒 أطفال',
+  'other':           '📋 أخرى'
+};
+
+/* وسمُ عملة الصفّ نفسه — لا عملة العيادة. curLbl() تعطي وسم العيادة، فعلاجٌ
+   بالليرة بعيادةٍ دولارية كان يُقرأ «$» (صنف v208). */
+function _curLblOf(c) {
+  try { return window.SyDentCurrency.labelOf(c); } catch (e) { return (c === 'USD') ? '$' : 'ل.س'; }
+}
+
+// Rule #195 — strict hex allowlist for DB-stored colors before they reach
+// style attributes. Prefers the canonical sanitizeHex exposed by the color
+// picker; a local mirror covers the case where it hasn't loaded yet.
+function _sanHex(h) {
+  if (window.SyDentColorPicker && typeof window.SyDentColorPicker.sanitizeHex === 'function') {
+    return window.SyDentColorPicker.sanitizeHex(h);
+  }
+  if (typeof h !== 'string' || !h) return '#0d8577';
+  var s = h.trim();
+  if (s.charAt(0) !== '#') s = '#' + s;
+  if (/^#[0-9A-Fa-f]{3}$/.test(s)) s = '#' + s[1]+s[1] + s[2]+s[2] + s[3]+s[3];
+  return /^#[0-9A-Fa-f]{6}$/.test(s) ? s.toLowerCase() : '#0d8577';
+}
+
+async function loadTreatments() {
+  const user = await sbRequireAuth();
+  if (!user) return;
+  currentDoctor = user;
+  // Phase 4: Lock guard — Owner-only page
+  if (window.SyDentLock && !window.SyDentLock.guardPage(['owner'])) return;
+  const { data, error } = await window.sb
+    .from('treatments')
+    .select('*')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })   /* كاسرا تعادل: sort_order المكرّر (استعادةٌ قديمة) */
+    .order('id', { ascending: true });          /* كان يتبدّل بين تحميلٍ وآخر (صنف v84) */
+  if (error) {
+    console.error('Load error:', error);
+    showToast('⚠️ ' + error.message);
+    return;
+  }
+  // M61 detection: post_extraction column present? Gates the new toggle + payloads
+  // so a deploy BEFORE the migration changes nothing for live clinics.
+  window.__m61T = !!(data && data.length && Object.prototype.hasOwnProperty.call(data[0], 'post_extraction'));
+  var _peW = document.getElementById('postExtWrap');
+  if (_peW) _peW.style.display = window.__m61T ? '' : 'none';
+  // M146 detection: dentition_scope column present? Same deploy-before-migrate contract as M61.
+  window.__m146T = !!(data && data.length && Object.prototype.hasOwnProperty.call(data[0], 'dentition_scope'));
+  var _dsW = document.getElementById('dentScopeWrap');
+  if (_dsW) _dsW.style.display = window.__m146T ? '' : 'none';
+  // M151 detection: accepts_units — نفس عقد «انشر قبل الهجرة».
+  window.__m151T = !!(data && data.length && Object.prototype.hasOwnProperty.call(data[0], 'accepts_units'));
+  var _auW = document.getElementById('acceptsUnitsWrap');
+  if (_auW) _auW.style.display = window.__m151T ? '' : 'none';
+  treatments = (data || []).map(function(t){
+    // Derive label from name if it's empty (legacy data may have empty labels)
+    var lbl = t.label;
+    if (!lbl || !lbl.trim()) {
+      lbl = (t.name || '').replace(/\s+/g, '').charAt(0) || '·';
+    }
+    return {
+      id: t.id,                        // DB UUID — used for edit/delete
+      treatment_key: t.treatment_key,  // human-readable key
+      name: t.name,
+      label: lbl,
+      // Rule #195: fill/stroke are injected raw into style attributes in the
+      // card list (color-dot, icon bg, bar). sanitizeHex is a strict hex
+      // allowlist → non-hex can never reach innerHTML. Sanitize at the choke point.
+      fill: _sanHex(t.fill),
+      stroke: _sanHex(t.stroke),
+      price: t.price,
+      currency: (t.currency === 'USD') ? 'USD' : 'SYP',   /* M125: عملة الصف — لا تُسقط */
+      // الجذر المُصلَح: الـselect('*') كان يجلب price_overrides لكن هذا الـmapping
+      // اليدوي كان يُسقطه — فمودال التعديل يفتح فارغاً والحفظ من حالته يمسح
+      // الأسعار المخصصة من الـDB. {} (افتراضي العمود) يُطبَّع إلى null.
+      price_overrides: (t.price_overrides && Object.keys(t.price_overrides).length) ? t.price_overrides : null,
+      builtin: t.builtin,
+      post_extraction: !!t.post_extraction,
+      dentition_scope: _normDentScope(t.dentition_scope),   /* M146 */
+      accepts_units: !!t.accepts_units,   /* M151 */
+      is_favorite: !!t.is_favorite,
+      needs_lab: !!t.needs_lab,
+      lab_days: (t.lab_days >= 1 && t.lab_days <= 60) ? Number(t.lab_days) : null,   /* M161 */
+      target_part: t.target_part || 'crown',
+      sort_order: t.sort_order,
+      is_active: t.is_active !== false,  // default true if column doesn't exist
+      category: t.category || 'other',
+      default_note: t.default_note || '',
+      layman_name: t.layman_name || ''
+    };
+  });
+
+  // Brand-new account: auto-seed the default catalogue once, then re-fetch to show it.
+  if (await autoSeedDefaultsIfNeeded()) { return await loadTreatments(); }
+
+  render();
+}
+
+function fmt(n) { return Number(n||0).toLocaleString('en-US'); }
+
+// ── Filter + search state ──
+/* v403: ثلاثةُ أبعادٍ مستقلة تتقاطع (AND): التصنيف (واحد) × «يطبَّق على» (واحد) × خصائص
+   (مفاتيحُ تُجمَع). كان صفُّ الشرائح يخلط المنطقةَ و«مخبر» و«مخصصة» و«معطّلة» باختيارٍ
+   واحد فلا يُجمَع «مخبر + تاج كامل»، والتصنيفُ قائمةٌ منسدلة بلا عنوان ولا أعداد.
+   الأعدادُ «وجهية» (faceted): عددُ كل شريحةٍ يُحسب بتطبيق الأبعاد الأخرى فقط، فما يُعرض
+   هو بالضبط ما ستراه بعد النقر — والشريحةُ الصفرية تختفي (لا نقرةَ ميتة). */
+var activeFilter = 'all';   // «يطبَّق على» (target_part)
+var searchTerm = '';
+var activeCat = 'all';
+var activeFlags = { lab:false, primary:false, permanent:false, special:false, inactive:false };
+
+var TARGET_CHIPS = [
+  ['crown','تاج (سطح)'], ['crown_full','تاج كامل'], ['root','جذر'], ['whole','سن كامل'],
+  ['extraction','قلع'], ['implant','زراعة'], ['bridge','جسر'], ['quadrant','ربع'],
+  ['arch','فك'], ['mouth','فم كامل']
+];
+var FLAG_CHIPS = [
+  ['lab',       '🥽 مخبر',      'علاجات تحتاج إرسالاً للمخبر'],
+  ['primary',   '🧒 لبني',      'علاجات تظهر على الأسنان اللبنية فقط'],
+  ['permanent', '🦷 دائم',      'علاجات تظهر على الأسنان الدائمة فقط'],
+  ['special',   '🔒 برسم خاص',  'علاجات لها رسمٌ خاص بمخطط الأسنان (قلع · زراعة · جسر · تقويم · حافظ مسافة) — محميةٌ من الحذف'],
+  ['inactive',  '⏸️ معطّلة',    'العلاجات المعطّلة فقط (مخفيةٌ افتراضياً)']
+];
+
+function _flagOk(t, f) {
+  if (f === 'lab')       return !!t.needs_lab;
+  if (f === 'primary')   return t.dentition_scope === 'primary';
+  if (f === 'permanent') return t.dentition_scope === 'permanent';
+  if (f === 'special')   return isProtectedTreatment(t);   // مصدرٌ واحد: المجموعةُ المحمية من الحذف
+  return true;
+}
+/* skip = البُعد المُستثنى عند حساب عدد شرائحه: 'cat' | 'target' | 'flag:<name>' | undefined */
+function treatMatches(t, skip) {
+  // المعطّلُ مخفيٌّ افتراضياً؛ مفتاح «معطّلة» يعرض المعطّلَ وحده
+  var wantInactive = (skip === 'flag:inactive') ? false : activeFlags.inactive;
+  if ((t.is_active === false) !== wantInactive) return false;
+  if (skip !== 'target' && activeFilter !== 'all' && (t.target_part || 'crown') !== activeFilter) return false;
+  if (skip !== 'cat' && activeCat !== 'all' && (t.category || 'other') !== activeCat) return false;
+  for (var f in activeFlags) {
+    if (f === 'inactive' || !activeFlags[f] || skip === 'flag:' + f) continue;
+    if (!_flagOk(t, f)) return false;
+  }
+  var q = searchTerm.trim().toLowerCase();
+  if (q) {
+    var hay = (t.name || '') + ' ' + (t.treatment_key || '') + ' ' + (t.label || '') + ' ' + (t.layman_name || '');
+    if (hay.toLowerCase().indexOf(q) < 0) return false;
+  }
+  return true;
+}
+function filteredTreatments() {
+  return treatments.filter(function(t){ return treatMatches(t); });
+}
+function isFilteringNow() {
+  if (activeFilter !== 'all' || activeCat !== 'all' || searchTerm.trim()) return true;
+  for (var f in activeFlags) if (activeFlags[f]) return true;
+  return false;
+}
+
+function _chipHtml(dim, val, label, n, on, title) {
+  return '<button type="button" class="chip' + (on ? ' chip-active' : '') + '" data-dim="' + dim + '" data-val="' + val + '"'
+       + ' aria-pressed="' + (on ? 'true' : 'false') + '"' + (title ? ' title="' + escapeHtml(title) + '"' : '') + '>'
+       + label + '<span class="chip-n">' + n + '</span></button>';
+}
+function renderFilterBar(shown) {
+  var catEl = document.getElementById('catChips'), tgtEl = document.getElementById('filterChips'), flgEl = document.getElementById('flagChips');
+  if (!catEl || !tgtEl || !flgEl) return;
+  var i, n, h;
+  // التصنيف
+  var poolC = treatments.filter(function(t){ return treatMatches(t, 'cat'); });
+  var byC = {}; poolC.forEach(function(t){ var c = t.category || 'other'; if (!CAT_MAP[c]) c = 'other'; byC[c] = (byC[c] || 0) + 1; });
+  h = _chipHtml('cat', 'all', 'الكل', poolC.length, activeCat === 'all');
+  for (i = 0; i < CAT_ORDER.length; i++) { n = byC[CAT_ORDER[i]] || 0; if (n || activeCat === CAT_ORDER[i]) h += _chipHtml('cat', CAT_ORDER[i], CAT_MAP[CAT_ORDER[i]], n, activeCat === CAT_ORDER[i]); }
+  catEl.innerHTML = h;
+  // يطبَّق على
+  var poolT = treatments.filter(function(t){ return treatMatches(t, 'target'); });
+  var byT = {}; poolT.forEach(function(t){ var k = t.target_part || 'crown'; byT[k] = (byT[k] || 0) + 1; });
+  h = _chipHtml('target', 'all', 'الكل', poolT.length, activeFilter === 'all');
+  for (i = 0; i < TARGET_CHIPS.length; i++) { n = byT[TARGET_CHIPS[i][0]] || 0; if (n || activeFilter === TARGET_CHIPS[i][0]) h += _chipHtml('target', TARGET_CHIPS[i][0], TARGET_CHIPS[i][1], n, activeFilter === TARGET_CHIPS[i][0]); }
+  tgtEl.innerHTML = h;
+  // خصائص (مفاتيح تُجمَع)
+  h = '';
+  for (i = 0; i < FLAG_CHIPS.length; i++) {
+    var fk = FLAG_CHIPS[i][0];
+    if (fk === 'inactive') n = treatments.filter(function(t){ var keep = activeFlags.inactive; activeFlags.inactive = true; var r = treatMatches(t); activeFlags.inactive = keep; return r; }).length;
+    else n = treatments.filter(function(t){ return treatMatches(t, 'flag:' + fk) && _flagOk(t, fk); }).length;
+    if (n || activeFlags[fk]) h += _chipHtml('flag', fk, FLAG_CHIPS[i][1], n, activeFlags[fk], FLAG_CHIPS[i][2]);
+  }
+  flgEl.innerHTML = h;
+  var row = flgEl.parentNode; if (row) row.style.display = h ? '' : 'none';
+  // موبايل: الصفُّ يتمرّر أفقياً وإعادةُ الرسم تصفّر التمرير ⇒ تُعاد الشريحةُ النشطة لمنتصف صفّها
+  // (scrollLeft مباشرةً لا scrollIntoView — لا قفزةَ للصفحة نفسها).
+  [catEl, tgtEl].forEach(function(row){
+    if (row.scrollWidth <= row.clientWidth + 1) return;
+    var on = row.querySelector('.chip-active'); if (!on) return;
+    row.scrollLeft = on.offsetLeft - (row.clientWidth - on.offsetWidth) / 2;
+  });
+  // السطر السفلي
+  var filtering = isFilteringNow();
+  var total = treatments.filter(function(t){ return t.is_active !== false; }).length;
+  var cnt = document.getElementById('fltCount');
+  if (cnt) cnt.textContent = filtering ? ('يُعرض ' + shown + (activeFlags.inactive ? ' علاجاً معطّلاً' : ' من ' + total + ' علاجاً')) : (total + ' علاجاً');
+  var rs = document.getElementById('fltReset'); if (rs) rs.style.display = filtering ? '' : 'none';
+  var dh = document.getElementById('fltDragHint'); if (dh) dh.style.display = (filtering && shown > 1) ? '' : 'none';
+}
+function onFilterChip(e) {
+  var b = e.target && e.target.closest ? e.target.closest('.chip[data-dim]') : null;
+  if (!b) return;
+  var dim = b.getAttribute('data-dim'), val = b.getAttribute('data-val');
+  if (dim === 'cat') activeCat = (activeCat === val) ? 'all' : val;            // نقرةٌ ثانية على النشطة = إلغاء
+  else if (dim === 'target') activeFilter = (activeFilter === val) ? 'all' : val;
+  else if (dim === 'flag') {
+    activeFlags[val] = !activeFlags[val];
+    if (val === 'primary' && activeFlags.primary) activeFlags.permanent = false;   // متنافيان
+    if (val === 'permanent' && activeFlags.permanent) activeFlags.primary = false;
+  }
+  render();
+}
+function resetFilters() {
+  activeFilter = 'all'; activeCat = 'all'; searchTerm = '';
+  for (var f in activeFlags) activeFlags[f] = false;
+  var si = document.getElementById('treatSearch'); if (si) si.value = '';
+  render();
+}
+
+// ── Render grid ──
+// Treatments that drive special chart geometry (extraction placeholder, implant, pontic/bridge,
+// ortho overlay, space-maintainer Band&Loop) must NOT be deletable — deleting them would break
+// existing patient charts that reference them. (Deactivate instead via the toggle button.)
+// Non-special treatments (fillings, crowns, RCT, cleaning, whitening, x-ray, consult, perio, pedo)
+// AND any doctor copy / custom treatment (treatment_key 'custom_…') remain freely deletable — even
+// a copy of a protected treatment, which inherits its target_part/category but is the doctor's own
+// entry to manage.
+// Mirror of patient-profile.html isSpacerTreatment: a space-maintainer drives the Band&Loop chart
+// geometry (surface='SPACER'), so it is protected like the other geometry-driving types. (Here the
+// logical key lives in treatment_key; id is the DB UUID.)
+function isSpacerTreatment(t) {
+  if (!t) return false;
+  var key = t.treatment_key || '';
+  if (key === 'pedo-spacer') return true;
+  return /حافظ\s*مسافة|spacer/i.test(key + ' ' + (t.name || ''));
+}
+function isProtectedTreatment(t) {
+  // A doctor's own copy or custom treatment (key 'custom_…') is always deletable, even if it
+  // matches a protected pattern. Otherwise protection mirrors patient-profile.html's chart
+  // geometry detectors EXACTLY (isExtractionKey / isImplantKey / isBridgeKey / isOrtho /
+  // isSpacerKey) — so every treatment the chart draws with dedicated geometry is protected, and
+  // editing a default's category/target_part can't silently un-protect it.
+  if (/^custom_/.test(t.treatment_key || '')) return false;
+  var key = t.treatment_key || '', tp = t.target_part || '', name = t.name || '';
+  return key === 'extracted' || tp === 'extraction'                                     // extraction ghost
+      || key === 'implant'   || tp === 'implant'                                        // implant
+      || key === 'bridge'    || tp === 'bridge'                                         // bridge pontic
+      || (t.category || '') === 'orthodontics' || /تقويم|ortho/i.test(key + ' ' + name) // ortho brackets/archwire
+      || isSpacerTreatment(t);                                                          // space-maintainer Band&Loop
+}
+
+/* M146: قيمةٌ مطبَّعة لنوع الأسنان — أي شيءٍ غير المعروف = 'all' (لا حجبَ صامتاً). */
+function _normDentScope(v) { return (v === 'primary' || v === 'permanent') ? v : 'all'; }
+
+function render() {
+  var grid = document.getElementById('treatGrid');
+  var emptyEl = document.getElementById('treatEmpty');
+  if (!treatments.length) {
+    renderFilterBar(0);
+    grid.style.display = 'none';
+    if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.innerHTML = '<div style="font-size:48px;margin-bottom:12px;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.5C10.4 3.9 8.5 3.4 6.9 4 4.6 4.8 3.1 7 3.3 9.6c.2 2.5 1.2 4.3 1.9 6.5.6 2 .8 5 2.4 5 1.7 0 1.3-3.6 2.4-5.3.5-.8 1.5-.8 2 0 1.1 1.7.7 5.3 2.4 5.3 1.6 0 1.8-3 2.4-5 .7-2.2 1.7-4 1.9-6.5.2-2.6-1.3-4.8-3.6-5.6-1.6-.6-3.5-.1-5.1 1.5z"/></svg></div><div>لا توجد علاجات. أضف أول علاج للبدء.</div>'; }
+    return;
+  }
+  var list = filteredTreatments();
+  renderFilterBar(list.length);
+  if (!list.length) {
+    grid.style.display = 'none';
+    if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.innerHTML = '<div style="font-size:40px;margin-bottom:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div><div>لا توجد علاجات تطابق الفلاتر الحالية</div><button type="button" class="flt-reset" style="margin-top:12px;" onclick="resetFilters()">✕ مسح الفلاتر</button>'; }
+    return;
+  }
+  grid.style.display = '';
+  if (emptyEl) emptyEl.style.display = 'none';
+  var html = '';
+  for (var i=0; i<list.length; i++) {
+    var t = list[i];
+    var bg = t.fill, fg = t.stroke;
+    var iconBg = 'background:' + bg + ';';
+    var bar = 'background:' + bg + ';';
+    var labTag = t.needs_lab ? '<span class="treat-lab-tag">🥽 مخبر' + (t.lab_days ? ' · ' + t.lab_days + ' ' + (t.lab_days <= 10 && t.lab_days > 2 ? 'أيام' : 'يوم') : '') + '</span>' : '';   /* M161 */
+    var targetMap = {   // v367: unified tones (theme.css) — same look as every other status chip
+      'crown':      { text:'سطح تاج',     tone:'yellow' },
+      'root':       { text:'جذر السن',    tone:'purple' },
+      'whole':      { text:'سن كامل',     tone:'cyan' },
+      'crown_full': { text:'التاج كامل',  tone:'orange' },
+      'bridge':     { text:'جسر',         tone:'red' },
+      'extraction': { text:'قلع',         tone:'red' },
+      'implant':    { text:'زراعة',       tone:'blue' },
+      'both':       { text:'تاج وجذر',    tone:'orange' },
+      // Phase 3 Feature G: regional treatment areas (no specific tooth)
+      'quadrant':   { text:'ربع',         tone:'lime' },
+      'arch':       { text:'فك',          tone:'green' },
+      'mouth':      { text:'فم كامل',     tone:'cyan' }
+    };
+    var tp = targetMap[t.target_part] || targetMap.crown;
+    var targetTag = '<span class="treat-target-tag cbadge tone tone-' + tp.tone + '" style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-right:4px;">🦷 ' + tp.text + '</span>';
+    var catTag = '<span class="tone tone-gray" style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;border-width:1px;border-style:solid;margin-right:4px;">' + (CAT_MAP[t.category] || CAT_MAP.other) + '</span>';
+    var dentTag = (t.dentition_scope === 'primary')
+      ? '<span class="cbadge tone tone-purple" title="يظهر على الأسنان اللبنية فقط" style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-right:4px;">🧒 لبني</span>'
+      : (t.dentition_scope === 'permanent')
+      ? '<span class="cbadge tone tone-blue" title="يظهر على الأسنان الدائمة فقط" style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-right:4px;">🦷 دائم</span>'
+      : '';
+    var isInactive = (t.is_active === false);
+    var inactiveStyle = isInactive ? 'opacity:.55;' : '';
+    var inactiveBadge = isInactive ? '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(160,160,160,.2);color:var(--text2);border:1px solid var(--text3);margin-right:4px;">⏸️ معطّل</span>' : '';
+    var laymanRow = (t.layman_name && t.layman_name.trim())
+      ? '<div class="treat-key treat-layman" title="الاسم المبسّط للمريض (يظهر في الطباعة والإيصالات)">👤 ' + escapeHtml(t.layman_name) + '</div>'
+      : '';
+    var favStar = t.is_favorite
+      ? '<span class="treat-fav-star on" title="مفضّل">★</span>'
+      : '<span class="treat-fav-star" title="غير مفضّل">☆</span>';
+    html += '<div class="treat-card" draggable="true" data-treat-id="' + t.id + '" style="' + inactiveStyle + '" tabindex="0" role="button" onclick="treatCardOpen(event)" onkeydown="if(event.key===\'Enter\'&&event.target===this)editTreatment(this.dataset.treatId)" title="اضغط للتعديل">'
+      + '<div class="treat-color-bar" style="' + bar + '"></div>'
+      + '<div class="drag-handle" title="اسحب لإعادة الترتيب">⋮⋮</div>'
+      + '<div class="treat-body">'
+        + '<div class="treat-head">'
+          + '<div class="treat-swatch" style="' + iconBg + 'border:2px solid ' + fg + ';"></div>'
+          + '<div class="treat-head-main">'
+            + '<div class="treat-name">' + escapeHtml(t.name) + '</div>'
+            + '<div class="treat-tags">' + labTag + ' ' + targetTag + ' ' + catTag + ' ' + dentTag + ' ' + inactiveBadge + '</div>'
+            + laymanRow
+          + '</div>'
+          + favStar
+        + '</div>'
+        + '<div class="treat-price">' + fmt(t.price) + ' <span class="currency">' + _curLblOf(t.currency) + '</span></div>'
+        + ((t.price_overrides && Object.keys(t.price_overrides).length) ? '<div><span class="treat-ovr-badge">👤 أسعار مخصصة ×' + Object.keys(t.price_overrides).length + '</span></div>' : '')
+        + '<div class="treat-actions sy-acts sy-acts-grid">'
+          + '<button class="sy-act" onclick="toggleFavorite(\'' + t.id + '\')" title="' + (t.is_favorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة — تظهر أولاً في مخطط الأسنان') + '">' + (t.is_favorite ? '⭐ مفضّل' : '☆ مفضّل') + '</button>'
+          + '<button class="sy-act" onclick="editTreatment(\'' + t.id + '\')">✏️ تعديل</button>'
+          /* DeepCode #15 (v564 — قرار المالك «أ»، نمط المنافسين): «مفضّل» و«تعديل» ظاهران، والأربعةُ الباقية خلف «⋯ المزيد»
+             (قائمةٌ أصلية <details> تنفتح بالبطاقة نفسها — بلا JS ولا بوابة). الأزرارُ نفسُها حرفياً (الطقم · الألوان · المستدعيات). */
+          + '<details class="trt-more"><summary class="sy-act" title="نسخ · المواد · ' + (isInactive ? 'تفعيل' : 'تعطيل') + (isProtectedTreatment(t) ? '' : ' · حذف') + '">⋯ المزيد</summary><div class="trt-more-menu sy-acts sy-acts-grid">'
+          + '<button class="sy-act" onclick="duplicateTreatment(\'' + t.id + '\')" title="إنشاء نسخة جديدة من هذا العلاج">📋 نسخ</button>'
+          + '<button class="sy-act" onclick="openMaterialsModal(\'' + t.id + '\')" title="ربط مواد المخزون التي تُستهلك مع هذا العلاج (تُخصم تلقائياً عند الجلسة)">🧰 المواد</button>'
+          + '<button class="sy-act' + (isInactive ? ' sy-act-primary' : ' sy-act-warn') + '" onclick="toggleActive(\'' + t.id + '\')" title="' + (isInactive ? 'تفعيل العلاج' : 'تعطيل العلاج (يخفيه من قائمة العلاجات في مخطط الأسنان)') + '">' + (isInactive ? '▶️ تفعيل' : '⏸️ تعطيل') + '</button>'
+          + (isProtectedTreatment(t)
+              ? ''
+              : '<button class="sy-act sy-act-danger" onclick="deleteTreatment(\'' + t.id + '\')">🗑️ حذف</button>')
+          + '</div></details>'
+        + '</div>'
+      + '</div>'
+    + '</div>';
+  }
+  grid.innerHTML = html;
+  wireDragAndDrop();
+}
+
+function isLightColor(hex) {
+  var c = hex.replace('#','');
+  var r = parseInt(c.substr(0,2),16);
+  var g = parseInt(c.substr(2,2),16);
+  var b = parseInt(c.substr(4,2),16);
+  // perceived brightness
+  return (r*299 + g*587 + b*114)/1000 > 155;
+}
+
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+// ── Modal logic ──
+var editingId = null;
+var pickedFill = '#0d8577', pickedStroke = '#1fba7e';
+var pickedTarget = 'crown';
+
+// ── Smart lab default by category (Phase 3 Feature E) ──
+// Some treatment categories almost always need a lab, so we auto-enable the
+// "needs_lab" toggle when the user picks them. This avoids the common
+// mistake of saving a crown/bridge/implant without flagging it for the lab.
+// We only apply the default for NEW treatments and only while the user hasn't
+// manually touched the toggle — once they do, we respect their choice.
+var LAB_DEFAULTS_BY_CATEGORY = {
+  'diagnostic':      false,
+  'preventive':      false,
+  'restorative':     false,  // حشوات فقط — لا تحتاج مخبر
+  'endodontics':     false,
+  'surgical':        false,
+  'prosthodontics':  true,   // ✅ تاج + جسر + طقم
+  'implantology':    true,   // ✅ زراعة
+  'cosmetic':        false,  // تبييض فقط
+  'prosth_cosmetic': true,   // ✅ فينير + زركون
+  'orthodontics':    false,  // تقويم ثابت (الأكثر شيوعاً)
+  'other':           false
+};
+
+// True once the user toggles the lab checkbox themselves; we then stop
+// overriding it on category change. Reset at every modal open.
+var userTouchedLabToggle = false;
+
+// ── Smart "يطبق على" default by category (mirror of the lab pattern above) ──
+// Clear-cut categories only; pediatric/other are mixed → no default (absent keys no-op).
+var TARGET_DEFAULTS_BY_CATEGORY = {
+  endodontics:     'root',
+  restorative:     'crown',
+  surgical:        'extraction',
+  prosthodontics:  'crown_full',
+  prosth_cosmetic: 'crown_full',
+  implantology:    'implant',
+  cosmetic:        'mouth',
+  preventive:      'mouth',
+  periodontics:    'mouth',
+  diagnostic:      'mouth',
+  orthodontics:    'arch'
+};
+var TARGET_TOAST_NAMES = { root:'جذر السن', crown:'سطح من التاج', extraction:'قلع', crown_full:'التاج كامل', implant:'زراعة', mouth:'فم كامل', arch:'فك كامل' };
+// True once the user picks a target manually; we then stop overriding it on
+// category change. Reset at every ADD-modal open; edit/duplicate lock it.
+var userTouchedTarget = false;
+
+// Applied on every category change; gracefully no-ops when conditions don't fit.
+function applyCategoryTargetDefault() {
+  if (userTouchedTarget) return;     // respect user's manual choice
+  if (editingId) return;             // never override on edit
+  var catEl = document.getElementById('tCategory');
+  if (!catEl) return;
+  var target = TARGET_DEFAULTS_BY_CATEGORY[catEl.value];
+  if (!target) return;               // mixed category (pediatric/other) — leave as-is
+  if (pickedTarget === target) return;  // no change needed
+  pickTarget(target);
+  showToast('🎯 «يطبق على: ' + (TARGET_TOAST_NAMES[target] || target) + '» تلقائياً حسب التصنيف — يمكنك تغييره');
+}
+
+// ── M146: «نوع الأسنان» الذكي حسب التصنيف (مرآةُ نمطَي المخبر و«يطبَّق على») ──
+// تصنيف «أطفال» ⇒ «لبنية فقط»؛ الخروجُ منه يُعيد «الكل» ما دام الاختيارُ آلياً.
+// بوضع الإضافة فقط، ويتوقف فور أن يغيّر المستخدمُ الحقلَ بيده.
+var userTouchedDentScope = false;
+function applyCategoryDentDefault() {
+  if (userTouchedDentScope) return;  // respect user's manual choice
+  if (editingId) return;             // never override on edit
+  if (!window.__m146T) return;       // العمود غائب ⇒ الحقل مخفيّ
+  var catEl = document.getElementById('tCategory');
+  var ds = document.getElementById('tDentScope');
+  if (!catEl || !ds) return;
+  var want = (catEl.value === 'pediatric') ? 'primary' : 'all';
+  if (ds.value === want) return;
+  ds.value = want;
+  if (want === 'primary') showToast('🧒 «نوع الأسنان: لبنية فقط» تلقائياً حسب التصنيف — يمكنك تغييره');
+}
+
+/* M161: حقلُ مدّة المخبر يتبع «يحتاج إرسالاً للمخبر» — يُستدعى عند كل فتحٍ وتبديل وتطبيقِ افتراض الفئة */
+function syncLabDaysVisibility() {
+  var tg = document.getElementById('tNeedsLab'), g = document.getElementById('tLabDaysGroup');
+  if (tg && g) g.hidden = !tg.checked;
+}
+
+// Applied on every category change; gracefully no-ops when conditions don't fit.
+function applyCategoryLabDefault() {
+  if (userTouchedLabToggle) return;  // respect user's manual choice
+  if (editingId) return;             // never override on edit
+  var catEl = document.getElementById('tCategory');
+  var toggle = document.getElementById('tNeedsLab');
+  if (!catEl || !toggle) return;
+  var shouldNeedLab = !!LAB_DEFAULTS_BY_CATEGORY[catEl.value];
+  if (toggle.checked === shouldNeedLab) return;  // no change needed
+  toggle.checked = shouldNeedLab;
+  syncLabDaysVisibility();
+  if (shouldNeedLab) {
+    showToast('🥽 تم تفعيل "يحتاج مخبر" تلقائياً');
+  }
+}
+
+/* ── أسعار مخصصة للأطباء (price_overrides) ──
+   مسار القراءة (getPriceForDoctor بالجلسات ومخطط الأسنان) قائم منذ زمن؛
+   هذه واجهة الكتابة الأولى له. jsonb: { clinic_doctor_id: price }. */
+var _ovrDoctors = null;      // null = لم يُجلب بعد · [] = لا أطباء
+var _ovrLoading = false;
+var _ovrCurrent = {};        // آخر overrides مرسومة (لإعادة الرسم بعد الجلب)
+var _ovrRowsRendered = false; // true فقط عندما رُسمت حقول إدخال فعلية — يميّز
+                              // «لم يُرسم شيء» (تحميل/قسم مخفي/فشل جلب) عن
+                              // «المستخدم فرّغ الحقول» عند الحفظ (منع المسح الصامت)
+
+async function loadClinicDoctorsForPrices() {
+  if (_ovrLoading || _ovrDoctors !== null) return;
+  _ovrLoading = true;
+  try {
+    var res = await window.sb.from('clinic_doctors')
+      .select('id, name, is_active')
+      .eq('owner_id', currentDoctor.id)
+      .order('is_active', { ascending: false })
+      .order('name', { ascending: true });
+    if (res.error) { console.warn('clinic_doctors load:', res.error); _ovrDoctors = []; }
+    else _ovrDoctors = (res.data || []).filter(function(d){ return d.is_active !== false; });
+  } catch(e) { console.warn('clinic_doctors fetch:', e); _ovrDoctors = []; }
+  finally { _ovrLoading = false; }
+  renderOverrideRows(_ovrCurrent);
+}
+
+function renderOverrideRows(overrides) {
+  _ovrCurrent = overrides || {};
+  var group = document.getElementById('tOvrGroup');
+  var list  = document.getElementById('tOvrList');
+  if (!group || !list) return;
+  if (_ovrDoctors === null) {
+    _ovrRowsRendered = false;   // لا حقول بعد — الحفظ الآن يجب أن يصون الحالة القائمة
+    group.style.display = '';
+    list.innerHTML = '<div class="ovr-empty">جارٍ تحميل الأطباء…</div>';
+    loadClinicDoctorsForPrices();
+    return;
+  }
+  // عيادة بطبيب واحد (المالك): السعر الأساسي يكفي — القسم ضجيج بلا فائدة.
+  // يشمل هذا الفرع أيضاً فشل جلب clinic_doctors (_ovrDoctors=[]) — بالحالتين
+  // لا حقول مرسومة فيصان المخزون كما هو عند الحفظ بدل مسحه بصمت.
+  if (_ovrDoctors.length < 2) { _ovrRowsRendered = false; group.style.display = 'none'; list.innerHTML = ''; return; }
+  _ovrRowsRendered = true;
+  group.style.display = '';
+  var html = '';
+  for (var i = 0; i < _ovrDoctors.length; i++) {
+    var d = _ovrDoctors[i];
+    var val = (_ovrCurrent && _ovrCurrent[d.id] !== undefined && _ovrCurrent[d.id] !== null) ? _ovrCurrent[d.id] : '';
+    html += '<div class="ovr-row">'
+          +   '<span class="ovr-name">' + escapeHtml(d.name) + '</span>'
+          +   '<input type="number" class="t-ovr-inp" min="0" placeholder="الأساسي" data-doc-id="' + escapeHtml(d.id) + '" value="' + escapeHtml(String(val)) + '">'
+          + '</div>';
+  }
+  list.innerHTML = html;
+  _ovrApplyCur(_ovrCurCode());
+}
+
+/* الأسعار المخصصة ترث عملة السعر الأساسي (عقد v176) — فتَرث خطوته ولوحة
+   مفاتيحه أيضاً: بلا step=0.01 وinputmode=decimal تستحيل سنتاتُ الدولار على
+   iOS (درس v224). تُنادى عند الرسم وعند كل ضبطٍ للمبدّل (mount/set/نقرة). */
+function _ovrCurCode() {
+  var p = document.getElementById('tPrice');
+  return (p && p.dataset && p.dataset.cur === 'USD') ? 'USD' : 'SYP';
+}
+function _ovrApplyCur(c) {
+  var usd = (c === 'USD');
+  var inputs = document.querySelectorAll('.t-ovr-inp');
+  for (var i = 0; i < inputs.length; i++) {
+    inputs[i].step = usd ? '0.01' : '1';
+    inputs[i].setAttribute('inputmode', usd ? 'decimal' : 'numeric');
+  }
+}
+
+/* نقطة الحقيقة الوحيدة للحفظ — يعيد: null · {docId: price} · false (قيمة غير صحيحة).
+   الحالة أ: لم تُرسم صفوف إطلاقاً (تحميل جارٍ عند أول فتح · قسم مخفي بعيادة
+   طبيب واحد · فشل جلب الأطباء) ⇒ تُعاد حالة فتح المودال كما هي — لا مسح صامت.
+   الحالة ب: صفوف مرسومة (الأطباء الفعّالون فقط) ⇒ تُجمع المدخلات وتُعاد معها
+   مفاتيح الأطباء غير المعروضين (المعطّلين) من الحالة المفتوحة — تعطيل طبيب
+   مؤقتاً لم يعد يُسقط سعره المخصص عند أول تعديل للعلاج، ويعود بعودته.
+   تفريغ حقل مرسوم يبقى حذفاً مقصوداً لسعر ذلك الطبيب (نيّة المستخدم مصونة). */
+function resolveOverridesForSave() {
+  var collected = collectOverrideInputs();
+  if (collected === false) return false;
+  var cur = _ovrCurrent || {};
+  if (!_ovrRowsRendered) {
+    return Object.keys(cur).length ? cur : null;
+  }
+  var out = collected || {};
+  var shown = {};
+  for (var i = 0; i < (_ovrDoctors || []).length; i++) shown[_ovrDoctors[i].id] = 1;
+  var any = !!collected, k;
+  for (k in cur) {
+    if (!shown[k] && cur[k] !== undefined && cur[k] !== null) { out[k] = cur[k]; any = true; }
+  }
+  return any ? out : null;
+}
+
+/* يعيد: null (لا أسعار مخصصة) · كائن {docId: price} · false (قيمة غير صحيحة) */
+function collectOverrideInputs() {
+  var inputs = document.querySelectorAll('.t-ovr-inp');
+  var out = {}, any = false;
+  for (var i = 0; i < inputs.length; i++) {
+    var raw = String(inputs[i].value || '').trim();
+    if (!raw) continue;
+    var n = parseFloat(raw);
+    if (isNaN(n) || n < 0) return false;
+    out[inputs[i].getAttribute('data-doc-id')] = n;
+    any = true;
+  }
+  return any ? out : null;
+}
+
+function openAddModal() {
+  editingId = null;
+  // Reset implant name lock
+  var nameInputAdd = document.getElementById('tName');
+  nameInputAdd.readOnly = false;
+  nameInputAdd.style.opacity = '';
+  nameInputAdd.style.cursor = '';
+  nameInputAdd.title = '';
+  document.getElementById('modalTitle').textContent = '＋ إضافة علاج جديد';
+  document.getElementById('tName').value  = '';
+  document.getElementById('tPrice').value = '';
+  document.getElementById('tLabel').value = '';
+  document.getElementById('tLaymanName').value = '';
+  document.getElementById('tNeedsLab').checked = false;
+  document.getElementById('tLabDays').value = '';   /* M161 */
+  var _peA = document.getElementById('tPostExt'); if (_peA) _peA.checked = false;
+  var _auA = document.getElementById('tAcceptsUnits'); if (_auA) _auA.checked = false;   /* M151 */
+  var _dsA = document.getElementById('tDentScope'); if (_dsA) _dsA.value = 'all';
+  document.getElementById('tCategory').value = 'restorative';
+  document.getElementById('tDefaultNote').value = '';
+  userTouchedLabToggle = false;  // new treatment — allow smart category defaults
+  userTouchedTarget = false;     // new treatment — allow smart target default
+  userTouchedDentScope = false;  // M146
+  pickColor('#0d8577','#1fba7e');
+  pickTarget('crown');
+  setTargetLock(false);   // add = new treatment, target fully editable
+  renderOverrideRows({});
+  updatePreview();
+  openModal();
+}
+
+function editTreatment(id) {
+  var t = null;
+  for (var i=0; i<treatments.length; i++) if (treatments[i].id === id) { t = treatments[i]; break; }
+  if (!t) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = '✏️ تعديل: ' + t.name;
+  document.getElementById('tName').value  = t.name;
+  document.getElementById('tPrice').value = t.price;
+  document.getElementById('tLabel').value = t.label;
+  document.getElementById('tLaymanName').value = t.layman_name || '';
+  document.getElementById('tNeedsLab').checked = !!t.needs_lab;
+  document.getElementById('tLabDays').value = t.lab_days || '';   /* M161 */
+  var _peE = document.getElementById('tPostExt'); if (_peE) _peE.checked = !!t.post_extraction;
+  var _auE = document.getElementById('tAcceptsUnits'); if (_auE) _auE.checked = !!t.accepts_units;   /* M151 */
+  var _dsE = document.getElementById('tDentScope'); if (_dsE) _dsE.value = _normDentScope(t.dentition_scope);
+  document.getElementById('tCategory').value = t.category || 'other';
+  document.getElementById('tDefaultNote').value = t.default_note || '';
+  userTouchedLabToggle = true;  // editing existing — preserve current lab value
+  userTouchedTarget = true;     // editing existing — preserve current target
+  userTouchedDentScope = true;  // M146
+  // Only the BUILT-IN extraction/implant/bridge have their names locked.
+  // Custom variants (like "زراعة سويسرية" or "قلع جراحي") are fully editable.
+  var nameInput = document.getElementById('tName');
+  var lockedKeys = ['implant', 'extracted', 'bridge'];
+  if (lockedKeys.indexOf(t.treatment_key) >= 0 && t.builtin) {
+    nameInput.readOnly = true;
+    nameInput.style.opacity = '0.6';
+    nameInput.style.cursor = 'not-allowed';
+    var lockedNames = { implant: 'الزراعة', extracted: 'القلع', bridge: 'الجسر' };
+    nameInput.title = 'اسم علاج ' + (lockedNames[t.treatment_key] || '') + ' الافتراضي لا يمكن تغييره';
+  } else {
+    nameInput.readOnly = false;
+    nameInput.style.opacity = '';
+    nameInput.style.cursor = '';
+    nameInput.title = '';
+  }
+  pickColor(t.fill, t.stroke);
+  pickTarget(t.target_part || 'crown');
+  setTargetLock(isProtectedTreatment(t));   // chart-geometry treatments: target is fixed
+  renderOverrideRows(t.price_overrides || {});
+  updatePreview();
+  openModal();
+}
+
+function pickTarget(target) {
+  pickedTarget = target;
+  var opts = document.querySelectorAll('.target-opt');
+  for (var i=0; i<opts.length; i++) {
+    var o = opts[i];
+    if (o.getAttribute('data-target') === target) o.classList.add('selected');
+    else o.classList.remove('selected');
+  }
+}
+
+/* Lock/unlock the «يطبَّق على» grid for protected (chart-geometry) treatments.
+   Changing target_part on ortho/spacer/extraction/implant/bridge defaults breaks
+   their dedicated chart handling AND the protection detectors themselves —
+   owner decision: target locked on edit; everything else stays editable.
+   Custom copies (custom_…) are never locked (isProtectedTreatment exempts them).
+   saveTreatment adds a defense-in-depth force in case the DOM is tampered. */
+function setTargetLock(on) {
+  var grid = document.getElementById('targetPartPicker');
+  var hint = document.getElementById('targetLockHint');
+  if (grid) {
+    grid.style.pointerEvents = on ? 'none' : '';
+    grid.style.opacity = on ? '0.55' : '';
+  }
+  if (hint) hint.style.display = on ? 'block' : 'none';
+}
+
+function duplicateTreatment(id) {
+  var t = null;
+  for (var i=0; i<treatments.length; i++) if (treatments[i].id === id) { t = treatments[i]; break; }
+  if (!t) return;
+  // Open the add modal pre-filled with this treatment's values; user can rename and save as a new entry
+  editingId = null;  // creating a new treatment
+  document.getElementById('modalTitle').textContent = '📋 نسخ من: ' + t.name;
+  document.getElementById('tName').value  = t.name + ' (نسخة)';
+  document.getElementById('tPrice').value = t.price;
+  document.getElementById('tLabel').value = t.label || '';
+  document.getElementById('tLaymanName').value = t.layman_name || '';
+  document.getElementById('tNeedsLab').checked = !!t.needs_lab;
+  document.getElementById('tLabDays').value = t.lab_days || '';   /* M161 */
+  document.getElementById('tCategory').value = t.category || 'other';
+  document.getElementById('tDefaultNote').value = t.default_note || '';
+  var _peD = document.getElementById('tPostExt'); if (_peD) _peD.checked = !!t.post_extraction;
+  var _auD = document.getElementById('tAcceptsUnits'); if (_auD) _auD.checked = !!t.accepts_units;   /* M151 */
+  var _dsD = document.getElementById('tDentScope'); if (_dsD) _dsD.value = _normDentScope(t.dentition_scope);
+  userTouchedLabToggle = true;  // duplicate copies original's lab value — don't override
+  userTouchedTarget = true;     // duplicate copies original's target — don't override
+  userTouchedDentScope = true;  // M146
+  // Reset readonly state (duplicate is a new treatment, name editable)
+  var nameInputDup = document.getElementById('tName');
+  nameInputDup.readOnly = false;
+  nameInputDup.style.opacity = '';
+  nameInputDup.style.cursor = '';
+  nameInputDup.title = '';
+  pickColor(t.fill, t.stroke);
+  pickTarget(t.target_part || 'crown');
+  setTargetLock(false);   // duplicate = new custom treatment, target fully editable
+  updatePreview();
+  renderOverrideRows(t.price_overrides || {});
+  openModal();
+  /* M125: النسخة ترث عملة المصدر (openModal يركّب المبدّل بعملة العيادة لأن editingId=null) */
+  try { window.SyDentCurPick.set('tPrice', (t.currency === 'USD') ? 'USD' : 'SYP'); } catch (e) {}
+  _ovrApplyCur(_ovrCurCode());   /* set لا يُطلق onChange عمداً (عقد v207) — فتُوازَن خطوةُ الأسعار المخصصة يدوياً */
+  // Focus and select name for quick edit
+  setTimeout(function(){
+    nameInputDup.focus();
+    nameInputDup.select();
+  }, 100);
+}
+
+// ============================================================
+// Active/Inactive toggle
+// ============================================================
+/* ═══ v289 — قفلُ الأزرار الكاتبة (مرآةُ ppGuarded من بطاقة المريض) ═══ */
+var _tInFlight = {};
+function tGuarded(name, inner, label) {
+  return async function () {
+    var k = name + ((arguments.length && (typeof arguments[0] === 'string' || typeof arguments[0] === 'number')) ? ':' + arguments[0] : '');
+    if (_tInFlight[k]) return;
+    var btn = null;
+    try { var ev = window.event; var t = ev && (ev.currentTarget || ev.target); if (t && t.closest) btn = t.closest('button'); } catch (_) {}
+    if (!btn && document.activeElement && document.activeElement.tagName === 'BUTTON') btn = document.activeElement;
+    _tInFlight[k] = true;
+    var old = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; if (label) btn.textContent = (old.trim().length <= 3) ? '⏳' : label; }
+    try { return await inner.apply(this, arguments); }
+    finally { delete _tInFlight[k]; if (btn) { btn.disabled = false; btn.textContent = old; } }
+  };
+}
+// v289: card body → editor; taps on inner buttons/links keep their own handlers.
+function treatCardOpen(ev) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;   /* M141-ب: الصفُّ/البطاقة بيانات — يبقى ظاهراً ولا يفتح نموذجاً */
+  var t = ev && ev.target;
+  if (t && t.closest && t.closest('button, a, input, select, .drag-handle, summary, .trt-more')) return;   /* v564: «⋯ المزيد» يفتح قائمته لا نموذجَ التعديل */
+  var card = t && t.closest ? t.closest('.treat-card') : null;
+  if (card && card.dataset.treatId) editTreatment(card.dataset.treatId);
+}
+var toggleActive = tGuarded('toggleActive', _toggleActive_inner, '⏳');   /* v289 */
+async function _toggleActive_inner(id) {
+  var t = null;
+  for (var i=0; i<treatments.length; i++) if (treatments[i].id === id) { t = treatments[i]; break; }
+  if (!t) return;
+  var newState = !(t.is_active !== false);  // toggle (true becomes false, false becomes true)
+  var actionWord = newState ? 'تفعيل' : 'تعطيل';
+  var msg = newState
+    ? 'هل تريد تفعيل علاج "' + t.name + '"؟ سيظهر مجدداً في قائمة العلاجات بمخطط الأسنان.'
+    : 'هل تريد تعطيل علاج "' + t.name + '"؟ سيختفي من قائمة العلاجات في مخطط الأسنان لكن البيانات المحفوظة عليه تبقى.';
+  /* الخطورةُ بالفعل: التعطيلُ يُخفي العلاجَ من المخطط، والتفعيلُ لا. */
+  if (!await SyDialog.confirm({ message: msg, danger: !newState })) return;
+  var { error } = await window.sb
+    .from('treatments')
+    .update({ is_active: newState, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) {
+    // If column doesn't exist, show friendly message
+    if (String(error.message || '').toLowerCase().indexOf('is_active') >= 0) {
+      showToast('⚠️ يحتاج تحديث قاعدة البيانات. أضف العمود is_active لجدول treatments.');
+      return;
+    }
+    showToast('⚠️ ' + error.message);
+    return;
+  }
+  t.is_active = newState;
+  render();
+  showToast('✅ تم ' + actionWord + ' "' + t.name + '"');
+}
+
+// ============================================================
+// Drag-and-drop reordering
+// ============================================================
+var draggedTreatId = null;
+
+function wireDragAndDrop() {
+  // Disable drag while user has active filter or search — reordering during filter is confusing
+  var isFiltering = isFilteringNow()
+    || !!(window.SyDentSub && window.SyDentSub.isReadOnly());   /* M141-ب: لا ترتيب بوضع القراءة */
+  var grid = document.querySelector('.treat-grid');
+  var cards = document.querySelectorAll('.treat-card[data-treat-id]');
+  cards.forEach(function(card){
+    var dh = card.querySelector('.drag-handle');
+    if (isFiltering) {
+      card.removeAttribute('draggable');
+      if (dh) { dh.style.display = 'none'; }
+      return;
+    }
+    if (dh) dh.style.display = '';
+
+    card.addEventListener('dragstart', function(e){
+      draggedTreatId = card.getAttribute('data-treat-id');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', draggedTreatId); } catch(_){}
+      // طفِّ البطاقة لحظة السحب ثم حوّلها إلى خانة فارغة (placeholder) — المكان يفضى حيث ستهبط
+      card.classList.add('dragging');
+      setTimeout(function(){ card.classList.add('drag-ghost'); card.classList.remove('dragging'); }, 0);
+    });
+
+    card.addEventListener('dragend', function(){
+      card.classList.remove('dragging','drag-ghost');
+      draggedTreatId = null;
+    });
+
+    // أثناء المرور: انقل الخانة الفارغة لموقعها الجديد فوراً
+    card.addEventListener('dragover', function(e){
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (!draggedTreatId || !grid) return;
+      var ghost = grid.querySelector('.treat-card.drag-ghost');
+      if (!ghost || ghost === card) return;
+      var r = card.getBoundingClientRect();
+      var after = e.clientY > r.top + r.height / 2;
+      if (after) { if (card.nextSibling !== ghost) grid.insertBefore(ghost, card.nextSibling); }
+      else       { if (card.previousSibling !== ghost) grid.insertBefore(ghost, card); }
+    });
+
+    card.addEventListener('drop', async function(e){
+      e.preventDefault();
+      if (!draggedTreatId || !grid) return;
+      // الترتيب النهائي يُقرأ من ترتيب البطاقات في DOM بعد تموضع الخانة الفارغة
+      var ids = Array.prototype.map.call(
+        grid.querySelectorAll('.treat-card[data-treat-id]'),
+        function(c){ return c.getAttribute('data-treat-id'); }
+      );
+      draggedTreatId = null;
+      await reorderTreatmentsByOrder(ids);
+    });
+  });
+
+  if (grid && !isFiltering && !grid._dropBound) {
+    grid._dropBound = true;
+    grid.addEventListener('dragover', function(e){ if (draggedTreatId) e.preventDefault(); });
+  }
+}
+
+// ترتيب جديد محسوب من DOM — المُعاد ترتيبه يملأ مواضعَ البطاقات المرئية وحدها،
+// والمخفيّ (المعطّل — أو المفلتَر لو تسرّب) يبقى بموضعه حرفياً. النسخة السابقة كانت
+// تضع المرئيَّ أولاً ثم تدفع كلَّ المخفيّ للنهاية فتبعثر الكتالوج بسحبةٍ واحدة.
+async function reorderTreatmentsByOrder(idsInOrder) {
+  if (!Array.isArray(idsInOrder) || !idsInOrder.length) return;
+  var byId = {};
+  for (var i=0;i<treatments.length;i++) byId[treatments[i].id] = treatments[i];
+  var moved = [], inSet = {};
+  for (var k=0;k<idsInOrder.length;k++){ if (byId[idsInOrder[k]]) { moved.push(byId[idsInOrder[k]]); inSet[idsInOrder[k]] = 1; } }
+  if (moved.length !== idsInOrder.length) return;   // حارس: معرّفٌ مجهول ⇒ لا حفظ
+  var slots = [];
+  for (var m=0;m<treatments.length;m++){ if (inSet[treatments[m].id]) slots.push(m); }
+  if (slots.length !== moved.length) return;        // حارس: لا تحفظ ترتيباً ناقصاً
+  var reordered = treatments.slice();
+  for (var q=0;q<slots.length;q++) reordered[slots[q]] = moved[q];
+  treatments = reordered;
+  var updates = [];
+  for (var j=0;j<treatments.length;j++){ treatments[j].sort_order = j + 1; updates.push({ id: treatments[j].id, sort_order: j + 1 }); }
+  render();
+  for (var n=0;n<updates.length;n++){
+    var { error } = await window.sb.from('treatments').update({ sort_order: updates[n].sort_order }).eq('id', updates[n].id);
+    if (error) { console.error('reorder error:', error); showToast('⚠️ فشل الترتيب: ' + error.message); await loadTreatments(); return; }
+  }
+  showToast('✅ تم تحديث الترتيب');
+}
+
+var toggleFavorite = tGuarded('toggleFavorite', _toggleFavorite_inner, '⏳');   /* v289 */
+async function _toggleFavorite_inner(id) {
+  var t = treatments.find(function (x) { return String(x.id) === String(id); });
+  if (!t) return;
+  var next = !t.is_favorite;
+  t.is_favorite = next;          // optimistic — instant UI feedback
+  render();
+  const { error } = await window.sb.from('treatments')
+    .update({ is_favorite: next })
+    .eq('id', id)
+    .eq('doctor_id', currentDoctor.id);
+  if (error) {                   // revert on failure
+    t.is_favorite = !next;
+    render();
+    showToast('⚠️ ' + error.message);
+  }
+}
+
+var deleteTreatment = tGuarded('deleteTreatment', _deleteTreatment_inner, 'جارٍ الحذف…');   /* v289 */
+async function _deleteTreatment_inner(id) {
+  var _t = treatments.find(function(x){ return x.id === id; });
+  if (_t && isProtectedTreatment(_t)) { showToast('🚫 هذا العلاج محمي من الحذف (له تطبيق خاص على المخطط) — استخدم «تعطيل» بدلاً منه'); return; }
+  if (!await SyDialog.confirm({ message: 'حذف هذا العلاج؟ الجلسات السابقة لن تتأثر.', danger: true })) return;
+  const { error } = await window.sb.from('treatments').delete().eq('id', id);
+  if (error) { showToast('⚠️ ' + error.message); return; }
+  await loadTreatments();
+  showToast('🗑️ تم الحذف');
+}
+
+
+/* ═══════════════ Default clinic catalogue (CLINIC_CATALOG) ═══════════════
+   Cloned 1:1 from the owner's reference clinic (25 Jul 2026): same treatments and
+   settings (colors/labels/category/«يطبّق على»/lab/favorites ⭐/layman names) and the
+   exact display order sort_order 1..29 — with ALL prices 0 (each clinic sets its
+   own pricing; Syrian market, manual). Consumed additively by «استعادة الافتراضي»
+   AND the brand-new-account auto-seed — never deletes/edits existing rows
+   (Rules #141/#175). default_note omitted (all empty at source; DB default).
+   M146 (19 Sep 2026): rows 25..29 are the pediatric/preventive additions (بتر لب · استئصال لب
+   لبني · تاج ستانلس · سادّ شقوق · فلورايد) + `dentition_scope` on every row.
+   sort_order here is the catalogue's RELATIVE order: the seed on an empty account
+   gets 1..29 verbatim, while a restore into a populated catalogue appends the
+   missing rows AFTER the clinic's max sort_order (in this same relative order) —
+   the verbatim numbers used to collide with the clinic's own rows (10 live ties). */
+const CLINIC_CATALOG = [
+    { treatment_key:'treated', name:'حشوة املغم', label:'ح', fill:'#312f27', stroke:'#22211b', price:0, builtin:true, needs_lab:false, target_part:'crown', category:'restorative', sort_order:1, post_extraction:false, dentition_scope:'all', is_favorite:true, is_active:true, layman_name:'حشوة معدنية' },
+    { treatment_key:'custom_1781292854422', name:'حشوة كومبوزت', label:'ح', fill:'#0f6b99', stroke:'#0b4b6b', price:0, builtin:false, needs_lab:false, target_part:'crown', category:'restorative', sort_order:2, post_extraction:false, dentition_scope:'all', is_favorite:true, is_active:true, layman_name:'حشوة تجميلية' },
+    { treatment_key:'root-canal', name:'معالجة لبية', label:'ق', fill:'#a78bfa', stroke:'#7c5cbf', price:0, builtin:true, needs_lab:false, target_part:'root', category:'endodontics', sort_order:3, post_extraction:false, dentition_scope:'all', is_favorite:true, is_active:true, layman_name:'سحب عصب' },
+    { treatment_key:'custom_1784310641369', name:'حشوة عصب', label:'ح', fill:'#ff4d6a', stroke:'#b3364a', price:0, builtin:false, needs_lab:false, target_part:'root', category:'endodontics', sort_order:4, post_extraction:false, dentition_scope:'all', is_favorite:true, is_active:true, layman_name:'' },
+    { treatment_key:'custom_1783204794478', name:'اعادة معالجة', label:'ا', fill:'#00f2a1', stroke:'#00a971', price:0, builtin:false, needs_lab:false, target_part:'root', category:'endodontics', sort_order:5, post_extraction:false, dentition_scope:'all', is_favorite:true, is_active:true, layman_name:'' },
+    { treatment_key:'custom_1783255139568', name:'وتد فايبر', label:'و', fill:'#999999', stroke:'#6b6b6b', price:0, builtin:false, needs_lab:false, target_part:'root', category:'endodontics', sort_order:6, post_extraction:false, dentition_scope:'all', is_favorite:true, is_active:true, layman_name:'' },
+    { treatment_key:'custom_1784742823602', name:'تحضير', label:'ت', fill:'#218800', stroke:'#175f00', price:0, builtin:false, needs_lab:true, target_part:'crown_full', category:'prosthodontics', sort_order:7, post_extraction:false, dentition_scope:'all', is_favorite:true, is_active:true, layman_name:'تحضير الاسنان للتلبيس' },
+    { treatment_key:'crown', name:'تاج خزف على معدن', label:'ت', fill:'#ff6b00', stroke:'#b34b00', price:0, builtin:true, needs_lab:true, target_part:'crown_full', category:'prosthodontics', sort_order:8, post_extraction:false, dentition_scope:'all', is_favorite:true, is_active:true, layman_name:'تاج خزف' },
+    { treatment_key:'custom_1784821896689', name:'تاج زركون', label:'ت', fill:'#e5e5f4', stroke:'#a0a0ab', price:0, builtin:false, needs_lab:true, target_part:'crown_full', category:'prosthodontics', sort_order:9, post_extraction:false, dentition_scope:'all', is_favorite:true, is_active:true, layman_name:'تاج زركونيا' },
+    { treatment_key:'bridge', name:'جسر', label:'ج', fill:'#dc2626', stroke:'#991b1b', price:0, builtin:true, needs_lab:true, target_part:'bridge', category:'prosthodontics', sort_order:10, post_extraction:false, dentition_scope:'all', is_favorite:true, is_active:true, layman_name:'' },
+    { treatment_key:'custom_1784316215415', name:'جسر (زركون)', label:'ج', fill:'#c44dff', stroke:'#8936b3', price:0, builtin:false, needs_lab:true, target_part:'bridge', category:'prosth_cosmetic', sort_order:11, post_extraction:false, dentition_scope:'all', is_favorite:true, is_active:true, layman_name:'' },
+    { treatment_key:'extracted', name:'قلع', label:'✕', fill:'#ef5350', stroke:'#c62828', price:0, builtin:true, needs_lab:false, target_part:'extraction', category:'surgical', sort_order:12, post_extraction:false, dentition_scope:'all', is_favorite:true, is_active:true, layman_name:'' },
+    { treatment_key:'implant', name:'زراعة', label:'ز', fill:'#b5e0ff', stroke:'#7f9db3', price:0, builtin:true, needs_lab:true, target_part:'implant', category:'implantology', sort_order:13, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' },
+    { treatment_key:'socket-graft', name:'طعم عظمي (حفاظ سنخ)', label:'ط', fill:'#f97316', stroke:'#c2410c', price:0, builtin:false, needs_lab:false, target_part:'whole', category:'surgical', sort_order:14, post_extraction:true, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' },
+    { treatment_key:'socket-dressing', name:'ضماد سنخ', label:'ض', fill:'#fbbf24', stroke:'#b45309', price:0, builtin:false, needs_lab:false, target_part:'whole', category:'surgical', sort_order:15, post_extraction:true, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' },
+    { treatment_key:'ortho-fixed', name:'تقويم ثابت', label:'⚓', fill:'#f25100', stroke:'#a93900', price:0, builtin:false, needs_lab:true, target_part:'arch', category:'orthodontics', sort_order:16, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' },
+    { treatment_key:'ortho-removable', name:'تقويم متحرك', label:'⚙', fill:'#22d3ee', stroke:'#0e90a8', price:0, builtin:false, needs_lab:true, target_part:'arch', category:'orthodontics', sort_order:17, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' },
+    { treatment_key:'ortho-retainer', name:'مثبّت تقويم', label:'ث', fill:'#5eead4', stroke:'#2bb3a3', price:0, builtin:false, needs_lab:true, target_part:'arch', category:'orthodontics', sort_order:18, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' },
+    { treatment_key:'cleaning', name:'تنظيف', label:'ن', fill:'#06b6d4', stroke:'#0a809a', price:0, builtin:false, needs_lab:false, target_part:'mouth', category:'preventive', sort_order:19, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' },
+    { treatment_key:'consult', name:'استشارة', label:'س', fill:'#fb923c', stroke:'#c2691f', price:0, builtin:false, needs_lab:false, target_part:'mouth', category:'diagnostic', sort_order:20, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' },
+    { treatment_key:'xray', name:'أشعة', label:'أ', fill:'#a3a3a3', stroke:'#6b6b6b', price:0, builtin:false, needs_lab:false, target_part:'whole', category:'diagnostic', sort_order:21, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' },
+    { treatment_key:'whitening', name:'تبييض', label:'ب', fill:'#84cc16', stroke:'#5a9410', price:0, builtin:false, needs_lab:false, target_part:'arch', category:'cosmetic', sort_order:22, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' },
+    { treatment_key:'perio-scaling', name:'تقليح', label:'ت', fill:'#f2f200', stroke:'#a9a900', price:0, builtin:false, needs_lab:false, target_part:'mouth', category:'periodontics', sort_order:23, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' },
+    { treatment_key:'pedo-spacer', name:'حافظ مسافة', label:'م', fill:'#d946ef', stroke:'#86198f', price:0, builtin:false, needs_lab:true, target_part:'arch', category:'pediatric', sort_order:24, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' },
+    { treatment_key:'pedo-pulpotomy', name:'بتر لب', label:'ب', fill:'#f472b6', stroke:'#be185d', price:0, builtin:false, needs_lab:false, target_part:'whole', category:'pediatric', sort_order:25, post_extraction:false, dentition_scope:'primary', is_favorite:false, is_active:true, layman_name:'علاج عصب السن اللبني' },
+    { treatment_key:'pedo-pulpectomy', name:'استئصال لب لبني', label:'ا', fill:'#be185d', stroke:'#831843', price:0, builtin:false, needs_lab:false, target_part:'root', category:'pediatric', sort_order:26, post_extraction:false, dentition_scope:'primary', is_favorite:false, is_active:true, layman_name:'سحب عصب السن اللبني' },
+    { treatment_key:'pedo-ssc', name:'تاج ستانلس ستيل', label:'ت', fill:'#94a3b8', stroke:'#475569', price:0, builtin:false, needs_lab:false, target_part:'crown_full', category:'pediatric', sort_order:27, post_extraction:false, dentition_scope:'primary', is_favorite:false, is_active:true, layman_name:'تاج معدني جاهز' },
+    { treatment_key:'fissure-sealant', name:'سادّ شقوق', label:'س', fill:'#2563eb', stroke:'#1e40af', price:0, builtin:false, needs_lab:false, target_part:'crown', category:'preventive', sort_order:28, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'طبقة حماية من التسوّس' },
+    { treatment_key:'fluoride', name:'تطبيق فلورايد', label:'ف', fill:'#0ea5e9', stroke:'#0369a1', price:0, builtin:false, needs_lab:false, target_part:'mouth', category:'preventive', sort_order:29, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' }
+];
+
+/* resetToDefaults (below) additively restores the default catalogue. */
+function buildDefaultTreatmentRows() {
+  // Single source of truth for «استعادة الافتراضي» AND the brand-new-account auto-seed.
+  // sort_order is explicit and verbatim in CLINIC_CATALOG (1..29 clone of the reference
+  // clinic) — no re-sorting. post_extraction default kept for contract symmetry (every
+  // row also carries it explicitly).
+  return CLINIC_CATALOG.map(function(d){ return Object.assign({ doctor_id: currentDoctor.id, post_extraction: false }, d); });
+}
+
+// Inserts ONLY the default/template treatments the clinic is missing (matched by treatment_key OR
+// name). NEVER deletes or edits anything. Returns {added,error}; does NOT reload. post_extraction is
+// sent on every row; if the column is absent (pre-Migration 61) PostgREST returns 42703/PGRST204, so
+// we strip it and retry once (graceful, deploy-before-migrate safe — replaces the empty-list-unsafe
+// __m61T probe, which is always false on a brand-new account).
+async function insertMissingDefaults() {
+  var allRows = buildDefaultTreatmentRows();
+  var _haveKey = {}, _haveName = {};
+  for (var _i = 0; _i < treatments.length; _i++) { _haveKey[treatments[_i].treatment_key] = 1; _haveName[treatments[_i].name] = 1; }
+  var rows = allRows.filter(function(r){ return !_haveKey[r.treatment_key] && !_haveName[r.name]; });
+  if (!rows.length) return { added: 0, error: null };
+  // الترقيم: بعد أقصى ترتيبٍ قائم بالعيادة، بترتيب الكتالوج النسبي — حسابٌ جديد
+  // (صفر صفوف) يأخذ 1..29 حرفياً كما كان، وعيادةٌ قائمة لا تتعادل صفوفُها.
+  var _base = 0;
+  for (var _b = 0; _b < treatments.length; _b++) _base = Math.max(_base, Number(treatments[_b].sort_order) || 0);
+  rows.sort(function(a, b){ return (a.sort_order || 0) - (b.sort_order || 0); });
+  for (var _r = 0; _r < rows.length; _r++) rows[_r].sort_order = _base + _r + 1;
+  var res = await window.sb.from('treatments').insert(rows);
+  // M146: العمودُ غائب (نشرٌ قبل الترحيل) ⇒ يُسقَط الحقل ويُعاد مرةً — قبل فحص M61 لأن رسالة
+  // PostgREST تسمّي العمودَ الغائب، فلا يُسقَط post_extraction بذنب dentition_scope.
+  if (res.error && /dentition_scope/i.test(res.error.message || '')) {
+    rows.forEach(function(r){ delete r.dentition_scope; });
+    res = await window.sb.from('treatments').insert(rows);
+  }
+  if (res.error && /post_extraction|42703|PGRST204/i.test((res.error.code || '') + ' ' + (res.error.message || ''))) {
+    rows.forEach(function(r){ delete r.post_extraction; });  // pre-M61 fallback
+    res = await window.sb.from('treatments').insert(rows);
+  }
+  return { added: res.error ? 0 : rows.length, error: res.error || null };
+}
+
+var resetToDefaults = tGuarded('resetToDefaults', _resetToDefaults_inner, 'جارٍ الاستعادة…');   /* v289 */
+async function _resetToDefaults_inner() {
+  if (!await SyDialog.confirm({ message: 'استعادة كل العلاجات الافتراضية والجاهزة الناقصة؟\nتُضاف الناقصة فقط — لن يُحذف أو يُعدّل أي علاج موجود (بما فيها المخصصة).', danger: true })) return;
+  var r = await insertMissingDefaults();
+  if (r.error) { showToast('⚠️ ' + r.error.message); return; }
+  if (!r.added) { showToast('✅ كل العلاجات الافتراضية والجاهزة موجودة مسبقاً'); return; }
+  await loadTreatments();
+  showToast('↺ أُضيف ' + r.added + ' علاجاً');
+}
+
+// One-time auto-seed for a brand-new clinic: empty list AND never seeded (clinic_settings
+// .treatments_seeded — Migration 70) → silently populate the default catalogue so the dentist sees a
+// ready guide without clicking «استعادة الافتراضي». Fires exactly once: deleting everything later does
+// NOT re-seed. Pre-Migration-70 (column absent) the flag read errors → returns false (graceful).
+var _autoSeedInFlight = false;
+async function autoSeedDefaultsIfNeeded() {
+  if (_autoSeedInFlight) return false;
+  if (treatments.length) return false;
+  if (!currentDoctor || !currentDoctor.id) return false;
+  _autoSeedInFlight = true;
+  try {
+    var fl = await window.sb.from('clinic_settings').select('treatments_seeded').eq('owner_id', currentDoctor.id).maybeSingle();
+    if (fl.error) return false;
+    if (fl.data && fl.data.treatments_seeded) return false;
+    var r = await insertMissingDefaults();
+    if (r.error || !r.added) return false;
+    try { await window.sb.from('clinic_settings').update({ treatments_seeded: true }).eq('owner_id', currentDoctor.id); } catch (e) { /* non-fatal */ }
+    return true;
+  } finally {
+    _autoSeedInFlight = false;
+  }
+}
+
+// Phase post-X10 B1 fix: module-level in-flight flag prevents double-
+// submit when user double-clicks "حفظ" in the treatment modal. Without
+// this, a duplicate treatments row (with the same custom_<timestamp> key)
+// could be inserted, and a duplicate price-history row could be written.
+var _saveTreatmentInFlight = false;
+
+var saveTreatment = tGuarded('saveTreatment', _saveTreatment_inner, 'جارٍ الحفظ…');   /* v289 */
+async function _saveTreatment_inner() {
+  var name  = document.getElementById('tName').value.trim();
+  var price = parseFloat(document.getElementById('tPrice').value);
+  // Preserve existing label if editing; otherwise generate from name
+  var existingLabel = document.getElementById('tLabel').value;
+  var label = existingLabel || name.replace(/\s+/g, '').charAt(0) || '·';
+  var needsLab = document.getElementById('tNeedsLab').checked;
+  var _peEl = document.getElementById('tPostExt');
+  var postExt = !!(_peEl && _peEl.checked);
+  var _dsEl = document.getElementById('tDentScope');
+  var dentScope = _normDentScope(_dsEl ? _dsEl.value : 'all');   /* M146 */
+  var _auEl = document.getElementById('tAcceptsUnits');
+  var acceptsUnits = !!(_auEl && _auEl.checked);   /* M151 */
+  var category = document.getElementById('tCategory').value;
+  var defaultNote = document.getElementById('tDefaultNote').value.trim();
+  var laymanName = document.getElementById('tLaymanName').value.trim();
+  var newOverrides = resolveOverridesForSave();
+  if (newOverrides === false) { showToast('⚠️ سعر مخصص غير صحيح'); return; }
+  if (!name)                 { showToast('⚠️ الاسم مطلوب'); return; }
+  if (isNaN(price)||price<0) { showToast('⚠️ السعر غير صحيح'); return; }
+  if (laymanName.length > 100) { showToast('⚠️ الاسم المبسّط طويل جداً (الحد 100 حرف)'); return; }
+  /* M161: مدّةُ المخبر — عددٌ صحيح 1..60 أو فارغ؛ ولا معنى لها بلا «يحتاج مخبر» فتُحفظ فارغة */
+  var _ldRaw = String(document.getElementById('tLabDays').value || '').trim();
+  var labDays = null;
+  if (needsLab && _ldRaw !== '') {
+    labDays = Number(_ldRaw);
+    if (!(labDays >= 1 && labDays <= 60) || Math.floor(labDays) !== labDays) { showToast('⚠️ مدّة المخبر عددُ أيامٍ من 1 إلى 60'); return; }
+  }
+
+  // Critical section guard (after validation)
+  if (_saveTreatmentInFlight) return;
+  _saveTreatmentInFlight = true;
+  try {
+    if (editingId) {
+      // UPDATE existing
+      // Defense-in-depth (mirror of the UI lock): a protected chart-geometry
+      // treatment keeps its stored target_part regardless of the picker state
+      // (covers DOM tampering / any future path that forgets setTargetLock).
+      var existing = treatments.find(function(x){ return x.id === editingId; });
+      var _savedTarget = (existing && isProtectedTreatment(existing))
+        ? (existing.target_part || pickedTarget)
+        : pickedTarget;
+      var _newCur = window.SyDentCurPick.read('tPrice');
+      var updatePayload = { name: name, price: price, price_overrides: newOverrides || {}, currency: _newCur, label: label, fill: pickedFill, stroke: pickedStroke, needs_lab: needsLab, lab_days: labDays, target_part: _savedTarget, category: category, default_note: defaultNote, layman_name: laymanName || null, updated_at: new Date().toISOString() };
+      if (window.__m61T) updatePayload.post_extraction = postExt;  // M61-gated
+      if (window.__m146T) updatePayload.dentition_scope = dentScope;  // M146-gated
+      if (window.__m151T) updatePayload.accepts_units = acceptsUnits;  // M151-gated
+      var updRes = await window.sb
+        .from('treatments')
+        .update(updatePayload)
+        .eq('id', editingId);
+      if (updRes.error && _isLaymanColMissing(updRes.error)) {
+        // Migration 7.1 not yet run — retry without layman_name
+        delete updatePayload.layman_name;
+        updRes = await window.sb
+          .from('treatments')
+          .update(updatePayload)
+          .eq('id', editingId);
+        if (!updRes.error) showToast('⚠️ الاسم المبسّط لم يُحفظ — يلزم تشغيل Migration 7.1');
+      }
+      if (updRes.error) { showToast('⚠️ ' + updRes.error.message); return; }
+      /* سجلُّ تاريخ الأسعار — بعد نجاح الحفظ لا قبله (سجلٌّ لتغييرٍ لم يقع كذبة)،
+         وكلُّ صفٍّ يحمل عملته صراحةً: بلا الوسم كان التريغر يشتقّ عملةَ العيادة
+         فسُجّل سعرُ زراعةٍ بالدولار خمس مرات بوسم ل.س (صنف v180 — الاشتقاق
+         شبكةُ أمان لا بديلٌ عن نيّةٍ مقروءة). تغيّرُ العملة تغييرٌ يُسجَّل ولو
+         تساوى الرقمان؛ عملةُ الصفّ = العملة الجديدة (old_price بعملة ما قبلها).
+         وعميلُ Supabase يعيد الخطأ ولا يرميه — فيُفحص .error ويُعلَن غير قاتل
+         (الحفظُ تمّ) بدل ابتلاعه بصمت (صنف v227 F3/F4). */
+      if (existing) {
+        try {
+          var _oldCur = (existing.currency === 'USD') ? 'USD' : 'SYP';
+          var _histRows = [];
+          if (Number(existing.price) !== Number(price) || _oldCur !== _newCur) {
+            _histRows.push({
+              owner_id: currentDoctor.id, treatment_id: editingId,
+              old_price: existing.price, new_price: price, currency: _newCur,
+              doctor_id_override: null,  // null = global price change
+              changed_by: currentDoctor.id, changed_at: new Date().toISOString()
+            });
+          }
+          var _oldOvr = existing.price_overrides || {};
+          var _newOvr = newOverrides || {};
+          var _ids = {}, _k;
+          for (_k in _oldOvr) _ids[_k] = 1;
+          for (_k in _newOvr) _ids[_k] = 1;
+          for (_k in _ids) {
+            var _ov = (_oldOvr[_k] !== undefined && _oldOvr[_k] !== null) ? Number(_oldOvr[_k]) : Number(existing.price);
+            var _nv = (_newOvr[_k] !== undefined && _newOvr[_k] !== null) ? Number(_newOvr[_k]) : Number(price);
+            if (_ov !== _nv || _oldCur !== _newCur) _histRows.push({
+              owner_id: currentDoctor.id, treatment_id: editingId,
+              old_price: _ov, new_price: _nv, currency: _newCur,
+              doctor_id_override: _k, changed_by: currentDoctor.id,
+              changed_at: new Date().toISOString()
+            });
+          }
+          if (_histRows.length) {
+            var _hres = await window.sb.from('treatment_price_history').insert(_histRows);
+            if (_hres.error) { console.warn('price history:', _hres.error); showToast('⚠️ تعذّر تسجيل تاريخ السعر (الحفظ نفسه تمّ)'); }
+          }
+        } catch(e) { console.warn('price history:', e); }
+      }
+    } else {
+      // INSERT new
+      const key = 'custom_' + Date.now();
+      const maxOrder = treatments.length > 0 ? Math.max.apply(null, treatments.map(t=>t.sort_order||0)) : 0;
+      var insertPayload = {
+        doctor_id: currentDoctor.id,
+        treatment_key: key,
+        name: name, price: price, label: label, currency: window.SyDentCurPick.read('tPrice'),
+        fill: pickedFill, stroke: pickedStroke,
+        needs_lab: needsLab,
+        lab_days: labDays,   /* M161 */
+        target_part: pickedTarget,
+        category: category,
+        default_note: defaultNote,
+        layman_name: laymanName || null,
+        builtin: false,
+        price_overrides: newOverrides || {},   /* العمود NOT NULL DEFAULT {} — null ممنوع */
+        sort_order: maxOrder + 1
+      };
+      if (window.__m61T) insertPayload.post_extraction = postExt;  // M61-gated
+      if (window.__m146T) insertPayload.dentition_scope = dentScope;  // M146-gated
+      if (window.__m151T) insertPayload.accepts_units = acceptsUnits;  // M151-gated
+      var insRes = await window.sb
+        .from('treatments')
+        .insert(insertPayload);
+      if (insRes.error && _isLaymanColMissing(insRes.error)) {
+        // Migration 7.1 not yet run — retry without layman_name
+        delete insertPayload.layman_name;
+        insRes = await window.sb
+          .from('treatments')
+          .insert(insertPayload);
+        if (!insRes.error) showToast('⚠️ الاسم المبسّط لم يُحفظ — يلزم تشغيل Migration 7.1');
+      }
+      if (insRes.error) { showToast('⚠️ ' + insRes.error.message); return; }
+    }
+    closeModal();
+    await loadTreatments();
+    showToast(editingId ? '✅ تم التعديل' : '✅ تم إضافة العلاج');
+  } finally {
+    _saveTreatmentInFlight = false;
+  }
+}
+
+// Detect "layman_name column doesn't exist" error (graceful fallback for pre-Migration 7.1 schema)
+function _isLaymanColMissing(err) {
+  if (!err) return false;
+  var msg = (err.message || '') + ' ' + (err.code || '');
+  return /layman_name/i.test(msg) && /(does not exist|42703|PGRST204|PGRST205|schema cache)/i.test(msg);
+}
+
+// Phase 6 N: derive a stroke colour from any fill by darkening 30%.
+// This replaces the manual data-stroke pairs from the old fixed palette —
+// the native color input only returns a single value, so we generate the
+// outline programmatically to keep tooth-chart rendering consistent.
+function _darkenHex(hex, pct) {
+  var h = String(hex||'').replace('#','');
+  if (h.length !== 6) return hex;
+  var r = parseInt(h.substr(0,2),16);
+  var g = parseInt(h.substr(2,2),16);
+  var b = parseInt(h.substr(4,2),16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return hex;
+  var f = 1 - (Math.max(0, Math.min(100, pct)) / 100);
+  r = Math.max(0, Math.round(r * f));
+  g = Math.max(0, Math.round(g * f));
+  b = Math.max(0, Math.round(b * f));
+  return '#' + [r,g,b].map(function(n){
+    var s = n.toString(16); return s.length===1 ? '0'+s : s;
+  }).join('');
+}
+
+function pickColor(fill, stroke) {
+  // Phase 6 K2.2: pickColor is now the single source of truth that keeps
+  // pickedFill, pickedStroke, the hidden #fTreatmentColor input, AND the
+  // visible #fTreatmentColorSwatch button all in sync. Every call site
+  // (openAdd default, editTreatment, duplicateTreatment, picker callback)
+  // funnels through here so the four never drift apart.
+  var safe = (window.SyDentColorPicker && window.SyDentColorPicker.sanitizeHex)
+    ? window.SyDentColorPicker.sanitizeHex(fill)
+    : (/^#[0-9A-Fa-f]{6}$/.test(fill || '') ? fill : '#0d8577');
+  pickedFill = safe;
+  // If a stroke is passed (editing an existing treatment with a stored
+  // stroke from the legacy palette), preserve it for visual continuity.
+  // Otherwise derive it from the fill (30% darker).
+  pickedStroke = stroke || _darkenHex(safe, 30);
+  var input = document.getElementById('fTreatmentColor');
+  if (input) input.value = safe;
+  var sw = document.getElementById('fTreatmentColorSwatch');
+  if (sw) sw.style.background = safe;
+}
+
+function updatePreview() {
+  var p = document.getElementById('previewTooth');
+  p.style.background    = pickedFill;
+  p.style.borderColor   = pickedStroke;
+  p.textContent         = '';
+}
+
+// Phase 6 K2.2: opens the shared custom color picker. Called from the swatch
+// button's onclick. The picker handles all platform differences — same UI
+// on iOS, Windows, Android, etc. The stroke is always re-derived from the
+// fill so the user gets a coherent outline whatever colour they choose.
+function openTreatColorPicker() {
+  if (!window.SyDentColorPicker) {
+    // Defensive fallback: if supabase-init.js failed to load the picker
+    // block, let the user type a hex value manually (extremely rare).
+    /* v461: مسارُ احتياطٍ نادر — بحوار المنصة إن وُجد، وإلا نافذةُ المتصفّح كملاذٍ أخير. */
+    if (window.SyDialog) {
+      SyDialog.prompt({ title: 'لون مخصّص', message: 'أدخل لون hex (مثال: #0d8577):', value: pickedFill })
+        .then(function (t) { if (t) pickColor(t, _darkenHex(t, 30)); });
+      return;
+    }
+    var typed = window.prompt('أدخل لون hex (مثال: #0d8577):', pickedFill);
+    if (typed) {
+      pickColor(typed, _darkenHex(typed, 30));
+      updatePreview();
+    }
+    return;
+  }
+  window.SyDentColorPicker.open(pickedFill, function(newHex) {
+    pickColor(newHex, _darkenHex(newHex, 30));
+    updatePreview();
+  });
+}
+
+// wire up target-part picker
+document.querySelectorAll('.target-opt').forEach(function(o){
+  o.addEventListener('click', function(){
+    userTouchedTarget = true;  // manual pick — stop category auto-default this session
+    pickTarget(o.getAttribute('data-target'));
+  });
+});
+
+document.getElementById('tName').addEventListener('input', updatePreview);
+
+// Phase 3 Feature E: smart lab default by category + track manual override
+document.getElementById('tCategory').addEventListener('change', applyCategoryLabDefault);
+document.getElementById('tCategory').addEventListener('change', applyCategoryTargetDefault);
+document.getElementById('tCategory').addEventListener('change', applyCategoryDentDefault);
+(function(){ var _ds = document.getElementById('tDentScope'); if (_ds) _ds.addEventListener('change', function(){ userTouchedDentScope = true; }); })();
+document.getElementById('tNeedsLab').addEventListener('change', function() {
+  userTouchedLabToggle = true;
+  syncLabDaysVisibility();   /* M161 */
+});
+
+// Search input
+var searchInputEl = document.getElementById('treatSearch');
+if (searchInputEl) {
+  searchInputEl.addEventListener('input', function(e){
+    searchTerm = e.target.value;
+    render();
+  });
+}
+
+// Filter chips — الشرائحُ تُرسم ديناميكياً ⇒ تفويضٌ واحد لكل صف
+['catChips', 'filterChips', 'flagChips'].forEach(function(id){
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('click', onFilterChip);
+});
+
+// Replace direct render() at bottom with auth-aware loader
+window.addEventListener('load', function(){
+  loadTreatments().then(openEditFromQuery);
+});
+
+/* M161: رابطٌ عميق من مودال طلب المخبر — ?edit=<treatment_key>&focus=lab_days يفتح العلاج للتعديل
+   ويضع المؤشر على «مدّة المخبر». يعبّي ولا يحفظ (#690)؛ والمعامل يُزال كي لا يعاد الفتح بالتحديث. */
+function openEditFromQuery() {
+  try {
+    var q = new URLSearchParams(location.search), key = q.get('edit');
+    if (!key) return;
+    var t = treatments.find(function (x) { return x.treatment_key === key; });
+    history.replaceState(null, '', location.pathname);
+    if (!t) { showToast('⚠️ العلاج غير موجود'); return; }
+    editTreatment(t.id);
+    if (q.get('focus') === 'lab_days') {
+      setTimeout(function () { var f = document.getElementById('tLabDays'); if (f && !f.closest('[hidden]')) { f.scrollIntoView({ block: 'center' }); f.focus(); } }, 250);
+    }
+  } catch (e) { console.warn('treatments deep link:', e); }
+}
+
+function openModal()  {
+  syncLabDaysVisibility();   /* M161 */
+  // M125: مبدّل عملة السعر — عند التعديل يبدأ بعملة العلاج القائم، وعند
+  // الإنشاء بعملة العيادة. صامت تماماً بالعيادة الأحادية.
+  try {
+    var _t = null;
+    if (editingId) { for (var _i = 0; _i < treatments.length; _i++) if (treatments[_i].id === editingId) { _t = treatments[_i]; break; } }
+    // الأسعار المخصصة للأطباء أسعارٌ لنفس الخدمة ⇒ ترث عملة علاجها،
+    // فتبديلُ عملة العلاج يُفرّغها معه (رقمٌ تحت وحدةٍ أخرى وسمٌ كاذب).
+    window.SyDentCurPick.mount('tPrice', { initial: _t ? ((_t.currency === 'USD') ? 'USD' : 'SYP') : null,
+                                           clearAlso: ['.t-ovr-inp'],
+                                           onChange: _ovrApplyCur });   /* خطوة/لوحة الأسعار المخصصة تتبع العملة */
+  } catch (e) {}
+  _ovrApplyCur(_ovrCurCode());   /* mount بعملة العلاج لا يُطلق onChange — وازن الصفوف المرسومة قبله */
+  document.getElementById('treatModal').classList.add('open');
+}
+function closeModal() {
+  var el = document.getElementById('treatModal');
+  el.classList.remove('open');
+  el.style.display = 'none';
+  setTimeout(function(){ el.style.display = ''; }, 50);
+}
+/* v447: النقر خارج نموذج العلاج كان يغلقه ويمحو اثني عشر حقلاً بلا إنذار.
+   أُزيل — الإغلاق بـ✕ أو «إلغاء» أو Escape (عُدّة النوافذ). */
+
+
+// ============================================================
+// === Print Legend ===
+// ============================================================
+async function printLegend() {
+  // Build a print-friendly HTML and open it in a new window.
+  // النافذة تُفتح داخل نقرة المستخدم قبل أي await (وإلا حجبها مانع النوافذ — درس v128).
+  var w = window.open('', '_blank');
+  if (!w) { showToast('⚠️ الرجاء السماح بالنوافذ المنبثقة'); return; }
+  // اسمُ العيادة على الترويسة كسائر المطبوعات (روشتة · كشف حساب · خطة علاج)؛ الارتداد SyDent.
+  var clinicName = 'SyDent';
+  try {
+    var _cs = await window.sb.from('clinic_settings').select('clinic_name').eq('owner_id', currentDoctor.id).maybeSingle();
+    if (!_cs.error && _cs.data && _cs.data.clinic_name && String(_cs.data.clinic_name).trim()) clinicName = String(_cs.data.clinic_name).trim();
+  } catch (e) { /* الارتداد كافٍ */ }
+  var activeOnly = treatments.filter(function(t){ return t.is_active !== false; });
+  var grouped = {};
+  activeOnly.forEach(function(t){
+    var cat = t.category || 'other';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(t);
+  });
+  // التصنيفات من المصدر الواحد CAT_ORDER/CAT_MAP — أيُّ تصنيفٍ خارجه (بيانات قديمة) يُلحق بالذيل لا يُسقط.
+  var order = CAT_ORDER.slice();
+  Object.keys(grouped).forEach(function(c){ if (order.indexOf(c) < 0) order.push(c); });
+  var today = SyDT.numDate(new Date());   // v487: المطبوعُ أرقاماً
+
+  var html = '<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>دليل العلاجات — SyDent</title>';
+  html += '<link href="/fonts/plex-arabic.css" rel="stylesheet">';
+  html += '<style>';
+  html += '*{box-sizing:border-box;margin:0;padding:0;font-family:Cairo,sans-serif;}';
+  html += 'body{padding:30px 20px;color:#1a1a1a;background:#fff;direction:rtl;}';
+  html += '.header{text-align:center;margin-bottom:24px;border-bottom:3px solid #0d8577;padding-bottom:14px;}';  /* الكشف على أبيض دائماً — بلا stylesheet يعرّف var(--green) */
+  html += '.header h1{font-size:26px;color:#1a1a1a;margin-bottom:4px;}';
+  html += '.header .sub{font-size:13px;color:#666;}';
+  html += '.cat-section{margin-bottom:22px;page-break-inside:avoid;}';
+  html += '.cat-title{font-size:16px;font-weight:800;color:#1a1a1a;border-bottom:2px solid #ccc;padding:6px 0;margin-bottom:10px;}';
+  html += '.tab{width:100%;border-collapse:collapse;}';
+  html += '.tab th,.tab td{padding:8px 10px;text-align:right;border-bottom:1px solid #e0e0e0;font-size:13px;}';
+  html += '.tab th{background:#f5f5f5;font-weight:700;color:#1a1a1a;font-size:12px;text-transform:uppercase;}';
+  html += '.color-dot{display:inline-block;width:18px;height:18px;border-radius:4px;vertical-align:middle;margin-left:8px;}';
+  html += '.price-col{text-align:left;font-weight:700;color:#1a7340;direction:ltr;}';
+  html += '.footer{margin-top:30px;text-align:center;font-size:11px;color:#888;border-top:1px solid #ccc;padding-top:10px;}';
+  html += '@media print { body{padding:10px;} .no-print{display:none;} }';
+  html += '.no-print{position:fixed;top:10px;left:10px;display:flex;gap:8px;}';
+  html += '.no-print button{padding:8px 16px;border:none;border-radius:6px;background:#0d8577;color:#fff;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;}';
+  html += '.no-print button.close-btn{background:#ddd;color:#333;}';
+  html += '</style></head><body>';
+  html += '<div class="no-print"><button onclick="window.print()">🖨️ طباعة</button><button class="close-btn" onclick="window.close()">إغلاق</button></div>';
+  html += '<div class="header"><h1>🦷 دليل العلاجات والأسعار</h1><div class="sub">' + escapeHtml(clinicName) + ' — تاريخ الطباعة: ' + today + '</div></div>';
+
+  order.forEach(function(cat){
+    if (!grouped[cat] || grouped[cat].length === 0) return;
+    html += '<div class="cat-section">';
+    html += '<div class="cat-title">' + (CAT_MAP[cat] || CAT_MAP.other) + '</div>';
+    html += '<table class="tab"><thead><tr><th style="width:30px;">اللون</th><th>اسم العلاج</th><th style="width:90px;">الرمز</th><th style="width:120px;">السعر</th></tr></thead><tbody>';
+    grouped[cat].forEach(function(t){
+      var laymanSub = (t.layman_name && t.layman_name.trim())
+        ? '<div style="font-size:11px;color:#666;font-weight:400;margin-top:2px;">👤 للمريض: ' + escapeHtml(t.layman_name) + '</div>'
+        : '';
+      html += '<tr>';
+      html += '<td><span class="color-dot" style="background:' + t.fill + ';"></span></td>';
+      html += '<td><b>' + escapeHtml(t.name) + '</b>' + (t.needs_lab ? ' <span style="color:#7c3aed;font-size:11px;">🥽 مخبر</span>' : '') + laymanSub + '</td>';
+      html += '<td>' + escapeHtml(t.label) + '</td>';
+      html += '<td class="price-col">' + fmt(t.price) + ' ' + _curLblOf(t.currency) + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    html += '</div>';
+  });
+
+  html += '<div class="footer">© SyDent — نظام إدارة عيادة الأسنان</div>';
+  html += '<script>window.onload = function(){ setTimeout(function(){ window.print(); }, 300); };<' + '/script>';
+  html += '</body></html>';
+
+  w.document.write(html);
+  w.document.close();
+}
+
+// ============================================================
+// === Helper to close any modal by id ===
+// ============================================================
+
+// ============================================================
+// === Treatment Materials (P3-B) — ربط مواد المخزون بالعلاج ===
+// ============================================================
+var INV_ITEMS_CACHE = [];          // أصناف المخزون (للـ dropdown)
+var matEditingTreatmentId = null;
+var _matExistingIds = [];          // معرّفات الربط القائم لحظة الفتح — تُحذف بعد نجاح الإدراج لا قبله.
+                                   // null = «مجهول» (فشل جلبها): الحفظُ يُرفض — إدراجٌ فوق قائمٍ لا نعرفه = ازدواجُ خصمٍ من المخزون
+var _saveMaterialsInFlight = false;
+
+async function loadInventoryItemsForMaterials() {
+  // graceful: لو جدول المخزون غير موجود، نرجّع قائمة فارغة بلا كسر
+  try {
+    var res = await window.sb.from('inventory_items')
+      .select('id, name, unit, quantity')
+      .eq('owner_id', currentDoctor.id)
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+    if (res.error) { INV_ITEMS_CACHE = []; return; }
+    INV_ITEMS_CACHE = res.data || [];
+  } catch (e) { INV_ITEMS_CACHE = []; }
+}
+
+function matItemOptions(selectedId) {
+  var opts = '<option value="">— اختر صنفاً —</option>';
+  INV_ITEMS_CACHE.forEach(function(it){
+    var sel = (it.id === selectedId) ? ' selected' : '';
+    var unit = it.unit ? (' (' + escapeHtml(it.unit) + ')') : '';
+    opts += '<option value="' + it.id + '"' + sel + '>' + escapeHtml(it.name) + unit + '</option>';
+  });
+  return opts;
+}
+
+function matRowHtml(itemId, qty) {
+  return '<div class="mat-row" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">'
+    + '<select class="mat-item" onchange="matUpdateRowUnit(this)" style="flex:1;padding:9px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);font-family:Cairo,sans-serif;font-size:13px;">'
+      + matItemOptions(itemId) + '</select>'
+    + '<input type="number" class="mat-qty" value="' + (qty != null ? qty : 1) + '" min="0" step="0.01" inputmode="decimal" placeholder="الكمية" style="width:80px;padding:9px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);font-family:Cairo,sans-serif;font-size:14px;font-weight:700;text-align:center;">'
+    + '<span class="mat-unit" style="font-size:12px;color:var(--text2);min-width:42px;">' + matUnitFor(itemId) + '</span>'
+    + '<button type="button" class="btn" onclick="this.closest(\'.mat-row\').remove()" style="padding:8px 12px;font-size:13px;color:var(--red);" title="حذف">✕</button>'
+  + '</div>';
+}
+
+// يرجّع وحدة الصنف (للعرض بجانب الكمية)
+function matUnitFor(itemId) {
+  if (!itemId) return '';
+  for (var i=0; i<INV_ITEMS_CACHE.length; i++) {
+    if (INV_ITEMS_CACHE[i].id === itemId) {
+      return INV_ITEMS_CACHE[i].unit ? escapeHtml(INV_ITEMS_CACHE[i].unit) : '';
+    }
+  }
+  return '';
+}
+
+// تحديث عرض الوحدة عند تغيير اختيار الصنف
+function matUpdateRowUnit(selectEl) {
+  var row = selectEl.closest('.mat-row');
+  if (!row) return;
+  var unitEl = row.querySelector('.mat-unit');
+  if (unitEl) unitEl.innerHTML = matUnitFor(selectEl.value);
+}
+
+function matAddRow(itemId, qty) {
+  var wrap = document.getElementById('matRowsWrap');
+  if (!wrap) return;
+  wrap.insertAdjacentHTML('beforeend', matRowHtml(itemId, qty));
+}
+
+async function openMaterialsModal(treatmentId) {
+  matEditingTreatmentId = treatmentId;
+  var t = null;
+  for (var i=0; i<treatments.length; i++) if (treatments[i].id === treatmentId) { t = treatments[i]; break; }
+  document.getElementById('matModalTitle').textContent = '🧰 مواد: ' + (t ? t.name : '');
+  var saveBtn = document.getElementById('matSaveBtn');
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'حفظ المواد'; }
+  document.getElementById('matRowsWrap').innerHTML = '';
+
+  // حمّل أصناف المخزون
+  await loadInventoryItemsForMaterials();
+  var noInv = document.getElementById('matNoInventory');
+  var addBtn = document.getElementById('matAddBtn');
+  var colHeaders = document.getElementById('matColHeaders');
+  if (!INV_ITEMS_CACHE.length) {
+    noInv.style.display = 'block';
+    addBtn.style.display = 'none';
+    if (colHeaders) colHeaders.style.display = 'none';
+  } else {
+    noInv.style.display = 'none';
+    addBtn.style.display = '';
+    if (colHeaders) colHeaders.style.display = 'flex';
+  }
+
+  // حمّل المواد المرتبطة حالياً بهذا العلاج
+  try {
+    var res = await window.sb.from('treatment_materials')
+      .select('id, item_id, qty_per_use')
+      .eq('owner_id', currentDoctor.id)
+      .eq('treatment_id', treatmentId);
+    _matExistingIds = (!res.error && res.data) ? res.data.map(function(m){ return m.id; }) : null;
+    if (!res.error && res.data && res.data.length) {
+      res.data.forEach(function(m){ matAddRow(m.item_id, m.qty_per_use); });
+    } else if (INV_ITEMS_CACHE.length) {
+      matAddRow(); // صف فارغ أول
+    }
+  } catch (e) {
+    _matExistingIds = null;
+    if (INV_ITEMS_CACHE.length) matAddRow();
+  }
+
+  document.getElementById('materialsModal').classList.add('open');
+}
+
+function closeMaterialsModal() {
+  var el = document.getElementById('materialsModal');
+  el.classList.remove('open');
+  el.style.display = 'none';
+  setTimeout(function(){ el.style.display = ''; }, 50);
+}
+
+function matCollectRows() {
+  var rows = document.querySelectorAll('#matRowsWrap .mat-row');
+  var out = [];
+  var seen = {};
+  for (var i=0; i<rows.length; i++) {
+    var itemId = rows[i].querySelector('.mat-item').value;
+    var qty = parseFloat(rows[i].querySelector('.mat-qty').value);
+    if (!itemId) continue;                 // تجاهل الصفوف بلا صنف
+    if (isNaN(qty) || qty <= 0) continue;   // تجاهل الكميات غير الصالحة
+    if (seen[itemId]) continue;             // تجاهل التكرار (نفس الصنف مرتين)
+    seen[itemId] = true;
+    out.push({ item_id: itemId, qty_per_use: qty });
+  }
+  return out;
+}
+
+async function saveMaterials() {
+  if (_saveMaterialsInFlight) return;
+  if (!matEditingTreatmentId) return;
+  if (_matExistingIds === null) {   /* fail-closed: القائمُ مجهول ⇒ لا إدراجٍ يُضاعِفه */
+    showToast('⚠️ تعذّر تحميل المواد المرتبطة حالياً — أغلق النافذة وأعد فتحها ثم احفظ');
+    return;
+  }
+  var rows = matCollectRows();
+
+  _saveMaterialsInFlight = true;
+  var btn = document.getElementById('matSaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ…'; }
+  try {
+    // استبدالٌ بترتيبٍ آمن: أدرج الجديد أولاً ثم احذف القديم بمعرّفاته. الترتيب
+    // المعكوس (حذفٌ ثم إدراج) كان يفرّغ موادَّ العلاج بصمت لو فشل الإدراج بعد الحذف.
+    // لا قيدَ فريد على (علاج، صنف) فالإدراج أولاً لا يصطدم.
+    if (rows.length) {
+      var payload = rows.map(function(r){
+        return { owner_id: currentDoctor.id, treatment_id: matEditingTreatmentId,
+                 item_id: r.item_id, qty_per_use: r.qty_per_use };
+      });
+      var ins = await window.sb.from('treatment_materials').insert(payload);
+      if (ins.error) throw ins.error;
+    }
+    if (_matExistingIds.length) {
+      var del = await window.sb.from('treatment_materials')
+        .delete().in('id', _matExistingIds).eq('owner_id', currentDoctor.id);
+      if (del.error) {
+        // الجديد محفوظ والقديم بقي معه — يُعلَن صراحةً كي يُعاد الفتح ويُحفظ ثانيةً
+        console.error('saveMaterials cleanup:', del.error);
+        showToast('⚠️ حُفظت المواد الجديدة لكن تعذّر حذف الربط القديم — افتح المودال واحفظ مجدداً');
+        _matExistingIds = [];
+        closeMaterialsModal();
+        return;
+      }
+    }
+    _matExistingIds = [];
+    closeMaterialsModal();
+    showToast('تم حفظ المواد ✓');
+  } catch (e) {
+    console.error('saveMaterials:', e);
+    var msg = (e && e.message || '') + ' ' + (e && e.code || '');
+    if (/relation .* does not exist|42P01|PGRST205/i.test(msg)) {
+      showToast('⚠️ شغّل Migration 53 أولاً');
+    } else {
+      showToast('تعذّر حفظ المواد');
+    }
+  } finally {
+    _saveMaterialsInFlight = false;
+    if (btn) { btn.disabled = false; btn.textContent = 'حفظ المواد'; }
+  }
+}
+
+</script>
+
+<script>
+initSidebar('treatments');
+document.addEventListener('DOMContentLoaded', function() {
+  var btn = document.createElement('button');
+  btn.className = 'sb-hamburger';
+  btn.innerHTML = '<span></span><span></span><span></span>';
+  btn.onclick = function() { window.sbToggle(); };
+  var topbar = document.querySelector('.topbar');
+  if (topbar) topbar.insertBefore(btn, topbar.firstChild);
+});
+</script>
+<script>
+(function(){
+  if(!('ontouchstart' in window)) return;
+  var s=document.createElement('style');
+  s.textContent='.ptr-bar{width:100%;overflow:hidden;height:0;display:flex;align-items:center;justify-content:center;gap:8px;background:#0a1628;font-size:13px;font-weight:700;color:var(--green);font-family:"Cairo",sans-serif;transition:height .25s ease;border-bottom:1px solid transparent;position:fixed;top:0;left:0;right:0;z-index:9999;}.ptr-bar.show{height:44px;border-bottom-color:rgba(var(--green-rgb),0.2);}.ptr-ring{width:15px;height:15px;border:2px solid rgba(var(--green-rgb),0.25);border-top-color:var(--green);border-radius:50%;flex-shrink:0;}.ptr-bar.spin .ptr-ring{animation:ptrSpin .65s linear infinite;}@keyframes ptrSpin{to{transform:rotate(360deg);}}';
+  document.head.appendChild(s);
+  var bar=document.createElement('div');
+  bar.id='ptrBar';bar.className='ptr-bar';
+  bar.innerHTML='<div class="ptr-ring" id="ptrRing"></div><span id="ptrLabel">↓ اسحب للتحديث</span>';
+  document.body.insertBefore(bar,document.body.firstChild);
+  var THRESHOLD=65,MAX=95,sy=0,cy=0,active=false;
+  function b(){return document.getElementById('ptrBar');}
+  function r(){return document.getElementById('ptrRing');}
+  function l(){return document.getElementById('ptrLabel');}
+  function setState(st,pull){
+    var bv=b(),rv=r(),lv=l();if(!bv)return;
+    if(st==='hide'){bv.className='ptr-bar';}
+    else if(st==='pull'){bv.className='ptr-bar show';rv.style.animation='none';rv.style.transform='rotate('+Math.round((pull/THRESHOLD)*270)+'deg)';lv.textContent=pull>=THRESHOLD?'↑ أفلت للتحديث':'↓ اسحب للتحديث';}
+    else if(st==='spin'){bv.className='ptr-bar show spin';rv.style.transform='';rv.style.animation='';lv.textContent='جارٍ التحديث…';}
+  }
+  document.addEventListener('touchstart',function(e){if(window.scrollY>0)return;sy=cy=e.touches[0].clientY;active=true;},{passive:true});
+  document.addEventListener('touchmove',function(e){if(!active)return;if(window.scrollY>0){active=false;setState('hide');return;}cy=e.touches[0].clientY;var pull=Math.min(Math.max(0,cy-sy)*0.55,MAX);if(pull>4)setState('pull',pull);else setState('hide');},{passive:true});
+  document.addEventListener('touchend',function(){if(!active)return;active=false;var pull=Math.min(Math.max(0,cy-sy)*0.55,MAX);if(pull>=THRESHOLD){setState('spin');setTimeout(function(){window.location.reload();},800);}else{setState('hide');}cy=0;});
+})();
+</script>
+</body>
+</html>

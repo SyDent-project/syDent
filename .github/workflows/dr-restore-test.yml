@@ -1,0 +1,159 @@
+name: DR Restore Test
+
+# ─────────────────────────────────────────────────────────────────────────────
+# الهدف: إثبات أن النسخة الاحتياطية اليومية (SyDent-backups) قابلة للاستعادة فعلاً —
+#   لا نسخةٌ تُكتب بلا أن يقرأها أحد. يستعيد آخر نسخة إلى قاعدة هدفٍ مستقلّة ويتحقّق
+#   آلياً، ويفشل بصوتٍ مسموع عند أي انحراف.
+#
+# ⚠️ لا يعمل أبداً ضد الإنتاج: حارس صلب يرفض أي DR_TARGET_DB_URL يحمل مرجع مشروع
+#   الإنتاج، ويرفض أيضاً أي رابط يشير إلى db.<PROD_REF> أو postgres.<PROD_REF>.
+#
+# التشغيل: يدوي (workflow_dispatch) — لا جدول. القاعدة التشغيلية: مرّة قبل أول عميل
+#   يدفع، ثم شهرياً أو بعد أي هجرة تلمس البنية.
+#
+# الأسرار المطلوبة (Settings → Secrets → Actions):
+#   • BACKUP_PAT        — القائم أصلاً (قراءة SyDent-backups).
+#   • DR_TARGET_DB_URL  — Session pooler للمشروع الهدف (sydent-dr):
+#       postgresql://postgres.<target-ref>:<PASSWORD>@aws-1-<region>.pooler.supabase.com:5432/postgres
+#
+# أمر الاستعادة هو الموثَّق رسمياً بـ Supabase (Backups → Restore from dump):
+#   psql --single-transaction --variable ON_ERROR_STOP=1 \
+#        --file roles.sql --file schema.sql \
+#        --command 'SET session_replication_role = replica' --file data.sql
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_dir:
+        description: 'اسم مجلد النسخة (فارغ = الأحدث)، مثل 2026-09-02_0200'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-restore-test
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    env:
+      TARGET: ${{ secrets.DR_TARGET_DB_URL }}
+      # Production project ref (repo variable); the guard refuses to restore onto it.
+      PROD_REF: ${{ vars.SUPABASE_PROD_REF || 'nxkalpjrqvpglphmiuui' }}
+    steps:
+      - name: Guard — target must exist and must not be production
+        run: |
+          set -euo pipefail
+          [ -n "$TARGET" ] || { echo "::error::DR_TARGET_DB_URL secret is missing"; exit 1; }
+          if grep -q "$PROD_REF" <<< "$TARGET"; then
+            echo "::error::DR_TARGET_DB_URL points at the PRODUCTION project ($PROD_REF). Refusing."; exit 1
+          fi
+          echo "target ok (host masked): $(sed -E 's#://[^@]+@#://***@#' <<< "$TARGET")"
+
+      - name: Checkout backup repo
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.repository_owner }}/SyDent-backups
+          token: ${{ secrets.BACKUP_PAT }}
+          path: backups-repo
+
+      - name: Pick backup directory
+        id: pick
+        run: |
+          set -euo pipefail
+          cd backups-repo
+          if [ -n "${{ github.event.inputs.backup_dir }}" ]; then
+            DIR="${{ github.event.inputs.backup_dir }}"
+          else
+            DIR="$(ls -1d 20*_* 2>/dev/null | sort | tail -1)"
+          fi
+          [ -d "$DIR" ] || { echo "::error::backup dir not found: $DIR"; exit 1; }
+          for f in roles.sql schema.sql data.sql; do
+            [ -s "$DIR/$f" ] || { echo "::error::$DIR/$f missing or empty"; exit 1; }
+          done
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+          echo "Restoring from: $DIR"; ls -la "$DIR"
+
+      - name: Install psql 17
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq postgresql-common >/dev/null
+          echo | sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh >/dev/null 2>&1
+          sudo apt-get install -y -qq postgresql-client-17 >/dev/null
+          psql --version
+
+      - name: Wipe target public schema (target is disposable by contract)
+        run: |
+          set -euo pipefail
+          psql --variable ON_ERROR_STOP=1 --dbname "$TARGET" <<'SQL'
+          DROP SCHEMA IF EXISTS public CASCADE;
+          CREATE SCHEMA public;
+          GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
+          GRANT ALL ON SCHEMA public TO postgres, service_role;
+          DELETE FROM auth.users;
+          DELETE FROM storage.objects;
+          SQL
+
+      - name: Restore (roles → schema → data), single transaction
+        run: |
+          set -euo pipefail
+          D="backups-repo/${{ steps.pick.outputs.dir }}"
+          START=$(date +%s)
+          psql --single-transaction --variable ON_ERROR_STOP=1 \
+               --file "$D/roles.sql" \
+               --file "$D/schema.sql" \
+               --command 'SET session_replication_role = replica' \
+               --file "$D/data.sql" \
+               --dbname "$TARGET"
+          echo "restore_seconds=$(( $(date +%s) - START ))" >> "$GITHUB_ENV"
+
+      - name: Verify — row counts match the dump, RLS on, policies present, financial identity
+        run: |
+          set -euo pipefail
+          D="backups-repo/${{ steps.pick.outputs.dir }}"
+          # expected rows per public table = lines inside each COPY block of data.sql
+          awk '
+            /^COPY "public"\."[^"]+"/ { match($0, /"public"\."[^"]+"/); t=substr($0,RSTART+10,RLENGTH-11); n=0; inblk=1; next }
+            inblk && /^\\\.$/ { print t "\t" n; inblk=0; next }
+            inblk { n++ }
+          ' "$D/data.sql" | sort > expected.tsv
+          echo "tables in dump: $(wc -l < expected.tsv)"
+          # actual counts
+          : > actual.tsv
+          while IFS=$'\t' read -r t n; do
+            c=$(psql -At --dbname "$TARGET" -c "SELECT count(*) FROM public.\"$t\"")
+            printf '%s\t%s\n' "$t" "$c" >> actual.tsv
+          done < expected.tsv
+          if ! diff -u expected.tsv actual.tsv; then
+            echo "::error::row counts differ between dump and restored target"; exit 1
+          fi
+          echo "✅ row counts identical for every table in the dump"
+          psql -At --variable ON_ERROR_STOP=1 --dbname "$TARGET" <<'SQL' | tee verify.txt
+          SELECT 'tables_public='||count(*) FROM pg_tables WHERE schemaname='public';
+          SELECT 'tables_without_rls='||count(*) FROM pg_tables WHERE schemaname='public' AND NOT rowsecurity;
+          SELECT 'policies='||count(*) FROM pg_policies WHERE schemaname='public';
+          SELECT 'functions='||count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public';
+          SELECT 'triggers='||count(*) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND NOT t.tgisinternal;
+          SELECT 'auth_users='||count(*) FROM auth.users;
+          SELECT 'doctors_without_auth_user='||count(*) FROM public.doctors d LEFT JOIN auth.users u ON u.id=d.id WHERE u.id IS NULL;
+          SELECT 'splits_exceeding_payment='||count(*) FROM (
+            SELECT p.id FROM public.ledger_payments p JOIN public.payment_splits s ON s.payment_id=p.id
+            GROUP BY p.id, p.amount HAVING sum(s.amount) > p.amount + 0.005) x;
+          SQL
+          grep -q '^tables_without_rls=0$' verify.txt || { echo "::error::some restored tables have RLS off"; exit 1; }
+          grep -q '^doctors_without_auth_user=0$' verify.txt || { echo "::error::doctors rows without auth.users (auth data not restored)"; exit 1; }
+          grep -q '^splits_exceeding_payment=0$' verify.txt || { echo "::error::financial identity broken after restore"; exit 1; }
+          [ "$(grep -o 'policies=[0-9]*' verify.txt | cut -d= -f2)" -gt 0 ] || { echo "::error::zero policies restored"; exit 1; }
+
+      - name: Summary
+        run: |
+          {
+            echo "## ✅ DR restore test passed"
+            echo "- backup: \`${{ steps.pick.outputs.dir }}\`"
+            echo "- restore time: ${restore_seconds}s"
+            echo '```'; cat verify.txt; echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

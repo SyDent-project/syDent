@@ -1,0 +1,40 @@
+# ════════════════════════════════════════════════════════════════════════
+# SyDent — e2e-smoke.yml · تشغيل يدوي لاختبارات Playwright (المسار ب)
+# ════════════════════════════════════════════════════════════════════════
+# جلسة ب٣: الخطوات انتقلت إلى ‎.github/actions/e2e-run (مصدر الحقيقة الوحيد
+# المشترك مع job: e2e في ci-guards) — هذا الملف غلاف نحيف فوقها، وسلوكه
+# اليدوي كما كان: workflow_dispatch حصراً، منصة برهان بكبسة.
+#
+# concurrency: نفس مجموعة job: e2e في ci-guards (e2e-tenant) — المستأجر
+# واحد مشترك، فأي تشغيلتين (يدوية أو بوابة) تتسلسلان ولا تتصادمان أبداً.
+# cancel-in-progress: false — تشغيلة جارية لا تُقطع (كنسها الذاتي يكتمل).
+#
+# الأسرار المطلوبة (Settings → Secrets and variables → Actions):
+#   E2E_EMAIL                 إيميل «عيادة E2E الآلية»
+#   E2E_SUPABASE_SECRET_KEY   المفتاح السري للمشروع
+# ════════════════════════════════════════════════════════════════════════
+name: e2e-smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-tenant
+  cancel-in-progress: false   # نفس المستأجر — تشغيلة واحدة بأي لحظة
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: "تشغيل E2E (المصدر الوحيد: .github/actions/e2e-run)"
+        uses: ./.github/actions/e2e-run
+        with:
+          e2e-email: ${{ secrets.E2E_EMAIL }}
+          e2e-supabase-secret-key: ${{ secrets.E2E_SUPABASE_SECRET_KEY }}

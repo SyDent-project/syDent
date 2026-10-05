@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SyDent">
+<meta name="theme-color" content="#0d8577">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=4">
+<link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<title>SyDent — المصاريف</title>
+<!-- Theme system: MUST load before inline <style>
+/* ── Modal ── v448: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
+   (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
+ to apply data-theme synchronously and prevent FOUC. -->
+<script src="theme.js?v=20261005a"></script>
+<style>
+:root {
+  --bg:        #0a1628;
+  --bg2:       #0f2038;
+  --bg3:       #132840;
+  --border:    rgba(var(--green-rgb),0.15);
+  --green:     var(--green);
+  --green-dim: rgba(var(--green-rgb),0.12);
+  --red:       #ef5350;
+  --yellow:    #f5c842;
+  --blue:      #63b3ed;
+  --orange:    #ffa726;
+  --gray:      #a3a3a3;
+  --text:      #e1f4ee;
+  --text2:     #8a9ab5;
+  --radius:    12px;
+  --sidebar:   240px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Cairo', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  overflow-x: hidden;
+}
+
+.main {
+  flex: 1;
+  margin-right: var(--sb-width, 240px);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-width: 0;
+}
+
+.topbar {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 28px;
+  display: flex; align-items: center; gap: 16px;
+  position: sticky; top: 0; z-index: 50;
+}
+.topbar-title { font-size: 20px; font-weight: 700; flex: 1; }
+.topbar-title span { color: var(--green); }
+
+.btn-add {
+  background: var(--green);
+  color: #0a1628;
+  border: none; border-radius: 10px;
+  padding: 10px 20px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 7px;
+  transition: opacity .2s, transform .15s;
+  white-space: nowrap;
+}
+.btn-add:hover { opacity: .88; transform: translateY(-1px); }
+.btn-add.outline {
+  background: transparent;
+  border: 1px solid var(--green);
+  color: var(--green);
+}
+
+.content { padding: 28px; flex: 1; }
+
+/* Tabs */
+.tabs {
+  display: flex; gap: 6px; margin-bottom: 22px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.tab {
+  padding: 11px 22px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text2);
+  font-family: 'Cairo', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+  margin-bottom: -1px;
+}
+.tab:hover { color: var(--text); }
+.tab.active {
+  color: var(--green);
+  border-bottom-color: var(--green);
+}
+/* Light-mode fix: theme.css forces .tab.active → white (var(--on-accent)) for
+   filled-green tabs (auth/patient-profile). Our tabs are underline-style on a
+   transparent bg, so white text vanishes on the light background. Higher
+   specificity (0,5,0) beats theme.css's (0,4,0) regardless of load order. */
+:root[data-theme="light"] .tabs .tab.active { color: var(--green); }
+/* theme.css forces .btn-add → white in light (correct for the filled-green
+   "+ مصروف جديد"). The .outline variant ("+ تصنيف جديد") has a transparent
+   bg, so white text vanishes on the light background. Restore green text.
+   Specificity (0,4,0) beats theme.css's .btn-add (0,3,0) regardless of order. */
+:root[data-theme="light"] .btn-add.outline { color: var(--green); }
+
+/* Stats */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: flex; align-items: center; gap: 14px;
+}
+.stat-icon {
+  width: 44px; height: 44px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.stat-icon.b { background: var(--blue-bg); }   /* v372: unified chip tokens */
+.stat-icon.g { background: var(--green-bg); }
+.stat-icon.y { background: var(--yellow-bg); }
+.stat-icon.o { background: var(--orange-bg); }
+.stat-icon.r { background: var(--red-bg); }
+.stat-num { font-size: 20px; font-weight: 800; line-height: 1.1; }
+.stat-lbl { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+/* Section */
+.section {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 22px;
+  overflow: hidden;
+}
+.section-head {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px;
+}
+.section-title {
+  font-size: 15px; font-weight: 700;
+  display: flex; align-items: center; gap: 8px;
+}
+.count-badge {
+  background: var(--green-dim);
+  color: var(--green);
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 12px; font-weight: 600;
+}
+
+/* Filters */
+.filters {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.filter-label {
+  font-size: 12px;
+  color: var(--text2);
+  margin-left: 4px;
+}
+.filter-chip {
+  padding: 6px 14px; border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text2);
+  font-family: 'Cairo', sans-serif; font-size: 12px;
+  cursor: pointer; transition: all .15s;
+  white-space: nowrap;
+}
+.filter-chip:hover, .filter-chip.active {
+  background: var(--green-dim);
+  border-color: var(--green);
+  color: var(--green);
+}
+.date-input {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: var(--text);
+  font-family: 'Cairo', sans-serif;
+  font-size: 12px;
+  outline: none;
+}
+.date-input:focus { border-color: var(--green); }
+
+/* Table */
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  padding: 12px 16px;
+  text-align: right;
+  font-size: 12px; font-weight: 600;
+  color: var(--text2);
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background .15s;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(var(--green-rgb),0.04); }
+tbody td {
+  padding: 12px 16px;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.amount {
+  font-weight: 700;
+  color: var(--green);
+  font-variant-numeric: tabular-nums;
+}
+.amount.big {
+  font-size: 16px;
+}
+
+/* v475: أزرارُ الصفوف وبطاقات التصنيفات على طقم أزرار الصفوف (theme.css) — قواعدُها المحلية حُذفت بعد نقل قيمها */
+/* v293: rows open the editor; press feedback */
+tbody tr[data-exp-id] { cursor: pointer; }
+tbody tr[data-exp-id]:hover td { background: rgba(var(--green-rgb),0.05); }
+tbody tr:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+button:active:not(:disabled) { transform: scale(.97); }
+button:disabled { opacity: .6; cursor: wait; }
+
+
+/* Empty state */
+.empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text2);
+}
+.empty-icon { font-size: 48px; opacity: .4; margin-bottom: 12px; }
+.empty-msg { font-size: 14px; line-height: 1.6; }
+
+/* Categories grid */
+.cats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  padding: 20px;
+}
+.cat-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color .2s;
+}
+.cat-card:hover { border-color: var(--green); }
+.cat-card.inactive { opacity: 0.5; }
+.cat-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cat-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.cat-info { flex: 1; min-width: 0; }
+.cat-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.cat-stats {
+  font-size: 11px;
+  color: var(--text2);
+  margin-top: 2px;
+}
+.cat-actions {
+  display: flex;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* Modal */
+.modal-overlay.show { display: flex; }
+.modal-box::-webkit-scrollbar { width: 8px; height: 8px; }
+.modal-box::-webkit-scrollbar-track { background: transparent; }
+.modal-box::-webkit-scrollbar-thumb {
+  background: rgba(var(--green-rgb),0.35);
+  border-radius: 4px;
+  border: 2px solid var(--bg2);
+}
+.modal-box::-webkit-scrollbar-thumb:hover { background: rgba(var(--green-rgb),0.55); }
+
+.modal-head h3 {
+  font-size: 17px; font-weight: 800;
+  color: var(--green);
+}
+.modal-close:hover { color: var(--red); }
+
+.form-group { margin-bottom: 16px; }
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text2);
+  margin-bottom: 6px;
+}
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'Cairo', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus { border-color: var(--green); }
+.form-group textarea { resize: vertical; min-height: 70px; }
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;   /* v548: الصفُّ يحمل تباعد .form-group نفسه — كان الحقلُ التالي (الوقت→المبلغ · الطريقة→المصدر) ملتصقاً به */
+}
+.form-row .form-group { margin-bottom: 0; }
+.exp-src { font-size: 11px; font-weight: 600; color: var(--text2); white-space: nowrap; }   /* M165: «من خارج الدرج» */
+.hint {
+  font-size: 11px;
+  color: var(--text2);
+  margin-top: 4px;
+}
+.msg {
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 14px;
+  display: none;
+}
+.msg.show { display: block; }
+.msg.err { background: var(--red-soft); color: var(--red-ink); border: 1px solid var(--red-bd); }
+.msg.ok  { background: rgba(var(--green-rgb),0.1); color: var(--green); border: 1px solid rgba(var(--green-rgb),0.3); }
+
+.btn {
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all .15s;
+}
+.btn-primary {
+  background: var(--green);
+  color: #0a1628;
+  flex: 1;
+}
+.btn-primary:hover { opacity: .88; }
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text2);
+}
+.btn-outline:hover { border-color: var(--green); color: var(--green); }
+
+/* Color picker swatch */
+.color-swatch {
+  width: 38px; height: 38px;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  transition: transform .15s;
+}
+.color-swatch:hover { transform: scale(1.08); }
+
+/* Icon picker grid (categories modal) */
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+  padding: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.icon-opt {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background: transparent;
+  border: 1.5px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.icon-opt:hover { background: var(--bg3); }
+.icon-opt.selected {
+  background: var(--green-dim);
+  border-color: var(--green);
+}
+
+/* Toast */
+
+/* v363: بين الجوال والشاشة الواسعة (الشريط الجانبي ظاهر) أربعُ بطاقات لا تتسع — تصير اثنتين */
+@media (max-width: 1100px) {
+  .stats-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .main { margin-right: 0; }
+  .topbar { padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
+  .topbar-title { font-size: 16px; }
+  .content { padding: 16px; }
+  .stats-strip {
+    /* v363: minmax(0,…) — بطاقتان بعرض محتواهما (أيقونة 44 + حشوة 20) كانتا تتجاوزان
+       عرض الموبايل بـ18px؛ الآن تنكمشان والرقم الطويل يلتفّ داخل بطاقته */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .stat-card { padding: 12px; gap: 10px; min-width: 0; }
+  .stat-card > div:last-child { min-width: 0; }
+  .stat-icon { width: 36px; height: 36px; font-size: 17px; }
+  .stat-num { overflow-wrap: anywhere; }
+  .form-row { grid-template-columns: 1fr; }
+  .table-scroll thead { display: none; }
+  .table-scroll tbody, .table-scroll tr, .table-scroll td { display: block; width: 100%; }
+  .table-scroll tr { width: auto; }   /* DeepCode #9 (v562): العرضُ الكامل + هامشُ البطاقة كان يتجاوز الشاشة بـ12px */
+  .table-scroll tr {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 8px 12px;
+    padding: 10px;
+  }
+  .table-scroll td {
+    padding: 5px 0;
+    border: none;
+    font-size: 13px;
+  }
+  .table-scroll td::before {
+    content: attr(data-label);
+    color: var(--text2);
+    font-size: 11px;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .cats-grid { grid-template-columns: 1fr; padding: 12px; }
+  /* v475: خانةُ الإجراءات بالبطاقة سطرٌ كامل بفاصلٍ منقّط بلا لصيقة «إجراءات» (معيار أزرار الصفوف) */
+  .table-scroll td.exp-acts-cell { border-top: 1px dashed var(--border); margin-top: 6px; padding-top: 10px; }
+  .table-scroll td.exp-acts-cell::before { display: none; }
+}
+/* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
+html[data-sub-level="read"] :is([onclick*="openExpenseModal("],[onclick*="openCatModal("],[onclick*="saveExpense("],[onclick*="saveCategory("],[onclick*="editExpense("],[onclick*="deleteExpense("],[onclick*="editCategory("],[onclick*="toggleCategoryActive("],[onclick*="deleteCategory("]){display:none !important;}
+</style>
+<!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
+<link rel="stylesheet" href="theme.css?v=20261005a">
+<script src="/vendor/supabase-2.110.8.min.js"></script>
+<script src="supabase-init.js?v=20261005a"></script>
+<script src="sy-modal.js?v=20261005a"></script>
+<script src="pay-methods.js?v=20261005a"></script>
+<script src="sidebar.js?v=20261005a"></script>
+<script src="timepicker.js?v=20261005a"></script>
+</head>
+<body>
+
+<div class="main" id="sbMainContent">
+
+  <div class="topbar">
+    <div class="topbar-title">المصاريف <span>/ المحاسبة</span></div>
+    <button class="btn-add" onclick="openExpenseModal()">+ مصروف جديد</button>
+  </div>
+
+  <div class="content">
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" id="tabBtnList" onclick="switchTab('list')">المصاريف</button>
+      <button class="tab" id="tabBtnCats" onclick="switchTab('cats')">التصنيفات</button>
+    </div>
+
+    <!-- Tab: List -->
+    <div id="tabList">
+
+      <!-- Stats -->
+      <div class="stats-strip">
+        <div class="stat-card">
+          <div class="stat-icon b">📅</div>
+          <div>
+            <div class="stat-num" id="statToday">0</div>
+            <div class="stat-lbl">مصاريف اليوم</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon g">📊</div>
+          <div>
+            <div class="stat-num" id="statWeek">0</div>
+            <div class="stat-lbl">هذا الأسبوع</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon y">📈</div>
+          <div>
+            <div class="stat-num" id="statMonth">0</div>
+            <div class="stat-lbl">هذا الشهر</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon o">🗓️</div>
+          <div>
+            <div class="stat-num" id="statYear">0</div>
+            <div class="stat-lbl">هذه السنة</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters + Table -->
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">
+            <span>قائمة المصاريف</span>
+            <span class="count-badge" id="listCount">0</span>
+          </div>
+        </div>
+
+        <div class="filters">
+          <span class="filter-label">التصنيف:</span>
+          <div id="catFilters" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+        </div>
+
+        <div class="filters">
+          <span class="filter-label">من:</span>
+          <input type="date" class="date-input" id="dateFrom" onchange="applyFilters()">
+          <span class="filter-label">إلى:</span>
+          <input type="date" class="date-input" id="dateTo" onchange="applyFilters()">
+          <button class="filter-chip" onclick="clearDateFilter()">إعادة ضبط</button>
+        </div>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>التصنيف</th>
+                <th>الوصف</th>
+                <th>المورّد</th>
+                <th>المبلغ</th>
+                <th>طريقة الدفع</th>
+                <th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="expList"></tbody>
+          </table>
+          <div id="emptyState" class="empty" style="display:none;">
+            <div class="empty-icon">💸</div>
+            <div class="empty-msg">لا توجد مصاريف مسجّلة بعد.<br>سجّل أول مصروف لتتبّع نفقات العيادة.</div>
+            <div style="margin-top:16px;">
+              <button type="button" class="btn-add" onclick="openExpenseModal()" style="font-size:13px;padding:9px 18px;">
+                ＋ مصروف جديد
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Categories -->
+    <div id="tabCats" style="display:none;">
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">
+            <span>التصنيفات</span>
+            <span class="count-badge" id="catsCount">0</span>
+          </div>
+          <button class="btn-add outline" onclick="openCatModal()" style="padding:8px 16px;font-size:13px;">+ تصنيف جديد</button>
+        </div>
+        <div id="catsGrid" class="cats-grid"></div>
+        <div id="catsEmpty" class="empty" style="display:none;">
+          <div class="empty-icon">🏷️</div>
+          <div class="empty-msg">لا توجد تصنيفات بعد.<br>اضغط <b>+ تصنيف جديد</b> لإضافة أول تصنيف.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal: Expense -->
+<div class="modal-overlay sy-m" id="expModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="expModalTitle">+ مصروف جديد</h3>
+      <button class="modal-close" onclick="closeExpModal()" aria-label="إغلاق">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="msg" id="expMsg"></div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>التاريخ *</label>
+          <input type="date" id="eDate">
+        </div>
+        <div class="form-group">
+          <label>الوقت</label>
+          <input type="time" id="eTime">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>المبلغ (<span data-cur>ل.س</span>) *</label>
+        <input type="number" id="eAmount" min="0" step="1" placeholder="مثلاً: 50000">
+      </div>
+
+      <div class="form-group">
+        <label>التصنيف *</label>
+        <select id="eCategory"></select>
+        <div class="hint">إذا لم يكن التصنيف موجوداً، أضفه من تبويب "التصنيفات".</div>
+      </div>
+
+      <div class="form-group">
+        <label>الوصف</label>
+        <input type="text" id="eDescription" placeholder="مثلاً: شراء كومبوزيت 3M">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>المورّد / المتجر</label>
+          <input type="text" id="eVendor" placeholder="مثلاً: المركز الطبي">
+        </div>
+        <div class="form-group">
+          <label>طريقة الدفع</label>
+          <select id="ePaymentMethod" onchange="syncExpSource()">
+            <option value="cash">نقد</option>
+            <option value="bank">تحويل بنكي</option>
+            <option value="check">شيك</option>
+            <option value="shamcash">شام كاش</option>
+            <option value="syriatel">سيريتل كاش</option>
+            <option value="mtn">MTN كاش</option>
+            <option value="online">أونلاين</option>
+            <option value="other">آخر</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- M165 (v548): مصدرُ النقد — يظهر مع «نقد» فقط -->
+      <div class="form-group" id="eCashSourceGroup">
+        <label>مصدر النقد</label>
+        <select id="eCashSource"></select>
+        <div class="hint">«من خارج الدرج» (خزنة · جيب الطبيب): يُسجَّل مصروفاً بالحسابات ولا يُخصم من إقفال الصندوق.</div>
+      </div>
+
+      <div class="form-group">
+        <label>ملاحظات (اختياري)</label>
+        <textarea id="eNotes" placeholder="أي تفاصيل إضافية..."></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeExpModal()">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveExpense()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Category -->
+<div class="modal-overlay sy-m" id="catModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="catModalTitle">+ تصنيف جديد</h3>
+      <button class="modal-close" onclick="closeCatModal()" aria-label="إغلاق">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="msg" id="catMsg"></div>
+
+      <div class="form-group">
+        <label>اسم التصنيف *</label>
+        <input type="text" id="cName" placeholder="مثلاً: مواد سنية" maxlength="50">
+      </div>
+
+      <div class="form-group">
+        <label>الأيقونة</label>
+        <div class="icon-grid" id="iconGrid"></div>
+        <div class="hint">اختر أيقونة من الشبكة، أو اتركها كما هي.</div>
+      </div>
+
+      <div class="form-group">
+        <label>اللون المميّز</label>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input type="hidden" id="cColor" value="#63b3ed">
+          <button type="button" class="color-swatch" id="cColorSwatch" onclick="openCatColorPicker()" aria-label="اختيار اللون"></button>
+          <span style="color:var(--text2);font-size:12px;">يُستخدم في تقارير المحاسبة لتمييز التصنيف</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeCatModal()">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveCategory()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ─────────────────────────────────────────────────────────────────
+var currentUser = null;
+var categories = [];   // expense_categories rows
+var expenses = [];     // expenses rows
+var editingExpId = null;
+var editingCatId = null;
+var filterCatId = 'all';  // 'all' or category id
+var filterDateFrom = '';
+var filterDateTo = '';
+
+// ─── Default categories (bootstrapped on first run) ───────────────────────
+// These appear automatically the first time the Owner opens expenses.html in
+// a freshly-installed clinic. The Owner can rename, recolor, deactivate or
+// delete any of them afterwards — they're seeds, not built-ins. is_system
+// flag isn't used since the Owner has full control over their categories.
+var DEFAULT_CATEGORIES = [
+  { name: 'مواد سنية', icon: '🦷', color: '#63b3ed', sort_order: 1 },
+  { name: 'أدوات ومعدّات', icon: '🔧', color: '#ffa726', sort_order: 2 },
+  { name: 'إيجار وخدمات', icon: '🏢', color: '#f5c842', sort_order: 3 },
+  { name: 'كهرباء وماء', icon: '💡', color: '#fbbf24', sort_order: 4 },
+  { name: 'صيانة', icon: '🛠️', color: '#a78bfa', sort_order: 5 },
+  { name: 'تنظيف وتعقيم', icon: '🧼', color: '#34d399', sort_order: 6 },
+  { name: 'تسويق', icon: '📢', color: '#f472b6', sort_order: 7 },
+  { name: 'مواصلات وضيافة', icon: '🚗', color: '#60a5fa', sort_order: 8 },
+  { name: 'مصاريف عامة', icon: '📋', color: '#a3a3a3', sort_order: 9 }
+];
+
+// Curated icon set for the category picker. Doesn't need to be exhaustive —
+// the Owner can paste any emoji into the name field if they want a fancy
+// icon (we keep the icon column separate for future structured display).
+var ICON_OPTIONS = [
+  '🦷','🔧','🏢','💡','🛠️','🧼','📢','🚗',
+  '📋','💼','🧪','💊','🛒','🍕','📱','💻',
+  '🪑','🎓','📚','🎁','🏥','⚡','💰','🔌',
+  '📦','🗂️','🔑','🎨','🚿','🧴','🪥','💧'
+];
+
+// ─── DOM utility ───────────────────────────────────────────────────────────
+function $(id) { return document.getElementById(id); }
+
+
+function showMsg(id, txt, isError) {
+  var el = $(id);
+  if (!el) return;
+  el.textContent = txt;
+  el.className = 'msg show ' + (isError ? 'err' : 'ok');
+}
+function clearMsg(id) {
+  var el = $(id);
+  if (!el) return;
+  el.className = 'msg';
+  el.textContent = '';
+}
+
+/* ── M125 / قاعدة #481: العملة بُعد قسمة فوق كل رقم بهذه الصفحة ──────────────
+ * كان مصروفُ الدولار يُجمَع مع مصروف الليرة برقمٍ واحد ببطاقات الإحصاء ومجاميع
+ * التصنيفات، ويُوسَم كلُّ صفٍّ بعملة العيادة مهما كانت عملته — فالرقم والوسم
+ * كلاهما يكذب. الأكياس تفصل الطبقتين، والوسم يتبع عملة الصفّ لا العيادة.
+ * العيادة الأحادية: المخرج بايت-مطابق للسابق (رقمٌ عارٍ بلا وسم). */
+function _rowCur(r) { return (r && r.currency === 'USD') ? 'USD' : 'SYP'; }
+function _curLblOf(c) { return SyDentCurBag.lblOf(c); }
+/* تفويضٌ للمصدر الواحد SyDentCurBag (قاعدة #481) — النظائر المحلية أُلغيت
+ * بعد أن بلغت أربع نسخ بجلسةٍ واحدة. bare = بلا وسمٍ للطبقة الواحدة
+ * (بطاقات الإحصاء لم يكن لها وسمٌ أصلاً)، والكاملة توسم دائماً. */
+function _defCurExp() { return SyDentCurBag.defCur(); }
+function _emptyBag() { return SyDentCurBag.make(); }
+function _bagAdd(bag, row, val) { bag[_rowCur(row)] += (Number(val) || 0); }
+function _bagText(bag) { return SyDentCurBag.text(bag, fmtAmount, true); }
+function _bagTextFull(bag) { return SyDentCurBag.text(bag, fmtAmount); }
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtAmount(n) {
+  if (n === null || n === undefined) return '0';
+  return Number(n).toLocaleString('en-US');
+}
+
+function todayISO() {
+  var d = new Date();
+  return d.getFullYear() + '-' +
+         String(d.getMonth()+1).padStart(2,'0') + '-' +
+         String(d.getDate()).padStart(2,'0');
+}
+
+// ─── Auth bootstrap ────────────────────────────────────────────────────────
+async function init() {
+  // Phase 7.1 hotfix: initSidebar() was missing — without it the sidebar
+  // never injects on this page. Every other page calls initSidebar(activeId)
+  // at the top of its bootstrap; expenses.html was created without that
+  // call so the page rendered without navigation. Call it BEFORE the auth
+  // check so the sidebar shell appears even if auth has a transient delay.
+  if (typeof initSidebar === 'function') {
+    initSidebar('expenses');
+  }
+  try {
+    var u = await window.sbGetUser();
+    if (!u) { window.location.href = 'auth.html'; return; }
+    currentUser = u;
+
+    // Page guard: only Owner can access expense management. Doctor + Secretary
+    // are blocked since this affects accounting integrity. Aligns with the
+    // sidebar BLOCKED config in sidebar.js (Phase 4 lock model).
+    //
+    // Defense in depth (قاعدة #16 + درس Phase 7.2 live test): three layers.
+    //   1. Sidebar BLOCKED hides the link.
+    //   2. SyDentLock.guardPage replaces body with blocked screen.
+    //   3. Manual role check below as a final safety net if the
+    //      SyDentLock module fails to load or its guard call throws.
+    if (window.SyDentLock && window.SyDentLock.guardPage) {
+      if (!window.SyDentLock.guardPage(['owner'])) return;
+    }
+    var role = (window.SyDentLock && window.SyDentLock.getRole)
+             ? window.SyDentLock.getRole()
+             : 'owner';
+    if (role !== 'owner') {
+      console.warn('[expenses] non-owner role detected:', role, '— redirecting to index');
+      window.location.href = 'index.html';
+      return;
+    }
+
+    await loadCategories();
+    await maybeBootstrapDefaults();
+    await loadExpenses();
+    renderCategoryFilters();
+    renderExpenses();
+    renderCategories();
+    populateCategoryDropdown();
+    renderIconGrid();
+    $('eDate').value = todayISO();
+  } catch (e) {
+    console.error('init failed:', e);
+    showToast('⚠️ خطأ في تحميل الصفحة', true);
+  }
+}
+
+// Bootstrap default categories on first run (zero existing rows).
+// Defensive: a partial bootstrap (some rows inserted before a failure) won't
+// re-trigger because the count check sees existing rows. The Owner can
+// manually add the missing defaults from the Categories tab.
+async function maybeBootstrapDefaults() {
+  if (categories.length > 0) return;
+  console.log('[expenses] bootstrapping default categories…');
+  var rows = DEFAULT_CATEGORIES.map(function(c) {
+    return {
+      owner_id: currentUser.id,
+      name: c.name,
+      icon: c.icon,
+      color: c.color,
+      sort_order: c.sort_order
+    };
+  });
+  var res = await window.sb.from('expense_categories').insert(rows).select();
+  if (res.error) {
+    console.warn('[expenses] bootstrap failed:', res.error);
+    // Don't throw — the Owner can add categories manually. Show a soft hint
+    // only if the table itself is missing (migration not yet applied).
+    if (/relation .* does not exist|PGRST205|42P01/i.test((res.error.message || '') + ' ' + (res.error.code || ''))) {
+      showToast('⚠️ شغّل Migration 16 في Supabase أولاً', true);
+    }
+    return;
+  }
+  categories = res.data || [];
+  console.log('[expenses] bootstrapped', categories.length, 'default categories');
+}
+
+async function loadCategories() {
+  var res = await window.sb.from('expense_categories')
+    .select('*')
+    .eq('owner_id', currentUser.id)
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true });
+  if (res.error) {
+    if (/relation .* does not exist|PGRST205|42P01/i.test((res.error.message || '') + ' ' + (res.error.code || ''))) {
+      categories = [];
+      return;
+    }
+    console.warn('loadCategories:', res.error);
+    return;
+  }
+  categories = res.data || [];
+}
+
+async function loadExpenses() {
+  var res = await window.SyDentFetchAll(function(){ return window.sb.from('expenses')
+    .select('*')
+    .eq('owner_id', currentUser.id)
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false }); });
+  if (res.error) {
+    if (/relation .* does not exist|PGRST205|42P01/i.test((res.error.message || '') + ' ' + (res.error.code || ''))) {
+      expenses = [];
+      return;
+    }
+    console.warn('loadExpenses:', res.error);
+    return;
+  }
+  expenses = res.data || [];
+}
+
+// ─── Tabs ──────────────────────────────────────────────────────────────────
+function switchTab(which) {
+  $('tabBtnList').classList.toggle('active', which === 'list');
+  $('tabBtnCats').classList.toggle('active', which === 'cats');
+  $('tabList').style.display = which === 'list' ? '' : 'none';
+  $('tabCats').style.display = which === 'cats' ? '' : 'none';
+}
+
+// ─── Filters ───────────────────────────────────────────────────────────────
+function renderCategoryFilters() {
+  var wrap = $('catFilters');
+  wrap.innerHTML = '';
+  // Defensive reset: if the currently-filtered category was deactivated or
+  // deleted, snap back to 'all' so the user doesn't see a confusing empty
+  // table. This handles the cross-tab edit case where the Owner toggles a
+  // category off while a filter on it is active.
+  if (filterCatId !== 'all') {
+    var stillExists = categories.some(function(c){
+      return c.id === filterCatId && c.is_active !== false;
+    });
+    if (!stillExists) filterCatId = 'all';
+  }
+  // "All" pill
+  var all = document.createElement('button');
+  all.className = 'filter-chip' + (filterCatId === 'all' ? ' active' : '');
+  all.textContent = '📊 الكل';
+  all.onclick = function(){ filterCatId = 'all'; applyFilters(); };
+  wrap.appendChild(all);
+  // One pill per active category
+  categories.filter(function(c){ return c.is_active !== false; }).forEach(function(c){
+    var btn = document.createElement('button');
+    btn.className = 'filter-chip' + (filterCatId === c.id ? ' active' : '');
+    btn.textContent = (c.icon || '📋') + ' ' + c.name;
+    btn.onclick = function(){ filterCatId = c.id; applyFilters(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function applyFilters() {
+  filterDateFrom = $('dateFrom').value || '';
+  filterDateTo = $('dateTo').value || '';
+  renderCategoryFilters();
+  renderExpenses();
+}
+
+function clearDateFilter() {
+  $('dateFrom').value = '';
+  $('dateTo').value = '';
+  filterDateFrom = '';
+  filterDateTo = '';
+  renderExpenses();
+}
+
+function getFilteredExpenses() {
+  return expenses.filter(function(e) {
+    if (filterCatId !== 'all' && e.category_id !== filterCatId) return false;
+    if (filterDateFrom && e.date < filterDateFrom) return false;
+    if (filterDateTo && e.date > filterDateTo) return false;
+    return true;
+  });
+}
+
+// ─── Stats ─────────────────────────────────────────────────────────────────
+function computeStats() {
+  var today = todayISO();
+  var d = new Date();
+  var weekAgo = new Date(d.getTime() - 7 * 24 * 60 * 60 * 1000);
+  var monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+  var yearStart = new Date(d.getFullYear(), 0, 1);
+
+  function toISO(date) {
+    return date.getFullYear() + '-' +
+           String(date.getMonth()+1).padStart(2,'0') + '-' +
+           String(date.getDate()).padStart(2,'0');
+  }
+  var weekISO = toISO(weekAgo);
+  var monthISO = toISO(monthStart);
+  var yearISO = toISO(yearStart);
+
+  var sums = { today: _emptyBag(), week: _emptyBag(), month: _emptyBag(), year: _emptyBag() };
+  expenses.forEach(function(e) {
+    var amt = Number(e.amount) || 0;
+    if (e.date === today) _bagAdd(sums.today, e, amt);
+    if (e.date >= weekISO) _bagAdd(sums.week, e, amt);
+    if (e.date >= monthISO) _bagAdd(sums.month, e, amt);
+    if (e.date >= yearISO) _bagAdd(sums.year, e, amt);
+  });
+  $('statToday').textContent = _bagText(sums.today);
+  $('statWeek').textContent = _bagText(sums.week);
+  $('statMonth').textContent = _bagText(sums.month);
+  $('statYear').textContent = _bagText(sums.year);
+}
+
+// ─── Render: expenses table ────────────────────────────────────────────────
+function renderExpenses() {
+  computeStats();
+  var filtered = getFilteredExpenses();
+  var tbody = $('expList');
+  var empty = $('emptyState');
+  $('listCount').textContent = filtered.length;
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  var html = '';
+  filtered.forEach(function(e) {
+    var cat = e.category_id ? categories.find(function(c){ return c.id === e.category_id; }) : null;
+    var catHtml = cat
+      ? '<span class="cat-chip cbadge" style="--bc:' + escapeHtml(cat.color || 'var(--text3)') + ';">' + escapeHtml(cat.icon || '📋') + ' ' + escapeHtml(cat.name) + '</span>'
+      : '<span class="cat-chip cbadge tone tone-gray">— غير مصنّف</span>';
+    var pm = paymentMethodLabel(e.payment_method)
+      + ((e.payment_method === 'cash' && window.SyDentPayMethods.normSource(e.cash_source) === 'outside')
+          ? ' <span class="exp-src" title="دُفع من خارج درج العيادة — لا يُخصم من إقفال الصندوق">· من خارج الدرج</span>' : '');   // M165
+    html +=
+      '<tr tabindex="0" role="button" title="اضغط للتعديل" data-exp-id="' + escapeHtml(e.id) + '" onclick="expRowOpen(event)" onkeydown="if(event.key===\'Enter\'&&event.target===this)editExpense(this.dataset.expId)">' +
+        '<td data-label="التاريخ">' + SyDT.cell(e.date, e.expense_time) + '</td>' +
+        '<td data-label="التصنيف">' + catHtml + '</td>' +
+        '<td data-label="الوصف">' + escapeHtml(e.description || '—') + '</td>' +
+        '<td data-label="المورّد">' + escapeHtml(e.vendor || '—') + '</td>' +
+        '<td data-label="المبلغ"><span class="amount">' + fmtAmount(e.amount) + ' ' + _curLblOf(_rowCur(e)) + '</span></td>' +
+        '<td data-label="طريقة الدفع">' + pm + '</td>' +
+        '<td data-label="إجراءات" class="exp-acts-cell"><div class="sy-acts">' +
+          '<button class="sy-act" onclick="editExpense(\'' + e.id + '\')">✏️ تعديل</button>' +
+          '<button class="sy-act sy-act-danger" onclick="deleteExpense(\'' + e.id + '\')">🗑️ حذف</button>' +
+        '</div></td>' +
+      '</tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+// M165: حقلُ مصدر النقد ظاهرٌ مع «نقد» فقط
+function syncExpSource() {
+  var g = $('eCashSourceGroup');
+  if (g) g.style.display = window.SyDentPayMethods.isCash($('ePaymentMethod').value) ? '' : 'none';
+}
+
+function paymentMethodLabel(m) {
+  if (m === 'cash') return '💵 نقد';
+  if (m === 'bank') return '🏦 بنكي';
+  if (m === 'check') return '📝 شيك';
+  if (m === 'other') return 'آخر';
+  if (m === 'shamcash' || m === 'syriatel' || m === 'mtn') return '📱 ' + window.SyDentPayMethods.label(m);   // M158: المحافظُ الإلكترونية
+  if (m === 'online') return '💳 ' + window.SyDentPayMethods.label(m);
+  return '—';
+}
+
+// ─── Render: categories grid ───────────────────────────────────────────────
+function renderCategories() {
+  var grid = $('catsGrid');
+  var empty = $('catsEmpty');
+  $('catsCount').textContent = categories.length;
+  if (categories.length === 0) {
+    grid.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  var html = '';
+  categories.forEach(function(c) {
+    var usageCount = expenses.filter(function(e){ return e.category_id === c.id; }).length;
+    var totalBag = _emptyBag();
+    expenses.forEach(function(e){ if (e.category_id === c.id) _bagAdd(totalBag, e, e.amount); });
+    var inactiveCls = c.is_active === false ? ' inactive' : '';
+    var color = c.color || 'var(--text3)';
+    html +=
+      '<div class="cat-card' + inactiveCls + '">' +
+        '<div class="cat-head">' +
+          '<div class="cat-icon" style="background:' + escapeHtml(color) + '22;">' + escapeHtml(c.icon || '📋') + '</div>' +
+          '<div class="cat-info">' +
+            '<div class="cat-name">' + escapeHtml(c.name) + '</div>' +
+            '<div class="cat-stats">' + usageCount + ' مصروف • مجموع ' + _bagTextFull(totalBag) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="cat-actions sy-acts">' +
+          '<button class="sy-act" onclick="editCategory(\'' + c.id + '\')">✏️ تعديل</button>' +
+          (c.is_active === false
+            ? '<button class="sy-act sy-act-primary" onclick="toggleCategoryActive(\'' + c.id + '\', true)">▶️ تفعيل</button>'
+            : '<button class="sy-act sy-act-warn" onclick="toggleCategoryActive(\'' + c.id + '\', false)">⏸️ تعطيل</button>') +
+          '<button class="sy-act sy-act-danger" onclick="deleteCategory(\'' + c.id + '\')">🗑️ حذف</button>' +
+        '</div>' +
+      '</div>';
+  });
+  grid.innerHTML = html;
+}
+
+function populateCategoryDropdown() {
+  var sel = $('eCategory');
+  if (!sel) return;
+  sel.innerHTML = '';
+  // Only active categories appear in the expense modal — inactive ones still
+  // appear in historical rows (preserved via FK) but can't be assigned to
+  // new expenses. Owner can re-activate from the Categories tab.
+  categories.filter(function(c){ return c.is_active !== false; }).forEach(function(c) {
+    var opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = (c.icon || '📋') + ' ' + c.name;
+    sel.appendChild(opt);
+  });
+  if (sel.options.length === 0) {
+    var opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = '— لا توجد تصنيفات (أضف من تبويب التصنيفات) —';
+    sel.appendChild(opt);
+  }
+}
+
+// ─── Icon picker for category modal ───────────────────────────────────────
+var pickedIcon = '📋';
+function renderIconGrid() {
+  var grid = $('iconGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  ICON_OPTIONS.forEach(function(emoji) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'icon-opt' + (emoji === pickedIcon ? ' selected' : '');
+    btn.textContent = emoji;
+    btn.onclick = function() {
+      pickedIcon = emoji;
+      // Update selection ring
+      Array.prototype.forEach.call(grid.children, function(c) {
+        c.classList.toggle('selected', c.textContent === emoji);
+      });
+    };
+    grid.appendChild(btn);
+  });
+}
+
+// ─── Color picker (uses SyDentColorPicker from supabase-init.js) ──────────
+var pickedColor = '#63b3ed';
+function _setCatColor(hex) {
+  if (window.SyDentColorPicker && window.SyDentColorPicker.sanitizeHex) {
+    hex = window.SyDentColorPicker.sanitizeHex(hex);
+  }
+  pickedColor = hex;
+  $('cColor').value = hex;
+  var sw = $('cColorSwatch');
+  if (sw) sw.style.background = hex;
+}
+function openCatColorPicker() {
+  if (!window.SyDentColorPicker || !window.SyDentColorPicker.open) {
+    showToast('⚠️ منتقي الألوان غير متاح', true);
+    return;
+  }
+  window.SyDentColorPicker.open(pickedColor, function(hex) {
+    if (hex) _setCatColor(hex);
+  });
+}
+
+// ─── Expense modal ─────────────────────────────────────────────────────────
+function openExpenseModal() {
+  editingExpId = null;
+  $('expModalTitle').textContent = '+ مصروف جديد';
+  $('eDate').value = todayISO();
+  $('eTime').value = SyDT.nowHM();   // v476: الوقتُ افتراضياً الآن (SyDT — v477)
+  $('eAmount').value = '';
+  $('eDescription').value = '';
+  $('eVendor').value = '';
+  $('ePaymentMethod').value = 'cash';
+  $('eCashSource').innerHTML = window.SyDentPayMethods.sourceOptionsHtml('drawer');   // M165
+  syncExpSource();
+  $('eNotes').value = '';
+  // Default category: first active one, or empty if none
+  var firstActive = categories.find(function(c){ return c.is_active !== false; });
+  if (firstActive && $('eCategory').options.length > 0) {
+    $('eCategory').value = firstActive.id;
+  }
+  clearMsg('expMsg');
+  try { window.SyDentCurPick.mount('eAmount'); } catch (e) {}   // M125
+  $('expModal').classList.add('show');
+  setTimeout(function(){ $('eAmount').focus(); }, 80);
+}
+
+function editExpense(id) {
+  var e = expenses.find(function(x){ return x.id === id; });
+  if (!e) { showToast('⚠️ المصروف غير موجود', true); return; }
+  editingExpId = id;
+  $('expModalTitle').textContent = '✏️ تعديل مصروف';
+  $('eDate').value = e.date || todayISO();
+  $('eTime').value = e.expense_time ? String(e.expense_time).slice(0, 5) : '';   // v476
+  $('eAmount').value = e.amount || '';
+  $('eDescription').value = e.description || '';
+  $('eVendor').value = e.vendor || '';
+  $('ePaymentMethod').value = e.payment_method || 'cash';
+  $('eCashSource').innerHTML = window.SyDentPayMethods.sourceOptionsHtml(e.cash_source);   // M165: الفارغُ = من الدرج
+  syncExpSource();
+  $('eNotes').value = e.notes || '';
+  if (e.category_id) {
+    $('eCategory').value = e.category_id;
+  }
+  clearMsg('expMsg');
+  // M125: التعديل يفتح بعملة المصروف المحفوظة لا بعملة العيادة — وإلا قُرِئ
+  // مصروفُ الدولار ليرةً وأُعيد حفظه بوسمٍ كاذب (صنف v181).
+  try { window.SyDentCurPick.pin('eAmount', (e.currency === 'USD') ? 'USD' : 'SYP'); } catch (_e) {}
+  try { window.SyDentCurPick.mount('eAmount'); } catch (e) {}   // M125
+  $('expModal').classList.add('show');
+}
+
+function closeExpModal() {
+  $('expModal').classList.remove('show');
+  editingExpId = null;
+}
+
+// Phase post-X10 B1 fix: module-level in-flight flag prevents double-
+// submit when user double-clicks "💾 حفظ" before the await completes.
+// Without this, an insert path could create duplicate expenses. Pattern
+// mirrors bulkState.inFlight in admin.html.
+var _saveExpInFlight = false;
+
+async function saveExpense() {
+  clearMsg('expMsg');
+  var date = $('eDate').value;
+  var amountRaw = $('eAmount').value;
+  // E1: parseFloat لا parseInt — سنتات الدولار (step=0.01 عبر SyDentCurPick) كانت تُبتر صامتاً.
+  var amount = amountRaw === '' ? null : Math.round(parseFloat(amountRaw) * 100) / 100;
+  var categoryId = $('eCategory').value || null;
+  var description = ($('eDescription').value || '').trim() || null;
+  var vendor = ($('eVendor').value || '').trim() || null;
+  var paymentMethod = $('ePaymentMethod').value || 'cash';
+  var cashSource = window.SyDentPayMethods.sourceForStore(paymentMethod, $('eCashSource').value);   // M165: غيرُ النقدي ⇒ null
+  var notes = ($('eNotes').value || '').trim() || null;
+
+  // Validation (runs BEFORE in-flight flag is set so validation failures
+  // don't lock the form — user can correct and re-submit immediately).
+  if (!date) { showMsg('expMsg', 'التاريخ مطلوب', true); return; }
+  if (amount === null || isNaN(amount) || amount < 0) {
+    showMsg('expMsg', 'المبلغ يجب أن يكون رقماً موجباً', true);
+    return;
+  }
+  if (!categoryId) {
+    showMsg('expMsg', 'التصنيف مطلوب — أضف تصنيفاً من تبويب التصنيفات أولاً', true);
+    return;
+  }
+
+  // Migration 118 companion — حارس ازدواج تكاليف المخابر:
+  // تكلفة كل طلب مخبر تدخل المحاسبة تلقائياً (labsTotal لحظة الإرسال)، ودفعات
+  // السداد تُسجَّل من صفحة المخابر (كشف الحساب) كتسوية ذمة خارج المصروفات.
+  // تسجيلها هنا أيضاً يحسبها مرتين. تحذير لا منع — قد يكون مصروفاً مشروعاً
+  // (مثلاً: أدوات اشتراها من المخبر).
+  var _selCat = categories.find(function(c){ return c.id === categoryId; });
+  if (_selCat && /مخبر|مخابر/.test(_selCat.name || '')) {
+    var ok = await SyDialog.confirm({ message: '⚠️ تنبيه محاسبي: تكاليف المخابر تُحسب تلقائياً في المحاسبة لحظة إرسال الطلب، ودفعات السداد تُسجَّل من صفحة المخابر (💰 كشف حساب) دون أن تدخل المصروفات.\n\nتسجيل دفعة مخبر هنا سيحسبها مرتين في صافي الربح. هل أنت متأكد من المتابعة؟' });
+    if (!ok) return;
+  }
+
+  // Critical section: guard against double-submit.
+  if (_saveExpInFlight) return;
+  _saveExpInFlight = true;
+  try {
+    var row = {
+      owner_id: currentUser.id,
+      date: date,
+      category_id: categoryId,
+      amount: amount,
+      description: description,
+      vendor: vendor,
+      payment_method: paymentMethod,
+      cash_source: cashSource,
+      notes: notes,
+      currency: window.SyDentCurPick.read('eAmount'),  // M125
+      expense_time: $('eTime').value ? $('eTime').value + ':00' : null   // v476 (M153)
+    };
+
+    var res;
+    if (editingExpId) {
+      res = await window.sb.from('expenses')
+        .update(row)
+        .eq('id', editingExpId)
+        .eq('owner_id', currentUser.id)
+        .select().single();
+    } else {
+      res = await window.sb.from('expenses')
+        .insert(row)
+        .select().single();
+    }
+
+    // v476: قاعدةٌ بلا Migration 153 ⇒ يُحفظ بلا وقت (تدهورٌ رشيق مرئي بالكونسول)
+    if (res.error && /expense_time/.test(String(res.error.message || '')) && (res.error.code === '42703' || res.error.code === 'PGRST204')) {
+      console.warn('saveExpense: expense_time غير موجود (Migration 153) — حفظ بلا وقت');
+      delete row.expense_time;
+      res = editingExpId
+        ? await window.sb.from('expenses').update(row).eq('id', editingExpId).eq('owner_id', currentUser.id).select().single()
+        : await window.sb.from('expenses').insert(row).select().single();
+    }
+    if (res.error) {
+      console.error('saveExpense:', res.error);
+      showMsg('expMsg', 'فشل الحفظ: ' + (res.error.message || 'خطأ غير معروف'), true);
+      return;
+    }
+
+    // Audit log: fire-and-forget. action_types registered in supabase-init.js
+    // alert rules + audit-log.html label map. See Phase 5 audit registry.
+    if (window.logAudit) {
+      var catName = '';
+      var cat = categories.find(function(c){ return c.id === categoryId; });
+      if (cat) catName = cat.name;
+      window.logAudit(editingExpId ? 'expense.edit' : 'expense.create', {
+        entityId: res.data.id,
+        description: (editingExpId ? 'تعديل' : 'إضافة') + ' مصروف: ' +
+                     (description || catName || 'بدون وصف') +
+                     ' — ' + fmtAmount(amount) + ' ' + _curLblOf(row.currency),
+        newValue: { date: date, amount: amount, category: catName, vendor: vendor }
+      });
+    }
+
+    showToast(editingExpId ? '✓ تم التعديل' : '✓ تمت الإضافة');
+    closeExpModal();
+    await loadExpenses();
+    renderExpenses();
+    renderCategories();  // usage counts refresh
+  } finally {
+    _saveExpInFlight = false;
+  }
+}
+
+/* ═══ v293 — قفلُ الأزرار الكاتبة (مرآةُ ppGuarded) + فتحُ الصف ═══ */
+var _xInFlight = {};
+function xGuarded(name, inner, label) {
+  return async function () {
+    var k = name + ((arguments.length && (typeof arguments[0] === 'string' || typeof arguments[0] === 'number')) ? ':' + arguments[0] : '');
+    if (_xInFlight[k]) return;
+    var btn = null;
+    try { var ev = window.event; var t = ev && (ev.currentTarget || ev.target); if (t && t.closest) btn = t.closest('button'); } catch (_) {}
+    if (!btn && document.activeElement && document.activeElement.tagName === 'BUTTON') btn = document.activeElement;
+    _xInFlight[k] = true;
+    var old = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; if (label) btn.textContent = label; }
+    try { return await inner.apply(this, arguments); }
+    finally { delete _xInFlight[k]; if (btn) { btn.disabled = false; btn.textContent = old; } }
+  };
+}
+function expRowOpen(ev) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;   /* M141-ب: الصفُّ/البطاقة بيانات — يبقى ظاهراً ولا يفتح نموذجاً */
+  var t = ev && ev.target;
+  if (t && t.closest && t.closest('button, a, input, select')) return;
+  var row = t && t.closest ? t.closest('tr[data-exp-id]') : null;
+  if (row) editExpense(row.dataset.expId);
+}
+var deleteExpense = xGuarded('deleteExpense', _deleteExpense_inner, 'جارٍ الحذف…');   /* v293 */
+async function _deleteExpense_inner(id) {
+  var e = expenses.find(function(x){ return x.id === id; });
+  if (!e) return;
+  var msg = 'حذف مصروف بقيمة ' + fmtAmount(e.amount) + ' ' + _curLblOf(_rowCur(e)) + '؟\n\n' +
+            'هذا الإجراء لا يمكن التراجع عنه.';
+  if (!await SyDialog.confirm({ message: msg, danger: true })) return;
+  var res = await window.sb.from('expenses')
+    .delete()
+    .eq('id', id)
+    .eq('owner_id', currentUser.id);
+  if (res.error) {
+    showToast('⚠️ فشل الحذف: ' + (res.error.message || ''), true);
+    return;
+  }
+  if (window.logAudit) {
+    window.logAudit('expense.delete', {
+      entityId: id,
+      description: 'حذف مصروف بقيمة ' + fmtAmount(e.amount) + ' ' + _curLblOf(_rowCur(e)),
+      oldValue: { date: e.date, amount: e.amount, description: e.description, vendor: e.vendor }
+    });
+  }
+  showToast('✓ تم الحذف');
+  await loadExpenses();
+  renderExpenses();
+  renderCategories();
+}
+
+// ─── Category modal ────────────────────────────────────────────────────────
+function openCatModal() {
+  editingCatId = null;
+  $('catModalTitle').textContent = '+ تصنيف جديد';
+  $('cName').value = '';
+  pickedIcon = '📋';
+  _setCatColor('#63b3ed');
+  renderIconGrid();
+  clearMsg('catMsg');
+  $('catModal').classList.add('show');
+  setTimeout(function(){ $('cName').focus(); }, 80);
+}
+
+function editCategory(id) {
+  var c = categories.find(function(x){ return x.id === id; });
+  if (!c) { showToast('⚠️ التصنيف غير موجود', true); return; }
+  editingCatId = id;
+  $('catModalTitle').textContent = '✏️ تعديل تصنيف';
+  $('cName').value = c.name || '';
+  pickedIcon = c.icon || '📋';
+  _setCatColor(c.color || '#63b3ed');
+  renderIconGrid();
+  clearMsg('catMsg');
+  $('catModal').classList.add('show');
+}
+
+function closeCatModal() {
+  $('catModal').classList.remove('show');
+  editingCatId = null;
+}
+
+var saveCategory = xGuarded('saveCategory', _saveCategory_inner, 'جارٍ الحفظ…');   /* v293 */
+async function _saveCategory_inner() {
+  clearMsg('catMsg');
+  var name = ($('cName').value || '').trim();
+  if (!name) { showMsg('catMsg', 'الاسم مطلوب', true); return; }
+  if (name.length > 50) { showMsg('catMsg', 'الاسم طويل جداً (50 حرف كحد أقصى)', true); return; }
+
+  // Duplicate name check (case-insensitive, same Owner). Allow editing the
+  // current row even if name matches itself.
+  var dup = categories.find(function(c) {
+    return c.id !== editingCatId &&
+           (c.name || '').trim().toLowerCase() === name.toLowerCase();
+  });
+  if (dup) {
+    showMsg('catMsg', 'يوجد تصنيف بنفس الاسم بالفعل', true);
+    return;
+  }
+
+  var row = {
+    owner_id: currentUser.id,
+    name: name,
+    icon: pickedIcon,
+    color: pickedColor
+  };
+  // sort_order: append at the end for new rows; preserve for edits.
+  if (!editingCatId) {
+    var maxOrder = categories.reduce(function(m, c){ return Math.max(m, c.sort_order || 0); }, 0);
+    row.sort_order = maxOrder + 1;
+  }
+
+  var res;
+  if (editingCatId) {
+    res = await window.sb.from('expense_categories')
+      .update(row)
+      .eq('id', editingCatId)
+      .eq('owner_id', currentUser.id)
+      .select().single();
+  } else {
+    res = await window.sb.from('expense_categories')
+      .insert(row)
+      .select().single();
+  }
+
+  if (res.error) {
+    console.error('saveCategory:', res.error);
+    showMsg('catMsg', 'فشل الحفظ: ' + (res.error.message || ''), true);
+    return;
+  }
+
+  if (window.logAudit) {
+    window.logAudit(editingCatId ? 'expense_category.edit' : 'expense_category.create', {
+      entityId: res.data.id,
+      description: (editingCatId ? 'تعديل' : 'إضافة') + ' تصنيف مصاريف: ' + name,
+      newValue: { name: name, icon: pickedIcon, color: pickedColor }
+    });
+  }
+
+  showToast(editingCatId ? '✓ تم التعديل' : '✓ تمت الإضافة');
+  closeCatModal();
+  await loadCategories();
+  renderCategories();
+  renderCategoryFilters();
+  populateCategoryDropdown();
+}
+
+var toggleCategoryActive = xGuarded('toggleCategoryActive', _toggleCategoryActive_inner, '⏳');   /* v293 */
+async function _toggleCategoryActive_inner(id, makeActive) {
+  var c = categories.find(function(x){ return x.id === id; });
+  if (!c) return;
+  var res = await window.sb.from('expense_categories')
+    .update({ is_active: makeActive })
+    .eq('id', id)
+    .eq('owner_id', currentUser.id);
+  if (res.error) {
+    showToast('⚠️ فشل: ' + (res.error.message || ''), true);
+    return;
+  }
+  if (window.logAudit) {
+    window.logAudit('expense_category.edit', {
+      entityId: id,
+      description: (makeActive ? 'تفعيل' : 'تعطيل') + ' تصنيف: ' + c.name,
+      oldValue: { is_active: !makeActive },
+      newValue: { is_active: makeActive }
+    });
+  }
+  showToast(makeActive ? '✓ تم التفعيل' : '✓ تم التعطيل');
+  await loadCategories();
+  renderCategories();
+  renderCategoryFilters();
+  populateCategoryDropdown();
+}
+
+var deleteCategory = xGuarded('deleteCategory', _deleteCategory_inner, 'جارٍ الحذف…');   /* v293 */
+async function _deleteCategory_inner(id) {
+  var c = categories.find(function(x){ return x.id === id; });
+  if (!c) return;
+  var usage = expenses.filter(function(e){ return e.category_id === id; }).length;
+  var msg;
+  if (usage > 0) {
+    msg = 'هذا التصنيف مستخدم في ' + usage + ' مصروف.\n\n' +
+          'عند الحذف، المصاريف الـ ' + usage + ' ستصبح "غير مصنّفة" لكن لن تُحذف.\n\n' +
+          'هل تريد المتابعة؟ (يمكنك بدلاً من ذلك تعطيل التصنيف).';
+  } else {
+    msg = 'حذف التصنيف "' + c.name + '"؟';
+  }
+  if (!await SyDialog.confirm({ message: msg, danger: true })) return;
+
+  var res = await window.sb.from('expense_categories')
+    .delete()
+    .eq('id', id)
+    .eq('owner_id', currentUser.id);
+  if (res.error) {
+    showToast('⚠️ فشل الحذف: ' + (res.error.message || ''), true);
+    return;
+  }
+  if (window.logAudit) {
+    window.logAudit('expense_category.delete', {
+      entityId: id,
+      description: 'حذف تصنيف مصاريف: ' + c.name + (usage > 0 ? ' (' + usage + ' مصروف أصبح غير مصنّف)' : ''),
+      oldValue: { name: c.name, icon: c.icon, color: c.color }
+    });
+  }
+  showToast('✓ تم الحذف');
+  if (filterCatId === id) filterCatId = 'all';
+  await loadCategories();
+  await loadExpenses();  // category_id became null for affected expenses
+  renderCategories();
+  renderCategoryFilters();
+  renderExpenses();
+  populateCategoryDropdown();
+}
+
+/* v448: كان الإغلاقُ بنقرةٍ خارجية يمحو نموذجَ المصروف (سبعةُ حقول) والتصنيف.
+   أُزيل — الإغلاق بـ✕ أو «إلغاء» أو Escape (عُدّة النوافذ). */
+
+// ─── Bootstrap ─────────────────────────────────────────────────────────────
+// زر hamburger للـ topbar (Phase 7.6H: missing on mobile — added per
+// canonical pattern from patients.html. Without this the sidebar can't be
+// opened on screens ≤ 820px because the .sb-hamburger CSS exists in sidebar.js
+// but no page-level markup invokes window.sbToggle().)
+document.addEventListener('DOMContentLoaded', function() {
+  var btn = document.createElement('button');
+  btn.className = 'sb-hamburger';
+  btn.id = 'sbHamburgerBtn';
+  btn.setAttribute('aria-label', 'القائمة');
+  btn.innerHTML = '<span></span><span></span><span></span>';
+  btn.onclick = function() { window.sbToggle(); };
+  window._sbBtn = btn;
+  var topbar = document.querySelector('.topbar');
+  if (topbar) topbar.insertBefore(btn, topbar.firstChild);
+});
+
+init();
+</script>
+
+</body>
+</html>

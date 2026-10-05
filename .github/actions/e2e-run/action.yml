@@ -1,0 +1,151 @@
+# ════════════════════════════════════════════════════════════════════════
+# SyDent — .github/actions/e2e-run · خطوات تشغيل E2E (مصدر الحقيقة الوحيد)
+# ════════════════════════════════════════════════════════════════════════
+# جلسة ب٣: هذه الخطوات كانت تعيش داخل e2e-smoke.yml حصراً. عند دمج E2E
+# ببوابة ci-guards كان البديل نسخَها هناك — مرآة جديدة تصدأ. فاستُخرجت إلى
+# composite action يستهلكه الاثنان:
+#   • e2e-smoke.yml   (التشغيل اليدوي — غلاف نحيف، سلوكه كما كان حرفياً)
+#   • ci-guards.yml   (job: e2e — informational بالمرحلة الأولى)
+# أي تعديل مستقبلي على خطوات التشغيل يقع هنا مرة واحدة.
+#
+# المبدأ الحاكم (موروث من ب١): لا يضرب sydent.app — dist/ يُبنى محلياً
+# ويُخدَم على localhost (webServer داخل playwright.config.ts) ضد Supabase
+# بمستأجر الاختبار المعزول «عيادة E2E الآلية».
+#
+# ملاحظة أمنية: composite action لا يصل للأسرار تلقائياً — تُمرَّر صراحةً
+# كمدخلات من الـ workflow المستهلك (لهذا المدخلان required أدناه).
+# ════════════════════════════════════════════════════════════════════════
+name: e2e-run
+description: 'بناء dist محلياً وتشغيل اختبارات Playwright ضد مستأجر E2E المعزول'
+
+inputs:
+  e2e-email:
+    description: 'إيميل «عيادة E2E الآلية» (secret E2E_EMAIL)'
+    required: true
+  e2e-supabase-secret-key:
+    description: 'المفتاح السري للمشروع (secret E2E_SUPABASE_SECRET_KEY)'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node 22 (نفس نسخة job الحُرّاس)
+      uses: actions/setup-node@v5
+      with:
+        node-version: '22'
+        cache: npm
+        cache-dependency-path: e2e/package-lock.json
+
+    - name: بناء dist محلياً (لا نضرب الإنتاج)
+      shell: bash
+      run: bash scripts/build-dist.sh
+
+    - name: إثبات — dist لا يحوي e2e
+      shell: bash
+      run: |
+        if [ -e dist/e2e ]; then echo "⛔ e2e تسرّب إلى dist"; exit 1; fi
+        echo "✅ dist نظيف من e2e"
+
+    - name: تثبيت تبعيات الاختبار
+      shell: bash
+      working-directory: e2e
+      run: npm ci
+
+    # ── تثبيت Chromium ────────────────────────────────────────────────
+    # كان سطراً واحداً: npx playwright install --with-deps chromium
+    # وعلّق مرّتين متتاليتين (ci-guards #322 و#324) حتى أكل سقف الـjob كاملاً
+    # (15m) فقُطع الـjob وتُخطّي promote ⇒ **البوابة تحجب النشر بلا أن يكون
+    # بالكود عطب** — guards كانت خضراء بـ32 ثانية والاختبارات لم تبدأ أصلاً.
+    #
+    # ثلاثة عيوب بخطوة واحدة، وكلٌّ منها كافٍ وحده:
+    #   ١. بلا مهلة — والخطوة داخل composite action حيث `timeout-minutes`
+    #      **غير مدعوم على مستوى الخطوة**، فتُستعمل أداة timeout بالصدفة نفسها.
+    #      النتيجة قبلاً: تعليقٌ صامت يأكل ميزانية الـjob كلها بدل فشلٍ مسمّى.
+    #   ٢. بلا إعادة محاولة — تعثّرُ شبكةٍ واحد يحجب النشر.
+    #   ٣. بلا كاش — تُنزَّل نفس الثنائيّة بكل تشغيلة رغم أن النسخة مثبّتة بالقفل.
+    #
+    # وفُصلت الخطوة شقّين (apt · التنزيل) عمداً: `--with-deps` يجمعهما فيصير
+    # التعليق مجهول الطرف — أيّهما علّق؟ الفصل يجعل الفشل التالي يسمّي نفسه.
+    - name: اشتقاق نسخة Playwright (من package.json — لا رقم مكتوب باليد)
+      id: pwver
+      shell: bash
+      working-directory: e2e
+      run: |
+        V=$(node -p "require('./package.json').devDependencies['@playwright/test'].replace(/^[^0-9]*/,'')")
+        if [ -z "$V" ]; then echo "⛔ تعذّر اشتقاق نسخة Playwright"; exit 1; fi
+        echo "version=$V" >> "$GITHUB_OUTPUT"
+        echo "✅ Playwright $V"
+
+    # مفتاح الكاش يحمل النسخة ⇒ ترقيةُ Playwright تُبطله تلقائياً فلا تُخدَم
+    # ثنائيّةٌ لا تطابق المكتبة (فشلٌ صامت أسوأ من تنزيلٍ بطيء).
+    - name: كاش ثنائيّات المتصفّح
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: ms-playwright-${{ runner.os }}-${{ steps.pwver.outputs.version }}-chromium
+
+    # ⛔ خطوة `playwright install-deps` (apt) حُذفت — لم تكن لازمة وكانت هي
+    # العطب. لوج ci-guards #325 حسمه بسطرين:
+    #   E: Could not get lock /var/lib/apt/lists/lock. It is held by process
+    #      2263 (apt-get)
+    #   Failed to install browser dependencies · exited with code: 100
+    # صورةُ الرَنَر تشغّل تحديثاً تلقائياً بالخلفية يمسك قفل apt، فتعلّق
+    # محاولتُنا عليه. وأسوأ: `timeout` يقتل الابن (npx) ولا يقتل الحفيد
+    # (apt-get) فيبقى الأخيرُ ماسكاً القفل ⇒ **إعادةُ المحاولة تفاقم لا تعالج**،
+    # والمحاولةُ الثانية تفشل فوراً على قفلٍ خلّفته الأولى. (خطأٌ منّي بالنسخة
+    # السابقة من هذا الملف — أُصلح هنا.)
+    #
+    # والخطوة غير ضرورية بالأصل: صورة ubuntu-latest تشحن تبعيات Chromium
+    # مثبّتةً سلفاً — والدليل قياسيّ لا نظريّ: #323 مرّ بـ1m46s كاملاً،
+    # وapt لا تنزّل حزماً بهذا الزمن ⇒ كانت no-op تدفع ثمن القفل بلا مقابل.
+    #
+    # وبدل الاتّكال على هذا الاستنتاج بصمت، تحقَّقُه خطوةُ الإقلاع أدناه:
+    # مكتبةٌ ناقصة فعلاً تُكشَف هناك برسالةٍ مسمّاة، لا كفشلِ اختبارٍ غامض.
+
+    # تُشغَّل دائماً لا بشرط إصابة الكاش: عند الإصابة تنتهي بثوانٍ («already
+    # installed») وتتحقّق أن الثنائيّة سليمة فعلاً — وكاشٌ جزئيّ أو تالف
+    # يُكشَف هنا بدل أن يُكشَف كفشلِ اختبارٍ غامض بعد خطوتين.
+    - name: تنزيل Chromium
+      shell: bash
+      working-directory: e2e
+      run: |
+        for i in 1 2; do
+          if timeout 300 npx playwright install chromium; then exit 0; fi
+          echo "⚠️ المحاولة $i فشلت أو تجاوزت 5 دقائق — إعادة بعد 10 ثوانٍ"
+          sleep 10
+        done
+        echo "⛔ تعذّر تنزيل Chromium بعد محاولتين — عطلٌ ببنية التشغيل لا بالكود"
+        exit 1
+
+    # حزام: يقلع Chromium فعلاً؟ يستبدل افتراض «الصورة فيها التبعيات» بقياس.
+    # نقصُ مكتبةٍ نظام يفشل هنا بسطرٍ صريح خلال ثوانٍ، بدل أن يظهر بعد خطوة
+    # كفشلِ اختبارٍ لا يقول سببه.
+    - name: إثبات — Chromium يقلع
+      shell: bash
+      working-directory: e2e
+      run: |
+        timeout 120 node -e "
+          const { chromium } = require('@playwright/test');
+          chromium.launch()
+            .then(b => b.close())
+            .then(() => console.log('✅ Chromium يقلع — تبعيات النظام مكتملة'))
+            .catch(e => { console.error('⛔ فشل إقلاع Chromium: ' + e.message); process.exit(1); });
+        "
+
+    - name: تشغيل الاختبارات
+      shell: bash
+      working-directory: e2e
+      env:
+        E2E_EMAIL: ${{ inputs.e2e-email }}
+        E2E_SUPABASE_SECRET_KEY: ${{ inputs.e2e-supabase-secret-key }}
+      run: npx playwright test
+
+    - name: رفع التقرير عند الفشل
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-report-${{ github.run_id }}-${{ github.run_attempt }}
+        path: |
+          e2e/playwright-report/
+          e2e/test-results/
+        retention-days: 7

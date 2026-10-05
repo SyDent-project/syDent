@@ -1,0 +1,2626 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SyDent">
+<meta name="theme-color" content="#0d8577">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=4">
+<link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<title>الموظفون — SyDent</title>
+<!-- Theme system: MUST load before inline <style>
+/* ── Modal ── v447: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
+   (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
+ to apply data-theme synchronously and prevent FOUC. -->
+<script src="theme.js?v=20261005a"></script>
+<script src="/vendor/supabase-2.110.8.min.js"></script>
+<script src="supabase-init.js?v=20261005a"></script>
+<script src="sy-modal.js?v=20261005a"></script>
+<script src="sidebar.js?v=20261005a"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a1628;--bg2:#0f2038;--bg3:#132840;
+  --border:rgba(var(--green-rgb),0.15);
+  --green:var(--green);--red:#ef5350;--yellow:#f5c842;
+  --blue:#63b3ed;--orange:#ffa726;--purple:#a78bfa;
+  --text:#e1f4ee;--text2:#8a9ab5;--radius:12px;
+}
+body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px;background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:20;gap:12px;
+}
+.tb-title{font-size:18px;font-weight:800;color:var(--green);}
+.tb-sub{font-size:12px;color:var(--text2);margin-top:2px;}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 18px;border-radius:10px;
+  font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;border:none;transition:all .2s;
+}
+.btn-primary{background:var(--green);color:var(--bg);}
+.btn-primary:hover{background:var(--green2);}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2);}
+.btn-outline:hover{border-color:var(--green);color:var(--green);}
+.btn-sm{padding:7px 14px;font-size:12px;}
+
+.page{padding:24px 28px;max-width:1200px;margin:0 auto;}
+
+.info-box{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--radius);padding:16px 20px;
+  margin-bottom:20px;
+  display:flex;align-items:flex-start;gap:12px;
+  font-size:13px;color:var(--text2);line-height:1.7;
+}
+.info-box .info-icon{font-size:24px;flex-shrink:0;line-height:1;}
+
+/* Employee grid */
+.emp-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));
+  gap:16px;
+}
+.emp-card{
+  background:linear-gradient(180deg, color-mix(in srgb, var(--text) 3%, transparent) 0%, rgba(0,0,0,0.06) 100%), var(--bg2);   /* v291: text-tinted, not white@3% */
+  border:1px solid rgba(var(--green-rgb),0.22);
+  border-radius:var(--radius);overflow:hidden;
+  transition:transform .2s, box-shadow .2s, border-color .2s;
+  position:relative;
+  box-shadow:0 10px 26px -8px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.30);
+}
+.emp-card:hover{transform:translateY(-3px);box-shadow:0 18px 38px -10px rgba(0,0,0,.62), 0 0 0 1px var(--green);border-color:var(--green);}
+/* v291: mirror of doctors v290 — heavy black shadows are a dark-theme look */
+:root[data-theme="light"] .emp-card{box-shadow:var(--shadow-card);border-color:var(--border2);}
+:root[data-theme="light"] .emp-card:hover{box-shadow:0 12px 28px -10px rgba(16,42,67,.22), 0 0 0 1px var(--green);}
+.emp-card{cursor:pointer;}
+.emp-card:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
+.emp-card button:active:not(:disabled){transform:scale(.96);}
+.emp-card button:disabled{opacity:.6;cursor:wait;}
+.emp-card.inactive{opacity:0.6;}
+.emp-color-bar{height:5px;width:100%;}
+.emp-body{padding:16px 18px;}
+.emp-head{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+/* Color swatch square (no initials) — mirrors treatments' .treat-icon so the
+   employee's accent color reads at a glance without letters. */
+.emp-avatar{
+  width:46px;height:46px;border-radius:12px;
+  flex-shrink:0;border:2px solid color-mix(in srgb, var(--text) 22%, transparent);   /* v291 */
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,0.18);
+}
+/* Drag-and-drop reordering (mirrors treatments.html) */
+.drag-handle{position:absolute;top:8px;left:8px;font-size:14px;color:var(--text2);cursor:grab;opacity:.5;font-weight:900;user-select:none;letter-spacing:-2px;line-height:1;padding:4px 6px;border-radius:6px;transition:opacity .15s,background .15s;z-index:2;}
+.emp-card:hover .drag-handle{opacity:1;}
+.drag-handle:hover{background:var(--bg3);}
+.drag-handle:active{cursor:grabbing;}
+.emp-card.dragging{opacity:.4;}
+.emp-card.drag-over{border-color:var(--green) !important;border-width:2px;}
+.emp-name{font-size:15px;font-weight:800;color:var(--text);line-height:1.3;}
+.emp-role-badge{
+  display:inline-block;font-size:10px;font-weight:800;
+  padding:1px 7px;border-radius:8px;margin-top:4px;
+  border:1px solid var(--gray-bd);background:var(--gray-bg);color:var(--gray-fg);
+}
+.emp-role-badge.role-owner{background:var(--green-bg);color:var(--green-fg);border-color:var(--green-bd);}
+.emp-role-badge.role-doctor{background:var(--blue-bg);color:var(--blue-fg);border-color:var(--blue-bd);}
+.emp-role-badge.role-secretary{background:var(--orange-bg);color:var(--orange-ink);border-color:var(--orange-bd);}
+
+.emp-info{font-size:12px;color:var(--text2);margin-bottom:4px;}
+.emp-info b{color:var(--text);font-weight:600;}
+
+.emp-pin-status{
+  margin-top:10px;padding:7px 9px;
+  border-radius:8px;font-size:11px;font-weight:700;
+  display:flex;align-items:center;gap:6px;
+  border:1px solid transparent;
+}
+.emp-pin-status.pin-set{background:var(--green-soft);color:var(--green-fg);border-color:var(--green-bd);}
+.emp-pin-status.pin-unset{background:var(--yellow-soft);color:var(--yellow-ink);border-color:var(--yellow-bd);}
+.emp-pin-status.pin-none-required{background:var(--blue-soft);color:var(--blue-fg);border-color:var(--blue-bd);}
+
+.emp-actions{
+  display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;
+  padding-top:12px;border-top:1px solid var(--border);
+}
+/* v474: أزرارُ بطاقة الموظف على طقم أزرار الصفوف — «تعديل» محايد · «تعطيل الحساب» برتقالي · «تفعيل» أخضر · «حذف» أحمر. */
+
+/* Modal */
+.modal-overlay.show{display:flex;}
+.modal-box::-webkit-scrollbar{
+  width:8px;
+  height:8px;
+}
+.modal-box::-webkit-scrollbar-track{
+  background:transparent;
+}
+.modal-box::-webkit-scrollbar-thumb{
+  background:rgba(var(--green-rgb),0.35);
+  border-radius:4px;
+  border:2px solid var(--bg2);
+}
+.modal-box::-webkit-scrollbar-thumb:hover{
+  background:rgba(var(--green-rgb),0.55);
+}
+.modal-head h3{font-size:17px;font-weight:800;color:var(--green);}
+.modal-close:hover{color:var(--red);}
+
+.form-group{margin-bottom:16px;}
+.form-group label{
+  display:block;font-size:12px;font-weight:700;
+  color:var(--text2);margin-bottom:6px;
+}
+.form-group input,.form-group select{
+  width:100%;padding:10px 12px;
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;color:var(--text);
+  font-family:'Cairo',sans-serif;font-size:13px;
+}
+.form-group input:focus,.form-group select:focus{
+  outline:none;border-color:var(--green);
+}
+.form-group .hint{
+  font-size:11px;color:var(--text2);margin-top:4px;line-height:1.5;
+}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+.pin-input{
+  text-align:center;letter-spacing:8px;
+  font-size:18px;font-weight:800;
+}
+
+.modal-msg{
+  font-size:12px;font-weight:700;
+  padding:8px 10px;border-radius:8px;
+  margin-top:8px;min-height:0;
+  display:none;
+}
+.modal-msg.show{display:block;}
+.modal-msg.ok{background:rgba(var(--green-rgb),0.10);color:var(--green);}
+.modal-msg.err{background:var(--red-soft);color:var(--red-ink);}
+
+.modal-footer button{flex:1;padding:11px 14px;font-size:13px;}
+
+/* Empty state */
+.empty{
+  text-align:center;padding:60px 20px;
+  background:var(--bg2);border:1px dashed var(--border);
+  border-radius:var(--radius);
+}
+.empty .em-icon{font-size:48px;margin-bottom:14px;opacity:0.6;}
+.empty .em-title{font-size:16px;font-weight:800;margin-bottom:6px;}
+.empty .em-text{font-size:13px;color:var(--text2);}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .topbar{padding:12px 18px;flex-wrap:wrap;gap:10px;}
+  .page{padding:16px 14px;}
+  .emp-grid{grid-template-columns:1fr;gap:12px;}
+  .form-row{grid-template-columns:1fr;}
+}
+/* Password visibility toggle (👁 / 🙈) — RTL-safe via inset-inline-end */
+.pwd-wrap{position:relative;display:block;}
+.pwd-wrap > input{padding-inline-end:44px !important;}
+.pwd-toggle{
+  position:absolute;inset-inline-end:8px;top:50%;transform:translateY(-50%);
+  width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  background:transparent;border:none;border-radius:8px;
+  color:var(--text2);font-size:18px;line-height:1;cursor:pointer;padding:0;
+  transition:background .15s ease,color .15s ease;
+}
+.pwd-toggle:hover{background:var(--bg3);color:var(--text);}
+.pwd-toggle:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
+.pwd-toggle:active{transform:translateY(-50%) scale(0.92);}
+.pwd-toggle svg{display:block;width:20px;height:20px;flex-shrink:0;}
+/* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
+html[data-sub-level="read"] :is([onclick*="openAddModal("],[onclick*="saveEmployee("],[onclick*="removeAllLockPins("],[onclick*="saveOwnerPin("],[onclick*="openOwnerPinModal("],[onclick*="openEditModal("],[onclick*="toggleActive("],[onclick*="deleteEmployee("],.drag-handle){display:none !important;}
+</style>
+<!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
+<link rel="stylesheet" href="theme.css?v=20261005a">
+</head>
+<body>
+<div class="main" id="sbMainContent">
+
+<div class="topbar">
+  <div>
+    <div class="tb-title">الموظفون</div>
+    <div class="tb-sub">إدارة هويات الموظفين وأرقام السر</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="btn btn-primary" onclick="openAddModal()">＋ إضافة موظف</button>
+  </div>
+</div>
+
+<div class="page">
+
+  <div class="info-box">
+    <span class="info-icon">⚠️</span>
+    <div>
+      <!-- Phase 6 U: Top section (roles explanation: Owner/Doctor/Secretary)
+           removed. After Phase 6 P/Q/R/S/T the unified flow is intuitive on
+           sight — the role select in the add-employee modal already labels
+           each option clearly. Only the operational note about 'Deactivate
+           account' remains, since that behavior isn't obvious from the
+           button text alone. -->
+      <b style="color:var(--yellow-ink);">ملاحظة:</b>
+      زر "<b>تعطيل الحساب</b>" يمنع جهاز هذا الموظف من تسجيل بيانات جديدة (الجهاز يصبح للقراءة فقط).
+    </div>
+  </div>
+
+  <div id="empList"></div>
+
+</div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay sy-m" id="empModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="modalTitle">＋ إضافة موظف</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="form-group">
+        <label>الاسم الكامل *</label>
+        <input type="text" id="eName" placeholder="مثلاً: فاطمة الأحمد">
+      </div>
+
+      <div class="form-group">
+        <label>الدور *</label>
+        <!-- Phase 6 W + X: Unified role + provider_type dropdown. Each option
+             carries a composite value 'role:provider_type' so a single pick
+             captures both clinical role (what they do) and employee category
+             (where they fit in the lock-mode hierarchy).
+
+             Phase 6 X expansion: Secretary now has a clinic_doctors row too
+             (provider_type='secretary'), and a new 'other' bucket covers
+             cleaners, accountants, managers — any team member with a salary
+             who isn't a clinical provider. The role for both 'secretary' and
+             'other' employees maps to clinic_employees.role='secretary' (since
+             they share the same lock-mode permissions: front desk access).
+
+             Internal value 'hygienist' kept stable even though the UI label
+             changed to 'متدرب/مساعد' (more idiomatic for the Syrian market).
+             Renaming the DB value would invalidate Migration 13 data without
+             benefit. -->
+        <select id="eRole" onchange="onRoleChange()">
+          <option value="doctor:doctor">طبيب أسنان</option>
+          <option value="doctor:hygienist">متدرب/مساعد</option>
+          <option value="doctor:assistant">مساعدة كرسي</option>
+          <option value="secretary:secretary">سكرتيرة</option>
+          <option value="secretary:other">آخر (محاسب/عامل/إلخ)</option>
+        </select>
+        <div class="hint">المالك (Owner) لا يمكن إضافته يدوياً — حساب الـ Owner محفوظ تلقائياً.</div>
+      </div>
+
+      <!-- ───── Phase 6 W + X: Clinical/staff fields container ─────
+           Now visible for ALL non-owner employees (doctor, hygienist,
+           assistant, secretary, other). The container's contents adapt
+           per-role via onRoleChange + updateCompensationFieldsVisibility:
+
+             • Specialty/role text: shown for doctor sub-types only
+             • Phone + color + notes + hours: shown for everyone
+             • Compensation dropdown: shown for everyone (with role-appropriate
+               defaults — % for doctors/hygienists, salary for the rest)
+             • Share % field: hidden when compensation_model excludes it
+             • Monthly salary field: hidden when compensation_model excludes it
+
+           Field DOM elements stay mounted across visibility toggles so values
+           persist within a single modal session (no accidental data loss). -->
+      <div id="doctorFieldsGroup" style="display:none;">
+
+        <!-- Specialty/role text field — meaningful only for clinical roles
+             (doctor sub-types). Hidden for secretary/other; onRoleChange
+             toggles #specialtyFieldRow. -->
+        <div class="form-row" id="specialtyFieldRow">
+          <div class="form-group">
+            <label>التخصص / الدور</label>
+            <input type="text" id="eDocRole" placeholder="مثلاً: تقويم / لب وجذور / طبيب عام">
+          </div>
+          <div class="form-group">
+            <label>الهاتف (واتساب WhatsApp)</label>
+            <input type="tel" id="eDocPhone" placeholder="09xxxxxxxx" dir="ltr">
+          </div>
+        </div>
+
+        <!-- Phone-only row — shown for non-doctor roles so the phone field
+             stays visible when #specialtyFieldRow is hidden. onRoleChange
+             toggles between #specialtyFieldRow and #phoneOnlyRow so exactly
+             one of them is visible at a time. -->
+        <div class="form-group" id="phoneOnlyRow" style="display:none;">
+          <label>الهاتف (واتساب WhatsApp)</label>
+          <input type="tel" id="eDocPhoneAlt" placeholder="09xxxxxxxx" dir="ltr">
+        </div>
+
+        <!-- Phase 6 W (Migration 13 + 14): Dynamic compensation block.
+             provider_type comes from the unified role dropdown above
+             (e.g. 'doctor:hygienist'), so this section ONLY drives
+             compensation_model + the field(s) that model implies.
+
+             The four models map cleanly to the dental industry's standard
+             compensation formulas:
+
+               percentage → "%" only       (associate dentist pattern)
+               salary     → monthly amount (hygienist/secretary pattern)
+               hybrid     → both shown     (salary-plus pattern, ADA-described)
+               none       → no fields      (owner who draws profit directly)
+
+             updateCompensationFieldsVisibility() flips visibility on change
+             so the user never sees fields irrelevant to the chosen model.
+             A small hint line summarizes what each model means in plain Arabic. -->
+        <div class="form-group">
+          <label>نموذج التعويض</label>
+          <select id="eDocCompensation" onchange="updateCompensationFieldsVisibility()">
+            <option value="percentage">% من الإنتاج (طبيب مع نسبة)</option>
+            <option value="salary">راتب ثابت شهري</option>
+            <option value="hybrid">راتب ثابت + نسبة من الإنتاج</option>
+            <option value="none">بدون تعويض من هذا الجدول</option>
+          </select>
+          <div class="hint" id="compensationHint" style="font-size:11px;color:var(--text2);">سيُستخدم في صفحة الرواتب القادمة لحساب المستحقات.</div>
+        </div>
+
+        <!-- Share % field — visible for percentage + hybrid only, and only
+             for clinical roles (doctor sub-types). Non-clinical roles
+             (secretary/other) never see this field because they don't earn
+             from production. -->
+        <div class="form-group" id="shareFieldRow">
+          <label>نسبة الطبيب من الجلسة (%)</label>
+          <input type="number" id="eDocShare" min="0" max="100" placeholder="مثلاً: 40" oninput="onShareInput()">
+          <div class="hint" style="font-size:11px;color:var(--text2);">النسبة المئوية من قيمة الجلسة التي يستحقها هذا المزوّد.</div>
+          <!-- v384: تاريخُ سريان النسبة الجديدة (Migration 144) — يظهر فقط عند تغيير نسبة
+               طبيبٍ له بطاقة؛ الجلساتُ قبله تبقى بنسبتها القديمة والحسابُ لا يُعاد على التاريخ. -->
+          <div id="shareEffectiveRow" style="display:none;margin-top:8px;">
+            <label style="font-size:12px;">تسري النسبة الجديدة من</label>
+            <input type="date" id="eShareEffective">
+            <div class="hint" style="font-size:11px;color:var(--text2);">الجلسات قبل هذا التاريخ تُحسب بالنسبة السابقة. لتصحيح خطأ إدخال اختر تاريخاً سابقاً.</div>
+          </div>
+        </div>
+
+        <!-- Monthly salary field — visible for salary + hybrid only. Hidden
+             by default; updateCompensationFieldsVisibility() reveals it when
+             the model needs it. The numeric input uses min=0; defensive
+             validation in saveEmployee() rejects negative or NaN. -->
+        <div class="form-group" id="salaryFieldGroup" style="display:none;">
+          <label>الراتب الشهري (<span data-cur>ل.س</span>)</label>
+          <input type="number" id="eDocMonthlySalary" min="0" step="1000" placeholder="مثلاً: 500000">
+          <div class="hint" style="font-size:11px;color:var(--text2);">المبلغ الثابت الذي يستحقه هذا المزوّد شهرياً.</div>
+        </div>
+
+        <!-- Hours field — visible for ALL non-owner employees regardless of
+             compensation model. Useful for scheduling and labor tracking
+             whether the person earns by % or by salary. -->
+        <div class="form-group">
+          <label>ساعات العمل (أسبوعياً)</label>
+          <input type="number" id="eDocHours" min="0" placeholder="مثلاً: 24">
+        </div>
+
+        <div class="form-group">
+          <label>اللون المميّز (يظهر بجانب الاسم)</label>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="hidden" id="eDocColor" value="#63b3ed">
+            <button type="button" id="eDocColorSwatch" onclick="openEmpDocColorPicker()"
+                    aria-label="اختيار اللون"
+                    style="width:50px;height:40px;padding:0;cursor:pointer;border-radius:8px;border:1px solid var(--border);background:#63b3ed;flex-shrink:0;"></button>
+            <span style="font-size:12px;color:var(--text2);">اختر أي لون — يظهر بجانب الاسم</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>ملاحظات (اختياري)</label>
+          <textarea id="eDocNotes" rows="2" placeholder="أي تفاصيل إضافية..." style="width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit;font-size:13px;resize:vertical;"></textarea>
+        </div>
+
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           Phase 7.4: System access toggle
+           ─────────────────────────────────────────────────────────────
+           Separates HR identity from system login. Most non-clinical and
+           support staff (assistants, husbands paying utility bills, etc.)
+           are tracked for payroll only and don't need to log into SyDent.
+           OpenDental and Dentrix follow the same pattern: Employee vs User
+           are distinct entities. Toggling this checkbox hides/shows the
+           PIN fields and changes save-time validation.
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="form-group" style="background:var(--blue-soft);border:1px solid var(--blue-bd);border-radius:10px;padding:12px 14px;margin-top:6px;">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">
+          <input type="checkbox" id="eHasSystemAccess" onchange="onSystemAccessChange()" style="width:18px;height:18px;cursor:pointer;accent-color:var(--blue);">
+          <span style="font-weight:700;color:var(--text);">هذا الموظف يحتاج وصولاً للبرنامج</span>
+        </label>
+        <div class="hint" style="margin-top:6px;font-size:11px;color:var(--text2);line-height:1.6;">
+          • <b style="color:var(--text);">مفعّل:</b> الموظف يحصل على رقم سر ويظهر في شاشة القفل (سكرتيرة، طبيب يستخدم النظام).<br>
+          • <b style="color:var(--text);">غير مفعّل:</b> موظف لتتبع الرواتب والتقارير فقط (مساعد كرسي، ابن صاحب العيادة، إلخ).
+        </div>
+      </div>
+
+      <!-- PIN fields are now inside a conditional wrapper. saveEmployee()
+           skips PIN validation when eHasSystemAccess is unchecked. -->
+      <div id="pinAccessSection">
+      <div class="form-group">
+        <label>رقم السر (PIN) — 4 إلى 6 أرقام *</label>
+        <input type="password" inputmode="numeric" maxlength="6" id="ePin" class="pin-input" placeholder="••••" autocomplete="off">
+        <div class="hint" id="pinHint">سيستخدم هذا الرقم للدخول من شاشة القفل. لا يمكن تركه فارغاً.</div>
+      </div>
+
+      <div class="form-group" id="confirmPinGroup">
+        <label>تأكيد رقم السر *</label>
+        <input type="password" inputmode="numeric" maxlength="6" id="ePinConfirm" class="pin-input" placeholder="••••" autocomplete="off">
+      </div>
+      </div>
+      <!-- end #pinAccessSection -->
+
+      <div class="modal-msg" id="modalMsg"></div>
+
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeModal()">إلغاء</button>
+      <button type="button" class="btn btn-primary" id="saveBtn" onclick="saveEmployee()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Owner PIN Modal -->
+<div class="modal-overlay sy-m" id="ownerPinModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>تغيير رقم سرّك (كمالك)</h3>
+      <button class="modal-close" onclick="closeOwnerModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>رقم السر الجديد *</label>
+        <input type="password" inputmode="numeric" maxlength="6" id="oNewPin" class="pin-input" placeholder="••••" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>تأكيد رقم السر *</label>
+        <input type="password" inputmode="numeric" maxlength="6" id="oNewPinConfirm" class="pin-input" placeholder="••••" autocomplete="off">
+      </div>
+      <div class="modal-msg" id="ownerMsg"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeOwnerModal()">إلغاء</button>
+      <button type="button" class="btn" id="removeLockBtn" onclick="removeAllLockPins()" style="background:transparent;border:1px solid var(--red-bd);color:var(--red-ink);display:none;">تعطيل قفل العيادة</button>
+      <button type="button" class="btn btn-primary" id="saveOwnerBtn" onclick="saveOwnerPin()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── State ──
+var currentUser = null;
+var employees = [];        // all employees (active + inactive)
+var doctors = [];          // active clinic_doctors
+var editingId = null;      // employee being edited (null = adding new)
+var _loadFailed = false;   // loadData() rendered an error state — renderList must not overwrite it
+
+// ── Helpers ──
+function $(id) { return document.getElementById(id); }
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function showMsg(box, msg, isErr) {
+  var m = $(box);
+  if (!m) return;
+  m.textContent = msg;
+  m.className = 'modal-msg show ' + (isErr ? 'err' : 'ok');
+}
+function clearMsg(box) {
+  var m = $(box);
+  if (!m) return;
+  m.textContent = '';
+  m.className = 'modal-msg';
+}
+
+function roleLabel(r) {
+  return r === 'owner' ? 'المالك' : (r === 'doctor' ? 'طبيب' : 'سكرتيرة');
+}
+function roleIcon(r) {
+  return r === 'owner' ? '👑' : (r === 'doctor' ? '👨‍⚕️' : '👩‍💼');
+}
+// Phase 6 W: enhanced label that includes provider_type subtype for doctors.
+// Used in employee cards so the Owner sees at a glance that a 'doctor' is
+// actually a hygienist or chair-side assistant. Falls back to the basic
+// roleLabel() when no subtype information is available.
+// Phase 6 W + X: Enhanced label that includes provider_type subtype for both
+// doctor and secretary employees. Used in employee cards so the Owner sees at
+// a glance whether a 'doctor' is a hygienist/assistant, or a 'secretary' is
+// actually 'other staff'. Falls back to the basic roleLabel() when no
+// subtype information is available.
+function roleLabelExt(role, providerType) {
+  if (role === 'doctor') {
+    if (providerType === 'hygienist') return 'متدرب/مساعد';
+    if (providerType === 'assistant') return 'مساعدة كرسي';
+    return 'طبيب';  // doctor or null/undefined → default
+  }
+  if (role === 'secretary') {
+    if (providerType === 'other') return 'موظف آخر';
+    return 'سكرتيرة';  // 'secretary' or null/undefined → default
+  }
+  return roleLabel(role);  // owner or unknown
+}
+function roleIconExt(role, providerType) {
+  if (role === 'doctor') {
+    if (providerType === 'hygienist') return '🩺';
+    if (providerType === 'assistant') return '🤝';
+    return '🦷';  // doctor → tooth icon
+  }
+  if (role === 'secretary') {
+    if (providerType === 'other') return '👥';
+    return '👩‍💼';  // secretary → office worker
+  }
+  return roleIcon(role);
+}
+
+// Phase 6 T: avatarColor() now accepts the full employee row (not just role).
+// For doctors, we resolve the linked clinic_doctors.color so each doctor card
+// shows their custom hue — matching the visual identity already shown on
+// doctors.html. Falls back to the legacy per-role default when:
+//   • the employee is owner or secretary (roles share a single team color)
+//   • a doctor employee has no linked clinic_doctors row (legacy orphan)
+//   • the linked doctor exists but has no color set
+// Backward compat: callers that still pass a role string (instead of an
+// object) get the legacy behavior. This keeps any code outside renderList
+// from breaking silently.
+// Rule #218: DB-sourced colors are sanitized at the read chokepoint before
+// they are injected into style="…". Strict hex via the shared picker; the
+// literal 'var(--green)' is allowed because owner bootstrap rows store it.
+function _safeCardColor(c) {
+  var v = String(c == null ? '' : c).trim();
+  if (v === 'var(--green)') return v;
+  return (window.SyDentColorPicker && window.SyDentColorPicker.sanitizeHex)
+    ? window.SyDentColorPicker.sanitizeHex(v)
+    : (/^#[0-9A-Fa-f]{6}$/.test(v) ? v.toLowerCase() : '#63b3ed');
+}
+function avatarColor(empOrRole) {
+  // Accept either a string (role) or a full employee object
+  var role, emp;
+  if (typeof empOrRole === 'string') {
+    role = empOrRole; emp = null;
+  } else {
+    emp = empOrRole || {}; role = emp.role;
+  }
+  // Doctor employees mirror their linked clinic_doctors hue first, to keep the
+  // same visual identity shown on doctors.html.
+  if (role === 'doctor' && emp && emp.doctor_id && typeof doctors !== 'undefined') {
+    var linked = doctors.find(function(d){ return d.id === emp.doctor_id; });
+    if (linked && linked.color) return _safeCardColor(linked.color);
+  }
+  // All roles: honor the custom color saved via the "اللون المميز" picker
+  // (clinic_employees.color). This is what was missing for secretary/owner —
+  // the picked color was persisted but the card always fell back to the role
+  // default. Now the saved color wins whenever it exists.
+  if (emp && emp.color) return _safeCardColor(emp.color);
+  // Legacy per-role defaults (used when no custom color is set).
+  if (role === 'owner') return 'var(--green)';
+  if (role === 'secretary') return '#ffa726';
+  return '#63b3ed';
+}
+
+// Phase 6 P: returns a color for an auto-created clinic_doctors row. Picks
+// from a curated palette of distinct, theme-friendly hues, avoiding any color
+// already used by existing active doctors when possible. If all colors are
+// taken, falls back to a random choice from the palette.
+// Phase 6 Q: still used as a defensive fallback when the Owner saves a
+// doctor employee without explicitly picking a color (shouldn't happen
+// because the swatch always has a value, but the helper is harmless).
+function _pickRandomDoctorColor() {
+  var palette = [
+    '#63b3ed', '#f5a623', '#a78bfa', '#f06292',
+    '#4dd0e1', '#ffb74d', '#81c784', '#ff8a65',
+    '#9575cd', '#4fc3f7', '#dce775', '#e57373'
+  ];
+  var used = {};
+  doctors.forEach(function(d){
+    if (d && d.is_active !== false && d.color) used[String(d.color).toLowerCase()] = true;
+  });
+  var available = palette.filter(function(c){ return !used[c.toLowerCase()]; });
+  var pool = available.length > 0 ? available : palette;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// ── Phase 6 Q: Doctor color picker integration ──
+// Mirrors the established pattern in doctors.html (Phase 6 K2.2):
+//   • _empPickedColor is the module-scoped source of truth.
+//   • _setEmpDocColor() is the single sync point — sanitizes via the shared
+//     picker, then updates the swatch, hidden input, and _empPickedColor
+//     atomically. All call sites (openAddModal, openEditModal, picker
+//     callback) route through it so the three values never drift.
+//   • openEmpDocColorPicker() opens the shared SyDentColorPicker; degrades
+//     to a defensive prompt() fallback if the component fails to load.
+var _empPickedColor = '#63b3ed';
+function _setEmpDocColor(hex) {
+  var safe = (window.SyDentColorPicker && window.SyDentColorPicker.sanitizeHex)
+    ? window.SyDentColorPicker.sanitizeHex(hex) : (hex || '#63b3ed');
+  _empPickedColor = safe;
+  var hidden = document.getElementById('eDocColor');
+  if (hidden) hidden.value = safe;
+  var sw = document.getElementById('eDocColorSwatch');
+  if (sw) sw.style.background = safe;
+}
+function openEmpDocColorPicker() {
+  if (!window.SyDentColorPicker) {
+    /* v461: مسارُ احتياطٍ نادر (منتقي الألوان لم يُحمَّل) — بحوار المنصة
+       إن وُجد، وإلا نافذةُ المتصفّح كملاذٍ أخير كي لا يتعطّل الإدخال. */
+    if (window.SyDialog) {
+      SyDialog.prompt({ title: 'لون مخصّص', message: 'أدخل لون hex (مثال: #0d8577):', value: _empPickedColor })
+        .then(function (typed) { if (typed) _setEmpDocColor(typed); });
+      return;
+    }
+    var typed = window.prompt('أدخل لون hex (مثال: #0d8577):', _empPickedColor);
+    if (typed) _setEmpDocColor(typed);
+    return;
+  }
+  window.SyDentColorPicker.open(_empPickedColor, function(newHex) {
+    _setEmpDocColor(newHex);
+  });
+}
+
+// SHA-256 hash for PIN (delegates to SyDentLock.hashPin)
+async function hashPin(pin) {
+  return await window.SyDentLock.hashPin(pin);
+}
+
+// ── Data layer ──
+async function loadData() {
+  // Phase X14.2: make sure the owner has a clinic_employees row BEFORE we read
+  // the list. The owner PIN UI (saveOwnerPin) and the owner card both require
+  // it; clinics onboarded without it would otherwise show no owner card and
+  // the owner could never set a lock PIN. Idempotent self-heal in SyDentLock.
+  try {
+    if (window.SyDentLock && window.SyDentLock.ensureOwnerEmployee) {
+      await window.SyDentLock.ensureOwnerEmployee();
+    }
+  } catch (e) { /* non-fatal — the query below still runs */ }
+
+  // Load employees
+  // Phase 7.3 (Migration 20): clinic_employees is now the canonical HR source
+  // for ALL employees (clinical + non-clinical). The 8 HR columns mirror what
+  // clinic_doctors stores for clinical staff, so non-clinical staff can also
+  // carry phone/color/salary/etc without needing a clinic_doctors row.
+  // Graceful fallback: if Migration 20 hasn't been applied yet, retry without
+  // the new columns (Rule #15 — soft-mode bootstrapping).
+  var empRes = await window.sb.from('clinic_employees')
+    .select('id, name, role, doctor_id, pin_hash, is_active, created_at, updated_at, has_system_access, ' +
+            'phone, color, notes, weekly_hours, monthly_salary, salary_currency, share_percent, ' +
+            'provider_type, compensation_model, sort_order')
+    .eq('owner_id', currentUser.id)
+    .order('role', { ascending: true })
+    .order('name', { ascending: true });
+
+  // Pre-Migration-20/21/42 fallback: drop the new columns if any are missing.
+  if (empRes.error && /42703|phone|color|notes|weekly_hours|monthly_salary|salary_currency|share_percent|provider_type|compensation_model|has_system_access|sort_order/i.test(
+        (empRes.error.message || '') + ' ' + (empRes.error.code || ''))) {
+    console.warn('Phase 7.3/7.4: Migration 20/21 not applied — retrying clinic_employees with legacy columns');
+    empRes = await window.sb.from('clinic_employees')
+      .select('id, name, role, doctor_id, pin_hash, is_active, created_at, updated_at')
+      .eq('owner_id', currentUser.id)
+      .order('role', { ascending: true })
+      .order('name', { ascending: true });
+  }
+
+  if (empRes.error) {
+    showToast('فشل تحميل قائمة الموظفين', true);
+    console.error(empRes.error);
+    var _errBox = $('empList');
+    if (_errBox) {
+      _errBox.innerHTML =
+        '<div class="empty">' +
+          '<div class="em-icon">⚠️</div>' +
+          '<div class="em-title">تعذّر تحميل قائمة الموظفين</div>' +
+          '<div class="em-text">تحقّق من الاتصال ثم أعد تحميل الصفحة.</div>' +
+        '</div>';
+    }
+    _loadFailed = true;
+    return;
+  }
+  _loadFailed = false;
+  employees = empRes.data || [];
+
+  // ── Name unification — read-time self-heal (owner row) ──
+  // user_metadata.full_name is the single source of truth for the owner's
+  // personal/provider name. If this owner's staff row drifted from it (legacy
+  // signup name, or an edit made before write-time sync existed), reconcile
+  // here: one cheap UPDATE, only when the value actually differs. Non-owner
+  // rows are never touched. Fire-and-forget — render proceeds immediately with
+  // the corrected in-memory value; a failed write just retries on next load.
+  try {
+    var _ownerFull = ((currentUser.user_metadata || {}).full_name
+                   || (currentUser.user_metadata || {}).name || '').trim();
+    if (_ownerFull) {
+      var _ownerEmp = employees.find(function(e){ return e.role === 'owner'; });
+      if (_ownerEmp && String(_ownerEmp.name || '').trim() !== _ownerFull) {
+        _ownerEmp.name = _ownerFull;  // reflect immediately in the upcoming render
+        window.sb.from('clinic_employees')
+          .update({ name: _ownerFull })
+          .eq('owner_id', currentUser.id)
+          .eq('role', 'owner')
+          .then(function(){}, function(){});
+      }
+    }
+  } catch (e) { /* non-fatal */ }
+
+  // Load active doctors. Phase 6 Q: expanded SELECT to fetch the full
+  // clinical field set, because openEditModal() now pre-fills these into
+  // the employee modal when editing a doctor employee. Without these
+  // columns, edits would silently null them out (the form would show
+  // blank → saveEmployee would write null → data loss). Bandwidth cost
+  // is negligible (the doctors table is tiny — usually <20 rows).
+  // Phase 6 R (Migration 13): provider_type + compensation_model added to the
+  // SELECT list.
+  // Phase 6 W (Migration 14): monthly_salary added too. Two-stage retry: strip
+  // M14 first, then M13, then fall back to the legacy column list.
+  var docRes = await window.sb.from('clinic_doctors')
+    .select('id, name, role, phone, share_percent, share_history, weekly_hours, notes, color, is_active, is_owner, provider_type, compensation_model, monthly_salary, salary_currency')
+    .eq('owner_id', currentUser.id)
+    .order('name');
+  // v384: Migration 144 (share_history) غيرُ مطبَّقة ⇒ نسقطها وحدها.
+  if (docRes.error && /42703|share_history/i.test((docRes.error.message || '') + ' ' + (docRes.error.code || ''))) {
+    _shareHistoryUnavailable = true;
+    docRes = await window.sb.from('clinic_doctors')
+      .select('id, name, role, phone, share_percent, weekly_hours, notes, color, is_active, is_owner, provider_type, compensation_model, monthly_salary, salary_currency')
+      .eq('owner_id', currentUser.id)
+      .order('name');
+  }
+
+  // Pre-Migration-14 fallback: drop monthly_salary if missing.
+  if (docRes.error && /42703|monthly_salary|salary_currency/i.test(
+        (docRes.error.message || '') + ' ' + (docRes.error.code || ''))) {
+    docRes = await window.sb.from('clinic_doctors')
+      .select('id, name, role, phone, share_percent, weekly_hours, notes, color, is_active, is_owner, provider_type, compensation_model')
+      .eq('owner_id', currentUser.id)
+      .order('name');
+  }
+  // Pre-Migration-13 fallback: drop provider_type + compensation_model too.
+  if (docRes.error && /42703|provider_type|compensation_model/i.test(
+        (docRes.error.message || '') + ' ' + (docRes.error.code || ''))) {
+    docRes = await window.sb.from('clinic_doctors')
+      .select('id, name, role, phone, share_percent, weekly_hours, notes, color, is_active, is_owner')
+      .eq('owner_id', currentUser.id)
+      .order('name');
+  }
+
+  if (!docRes.error) {
+    // Keep ALL rows (active + inactive): edit/Case-2/Case-4/delete look the
+    // linked card up by id and check is_active themselves. Filtering here
+    // made an inactive linked card "vanish" — the specialty label read blank
+    // and Case 2 then wrote clinic_doctors.role = null on save.
+    // _pickRandomDoctorColor() already skips inactive rows on its own.
+    doctors = docRes.data || [];
+  }
+
+  // Invalidate the SyDentLock employees cache so other pages get fresh data
+  if (window.SyDentLock && window.SyDentLock.invalidateEmployeesCache) {
+    window.SyDentLock.invalidateEmployeesCache();
+  }
+}
+
+function renderList() {
+  var box = $('empList');
+  if (_loadFailed) return;   // keep the error state visible (not "no employees yet")
+  if (employees.length === 0) {
+    box.innerHTML =
+      '<div class="empty">' +
+        '<div class="em-icon">👥</div>' +
+        '<div class="em-title">لا يوجد موظفون بعد</div>' +
+        '<div class="em-text">ابدأ بإضافة سكرتيرة أو طبيب من زر "إضافة موظف" بالأعلى.</div>' +
+      '</div>';
+    return;
+  }
+
+  // Owner is always pinned first (never draggable). Everyone else is ordered
+  // by the custom sort_order (Migration 42) set via drag-and-drop, with name
+  // as a stable tiebreak. Rows that predate the column (sort_order null) sort
+  // last so they don't jump above intentionally-ordered cards.
+  var sorted = employees.slice().sort(function(a, b){
+    if (a.role === 'owner' && b.role !== 'owner') return -1;
+    if (b.role === 'owner' && a.role !== 'owner') return 1;
+    var sa = (a.sort_order == null) ? Number.MAX_SAFE_INTEGER : a.sort_order;
+    var sb = (b.sort_order == null) ? Number.MAX_SAFE_INTEGER : b.sort_order;
+    if (sa !== sb) return sa - sb;
+    return String(a.name).localeCompare(String(b.name), 'ar');
+  });
+
+  // Phase X14.3: security nudge — owner has no PIN but a staff member does.
+  // If the owner never set their own PIN while a staff member has one, anyone
+  // on a staff device could switch into owner mode without a PIN (the lock is
+  // only meaningful once owner mode itself is protected). Surface a clear,
+  // actionable warning so the owner sets their PIN. It disappears automatically
+  // once an owner PIN is saved (saveOwnerPin re-renders the list).
+  var _ownerEmp = employees.find(function(e){ return e.role === 'owner'; });
+  var _ownerNoPin = !!_ownerEmp && !_ownerEmp.pin_hash;
+  var _staffHasPin = employees.some(function(e){
+    return e.role !== 'owner' && e.is_active !== false && !!e.pin_hash;
+  });
+  var ownerPinNudge = (_ownerNoPin && _staffHasPin)
+    ? '<div class="info-box" style="border-color:var(--red-bd);background:var(--red-soft);align-items:center;">' +
+        '<span class="info-icon">🔓</span>' +
+        '<div style="flex:1;color:var(--text);">' +
+          '<b style="color:var(--red);">المالك بدون رقم سر.</b> ' +
+          'بما أنّ أحد الموظفين عيّن رقم سر، يستطيع أي شخص على جهاز موظف التحوّل إلى وضع المالك بدون رقم سر. ' +
+          'عيّن رقم سر المالك لحماية وضعك.' +
+        '</div>' +
+        '<button class="btn btn-sm btn-primary" style="flex-shrink:0;" onclick="openOwnerPinModal()">تعيين رقم سر المالك</button>' +
+      '</div>'
+    : '';
+
+  var html = ownerPinNudge + '<div class="emp-grid">';
+  sorted.forEach(function(e){
+    // Phase 6 T: pass the full employee row so avatarColor() can resolve
+    // a doctor's custom color from the linked clinic_doctors record.
+    var color = avatarColor(e);
+    var inactive = e.is_active === false;
+    var pinSet = !!e.pin_hash;
+    var roleBadgeClass = 'role-' + e.role;
+
+    // Phase 6 W: Resolve provider_type from the linked clinic_doctors row so
+    // the badge can show "🩺 مساعد/ممرض" instead of the generic "👨‍⚕️ طبيب"
+    // for hygienists and assistants. Falls back to 'doctor' if no linkage.
+    // Phase 6 W + X: Resolve provider_type from the linked clinic_doctors row
+    // for ALL non-owner employees (secretaries also have linkedDoc since
+    // Phase 6 X). Falls back to a sensible default per role if no linkage.
+    // FIX (Migration 42 session): the canonical source is
+    // clinic_employees.provider_type (Phase 7.3). Non-clinical staff
+    // ('secretary:other') have NO doctor_id → linkedDocForBadge is null, so
+    // reading only the mirror made every 'other' employee display as
+    // "سكرتيرة". Prefer e.provider_type first (mirrors the edit modal's
+    // _coalesceHR(emp.provider_type, linkedDoc.provider_type) precedence).
+    var linkedDocForBadge = (e.role !== 'owner' && e.doctor_id)
+      ? doctors.find(function(d){ return d.id === e.doctor_id; })
+      : null;
+    var empProviderType = e.provider_type
+      || (linkedDocForBadge ? linkedDocForBadge.provider_type : null);
+
+    // Phase 7.4: Three possible badges depending on system access state:
+    //   1. Owner          → no badge (has system access by definition)
+    //   2. has_system_access = false  → "تتبع راتب فقط" (HR-only)
+    //   3. has_system_access = true, pin_hash null → "لم يُعيَّن رقم السر"
+    //   4. has_system_access = true, pin_hash set  → "رقم السر محفوظ"
+    var hasAccess = e.has_system_access === true || e.role === 'owner';
+    var pinStatus;
+    if (!hasAccess) {
+      pinStatus = '<div class="emp-pin-status pin-none-required" title="هذا الموظف لتتبع الرواتب والتقارير فقط — لا يدخل النظام">💰 تتبع راتب فقط</div>';
+    } else if (pinSet) {
+      pinStatus = '<div class="emp-pin-status pin-set">✅ رقم السر محفوظ</div>';
+    } else {
+      pinStatus = '<div class="emp-pin-status pin-unset">⚠️ لم يُعيَّن رقم السر بعد</div>';
+    }
+
+    var actions = '';
+    if (e.role === 'owner') {
+      actions =
+        '<button class="sy-act" onclick="openOwnerPinModal()">🔐 تغيير رقم سرّي</button>';
+    } else {
+      var toggleTitle = inactive
+        ? 'إعادة تفعيل حساب هذا الموظف ليتمكن من تسجيل البيانات من جهازه'
+        : 'منع جهاز هذا الموظف من تسجيل بيانات جديدة (الجهاز يصبح للقراءة فقط)';
+      actions =
+        '<button class="sy-act" onclick="openEditModal(\'' + e.id + '\')">✏️ تعديل</button>' +
+        '<button class="sy-act' + (inactive ? ' sy-act-primary' : ' sy-act-warn') + '" onclick="toggleActive(\'' + e.id + '\')" title="' + escapeHtml(toggleTitle) + '">' +
+          (inactive ? '✅ تفعيل الحساب' : '🔒 تعطيل الحساب') +
+        '</button>' +
+        '<button class="sy-act sy-act-danger" onclick="deleteEmployee(\'' + e.id + '\')">🗑️ حذف</button>';
+    }
+
+    // Owner card is pinned (not draggable). All other employees get the
+    // draggable flag + a grab handle so they can be reordered (Migration 42).
+    var isOwnerCard = (e.role === 'owner');
+    var dragAttrs = isOwnerCard ? '' : (' draggable="true" data-emp-id="' + e.id + '"');
+    var dragHandle = isOwnerCard ? '' : '<div class="drag-handle" title="اسحب لإعادة الترتيب">⋮⋮</div>';
+    html +=
+      '<div class="emp-card' + (inactive ? ' inactive' : '') + '"' + dragAttrs + ' tabindex="0" role="button" title="اضغط للتعديل" data-edit-id="' + e.id + '" onclick="empCardOpen(event)" onkeydown="if(event.key===\'Enter\'&&event.target===this)openEditModal(this.dataset.editId)">' +
+        '<div class="emp-color-bar" style="background:' + color + ';"></div>' +
+        dragHandle +
+        '<div class="emp-body">' +
+          '<div class="emp-head">' +
+            '<div class="emp-avatar" style="background:' + color + ';" title="اللون المميز"></div>' +
+            '<div>' +
+              '<div class="emp-name">' + escapeHtml(e.name) +
+                (inactive ? ' <span style="color:var(--red);font-size:11px;font-weight:700;">(معطّل)</span>' : '') +
+              '</div>' +
+              '<div class="emp-role-badge ' + roleBadgeClass + '">' + roleIconExt(e.role, empProviderType) + ' ' + roleLabelExt(e.role, empProviderType) + '</div>' +
+            '</div>' +
+          '</div>' +
+          (e.role === 'doctor' && e.doctor_id ? '<div class="emp-info">🔗 مربوط بطبيب في قائمة الأطباء</div>' : '') +
+          pinStatus +
+          '<div class="emp-actions sy-acts">' + actions + '</div>' +
+        '</div>' +
+      '</div>';
+  });
+  html += '</div>';
+  box.innerHTML = html;
+  wireDragAndDrop();
+}
+
+// ============================================================
+// Drag-and-drop reordering (mirrors treatments.html pattern)
+// ============================================================
+// The owner card is never draggable (pinned first), so only non-owner cards
+// carry [data-emp-id]. Reordering persists clinic_employees.sort_order
+// (Migration 42) one row at a time, with an optimistic re-render first.
+var draggedEmpId = null;
+
+function wireDragAndDrop() {
+  var cards = document.querySelectorAll('.emp-card[data-emp-id]');
+  // M141-ب: وضعُ القراءة — لا ترتيب (البطاقات ثابتة والمقبض مخفي)
+  if (window.SyDentSub && window.SyDentSub.isReadOnly()) { cards.forEach(function(c){ c.removeAttribute('draggable'); }); return; }
+  cards.forEach(function(card){
+    card.addEventListener('dragstart', function(e){
+      draggedEmpId = card.getAttribute('data-emp-id');
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', function(){
+      card.classList.remove('dragging');
+      document.querySelectorAll('.emp-card.drag-over').forEach(function(c){ c.classList.remove('drag-over'); });
+    });
+    card.addEventListener('dragover', function(e){
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      var thisId = card.getAttribute('data-emp-id');
+      if (thisId !== draggedEmpId) card.classList.add('drag-over');
+    });
+    card.addEventListener('dragleave', function(){
+      card.classList.remove('drag-over');
+    });
+    card.addEventListener('drop', async function(e){
+      e.preventDefault();
+      card.classList.remove('drag-over');
+      var targetId = card.getAttribute('data-emp-id');
+      if (!draggedEmpId || draggedEmpId === targetId) return;
+      await reorderEmployees(draggedEmpId, targetId);
+      draggedEmpId = null;
+    });
+  });
+}
+
+async function reorderEmployees(draggedId, targetId) {
+  // Reorder within the non-owner subset only; the owner stays pinned and is
+  // excluded from sort_order churn entirely.
+  var owners  = employees.filter(function(e){ return e.role === 'owner'; });
+  var movable = employees.filter(function(e){ return e.role !== 'owner'; });
+
+  var draggedIdx = movable.findIndex(function(e){ return e.id === draggedId; });
+  var targetIdx  = movable.findIndex(function(e){ return e.id === targetId; });
+  if (draggedIdx < 0 || targetIdx < 0) return;
+
+  // Remove and reinsert at the target position.
+  var dragged = movable.splice(draggedIdx, 1)[0];
+  targetIdx = movable.findIndex(function(e){ return e.id === targetId; });
+  movable.splice(targetIdx, 0, dragged);
+
+  // Reassign sort_order sequentially. Owners keep sort_order 0 so they never
+  // compete with the movable block (which starts at 1).
+  owners.forEach(function(e){ e.sort_order = 0; });
+  var updates = [];
+  for (var j = 0; j < movable.length; j++) {
+    movable[j].sort_order = j + 1;
+    updates.push({ id: movable[j].id, sort_order: j + 1 });
+  }
+  // Rebuild the master array so renderList's sort reflects the new order.
+  employees = owners.concat(movable);
+
+  // Optimistic re-render.
+  renderList();
+
+  // Persist (one update per row — small list, no batching needed).
+  for (var k = 0; k < updates.length; k++) {
+    var res = await window.sb.from('clinic_employees')
+      .update({ sort_order: updates[k].sort_order })
+      .eq('id', updates[k].id)
+      .eq('owner_id', currentUser.id);
+    if (res.error) {
+      console.error('reorder error:', res.error);
+      // Pre-Migration-42 fallback: column missing → tell the user, then reload.
+      if (/42703|sort_order/i.test((res.error.message || '') + ' ' + (res.error.code || ''))) {
+        showToast('⚠️ عمود الترتيب غير مفعّل بعد على قاعدة البيانات', true);
+      } else {
+        showToast('⚠️ فشل حفظ الترتيب: ' + res.error.message, true);
+      }
+      await loadData();  // restore a consistent state from the server
+      return;
+    }
+  }
+  showToast('✅ تم تحديث الترتيب');
+}
+
+// ── Add/Edit Modal ──
+
+// Phase 6 W + X: Composite-value parser for the unified role dropdown.
+// The dropdown's option values are 'role:provider_type' (e.g. 'doctor:hygienist',
+// 'secretary:secretary', 'secretary:other'). Returns { role, providerType }.
+// Phase 6 X adds 'secretary' and 'other' as valid provider_type values.
+function parseEmpRoleValue(v) {
+  var parts = String(v || '').split(':');
+  var role = parts[0] || 'secretary';
+  var pt = parts[1] || (role === 'doctor' ? 'doctor' : 'secretary');
+  // Legacy 'none' sentinel from Phase 6 W maps to a real provider_type now
+  // (the secretary role itself has provider_type='secretary' so payroll rows
+  // can be filtered by what the person does). Without this normalization, a
+  // pre-Phase-X clinic_doctors row with provider_type='none' would violate
+  // the Migration 15 CHECK constraint on UPDATE.
+  if (pt === 'none') pt = 'secretary';
+  return { role: role, providerType: pt };
+}
+
+// Phase 6 W + X: Default compensation_model per provider type. Encodes the
+// industry-standard pattern (clinical providers default to %, support staff
+// default to salary). The Owner can override after picking the role — these
+// are starting points, not enforcement.
+function defaultCompensationForProviderType(pt) {
+  if (pt === 'doctor') return 'percentage';
+  if (pt === 'hygienist') return 'percentage';  // trainee/cleaning often %
+  if (pt === 'assistant') return 'salary';
+  if (pt === 'secretary') return 'salary';
+  if (pt === 'other') return 'salary';
+  return 'salary';
+}
+
+// Phase 6 X: Two distinct "is clinical?" concepts:
+//   • providerTypeTakesAppointments — appears in appointment picker
+//     (doctor + hygienist + assistant). Assistants take appts as the
+//     helping provider on a session.
+//   • providerTypeEarnsByProduction — can take a % of production
+//     (doctor + hygienist only). Assistants are paid salary, not %.
+function providerTypeTakesAppointments(pt) {
+  return pt === 'doctor' || pt === 'hygienist' || pt === 'assistant';
+}
+function providerTypeEarnsByProduction(pt) {
+  return pt === 'doctor' || pt === 'hygienist';
+}
+// Backward-compat alias — earlier code uses providerTypeIsClinical for the
+// "earns by production" meaning. Keep it pointing there to avoid breaking
+// the existing share-field visibility logic.
+function providerTypeIsClinical(pt) {
+  return providerTypeEarnsByProduction(pt);
+}
+
+// Phase 6 W + X: Toggle the compensation field visibility based on the current
+// model selection AND the current provider_type. Keeps a single source of
+// truth for "which fields matter for which (role, model) combination".
+// ── v384: سجلُّ النسب بتاريخ سريان (Migration 144) ──
+var _shareHistoryUnavailable = false;   // true ⇒ الترحيل غير مطبَّق، لا كتابةَ للسجل
+var _origEffShare = null;                // النسبةُ الفعلية المحفوظة عند فتح المودال (null = لا بطاقة)
+// النسبةُ الفعلية = النسبةُ إن كان النموذجُ يحتوي حصّة، وإلا 0؛ null = لم تُحدَّد.
+function _effShare(model, pct) {
+  if (model === 'salary' || model === 'none') return 0;
+  return (pct === null || pct === undefined || pct === '' || isNaN(Number(pct))) ? null : Number(pct);
+}
+function _todayISO() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+// يُظهر «تسري من» فقط عند تغيير النسبة الفعلية لطبيبٍ له بطاقة (لا عند الإضافة).
+function onShareInput() {
+  var row = $('shareEffectiveRow');
+  if (!row) return;
+  var model = ($('eDocCompensation') && $('eDocCompensation').value) || 'percentage';
+  var parsed = parseEmpRoleValue($('eRole').value);
+  var isClinical = providerTypeIsClinical(parsed.providerType);
+  var newEff = _effShare(model, $('eDocShare').value);
+  var changed = editingId && _origEffShare !== null && isClinical && newEff !== null && newEff !== _origEffShare && !_shareHistoryUnavailable;
+  row.style.display = changed ? '' : 'none';
+  if (changed && !$('eShareEffective').value) $('eShareEffective').value = _todayISO();
+}
+
+function updateCompensationFieldsVisibility() {
+  var model = ($('eDocCompensation') && $('eDocCompensation').value) || 'percentage';
+  var parsed = parseEmpRoleValue($('eRole').value);
+  var isClinical = providerTypeIsClinical(parsed.providerType);
+
+  var shareRow = $('shareFieldRow');
+  var salaryGrp = $('salaryFieldGroup');
+  var hint = $('compensationHint');
+
+  // Share field visible only when:
+  //   1. the role earns by clinical production (doctor or hygienist), AND
+  //   2. the compensation model includes a percentage component.
+  // Salary field visible only when the model includes a fixed component.
+  var showShare = isClinical && (model === 'percentage' || model === 'hybrid');
+  var showSalary = (model === 'salary' || model === 'hybrid');
+  if (shareRow) shareRow.style.display = showShare ? '' : 'none';
+  if (salaryGrp) salaryGrp.style.display = showSalary ? '' : 'none';
+
+  // Per-model hint text — keeps the Owner oriented as they switch.
+  if (hint) {
+    if (model === 'percentage') hint.textContent = 'يحسب من الإنتاج × النسبة المئوية. مناسب للأطباء/المتدربين العاملين بالعمولة.';
+    else if (model === 'salary') hint.textContent = 'مبلغ ثابت شهري بغض النظر عن الإنتاج. مناسب لمساعدة الكرسي والسكرتيرة وباقي الموظفين.';
+    else if (model === 'hybrid') hint.textContent = 'راتب أساسي + نسبة من الإنتاج. مرن للحالات الخاصة.';
+    else hint.textContent = 'هذا الموظف لا يأخذ مستحقات عبر صفحة الرواتب (مثلاً المالك يأخذ أرباحاً مباشرة).';
+  }
+  onShareInput();   // v384: تبديلُ النموذج قد يغيّر النسبةَ الفعلية (راتب ⇒ 0)
+}
+
+// Phase 6 X: Filter the compensation dropdown options to only those that
+// make sense for the chosen provider_type. Non-clinical roles (secretary,
+// assistant, other) can't earn by percentage of production, so 'percentage'
+// and 'hybrid' are hidden for them. The hidden options remain in the DOM
+// (display:none on <option>) so we can re-show them when the role changes
+// back — preserves the current selection if the Owner toggles a doctor
+// employee back from hygienist to doctor.
+function syncCompensationDropdownForRole() {
+  var sel = $('eDocCompensation');
+  if (!sel) return;
+  var parsed = parseEmpRoleValue($('eRole').value);
+  var isClinical = providerTypeIsClinical(parsed.providerType);
+  for (var i = 0; i < sel.options.length; i++) {
+    var opt = sel.options[i];
+    if (opt.value === 'percentage' || opt.value === 'hybrid') {
+      opt.style.display = isClinical ? '' : 'none';
+      opt.disabled = !isClinical;
+    }
+  }
+  // If the current selection became hidden (e.g. user switched from doctor
+  // to secretary while 'percentage' was chosen), snap to 'salary' so the
+  // form doesn't leave an invisible-but-active option selected.
+  if (!isClinical && (sel.value === 'percentage' || sel.value === 'hybrid')) {
+    sel.value = 'salary';
+  }
+}
+
+function onRoleChange() {
+  // Phase 6 W + X: Unified role parser. The dropdown value is now
+  // 'role:provider_type' (e.g. 'doctor:hygienist' or 'secretary:other').
+  // doctorFieldsGroup (now broader — clinical/staff fields) shows for ALL
+  // non-owner employees; only the specialty-text row hides for non-doctors.
+  var parsed = parseEmpRoleValue($('eRole').value);
+  var grp = $('doctorFieldsGroup');
+  if (grp) grp.style.display = '';  // always visible for any non-owner role
+
+  // Phase 6 X: Specialty text field shown for ALL clinical providers (doctor,
+  // hygienist, assistant) — they all take appointments and may have a
+  // specialty/skill label. Hidden for secretary/other (use the phone-only
+  // row instead).
+  var takesAppts = providerTypeTakesAppointments(parsed.providerType);
+  var specRow = $('specialtyFieldRow');
+  var phoneOnly = $('phoneOnlyRow');
+  if (specRow) specRow.style.display = takesAppts ? '' : 'none';
+  if (phoneOnly) phoneOnly.style.display = takesAppts ? 'none' : '';
+
+  // Filter the compensation dropdown to role-appropriate options.
+  syncCompensationDropdownForRole();
+
+  // Auto-update compensation_model default whenever the user picks a new role
+  // — but ONLY in add mode. In edit mode we keep whatever was loaded from DB
+  // so the Owner doesn't lose their previous choice by toggling the dropdown.
+  if (editingId === null) {
+    $('eDocCompensation').value = defaultCompensationForProviderType(parsed.providerType);
+  }
+  updateCompensationFieldsVisibility();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Phase 7.4: System access checkbox handler.
+// Shows/hides the PIN fields based on whether this employee needs to log
+// into the system. HR-only employees (most non-clinical staff, payroll
+// recipients without UI access) don't see PIN fields, and saveEmployee()
+// skips PIN validation for them.
+// ═══════════════════════════════════════════════════════════════════════
+function onSystemAccessChange() {
+  var cb = $('eHasSystemAccess');
+  var section = $('pinAccessSection');
+  if (!cb || !section) return;
+  var enabled = cb.checked;
+  section.style.display = enabled ? '' : 'none';
+  // Clear PIN inputs when disabling, so they don't accidentally get saved
+  // if the Owner unchecks then re-saves an existing employee.
+  if (!enabled) {
+    if ($('ePin')) $('ePin').value = '';
+    if ($('ePinConfirm')) $('ePinConfirm').value = '';
+  }
+}
+
+function openAddModal() {
+  editingId = null;
+  $('modalTitle').textContent = '＋ إضافة موظف';
+  $('eName').value = '';
+  // Phase 6 X: default to "secretary:secretary" (most common non-doctor add).
+  // The Owner picks doctor sub-types or 'other' from the same dropdown.
+  $('eRole').value = 'secretary:secretary';
+  $('ePin').value = '';
+  $('ePinConfirm').value = '';
+  clearMsg('modalMsg');
+
+  // Phase 7.4: default new employees to HR-only (unchecked).
+  // Most additions are payroll-only staff (assistants, family members
+  // receiving payouts, etc). Owner must explicitly opt-in to system access.
+  if ($('eHasSystemAccess')) {
+    $('eHasSystemAccess').checked = false;
+    onSystemAccessChange();  // hide PIN fields by default
+  }
+
+  // Reset all clinical/staff fields. Picks a fresh color from the curated
+  // palette (avoids duplicating an existing doctor's color when possible).
+  $('eDocRole').value = '';
+  $('eDocPhone').value = '';
+  if ($('eDocPhoneAlt')) $('eDocPhoneAlt').value = '';
+  $('eDocShare').value = '';
+  _origEffShare = null;                                   // v384
+  if ($('eShareEffective')) $('eShareEffective').value = '';
+  if ($('shareEffectiveRow')) $('shareEffectiveRow').style.display = 'none';
+  $('eDocHours').value = '';
+  $('eDocNotes').value = '';
+  _setEmpDocColor(_pickRandomDoctorColor());
+  // Compensation default set by onRoleChange below (depends on chosen role).
+  $('eDocCompensation').value = 'salary';
+  if ($('eDocMonthlySalary')) $('eDocMonthlySalary').value = '';
+
+  onRoleChange();
+  try { window.SyDentCurPick.mount('eDocMonthlySalary'); } catch (e) {}   // M125
+  $('empModal').classList.add('show');
+  setTimeout(function(){ $('eName').focus(); }, 80);
+}
+
+function openEditModal(id) {
+  var emp = employees.find(function(e){ return e.id === id; });
+  if (!emp) { showToast('الموظف غير موجود', true); return; }
+  if (emp.role === 'owner') { showToast('استخدم زر تغيير رقم السر للمالك', true); return; }
+
+  editingId = id;
+  $('modalTitle').textContent = '✏️ تعديل: ' + emp.name;
+  $('eName').value = emp.name;
+
+  // Phase 7.3 (Migration 20): clinic_employees is now canonical for all HR
+  // fields. Pre-fill reads from emp.* first, then falls back to linkedDoc.*
+  // for backward compatibility (rows that existed before Migration 20 still
+  // have their values in clinic_doctors). The fallback only kicks in when the
+  // canonical value is null/undefined — once the row is saved post-Phase-7.3,
+  // both copies stay in sync.
+  //
+  // Phase 6 X: Pre-fill clinical/staff fields from the linked clinic_doctors
+  // row for ALL employees (not just doctors). Phase 7.2 reversed Phase 6 X
+  // — only clinical employees have linkedDoc now. Non-clinical employees
+  // (secretary/other) get their values exclusively from emp.* (canonical).
+  var linkedDoc = emp.doctor_id
+    ? doctors.find(function(d){ return d.id === emp.doctor_id; })
+    : null;
+
+  // Helper: pick canonical (emp) value first, then linkedDoc fallback.
+  // Used for the 8 HR fields. Treats null + undefined + empty string as
+  // "no canonical value" so the linkedDoc copy can fill in.
+  function _coalesceHR(canonical, fallback) {
+    if (canonical !== null && canonical !== undefined && canonical !== '') return canonical;
+    if (fallback !== null && fallback !== undefined && fallback !== '') return fallback;
+    return null;
+  }
+
+  // Phase 6 W + X / Phase 7.3: reconstruct the composite role:provider_type
+  // value. Prefer emp.provider_type (canonical, Phase 7.3) over
+  // linkedDoc.provider_type (legacy mirror).
+  //   doctor employee     → 'doctor:<sub-type>'
+  //   secretary employee  → 'secretary:<provider_type>' where provider_type
+  //                          is 'secretary' (normal) or 'other' (catch-all)
+  //   Legacy rows without provider_type default to a safe value per role.
+  var providerType = _coalesceHR(emp.provider_type, linkedDoc && linkedDoc.provider_type) ||
+                     (emp.role === 'doctor' ? 'doctor' : 'secretary');
+  var compositeValue;
+  if (emp.role === 'doctor') {
+    compositeValue = 'doctor:' + providerType;
+  } else if (emp.role === 'secretary') {
+    // For secretary employees, the sub-type is either 'secretary' or 'other'.
+    // Anything else (legacy) collapses to 'secretary'.
+    var subForSec = (providerType === 'other') ? 'other' : 'secretary';
+    compositeValue = 'secretary:' + subForSec;
+  } else {
+    compositeValue = 'secretary:secretary';  // safe fallback
+  }
+  $('eRole').value = compositeValue;
+
+  $('ePin').value = '';
+  $('ePinConfirm').value = '';
+  clearMsg('modalMsg');
+
+  // Phase 7.3: HR field pre-fill — canonical (emp) first, then linkedDoc.
+  var hrRole       = _coalesceHR(linkedDoc && linkedDoc.role, null);  // 'role' label only on clinic_doctors
+  var hrPhone      = _coalesceHR(emp.phone,         linkedDoc && linkedDoc.phone);
+  var hrShare      = _coalesceHR(emp.share_percent, linkedDoc && linkedDoc.share_percent);
+  var hrHours      = _coalesceHR(emp.weekly_hours,  linkedDoc && linkedDoc.weekly_hours);
+  var hrNotes      = _coalesceHR(emp.notes,         linkedDoc && linkedDoc.notes);
+  var hrColor      = _coalesceHR(emp.color,         linkedDoc && linkedDoc.color);
+  var hrComp       = _coalesceHR(emp.compensation_model, linkedDoc && linkedDoc.compensation_model);
+  var hrSalary     = _coalesceHR(emp.monthly_salary, linkedDoc && linkedDoc.monthly_salary);
+  // M125: عملة الراتب المحفوظة — تُضبط على المبدّل بعد تعبئة الحقل.
+  var hrSalaryCur  = _coalesceHR(emp.salary_currency, linkedDoc && linkedDoc.salary_currency);
+
+  $('eDocRole').value = hrRole || '';
+  $('eDocPhone').value = hrPhone || '';
+  // Mirror phone to the alt input used when specialty row is hidden.
+  if ($('eDocPhoneAlt')) $('eDocPhoneAlt').value = hrPhone || '';
+  $('eDocShare').value = (hrShare !== null) ? hrShare : '';
+  // v384: النسبةُ الفعلية المحفوظة (من بطاقة الطبيب) لمقارنة التغيير عند الحفظ
+  _origEffShare = linkedDoc ? _effShare(hrComp || 'percentage', linkedDoc.share_percent) : null;
+  $('eShareEffective').value = '';
+  $('shareEffectiveRow').style.display = 'none';
+  $('eDocHours').value = (hrHours !== null) ? hrHours : '';
+  $('eDocNotes').value = hrNotes || '';
+  _setEmpDocColor(hrColor || _pickRandomDoctorColor());
+
+  // Phase 6 W / Phase 7.3: Pre-fill compensation + monthly_salary.
+  $('eDocCompensation').value = hrComp || 'salary';
+  if ($('eDocMonthlySalary')) {
+    $('eDocMonthlySalary').value = (hrSalary !== null) ? hrSalary : '';
+    // M125: المبدّل يتبع عملة الراتب المحفوظة لا عملة العيادة.
+    try { window.SyDentCurPick.pin('eDocMonthlySalary', (hrSalaryCur === 'USD') ? 'USD' : 'SYP'); } catch (e) {}
+  }
+
+  // Phase 7.4: Pre-fill has_system_access from emp record.
+  // Backward compat: if the column is missing (pre-Migration 21), treat
+  // anyone with a pin_hash as having access (their old behavior).
+  if ($('eHasSystemAccess')) {
+    var hasAccess = (emp.has_system_access !== undefined)
+      ? !!emp.has_system_access
+      : !!emp.pin_hash;
+    $('eHasSystemAccess').checked = hasAccess;
+    onSystemAccessChange();
+  }
+
+  // Phase 7.4: pinHint message varies based on whether emp ALREADY has a PIN.
+  //   • Has PIN     → "اتركه فارغاً للإبقاء على رقم السر الحالي" (skip if blank)
+  //   • No PIN yet  → "أدخل رقم سر لتمكين الدخول" (must enter to enable login)
+  // This avoids misleading the Owner about a non-existent PIN.
+  if (emp.pin_hash) {
+    $('pinHint').textContent = 'اتركه فارغاً للإبقاء على رقم السر الحالي.';
+  } else {
+    $('pinHint').textContent = 'هذا الموظف لم يضبط رقم سر بعد. أدخل رقم سر إذا كنت تريد تمكين دخوله.';
+  }
+
+  onRoleChange();
+  try { window.SyDentCurPick.mount('eDocMonthlySalary'); } catch (e) {}   // M125
+  $('empModal').classList.add('show');
+  setTimeout(function(){ $('eName').focus(); }, 80);
+}
+
+function closeModal() {
+  $('empModal').classList.remove('show');
+  editingId = null;
+  $('pinHint').textContent = 'سيستخدم هذا الرقم للدخول من شاشة القفل. لا يمكن تركه فارغاً.';
+}
+
+async function saveEmployee() {
+  clearMsg('modalMsg');
+  var btn = $('saveBtn');
+  btn.disabled = true;
+  btn.textContent = '... جاري الحفظ';
+
+  try {
+    var name = ($('eName').value || '').trim();
+    if (!name) {
+      showMsg('modalMsg', 'الاسم مطلوب', true);
+      return;
+    }
+    // Phase 6 W: Parse the composite role:provider_type value from the
+    // unified dropdown. role drives clinic_employees.role; providerType
+    // drives clinic_doctors.provider_type. parseEmpRoleValue is defined
+    // alongside onRoleChange — both share the same parsing logic.
+    var roleParsed = parseEmpRoleValue($('eRole').value);
+    var role = roleParsed.role;
+    var providerTypeFromRole = roleParsed.providerType;  // null for secretary
+
+    // Phase 6 P: doctorId is no longer set from a manual picker. For new
+    // employees, it stays null until auto-create runs below. For edits, the
+    // existing emp.doctor_id is preserved unless the role changes.
+    var pin = ($('ePin').value || '').trim();
+    var pinConfirm = ($('ePinConfirm').value || '').trim();
+
+    // ── Phase 6 Q + W + X: read clinical/staff fields ──
+    // We always read them to keep the code path uniform. Phase 6 X expanded
+    // the form to be visible for ALL non-owner employees, so secretary and
+    // 'other' employees now have phone/color/hours/salary captured too.
+    // Empty strings normalize to null so the DB stays clean.
+    var docRoleField = ($('eDocRole').value || '').trim() || null;
+    // Phase 6 X: phone has two inputs — #eDocPhone (inside specialty row,
+    // shown for clinical doctor sub-types) and #eDocPhoneAlt (standalone row,
+    // shown for non-clinical roles). Read whichever one is currently visible.
+    var docPhoneField;
+    {
+      var phoneMain = ($('eDocPhone') && $('eDocPhone').value || '').trim();
+      var phoneAlt = ($('eDocPhoneAlt') && $('eDocPhoneAlt').value || '').trim();
+      // The visible one is the one with the non-empty value; if both are
+      // empty we still write null. If both have values (unlikely but possible
+      // if the user typed in both), prefer the visible one's input.
+      var specRowEl = $('specialtyFieldRow');
+      var specVisible = specRowEl && specRowEl.style.display !== 'none';
+      docPhoneField = (specVisible ? phoneMain : phoneAlt) || null;
+    }
+    var docShareRaw = $('eDocShare').value;
+    var docShareField = (docShareRaw === '' || docShareRaw === null) ? null : parseFloat(docShareRaw);
+    var docHoursRaw = $('eDocHours').value;
+    var docHoursField = (docHoursRaw === '' || docHoursRaw === null) ? null : parseFloat(docHoursRaw);
+    var docNotesField = ($('eDocNotes').value || '').trim() || null;
+    var docColorField = ($('eDocColor').value || _empPickedColor || '#63b3ed');
+    // Sanitize the color one more time defensively (in case the hidden
+    // input was tampered with via devtools).
+    if (window.SyDentColorPicker && window.SyDentColorPicker.sanitizeHex) {
+      docColorField = window.SyDentColorPicker.sanitizeHex(docColorField);
+    }
+
+    // Phase 6 W + X: provider_type comes from the unified role dropdown's
+    // parsed result. Phase 6 X extends the whitelist to include 'secretary'
+    // and 'other' so the role dropdown's full option set is honored.
+    // Every employee (doctor + secretary + other) now has a clinic_doctors
+    // row backing their payroll/contact fields.
+    var docProviderTypeField = providerTypeFromRole;
+    if (role === 'doctor') {
+      if (['doctor','hygienist','assistant'].indexOf(docProviderTypeField) === -1) {
+        docProviderTypeField = 'doctor';
+      }
+    } else if (role === 'secretary') {
+      if (['secretary','other'].indexOf(docProviderTypeField) === -1) {
+        docProviderTypeField = 'secretary';
+      }
+    } else {
+      docProviderTypeField = 'secretary';  // defensive fallback
+    }
+
+    var docCompensationField = $('eDocCompensation').value || 'percentage';
+    if (['percentage','salary','hybrid','none'].indexOf(docCompensationField) === -1) {
+      docCompensationField = 'percentage';
+    }
+
+    // Phase 6 W (Migration 14): read monthly_salary. Only meaningful when
+    // compensation_model ∈ {salary, hybrid}; for other models we clear it
+    // to null so the DB stays consistent (no orphan salary numbers on a
+    // %-only provider that would confuse the upcoming payroll page).
+    var docSalaryRaw = $('eDocMonthlySalary') ? $('eDocMonthlySalary').value : '';
+    // M125: عملة الراتب — الرواتب بالدولار واقعٌ شائع بالعيادات المختلطة،
+    // وبلا هذا العمود يُخزَّن راتبُ الدولار رقماً عارياً يُقرأ ليرةً بصفحة
+    // الرواتب وبمصروفات المحاسبة.
+    var docSalaryCurField = 'SYP';
+    try { docSalaryCurField = window.SyDentCurPick.read('eDocMonthlySalary'); } catch (e) {}
+    var docMonthlySalaryField = null;
+    if (docCompensationField === 'salary' || docCompensationField === 'hybrid') {
+      docMonthlySalaryField = (docSalaryRaw === '' || docSalaryRaw === null) ? null : Math.round(parseFloat(docSalaryRaw) * 100) / 100;   // E1: سنتات الدولار محفوظة
+      if (docMonthlySalaryField !== null && (isNaN(docMonthlySalaryField) || docMonthlySalaryField < 0)) {
+        showMsg('modalMsg', 'الراتب الشهري يجب أن يكون رقماً موجباً', true);
+        return;
+      }
+      // Soft enforcement: a 'salary'-only model with no salary entered is
+      // legal at save time (the row is still useful for tracking), but we
+      // warn the Owner to avoid a half-configured payroll record later.
+      if (docCompensationField === 'salary' && (docMonthlySalaryField === null || docMonthlySalaryField === 0)) {
+        if (!await SyDialog.confirm({ message: 'اخترت "راتب ثابت شهري" لكن لم تدخل المبلغ. هل تريد المتابعة بدون راتب؟' })) {
+          return;
+        }
+      }
+    }
+
+    // Validate share_percent / weekly_hours ranges (numeric inputs already
+    // enforce min/max in HTML but a determined user can bypass them).
+    if (docShareField !== null && (isNaN(docShareField) || docShareField < 0 || docShareField > 100)) {
+      showMsg('modalMsg', 'نسبة الطبيب يجب أن تكون بين 0 و 100', true);
+      return;
+    }
+    if (docHoursField !== null && (isNaN(docHoursField) || docHoursField < 0)) {
+      showMsg('modalMsg', 'ساعات العمل يجب أن تكون رقماً موجباً', true);
+      return;
+    }
+
+    // Phase 6 W: zero out fields irrelevant to the chosen compensation model.
+    // Prevents stale numbers from a previous edit lingering and corrupting
+    // the upcoming payroll calculations. Specifically:
+    //   - percentage model: clear monthly_salary
+    //   - salary model:     clear share_percent
+    //   - none model:       clear both
+    if (docCompensationField === 'percentage') {
+      docMonthlySalaryField = null;
+    } else if (docCompensationField === 'salary') {
+      docShareField = null;
+    } else if (docCompensationField === 'none') {
+      docMonthlySalaryField = null;
+      docShareField = null;
+    }
+    // 'hybrid' keeps both fields as entered.
+
+    // v384: سجلُّ النسب بتاريخ سريان (Migration 144). النسبةُ الفعلية الجديدة تُقارَن
+    // بالمحفوظة على بطاقة الطبيب؛ إن تغيّرت تُضاف بتاريخ «تسري من» (افتراضياً اليوم).
+    // تاريخٌ غير صالح ⇒ رفضٌ صريح لا تسجيلٌ صامت بالنسبة القديمة.
+    var newEffShare = _effShare(docCompensationField, docShareField);
+    var shareEffectiveFrom = ($('eShareEffective') && $('eShareEffective').value) || _todayISO();
+    var shareChanged = editingId && _origEffShare !== null && newEffShare !== null && newEffShare !== _origEffShare && !_shareHistoryUnavailable;
+    if (shareChanged) {
+      var _okDate = /^\d{4}-\d{2}-\d{2}$/.test(shareEffectiveFrom)
+                 && window.SyDentPayroll && window.SyDentPayroll.salaryFraction(shareEffectiveFrom, shareEffectiveFrom) > 0;
+      if (!_okDate) { showMsg('modalMsg', 'تاريخ سريان النسبة غير صالح', true); return; }
+    }
+
+    // Validation (name is checked at the top, before any confirm() prompts)
+    if (role !== 'doctor' && role !== 'secretary') {
+      showMsg('modalMsg', 'اختر دوراً صحيحاً', true);
+      return;
+    }
+
+    // ── Phase 7.4: System access flag ──
+    // Read the checkbox. HR-only employees (unchecked) don't need a PIN
+    // and won't appear in the lock-mode picker. saveEmployee() skips PIN
+    // validation for them and clears any pin_hash currently set on the row.
+    var hasSystemAccess = $('eHasSystemAccess') ? !!$('eHasSystemAccess').checked : true;
+
+    // Declared BEFORE the PIN block: the "access enabled but no PIN" soft
+    // warning below reads origEmp — a later `var` was hoisted as undefined,
+    // so that warning never fired.
+    var origEmp = editingId ? employees.find(function(e){ return e.id === editingId; }) : null;
+
+    var pinHash = null;
+    var clearPin = false;  // Phase 7.4: signal to NULL out pin_hash in payload
+
+    if (!hasSystemAccess) {
+      // HR-only: no PIN needed, and if there was one, wipe it.
+      // (The employee can still receive payouts, appear in reports, etc.,
+      // but is invisible to the lock-mode role picker.)
+      clearPin = true;
+    } else if (editingId) {
+      // Editing AND access enabled — PIN is optional (leave empty to keep current)
+      if (pin) {
+        if (!/^\d{4,6}$/.test(pin)) {
+          showMsg('modalMsg', 'رقم السر يجب أن يكون 4 إلى 6 أرقام', true);
+          return;
+        }
+        if (pin !== pinConfirm) {
+          showMsg('modalMsg', 'رقم السر والتأكيد غير متطابقين', true);
+          return;
+        }
+        pinHash = await hashPin(pin);
+      } else {
+        // Editing, access enabled, no new PIN entered → check if this employee
+        // had no pin yet. If so, the access flag is meaningless without a PIN,
+        // so warn the Owner (soft warning — they can proceed and set it later).
+        if (origEmp && !origEmp.pin_hash) {
+          if (!await SyDialog.confirm({ message: 'اخترت تمكين الوصول للنظام لكن لم تدخل رقم سر. سيظهر الموظف في شاشة القفل دون قدرة على الدخول حتى تضبط له رقم السر لاحقاً.\n\nهل تريد المتابعة؟' })) {
+            return;
+          }
+        }
+      }
+    } else {
+      // Adding new AND access enabled — PIN is required
+      if (!pin) {
+        showMsg('modalMsg', 'رقم السر مطلوب (أو ألغِ خيار "يحتاج وصولاً للبرنامج" إذا كان للرواتب فقط)', true);
+        return;
+      }
+      if (!/^\d{4,6}$/.test(pin)) {
+        showMsg('modalMsg', 'رقم السر يجب أن يكون 4 إلى 6 أرقام', true);
+        return;
+      }
+      if (pin !== pinConfirm) {
+        showMsg('modalMsg', 'رقم السر والتأكيد غير متطابقين', true);
+        return;
+      }
+      pinHash = await hashPin(pin);
+    }
+
+    // ── Phase 6 P: Determine the doctor_id this employee should have ──
+    // Logic:
+    //  • If editing AND role is unchanged → preserve existing emp.doctor_id
+    //  • If editing AND role changed doctor→secretary → null out doctor_id
+    //    AND optionally deactivate the linked clinic_doctors row (asks user)
+    //  • If editing AND role changed secretary→doctor → auto-create a new
+    //    clinic_doctors row (handled AFTER the employee update succeeds)
+    //  • If creating new employee with role=doctor → auto-create a new
+    //    clinic_doctors row (handled AFTER the employee insert succeeds)
+    //  • If creating new employee with role=secretary → null
+    var doctorId = null;
+    var pendingRoleSwitch = null;   // 'doctor→secretary' | 'secretary→doctor' | null
+    var pendingDeactivateDoctorId = null;  // clinic_doctors.id to deactivate
+
+    if (editingId && origEmp) {
+      if (origEmp.role === role) {
+        // Role unchanged → preserve link
+        doctorId = origEmp.doctor_id || null;
+      } else if (origEmp.role === 'doctor' && role === 'secretary') {
+        pendingRoleSwitch = 'doctor→secretary';
+        // Ask the Owner whether to deactivate the doctor card too. Phase 6 X
+        // change: the "deactivate the clinic_doctors row" prompt is shown
+        // ONLY when the linked row is a clinical sub-type (doctor/hygienist/
+        // assistant). If the linked row was already a non-clinical type
+        // (legacy edge case — shouldn't happen but defensive), no prompt.
+        if (origEmp.doctor_id) {
+          var doctorCard = doctors.find(function(d){ return d.id === origEmp.doctor_id; });
+          var cardActive = doctorCard ? (doctorCard.is_active !== false) : false;
+          var cardIsClinical = doctorCard ? providerTypeTakesAppointments(doctorCard.provider_type || 'doctor') : false;
+          if (cardActive && cardIsClinical) {
+            var deactivateMsg =
+              '🩺 د. ' + (origEmp.name) + ' مرتبط ببطاقة طبيب نشطة.\n\n' +
+              'بعد تغيير دوره إلى سكرتيرة، هل تريد إلغاء تنشيط بطاقة الطبيب أيضاً؟\n\n' +
+              '• السجلات التاريخية ستبقى محفوظة في كل الأحوال\n' +
+              '• إذا اخترت "موافق" — البطاقة في صفحة الأطباء ستصبح غير نشطة\n' +
+              '• إذا اخترت "إلغاء" — البطاقة تبقى مربوطة وستتحوّل لنوع "سكرتيرة"';
+            if (await SyDialog.confirm({ message: deactivateMsg, danger: false })) {
+              pendingDeactivateDoctorId = origEmp.doctor_id;
+              doctorId = null;  // un-link only when deactivating
+            } else {
+              // Owner kept the row — preserve link, Case 2 will UPDATE
+              // its provider_type to 'secretary' to keep things consistent.
+              doctorId = origEmp.doctor_id;
+            }
+          } else {
+            // No prompt needed — just preserve the link so Case 2 can
+            // UPDATE the row's provider_type to the new sub-type.
+            doctorId = origEmp.doctor_id;
+          }
+        }
+        // Note: if origEmp had no doctor_id (legacy pre-Phase-X secretary
+        // edge case), there's nothing to preserve.
+      } else if (origEmp.role === 'secretary' && role === 'doctor') {
+        pendingRoleSwitch = 'secretary→doctor';
+        // Phase 6 X: preserve the existing clinic_doctors row when present
+        // (Phase-X-era secretaries have backing rows). Case 2's expanded
+        // condition will UPDATE the row in-place, flipping provider_type
+        // from 'secretary'/'other' to 'doctor'/'hygienist'/'assistant'.
+        // Only fall back to "create a new row" via Case 1 when origEmp
+        // genuinely has no doctor_id (legacy data).
+        doctorId = origEmp.doctor_id || null;
+      }
+    } else if (!editingId && role === 'doctor') {
+      // New doctor employee — auto-create flow runs below
+      doctorId = null;
+    }
+
+    // ── Phase 7.3 (Migration 20): clinic_employees payload ──
+    // clinic_employees is now canonical for all 8 HR fields. The row payload
+    // includes them for every employee (clinical + non-clinical). For
+    // clinical employees a parallel UPDATE/INSERT into clinic_doctors keeps
+    // the mirror in sync (Cases 1+2 further below); for non-clinical the
+    // canonical row in clinic_employees is the only home of these values.
+    //
+    // Graceful fallback: if Migration 20 hasn't run yet, the DB will reject
+    // the extended payload with 42703 — we retry with the legacy-only fields
+    // so older clinics can still onboard (Rule #15).
+    var row = {
+      owner_id: currentUser.id,
+      name: name,
+      role: role,
+      doctor_id: doctorId,
+      // is_active is set ONLY on INSERT (below). Including it in the UPDATE
+      // payload silently re-activated deactivated employees on any edit
+      // (consuming a plan seat, or tripping trigger M44 with a bare
+      // "فشل الحفظ"). Activation is toggleActive()'s job alone.
+      // Phase 7.3: 8 canonical HR fields
+      phone: docPhoneField,
+      color: docColorField,
+      notes: docNotesField,
+      weekly_hours: docHoursField,
+      monthly_salary: docMonthlySalaryField, salary_currency: docSalaryCurField,
+      share_percent: docShareField,
+      provider_type: docProviderTypeField,
+      compensation_model: docCompensationField,
+      // Phase 7.4: system access flag (HR-only vs login user)
+      has_system_access: hasSystemAccess
+    };
+    // Migration 42: a newly-added employee goes to the END of the movable
+    // (non-owner) list. Edits omit sort_order so the existing position is
+    // preserved. Owner rows keep sort_order 0 and are ignored here.
+    if (!editingId) {
+      row.is_active = true;
+      var _maxSort = (employees || []).reduce(function(m, e){
+        var s = (e.role === 'owner' || e.sort_order == null) ? 0 : e.sort_order;
+        return s > m ? s : m;
+      }, 0);
+      row.sort_order = _maxSort + 1;
+    }
+    // PIN handling: write the new hash if entered, or NULL it out if the
+    // employee just lost system access (clearPin), otherwise leave it
+    // unchanged (don't include in payload).
+    if (pinHash) {
+      row.pin_hash = pinHash;
+    } else if (clearPin) {
+      row.pin_hash = null;
+    }
+
+    // Helper: detect "Migration 20/21 not applied" error (any of the new
+    // columns missing). Strips the HR + access fields and retries with
+    // legacy schema.
+    function _stripHRFields(payload) {
+      var legacy = Object.assign({}, payload);
+      delete legacy.phone;
+      delete legacy.color;
+      delete legacy.notes;
+      delete legacy.weekly_hours;
+      delete legacy.monthly_salary;
+      delete legacy.share_percent;
+      delete legacy.provider_type;
+      delete legacy.compensation_model;
+      delete legacy.has_system_access;  // Phase 7.4 (Migration 21)
+      delete legacy.sort_order;         // Migration 42
+      return legacy;
+    }
+    function _isHRColumnMissing(err) {
+      if (!err) return false;
+      var m = (err.message || '') + ' ' + (err.code || '');
+      return /42703.*(phone|color|notes|weekly_hours|monthly_salary|share_percent|provider_type|compensation_model|has_system_access)/i.test(m) ||
+             /(phone|color|notes|weekly_hours|monthly_salary|share_percent|provider_type|compensation_model|has_system_access).*42703/i.test(m) ||
+             /42703/.test(m);
+    }
+
+    var res;
+    if (editingId) {
+      res = await window.sb.from('clinic_employees')
+        .update(row).eq('id', editingId).eq('owner_id', currentUser.id);
+      // Pre-Migration-20 fallback: retry without HR fields if they're missing
+      if (res.error && _isHRColumnMissing(res.error)) {
+        console.warn('Phase 7.3: Migration 20 not applied — retrying UPDATE without HR fields');
+        res = await window.sb.from('clinic_employees')
+          .update(_stripHRFields(row)).eq('id', editingId).eq('owner_id', currentUser.id);
+      }
+      if (!res.error) {
+        await window.logAudit('employee.edit', {
+          entityId: editingId,
+          description: 'تعديل بيانات الموظف: ' + name,
+          oldValue: origEmp ? { name: origEmp.name, role: origEmp.role, doctor_id: origEmp.doctor_id,
+                                has_system_access: origEmp.has_system_access,
+                                had_pin: !!origEmp.pin_hash } : null,
+          newValue: { name: name, role: role, doctor_id: doctorId, pin_changed: !!pinHash,
+                      pin_cleared: clearPin,
+                      has_system_access: hasSystemAccess,
+                      phone: docPhoneField, monthly_salary: docMonthlySalaryField, salary_currency: docSalaryCurField,
+                      share_percent: docShareField, weekly_hours: docHoursField,
+                      provider_type: docProviderTypeField,
+                      compensation_model: docCompensationField }
+        });
+      }
+    } else {
+      // Phase D: enforce plan employee quota. Client-side message + instant
+      // feedback; the DB trigger enforce_employee_limit (Migration 43) is the
+      // hard gate. Count semantics MUST mirror the trigger exactly: ACTIVE only
+      // (is_active IS NOT FALSE) and OWNER EXCLUDED (role != 'owner', null role
+      // counted). The owner never consumes a seat. The finally block re-enables
+      // the save button on this early return.
+      try {
+        if (window.SyDentPlan) {
+          await window.SyDentPlan.load();
+          var empLimit = window.SyDentPlan.limit('employees');
+          if (empLimit != null) {
+            var ec = await window.sb.from('clinic_employees')
+              .select('id', { count:'exact', head:true })
+              .eq('owner_id', currentUser.id)
+              .not('is_active', 'is', false)
+              .or('role.is.null,role.neq.owner');
+            var eUsed = (ec && typeof ec.count === 'number') ? ec.count : 0;
+            if (eUsed >= empLimit) {
+              var _limitMsg = empLimit === 0
+                ? '🔒 خطتك لا تسمح بإضافة موظفين. رقِّ خطتك للمتابعة.'
+                : '🔒 بلغت حد خطتك (' + empLimit + ' موظف نشط — المالك لا يُحتسب). عطّل موظفاً أو رقِّ خطتك.';
+              showMsg('modalMsg', _limitMsg, true);
+              return;
+            }
+          }
+        }
+      } catch(limErr) { console.warn('[employees] limit check skipped:', limErr); }
+
+      res = await window.sb.from('clinic_employees').insert(row).select().single();
+      // Pre-Migration-20 fallback: retry without HR fields if they're missing
+      if (res.error && _isHRColumnMissing(res.error)) {
+        console.warn('Phase 7.3: Migration 20 not applied — retrying INSERT without HR fields');
+        res = await window.sb.from('clinic_employees').insert(_stripHRFields(row)).select().single();
+      }
+      if (!res.error && res.data) {
+        await window.logAudit('employee.create', {
+          entityId: res.data.id,
+          description: 'إضافة موظف جديد: ' + name + ' (' + roleLabel(role) + ')' +
+                       (hasSystemAccess ? ' — مع وصول للنظام' : ' — لتتبع راتب فقط'),
+          newValue: { name: name, role: role, doctor_id: doctorId,
+                      has_system_access: hasSystemAccess,
+                      phone: docPhoneField, monthly_salary: docMonthlySalaryField, salary_currency: docSalaryCurField,
+                      share_percent: docShareField, weekly_hours: docHoursField,
+                      provider_type: docProviderTypeField,
+                      compensation_model: docCompensationField }
+        });
+      }
+    }
+
+    if (res.error) {
+      var msg = 'فشل الحفظ';
+      // Detect uniqueness violations
+      var em = (res.error.message || '') + ' ' + (res.error.code || '');
+      if (/uq_clinic_employees_doctor_link|23505/i.test(em) && doctorId) {
+        msg = 'هذا الطبيب مربوط بموظف آخر بالفعل';
+      }
+      showMsg('modalMsg', msg, true);
+      console.error(res.error);
+      return;
+    }
+
+    // ── Phase 6 P: Post-save side effects on clinic_doctors ──
+    // These are best-effort: if any fail, we toast a warning but still report
+    // the employee save as successful (the employee row is the source of truth).
+    try {
+      var employeeIdForDoctorOps = editingId || (res.data && res.data.id);
+
+      // Case 1: Auto-create a new clinic_doctors row.
+      //
+      // Phase 7.2 Architectural Fix — REVERSED from Phase 6 X:
+      // We no longer auto-create a clinic_doctors row for EVERY employee.
+      // Now only CLINICAL employees (doctor + hygienist + assistant) get a
+      // backing clinic_doctors row, because:
+      //   • doctors.html shows clinic_doctors rows → secretaries don't belong
+      //   • clinic_employees is the canonical source of truth for HR/identity
+      //   • provider_payouts now has BOTH provider_id AND employee_id columns
+      //     (Migration 18) so non-clinical staff can receive payouts via
+      //     employee_id without needing a doctor row
+      //
+      // Triggers (only when docProviderTypeField is a clinical type):
+      //   • New employee with a clinical role (no existing doctor_id), OR
+      //   • Edit transitioning secretary→doctor with no existing row, OR
+      //   • Edit of clinical employee whose doctor_id is null (pre-Phase-X
+      //     "upgrade on first save").
+      // The hasExistingDoctorRow guard prevents duplicate orphan rows.
+      //
+      // For secretary + other:
+      //   • No clinic_doctors row is created
+      //   • doctor_id stays null in clinic_employees
+      //   • Their phone/color/salary persist in clinic_employees only (via
+      //     the wider clinic_employees schema — covered by Phase 6 Q)
+      var isClinicalProviderType = (docProviderTypeField === 'doctor' ||
+                                    docProviderTypeField === 'hygienist' ||
+                                    docProviderTypeField === 'assistant');
+      var hasExistingDoctorRow = !!(origEmp && origEmp.doctor_id);
+      var needsAutoCreate = isClinicalProviderType && (
+        (!editingId && role !== 'owner') ||
+        (editingId && pendingRoleSwitch === 'secretary→doctor' && !hasExistingDoctorRow) ||
+        (editingId && !pendingRoleSwitch && !hasExistingDoctorRow && role !== 'owner')
+      );
+
+      if (needsAutoCreate && employeeIdForDoctorOps) {
+        var newDocColor = docColorField || _pickRandomDoctorColor();
+        // Phase 6 R: include provider_type + compensation_model in the insert.
+        // Phase 6 W: include monthly_salary too. Migration 13/14/15 graceful
+        // fallback: if any of the new columns aren't present yet, PostgREST
+        // returns 42703 — we retry without them so legacy clinics can still
+        // onboard doctors before running the migrations.
+        // Phase 6 X: 'role' column on clinic_doctors holds the specialty text
+        // for clinical providers and a role label for support staff. Use a
+        // sensible default per provider_type when the field is blank.
+        var defaultRoleLabel = (function() {
+          if (docProviderTypeField === 'doctor') return 'طبيب أسنان';
+          if (docProviderTypeField === 'hygienist') return 'متدرب/مساعد';
+          if (docProviderTypeField === 'assistant') return 'مساعدة كرسي';
+          if (docProviderTypeField === 'secretary') return 'سكرتيرة';
+          if (docProviderTypeField === 'other') return 'موظف';
+          return 'موظف';
+        })();
+        var insDocPayload = {
+          owner_id: currentUser.id,
+          name: name,
+          role: docRoleField || defaultRoleLabel,
+          phone: docPhoneField,
+          share_percent: docShareField,
+          weekly_hours: docHoursField,
+          notes: docNotesField,
+          color: newDocColor,
+          is_owner: false,
+          is_active: true,
+          provider_type: docProviderTypeField,
+          compensation_model: docCompensationField,
+          monthly_salary: docMonthlySalaryField, salary_currency: docSalaryCurField
+        };
+        // v384: بطاقةٌ جديدة ⇒ نسبتُها سارية «منذ البداية» (تعبئةُ الترحيل نفسها)
+        if (!_shareHistoryUnavailable) insDocPayload.share_history = (newEffShare !== null) ? [{ from: '2000-01-01', pct: newEffShare }] : [];
+        var insDoc = await window.sb.from('clinic_doctors').insert(insDocPayload).select().single();
+        if (insDoc.error && /42703|share_history/i.test((insDoc.error.message || '') + ' ' + (insDoc.error.code || ''))) {
+          console.warn('v384: Migration 144 not applied — retrying insert without share_history');
+          var noHist = Object.assign({}, insDocPayload); delete noHist.share_history;
+          insDoc = await window.sb.from('clinic_doctors').insert(noHist).select().single();
+        }
+        // Phase 6 X retry: Migration 15 (expanded provider_type CHECK).
+        // If 23514 fires on provider_type, the CHECK still only allows the
+        // Phase 6 R trio — fall back to inserting the row as 'assistant' (the
+        // closest legacy match) so the row still gets created. The Owner can
+        // re-edit after running Migration 15. This path is rare but defensive.
+        if (insDoc.error && /23514|provider_type/i.test(
+              (insDoc.error.message || '') + ' ' + (insDoc.error.code || ''))) {
+          if (insDocPayload.provider_type === 'secretary' || insDocPayload.provider_type === 'other') {
+            console.warn('Phase 6 X: Migration 15 not applied — coercing provider_type to "assistant" so the row creates');
+            var coerced = Object.assign({}, insDocPayload);
+            coerced.provider_type = 'assistant';
+            insDoc = await window.sb.from('clinic_doctors').insert(coerced).select().single();
+          }
+        }
+        // First retry: strip Migration 14 column only.
+        if (insDoc.error && /42703|monthly_salary/i.test(
+              (insDoc.error.message || '') + ' ' + (insDoc.error.code || ''))) {
+          console.warn('Phase 6 W: Migration 14 not applied — retrying without monthly_salary');
+          var noSalary = Object.assign({}, insDocPayload);
+          delete noSalary.monthly_salary;
+          delete noSalary.share_history;   // v384
+          insDoc = await window.sb.from('clinic_doctors').insert(noSalary).select().single();
+        }
+        // Second retry: strip Migration 13 columns too if still failing.
+        if (insDoc.error && /42703|provider_type|compensation_model/i.test(
+              (insDoc.error.message || '') + ' ' + (insDoc.error.code || ''))) {
+          console.warn('Phase 6 R: Migration 13 not applied — retrying without provider_type/compensation_model');
+          var legacyPayload = Object.assign({}, insDocPayload);
+          delete legacyPayload.provider_type;
+          delete legacyPayload.compensation_model;
+          delete legacyPayload.monthly_salary;
+          delete legacyPayload.share_history;   // v384
+          insDoc = await window.sb.from('clinic_doctors').insert(legacyPayload).select().single();
+        }
+        if (insDoc.error) {
+          console.warn('Phase 6 X: clinic_doctors auto-create failed:', insDoc.error);
+          showToast('⚠️ تم حفظ الموظف، لكن إنشاء بطاقة الطبيب فشل — راجع صفحة الأطباء', true);
+        } else if (insDoc.data) {
+          // Link the new clinic_doctors row back to the employee
+          var linkRes = await window.sb.from('clinic_employees')
+            .update({ doctor_id: insDoc.data.id })
+            .eq('id', employeeIdForDoctorOps)
+            .eq('owner_id', currentUser.id);
+          if (linkRes.error) {
+            console.warn('Phase 6 Q: employee doctor_id link failed:', linkRes.error);
+          }
+          if (window.logAudit) {
+            window.logAudit('doctor.create', {
+              entityId: insDoc.data.id,
+              description: 'إنشاء تلقائي لبطاقة موظف: ' + name + ' (' + (docProviderTypeField || 'staff') + ')',
+              newValue: {
+                name: name, role: docRoleField, phone: docPhoneField,
+                share_percent: docShareField, weekly_hours: docHoursField,
+                color: newDocColor,
+                provider_type: docProviderTypeField,
+                compensation_model: docCompensationField,
+                monthly_salary: docMonthlySalaryField, salary_currency: docSalaryCurField,
+                auto: true
+              }
+            });
+          }
+        }
+      }
+
+      // Case 2: Sync the FULL clinic_doctors row when editing a still-doctor
+      // employee. Phase 6 Q: previously only synced .name; now writes every
+      // clinical field captured from the modal, so the Owner can use this
+      // single dialog to manage all doctor attributes. We sync unconditionally
+      // (no diff check) because the values came from the form and a noop UPDATE
+      // is cheaper than computing per-field diffs. The audit log captures the
+      // old vs new snapshot so changes remain traceable.
+      // Case 2: Sync the FULL clinic_doctors row when editing an employee
+      // who already has a linked doctor row. Phase 6 X expanded this to:
+      //   1. Same-to-same edits (doctor→doctor, secretary→secretary) — most common.
+      //   2. Role transitions (doctor↔secretary) when origEmp.doctor_id exists
+      //      — Phase-X-era secretaries have backing rows, so UPDATE the row
+      //      in-place rather than insert a duplicate. This is the missing
+      //      sibling to Case 1's existing-row guard. The provider_type column
+      //      flips with the role; the share/salary fields follow the new
+      //      compensation_model.
+      // We still UPDATE unconditionally (no diff check) — a noop UPDATE is
+      // cheaper than computing per-field diffs, and audit log captures the
+      // old vs new snapshot so changes remain traceable.
+      // Deactivation guard: if Case 3 is about to deactivate this row (the
+      // Owner confirmed the prompt during a doctor→secretary transition), we
+      // skip Case 2 to avoid an UPDATE+is_active=false flip-flop in the same
+      // transaction. The deactivation already preserves prior payroll values.
+      var case2WouldBeDeactivated = (editingId && pendingDeactivateDoctorId &&
+                                      pendingDeactivateDoctorId === (origEmp && origEmp.doctor_id));
+      if (editingId && origEmp && origEmp.role !== 'owner' &&
+          origEmp.doctor_id && !case2WouldBeDeactivated) {
+        var origDoctor = doctors.find(function(d){ return d.id === origEmp.doctor_id; }) || {};
+        // Phase 6 R + W + X: include provider_type + compensation_model +
+        // monthly_salary. Staged retry: Migration 15 (CHECK), then 14, then 13.
+        var updatePayload = {
+          name: name,
+          role: docRoleField,
+          phone: docPhoneField,
+          share_percent: docShareField,
+          weekly_hours: docHoursField,
+          notes: docNotesField,
+          color: docColorField,
+          provider_type: docProviderTypeField,
+          compensation_model: docCompensationField,
+          monthly_salary: docMonthlySalaryField, salary_currency: docSalaryCurField,
+          updated_at: new Date().toISOString()
+        };
+        // v384: النسبةُ تغيّرت ⇒ مدخلٌ جديد بتاريخ سريانه فوق سجلّ البطاقة (لا يُعاد
+        // حسابُ ما قبله). سجلٌّ فارغ (بطاقةٌ قديمة بلا تعبئة) يبدأ بالنسبة القديمة «منذ البداية».
+        var _newHistory = null;
+        if (shareChanged) {
+          var _base = window.SyDentPayroll.normalizeHistory(origDoctor.share_history);
+          if (!_base.length && _origEffShare !== null) _base = [{ from: '2000-01-01', pct: _origEffShare }];
+          _newHistory = window.SyDentPayroll.appendRate(_base, shareEffectiveFrom, newEffShare);
+          updatePayload.share_history = _newHistory;
+        }
+        var syncRes = await window.sb.from('clinic_doctors')
+          .update(updatePayload)
+          .eq('id', origEmp.doctor_id)
+          .eq('owner_id', currentUser.id);
+        if (syncRes.error && /42703|share_history/i.test((syncRes.error.message || '') + ' ' + (syncRes.error.code || ''))) {
+          console.warn('v384: Migration 144 not applied — retrying UPDATE without share_history');
+          var noHistUpd = Object.assign({}, updatePayload); delete noHistUpd.share_history;
+          syncRes = await window.sb.from('clinic_doctors')
+            .update(noHistUpd)
+            .eq('id', origEmp.doctor_id)
+            .eq('owner_id', currentUser.id);
+          if (!syncRes.error) showToast('⚠️ حُفظت النسبة الجديدة دون تاريخ سريان (الترحيل 144 غير مطبَّق) — ستسري على كل التاريخ', true);
+        }
+        // Phase 6 X retry: Migration 15 CHECK constraint may be old.
+        if (syncRes.error && /23514|provider_type/i.test(
+              (syncRes.error.message || '') + ' ' + (syncRes.error.code || ''))) {
+          if (updatePayload.provider_type === 'secretary' || updatePayload.provider_type === 'other') {
+            console.warn('Phase 6 X: Migration 15 not applied — coercing provider_type to "assistant" for UPDATE');
+            var coercedUpd = Object.assign({}, updatePayload);
+            coercedUpd.provider_type = 'assistant';
+            syncRes = await window.sb.from('clinic_doctors')
+              .update(coercedUpd)
+              .eq('id', origEmp.doctor_id)
+              .eq('owner_id', currentUser.id);
+          }
+        }
+        // First retry: strip Migration 14 column if missing.
+        if (syncRes.error && /42703|monthly_salary/i.test(
+              (syncRes.error.message || '') + ' ' + (syncRes.error.code || ''))) {
+          console.warn('Phase 6 W: Migration 14 not applied — retrying UPDATE without monthly_salary');
+          var noSalaryUpd = Object.assign({}, updatePayload);
+          delete noSalaryUpd.monthly_salary;
+          delete noSalaryUpd.share_history;   // v384
+          syncRes = await window.sb.from('clinic_doctors')
+            .update(noSalaryUpd)
+            .eq('id', origEmp.doctor_id)
+            .eq('owner_id', currentUser.id);
+        }
+        // Second retry: strip Migration 13 columns too if still failing.
+        if (syncRes.error && /42703|provider_type|compensation_model/i.test(
+              (syncRes.error.message || '') + ' ' + (syncRes.error.code || ''))) {
+          console.warn('Phase 6 R: Migration 13 not applied — retrying UPDATE without provider_type/compensation_model');
+          var legacyUpd = Object.assign({}, updatePayload);
+          delete legacyUpd.provider_type;
+          delete legacyUpd.compensation_model;
+          delete legacyUpd.monthly_salary;
+          delete legacyUpd.salary_currency;   // M125: يسقط مع راتبه بقواعد ما قبل الهجرة
+          delete legacyUpd.share_history;     // v384
+          syncRes = await window.sb.from('clinic_doctors')
+            .update(legacyUpd)
+            .eq('id', origEmp.doctor_id)
+            .eq('owner_id', currentUser.id);
+        }
+        if (syncRes.error) {
+          console.warn('Phase 6 Q: clinic_doctors full sync failed:', syncRes.error);
+          showToast('⚠️ تم حفظ الموظف، لكن مزامنة بيانات الطبيب فشلت', true);
+        } else if (window.logAudit) {
+          window.logAudit('doctor.edit', {
+            entityId: origEmp.doctor_id,
+            description: 'تعديل بيانات الطبيب من شاشة الموظفين: ' + name,
+            oldValue: {
+              name: origDoctor.name, role: origDoctor.role,
+              phone: origDoctor.phone, share_percent: origDoctor.share_percent,
+              weekly_hours: origDoctor.weekly_hours, color: origDoctor.color,
+              provider_type: origDoctor.provider_type,
+              compensation_model: origDoctor.compensation_model,
+              monthly_salary: origDoctor.monthly_salary
+            },
+            newValue: {
+              name: name, role: docRoleField,
+              phone: docPhoneField, share_percent: docShareField,
+              weekly_hours: docHoursField, color: docColorField,
+              provider_type: docProviderTypeField,
+              compensation_model: docCompensationField,
+              monthly_salary: docMonthlySalaryField, salary_currency: docSalaryCurField,
+              share_effective_from: shareChanged ? shareEffectiveFrom : undefined   // v384
+            }
+          });
+        }
+      }
+
+      // Case 3: Deactivate the linked clinic_doctors row when role changes
+      // doctor→secretary AND the Owner confirmed the deactivation prompt.
+      if (pendingDeactivateDoctorId) {
+        var deactRes = await window.sb.from('clinic_doctors')
+          .update({ is_active: false })
+          .eq('id', pendingDeactivateDoctorId)
+          .eq('owner_id', currentUser.id);
+        if (deactRes.error) {
+          console.warn('Phase 6 P: clinic_doctors deactivate failed:', deactRes.error);
+          showToast('⚠️ لم نتمكّن من إلغاء تنشيط بطاقة الطبيب', true);
+        } else if (window.logAudit) {
+          window.logAudit('doctor.edit', {
+            entityId: pendingDeactivateDoctorId,
+            description: 'إلغاء تنشيط بطاقة الطبيب بعد تغيير دور الموظف لسكرتيرة',
+            oldValue: { is_active: true },
+            newValue: { is_active: false, reason: 'role_changed_to_secretary' }
+          });
+        }
+      }
+
+      // ── Phase 7.2 Case 4: clinical → non-clinical provider_type transition ──
+      // If the Owner is editing an employee with an existing doctor_id, but
+      // changed provider_type from clinical (doctor/hygienist/assistant) to
+      // non-clinical (secretary/other), we need to:
+      //   1) Unlink the employee.doctor_id (so doctors.html no longer shows them)
+      //   2) Deactivate the clinic_doctors row (preserves history via FK)
+      // This is the architectural counterpart to Case 3 — Case 3 handled the
+      // legacy clinic_employees.role transition (doctor→secretary), Case 4
+      // handles the modern provider_type transition.
+      var origDoctorRow = origEmp && origEmp.doctor_id
+                          ? doctors.find(function(d){ return d.id === origEmp.doctor_id; })
+                          : null;
+      var origProviderType = origDoctorRow ? (origDoctorRow.provider_type || 'doctor') : null;
+      var wasClinical = origProviderType
+                        && origProviderType !== 'secretary'
+                        && origProviderType !== 'other';
+      var nowNonClinical = docProviderTypeField === 'secretary' ||
+                           docProviderTypeField === 'other';
+      var skipCase4 = !!pendingDeactivateDoctorId;   // Case 3 already handled it
+
+      if (editingId && origEmp && origEmp.doctor_id && wasClinical && nowNonClinical && !skipCase4) {
+        // Step 1: deactivate the doctor row
+        var case4Deact = await window.sb.from('clinic_doctors')
+          .update({ is_active: false, updated_at: new Date().toISOString() })
+          .eq('id', origEmp.doctor_id)
+          .eq('owner_id', currentUser.id);
+
+        // Step 2: unlink the employee
+        var case4Unlink = await window.sb.from('clinic_employees')
+          .update({ doctor_id: null, updated_at: new Date().toISOString() })
+          .eq('id', editingId)
+          .eq('owner_id', currentUser.id);
+
+        if (case4Deact.error || case4Unlink.error) {
+          console.warn('Phase 7.2 Case 4: partial failure:',
+                       case4Deact.error, case4Unlink.error);
+          showToast('⚠️ تم حفظ الموظف، لكن فصل بطاقة الطبيب فشل جزئياً', true);
+        } else if (window.logAudit) {
+          window.logAudit('doctor.edit', {
+            entityId: origEmp.doctor_id,
+            description: 'فصل بطاقة الطبيب بعد تغيير نوع الموظف لـ ' +
+                         (docProviderTypeField === 'secretary' ? 'سكرتيرة' : 'موظف آخر'),
+            oldValue: { provider_type: origProviderType, is_active: true, linked: true },
+            newValue: { provider_type: docProviderTypeField, is_active: false, linked: false,
+                        reason: 'clinical_to_non_clinical' }
+          });
+        }
+      }
+    } catch (sideErr) {
+      console.warn('Phase 6 P: post-save doctor side effects raised:', sideErr);
+    }
+
+    showToast(editingId ? '✓ تم التعديل' : '✓ تمت الإضافة');
+    closeModal();
+    await loadData();
+    renderList();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'حفظ';
+  }
+}
+
+/* ═══ v291 — قفلُ الأزرار الكاتبة (مرآةُ ppGuarded) + فتحُ البطاقة ═══ */
+var _eInFlight = {};
+function eGuarded(name, inner, label) {
+  return async function () {
+    var k = name + ((arguments.length && (typeof arguments[0] === 'string' || typeof arguments[0] === 'number')) ? ':' + arguments[0] : '');
+    if (_eInFlight[k]) return;
+    var btn = null;
+    try { var ev = window.event; var t = ev && (ev.currentTarget || ev.target); if (t && t.closest) btn = t.closest('button'); } catch (_) {}
+    if (!btn && document.activeElement && document.activeElement.tagName === 'BUTTON') btn = document.activeElement;
+    _eInFlight[k] = true;
+    var old = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; if (label) btn.textContent = label; }
+    try { return await inner.apply(this, arguments); }
+    finally { delete _eInFlight[k]; if (btn) { btn.disabled = false; btn.textContent = old; } }
+  };
+}
+function empCardOpen(ev) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;   /* M141-ب: الصفُّ/البطاقة بيانات — يبقى ظاهراً ولا يفتح نموذجاً */
+  var t = ev && ev.target;
+  if (t && t.closest && t.closest('button, a, input, select, .drag-handle')) return;
+  var card = t && t.closest ? t.closest('.emp-card') : null;
+  if (card && card.dataset.editId) openEditModal(card.dataset.editId);
+}
+var deleteEmployee = eGuarded('deleteEmployee', _deleteEmployee_inner, 'جارٍ الحذف…');   /* v291 */
+async function _deleteEmployee_inner(id) {
+  var emp = employees.find(function(e){ return e.id === id; });
+  if (!emp) return;
+  if (emp.role === 'owner') {
+    showToast('لا يمكن حذف المالك', true);
+    return;
+  }
+
+  // Confirm
+  var msg = 'هل تريد فعلاً حذف الموظف "' + emp.name + '"؟\n\n' +
+            'تنبيه: السجلات التاريخية لهذا الموظف ستبقى في سجل النشاطات مع اسمه، لكن لن يتمكن من الدخول إلى البرنامج بعد الحذف.';
+  if (!await SyDialog.confirm({ message: msg, danger: true })) return;
+
+  // Phase 6 P / Orphan-card fix: If this employee is linked to an active,
+  // CLINICAL clinic_doctors card, ask the Owner whether to deactivate the
+  // card too. Previously this only triggered for emp.role === 'doctor', which
+  // left clinical assistants/hygienists (e.g. a salary+share assistant that
+  // gets an auto-created clinic_doctors row) with an active, orphaned card
+  // after the employee was deleted — its name lingered in the payouts filter.
+  // We now use the same clinical-card criterion as the role-switch path
+  // (providerTypeTakesAppointments), so any clinical linked card is handled.
+  // We never hard-delete the card — past sessions/appointments/payouts FK to it.
+  var alsoDeactivateDoctorId = null;
+  if (emp.doctor_id) {
+    var doctorCard = doctors.find(function(d){ return d.id === emp.doctor_id; });
+    var cardActive = doctorCard ? (doctorCard.is_active !== false) : false;
+    var cardIsClinical = doctorCard ? providerTypeTakesAppointments(doctorCard.provider_type || 'doctor') : false;
+    if (cardActive && cardIsClinical) {
+      var docMsg =
+        '🔗 "' + emp.name + '" مرتبط ببطاقة نشطة في صفحة الأطباء.\n\n' +
+        'هل تريد إلغاء تنشيط هذه البطاقة أيضاً؟\n\n' +
+        '• السجلات التاريخية (جلسات/مواعيد/دفعات) ستبقى محفوظة\n' +
+        '• البطاقة لن تختفي — ستصبح فقط غير نشطة في القوائم الجديدة\n' +
+        '• يمكن إعادة تفعيلها لاحقاً من صفحة الأطباء';
+      if (await SyDialog.confirm({ message: docMsg, danger: true })) {
+        alsoDeactivateDoctorId = emp.doctor_id;
+      }
+    }
+  }
+
+  var res = await window.sb.from('clinic_employees')
+    .delete().eq('id', id).eq('owner_id', currentUser.id);
+
+  if (res.error) {
+    console.error(res.error);
+    // PostgreSQL FK violation = 23503. السكرتيرة عندها سجلات في provider_payouts،
+    // و FK constraint بيحمي السجلات المالية التاريخية من الحذف.
+    // الحل الصحيح (نمط OpenDental): تعطيل الحساب بدل الحذف.
+    var errMsg = (res.error.message || '') + ' ' + (res.error.code || '');
+    var isFkViolation = /23503|foreign key|violates.*constraint/i.test(errMsg);
+    if (isFkViolation) {
+      SyDialog.alert({ title: 'تعذّر الحذف', message:
+        '⚠️ لا يمكن حذف الموظف "' + emp.name + '" لأنه مرتبط بسجلات مالية ' +
+        '(رواتب أو حصص) في النظام.\n\n' +
+        'لحماية السجلات التاريخية، استخدم زر "تعطيل الحساب" بدلاً من الحذف.\n\n' +
+        'الموظف المعطّل لن يتمكن من الدخول إلى البرنامج، لكن سجلاته المالية ستبقى محفوظة.'
+      });
+    } else {
+      showToast('فشل الحذف', true);
+    }
+    return;
+  }
+
+  await window.logAudit('employee.delete', {
+    entityId: id,
+    description: 'حذف الموظف: ' + emp.name,
+    oldValue: { name: emp.name, role: emp.role, doctor_id: emp.doctor_id }
+  });
+
+  // Phase 6 P: Soft-deactivate linked clinic_doctors row (best-effort).
+  if (alsoDeactivateDoctorId) {
+    try {
+      var deactRes = await window.sb.from('clinic_doctors')
+        .update({ is_active: false })
+        .eq('id', alsoDeactivateDoctorId)
+        .eq('owner_id', currentUser.id);
+      if (deactRes.error) {
+        console.warn('Phase 6 P: linked clinic_doctors deactivate failed:', deactRes.error);
+        showToast('⚠️ تم حذف الموظف، لكن لم نتمكّن من إلغاء تنشيط بطاقة الطبيب', true);
+      } else if (window.logAudit) {
+        window.logAudit('doctor.edit', {
+          entityId: alsoDeactivateDoctorId,
+          description: 'إلغاء تنشيط بطاقة الطبيب بعد حذف الموظف: ' + emp.name,
+          oldValue: { is_active: true },
+          newValue: { is_active: false, reason: 'employee_deleted' }
+        });
+      }
+    } catch (e) {
+      console.warn('Phase 6 P: linked clinic_doctors deactivate raised:', e);
+    }
+  }
+
+  showToast('✓ تم الحذف');
+  await loadData();
+  renderList();
+}
+
+var toggleActive = eGuarded('toggleActive', _toggleActive_inner, '⏳');   /* v291 */
+async function _toggleActive_inner(id) {
+  var emp = employees.find(function(e){ return e.id === id; });
+  if (!emp) return;
+  if (emp.role === 'owner') {
+    showToast('لا يمكن تعطيل المالك', true);
+    return;
+  }
+  // Flip: if currently active (true or undefined), set to false; otherwise activate.
+  var newState = (emp.is_active === false);
+
+  // Confirm only when DEACTIVATING (not when re-activating)
+  if (!newState) {
+    if (!await SyDialog.confirm({ danger: true, message:
+      'هل تريد تعطيل حساب الموظف "' + emp.name + '"؟\n\n' +
+      '• جهازه سيصبح للقراءة فقط فوراً عند فتح التطبيق\n' +
+      '• لن يستطيع تسجيل جلسات أو دفعات أو مواعيد جديدة\n' +
+      '• يمكنه فقط تصفّح البيانات الموجودة\n' +
+      (emp.doctor_id ? '• لن يظهر كطبيبٍ في قوائم الاختيار (جلسات · مواعيد · مخابر · أسعار العلاجات) — سجلاته ومستحقاته السابقة تبقى كما هي\n' : '') +
+      '• لإعادة تفعيل الحساب لاحقاً، اضغط "تفعيل الحساب"'
+    })) return;
+  }
+
+  // Re-activation CONSUMES a seat → subject to the same plan limit as adding.
+  // Mirrors the trigger (Migration 44) exactly: active + owner-excluded. Instant
+  // UX feedback before the DB round-trip; the trigger is the hard gate.
+  if (newState) {
+    try {
+      if (window.SyDentPlan) {
+        await window.SyDentPlan.load();
+        var reEmpLimit = window.SyDentPlan.limit('employees');
+        if (reEmpLimit != null) {
+          var reEc = await window.sb.from('clinic_employees')
+            .select('id', { count:'exact', head:true })
+            .eq('owner_id', currentUser.id)
+            .not('is_active', 'is', false)
+            .or('role.is.null,role.neq.owner');
+          var reUsed = (reEc && typeof reEc.count === 'number') ? reEc.count : 0;
+          if (reUsed >= reEmpLimit) {
+            var _reLimitMsg = reEmpLimit === 0
+              ? '🔒 خطتك لا تسمح بإضافة موظفين. رقِّ خطتك للمتابعة.'
+              : '🔒 خطتك تسمح بـ ' + reEmpLimit + ' موظف نشط (المالك لا يُحتسب). عطّل موظفاً آخر أو رقِّ خطتك.';
+            showToast(_reLimitMsg, true);
+            return;
+          }
+        }
+      }
+    } catch(reLimErr) { console.warn('[employees] reactivate limit check skipped:', reLimErr && reLimErr.message); }
+  }
+
+  var res = await window.sb.from('clinic_employees')
+    .update({ is_active: newState })
+    .eq('id', id).eq('owner_id', currentUser.id);
+
+  if (res.error) {
+    showToast('فشلت العملية', true);
+    console.error(res.error);
+    return;
+  }
+
+  await window.logAudit('employee.toggle_active', {
+    entityId: id,
+    description: (newState ? 'تفعيل الحساب' : 'تعطيل الحساب') + ': ' + emp.name,
+    oldValue: { is_active: emp.is_active },
+    newValue: { is_active: newState }
+  });
+
+  // M147: بطاقةُ الطبيب المرتبطة تتبع الحساب بتريغر القاعدة (trg_sync_doctor_card_active)
+  showToast(newState
+    ? (emp.doctor_id ? '✓ تم تفعيل الحساب — وعاد للظهور بقوائم الأطباء' : '✓ تم تفعيل الحساب')
+    : (emp.doctor_id ? '🔒 تم تعطيل الحساب — وأُخفي من قوائم اختيار الأطباء' : '🔒 تم تعطيل الحساب'));
+  await loadData();
+  renderList();
+}
+
+// ── Owner PIN Modal ──
+function openOwnerPinModal() {
+  $('oNewPin').value = '';
+  $('oNewPinConfirm').value = '';
+  clearMsg('ownerMsg');
+  // Phase 6 M (Obs U): show the 'disable clinic lock' button only when
+  // the Owner already has a PIN (i.e. lock is currently configured).
+  // For fresh installs with no PIN, hide it (nothing to disable).
+  var rmBtn = $('removeLockBtn');
+  if (rmBtn) {
+    var ownerEmp = employees.find(function(e){ return e.role === 'owner'; });
+    rmBtn.style.display = (ownerEmp && ownerEmp.pin_hash) ? 'inline-block' : 'none';
+  }
+  $('ownerPinModal').classList.add('show');
+  setTimeout(function(){ $('oNewPin').focus(); }, 80);
+}
+
+function closeOwnerModal() {
+  $('ownerPinModal').classList.remove('show');
+}
+
+async function saveOwnerPin() {
+  clearMsg('ownerMsg');
+  var btn = $('saveOwnerBtn');
+  btn.disabled = true;
+  btn.textContent = '... جاري الحفظ';
+
+  try {
+    var pin = ($('oNewPin').value || '').trim();
+    var pinConfirm = ($('oNewPinConfirm').value || '').trim();
+
+    if (!/^\d{4,6}$/.test(pin)) {
+      showMsg('ownerMsg', 'رقم السر يجب أن يكون 4 إلى 6 أرقام', true);
+      return;
+    }
+    if (pin !== pinConfirm) {
+      showMsg('ownerMsg', 'رقم السر والتأكيد غير متطابقين', true);
+      return;
+    }
+
+    var hash = await hashPin(pin);
+    var ownerEmp = employees.find(function(e){ return e.role === 'owner'; });
+    if (!ownerEmp) {
+      showMsg('ownerMsg', 'لم يتم العثور على حساب المالك', true);
+      return;
+    }
+
+    // Update both: clinic_employees AND clinic_settings (keep sync)
+    var resEmp = await window.sb.from('clinic_employees')
+      .update({ pin_hash: hash }).eq('id', ownerEmp.id).eq('owner_id', currentUser.id);
+
+    if (resEmp.error) {
+      showMsg('ownerMsg', 'فشل الحفظ', true);
+      console.error(resEmp.error);
+      return;
+    }
+
+    // Mirror to clinic_settings.lock_pin_hash for backward compat (the SyDentLock module reads from there)
+    await window.sb.from('clinic_settings')
+      .upsert({ owner_id: currentUser.id, lock_pin_hash: hash }, { onConflict: 'owner_id' });
+
+    // Invalidate the PIN cache so the new PIN takes effect immediately
+    if (window.SyDentLock && window.SyDentLock.invalidatePinCache) {
+      window.SyDentLock.invalidatePinCache();
+    }
+
+    await window.logAudit('settings.change_pin', {
+      description: 'تغيير رقم السر الخاص بالمالك'
+    });
+
+    showToast('✓ تم تغيير رقم السر');
+    closeOwnerModal();
+    await loadData();
+    renderList();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'حفظ';
+  }
+}
+
+// Phase 6 M (Obs U): port of the old removeLockPin from settings.html.
+// Disables clinic-wide lock by clearing pin_hash on ALL employees AND
+// nulling clinic_settings.lock_pin_hash. After this, devices switch to
+// 'no PIN required' mode (Owner can still demote roles freely).
+async function removeAllLockPins() {
+  if (!await SyDialog.confirm({ message: 'تعطيل قفل العيادة سيحذف رقم السر لكل الموظفين وسيُعاد فتح كل الأجهزة بدون قيود.\n\nهل أنت متأكد؟', danger: true })) return;
+
+  var rmBtn = $('removeLockBtn');
+  var saveBtn = $('saveOwnerBtn');
+  if (rmBtn) { rmBtn.disabled = true; rmBtn.textContent = '... جارٍ التعطيل'; }
+  if (saveBtn) saveBtn.disabled = true;
+  clearMsg('ownerMsg');
+
+  try {
+    // 1. Clear pin_hash on every employee row (per-employee PINs all gone)
+    var resEmp = await window.sb.from('clinic_employees')
+      .update({ pin_hash: null })
+      .eq('owner_id', currentUser.id);
+    if (resEmp.error) {
+      showMsg('ownerMsg', 'فشل حذف الـ PINs', true);
+      console.error(resEmp.error);
+      return;
+    }
+
+    // 2. Null clinic_settings.lock_pin_hash (the mirror SyDentLock reads from)
+    await window.sb.from('clinic_settings')
+      .update({ lock_pin_hash: null })
+      .eq('owner_id', currentUser.id);
+
+    // 3. Invalidate cache + reset THIS device to owner mode (no enforcement)
+    if (window.SyDentLock) {
+      if (window.SyDentLock.invalidatePinCache) window.SyDentLock.invalidatePinCache();
+      if (window.SyDentLock.applyRole) window.SyDentLock.applyRole('owner', null, null);
+    }
+
+    // 4. Audit log (security-relevant event).
+    // Phase 7.4 note: this clears pin_hash but leaves has_system_access
+    // intact — so existing users still appear in the picker if the Owner
+    // re-enables a PIN later. The existing 'PIN not yet set' warning in
+    // supabase-init.js handles the in-between state gracefully.
+    await window.logAudit('lock.pin_clear', {
+      description: 'تعطيل قفل العيادة (حذف كل أرقام السر — قائمة الموظفين تبقى)',
+      oldValue: { pin_was_set: true }
+    });
+
+    showToast('✓ تم تعطيل قفل العيادة');
+    closeOwnerModal();
+    await loadData();
+    renderList();
+    if (window.SyDentLock && window.SyDentLock.refreshHeaderButton) {
+      window.SyDentLock.refreshHeaderButton();
+    }
+  } catch(err) {
+    showMsg('ownerMsg', 'فشل التعطيل: ' + (err && err.message || ''), true);
+    console.error(err);
+  } finally {
+    if (rmBtn) { rmBtn.disabled = false; rmBtn.textContent = 'تعطيل قفل العيادة'; }
+    if (saveBtn) saveBtn.disabled = false;
+  }
+}
+
+// ── Init ──
+(async function init() {
+  currentUser = await window.sbRequireAuth();
+  if (!currentUser) return;
+  // Page guard: Owner only
+  if (window.SyDentLock && !window.SyDentLock.guardPage(['owner'])) return;
+
+  await loadData();
+  renderList();
+
+  // ── Phase 6 Q: Deep-link handler ──
+  // Allows other pages (doctors.html) to send the Owner straight into a
+  // specific employee action without an extra click. Supported params:
+  //   • ?action=add-doctor    → opens the add modal with role pre-selected
+  //                             as 'doctor' (so the clinical fields appear
+  //                             immediately).
+  //   • ?action=edit&id=<UUID> → opens the edit modal for the given
+  //                              employee row. Silently no-ops if the id
+  //                              isn't found (defensive against stale links).
+  // We strip the query string after acting so a page refresh doesn't
+  // re-trigger the same modal.
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var action = params.get('action');
+    // M141-ب: وضعُ القراءة — الرابط لا يفتح نموذج إضافة/تعديل (أزرارُه مخفية)؛
+    // الحالةُ تُقرأ حيّةً قبل القرار (fail-open) ويُنظَّف الرابط كالعادة.
+    if (action && window.SyDentSub) {
+      var _sub = await window.SyDentSub.load();
+      if (_sub && _sub.level !== 'full') { history.replaceState({}, '', 'employees.html'); action = null; }
+    }
+    if (action === 'add-doctor') {
+      openAddModal();
+      // Phase 6 W: Use composite role value 'doctor:doctor' (default doctor
+      // sub-type). The unified dropdown's options no longer accept the bare
+      // 'doctor' value — that would render no selection. onRoleChange parses
+      // the composite to set role + provider_type appropriately.
+      var roleSel = document.getElementById('eRole');
+      if (roleSel) {
+        roleSel.value = 'doctor:doctor';
+        onRoleChange();
+      }
+      // Clean the URL so refresh doesn't re-open the modal
+      history.replaceState({}, '', 'employees.html');
+    } else if (action === 'edit') {
+      var id = params.get('id');
+      if (id) {
+        // Verify the id exists in our loaded set before opening
+        var found = employees.find(function(e){ return e.id === id; });
+        if (found) {
+          openEditModal(id);
+        } else {
+          showToast('⚠️ لم يتم العثور على الموظف — قد يكون محذوفاً', true);
+        }
+      }
+      history.replaceState({}, '', 'employees.html');
+    }
+  } catch (e) {
+    // Deep-link is a UX nicety, not critical — swallow any URL parse
+    // errors so the rest of the page works normally.
+    console.warn('Phase 6 Q: deep-link handler failed:', e);
+  }
+})();
+
+// Pull-to-refresh handler (called by sidebar.js on mobile pull)
+window.onPTRRefresh = async function() {
+  if (!currentUser) return;
+  await loadData();
+  renderList();
+};
+
+// Initialize sidebar (synchronous; injects nav + PTR + hamburger CSS)
+initSidebar('employees');
+
+// زر hamburger للـ topbar
+document.addEventListener('DOMContentLoaded', function() {
+  var btn = document.createElement('button');
+  btn.className = 'sb-hamburger';
+  btn.id = 'sbHamburgerBtn';
+  btn.setAttribute('aria-label', 'القائمة');
+  btn.innerHTML = '<span></span><span></span><span></span>';
+  btn.onclick = function() { window.sbToggle(); };
+  window._sbBtn = btn;
+  var topbar = document.querySelector('.topbar');
+  if (topbar) topbar.insertBefore(btn, topbar.firstChild);
+});
+</script>
+<script>
+// Phase: PIN Visibility Toggle (👁 / 🙈) — Tier 2 PIN inputs
+document.addEventListener('DOMContentLoaded', function(){
+  if (window.SyDentPwd && window.SyDentPwd.attachAll) {
+    window.SyDentPwd.attachAll(['ePin', 'ePinConfirm', 'oNewPin', 'oNewPinConfirm']);
+  }
+});
+</script>
+
+</body>
+</html>

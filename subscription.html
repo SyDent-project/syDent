@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SyDent">
+<meta name="theme-color" content="#0d8577">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=4">
+<link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<title>SyDent — الاشتراك</title>
+<!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
+<script src="theme.js?v=20261005a"></script>
+<script src="/vendor/supabase-2.110.8.min.js"></script>
+<script src="supabase-init.js?v=20261005a"></script>
+<link rel="stylesheet" href="theme.css?v=20261005a">
+<!-- ── Cloudflare Turnstile (CAPTCHA) — M142: لإعادة التحقق قبل حذف الحساب (نسخةٌ حرفية
+     من الإعدادات؛ check-mirrors يطابقها). -->
+<script>
+(function(){
+  var SITEKEY = '0x4AAAAAADr7FjcBLQHJKhcS';   // public site key — safe in client by design
+  var widgets = {};   // name -> widgetId
+  var wanted  = {};   // name -> containerId (render intent recorded before API is ready)
+  var ready   = false;
+  function whenDomReady(fn){
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
+    else fn();
+  }
+  function render(name, containerId){
+    if (!ready || !window.turnstile) return;
+    if (widgets[name] !== undefined) return;            // already rendered — no double render
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    try { widgets[name] = window.turnstile.render(el, { sitekey: SITEKEY, theme: 'auto', action: name }); }
+    catch(e){ console.warn('[turnstile] render failed:', name, e); }
+  }
+  window.onSyDentTurnstileLoad = function(){
+    ready = true;
+    whenDomReady(function(){ Object.keys(wanted).forEach(function(n){ render(n, wanted[n]); }); });
+  };
+  window.requestTurnstile = function(name, containerId){ wanted[name] = containerId; render(name, containerId); };
+  window.getTurnstileToken = function(name){
+    try { var id = widgets[name]; return (id !== undefined && window.turnstile) ? (window.turnstile.getResponse(id) || '') : ''; }
+    catch(e){ return ''; }
+  };
+  window.resetTurnstile = function(name){
+    try { var id = widgets[name]; if (id !== undefined && window.turnstile) window.turnstile.reset(id); } catch(e){}
+  };
+})();
+</script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onSyDentTurnstileLoad" async defer></script>
+<style>
+:root {
+  --bg:        #0a1628;
+  --bg2:       #0f2038;
+  --bg3:       #132840;
+  --border:    rgba(var(--green-rgb),0.15);
+  --green:     var(--green);
+  --red:       #ef5350;
+  --yellow:    #f5c842;
+  --orange:    #ffa726;
+  --text:      #e1f4ee;
+  --text2:     #8a9ab5;
+  --radius:    12px;
+  --on-green:  #062018; /* text on solid green surfaces (dark theme: bright green bg) */
+}
+/* Light theme: --green darkens to #0d8577 — dark text loses all contrast */
+:root[data-theme="light"] { --on-green: #ffffff; }
+:root[data-theme="light"] .sub-cycle-opt.active .sub-cycle-save { background: var(--green-bg); color: var(--green-fg); }   /* v377: token (was the dark mint) */
+:root[data-theme="light"] .sub-support-btn.wa .sub-support-btn-val { color: rgba(255,255,255,0.85); }
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Cairo', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  overflow-x: hidden;
+}
+.main {
+  flex: 1;
+  margin-right: var(--sb-width, 240px);
+  display: flex; flex-direction: column;
+  min-height: 100vh;
+}
+.topbar {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 28px;
+  display: flex; align-items: center; gap: 16px;
+  position: sticky; top: 0; z-index: 50;
+}
+.topbar-title { font-size: 20px; font-weight: 700; flex: 1; }
+.topbar-title span { color: var(--green); }
+.content { padding: 28px; flex: 1; }
+
+.sub-wrap { max-width: 920px; margin: 0 auto; }
+
+/* ---- current plan card ---- */
+.sub-current {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  margin-bottom: 18px;
+}
+.sub-current-top { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.sub-current-icon { font-size: 30px; }
+.sub-current-name { font-size: 21px; font-weight: 800; }
+.sub-badge {
+  font-size: 12px; font-weight: 800; padding: 3px 11px; border-radius: 999px;
+  white-space: nowrap;
+}
+.sub-badge.ok   { background: var(--green-bg);  color: var(--green-fg);   border: 1px solid var(--green-bd); }   /* v377: unified tone tokens */
+.sub-badge.warn { background: var(--orange-bg); color: var(--orange-ink); border: 1px solid var(--orange-bd); }
+.sub-badge.bad  { background: var(--red-bg);    color: var(--red-ink);    border: 1px solid var(--red-bd); }
+.sub-current-meta {
+  margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr));
+  gap: 12px;
+}
+.sub-meta-item { background: var(--bg3); border-radius: 10px; padding: 12px 14px; }
+.sub-meta-label { font-size: 11px; color: var(--text2); font-weight: 700; margin-bottom: 4px; }
+.sub-meta-value { font-size: 16px; font-weight: 800; }
+
+/* ---- pending banner ---- */
+.sub-pending {
+  background: var(--orange-soft);
+  border: 1px solid var(--orange-bd);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 18px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+.sub-pending-text { flex: 1; font-size: 14px; font-weight: 600; line-height: 1.6; min-width: 200px; }
+.sub-pending-text b { color: var(--orange-ink); }
+.sub-perm-note {
+  background: rgba(var(--green-rgb),0.10);
+  border: 1px solid rgba(var(--green-rgb),0.30);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  font-size: 14px; font-weight: 700; line-height: 1.6; color: var(--text);
+}
+
+/* ---- plans grid ---- */
+.sub-section-title { font-size: 14px; font-weight: 800; color: var(--text2); margin: 8px 2px 14px; }
+
+/* ---- support card (bottom of page) ---- */
+.sub-support {
+  margin-top: 22px; padding: 20px 22px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 18px; flex-wrap: wrap;
+}
+.sub-support-info { display: flex; align-items: center; gap: 14px; min-width: 240px; flex: 1; }
+.sub-support-icon {
+  flex: none; width: 46px; height: 46px; border-radius: 12px;
+  display: grid; place-items: center; font-size: 22px;
+  background: rgba(var(--green-rgb),0.12);
+}
+.sub-support-text { display: flex; flex-direction: column; gap: 3px; }
+.sub-support-title { font-size: 15px; font-weight: 800; color: var(--text); }
+.sub-support-sub { font-size: 12.5px; font-weight: 600; color: var(--text2); line-height: 1.5; }
+.sub-support-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.sub-support-btn {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 3px;
+  font-size: 13px; font-weight: 800; text-decoration: none;
+  padding: 9px 18px; border-radius: 10px;
+  transition: filter .15s, background .15s, border-color .15s;
+}
+.sub-support-btn-label { line-height: 1.3; }
+.sub-support-btn-val { font-size: 11px; font-weight: 700; line-height: 1.2; letter-spacing: .2px; }
+.sub-support-btn.wa { background: var(--green); color: var(--on-green); }
+.sub-support-btn.wa .sub-support-btn-val { color: rgba(6,32,24,0.72); }
+.sub-support-btn.wa:hover { filter: brightness(1.06); }
+.sub-support-btn.mail {
+  background: transparent; color: var(--green);
+  border: 1px solid rgba(var(--green-rgb),0.35);
+}
+.sub-support-btn.mail .sub-support-btn-val { color: var(--text2); }
+.sub-support-btn.mail:hover { background: rgba(var(--green-rgb),0.10); border-color: var(--green); }
+.sub-support-mailwrap { display: inline-flex; align-items: stretch; gap: 6px; }
+.sub-support-mailwrap[hidden] { display: none; }
+/* Explicit [hidden] overrides (Rule #239): both carry an author-origin
+   display rule above, so the UA default [hidden]{display:none} loses. */
+.sub-support[hidden] { display: none; }
+.sub-support-btn[hidden] { display: none; }
+.sub-support-copy {
+  flex: none; width: 42px; border-radius: 10px; cursor: pointer;
+  background: transparent; color: var(--green); font-size: 16px;
+  border: 1px solid rgba(var(--green-rgb),0.35);
+  transition: background .15s, border-color .15s;
+}
+.sub-support-copy:hover { background: rgba(var(--green-rgb),0.10); border-color: var(--green); }
+@media (max-width: 560px) {
+  .sub-support { justify-content: center; text-align: center; }
+  .sub-support-actions { width: 100%; }
+  .sub-support-btn { flex: 1; justify-content: center; }
+  .sub-support-mailwrap { flex: 1; }
+}
+.sub-grid {
+  display: grid; gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.sub-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 20px;
+  display: flex; flex-direction: column; gap: 6px;
+  position: relative;
+}
+.sub-card.current { border-color: var(--green); box-shadow: 0 0 0 1px var(--green) inset; }
+.sub-card-cur-badge {
+  position: absolute; top: -10px; inset-inline-start: 16px;
+  background: var(--green); color: var(--on-green); font-size: 11px; font-weight: 800;
+  padding: 3px 12px; border-radius: 999px;
+}
+/* Parity with landing.html pricing cards: the operator's "featured" tier must
+   read the same to a logged-in owner as it does to a visitor. Same border
+   treatment as .current (a card can never show both badges — see renderPlans). */
+.sub-card.featured { border-color: var(--green); box-shadow: 0 0 0 1px var(--green) inset; }
+.sub-card-feat-badge {
+  position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+  background: var(--green); color: var(--on-green); font-size: 11px; font-weight: 800;
+  padding: 3px 12px; border-radius: 999px; white-space: nowrap;
+}
+/* Enforced seat/patient limits — mirrors .pricing-card-limits on landing.html. */
+.sub-card-limits { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.sub-card-limit {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 10px; font-size: 11px; color: var(--text2);
+}
+.sub-card-icon { font-size: 26px; }
+.sub-card-name { font-size: 18px; font-weight: 800; }
+.sub-card-sub { font-size: 12px; color: var(--text2); min-height: 16px; }
+.sub-card-price { font-size: 24px; font-weight: 800; margin-top: 6px; }
+.sub-card-price small { font-size: 12px; font-weight: 600; color: var(--text2); }
+/* ---- Phase X13 + Migration 104: billing cycle toggle (monthly/quarterly/yearly) ---- */
+.sub-cycle-toggle {
+  display: inline-flex; gap: 6px; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 999px; padding: 5px; margin: 0 2px 16px;
+  max-width: 100%; flex-wrap: wrap; justify-content: center;
+}
+.sub-cycle-opt {
+  border: none; background: transparent; color: var(--text2);
+  font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 800;
+  padding: 8px 18px; border-radius: 999px; cursor: pointer; transition: all .15s;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.sub-cycle-opt.active { background: var(--green); color: var(--on-green); }
+/* Migration 105: the second (currency) pill row sits tight under the cycle row */
+.sub-curr-toggle { margin-top: -8px; }
+.sub-cycle-save {
+  font-size: 10.5px; font-weight: 800; padding: 2px 7px; border-radius: 999px;
+  background: rgba(var(--green-rgb),0.18); color: var(--green);
+}
+.sub-cycle-opt.active .sub-cycle-save { background: rgba(6,32,24,0.18); color: var(--on-green); }
+/* Three pills + savings badges overflow a narrow phone at the desktop padding —
+   tighten instead of letting the control wrap into a ragged second line.
+   MUST sit AFTER the base .sub-cycle-opt/.sub-cycle-save rules: a media query
+   adds no specificity, so an earlier position would lose the cascade. */
+@media (max-width: 520px) {
+  .sub-cycle-opt { padding: 8px 11px; font-size: 12px; gap: 5px; }
+  .sub-cycle-save { font-size: 10px; padding: 2px 6px; }
+}
+.plan-savings {
+  display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 8px;
+  border-radius: 999px; background: rgba(var(--green-rgb),0.15); color: var(--green); margin-inline-start: 6px;
+}
+.sub-card-permo { font-size: 12px; color: var(--text2); font-weight: 600; margin-top: 2px; }
+.sub-card-na    { font-size: 14px; color: var(--text2); font-weight: 700; margin-top: 6px; }
+.sub-card-features { list-style: none; margin: 12px 0; display: flex; flex-direction: column; gap: 7px; }
+.sub-card-features li { font-size: 13px; color: var(--text); padding-inline-start: 20px; position: relative; }
+.sub-card-features li::before { content: '✓'; position: absolute; inset-inline-start: 0; color: var(--green); font-weight: 800; }
+.sub-btn {
+  margin-top: auto; border: none; border-radius: 10px; padding: 12px;
+  font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 800; cursor: pointer;
+  background: var(--green); color: var(--on-green); transition: opacity .15s;
+}
+.sub-btn:hover { opacity: .88; }
+.sub-btn.renew { background: var(--bg3); color: var(--green); border: 1px solid var(--border); }
+.sub-btn:disabled { opacity: .4; cursor: not-allowed; }
+.sub-btn-spacer { margin-top: auto; height: 0; }
+
+/* ---- states ---- */
+.sub-state { text-align: center; padding: 60px 20px; color: var(--text2); }
+.sub-state-icon { font-size: 46px; margin-bottom: 12px; }
+
+/* ---- M142: حذف الحساب (للحساب المحجوب وحده — غيره يحذف من الإعدادات) ---- */
+.sub-danger {
+  margin-top: 64px; border: 1px solid var(--red-bd); border-radius: 14px;   /* DeepCode #14 (v562): كانت 28px — بُعدٌ واضح عن أزرار الترقية */
+  position: relative;
+  background: var(--red-soft); padding: 16px 18px;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+}
+.sub-danger::before {   /* DeepCode #14 (v562): عنوانُ «منطقة الخطر» وخطٌّ فاصل فوق البطاقة */
+  content: "⚠️ منطقة الخطر"; position: absolute; top: -34px; inset-inline: 0;
+  font-size: 12px; font-weight: 800; color: var(--red-ink); padding-top: 10px; border-top: 1px dashed var(--red-bd);
+}
+.sub-danger-title { font-size: 14px; font-weight: 800; color: var(--red-ink); margin-bottom: 4px; }
+.sub-danger-sub { font-size: 12.5px; color: var(--text2); line-height: 1.7; }
+.sub-danger-btn {
+  background: transparent; border: 1px solid var(--red-bd); color: var(--red-ink);
+  border-radius: 10px; padding: 10px 16px; font-family: 'Cairo', sans-serif; font-size: 13px;
+  font-weight: 800; cursor: pointer; white-space: nowrap;
+}
+.sub-del-list { margin: 8px 0 0; padding-inline-start: 18px; font-size: 12.5px; color: var(--text2); line-height: 1.8; }
+.sub-del-input {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+  padding: 11px 12px; color: var(--text); font-family: 'Cairo', sans-serif; font-size: 13px;
+}
+.sub-confirm.danger { background: var(--red-solid); color: var(--on-red-solid); }
+.cf-turnstile-box { margin: 14px 0 0; min-height: 65px; display: flex; justify-content: center; }
+@media (max-width: 480px) { .sub-danger { flex-direction: column; align-items: stretch; text-align: center; } }
+
+/* ---- modal ---- */
+/* v453: الطبقةُ المحلية حُذفت — النافذتان على عُدّة SyDent (sy-m بـtheme.css)؛
+   `show` تبقى فئةَ الفتح بهذه الصفحة والعُدّة تفهمها. */
+.sub-modal-title { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+.sub-modal-sub { font-size: 13px; color: var(--text2); margin-bottom: 18px; line-height: 1.6; }
+.sub-field-label { font-size: 12px; font-weight: 800; color: var(--text2); margin: 14px 0 8px; }
+.sub-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sub-method {
+  border: 1px solid var(--border); border-radius: 10px; padding: 12px; cursor: pointer;
+  font-size: 13px; font-weight: 700; text-align: center; background: var(--bg3); transition: all .12s;
+}
+.sub-method.sel { border-color: var(--green); background: rgba(var(--green-rgb),0.12); color: var(--green); }
+/* DeepCode #8 (v566): إثباتُ دفع شام كاش */
+.sub-proof { margin-top: 4px; }
+.sub-proof[hidden] { display: none; }
+.sub-proof-acc { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; background: var(--accent-bg, var(--bg3)); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 4px; }
+.sub-proof-acc[hidden] { display: none; }
+.sub-proof-acc b { font-size: 15px; letter-spacing: .5px; }
+.sub-proof-copy { margin-inline-start: auto; background: var(--bg2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 10px;
+  font-family: 'Cairo', sans-serif; font-size: 12px; cursor: pointer; }
+.sub-proof-input { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; color: var(--text);
+  font-family: 'Cairo', sans-serif; font-size: 14px; text-align: right; box-sizing: border-box; }
+.sub-proof-file { display: flex; align-items: center; gap: 8px; background: var(--bg3); border: 1px dashed var(--border2); border-radius: 10px; padding: 10px 12px;
+  cursor: pointer; font-size: 13px; color: var(--text2); overflow: hidden; }
+.sub-proof-file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.sub-proof-file span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub-proof-hint { font-size: 12px; color: var(--text2); margin-top: 6px; }
+.sub-proof-hint.bad { color: var(--red-ink); }
+.sub-note {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+  padding: 11px 12px; color: var(--text); font-family: 'Cairo', sans-serif; font-size: 13px; resize: vertical; min-height: 64px;
+}
+.sub-instructions {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; font-size: 12.5px; color: var(--text); white-space: pre-wrap; line-height: 1.7; margin-top: 8px;
+}
+.sub-modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+.sub-modal-actions button {
+  flex: 1; border-radius: 10px; padding: 12px; font-family: 'Cairo', sans-serif;
+  font-size: 14px; font-weight: 800; cursor: pointer; border: none;
+}
+.sub-confirm { background: var(--green); color: var(--on-green); }
+.sub-confirm:disabled { opacity: .5; cursor: not-allowed; }
+.sub-cancel { background: transparent; color: var(--text2); border: 1px solid var(--border) !important; }
+.sub-link-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text2);
+  border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; font-size: 12px;
+  font-weight: 700; cursor: pointer;
+}
+
+/* toast */
+@media (max-width: 768px) {
+  .main { margin-right: 0; margin-bottom: 64px; }
+  .topbar { padding: 12px 14px; }
+  .topbar-title { font-size: 17px; }
+  .content { padding: 16px; }
+}
+/* v303: press feedback */
+button:active:not(:disabled) { transform: scale(.97); }
+button:disabled { opacity: .6; cursor: wait; }
+</style>
+</head>
+<body>
+
+<script src="sy-modal.js?v=20261005a"></script>
+<script src="sidebar.js?v=20261005a"></script>
+
+<div class="main" id="sbMainContent">
+
+  <div class="topbar">
+    <div class="topbar-title"><span>الاشتراك</span></div>
+  </div>
+
+  <div class="content">
+    <div class="sub-wrap">
+
+      <!-- current plan card -->
+      <div id="subCurrent" class="sub-current" style="display:none;"></div>
+
+      <!-- pending request banner -->
+      <div id="subPending" class="sub-pending" style="display:none;"></div>
+
+      <!-- plans -->
+      <div class="sub-section-title">الخطط المتاحة</div>
+      <div id="subCycleToggle"></div>
+      <div id="subPlans" class="sub-grid">
+        <div class="sub-state"><div class="sub-state-icon">⏳</div>جارٍ تحميل الخطط…</div>
+      </div>
+
+      <!-- support card -->
+      <div class="sub-support" id="subSupportCard" hidden>
+        <div class="sub-support-info">
+          <div class="sub-support-icon">💬</div>
+          <div class="sub-support-text">
+            <div class="sub-support-title">بحاجة لمساعدة؟</div>
+            <div class="sub-support-sub">فريق الدعم جاهز لمساعدتك في الاشتراك والدفع والتفعيل.</div>
+          </div>
+        </div>
+        <div class="sub-support-actions">
+          <a id="subSupportWa" class="sub-support-btn wa" target="_blank" rel="noopener">
+            <span class="sub-support-btn-label">💬 تواصل عبر واتساب</span>
+            <span id="subSupportWaNum" class="sub-support-btn-val" dir="ltr"></span>
+          </a>
+          <span id="subSupportMailWrap" class="sub-support-mailwrap" hidden>
+            <a id="subSupportMail" class="sub-support-btn mail">
+              <span class="sub-support-btn-label">✉️ راسلنا بالإيميل</span>
+              <span id="subSupportMailTxt" class="sub-support-btn-val" dir="ltr"></span>
+            </a>
+            <button type="button" class="sub-support-copy" title="نسخ الإيميل" onclick="window.subCopyEmail()">📋</button>
+          </span>
+        </div>
+      </div>
+
+      <!-- M142: حذف الحساب — يظهر للحساب المحجوب (تجربة منتهية) وحده.
+           DeepCode #14 (v562): داخل «منطقة الخطر» معنونةٍ ومفصولة بخطٍّ وبُعد عن أزرار الخطط والدعم (السلوكُ نفسُه حرفياً) -->
+      <div class="sub-danger" id="subDangerCard" hidden>
+        <div>
+          <div class="sub-danger-title">🗑 حذف الحساب نهائياً</div>
+          <div class="sub-danger-sub">لا تريد المتابعة؟ يمكنك حذف حسابك وكل بيانات عيادتك من المنصة.</div>
+        </div>
+        <button type="button" class="sub-danger-btn" onclick="window.subOpenDelete()">حذف حسابي</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- M142: نافذة تأكيد حذف الحساب -->
+<div id="subDelOverlay" class="sub-overlay modal-overlay sy-m">
+  <div class="sub-modal modal-box">
+    <div class="modal-head"><h3>تأكيد حذف الحساب</h3>
+      <button type="button" class="modal-close" onclick="window.subCloseDelete()" aria-label="إغلاق">✕</button></div>
+    <div class="modal-body">
+    <div class="sub-modal-sub">
+      هذا الإجراء <strong>نهائي ولا يمكن التراجع عنه</strong>. سيتم حذف:
+      <ul class="sub-del-list">
+        <li>جميع المرضى وملفاتهم</li>
+        <li>جميع المواعيد</li>
+        <li>جميع الجلسات والمدفوعات</li>
+        <li>حسابك بالكامل</li>
+      </ul>
+    </div>
+    <div class="sub-field-label">اكتب <strong style="color:var(--red)">حذف حسابي</strong> للتأكيد</div>
+    <input type="text" id="subDelPhrase" class="sub-del-input" placeholder="حذف حسابي" autocomplete="off">
+    <div class="sub-field-label">كلمة المرور الحالية</div>
+    <input type="password" id="subDelPass" class="sub-del-input" placeholder="••••••••" autocomplete="current-password">
+    <div id="ts-delete" class="cf-turnstile-box"></div>
+    </div><!-- /.modal-body -->
+    <div class="sub-modal-actions modal-foot">
+      <button type="button" class="sub-cancel" onclick="window.subCloseDelete()">إلغاء</button>
+      <button type="button" id="subDelBtn" class="sub-confirm danger" onclick="window.subConfirmDelete()">حذف نهائياً</button>
+    </div>
+  </div>
+</div>
+
+<!-- request modal -->
+<div id="subOverlay" class="sub-overlay modal-overlay sy-m">
+  <div class="sub-modal modal-box">
+    <div class="modal-head"><h3 id="subModalTitle">طلب اشتراك</h3>
+      <button type="button" class="modal-close" onclick="window.subCloseModal()" aria-label="إغلاق">✕</button></div>
+    <div class="modal-body">
+    <div id="subModalSub" class="sub-modal-sub"></div>
+
+    <div class="sub-field-label">طريقة الدفع</div>
+    <div class="sub-methods" id="subMethods"></div>
+
+    <!-- DeepCode #8 (v566 · M167): إثباتُ دفع شام كاش — رقمُ حساب المنصة + رقمُ العملية و/أو صورةُ الإيصال (واحدٌ على الأقل) -->
+    <div class="sub-proof" id="subProof" hidden>
+      <div class="sub-proof-acc" id="subShamAcc" hidden>
+        <span>حوّل إلى حساب شام كاش:</span>
+        <b id="subShamAccNo" dir="ltr"></b>
+        <button type="button" class="sub-proof-copy" onclick="window.subCopyShamAcc()">📋 نسخ</button>
+      </div>
+      <div class="sub-field-label">رقم العملية</div>
+      <input type="text" id="subPayRef" class="sub-proof-input" dir="ltr" inputmode="numeric" autocomplete="off" placeholder="مثلاً 4829173650" oninput="window.subProofSync()">
+      <div class="sub-field-label">صورة الإيصال</div>
+      <label class="sub-proof-file">
+        <input type="file" id="subReceipt" accept="image/*,application/pdf" onchange="window.subProofSync()">
+        <span id="subReceiptName">📎 اختر صورة أو PDF (حتى 5MB)</span>
+      </label>
+      <div class="sub-proof-hint" id="subProofHint">أدخل رقم العملية أو أرفق صورة الإيصال — واحدٌ منهما على الأقل.</div>
+    </div>
+
+    <div class="sub-field-label">ملاحظة (اختياري)</div>
+    <textarea id="subNote" class="sub-note" placeholder="أي تفاصيل تودّ إضافتها…"></textarea>
+
+    <div class="sub-field-label">تعليمات الدفع</div>
+    <div id="subInstructions" class="sub-instructions">—</div>
+
+    </div><!-- /.modal-body -->
+    <div class="sub-modal-actions modal-foot">
+      <button class="sub-cancel" onclick="window.subCloseModal()">إلغاء</button>
+      <button id="subConfirmBtn" class="sub-confirm" onclick="window.subSubmit()">إرسال الطلب وفتح واتساب</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+(function () {
+  'use strict';
+
+  initSidebar('subscription');
+
+  // زر hamburger للـ topbar (عالموبايل) — نفس النمط بباقي الصفحات
+  document.addEventListener('DOMContentLoaded', function() {
+    var btn = document.createElement('button');
+    btn.className = 'sb-hamburger';
+    btn.id = 'sbHamburgerBtn';
+    btn.setAttribute('aria-label', 'القائمة');
+    btn.innerHTML = '<span></span><span></span><span></span>';
+    btn.onclick = function() { window.sbToggle(); };
+    window._sbBtn = btn;
+    var topbar = document.querySelector('.topbar');
+    if (topbar) topbar.insertBefore(btn, topbar.firstChild);
+  });
+
+  var SUPPORT_PHONE_FALLBACK = '963934012433';
+
+  var PAYMENT_METHODS = [
+    { v: 'sham_cash', label: 'شام كاش' },
+    { v: 'transfer',  label: 'حوالة داخلية' },
+    { v: 'bank_card', label: 'كرت بنك' },
+    { v: 'cash',      label: 'كاش' }
+  ];
+
+  // page state
+  var ST = {
+    user: null,
+    current: null,        // { id, plan, status, trial_end, billing_cycle }
+    plans: [],            // active subscription_plans sorted
+    pending: null,        // pending subscription_requests row (or null)
+    support: '',           // '' = no public channel (see loadAll seen-flags)
+    supportEmail: '',
+    instructions: '',
+    cycle: 'yearly',      // Phase X13 — global card toggle (default yearly: best-practice)
+    curr: 'SYP',          // Migration 105 — display/settlement currency (default SYP: owner decision)
+    selPlan: null,        // plan being requested (in modal)
+    selKind: 'upgrade',   // 'upgrade' | 'renew' (DB request_kind)
+    selRelation: 'upgrade', // 'upgrade' | 'renew' | 'downgrade' (display only)
+    selCycle: 'monthly',  // Phase X13 — cycle chosen for the in-flight request
+    selMethod: null,
+    inFlight: false       // Rule #66 — double-submit guard
+  };
+
+  function escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function fmtPrice(n) {
+    var num = Number(n);
+    if (!isFinite(num) || num <= 0) return '—';
+    return num.toLocaleString('en-US');
+  }
+  function planLabel(code) {
+    var p = ST.plans.filter(function (x) { return x.code === code; })[0];
+    if (p) return p.display_name || code;
+    if (code === 'trial')   return 'تجريبي';
+    if (code === 'monthly') return 'Mini';
+    if (code === 'yearly')  return 'Max';
+    return code || '—';
+  }
+  // ---- Phase X13 + Migration 104: cycle helpers (mirror admin.html) ----
+  var CYCLE_DAYS = { monthly: 30, quarterly: 90, yearly: 365 };
+  // Cadences offered by the platform, ordered by commitment length. Adding a
+  // cadence here + a price column is all a fourth cycle would ever need.
+  var CYCLE_ORDER = ['monthly', 'quarterly', 'yearly'];
+  function normCycle(c) {
+    return (c === 'yearly') ? 'yearly' : (c === 'quarterly') ? 'quarterly' : 'monthly';
+  }
+  function cycleLabelAr(c) {
+    var n = normCycle(c);
+    return n === 'yearly' ? 'سنوي' : n === 'quarterly' ? 'ربع سنوي' : 'شهري';
+  }
+  // Months in one billing period — divisor for the per-month equivalent line.
+  function cycleMonths(c) {
+    var n = normCycle(c);
+    return n === 'yearly' ? 12 : n === 'quarterly' ? 3 : 1;
+  }
+  // Unit shown after the price ("… ل.س / سنة").
+  function cycleUnitAr(c) {
+    var n = normCycle(c);
+    return n === 'yearly' ? 'سنة' : n === 'quarterly' ? '3 أشهر' : 'شهر';
+  }
+  // ── Migration 105: currency dimension (mirror admin.html contract) ──
+  var CURRENCY_ORDER = ['SYP', 'USD'];
+  function normCurrency(c) { return (c === 'USD') ? 'USD' : 'SYP'; }
+  function currencyLabelAr(c) { return normCurrency(c) === 'USD' ? '$' : 'ل.س'; }
+  function planByCode(code) { return ST.plans.filter(function (x) { return x.code === code; })[0] || null; }
+  // Price of a tier for a cycle; falls back to the legacy single price when the
+  // cycle column is absent AND the tier's native period matches. null = not offered.
+  // Note the legacy fallback is monthly/yearly only — no tier ever had a native
+  // quarterly period, so a quarterly ask never borrows `price`.
+  function planPriceForCycle(p, cycle, curr) {
+    if (!p) return null;
+    cycle = normCycle(cycle);
+    curr = normCurrency(curr);
+    var d;
+    if (curr === 'USD') {
+      d = (cycle === 'yearly') ? p.price_yearly_usd
+        : (cycle === 'quarterly') ? p.price_quarterly_usd
+        : p.price_monthly_usd;
+    } else {
+      d = (cycle === 'yearly') ? p.price_yearly
+        : (cycle === 'quarterly') ? p.price_quarterly
+        : p.price_monthly;
+    }
+    var val = null;
+    if (d != null && !isNaN(Number(d))) {
+      val = Number(d);
+    } else if (curr === 'SYP' && p.price != null && !isNaN(Number(p.price))) {
+      // Legacy `price` fallback is SYP-only (the pre-split price was always SYP).
+      var dur = Number(p.duration_days);
+      var native = (isFinite(dur) && dur >= 182) ? 'yearly' : 'monthly';
+      if (native === cycle) val = Number(p.price);
+    }
+    // ── Migration 105-fix: ZERO IS NOT AN OFFER ────────────────────────────────
+    // The whole dynamic chain (currency toggle → cycle toggle → cards → buttons
+    // → modal guards → transitions) hangs off this single predicate. NULL always
+    // meant "this (cycle × currency) point is not offered"; 0 must mean exactly
+    // the same, otherwise one stale zero keeps a whole currency alive and renders
+    // "0 ل.س / شهر". Three sources produce that zero: a dedicated column left at
+    // 0, the invisible legacy `price` column (auto-synced to 0 when all SYP
+    // prices are cleared), and a plan created with price:0. One guard at the
+    // single return point neutralizes all three.
+    // The trial tier is unaffected: every caller either renders it through its
+    // own "مجاناً" branch, excludes it, or coerces null→0.
+    return (val != null && isFinite(val) && val > 0) ? val : null;
+  }
+  // Savings % of a multi-month cycle vs paying month-by-month (N× monthly).
+  function cycleSavingsPct(p, cycle, curr) {
+    if (!p) return 0;
+    var n = cycleMonths(cycle);
+    if (n <= 1) return 0;
+    curr = normCurrency(curr);
+    // Strictly in-currency comparison — never divide across currencies.
+    var pm = Number(planPriceForCycle(p, 'monthly', curr));
+    var pc = Number(planPriceForCycle(p, cycle, curr));
+    if (!isFinite(pm) || !isFinite(pc) || pm <= 0 || pc <= 0) return 0;
+    var full = pm * n; if (pc >= full) return 0;
+    var pct = Math.round((1 - pc / full) * 100);
+    return (pct > 0 && pct < 100) ? pct : 0;
+  }
+  function annualSavingsPct(p) { return cycleSavingsPct(p, 'yearly'); }
+  // Cycle-aware subtitle with fallback to the base subtitle (Migrations 83/104).
+  function planSubtitleForCycle(p, cycle) {
+    if (!p) return '';
+    var n = normCycle(cycle);
+    var pick = (n === 'yearly') ? p.subtitle_yearly
+             : (n === 'quarterly') ? p.subtitle_quarterly
+             : null;
+    return (pick && String(pick).trim()) ? pick : (p.subtitle || '');
+  }
+  // relation between current TIER and a target TIER. Ranked by sort_order (the
+  // admin's explicit tier ordering) so it's cadence-independent — a yearly-only
+  // tier never looks like a "downgrade" just because its per-month figure is low.
+  function planRelation(targetCode) {
+    var cur = curPlanCode();
+    if (targetCode === cur) return 'renew';
+    var cp = planByCode(cur), tp = planByCode(targetCode);
+    var pc = cp ? (Number(cp.sort_order) || 999) : 999;
+    var pr = tp ? (Number(tp.sort_order) || 999) : 999;
+    if (pr > pc) return 'upgrade';
+    if (pr < pc) return 'downgrade';
+    return 'change';
+  }
+  function methodLabel(v) {
+    var m = PAYMENT_METHODS.filter(function (x) { return x.v === v; })[0];
+    return m ? m.label : v;
+  }
+
+  // #200: التوست الموحّد — window.showToast من sidebar.js هو التنفيذ الوحيد.
+  function toast(msg, isErr) { window.showToast(msg, isErr); }
+
+  // ---------- data load ----------
+  async function loadAll() {
+    var ures = await window.sb.auth.getUser();
+    if (!ures || !ures.data || !ures.data.user) {
+      window.location.replace('auth.html');
+      return false;
+    }
+    ST.user = ures.data.user;
+
+    var results = await Promise.all([
+      // current subscription — resolve by user_id first (stable for @sydent.com
+      // phone accounts whose auth email differs from trial_requests.email),
+      // fall back to email for legacy rows with a null user_id.
+      (async function () {
+        try {
+          var byId = await window.sb.from('trial_requests')
+            .select('id, plan, status, trial_end, grace_until, billing_cycle, currency').eq('user_id', ST.user.id).maybeSingle();
+          if (byId && byId.data) return byId;
+        } catch (e) {}
+        try {
+          return await window.sb.from('trial_requests')
+            .select('id, plan, status, trial_end, grace_until, billing_cycle, currency').eq('email', ST.user.email).maybeSingle();
+        } catch (e) { return { data: null }; }
+      })(),
+      // active plans
+      window.sb.from('subscription_plans')
+        .select('*').eq('is_active', true).order('sort_order', { ascending: true })
+        .then(function (r) { return r; }).catch(function () { return { data: [] }; }),
+      // platform settings (support phone + payment instructions)
+      window.sb.from('platform_settings')
+        .select('key, value').in('key', ['support_phone', 'support_email', 'payment_instructions_ar', 'shamcash_account'])
+        .then(function (r) { return r; }).catch(function () { return { data: [] }; }),
+      // existing pending request
+      window.sb.from('subscription_requests')
+        .select('*').eq('user_id', ST.user.id).eq('status', 'pending')
+        .order('created_at', { ascending: false }).limit(1).maybeSingle()
+        .then(function (r) { return r; }).catch(function () { return { data: null }; })
+    ]);
+
+    ST.current = (results[0] && results[0].data) || null;
+    ST.plans   = (results[1] && results[1].data) || [];
+    ST.pending = (results[3] && results[3].data) || null;
+
+    var ps = (results[2] && results[2].data) || [];
+    // Admin intent is authoritative. A row that ARRIVED carrying an empty
+    // value means the platform owner deliberately cleared that channel from
+    // Section H → the surface must disappear. A row that never arrived
+    // (RLS change, network failure, missing seed) is *unknown*, not
+    // "cleared" — only then does the legacy fallback apply, preserving the
+    // original fail-open intent without swallowing a deliberate removal.
+    var psSeen = { support_phone: false, support_email: false };
+    ps.forEach(function (row) {
+      if (row.key === 'support_phone') {
+        psSeen.support_phone = true;
+        // Mirrors landing.html normalize semantics (#167): digits only,
+        // strip international 00 prefix, trunk 0 → 963. Fixes wa.me links
+        // when admin saved a local-format number (e.g. 0934012433).
+        var v = String(row.value || '').replace(/[^0-9]/g, '');
+        if (v.indexOf('00') === 0) v = v.slice(2);
+        if (v.charAt(0) === '0') v = '963' + v.slice(1);
+        ST.support = /^\d{8,15}$/.test(v) ? v : '';
+      } else if (row.key === 'support_email') {
+        psSeen.support_email = true;
+        ST.supportEmail = String(row.value || '').trim();
+      } else if (row.key === 'payment_instructions_ar') {
+        ST.instructions = String(row.value || '');
+      } else if (row.key === 'shamcash_account') {   /* v566 (M167) */
+        ST.shamAcc = String(row.value || '').trim();
+      }
+    });
+    if (!psSeen.support_phone) ST.support = SUPPORT_PHONE_FALLBACK;
+    return true;
+  }
+
+  // ---------- render ----------
+  function curPlanCode() { return (ST.current && ST.current.plan) || 'trial'; }
+
+  function daysLeft() {
+    if (!ST.current || !ST.current.trial_end) return null; // permanent
+    return Math.ceil((new Date(ST.current.trial_end) - new Date()) / (1000 * 60 * 60 * 24));
+  }
+
+  function renderCurrent() {
+    var el = document.getElementById('subCurrent');
+    var code = curPlanCode();
+    var plan = ST.plans.filter(function (p) { return p.code === code; })[0];
+    var icon = (plan && plan.icon) ? plan.icon : (code === 'trial' ? '🆓' : code === 'yearly' ? '💎' : '💵');
+    var name = planLabel(code);
+    var dl = daysLeft();
+
+    var badge, badgeCls, expVal;
+    if (dl === null) {
+      badge = 'اشتراك دائم'; badgeCls = 'ok'; expVal = 'بدون انتهاء';
+    } else if (dl <= 0) {
+      // M141: السماح يسبق الانتهاء (مرآة tenant_access_level) · المدفوع المنتهي للقراءة.
+      var gu = (ST.current && ST.current.grace_until) ? new Date(ST.current.grace_until) : null;
+      if (gu && !isNaN(gu.getTime()) && gu > new Date()) {
+        badge = 'فترة سماح'; badgeCls = 'warn';
+        expVal = 'سماح: ' + Math.ceil((gu - new Date()) / (1000 * 60 * 60 * 24)) + ' يوم';
+      } else if (code === 'trial') {
+        badge = 'منتهي'; badgeCls = 'bad'; expVal = 'انتهى';
+      } else {
+        badge = 'منتهي — للقراءة فقط'; badgeCls = 'bad'; expVal = 'انتهى';
+      }
+    } else if (dl <= 7) {
+      badge = 'ينتهي قريباً'; badgeCls = 'bad'; expVal = dl + ' يوم';
+    } else if (dl <= 30) {
+      badge = 'ينتهي قريباً'; badgeCls = 'warn'; expVal = dl + ' يوم';
+    } else {
+      badge = (code === 'trial') ? 'تجريبي' : 'نشط'; badgeCls = 'ok'; expVal = dl + ' يوم';
+    }
+
+    var expDate = (ST.current && ST.current.trial_end)
+      ? (SyDT.numDate(ST.current.trial_end) || '—') : '—';   // v487: أرقاماً كبقية المنصة
+
+    // Phase X13: current billing cycle (paid, non-permanent only) + its price.
+    var curCycle = (dl !== null && code !== 'trial' && ST.current && ST.current.billing_cycle)
+      ? normCycle(ST.current.billing_cycle) : null;
+    // Migration 105: show the subscription's own LOCKED currency, not the view toggle.
+    var curCurr = normCurrency(ST.current && ST.current.currency);
+    var curPrice = (plan && curCycle) ? planPriceForCycle(plan, curCycle, curCurr) : null;
+    var cycleMeta = curCycle
+      ? '<div class="sub-meta-item"><div class="sub-meta-label">الدورة</div><div class="sub-meta-value">' + escHtml(cycleLabelAr(curCycle)) + '</div></div>'
+      : '';
+    var priceMeta = (curPrice != null)
+      ? '<div class="sub-meta-item"><div class="sub-meta-label">السعر</div><div class="sub-meta-value">' + escHtml(fmtPrice(curPrice)) + ' ' + escHtml(currencyLabelAr(curCurr)) + ' / ' + escHtml(cycleUnitAr(curCycle)) + '</div></div>'
+      : '';
+
+    el.innerHTML =
+      '<div class="sub-current-top">' +
+        '<span class="sub-current-icon">' + escHtml(icon) + '</span>' +
+        '<span class="sub-current-name">' + escHtml(name) + (curCycle ? ' <span style="font-size:13px;color:var(--text2);font-weight:700;">· ' + escHtml(cycleLabelAr(curCycle)) + '</span>' : '') + '</span>' +
+        '<span class="sub-badge ' + badgeCls + '">' + escHtml(badge) + '</span>' +
+      '</div>' +
+      '<div class="sub-current-meta">' +
+        '<div class="sub-meta-item"><div class="sub-meta-label">المتبقّي</div><div class="sub-meta-value">' + escHtml(String(expVal)) + '</div></div>' +
+        '<div class="sub-meta-item"><div class="sub-meta-label">تاريخ الانتهاء</div><div class="sub-meta-value">' + escHtml(expDate) + '</div></div>' +
+        cycleMeta +
+        priceMeta +
+      '</div>';
+    el.style.display = 'block';
+  }
+
+  function renderPending() {
+    var el = document.getElementById('subPending');
+    if (!ST.pending) { el.style.display = 'none'; return; }
+    var cp = planByCode(ST.pending.current_plan), tp = planByCode(ST.pending.requested_plan);
+    var pc = cp ? (Number(cp.sort_order) || 999) : 999;
+    var pr = tp ? (Number(tp.sort_order) || 999) : 999;
+    var kindAr = (ST.pending.current_plan === ST.pending.requested_plan) ? 'تجديد'
+               : (pr > pc) ? 'ترقية' : 'تغيير';
+    var pcyc = ST.pending.billing_cycle
+      ? (' (' + cycleLabelAr(ST.pending.billing_cycle) + ' · ' + currencyLabelAr(ST.pending.currency) + ')')
+      : (ST.pending.currency ? (' (' + currencyLabelAr(ST.pending.currency) + ')') : '');
+    el.innerHTML =
+      '<div class="sub-pending-text">⏳ لديك طلب <b>' + escHtml(kindAr) + '</b> إلى خطة <b>' +
+        escHtml(planLabel(ST.pending.requested_plan)) + escHtml(pcyc) + '</b> قيد المراجعة. سيتم التفعيل بعد تأكيد الدفع.</div>' +
+      '<button class="sub-link-btn" onclick="window.subCancelPending()">إلغاء الطلب</button>';
+    el.style.display = 'flex';
+  }
+
+  // ── Feature list model (JSONB, no migration) ──────────────────────────────
+  // An item is EITHER a plain string (visible — the legacy shape every existing
+  // row uses) OR { t: 'text', h: true } for a feature the operator has hidden
+  // without deleting it. Order in the array is the display order. Both readers
+  // below are a byte-identical MIRROR across admin.html / subscription.html /
+  // landing.html and are enforced by scripts/check-mirrors.js (Rule #211) — any
+  // semantic change must be applied to all three copies.
+  function planFeatureItems(raw) {
+    var arr = Array.isArray(raw) ? raw : [];
+    var out = [];
+    for (var i = 0; i < arr.length; i++) {
+      var f = arr[i];
+      if (f && typeof f === 'object' && !Array.isArray(f)) {
+        out.push({ text: String(f.t == null ? '' : f.t), hidden: (f.h === true) });
+      } else {
+        out.push({ text: String(f == null ? '' : f), hidden: false });
+      }
+    }
+    return out;
+  }
+
+  function planVisibleFeatures(raw) {
+    var items = planFeatureItems(raw);
+    var out = [];
+    for (var i = 0; i < items.length; i++) {
+      if (!items[i].hidden && items[i].text.trim() !== '') out.push(items[i].text);
+    }
+    return out;
+  }
+
+  function planFeatures(p) {
+    var raw = p.features;
+    if (typeof raw === 'string') {
+      try { var j = JSON.parse(raw); if (Array.isArray(j)) raw = j; } catch (e) { raw = []; }
+    }
+    // No cap: the operator already controls WHICH features show via the hidden
+    // flag ({t,h:true}). A silent client-side truncation made this page show
+    // fewer features than landing.html for the very same plan row.
+    return planVisibleFeatures(raw);
+  }
+
+  // ---- Phase X13 + Migration 104: billing-cycle toggle (monthly/quarterly/yearly) ----
+  // Generalized from the old two-way switch: a cadence appears ONLY if at least
+  // one active paid tier prices it, each button carries its own best savings
+  // badge, and the whole control hides when fewer than two cadences are on offer
+  // (snapping ST.cycle to the single available one) — the exact behaviour the
+  // two-way version had, now cadence-count-agnostic.
+  // Migration 105: which currencies are actually on offer (≥1 paid tier prices
+  // ≥1 cycle in that currency). Same availability contract as cadences.
+  function availableCurrencies() {
+    return CURRENCY_ORDER.filter(function (cu) {
+      return ST.plans.some(function (p) {
+        if (p.code === 'trial') return false;
+        return CYCLE_ORDER.some(function (cyc) { return planPriceForCycle(p, cyc, cu) != null; });
+      });
+    });
+  }
+
+  function renderCycleToggle() {
+    var el = document.getElementById('subCycleToggle');
+    if (!el) return;
+    // ── currency first: cadence availability is computed WITHIN the selected
+    // currency (a USD-only-yearly catalog must not offer a USD-monthly pill).
+    var currAvail = availableCurrencies();
+    if (currAvail.length === 0) { el.innerHTML = ''; el.style.display = 'none'; return; }
+    if (currAvail.indexOf(normCurrency(ST.curr)) === -1) ST.curr = currAvail[0];
+    var curr = normCurrency(ST.curr);
+
+    var avail = [], bestSave = {};
+    CYCLE_ORDER.forEach(function (cyc) {
+      var any = false, best = 0;
+      ST.plans.forEach(function (p) {
+        if (p.code === 'trial') return;
+        if (planPriceForCycle(p, cyc, curr) == null) return;
+        any = true;
+        var s = cycleSavingsPct(p, cyc, curr); if (s > best) bestSave[cyc] = best = s;
+      });
+      if (any) avail.push(cyc);
+    });
+    if (avail.length === 1) ST.cycle = avail[0];
+    if (avail.length && avail.indexOf(normCycle(ST.cycle)) === -1) ST.cycle = avail[0];
+
+    var cycleHtml = (avail.length < 2) ? '' :
+      '<div class="sub-cycle-toggle">' +
+        avail.map(function (cyc) {
+          var sv = bestSave[cyc] || 0;
+          var badge = sv > 0 ? ' <span class="sub-cycle-save">وفّر ~' + sv + '%</span>' : '';
+          return '<button type="button" class="sub-cycle-opt' + (normCycle(ST.cycle) === cyc ? ' active' : '') +
+                 '" onclick="window.subSetCycle(\'' + cyc + '\')">' + cycleLabelAr(cyc) + badge + '</button>';
+        }).join('') +
+      '</div>';
+    var currHtml = (currAvail.length < 2) ? '' :
+      '<div class="sub-cycle-toggle sub-curr-toggle">' +
+        currAvail.map(function (cu) {
+          return '<button type="button" class="sub-cycle-opt' + (curr === cu ? ' active' : '') +
+                 '" onclick="window.subSetCurrency(\'' + cu + '\')">' +
+                 (cu === 'USD' ? 'دولار $' : 'ليرة ل.س') + '</button>';
+        }).join('') +
+      '</div>';
+
+    if (!cycleHtml && !currHtml) { el.innerHTML = ''; el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.innerHTML = cycleHtml + currHtml;
+  }
+
+  window.subSetCycle = function (cycle) {
+    ST.cycle = normCycle(cycle);
+    renderCycleToggle();
+    renderPlans();
+  };
+
+  // Migration 105: switching currency re-derives cadence availability too.
+  window.subSetCurrency = function (curr) {
+    ST.curr = normCurrency(curr);
+    renderCycleToggle();
+    renderPlans();
+  };
+
+  function renderPlans() {
+    var wrap = document.getElementById('subPlans');
+    if (!ST.plans.length) {
+      wrap.innerHTML = '<div class="sub-state"><div class="sub-state-icon">📭</div>لا توجد خطط متاحة حالياً.</div>';
+      return;
+    }
+    var cur = curPlanCode();
+    var hasPending = !!ST.pending;
+    var cycle = normCycle(ST.cycle);
+    var vcurr = normCurrency(ST.curr); // Migration 105 — selected view currency
+    // Phase X13: permanent (lifetime) account — has a non-trial plan but no
+    // expiry (daysLeft === null). Self-service renew/change is disabled: a renew
+    // would set a finite expiry and silently destroy the lifetime status (the
+    // transitionAccount renew branch also rejects this as a backstop). Such
+    // accounts are admin-managed; changes are handled via support.
+    var isPerm = (cur !== 'trial' && daysLeft() === null);
+    var html = '';
+
+    // sort_order ascending, code as tie-breaker — byte-equivalent ordering to
+    // landing.html renderPricingCards, so both surfaces list tiers identically.
+    var ordered = ST.plans.slice().sort(function (a, b) {
+      var sa = a.sort_order == null ? 999 : Number(a.sort_order);
+      var sb = b.sort_order == null ? 999 : Number(b.sort_order);
+      if (sa !== sb) return sa - sb;
+      return String(a.code || '').localeCompare(String(b.code || ''));
+    });
+
+    ordered.forEach(function (p) {
+      if (p.code === 'trial') return; // Trial plan not shown on subscription page
+      var isCur = (p.code === cur);
+      var icon = (p.icon && String(p.icon).trim()) ? (escHtml(p.icon) + ' ') : '';
+      // Migrations 83/104: cycle-aware subtitle (mirrors landing.html renderPricingCards).
+      var subRaw = planSubtitleForCycle(p, cycle);
+      var sub = subRaw ? escHtml(subRaw) : '';
+      var feats = planFeatures(p).map(function (f) { return '<li>' + escHtml(f) + '</li>'; }).join('');
+      // Migration 105: the unit label follows the SELECTED currency (ل.س / $).
+      var curr = escHtml(currencyLabelAr(vcurr));
+
+      // ---- limits chips (mirrors landing.html renderPricingCards) ----
+      // NULL = unlimited; 0 employees = owner only. These are the ENFORCED
+      // seat/patient caps, so hiding them here left the owner choosing a plan
+      // blind to the one thing that can block them after paying.
+      var limits = '';
+      if (p.max_employees != null && !isNaN(Number(p.max_employees))) {
+        limits += '<span class="sub-card-limit">👥 ' + (Number(p.max_employees) === 0 ? 'بلا موظفين إضافيين' : 'حتى ' + Number(p.max_employees) + ' موظف') + '</span>';
+      } else {
+        limits += '<span class="sub-card-limit">👥 موظفون بلا حدود</span>';
+      }
+      if (p.max_patients != null && !isNaN(Number(p.max_patients))) {
+        limits += '<span class="sub-card-limit">🦷 حتى ' + Number(p.max_patients) + ' مريض</span>';
+      } else {
+        limits += '<span class="sub-card-limit">🦷 مرضى بلا حدود</span>';
+      }
+
+      // ---- price block (cycle × currency aware) ----
+      var priceHtml, offered = true;
+      if (p.code === 'trial') {
+        priceHtml = '<div class="sub-card-price">مجاناً</div>';
+      } else {
+        var price = planPriceForCycle(p, cycle, vcurr);
+        if (price == null) {
+          offered = false;
+          priceHtml = '<div class="sub-card-na">غير متاح (' + cycleLabelAr(cycle) + ' · ' + escHtml(currencyLabelAr(vcurr)) + ')</div>';
+        } else if (cycleMonths(cycle) > 1) {
+          // Multi-month cadence (quarterly / yearly): show the period price, its
+          // savings badge, and the per-month equivalent so nobody has to divide.
+          var sv = cycleSavingsPct(p, cycle, vcurr);
+          var svBadge = sv > 0 ? '<span class="plan-savings">وفّر ~' + sv + '%</span>' : '';
+          // USD per-month keeps cents (e.g. 55.8/3 → 18.6), SYP stays whole.
+          var perMo = (vcurr === 'USD') ? Math.round(price / cycleMonths(cycle) * 100) / 100
+                                        : Math.round(price / cycleMonths(cycle));
+          priceHtml = '<div class="sub-card-price">' + escHtml(fmtPrice(price)) + ' <small>' + curr + ' / ' + escHtml(cycleUnitAr(cycle)) + '</small>' + svBadge + '</div>' +
+                      '<div class="sub-card-permo">≈ ' + escHtml(fmtPrice(perMo)) + ' ' + curr + ' / شهر</div>';
+        } else {
+          priceHtml = '<div class="sub-card-price">' + escHtml(fmtPrice(price)) + ' <small>' + curr + ' / شهر</small></div>' +
+                      '<div class="sub-card-permo">يُدفع شهرياً</div>';
+        }
+      }
+
+      // ---- action button ----
+      var btn = '';
+      if (p.code === 'trial') {
+        btn = '<div class="sub-btn-spacer"></div>';
+      } else if (isPerm) {
+        // Lifetime account: no self-service renew/change (see isPerm note above).
+        btn = '<button class="sub-btn" disabled>' + (isCur ? '♾️ اشتراك دائم' : 'غير متاح') + '</button>';
+      } else if (!offered) {
+        btn = '<button class="sub-btn" disabled>غير متاح بهذه الدورة</button>';
+      } else if (isCur) {
+        btn = '<button class="sub-btn renew" ' + (hasPending ? 'disabled' : '') +
+              ' onclick="window.subOpenModal(\'' + escHtml(p.code) + '\',\'renew\',\'' + cycle + '\')">🔄 تجديد (' + cycleLabelAr(cycle) + ')</button>';
+      } else {
+        var relP = planRelation(p.code);
+        var bLabel = relP === 'upgrade'   ? ('⬆️ ترقية إلى ' + escHtml(p.display_name || p.code))
+                   : relP === 'downgrade' ? ('🔽 تغيير إلى ' + escHtml(p.display_name || p.code))
+                   :                        ('🔄 تغيير إلى ' + escHtml(p.display_name || p.code));
+        btn = '<button class="sub-btn" ' + (hasPending ? 'disabled' : '') +
+              ' onclick="window.subOpenModal(\'' + escHtml(p.code) + '\',\'' + relP + '\',\'' + cycle + '\')">' + bLabel + '</button>';
+      }
+
+      // Featured badge (landing parity). Priority is enforced at the single
+      // ternary below, not here: "خطتك الحالية" is the more useful fact for a
+      // paying owner, so on the owner's own tier the popularity pill is
+      // suppressed and two pills can never stack on the same top edge.
+      var isFeat = (p.is_featured === true);
+      var featBadge = isFeat
+        ? '<span class="sub-card-feat-badge">' + (escHtml(p.featured_label || '') || 'الأكثر شعبية') + '</span>'
+        : '';
+      html +=
+        '<div class="sub-card' + (isCur ? ' current' : (isFeat ? ' featured' : '')) + '">' +
+          (isCur ? '<span class="sub-card-cur-badge">خطتك الحالية</span>' : featBadge) +
+          '<span class="sub-card-icon">' + (icon || (p.code === 'trial' ? '🆓' : '💳')) + '</span>' +
+          '<span class="sub-card-name">' + escHtml(p.display_name || p.code) + '</span>' +
+          '<span class="sub-card-sub">' + sub + '</span>' +
+          priceHtml +
+          '<div class="sub-card-limits">' + limits + '</div>' +
+          (feats ? '<ul class="sub-card-features">' + feats + '</ul>' : '<div style="flex:1"></div>') +
+          btn +
+        '</div>';
+    });
+
+    wrap.innerHTML = (isPerm
+      ? '<div class="sub-perm-note">♾️ لديك اشتراك دائم بدون انتهاء — لا حاجة للتجديد. لأي تغيير في الخطة تواصل معنا.</div>'
+      : '') + html;
+  }
+
+  function renderAll() {
+    renderCurrent();
+    renderPending();
+    renderCycleToggle();
+    renderPlans();
+    renderSupport();
+  }
+
+  // Populate the support card links. Each channel appears only when it is
+  // actually configured, and the whole card disappears when neither is —
+  // the card markup ships [hidden] so nothing flashes before load, and an
+  // unreachable button is never rendered. No innerHTML: .href/.textContent
+  // are assigned directly, so this is XSS-safe by construction.
+  function renderSupport() {
+    var wa = document.getElementById('subSupportWa');
+    var waNum = document.getElementById('subSupportWaNum');
+    if (wa) {
+      if (ST.support) {
+        wa.href = 'https://wa.me/' + ST.support;
+        if (waNum) waNum.textContent = '+' + ST.support;
+        wa.hidden = false;
+      } else {
+        wa.removeAttribute('href');
+        if (waNum) waNum.textContent = '';
+        wa.hidden = true;
+      }
+    }
+    var wrap = document.getElementById('subSupportMailWrap');
+    var mail = document.getElementById('subSupportMail');
+    var mailTxt = document.getElementById('subSupportMailTxt');
+    if (wrap) {
+      if (ST.supportEmail) {
+        if (mail) mail.href = 'mailto:' + ST.supportEmail;
+        if (mailTxt) mailTxt.textContent = ST.supportEmail;
+        wrap.hidden = false;
+      } else {
+        if (mail) mail.removeAttribute('href');
+        if (mailTxt) mailTxt.textContent = '';
+        wrap.hidden = true;
+      }
+    }
+    var card = document.getElementById('subSupportCard');
+    if (card) card.hidden = !(ST.support || ST.supportEmail);
+  }
+
+  // Copy support email to clipboard. Clipboard API first (https), textarea
+  // execCommand fallback for older WebViews. Feedback via existing toast().
+  window.subCopyEmail = function () {
+    var email = ST.supportEmail;
+    if (!email) return;
+    function done(ok) {
+      toast(ok ? '📋 تم نسخ الإيميل' : 'تعذّر النسخ — انسخه يدوياً', !ok);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(email).then(function(){ done(true); }, function(){ done(false); });
+    } else {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = email;
+        ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        done(!!ok);
+      } catch (e) { done(false); }
+    }
+  };
+
+  // ---------- modal ----------
+  window.subOpenModal = function (planCode, relation, cycle) {
+    if (ST.pending) { toast('لديك طلب قيد المراجعة بالفعل', true); return; }
+    var p = ST.plans.filter(function (x) { return x.code === planCode; })[0];
+    if (!p) return;
+    ST.selCycle = normCycle(cycle || ST.cycle);
+    ST.selCurr = normCurrency(ST.curr); // Migration 105 — lock the toggle choice into the request
+    var price = planPriceForCycle(p, ST.selCycle, ST.selCurr);
+    if (price == null) { toast('هذه الخطة غير متاحة بدورة ' + cycleLabelAr(ST.selCycle) + ' بعملة ' + currencyLabelAr(ST.selCurr), true); return; }
+    ST.selPlan = p;
+    ST.selRelation = (relation === 'renew' || relation === 'downgrade' || relation === 'change') ? relation : 'upgrade';
+    ST.selKind = (ST.selRelation === 'renew') ? 'renew' : 'upgrade'; // DB CHECK: upgrade|renew
+    ST.selMethod = null;
+
+    var titleWord = ST.selRelation === 'renew' ? 'تجديد خطة '
+                  : ST.selRelation === 'upgrade' ? 'الترقية إلى خطة '
+                  : 'تغيير إلى خطة ';
+    document.getElementById('subModalTitle').textContent = titleWord + (p.display_name || p.code) + ' (' + cycleLabelAr(ST.selCycle) + ' · ' + currencyLabelAr(ST.selCurr) + ')';
+    document.getElementById('subModalSub').textContent =
+      'الدورة: ' + cycleLabelAr(ST.selCycle) + ' — السعر: ' + fmtPrice(price) + ' ' + currencyLabelAr(ST.selCurr) +
+      ' / ' + cycleUnitAr(ST.selCycle) +
+      '. اختر طريقة الدفع، ثم أرسل الطلب وتواصل معنا عبر واتساب لتأكيد التفعيل.';
+
+    // payment methods
+    document.getElementById('subMethods').innerHTML = PAYMENT_METHODS.map(function (m) {
+      return '<div class="sub-method" data-m="' + m.v + '" onclick="window.subPickMethod(\'' + m.v + '\')">' + escHtml(m.label) + '</div>';
+    }).join('');
+
+    document.getElementById('subNote').value = '';
+    document.getElementById('subPayRef').value = '';
+    document.getElementById('subReceipt').value = '';
+    window.subProofSync();
+    document.getElementById('subInstructions').textContent = ST.instructions || 'سيتم تزويدك بتفاصيل الدفع عبر واتساب.';
+    syncConfirm();
+    document.getElementById('subOverlay').classList.add('show');
+  };
+
+  window.subPickMethod = function (v) {
+    ST.selMethod = v;
+    Array.prototype.forEach.call(document.querySelectorAll('#subMethods .sub-method'), function (el) {
+      el.classList.toggle('sel', el.getAttribute('data-m') === v);
+    });
+    window.subProofSync();
+  };
+
+  /* DeepCode #8 (v566 · M167): إثباتُ شام كاش — يظهر باختيار شام كاش وحده؛ الإرسالُ لا يُفعَّل إلا برقم العملية أو بصورة إيصال
+     صالحة (صورة/PDF ≤ 5MB). القاعدةُ تفرض الشرطَ نفسه (subscription_requests_shamcash_proof). */
+  var RECEIPT_MAX = 5 * 1024 * 1024;
+  var RECEIPT_TYPES = /^(image\/(jpeg|png|webp|heic|heif)|application\/pdf)$/;
+  function proofState() {
+    var ref = (document.getElementById('subPayRef').value || '').trim();
+    var f = (document.getElementById('subReceipt').files || [])[0] || null;
+    var fileErr = f && (!RECEIPT_TYPES.test(f.type || '') ? 'نوعُ الملف غير مدعوم — صورة أو PDF فقط' : f.size > RECEIPT_MAX ? 'الملف أكبر من 5MB' : '');
+    return { ref: ref, file: (f && !fileErr) ? f : null, fileErr: fileErr || '', ok: !!(ref || (f && !fileErr)) };
+  }
+  window.subProofSync = function () {
+    var box = document.getElementById('subProof'), sham = ST.selMethod === 'sham_cash';
+    box.hidden = !sham;
+    var acc = document.getElementById('subShamAcc');
+    acc.hidden = !(sham && ST.shamAcc);
+    document.getElementById('subShamAccNo').textContent = ST.shamAcc || '';
+    var st = proofState(), f = (document.getElementById('subReceipt').files || [])[0];
+    document.getElementById('subReceiptName').textContent = f ? ('📎 ' + f.name) : '📎 اختر صورة أو PDF (حتى 5MB)';
+    var hint = document.getElementById('subProofHint');
+    hint.textContent = st.fileErr ? ('⚠️ ' + st.fileErr) : 'أدخل رقم العملية أو أرفق صورة الإيصال — واحدٌ منهما على الأقل.';
+    hint.classList.toggle('bad', !!st.fileErr);
+    syncConfirm();
+  };
+  window.subCopyShamAcc = function () {
+    var v = ST.shamAcc || '';
+    try { navigator.clipboard.writeText(v).then(function () { toast('✅ نُسخ رقم الحساب'); }, function () { toast(v); }); } catch (e) { toast(v); }
+  };
+
+  function syncConfirm() {
+    var b = document.getElementById('subConfirmBtn');
+    if (b) b.disabled = !ST.selMethod || ST.inFlight || (ST.selMethod === 'sham_cash' && !proofState().ok);
+  }
+
+  // ---------- M142: حذف الحساب (المحجوب وحده) ----------
+  // البطاقة تظهر حين المستوى الحيّ «none» (تجربة منتهية/محجوب) — الصفحة للمالك وحده بهذه الحالة
+  // (applyPageGate). الحساب الكامل أو للقراءة يحذف من الإعدادات كالعادة.
+  if (window.SyDentSub) {
+    window.SyDentSub.load().then(function (st) {
+      var card = document.getElementById('subDangerCard');
+      if (card) card.hidden = !(st && st.level === 'none');
+    });
+  }
+  window.subOpenDelete = function () {
+    document.getElementById('subDelPhrase').value = '';
+    document.getElementById('subDelPass').value = '';
+    document.getElementById('subDelOverlay').classList.add('show');
+    try { requestTurnstile('delete', 'ts-delete'); } catch (e) {}
+  };
+  window.subCloseDelete = function () {
+    document.getElementById('subDelOverlay').classList.remove('show');
+  };
+  window.subConfirmDelete = async function () {
+    var phrase = document.getElementById('subDelPhrase').value.trim();
+    var pass = document.getElementById('subDelPass').value;
+    if (phrase !== 'حذف حسابي') { toast('⚠️ اكتب العبارة بالضبط: حذف حسابي', true); return; }
+    if (!pass) { toast('⚠️ أدخل كلمة المرور', true); return; }
+    var btn = document.getElementById('subDelBtn');
+    btn.disabled = true; btn.textContent = 'جارٍ الحذف…';
+    var res = await window.SyDentAccountDelete.run({ password: pass, captchaToken: getTurnstileToken('delete') });
+    if (!res.ok) {
+      btn.disabled = false; btn.textContent = 'حذف نهائياً';
+      try { resetTurnstile('delete'); } catch (e) {}
+      toast('❌ ' + res.message, true);
+      return;
+    }
+    if (res.pendingAccount) {
+      toast('✅ تم حذف بياناتك. سيتم حذف الحساب نفسه قريباً.');
+      setTimeout(function () { window.location.href = 'auth.html'; }, 2000);
+      return;
+    }
+    toast('✅ تم حذف الحساب بالكامل');
+    setTimeout(function () { window.location.href = 'auth.html'; }, 1500);
+  };
+
+  window.subCloseModal = function () {
+    if (ST.inFlight) return;
+    document.getElementById('subOverlay').classList.remove('show');
+  };
+
+  window.subSubmit = async function () {
+    if (ST.inFlight) return;
+    if (!ST.selPlan || !ST.selMethod) { toast('اختر طريقة الدفع أولاً', true); return; }
+    ST.inFlight = true; syncConfirm();
+
+    var note = (document.getElementById('subNote').value || '').trim();
+    var payload = {
+      user_id: ST.user.id,
+      trial_request_id: (ST.current && ST.current.id) ? ST.current.id : null,
+      request_kind: ST.selKind,
+      requested_plan: ST.selPlan.code,
+      current_plan: curPlanCode(),
+      billing_cycle: normCycle(ST.selCycle),
+      currency: normCurrency(ST.selCurr), // Migration 105
+      payment_method: ST.selMethod,
+      note: note || null,
+      status: 'pending'
+    };
+    /* v566 (M167): إثباتُ شام كاش — الصورةُ تُرفع أولاً لمجلد العيادة الخاص ثم يُسجَّل مسارُها مع الطلب */
+    var _proof = (ST.selMethod === 'sham_cash') ? proofState() : null;
+    if (_proof && !_proof.ok) { toast('أدخل رقم العملية أو أرفق صورة الإيصال', true); ST.inFlight = false; syncConfirm(); return; }
+    var _uploaded = null;
+    if (_proof) {
+      if (_proof.ref) payload.payment_ref = _proof.ref.slice(0, 80);
+      if (_proof.file) {
+        var _ext = ((_proof.file.name || '').split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'jpg';
+        var _path = ST.user.id + '/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + _ext;
+        var _up = await window.sb.storage.from('payment-receipts').upload(_path, _proof.file, { contentType: _proof.file.type, upsert: false });
+        if (_up.error) { toast('❌ تعذّر رفع الإيصال: ' + (_up.error.message || ''), true); ST.inFlight = false; syncConfirm(); return; }
+        _uploaded = _path; payload.receipt_path = _path;
+      }
+    }
+
+    // Downgrade guard (Option A): block requesting a plan whose employee limit is
+    // below the clinic's current ACTIVE staff (owner excluded). The clinic must
+    // deactivate/remove the excess first — we never silently enter an over-quota state.
+    var _selLimit = (ST.selPlan.max_employees != null && !isNaN(Number(ST.selPlan.max_employees))) ? Number(ST.selPlan.max_employees) : null;
+    if (_selLimit != null) {
+      try {
+        var _ecq = await window.sb.from('clinic_employees')
+          .select('id', { count:'exact', head:true })
+          .eq('owner_id', ST.user.id).eq('is_active', true).neq('role', 'owner');
+        var _used = (_ecq && typeof _ecq.count === 'number') ? _ecq.count : null;
+        if (_used != null && _used > _selLimit) {
+          toast('خطة ' + (ST.selPlan.display_name || ST.selPlan.code) + ' تسمح بـ ' + _selLimit + ' موظف، ولديك ' + _used + ' موظف نشط. عطّل أو احذف الزائد أولاً (المالك لا يُحتسب).', true);
+          ST.inFlight = false; syncConfirm();
+          return;
+        }
+      } catch(eLim) { console.warn('[subscription] staff limit check skipped:', eLim && eLim.message); }
+    }
+
+    try {
+      var res = await window.sb.from('subscription_requests').insert(payload).select().maybeSingle();
+      if (res.error && _uploaded) { try { await window.sb.storage.from('payment-receipts').remove([_uploaded]); } catch (eRm) {} }   /* v566: لا إيصالَ يتيم */
+      if (res.error) {
+        // unique partial index → duplicate pending
+        if (res.error.code === '23505' || /duplicate|unique/i.test(res.error.message || '')) {
+          toast('لديك طلب قيد المراجعة بالفعل', true);
+          ST.inFlight = false;
+          window.subCloseModal();
+          await refresh();
+          return;
+        }
+        throw res.error;
+      }
+
+      // open WhatsApp to support, prefilled
+      var kindAr = ST.selRelation === 'renew' ? 'تجديد'
+                 : ST.selRelation === 'upgrade' ? 'ترقية' : 'تغيير';
+      var msg = 'مرحباً، أرغب بـ' + kindAr + ' اشتراكي في SyDent إلى خطة "' +
+                (ST.selPlan.display_name || ST.selPlan.code) + '" (' + cycleLabelAr(ST.selCycle) + ' · ' + currencyLabelAr(ST.selCurr) + '). طريقة الدفع: ' + methodLabel(ST.selMethod) + '.';
+      if (note) msg += '\nملاحظة: ' + note;
+      // The request row is already committed above; WhatsApp is a courtesy
+      // hand-off, not part of the write. With no public number configured we
+      // simply skip it rather than opening a wa.me link to a dead number.
+      if (ST.support) {
+        window.open('https://wa.me/' + ST.support + '?text=' + encodeURIComponent(msg), '_blank', 'noopener');
+      }
+
+      ST.inFlight = false;
+      document.getElementById('subOverlay').classList.remove('show');
+      toast('✅ تم إرسال طلبك — سيتم التفعيل بعد تأكيد الدفع');
+      await refresh();
+    } catch (e) {
+      console.error('subSubmit error:', e);
+      ST.inFlight = false; syncConfirm();
+      toast('تعذّر إرسال الطلب. حاول مجدداً.', true);
+    }
+  };
+
+  /* v303: قفلُ الإلغاء ضد النقرة الثانية + انشغالُ الزر (مرآةُ ppGuarded) */
+var _subCancelInFlight = false;
+window.subCancelPending = async function () {
+  if (_subCancelInFlight) return;
+  var _btn = null;
+  try { var ev = window.event; var t = ev && (ev.currentTarget || ev.target); if (t && t.closest) _btn = t.closest('button'); } catch (_) {}
+  var _old = _btn ? _btn.textContent : '';
+  _subCancelInFlight = true;
+  if (_btn) { _btn.disabled = true; _btn.textContent = 'جارٍ الإلغاء…'; }
+  try { return await window._subCancelPendingInner.apply(this, arguments); }
+  finally { _subCancelInFlight = false; if (_btn) { _btn.disabled = false; _btn.textContent = _old; } }
+};
+window._subCancelPendingInner = async function () {
+    if (!ST.pending) return;
+    if (!await SyDialog.confirm({ message: 'إلغاء طلب الاشتراك الحالي؟', danger: true })) return;
+    try {
+      var res = await window.sb.from('subscription_requests')
+        .update({ status: 'cancelled', resolved_at: new Date().toISOString() })
+        .eq('id', ST.pending.id);
+      if (res.error) throw res.error;
+      toast('تم إلغاء الطلب');
+      await refresh();
+    } catch (e) {
+      console.error('subCancelPending error:', e);
+      toast('تعذّر الإلغاء. حاول مجدداً.', true);
+    }
+  };
+
+  async function refresh() {
+    // re-pull only the volatile bits (current + pending), keep plans/settings
+    try {
+      var r1 = await window.sb.from('trial_requests')
+        .select('id, plan, status, trial_end, grace_until, billing_cycle, currency').eq('user_id', ST.user.id).maybeSingle();
+      if (!(r1 && r1.data)) {
+        r1 = await window.sb.from('trial_requests')
+          .select('id, plan, status, trial_end, grace_until, billing_cycle, currency').eq('email', ST.user.email).maybeSingle();
+      }
+      ST.current = (r1 && r1.data) || ST.current;
+    } catch (e) {}
+    try {
+      var r2 = await window.sb.from('subscription_requests')
+        .select('*').eq('user_id', ST.user.id).eq('status', 'pending')
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+      ST.pending = (r2 && r2.data) || null;
+    } catch (e) {}
+    renderAll();
+  }
+
+  // close modal on overlay click / Escape
+  /* v453: النقرُ الخارجي كان يغلق نافذةَ طلب الاشتراك (طريقةُ دفعٍ وملاحظة)
+     ويمحو ما اختير/كُتب — أُزيل. وEscape صار من عُدّة النوافذ. */
+
+  // ---------- boot ----------
+  (async function boot() {
+    try {
+      var ok = await loadAll();
+      if (ok) renderAll();
+    } catch (e) {
+      console.error('subscription boot error:', e);
+      document.getElementById('subPlans').innerHTML =
+        '<div class="sub-state"><div class="sub-state-icon">⚠️</div>تعذّر تحميل بيانات الاشتراك. حدّث الصفحة.</div>';
+    }
+  })();
+
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,3570 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SyDent">
+<meta name="theme-color" content="#0d8577">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=4">
+<link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<title>التقارير — SyDent</title>
+<!-- Theme system: MUST load before inline <style>
+/* ── Modal ── v451: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
+   (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
+ to apply data-theme synchronously and prevent FOUC. -->
+<script src="theme.js?v=20261005a"></script>
+<script src="/vendor/supabase-2.110.8.min.js"></script>
+<script src="supabase-init.js?v=20261005a"></script>
+<script src="sy-modal.js?v=20261005a"></script>
+<script src="sidebar.js?v=20261005a"></script>
+<script src="rpt-treat.js?v=20261005a"></script>
+<script src="rpt-newpt.js?v=20261005a"></script>
+<script src="rpt-att.js?v=20261005a"></script>
+<script src="rpt-ret.js?v=20261005a"></script>
+<script src="rpt-sum.js?v=20261005a"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a1628;--bg2:#0f2038;--bg3:#132840;
+  --border:rgba(var(--green-rgb),0.15);
+  --green:var(--green);--red:#ef5350;--yellow:#f5c842;
+  --blue:#63b3ed;--purple:#a78bfa;--orange:#fb923c;
+  --text:#e1f4ee;--text2:#8a9ab5;--radius:12px;
+}
+body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px;background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:20;gap:12px;
+}
+.tb-title{font-size:18px;font-weight:800;color:var(--green);}
+.tb-sub{font-size:12px;color:var(--text2);margin-top:2px;}
+
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 18px;border-radius:10px;
+  font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;border:none;transition:all .2s;
+}
+.btn-primary{background:var(--green);color:var(--bg);}
+.btn-primary:hover{background:var(--green2);}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2);}
+.btn-outline:hover{border-color:var(--green);color:var(--green);}
+.btn-sm{padding:7px 14px;font-size:12px;}
+
+.page{padding:24px 28px;max-width:1300px;margin:0 auto;}
+
+/* Filters bar */
+.filters-bar{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--radius);padding:16px 18px;
+  margin-bottom:20px;
+  display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+  gap:12px;align-items:end;
+}
+.filter-group label{display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px;letter-spacing:.3px;}
+.filter-group input,.filter-group select{
+  width:100%;padding:9px 11px;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:8px;
+  font-family:'Cairo',sans-serif;font-size:13px;
+}
+.filter-group input:focus,.filter-group select:focus{outline:none;border-color:var(--green);}
+
+/* Quick presets */
+.preset-row{
+  display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;
+}
+.preset-btn{
+  background:var(--bg2);border:1px solid var(--border);color:var(--text2);
+  padding:6px 12px;border-radius:18px;font-size:11px;font-weight:700;
+  cursor:pointer;font-family:'Cairo',sans-serif;transition:all .15s;
+}
+.preset-btn:hover{border-color:var(--green);color:var(--green);}
+.preset-btn.active{background:var(--green-dim,rgba(var(--green-rgb),0.12));border-color:var(--green);color:var(--green);}
+
+/* Calc-basis toggle */
+.basis-toggle{
+  display:flex;background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;padding:3px;gap:3px;
+  margin-bottom:20px;
+}
+.basis-btn{
+  flex:1;padding:10px 12px;background:transparent;border:none;
+  color:var(--text2);font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;
+  border-radius:8px;cursor:pointer;transition:all .15s;
+}
+.basis-btn:hover{color:var(--text);}
+.basis-btn.active{background:var(--green);color:var(--bg);}
+/* v310: شرحُ الأساس صار لافتةً مقروءة (كان 11px مائلاً بـ--text2 — المالك لم يستطع قراءته) */
+.basis-help{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;line-height:1.7;color:var(--text);
+  background:var(--blue-soft);border:1px solid var(--blue-bd);   /* v376: unified tokens */
+  border-radius:10px;padding:10px 12px;margin-top:8px;}
+.basis-help .ic{flex:none;font-size:14px;line-height:1.4;}
+.basis-help b{color:var(--blue-fg);font-weight:800;}
+.basis-help .eq{display:block;margin-top:3px;color:var(--text2);font-size:11.5px;font-variant-numeric:tabular-nums;}
+
+/* Summary stats */
+.summary-row{
+  display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+  gap:12px;margin-bottom:24px;
+}
+.stat-card{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px 16px;
+}
+.stat-card .lbl{font-size:11px;color:var(--text2);font-weight:600;margin-bottom:6px;letter-spacing:.3px;}
+.stat-card .val{font-size:22px;font-weight:800;color:var(--text);font-family:'Cairo',sans-serif;}
+.stat-card .sub{font-size:11px;color:var(--text2);margin-top:3px;}
+/* v307: مقارنة بالفترة السابقة */
+.stat-card .delta{font-size:10.5px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;}
+.stat-card .delta span{font-weight:500;color:var(--text3,var(--text2));}
+.stat-card .delta.good{color:var(--green);}
+.stat-card .delta.bad{color:var(--red);}
+.stat-card .delta.flat{color:var(--text2);}
+.stat-card.green{border-color:rgba(var(--green-rgb),0.35);}
+.stat-card.green .val{color:var(--green);}
+.stat-card.blue{border-color:var(--blue-bd);}
+.stat-card.blue .val{color:var(--blue);}
+.stat-card.orange{border-color:var(--orange-bd);}
+.stat-card.orange .val{color:var(--orange);}
+
+/* Provider cards */
+.providers-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(380px, 1fr));
+  gap:16px;
+}
+.prov-card{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;
+}
+.prov-card .color-bar{height:5px;width:100%;}
+.prov-body{padding:18px 20px;}
+.prov-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+.prov-avatar{
+  width:48px;height:48px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;font-weight:800;color:#fff;flex-shrink:0;
+}
+.prov-name{font-size:15px;font-weight:800;color:var(--text);line-height:1.2;}
+.prov-role{font-size:11px;color:var(--text2);margin-top:3px;}
+
+.prov-rows{
+  background:var(--bg);border-radius:8px;padding:12px 14px;
+  border:1px solid rgba(var(--green-rgb),0.06);
+  margin-bottom:12px;
+}
+.prov-row{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:12px;padding:5px 0;
+}
+.prov-row .k{color:var(--text2);font-weight:600;}
+.prov-row .v{color:var(--text);font-weight:700;font-variant-numeric:tabular-nums;}
+.prov-row.divider{border-top:1px dashed rgba(var(--green-rgb),0.15);margin-top:4px;padding-top:8px;}
+.prov-row.remaining{
+  margin-top:4px;padding:5px 7px;border-radius:8px;border:1px solid transparent;
+}
+.prov-row.remaining.warn{background:var(--yellow-soft);border-color:var(--yellow-bd);}
+.prov-row.remaining.warn .k,.prov-row.remaining.warn .v{color:var(--yellow-ink);}
+.prov-row.remaining.ok{background:var(--green-soft);border-color:var(--green-bd);}
+.prov-row.remaining.ok .k,.prov-row.remaining.ok .v{color:var(--green-fg);}
+/* v306: رصيد مقدَّم لصالح العيادة (الطبيب قبض أكثر من مستحقه التراكمي) — أزرق لا أحمر: ليس خطأً بل حالة ذمّة */
+.prov-row.remaining.info{background:var(--blue-soft);border-color:var(--blue-bd);}
+.prov-row.remaining.info .k,.prov-row.remaining.info .v{color:var(--blue-fg);}
+.prov-row .hint{display:block;font-size:9.5px;font-weight:500;color:var(--text3,var(--text2));margin-top:1px;}
+
+.payout-box{
+  background:rgba(var(--green-rgb),0.08);border:1px solid rgba(var(--green-rgb),0.3);
+  border-radius:8px;padding:11px 14px;
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:12px;
+}
+.payout-box .lbl{font-size:11px;color:var(--text2);font-weight:600;}
+.payout-box .amt{font-size:18px;font-weight:800;color:var(--green);font-variant-numeric:tabular-nums;}
+/* v306: صندوق الرصيد الختامي بثلاث حالات (مرآة تسمية ذمّة المخبر في labs.html) */
+.payout-box.bal-warn{background:var(--yellow-soft);border-color:var(--yellow-bd);}
+.payout-box.bal-warn .amt{color:var(--yellow-ink);}
+.payout-box.bal-info{background:var(--blue-soft);border-color:var(--blue-bd);}
+.payout-box.bal-info .amt{color:var(--blue-fg);}
+.payout-box .sub{font-size:10px;color:var(--text2);margin-top:2px;}
+
+.prov-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
+/* v477: أزرارُ بطاقة الطبيب على طقم أزرار الصفوف (.sy-acts-grid) — «💵 تسجيل دفعة» أخضرُ الفعل الأساسي والباقي محايد */
+/* v308: كشف حساب الطبيب */
+/* v452: بطاقةُ الراتب الثابت — تمييزٌ بصريٌّ كي لا تُخلط بحساب الحصّة */
+.prov-row.sal-row{background:var(--blue-soft);border:1px solid var(--blue-bd);border-radius:10px;padding:8px 10px;margin:6px 0;}
+.prov-row.sal-row .k{color:var(--text);font-weight:700;}
+.prov-row.sal-row .hint b{color:var(--blue-ink,var(--blue));}
+.ledger-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.ledger-chip{flex:1;min-width:120px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center;}
+.ledger-chip .v{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;}
+.ledger-chip .l{font-size:10.5px;color:var(--text2);margin-top:2px;}
+.ledger-chip.warn .v{color:var(--yellow);} .ledger-chip.info .v{color:var(--blue);} .ledger-chip.ok .v{color:var(--green);}
+.ledger-tbl td.sub{font-size:10.5px;color:var(--text2);}
+.ledger-tbl tr.open td,.ledger-tbl tr.close td{font-weight:800;background:rgba(var(--green-rgb),0.06);}
+/* v452: المعنى قبل اللون — ما **يزيد** مستحقَّ الطبيب أخضرُ بإشارة +، وما
+   **ينقصه** (خصمُ مخبر · دفعةٌ سُدّدت له) أحمرُ بإشارة −، ومفتاحُ الألوان
+   مكتوبٌ فوق الجدول. كان الخصمُ برتقالياً والدفعةُ خضراءَ فيُقرأ العكس. */
+.ledger-tbl .pos{color:var(--green);font-weight:700;}
+.ledger-tbl .neg,.ledger-tbl .pay{color:var(--red);font-weight:700;}
+.ledger-tbl th{white-space:nowrap;}
+.ledger-tbl td.num,.ledger-tbl th.num{font-variant-numeric:tabular-nums;white-space:nowrap;}
+.ledger-legend{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:11px;color:var(--text2);
+  background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:10px;line-height:1.7;}
+.ledger-legend b{font-weight:800;}
+.ledger-legend .g{color:var(--green);} .ledger-legend .r{color:var(--red);}
+
+/* Details modal & sessions table */
+.modal-overlay.show{display:flex;}
+.modal-box.small{max-width:480px;}
+.modal-head h3{font-size:16px;font-weight:800;color:var(--green);}
+.modal-close:hover{background:var(--bg3);color:var(--red);}
+#detailsBody { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+.data-table{width:100%;border-collapse:collapse;font-size:12px;}
+.data-table thead th{
+  background:var(--bg3);color:var(--text2);font-weight:700;
+  padding:9px 10px;text-align:right;border-bottom:1px solid var(--border);
+  font-size:11px;letter-spacing:.3px;
+}
+.data-table tbody td{
+  padding:9px 10px;border-bottom:1px solid var(--border);   /* v295 */
+  color:var(--text);
+}
+.data-table tbody tr:hover{background:rgba(var(--green-rgb),0.03);}
+.data-table .num{font-variant-numeric:tabular-nums;text-align:left;}
+
+.form-group{margin-bottom:14px;}
+.form-group label{display:block;font-size:12px;font-weight:600;color:var(--text);margin-bottom:5px;}
+.form-group input,.form-group textarea,.form-group select{
+  width:100%;padding:10px 12px;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:8px;
+  font-family:'Cairo',sans-serif;font-size:14px;
+}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:var(--green);}
+
+/* Payout history */
+.payout-history-item{
+  background:var(--bg);border:1px solid rgba(var(--green-rgb),0.08);
+  border-radius:8px;padding:10px 14px;
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:6px;
+  font-size:12px;
+}
+.payout-history-item .meta{color:var(--text2);}
+.payout-history-item .amt{color:var(--green);font-weight:800;font-variant-numeric:tabular-nums;}
+.payout-history-item{flex-wrap:wrap;gap:8px 12px;}
+.payout-history-item > div:first-child{flex:1 1 auto;min-width:0;}
+.payout-history-item .phi-when{font-size:12px;color:var(--text);}
+
+/* Empty state */
+.empty-state{
+  background:var(--bg2);border:2px dashed var(--border);
+  border-radius:var(--radius);padding:60px 20px;
+  text-align:center;color:var(--text2);
+}
+.empty-state .ic{font-size:48px;margin-bottom:12px;opacity:.6;}
+.empty-state .ttl{font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px;}
+
+/* Toast */
+
+/* Print-only styling for payout slip */
+@media print {
+  body * { visibility: hidden; }
+  #printArea, #printArea * { visibility: visible; }
+  #printArea { position: absolute; inset: 0; padding: 30px; }
+}
+
+@media (max-width:768px){
+  .topbar{padding:12px 16px;flex-wrap:wrap;gap:10px;}
+  .page{padding:16px;}
+  .providers-grid{grid-template-columns:1fr;}
+}
+/* v299: press feedback */
+button:active:not(:disabled) { transform: scale(.97); }
+button:disabled { opacity: .6; cursor: wait; }
+/* v539: أقسامُ التقارير (تبويبات) + تبويبُ العلاجات (rpt-treat.js) */
+.rpt-tabs{display:flex;gap:4px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);}
+.rpt-tabs::-webkit-scrollbar{display:none;}
+.rpt-tab{flex:none;background:transparent;border:0;border-bottom:3px solid transparent;margin-bottom:-1px;
+  color:var(--text2);padding:10px 14px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.rpt-tab:hover{color:var(--text);}
+.rpt-tab.on{color:var(--green);border-bottom-color:var(--green);}
+/* v543 (صورة المالك من الآيفون): خمسةُ تبويبات لا تتسع لعرض الهاتف، والشريطُ كان يتمرّر أفقياً بلا
+   شريطِ تمرير ولا أيّ إشارة ⇒ «الحضور والغياب» و«الاحتفاظ» خارج الشاشة كلياً. تحت 720px من عرض القسم
+   (container query — #695) تصير التبويباتُ شبكةَ أزرارٍ ظاهرةً كلُّها، والنصُّ يلتفّ ولا يُقصّ. */
+.rpt-tabs-wrap{container-type:inline-size;}
+@container (max-width:720px){
+  .rpt-tabs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(108px,100%),1fr));gap:6px;overflow:visible;border-bottom:0;}
+  .rpt-tab{border:1px solid var(--border);border-radius:10px;margin:0;padding:8px 6px;white-space:normal;text-align:center;line-height:1.35;
+    background:var(--bg2);min-width:0;}
+  .rpt-tab.on{background:rgba(var(--green-rgb),0.12);border-color:var(--green);}
+}
+body:not([data-rpt-tab="prov"]) #basisToggle,body:not([data-rpt-tab="prov"]) #basisHelp,
+body:not([data-rpt-tab="prov"]) #summaryRow,body:not([data-rpt-tab="prov"]) #provList{display:none !important;}
+.rt-host{container-type:inline-size;}
+.rt-host .stat-card{min-width:0;}
+.rt-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;min-width:0;}
+.rt-h{font-size:14px;font-weight:800;color:var(--text);margin:0 0 10px;}
+.rt-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+.rt-head .rt-h{margin:0;}
+.rt-sort{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex:none;}
+.rt-sort-btn{background:transparent;border:0;padding:5px 12px;font-family:'Cairo',sans-serif;font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap;}
+.rt-sort-btn.on{background:rgba(var(--green-rgb),0.12);color:var(--green);font-weight:700;}
+.rt-cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr));gap:10px;}
+.rt-cat{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;min-width:0;}
+.rt-cat-top{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:2px 8px;font-size:12.5px;}
+.rt-cat-name{font-weight:700;color:var(--text);min-width:0;overflow-wrap:anywhere;}
+.rt-cat-val{font-variant-numeric:tabular-nums;color:var(--text);white-space:nowrap;font-size:12px;}
+.rt-cat-val b{color:var(--green);margin-inline-start:4px;}
+.rt-bar{height:6px;background:var(--bg3);border-radius:4px;margin:7px 0 6px;overflow:hidden;}
+.rt-bar i{display:block;height:100%;background:var(--green);border-radius:4px;}
+.rt-cat-sub{font-size:11px;color:var(--text2);}
+.rt-note{margin-top:10px;font-size:12px;color:var(--text2);background:var(--bg);border:1px dashed var(--border);border-radius:8px;padding:8px 10px;line-height:1.8;}
+.rt-note a{color:var(--green);font-weight:700;}
+.rt-note b{color:var(--text);}
+.rt-list{display:flex;flex-direction:column;}
+.rt-row{display:grid;grid-template-columns:minmax(0,2.4fr) repeat(4,minmax(0,1fr));gap:8px;align-items:center;
+  width:100%;padding:9px 8px;border:0;border-bottom:1px solid var(--border);background:transparent;color:var(--text);
+  font-family:'Cairo',sans-serif;font-size:12.5px;text-align:right;}
+.rt-list.hp .rt-row{grid-template-columns:minmax(0,2.2fr) repeat(5,minmax(0,1fr));}
+button.rt-row{cursor:pointer;}
+button.rt-row:hover{background:rgba(var(--green-rgb),0.04);}
+.rt-row .n{text-align:left;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:0;}
+.rt-th{font-size:11px;color:var(--text2);font-weight:700;background:var(--bg3);border-radius:8px 8px 0 0;}
+.rt-tf{font-weight:800;background:rgba(var(--green-rgb),0.06);border-bottom:0;border-radius:0 0 8px 8px;}
+.rt-name{display:flex;flex-direction:column;min-width:0;}
+.rt-name b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rt-name small{font-size:10.5px;color:var(--text2);}
+.rt-pn{display:block;font-size:10px;color:var(--text2);font-weight:500;}
+.rt-d{font-size:11px;font-weight:700;}
+.rt-d,.rt-cat-val b{display:inline-block;direction:ltr;unicode-bidi:isolate;}   /* «▲ 25%» لا «%25 ▲» بسياقٍ عربي */
+.rt-d.up{color:var(--green);} .rt-d.down{color:var(--red);} .rt-d.flat{color:var(--text2);} .rt-d.new{color:var(--blue);}
+.rt-dl{font-size:10.5px;margin-top:4px;} .rt-dl span{color:var(--text2);font-weight:500;}
+.rt-docs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+.rt-doc{background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:4px 10px;font-size:11.5px;color:var(--text);}
+.rt-doc b{font-variant-numeric:tabular-nums;}
+/* v540: المرضى الجدد */
+.rt-hs{font-size:11px;font-weight:500;color:var(--text2);margin-inline-start:6px;}
+.rt-val-sm{font-size:16px !important;line-height:1.5;overflow-wrap:anywhere;}
+.rt-2col{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:0 16px;}
+.rt-mini{display:flex;flex-direction:column;gap:8px;}
+.rt-mini-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;font-size:12.5px;}
+.rt-mini-row > span{min-width:0;overflow-wrap:anywhere;color:var(--text);}
+.rt-mini-row > b{font-variant-numeric:tabular-nums;}
+.rt-mini-row > .rt-bar{grid-column:1/-1;margin:0;display:block;}
+.rt-list.np .rt-row{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1.1fr) minmax(0,1.3fr);text-decoration:none;}
+a.rt-row:hover{background:rgba(var(--green-rgb),0.04);}
+.rt-list.np .rt-row > span:not(.n){min-width:0;overflow-wrap:anywhere;}
+.rt-chips{display:flex;flex-wrap:wrap;gap:8px;}
+.rt-chip{display:flex;flex-direction:column;gap:1px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:6px 10px;
+  text-decoration:none;color:var(--text);font-size:12.5px;min-width:0;max-width:100%;}
+.rt-chip:hover{border-color:var(--green);}
+.rt-chip small{font-size:10.5px;color:var(--text2);}
+.rt-sub{font-size:12px;font-weight:700;color:var(--text2);margin:10px 0 6px;}   /* M164 */
+.rt-sub:first-of-type{margin-top:0;}
+/* v541: الحضور والغياب */
+.rt-bar-bad i{background:var(--orange);}
+.rt-mini-row > b small{font-weight:500;}
+.rt-d.rt-pts{direction:rtl;}
+/* v545: ملخّص الفترة */
+.rs-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+.rs-title{font-size:18px;font-weight:800;color:var(--text);}
+.rs-sub{font-size:12px;color:var(--text2);margin-top:2px;line-height:1.8;}
+.rs-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.rs-table{display:flex;flex-direction:column;}
+.rs-tr{display:grid;grid-template-columns:minmax(0,1.3fr) repeat(3,minmax(0,1fr));gap:8px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--border);font-size:13px;}
+.rs-tr:last-child{border-bottom:0;}
+.rs-th{font-size:11px;color:var(--text2);font-weight:700;background:var(--bg3);border-radius:8px;}
+.rs-lbl{font-weight:700;color:var(--text);min-width:0;}
+.rs-lbl small{display:block;font-size:10.5px;font-weight:500;color:var(--text2);}
+.rs-v{font-variant-numeric:tabular-nums;min-width:0;overflow-wrap:anywhere;color:var(--text2);}
+.rs-v.rs-cur{color:var(--text);}
+.rs-ch{font-size:10.5px;font-weight:700;white-space:nowrap;display:inline-block;}
+.rs-ch.up{color:var(--green);} .rs-ch.down{color:var(--red);} .rs-ch.flat{color:var(--text2);} .rs-ch.new{color:var(--blue);}
+.rs-top{margin:0;padding-inline-start:22px;font-size:13px;line-height:2;}
+.rs-top span{color:var(--text2);font-variant-numeric:tabular-nums;}
+.rs-foot{font-size:11px;color:var(--text2);text-align:center;margin:6px 0 20px;}
+@container (max-width:560px){
+  .rs-th{display:none;}
+  .rs-tr{grid-template-columns:minmax(0,1fr);gap:3px;}
+  .rs-v{display:flex;justify-content:space-between;gap:8px;}
+  .rs-v::before{content:attr(data-l);font-size:11px;color:var(--text2);font-weight:500;}
+}
+@media print {
+  body.printing-sum #sumHost, body.printing-sum #sumHost * { visibility: visible !important; }
+  body.printing-sum #printArea, body.printing-sum #printArea * { visibility: hidden !important; }
+  body.printing-sum #sumHost { position: absolute; inset: 0; padding: 18px; background: #fff; color: #111; }
+  body.printing-sum #sumHost .no-print { display: none !important; }
+  body.printing-sum #sumHost .rt-card { break-inside: avoid; border-color: #ccc; background: #fff; }
+  body.printing-sum #sbSidebar, body.printing-sum .topbar, body.printing-sum .rpt-tabs-wrap { display: none !important; }
+  body.printing-sum #sumHost .rt-card { padding: 8px 12px; margin-bottom: 8px; }
+  body.printing-sum #sumHost .rs-tr { padding: 4px 6px; font-size: 12px; }
+  body.printing-sum #sumHost .rs-top { line-height: 1.6; }
+  body.printing-sum #sumHost { padding: 0 6px; }
+  @page { margin: 12mm; }
+  body.printing-sum, body.printing-sum .main, body.printing-sum .page { border: 0 !important; box-shadow: none !important; background: #fff !important; }
+}
+.rt-mini.rt-grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:10px 24px;}   /* v542: اتجاهُ 12 شهراً بعمودين على الواسع */   /* «▼ 32 نقطة»: الرقمُ والسهمُ معزولان LTR والكلمةُ عربية */
+@container (max-width:620px){
+  .rt-th{display:none;}
+  .rt-row,.rt-list.hp .rt-row,.rt-list.np .rt-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 14px;padding:10px 4px;}
+  .rt-list.np .rt-row > span:not(.n):not(.rt-name){display:flex;justify-content:space-between;gap:6px;}
+  .rt-list.np .rt-row > span:not(.n):not(.rt-name)::before{content:attr(data-l);color:var(--text2);font-size:11px;font-weight:500;}
+  .rt-row .rt-name,.rt-tf > span:first-child{grid-column:1/-1;}
+  .rt-row .n{display:flex;justify-content:space-between;align-items:baseline;gap:6px;flex-wrap:wrap;}
+  .rt-row .n::before{content:attr(data-l);color:var(--text2);font-size:11px;font-weight:500;}
+  .rt-pn{display:inline;}
+}
+/* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
+html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutModal("],[onclick*="deletePayout("]){display:none !important;}
+</style>
+<!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
+<link rel="stylesheet" href="theme.css?v=20261005a">
+</head>
+<body>
+<div class="main" id="sbMainContent">
+
+<div class="topbar">
+  <div>
+    <div class="tb-title">التقارير</div>
+    <div class="tb-sub" id="rptSub">إنتاج وتحصيلات ومستحقات كل طبيب في العيادة</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="btn btn-outline btn-sm" id="exportXlsxBtn" onclick="exportExcel()" title="تصدير التبويب الحالي للفترة الحالية إلى ملف Excel">⬇️ تصدير Excel</button>
+    <button class="btn btn-outline btn-sm" onclick="refresh()">تحديث</button>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- v539: أقسامُ التقارير — الفلاترُ مشتركة، وكلُّ تبويبٍ يرسم من نفس البيانات المحمّلة -->
+  <div class="rpt-tabs-wrap"><div class="rpt-tabs" role="tablist" aria-label="أقسام التقارير">
+    <button type="button" class="rpt-tab on" role="tab" aria-selected="true" data-rpt-tab="prov" onclick="setRptTab('prov')">👨‍⚕️ الأطباء والمستحقات</button>
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="treat" onclick="setRptTab('treat')">🦷 العلاجات</button>
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="new" onclick="setRptTab('new')">🆕 المرضى الجدد</button>
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="att" onclick="setRptTab('att')">📅 الحضور والغياب</button>
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="ret" onclick="setRptTab('ret')">🔁 الاحتفاظ</button>
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="sum" onclick="setRptTab('sum')">📄 ملخّص الفترة</button>
+  </div></div>
+
+  <!-- Date presets (v307: مولَّدة من جدول PRESETS — المفتاح بسمة data-preset) -->
+  <div class="preset-row" id="presetRow"></div>
+
+  <!-- Filters -->
+  <div class="filters-bar">
+    <div class="filter-group">
+      <label>من تاريخ</label>
+      <input type="date" id="fromDate" onchange="clearPresetHighlight(); onFilterChange();">
+    </div>
+    <div class="filter-group">
+      <label>إلى تاريخ</label>
+      <input type="date" id="toDate" onchange="clearPresetHighlight(); onFilterChange();">
+    </div>
+    <div class="filter-group">
+      <label>الطبيب</label>
+      <select id="providerFilter" onchange="onFilterChange()">
+        <option value="all">كل الأطباء النشطين</option>
+      </select>
+    </div>
+    <!-- Phase 6 R (Migration 13): provider_type filter. Lets the owner
+         narrow the reports to just doctors, just hygienists, or just
+         chair-side assistants. Default 'شامل' preserves current behavior.
+         When the migration hasn't run, all rows will still show as
+         provider_type='doctor' (from the SELECT fallback in loadAll), so
+         filtering to anything other than شامل/أطباء فقط will yield empty
+         results — which is the correct outcome on pre-migration installs. -->
+    <div class="filter-group">
+      <label>نوع المزوّد</label>
+      <select id="providerTypeFilter" onchange="onFilterChange()">
+        <option value="all">شامل</option>
+        <option value="doctor">أطباء فقط</option>
+        <option value="hygienist">متدربين/مساعدين فقط</option>
+        <option value="assistant">مساعدات كرسي فقط</option>
+        <option value="secretary">سكرتيرات فقط</option>
+        <option value="other">موظفون آخرون فقط</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>حالة الجلسات</label>
+      <select id="statusFilter" onchange="onFilterChange()">
+        <option value="completed">المنجزة فقط</option>
+        <option value="completed_planned">المنجزة + المخططة</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>الأطباء المعطلون</label>
+      <select id="inactiveFilter" onchange="onFilterChange()">
+        <option value="hide">إخفاء</option>
+        <option value="show">إظهار (مع تاريخهم)</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Calculation basis toggle -->
+  <div class="basis-toggle" id="basisToggle">
+    <button class="basis-btn active" data-basis="production" onclick="setBasis('production')">الإنتاج</button>
+    <button class="basis-btn" data-basis="net" onclick="setBasis('net')">الصافي (بعد المخبر)</button>
+    <button class="basis-btn" data-basis="collection" onclick="setBasis('collection')">التحصيل</button>
+  </div>
+  <div class="basis-help" id="basisHelp"><span class="ic">💡</span><div><b>الإنتاج</b> = مجموع أسعار جلسات الطبيب في الفترة. نسبتُه تُحسب من هذا الرقم كما هو، بلا خصم تكلفة المخبر وبغضّ النظر عمّا قبضه المريض فعلاً.<span class="eq">مستحق الطبيب = نسبته × الإنتاج</span></div></div>
+
+  <!-- Overall summary -->
+  <div class="summary-row" id="summaryRow"></div>
+
+  <!-- Provider cards -->
+  <div id="provList"></div>
+
+  <!-- v539: تبويبُ العلاجات (rpt-treat.js) -->
+  <div id="treatHost" class="rt-host" hidden></div>
+
+  <!-- v540: تبويبُ المرضى الجدد ومصادرهم (rpt-newpt.js) -->
+  <div id="newHost" class="rt-host" hidden></div>
+
+  <!-- v541: تبويبُ الحضور والغياب (rpt-att.js) -->
+  <div id="attHost" class="rt-host" hidden></div>
+
+  <!-- v542: تبويبُ الاحتفاظ وقاعدة المرضى النشطين (rpt-ret.js) -->
+  <div id="retHost" class="rt-host" hidden></div>
+
+  <!-- v545: ملخّصُ الفترة — للطباعة والإرسال (rpt-sum.js) -->
+  <div id="sumHost" class="rt-host" hidden></div>
+
+</div>
+</div>
+
+<!-- Provider Details Modal -->
+<div class="modal-overlay sy-m sy-m-xl" id="detailsModal" onclick="if(event.target===this) closeModal('detailsModal')">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="detailsTitle">تفاصيل الجلسات</h3>
+      <button class="modal-close" onclick="closeModal('detailsModal')">×</button>
+    </div>
+    <div class="modal-body" id="detailsBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('detailsModal')">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<!-- v308: Ledger Modal — كشف حساب الطبيب -->
+<div class="modal-overlay sy-m sy-m-xl" id="ledgerModal" onclick="if(event.target===this) closeModal('ledgerModal')">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="ledgerTitle">📒 كشف حساب</h3>
+      <button class="modal-close" onclick="closeModal('ledgerModal')">×</button>
+    </div>
+    <div class="modal-body" id="ledgerBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="printLedger()">🖨️ طباعة الكشف</button>
+      <button class="btn btn-outline" onclick="closeModal('ledgerModal')">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payout Modal -->
+<div class="modal-overlay sy-m sy-m-md" id="payoutModal">
+  <div class="modal-box small">
+    <div class="modal-head">
+      <h3 id="payoutTitle">تسجيل دفعة للطبيب</h3>
+      <button class="modal-close" onclick="closeModal('payoutModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="payoutProviderId">
+      <div class="form-group">
+        <label>الطبيب</label>
+        <input type="text" id="payoutProviderName" readonly>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group">
+          <label>من فترة</label>
+          <input type="date" id="payoutFrom">
+        </div>
+        <div class="form-group">
+          <label>إلى فترة</label>
+          <input type="date" id="payoutTo">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>المبلغ (<span data-cur>ل.س</span>) *</label>
+        <input type="number" id="payoutAmount" placeholder="مثال: 250000" min="0" inputmode="numeric">
+      </div>
+      <div class="form-group">
+        <label>ملاحظات (اختياري)</label>
+        <textarea id="payoutNotes" rows="2" placeholder="مثل: دفعة شهر أيار..."></textarea>
+      </div>
+
+      <div style="margin-top:18px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;">سجل الدفعات السابقة</div>
+        <div id="payoutHistoryList"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="goToFullPayoutsPage()" style="margin-left:auto;">الصفحة الكاملة</button>
+      <button class="btn btn-outline" onclick="closeModal('payoutModal')">إلغاء</button>
+      <button class="btn btn-primary" onclick="savePayout()">حفظ الدفعة</button>
+    </div>
+  </div>
+</div>
+
+<!-- Print Area (hidden, used for print only) -->
+<div id="printArea" style="display:none;"></div>
+
+<script>
+'use strict';
+
+// ─── State ───
+var currentUser = null;
+var doctors = [];           // clinic_doctors
+var sessions = [];          // ledger_sessions in date range
+var payments = [];          // ledger_payments in date range
+var paymentSplits = [];     // payment_splits in date range (Migration 3) — empty on legacy DBs
+var splitSessionStatus = {}; // id→status for each session referenced by a split (canonical earned-split rule)
+var labOrders = [];         // lab_orders for cost matching
+var payouts = [];           // provider_payouts for history
+// v306: كل ما سبق بداية الفترة (جلسات/دفعات/توزيعات/مخابر) لحساب الرصيد المرحَّل.
+// null = تعذّر التحميل ⇒ الصفحة ترتدّ حرفياً لسلوك «الفترة وحدها» بلا رصيد مرحَّل.
+var priorCtx = null;
+var patientNames = {};      // patient_id → name (per-session breakdown only; never financial)
+var basis = 'production';   // 'production' | 'net' | 'collection'
+var _payoutModalCur = null; // F3: عملة مودال الدفعة المقفولة لحظة الفتح — يقرؤها سجل الدفعات بمساري الحفظ/الحذف
+
+// ─── Helpers ───
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Phase 6 X: Provider type prefix helper. Returns the emoji prefix (with
+// trailing space) for non-default provider types. Empty string for doctors
+// (the default, no prefix needed) and any unknown value (defensive).
+function providerTypePrefix(pt) {
+  if (pt === 'hygienist') return '🩺 ';
+  if (pt === 'assistant') return '🤝 ';
+  if (pt === 'secretary') return '👩‍💼 ';
+  if (pt === 'other') return '👥 ';
+  return '';  // doctor or unknown → no prefix
+}
+
+// Phase 3 Feature G: format the "tooth" column for both tooth-based and regional sessions.
+// Tooth-based: show the FDI number. Regional: show a compact Arabic label.
+var __QLBL_PR = {'UR':'علوي يمين','UL':'علوي يسار','LL':'سفلي يسار','LR':'سفلي يمين'};
+var __ALBL_PR = {'U':'الفك العلوي','L':'الفك السفلي'};
+function formatSessionToothCell(s) {
+  if (s.tooth_num) return escapeHtml(String(s.tooth_num));
+  if (s.quadrant && __QLBL_PR[s.quadrant]) return '<span style="font-size:11px;color:var(--text-muted,#8da0bd);">ربع ' + __QLBL_PR[s.quadrant] + '</span>';
+  if (s.arch && __ALBL_PR[s.arch]) return '<span style="font-size:11px;color:var(--text-muted,#8da0bd);">' + __ALBL_PR[s.arch] + '</span>';
+  return '—';
+}
+
+// Patient name cell for the per-session breakdown (details modal + printed slip).
+// Display-only: it never feeds a number. Falls back to "—" when the name map is
+// empty (load failure) or the patient row no longer exists.
+function sessionPatientCell(s) {
+  var nm = (s && s.patient_id) ? patientNames[s.patient_id] : '';
+  return nm ? escapeHtml(nm) : '—';
+}
+
+function fmt(n) {
+  n = Number(n) || 0;
+  return n.toLocaleString('en-US');
+}
+
+// M125: تسمية عملة الرسم — طبقة العملة النشطة إن وُجدت، وإلا عملة العيادة (M107).
+var _renderCur = null;
+function fmtCurLabel() {
+  if (_renderCur === 'USD') return '$';
+  if (_renderCur === 'SYP') return 'ل.س';
+  return curLbl();
+}
+function fmtSY(n) {
+  var v = Math.round((Number(n) || 0) * 100) / 100;
+  if (v % 1 === 0) return fmt(v) + ' ' + fmtCurLabel();
+  return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + fmtCurLabel();
+}
+
+function initials(name) {
+  if (!name) return '?';
+  var parts = String(name).trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length-1].charAt(0)).toUpperCase();
+}
+
+function toDay(d) {
+  d = d || new Date();
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+}
+
+// ─── TIMESTAMPTZ timezone safety (parity with accounting.html) ───
+// date_sent on lab_orders is TIMESTAMPTZ. PostgREST .gte/.lte compare the UTC
+// instant, so a Syria-local date typed by the user can be off by up to a day.
+// Pattern: widen the UTC query window by ±1 day, then trim precisely client-side
+// using the row's LOCAL calendar date.
+function widenStartUtc(isoDay) {
+  if (!isoDay) return isoDay;
+  var d = new Date(isoDay + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString();
+}
+function widenEndUtc(isoDay) {
+  if (!isoDay) return isoDay;
+  var d = new Date(isoDay + 'T23:59:59.999Z');
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString();
+}
+function inLocalRange(timestamptz, from, to) {
+  if (!timestamptz) return false;
+  var d = new Date(timestamptz);
+  if (isNaN(d.getTime())) return false;
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var day = String(d.getDate()).padStart(2, '0');
+  var localDay = y + '-' + m + '-' + day;
+  return localDay >= from && localDay <= to;
+}
+
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+// ─── Date presets ───
+// v307: جدولٌ واحد بدل سلسلة if — كل فترة دالةٌ نقية (now → {from,to}) قابلةٌ للاختبار.
+// «آخر N أشهر» تقويمية: من أول الشهر (الحالي − (N−1)) حتى اليوم (كـQuickBooks/Xero).
+function _mStart(y, m) { return new Date(y, m, 1); }
+function _mEnd(y, m)   { return new Date(y, m + 1, 0); }
+var PRESETS = [
+  { key: 'this_month',   label: 'هذا الشهر',     range: function(n){ return { from: _mStart(n.getFullYear(), n.getMonth()), to: n }; } },
+  { key: 'last_month',   label: 'الشهر الماضي',  range: function(n){ return { from: _mStart(n.getFullYear(), n.getMonth() - 1), to: _mEnd(n.getFullYear(), n.getMonth() - 1) }; } },
+  { key: 'this_week',    label: 'هذا الأسبوع',   range: function(n){ var f = new Date(n); f.setDate(n.getDate() - n.getDay()); return { from: f, to: n }; } },
+  { key: 'last_30',      label: 'آخر 30 يوم',    range: function(n){ var f = new Date(n); f.setDate(n.getDate() - 30); return { from: f, to: n }; } },
+  { key: 'last_3m',      label: 'آخر 3 أشهر',    range: function(n){ return { from: _mStart(n.getFullYear(), n.getMonth() - 2), to: n }; } },
+  { key: 'this_quarter', label: 'هذا الربع',     range: function(n){ var q = Math.floor(n.getMonth() / 3) * 3; return { from: _mStart(n.getFullYear(), q), to: n }; } },
+  { key: 'last_quarter', label: 'الربع الماضي',  range: function(n){ var q = Math.floor(n.getMonth() / 3) * 3 - 3; return { from: _mStart(n.getFullYear(), q), to: _mEnd(n.getFullYear(), q + 2) }; } },
+  { key: 'last_6m',      label: 'آخر 6 أشهر',    range: function(n){ return { from: _mStart(n.getFullYear(), n.getMonth() - 5), to: n }; } },
+  { key: 'this_year',    label: 'هذه السنة',     range: function(n){ return { from: new Date(n.getFullYear(), 0, 1), to: n }; } },
+  { key: 'last_12m',     label: 'آخر 12 شهر',    range: function(n){ return { from: _mStart(n.getFullYear(), n.getMonth() - 11), to: n }; } },
+  { key: 'last_year',    label: 'السنة الماضية', range: function(n){ return { from: new Date(n.getFullYear() - 1, 0, 1), to: new Date(n.getFullYear() - 1, 11, 31) }; } },
+  { key: 'all',          label: 'كل الفترات',    range: function(n){ return { from: new Date(2020, 0, 1), to: n }; } }
+];
+function presetRange(key, now) {
+  var p = PRESETS.filter(function(x){ return x.key === key; })[0] || PRESETS[PRESETS.length - 1];
+  var r = p.range(now || new Date());
+  return { from: toDay(r.from), to: toDay(r.to) };
+}
+function renderPresetRow() {
+  var row = document.getElementById('presetRow');
+  if (!row) return;
+  row.innerHTML = PRESETS.map(function(p){
+    return '<button class="preset-btn" data-preset="' + p.key + '" onclick="setPreset(\'' + p.key + '\')">' + p.label + '</button>';
+  }).join('');
+}
+function markPreset(key) {
+  document.querySelectorAll('.preset-btn').forEach(function(b){
+    b.classList.toggle('active', !!key && b.getAttribute('data-preset') === key);
+  });
+}
+function activePresetKey() {
+  var b = document.querySelector('.preset-btn.active');
+  return b ? b.getAttribute('data-preset') : '';
+}
+function setPreset(p) {
+  var r = presetRange(p);
+  document.getElementById('fromDate').value = r.from;
+  document.getElementById('toDate').value   = r.to;
+  markPreset(p);
+  onFilterChange();
+}
+
+// ─── Calc basis ───
+// v310: شرحُ كل أساس بمعادلته الصريحة — نصٌّ ثابت (لا مدخلات مستخدم) فالإدراج آمن.
+var BASIS_HELP = {
+  production: '<span class="ic">💡</span><div><b>الإنتاج</b> = مجموع أسعار جلسات الطبيب في الفترة. نسبتُه تُحسب من هذا الرقم كما هو، بلا خصم تكلفة المخبر وبغضّ النظر عمّا قبضه المريض فعلاً.<span class="eq">مستحق الطبيب = نسبته × الإنتاج</span></div>',
+  net: '<span class="ic">💡</span><div><b>الصافي (بعد المخبر)</b> = إنتاج الطبيب ناقص تكلفة مخابره. تُطرح التكلفة أولاً ثم تُحسب نسبتُه من الباقي، فيتقاسم مع العيادة كلفةَ المخبر. <b>الأعدل للعيادة.</b><span class="eq">مستحق الطبيب = نسبته × (الإنتاج − تكلفة المخبر)</span></div>',
+  collection: '<span class="ic">💡</span><div><b>التحصيل</b> = ما قُبض فعلاً من المرضى مقابل جلسات هذا الطبيب. نسبتُه تُحسب على المقبوض لا على المسجَّل، فلا يأخذ حصّةً عن مبلغٍ لم يدخل الصندوق بعد.<span class="eq">مستحق الطبيب = نسبته × المقبوض</span></div>',
+};
+
+function setBasis(b) {
+  basis = b;
+  try { localStorage.setItem('sydent_pr_basis', b); } catch (e) {}
+  document.querySelectorAll('.basis-btn').forEach(function(btn){
+    btn.classList.toggle('active', btn.getAttribute('data-basis') === b);
+  });
+  // v310: نصٌّ واحد لكل أساس (BASIS_HELP) — كان مكرّراً هنا وبالاسترجاع بـinit فينحرفان.
+  var help = document.getElementById('basisHelp');
+  if (help) help.innerHTML = BASIS_HELP[b] || BASIS_HELP.production;
+  render();
+}
+
+// ─── Load data ───
+/* DeepCode #1 (v553): قائمةُ الأطباء تُجلب مبكراً مع بيانات الفترة (الاستعلامُ نفسُه حرفياً)؛ loadAll يتبنّاها مرةً واحدة. */
+var _prDocsEarly = null;
+function _prDoctorsQuery() {
+  return window.sb.from('clinic_doctors')
+    .select('*')
+    .eq('owner_id', currentUser.id)
+    .order('is_owner', { ascending: false })
+    .order('created_at', { ascending: true });
+}
+async function loadAll() {
+  loadTrtCatalog();   // v539: كتالوجُ العلاجات للتصنيف — بالتوازي ولا يؤخّر تبويبَ الأطباء (#687)
+  // 1. Load clinic doctors
+  var _de = _prDocsEarly; _prDocsEarly = null;
+  var dRes = _de ? _prTake(await _de) : await _prDoctorsQuery();
+  if (dRes.error) {
+    if (dRes.error.code === 'PGRST204' || (dRes.error.message && dRes.error.message.indexOf('clinic_doctors') >= 0)) {
+      document.getElementById('provList').innerHTML =
+        '<div class="empty-state"><div class="ic">⚙️</div>' +
+        '<div class="ttl">يجب تشغيل تحديث قاعدة البيانات أولاً</div>' +
+        '<div style="margin-top:12px;font-size:13px;">شغّل SQL الخاص بالأطباء المتعددين في Supabase أولاً.</div></div>';
+      return;
+    }
+    showToast('⚠️ فشل تحميل الأطباء');
+    return;
+  }
+  doctors = dRes.data || [];
+
+  // Populate provider filter dropdown - respects inactive toggle
+  var sel = document.getElementById('providerFilter');
+  var current = sel.value || 'all';
+  var inactiveModeForDropdown = document.getElementById('inactiveFilter').value;
+  var doctorsForDropdown = doctors.filter(function(d){
+    return inactiveModeForDropdown === 'show' || d.is_active !== false;
+  });
+  var allLabel = inactiveModeForDropdown === 'show' ? 'كل الأطباء' : 'كل الأطباء النشطين';
+  sel.innerHTML = '<option value="all">' + allLabel + '</option>' + doctorsForDropdown.map(function(d){
+    var typePrefix = providerTypePrefix(d.provider_type);
+    var lbl = typePrefix + d.name + (d.is_owner ? ' ⭐' : '') + (d.is_active === false ? ' (معطل)' : '');
+    return '<option value="' + d.id + '">' + escapeHtml(lbl) + '</option>';
+  }).join('');
+  // v307: طبيبٌ من الرابط يُطبَّق مرةً واحدة بعد بناء القائمة.
+  if (_urlProvider) { current = _urlProvider; _urlProvider = null; }
+  // Restore selection if still valid; otherwise reset to all
+  if (current === 'all' || doctorsForDropdown.find(function(d){ return d.id === current; })) {
+    sel.value = current;
+  } else {
+    sel.value = 'all';
+  }
+
+  // Phase 4: apply Doctor mode lock BEFORE loadFilteredData to prevent
+  // a brief flicker where the doctor would see all providers' data.
+  // applyDoctorModeFilter sets sel.value to their id and disables changes,
+  // so loadFilteredData filters from the start.
+  if (window.SyDentLock && window.SyDentLock.isDoctor() && typeof applyDoctorModeFilter === 'function') {
+    applyDoctorModeFilter();
+  } else {
+    await loadFilteredData();
+  }
+}
+
+/* DeepCode #1 (v553): الجلبُ المبكر — بياناتُ الفترة تُطلَق مع بداية الإقلاع بالتوازي مع ذاكرتي القفل وقائمة الأطباء
+   (كانت تنتظرهما: 3 جولات ⇒ 1)، **والرسمُ وحده** مقفولٌ ببوابة حتى يعبر فحصُ «الطبيب المعطَّل» ويُضبط فلترُ وضع الطبيب
+   — فلا تظهر بياناتٌ قبل الفحص ولا ومضةُ «كل الأطباء» للطبيب. أولُ نداءٍ عاديٍّ لـloadFilteredData بالنافذة نفسها
+   (من · إلى · الحالة) يفتح البوابة ويتبنّى الجلبَ المبكر بدل جلبٍ ثانٍ؛ نافذةٌ مختلفة ⇒ ينتظر المبكرَ حتى ينتهي (بلا رسم)
+   ثم يجلب من جديد، فلا يكتب جلبٌ قديم فوق أحدث منه. */
+var _prEarly = null;
+function _prWinKey() {
+  return document.getElementById('fromDate').value + '|' + document.getElementById('toDate').value + '|' + document.getElementById('statusFilter').value;
+}
+function _prStartEarly() {
+  var open, gate = new Promise(function (r) { open = r; });
+  _prEarly = { key: _prWinKey(), open: open, p: null };
+  _prEarly.p = _loadFilteredDataCore(gate).catch(function (e) { console.warn('early report load:', e); });
+}
+function _prCancelEarly() {   /* الطبيبُ المعطَّل: لا رسمَ أبداً للجلب المبكر */
+  if (!_prEarly) return;
+  var e = _prEarly; _prEarly = null; e.open(false);
+}
+async function loadFilteredData() {
+  if (_prEarly) {
+    var e = _prEarly; _prEarly = null;
+    if (e.key === _prWinKey()) { e.open(true); return e.p; }
+    e.open(false); await e.p;
+  }
+  return _loadFilteredDataCore(null);
+}
+async function _loadFilteredDataCore(gate) {
+  var from = document.getElementById('fromDate').value;
+  var to   = document.getElementById('toDate').value;
+  if (!from || !to) return;
+
+  var statusFilter = document.getElementById('statusFilter').value;
+  var statusList = statusFilter === 'completed_planned' ? ['completed','planned'] : ['completed'];
+
+  /* DeepCode #1 (v552): أربعُ مجموعاتٍ مستقلة كانت تُنتظر واحدةً واحدة (+ السياقان) = 12 جولة شبكة.
+     تُطلَق الآن معاً وكلُّ مجموعةٍ بجسمها ومعالجة أخطائها حرفياً؛ التبعياتُ داخل المجموعة باقيةٌ بترتيبها:
+     الجلسات ← أسماءُ مرضاها · الدفعات ← توزيعاتُها ← حالاتُ جلسات التوزيعات. الرسمُ بعد اكتمالها كلها. */
+  var _grpSessions = (async function(){
+    // Load sessions in range
+    // v547: مصفّحةٌ بـ_fetchAllPR — طلبٌ واحد كان يُقصّ بصمت عند 1000 صفّ (سنةُ عيادةٍ مشغولة · «كل الفترات»)،
+    // فيقصر الإنتاجُ وكلُّ التبويبات المبنية عليه. الفشلُ مُعلَن (#630) لا صفرٌ صامت.
+    try {
+      sessions = await _fetchAllPR(function(){
+        return window.sb.from('ledger_sessions').select('*')
+          .eq('doctor_id', currentUser.id).gte('date', from).lte('date', to).in('status', statusList);
+      });
+    } catch (sErr) {
+      console.error('sessions load:', sErr);
+      try {
+        // Fallback if status column missing
+        sessions = await _fetchAllPR(function(){
+          return window.sb.from('ledger_sessions').select('*')
+            .eq('doctor_id', currentUser.id).gte('date', from).lte('date', to);
+        });
+      } catch (sErr2) {
+        console.error('sessions load (fallback):', sErr2);
+        sessions = [];
+        showToast('⚠️ تعذّر تحميل الجلسات — الأرقام غير متاحة الآن');
+      }
+    }
+
+    // Patient names for the per-session breakdown. Bounded by the sessions actually
+    // in range: we look up only the distinct patient_ids we need, in chunks, instead
+    // of pulling the whole patient list. `patients` is a legacy doctor_id table.
+    // Display-only — any failure leaves the map empty and the column renders "—";
+    // it never blocks the report or touches a financial figure.
+    patientNames = {};
+    try {
+      var pidSeen = {};
+      var pidList = [];
+      sessions.forEach(function(s){
+        if (s.patient_id && !pidSeen[s.patient_id]) { pidSeen[s.patient_id] = 1; pidList.push(s.patient_id); }
+      });
+      for (var ci = 0; ci < pidList.length; ci += 150) {   // v547: 150 لا 500 — طولُ عنوان GET (#691)
+        var pnRes = await window.sb.from('patients')
+          .select('id,name')
+          .eq('doctor_id', currentUser.id)
+          .in('id', pidList.slice(ci, ci + 150));
+        if (pnRes.error) { console.warn('patient names load:', pnRes.error); break; }
+        (pnRes.data || []).forEach(function(p){ patientNames[p.id] = p.name || ''; });
+      }
+    } catch(e) { console.warn('patient names load threw:', e); }
+  })();
+  var _grpPayments = (async function(){
+    // Load payments in range (v547: مصفّحة)
+    try {
+      payments = await _fetchAllPR(function(){
+        return window.sb.from('ledger_payments').select('*')
+          .eq('doctor_id', currentUser.id).gte('date', from).lte('date', to);
+      });
+    } catch (pErr) {
+      // F4: فشلٌ عابر كان يُبتلع بصمت فيظهر التحصيل صفراً بلا أي إشارة.
+      console.error('payments load:', pErr);
+      showToast('⚠️ تعذّر تحميل المدفوعات — أرقام التحصيل قد تكون ناقصة');
+      payments = [];
+    }
+
+    // Load payment_splits for these payments (Migration 3).
+    // Filter by payment_id (the in-range payments we just loaded) — this is more
+    // robust than filtering by payment_date because splits could theoretically
+    // have a NULL payment_date if a legacy payment was missing one, and we'd
+    // rather count it under its parent payment's date than drop it silently.
+    // Graceful fallback to empty array on pre-Migration-3 DBs; computeProviderStats
+    // automatically falls back to proportional in that case.
+    paymentSplits = [];
+    if (payments.length) {
+      try {
+        var paymentIds = payments.map(function(p){ return p.id; });
+        // مقطَّعٌ بـ150 معرّفاً كما loadSplitSessionStatuses (مرآة accounting.html): نداءٌ
+        // واحد بكل معرّفات فترةٍ طويلة كان يتجاوز حدَّ طول عنوان GET فيرجع خطأٌ لا يحمل
+        // اسم الجدول ⇒ يُصنَّف «غير مفقود» ويُبتلع ⇒ ارتدادٌ صامت للتوزيع النسبي.
+        var CHUNK_PS = 150, accPs = [], psFailed = false;
+        for (var cps = 0; cps < paymentIds.length; cps += CHUNK_PS) {
+          var psRes = await window.sb.from('payment_splits')
+            .select('payment_id,session_id,provider_id,amount,is_unearned,currency')
+            .eq('doctor_id', currentUser.id)
+            .in('payment_id', paymentIds.slice(cps, cps + CHUNK_PS));
+          if (psRes.error) {
+            var msg = (psRes.error.message || '').toLowerCase();
+            var missing = psRes.error.code === '42P01' || psRes.error.code === 'PGRST205'
+              || msg.indexOf('payment_splits') !== -1;
+            if (!missing) { console.error('payment_splits load:', psRes.error); psFailed = true; }
+            accPs = [];   // مجموعةٌ ناقصة أسوأ من فارغة — الارتدادُ كاملٌ (ومُعلَنٌ إن لم يكن الجدولُ مفقوداً)
+            break;
+          }
+          accPs = accPs.concat(psRes.data || []);
+        }
+        paymentSplits = accPs;
+        // نمط F4 (v250): فشلٌ عابر يُعلَن بتوستٍ غير قاتل بدل الابتلاع.
+        if (psFailed) showToast('⚠️ تعذّر تحميل توزيعات الدفعات — التحصيل يُقدَّر من الدفعات الخام (المقدّمات ضمنه)');
+      } catch(e) { console.error('payment_splits load threw:', e); paymentSplits = []; showToast('⚠️ تعذّر تحميل توزيعات الدفعات — التحصيل يُقدَّر من الدفعات الخام (المقدّمات ضمنه)'); }
+    }
+    // Status of every session referenced by a split (for the canonical earned-split rule
+    // below — excludes allocations sitting on planned/not-yet-done sessions).
+    await loadSplitSessionStatuses();
+  })();
+  var _grpLabs = (async function(){
+    // Lab orders incurred in this window (cash-basis: the cost lands at date_sent).
+    // Attributed per-provider via the explicit provider_id column (Migration 73) —
+    // no more fragile session-anchored matching. date_sent is TIMESTAMPTZ, so use
+    // the widen-then-trim pattern. Rejected orders are excluded (never a real cost).
+    try {
+      labOrders = (await _fetchAllPR(function(){   // v547: مصفّحة
+        return window.sb.from('lab_orders')
+          .select('id,patient_id,tooth_num,cost,status,date_sent,provider_id,currency')
+          .eq('doctor_id', currentUser.id)
+          .neq('status', 'rejected')
+          .gte('date_sent', widenStartUtc(from))
+          .lte('date_sent', widenEndUtc(to));
+      })).filter(function(lo){
+        return inLocalRange(lo.date_sent, from, to);
+      });
+    } catch(e) {
+      console.error('lab_orders load:', e);
+      labOrders = [];
+      showToast('⚠️ تعذّر تحميل طلبات المخابر — أرقام المخبر قد تكون ناقصة');
+    }
+  })();
+  var _grpPayouts = (async function(){
+    // Load payouts (all-time for history; we filter per provider later)
+    try {
+      payouts = await _fetchAllPR(function(){   // v547: مصفّحة (كلُّ التاريخ — قاعدة #630)
+        return window.sb.from('provider_payouts').select('*').eq('owner_id', currentUser.id);
+      });
+      payouts.sort(function(a, b){ return String(b.paid_at || '') < String(a.paid_at || '') ? -1 : (String(b.paid_at || '') > String(a.paid_at || '') ? 1 : 0); });
+    } catch(e) {
+      console.error('provider_payouts load:', e);
+      showToast('⚠️ تعذّر تحميل دفعات الأطباء — الأرصدة قد تكون ناقصة');
+      payouts = [];
+    }
+  })();
+  // v306: ما قبل الفترة — للرصيد المرحَّل. فشله لا يعطّل التقرير (priorCtx = null ⇒ ارتداد).
+  var _grpCtx = Promise.all([loadPriorContext(from, statusList), loadPrevContext(from, to, statusList)]);
+  await Promise.all([_grpSessions, _grpPayments, _grpLabs, _grpPayouts, _grpCtx]);
+  if (gate && (await gate) === false) return;   /* v553: الجلبُ المبكر يرسم فقط بعد فتح البوابة */
+  syncUrl();
+
+  render();
+  _prLoaded = true;
+  _newData = null;   // v540: بيانات المرضى الجدد تتبع الفترة — تُعاد عند الحاجة
+  _attData = null;   // v541: وكذلك المواعيد
+  _retData = null;   // v542
+  _sumData = null;   // v545
+  renderTreat();   // v539 — يرسم فقط والتبويبُ ظاهر
+  renderNew();     // v540
+  renderAtt();     // v541
+  renderRet();     // v542
+  renderSum();     // v545
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// v306 — الرصيد المرحَّل (running balance) — مرآة كشف حساب المخبر (labs.html)
+// المشكلة: البطاقة كانت تقارن مستحق الفترة (بتاريخ الجلسة) بدفعات تُطابَق
+// بتداخل فترتها، فدفعةُ تموز المسجَّلة 02/08 تسقط كاملةً على آب الذي إنتاجه صفر
+// ⇒ «المتبقي −180,000» وهمي. الحل المحاسبي: افتتاحي + مستحق الفترة − مدفوع
+// بالفترة = ختامي، فالرصيدُ الختامي لا يتغيّر بطريقة تقطيع الفترات.
+// المحرّك computeProviderStats/computePayout لا يُمسّ حرفاً: يُشغَّل على سياق
+// «ما قبل الفترة» بتبديل المصفوفات العامة ثم إرجاعها (نمط withCurrencyLayer).
+// الدفعات تُؤرَّخ بيوم التسديد المحلي (paid_at) لا بتداخل الفترة — كما يؤرَّخ
+// سداد المخبر بـpay_date — فلا تُعدّ دفعةٌ في نافذتين.
+// ═══════════════════════════════════════════════════════════════════════════
+// جلب كل الصفوف بصفحات 1000 (حدّ PostgREST الافتراضي) — «ما قبل الفترة» قد يمتد سنوات.
+/* DeepCode #1 (v552): وعدٌ ⇒ {r}|{e} فلا يصير رفضاً غير ملتقَط وهو ينتظر دوره، ثم يُرمى خطؤه بدوره. */
+function _prSettle(p) { return Promise.resolve(p).then(function (r) { return { r: r }; }, function (e) { return { e: e }; }); }
+function _prTake(x) { if (x.e) throw x.e; return x.r; }
+async function _fetchAllPR(buildQuery) {
+  var PAGE = 1000, out = [], off = 0;
+  for (;;) {
+    var res = await buildQuery().order('id').range(off, off + PAGE - 1);
+    if (res.error) throw res.error;
+    var rows = res.data || [];
+    out = out.concat(rows);
+    if (rows.length < PAGE) break;
+    off += PAGE;
+  }
+  return out;
+}
+// v307: جالبٌ واحد لأي نافذة [lo, hi] (lo اختياري = بلا حدّ سفلي) بنفس دلالة النافذة
+// الحيّة: جلسات بتاريخها، دفعات بتاريخها (والتوزيعات عبر دفعتها)، مخابر بـdate_sent محلياً.
+// يخدم سياقين: «ما قبل الفترة» (الرصيد المرحَّل) و«الفترة السابقة» (المقارنة).
+async function fetchCtx(lo, hi, statusList, withTreat) {
+  var uid = currentUser.id;
+  // v539: سياقُ «الفترة السابقة» يحمل هويةَ العلاج أيضاً لمقارنة تبويب العلاجات (قراءةٌ عرضية، لا رقمٌ مالي).
+  var sCols = 'id,cost,provider_id,patient_id,status,currency,date' + (withTreat ? ',type,treatment_key,description' : '');
+  /* DeepCode #1 (v552): القراءاتُ الأربع مستقلة — تُطلَق معاً (جولةٌ لا أربع) وتُحسَم بالترتيب نفسه،
+     فأولُ خطأٍ يُرمى هو نفسُه كما كان؛ والتوزيعاتُ (embed) خطؤها يذهب لمسارها البديل كما كان. */
+  var _cS = _prSettle(_fetchAllPR(function(){
+    var q = window.sb.from('ledger_sessions')
+      .select(sCols)
+      .eq('doctor_id', uid).lte('date', hi).in('status', statusList);
+    return lo ? q.gte('date', lo) : q;
+  }));
+  var _cP = _prSettle(_fetchAllPR(function(){
+    var q = window.sb.from('ledger_payments')
+      .select('id,patient_id,amount,currency,date')
+      .eq('doctor_id', uid).lte('date', hi);
+    return lo ? q.gte('date', lo) : q;
+  }));
+  var _cSp = _prSettle(_fetchAllPR(function(){
+      var q = window.sb.from('payment_splits')
+        .select('id,payment_id,session_id,provider_id,amount,is_unearned,currency,ledger_payments!inner(date),ledger_sessions(status)')
+        .eq('doctor_id', uid).lte('ledger_payments.date', hi);
+      return lo ? q.gte('ledger_payments.date', lo) : q;
+    }));
+  var _cL = _prSettle(_fetchAllPR(function(){
+    var q = window.sb.from('lab_orders')
+      .select('id,cost,status,date_sent,provider_id,currency')
+      .eq('doctor_id', uid).neq('status', 'rejected').lte('date_sent', widenEndUtc(hi));
+    return lo ? q.gte('date_sent', widenStartUtc(lo)) : q;
+  }));
+  var pSessions = _prTake(await _cS);
+  var pPayments = _prTake(await _cP);
+  // التوزيعات مع حالة جلستها بطلبٍ واحد (embed)؛ إن رفضه الخادم ⇒ المسار المقطَّع نفسه المستعمل بالنافذة.
+  var pSplits = [], pStatus = {};
+  try {
+    var rows = _prTake(await _cSp);
+    rows.forEach(function(r){
+      pSplits.push({ payment_id: r.payment_id, session_id: r.session_id, provider_id: r.provider_id,
+                     amount: r.amount, is_unearned: r.is_unearned, currency: r.currency });
+      if (r.session_id && r.ledger_sessions) pStatus[r.session_id] = r.ledger_sessions.status || 'completed';
+    });
+  } catch (embedErr) {
+    console.warn('ctx splits embed fallback:', embedErr);
+    var pids = pPayments.map(function(p){ return p.id; }), CH = 150;
+    for (var i = 0; i < pids.length; i += CH) {
+      var sr = await window.sb.from('payment_splits')
+        .select('payment_id,session_id,provider_id,amount,is_unearned,currency')
+        .eq('doctor_id', uid).in('payment_id', pids.slice(i, i + CH));
+      if (sr.error) throw sr.error;
+      pSplits = pSplits.concat(sr.data || []);
+    }
+    var sidSet = {}; pSplits.forEach(function(sp){ if (sp.session_id) sidSet[sp.session_id] = 1; });
+    var sids = Object.keys(sidSet);
+    for (var j = 0; j < sids.length; j += CH) {
+      var st = await window.sb.from('ledger_sessions').select('id,status')
+        .eq('doctor_id', uid).in('id', sids.slice(j, j + CH));
+      if (st.error) throw st.error;
+      (st.data || []).forEach(function(row){ pStatus[row.id] = row.status || 'completed'; });
+    }
+  }
+  var pLabs = _prTake(await _cL).filter(function(lo_){
+    // نفس نمط «وسّع ثم قصّ» باليوم المحلي (date_sent TIMESTAMPTZ).
+    var d = lo_.date_sent ? new Date(lo_.date_sent) : null;
+    if (!d || isNaN(d.getTime())) return false;
+    var day = toDay(d);
+    return day <= hi && (!lo || day >= lo);
+  });
+  return { sessions: pSessions, payments: pPayments, paymentSplits: pSplits,
+           labOrders: pLabs, splitSessionStatus: pStatus, from: lo, to: hi };
+}
+function _dayShift(isoDay, n) {
+  var d = new Date(isoDay + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return toDay(d);
+}
+async function loadPriorContext(from, statusList) {
+  priorCtx = null;
+  if (!from) return;
+  // «كل الفترات» يبدأ 2020-01-01 — لا شيء قبله ⇒ سياق فارغ (افتتاحي = −ما دُفع قبله = 0).
+  if (from <= '2020-01-01') {
+    priorCtx = { sessions: [], payments: [], paymentSplits: [], labOrders: [], splitSessionStatus: {}, from: null, to: _dayShift(from, -1) };
+    return;
+  }
+  try {
+    // v542: هويةُ الجلسة (type/description) تلزم تبويبَي المرضى الجدد والاحتفاظ كي لا يُعدّ رصيدٌ سابق أو رسمُ غيابٍ قديم «زيارة».
+    priorCtx = await fetchCtx(null, _dayShift(from, -1), statusList, true);
+  } catch (e) {
+    console.warn('loadPriorContext:', e);
+    priorCtx = null;
+    showToast('⚠️ تعذّر حساب الرصيد السابق — تُعرض أرقام الفترة وحدها');
+  }
+}
+// v307: الفترةُ السابقة بنفس الطول مباشرةً قبل الفترة (دلالة «Previous period» في QuickBooks).
+// «كل الفترات» بلا سابقة. فشلُها صامت (المقارنة زينةٌ تحليلية لا رقمٌ ماليّ).
+var prevCtx = null;
+function prevWindow(from, to) {
+  if (!from || !to || from <= '2020-01-01' || to < from) return null;
+  var len = Math.round((new Date(to + 'T00:00:00') - new Date(from + 'T00:00:00')) / 86400000); // أيام − 1
+  var pTo = _dayShift(from, -1);
+  return { from: _dayShift(pTo, -len), to: pTo };
+}
+async function loadPrevContext(from, to, statusList) {
+  prevCtx = null;
+  var w = prevWindow(from, to);
+  if (!w) return;
+  try { prevCtx = await fetchCtx(w.from, w.to, statusList, true); }
+  catch (e) { console.warn('loadPrevContext:', e); prevCtx = null; }
+}
+// تشغيل دالةٍ على سياقٍ بديل (مفلترٍ بالعملة) بتبديل المصفوفات العامة ثم إرجاعها — نمط withCurrencyLayer.
+function withCtx(ctx, cur, fn) {
+  var full = { sessions: sessions, payments: payments, paymentSplits: paymentSplits,
+               labOrders: labOrders, splitSessionStatus: splitSessionStatus };
+  try {
+    sessions      = cur ? _filterCur(ctx.sessions, cur)      : ctx.sessions;
+    payments      = cur ? _filterCur(ctx.payments, cur)      : ctx.payments;
+    paymentSplits = cur ? _filterCur(ctx.paymentSplits, cur) : ctx.paymentSplits;
+    labOrders     = cur ? _filterCur(ctx.labOrders, cur)     : ctx.labOrders;
+    splitSessionStatus = ctx.splitSessionStatus || {};
+    return fn();
+  } finally {
+    sessions = full.sessions; payments = full.payments; paymentSplits = full.paymentSplits;
+    labOrders = full.labOrders; splitSessionStatus = full.splitSessionStatus;
+  }
+}
+
+// يوم التسديد المحلي لدفعة طبيب (paid_at TIMESTAMPTZ)؛ صفٌّ قديم بلا paid_at يرتدّ لنهاية فترته.
+function _payoutDay(po) {
+  var d = (po && po.paid_at) ? new Date(po.paid_at) : null;
+  if (d && !isNaN(d.getTime())) return toDay(d);
+  return (po && po.period_end) || '';
+}
+// v382: الجزءُ المحسوب على حصّة الإنتاج من دفعةٍ ما — عبر SyDentPayroll (مصدرٌ واحد
+// مع صفحة الرواتب). هذا التقرير دفترُ حصّة الإنتاج حصراً: راتبُ الطبيب الثابت
+// ومكافأتُه ودفعاتُ نموذج «بدون» لا تُخصم منه. كانت الدفعةُ تُطرح كاملةً فطبيبُ
+// الراتب الثابت يظهر «مقدَّم لصالح العيادة» بقيمة راتبه بعد كل شهر.
+function _payoutShareOf(po) {
+  var d = doctors.find(function(x){ return x.id === po.provider_id; });
+  var model = (d && d.compensation_model) || 'percentage';
+  return window.SyDentPayroll.payoutParts(po, model, function (p) {
+    if (!d) return 0;
+    var salCur = (d.salary_currency === 'USD') ? 'USD' : 'SYP';
+    if (_rowCur(p) !== salCur) return 0;
+    return window.SyDentPayroll.prorateSalary(d.monthly_salary, p.period_start, p.period_end, _rowCur(p));
+  }).share;
+}
+// دفعات الطبيب المسدَّدة داخل النافذة (تقرأ `payouts` — مفلترةٌ بالعملة داخل الغلاف).
+function payoutsPaidInWindow(provId, from, to) {
+  return payouts.filter(function(po){
+    if (po.provider_id !== provId) return false;
+    var day = _payoutDay(po);
+    return day >= from && day <= to;
+  }).reduce(function(sum, po){ return sum + _payoutShareOf(po); }, 0);
+}
+// مستحقُّ كل ما قبل الفترة (بالأساس المختار) — null = غير متاح / المالك.
+function computeOpeningDue(d) {
+  if (!priorCtx || !d || d.is_owner) return null;
+  return withCtx(priorCtx, _renderCur, function(){ return computePayout(d, computeProviderStats(d.id)); });
+}
+// الرصيد الافتتاحي = مستحق كل ما قبل الفترة (بالأساس المختار) − كل ما دُفع قبلها.
+// null = غير متاح (priorCtx مفقود، أو المالك — دافعٌ لا مستفيد فلا ذمّة له).
+function computeOpeningBalance(d, from) {
+  var due = computeOpeningDue(d);
+  if (due === null) return null;
+  var paidBefore = payouts.filter(function(po){
+    return po.provider_id === d.id && _payoutDay(po) < from;
+  }).reduce(function(sum, po){ return sum + _payoutShareOf(po); }, 0);
+  return due - paidBefore;
+}
+// تسمية الرصيد الثلاثية (مرآة بطاقة المخبر: مستحق له / رصيد لصالح العيادة / مسدَّد).
+// العتبة بالوحدة الصغرى (سنت/ليرة) لا 0.5 — كي لا تُقرأ 40 سنتاً «مسدَّد».
+// v309: حالة الرصيد السابق (بداية الفترة) — صفرٌ هنا يعني «لا تاريخ قبل الفترة» لا «سُدّد».
+function openingState(v) {
+  var r = Math.round((Number(v) || 0) * 100) / 100;
+  if (Math.abs(r) < 0.005) return { cls: '',     txt: 'لا حركات قبل الفترة',    val: 0 };
+  if (r > 0)               return { cls: 'warn', txt: 'مستحق للطبيب',            val: r };
+  return                          { cls: 'info', txt: 'مقدَّم لصالح العيادة',    val: -r };
+}
+function balanceState(v) {
+  var r = Math.round((Number(v) || 0) * 100) / 100;
+  if (Math.abs(r) < 0.005) return { cls: 'ok',   txt: 'مسدَّد — لا مستحق',            val: 0 };
+  if (r > 0)               return { cls: 'warn', txt: 'مستحق للطبيب',                 val: r };
+  return                          { cls: 'info', txt: 'رصيد مقدَّم لصالح العيادة',     val: -r };
+}
+
+// ─── Lab cost attribution (Migration 73) ───
+// Lab cost is attributed to the treating provider via the explicit provider_id
+// column stored on each lab_order at write time — NO session matching. `labOrders`
+// is already filtered to the active window (by date_sent) at load time, so summing
+// here is window-correct and deterministic regardless of the filter. Matches
+// OpenDental (labcase.ProvNum stored on the lab). provId === '_unassigned'
+// aggregates orders with no provider_id, so they never silently fall onto the owner.
+function providerLabCost(provId) {
+  var sum = 0;
+  for (var i = 0; i < labOrders.length; i++) {
+    var lo = labOrders[i];
+    var match = (provId === '_unassigned') ? !lo.provider_id : lo.provider_id === provId;
+    if (match) sum += Number(lo.cost) || 0;
+  }
+  return sum;
+}
+
+// Populate splitSessionStatus for every distinct session_id referenced by the loaded
+// splits. Fetched independently of the range-filtered `sessions` array because a split's
+// session may be completed-but-out-of-range (must still count as earned) or planned (must
+// count as unearned) — neither is reliably present in `sessions`. Chunked to keep the
+// PostgREST .in() URL within length limits. Parity with accounting.html.
+async function loadSplitSessionStatuses() {
+  splitSessionStatus = {};
+  var idSet = {};
+  for (var i = 0; i < paymentSplits.length; i++) {
+    var sid = paymentSplits[i].session_id;
+    if (sid) idSet[sid] = true;
+  }
+  var ids = Object.keys(idSet);
+  if (!ids.length) return;
+  var CHUNK = 150;
+  for (var c = 0; c < ids.length; c += CHUNK) {
+    var slice = ids.slice(c, c + CHUNK);
+    try {
+      var res = await window.sb.from('ledger_sessions')
+        .select('id, status')
+        .eq('doctor_id', currentUser.id)
+        .in('id', slice);
+      if (res.error) {
+        // On error, leave these ids unmapped → splitIsEarned treats them as NOT-completed
+        // (conservative: avoids inflating collection). A pre-Migration-3 DB has no splits anyway.
+        var msg = (res.error.message || '').toLowerCase();
+        var missing = res.error.code === '42P01' || res.error.code === 'PGRST205' ||
+                      msg.indexOf('ledger_sessions') !== -1;
+        if (!missing) console.warn('loadSplitSessionStatuses:', res.error);
+        continue;
+      }
+      (res.data || []).forEach(function(row){
+        // Legacy sessions with empty/null status fold to 'completed' (system-wide convention).
+        splitSessionStatus[row.id] = row.status || 'completed';
+      });
+    } catch(e) { console.warn('loadSplitSessionStatuses threw:', e); }
+  }
+}
+
+// Canonical earned-split test (parity with accounting.html / patient-profile.html
+// computeFinancials): a split is EARNED collection only when it is not unearned AND it
+// sits on a COMPLETED session. Non-unearned splits on planned sessions (or with no
+// session_id) are mobile credit — money received for work not yet done — not collected
+// revenue. Without this, legacy un-healed prepayments-on-planned-sessions would overstate
+// a provider's collection figure relative to the clinic accounting page.
+function splitIsEarned(sp) {
+  if (!sp || sp.is_unearned) return false;
+  return !!sp.session_id && splitSessionStatus[sp.session_id] === 'completed';
+}
+
+// ─── Compute provider stats ───
+// For a given provider, compute production/lab/net from sessions and allocated
+// collection from payments based on the provider's share of patient production.
+// Lab cost is attributed via the explicit provider_id column (Migration 73), so no
+// matchedSet is needed any more.
+// ═══════════════════════════════════════════════════════════════════════════
+// M125 — تعدد العملات: طبقة القسمة (مرآة مبدأ accounting.html)
+// المحرّك (computeProviderStats/computePayout) لا يُمسّ — يعمل داخل شريحة
+// عملة واحدة بتبديل المصفوفات العامة ثم إرجاعها، فالتخصيص النسبي للـlegacy
+// يجري على مستوى (مريض، عملة) بالبناء، وصفر جمع عابر للعملات بأي مسار —
+// بما فيه مسارات النقر (التفاصيل/الطباعة/الدفعة) عبر أغلفة العملة.
+function _rowCur(r) { return (r && r.currency === 'USD') ? 'USD' : 'SYP'; }
+function _filterCur(arr, cur) {
+  return (arr || []).filter(function(r){ return _rowCur(r) === cur; });
+}
+function withCurrencyLayer(cur, fn) {
+  var full = { sessions: sessions, payments: payments, paymentSplits: paymentSplits,
+               labOrders: labOrders, payouts: payouts };
+  sessions      = _filterCur(full.sessions, cur);
+  payments      = _filterCur(full.payments, cur);
+  paymentSplits = _filterCur(full.paymentSplits, cur);
+  labOrders     = _filterCur(full.labOrders, cur);
+  payouts       = _filterCur(full.payouts, cur);
+  var prev = _renderCur;
+  _renderCur = cur;
+  try { fn(); } finally {
+    sessions = full.sessions; payments = full.payments; paymentSplits = full.paymentSplits;
+    labOrders = full.labOrders; payouts = full.payouts;
+    _renderCur = prev;
+  }
+}
+function _activeCursPR() {
+  var act = [];
+  ['SYP', 'USD'].forEach(function(cur){
+    var has = [sessions, payments, paymentSplits, labOrders, payouts].some(function(arr){
+      return (arr || []).some(function(r){ return _rowCur(r) === cur; });
+    });
+    if (has) act.push(cur);
+  });
+  // ترتيب الطبقات يتبع عملة العيادة الافتراضية (سابقة v200) لا قائمةً مثبّتة —
+  // المصدرُ الواحد `SyDentCurBag.active`، وأيُّ خطأ يُبقي الترتيبَ المثبَّت.
+  try {
+    act = window.SyDentCurBag.active({
+      SYP: (act.indexOf('SYP') !== -1) ? 1 : 0,
+      USD: (act.indexOf('USD') !== -1) ? 1 : 0
+    });
+  } catch (e) {}
+  return act;
+}
+function renderCurrencyHeaderPR(cur) {
+  var label = (cur === 'USD') ? 'حساب الدولار ($)' : 'حساب الليرة السورية (ل.س)';
+  var ico = (cur === 'USD') ? '\ud83d\udcb5' : '\ud83d\udcb0';
+  return '<div style="display:flex;align-items:center;gap:10px;margin:26px 0 14px;">' +
+    '<span style="font-weight:800;font-size:17px;">' + ico + ' ' + label + '</span>' +
+    '<span style="flex:1;height:1px;background:var(--border, rgba(120,150,180,.35));"></span>' +
+  '</div>';
+}
+
+function computeProviderStats(provId) {
+  // 1. Sessions belonging to this provider
+  var provSessions = sessions.filter(function(s){
+    if (provId === '_unassigned') return !s.provider_id;
+    return s.provider_id === provId;
+  });
+  var sessionCount = provSessions.length;
+  var production = provSessions.reduce(function(sum, s){ return sum + (Number(s.cost) || 0); }, 0);
+
+  // 2. Lab cost: explicit per-provider attribution via provider_id (Migration 73).
+  // No matchedSet needed — each lab_order carries exactly one provider_id, so it is
+  // counted once by construction, regardless of the filter window.
+  var labCost = providerLabCost(provId);
+
+  var net = production - labCost;
+
+  // 3. Collection allocation.
+  // Preferred (Migration 3+): sum payment_splits.amount where provider_id matches.
+  // This is exact — each split records the actual amount that flowed to a
+  // specific session under a specific provider, computed FIFO when the payment
+  // was made. Matches OpenDental's "Daily Payments Report — Show splits by
+  // provider separately" semantics.
+  // Fallback (legacy / pre-Migration-3 / payments without splits): proportional
+  // ratio of patient production. Kept so old payments don't disappear from
+  // reports.
+  var collection = 0;
+  // Build a set of payment_ids that have at least one split, so we know which
+  // payments to allocate via splits vs proportional fallback.
+  var paymentIdsWithSplits = {};
+  for (var k = 0; k < paymentSplits.length; k++) {
+    paymentIdsWithSplits[paymentSplits[k].payment_id] = true;
+  }
+  // Part A — splits-based attribution (exact).
+  // Canonical earned-split rule: count a split only if it is earned (not unearned AND on a
+  // completed session). Unearned credit and allocations on planned sessions are excluded —
+  // matching accounting.html so per-provider collection can't exceed clinic revenue.
+  for (var i = 0; i < paymentSplits.length; i++) {
+    var sp = paymentSplits[i];
+    if (!splitIsEarned(sp)) continue;
+    var matchesProv = (provId === '_unassigned')
+      ? !sp.provider_id
+      : sp.provider_id === provId;
+    if (matchesProv) collection += Number(sp.amount) || 0;
+  }
+  // Part B — proportional fallback for payments without splits (legacy data).
+  // Filter payments to only those NOT covered by splits, then apply the old
+  // ratio formula on this subset.
+  var legacyPayments = payments.filter(function(p){
+    return !paymentIdsWithSplits[p.id];
+  });
+  if (legacyPayments.length) {
+    var byPatient = {};
+    sessions.forEach(function(s){
+      if (!byPatient[s.patient_id]) byPatient[s.patient_id] = { total: 0, provTotal: 0 };
+      byPatient[s.patient_id].total += Number(s.cost) || 0;
+      if ((provId === '_unassigned' && !s.provider_id) || s.provider_id === provId) {
+        byPatient[s.patient_id].provTotal += Number(s.cost) || 0;
+      }
+    });
+    var legacyPaymentsByPatient = {};
+    legacyPayments.forEach(function(p){
+      legacyPaymentsByPatient[p.patient_id] =
+        (legacyPaymentsByPatient[p.patient_id] || 0) + (Number(p.amount) || 0);
+    });
+    Object.keys(byPatient).forEach(function(pid){
+      var rec = byPatient[pid];
+      if (rec.total <= 0 || rec.provTotal <= 0) return;
+      var ratio = rec.provTotal / rec.total;
+      collection += (legacyPaymentsByPatient[pid] || 0) * ratio;
+    });
+  }
+
+  return {
+    sessionCount: sessionCount,
+    production: production,
+    labCost: labCost,
+    net: net,
+    collection: collection,
+    sessions: provSessions
+  };
+}
+
+/* v545: مجاميعُ العيادة للنافذة المحمّلة حالياً (أو داخل withCtx/withCurrencyLayer) — مصدرٌ واحد لملخّص تبويب
+   الأطباء ولتبويب «ملخّص الفترة». المخبر = كلُّ طلبات النافذة (مفلترةٌ بـdate_sent عند التحميل) = Σ مخبر البطاقات + غيرُ المسنَد. */
+function clinicTotals() {
+  var lab = 0;
+  for (var li = 0; li < labOrders.length; li++) lab += Number(labOrders[li].cost) || 0;
+  return {
+    sessions: sessions.length,
+    production: sessions.reduce(function(sum, s){ return sum + (Number(s.cost) || 0); }, 0),
+    collection: payments.reduce(function(sum, p){ return sum + (Number(p.amount) || 0); }, 0),
+    lab: lab
+  };
+}
+
+function getShareBase(stats) {
+  if (basis === 'net') return stats.net;
+  if (basis === 'collection') return stats.collection;
+  return stats.production;
+}
+
+function computePayout(provider, stats) {
+  var sharePct = resolveSharePercent(provider);
+  var PRm = window.SyDentPayroll;
+  var hist = provider && provider.share_history;
+  // v384: سجلٌّ فارغ (أو ما قبل Migration 144) ⇒ نسبةٌ ثابتة — المسارُ السابق حرفياً.
+  if (!PRm || !PRm.normalizeHistory(hist).length) {
+    var base = getShareBase(stats);
+    return Math.max(0, base * sharePct / 100);
+  }
+  return Math.max(0, _shareWeighted(provider.id, hist, sharePct, stats));
+}
+// v384: الحصّةُ بسجلّ النسب — كلُّ جلسةٍ × النسبةِ السارية بتاريخها (أساسُ الإنتاج
+// دقيقٌ حرفياً). أساسا «الصافي» و«التحصيل» يطبّقان النسبةَ الفعلية المرجَّحة بإنتاج
+// الفترة على المخبر/التحصيل (لا تاريخَ نسبةٍ طبيعياً لدفعةٍ تسدّد جلساتٍ متعددة).
+function _shareWeighted(provId, hist, sharePct, stats) {
+  var PRm = window.SyDentPayroll;
+  var prodRaw = 0, prodShare = 0;
+  sessions.forEach(function(s){
+    if (s.provider_id !== provId) return;
+    var c = Number(s.cost) || 0;
+    prodRaw += c;
+    prodShare += c * PRm.rateAt(hist, sharePct, s.date) / 100;
+  });
+  if (basis === 'production') return prodShare;
+  // لا إنتاجَ بالفترة ⇒ النسبةُ الأحدث بالسجل (لا DOM هنا — تعمل داخل withCtx للرصيد السابق أيضاً)
+  var effRate = prodRaw > 0 ? (prodShare / prodRaw) : (PRm.rateAt(hist, sharePct, '9999-12-31') / 100);
+  if (basis === 'net') return prodShare - (stats.labCost || 0) * effRate;
+  return (stats.collection || 0) * effRate;   // collection
+}
+
+// Resolve effective share% for a provider, handling null/empty/invalid values.
+// Owner with no share set → 100% (so owner-as-only-doctor still works).
+// Non-owner with no share set → 0%.
+function resolveSharePercent(provider) {
+  var raw = provider.share_percent;
+  if (raw === null || raw === undefined || raw === '') {
+    return provider.is_owner ? 100 : 0;
+  }
+  var n = Number(raw);
+  if (!isFinite(n)) return provider.is_owner ? 100 : 0;
+  return n;
+}
+
+// Format share% for display (handles "not set" case)
+function formatSharePctDisplay(provider) {
+  var raw = provider.share_percent;
+  if (raw === null || raw === undefined || raw === '' || !isFinite(Number(raw))) {
+    return provider.is_owner ? '100% (افتراضي)' : '— لم تُحدد —';
+  }
+  return Number(raw) + '%';
+}
+
+// ─── Render ───
+// v307: قائمةُ الأطباء الظاهرين — مُستخرَجة حرفياً من _renderLayerPR لتخدم التصدير أيضاً.
+function getVisibleDoctors() {
+  var providerFilter = document.getElementById('providerFilter').value;
+  // Phase 4 + 5: Defense-in-depth — in Doctor mode, force the filter to
+  // the logged doctor's id regardless of what the dropdown says. Prevents
+  // any race / edge case from leaking other providers' data. Uses the
+  // Phase 5 effective doctor id resolver (falls back to employee.doctor_id
+  // if LS_DOCTOR_ID is empty — common in Phase 5 employee-locked devices).
+  if (window.SyDentLock && window.SyDentLock.isDoctor()) {
+    var lockedDid = (typeof window.SyDentLock.getEffectiveDoctorId === 'function')
+      ? window.SyDentLock.getEffectiveDoctorId()
+      : window.SyDentLock.getDoctorId();
+    if (lockedDid) providerFilter = lockedDid;
+  }
+  var inactiveMode = document.getElementById('inactiveFilter').value; // 'hide' | 'show'
+  // Phase 6 R: provider_type filter. 'all' = no filter (current behavior).
+  // Otherwise restrict the displayed doctors to the picked type. On
+  // pre-migration installs, doctors won't have a provider_type field at all,
+  // so we treat undefined as 'doctor' (the legacy default) to keep the
+  // 'أطباء فقط' filter useful even before Migration 13 runs.
+  var providerTypeFilterEl = document.getElementById('providerTypeFilter');
+  var providerTypeFilter = providerTypeFilterEl ? providerTypeFilterEl.value : 'all';
+  var visibleDoctors = doctors.filter(function(d){
+    // Hide inactive unless explicitly showing them OR they're specifically picked
+    if (inactiveMode === 'hide' && d.is_active === false && providerFilter !== d.id) return false;
+    if (providerFilter !== 'all' && d.id !== providerFilter) return false;
+    if (providerTypeFilter !== 'all') {
+      var dType = d.provider_type || 'doctor'; // pre-migration → doctor
+      if (dType !== providerTypeFilter) return false;
+    }
+    return true;
+  });
+  return { list: visibleDoctors, providerFilter: providerFilter };
+}
+
+function _renderLayerPR() {
+  var _vis = getVisibleDoctors();
+  var visibleDoctors = _vis.list;
+  var providerFilter = _vis.providerFilter;
+
+  // Detect unassigned sessions (no provider_id)
+  var hasUnassigned = sessions.some(function(s){ return !s.provider_id; });
+
+  if (!visibleDoctors.length && !hasUnassigned) {
+    document.getElementById('summaryRow').innerHTML = '';
+    document.getElementById('provList').innerHTML =
+      '<div class="empty-state"><div class="ic">👨‍⚕️</div>' +
+      '<div class="ttl">لا يوجد أطباء بعد</div>' +
+      '<div style="margin-top:6px;">أضف أطباء العيادة من صفحة "أطباء العيادة" أولاً.</div></div>';
+    return;
+  }
+
+  // ─── Summary stats ───
+  // v545: المجاميعُ الأربعة من clinicTotals() — مصدرٌ واحد مع «ملخّص الفترة» (#684).
+  var _ct = clinicTotals();
+  var totalSessions = _ct.sessions;
+  var totalProduction = _ct.production;
+  var totalCollection = _ct.collection;
+  var totalLab = _ct.lab;
+
+  // Total payouts across all visible doctors
+  var totalPayouts = 0;
+  // Cache provider stats to avoid duplicate work in cards loop below
+  var providerStatsCache = {};
+  visibleDoctors.forEach(function(d){
+    var stats = computeProviderStats(d.id);
+    providerStatsCache[d.id] = stats;
+    totalPayouts += computePayout(d, stats);
+  });
+
+  // v307: الفترةُ السابقة — نفسُ المجاميع الخمسة على prevCtx (داخل طبقة العملة نفسها).
+  var prev = null;
+  if (prevCtx) {
+    prev = withCtx(prevCtx, _renderCur, function(){
+      var t = clinicTotals();
+      var pay = 0; visibleDoctors.forEach(function(d){ pay += computePayout(d, computeProviderStats(d.id)); });
+      t.payouts = pay;
+      return t;
+    });
+  }
+  function deltaHtml(cur, prv, invert) {
+    if (!prev) return '';
+    if (!(prv > 0)) return (cur > 0) ? '<div class="delta flat">— لا سابق للمقارنة</div>' : '';
+    var pct = (cur - prv) / prv * 100;
+    var up = pct >= 0;
+    var good = invert ? !up : up;            // المخبر: الانخفاضُ هو الجيّد
+    var cls = Math.abs(pct) < 0.5 ? 'flat' : (good ? 'good' : 'bad');
+    var arrow = Math.abs(pct) < 0.5 ? '=' : (up ? '▲' : '▼');
+    return '<div class="delta ' + cls + '" title="الفترة السابقة ' + escapeHtml(prevCtx.from) + ' ← ' + escapeHtml(prevCtx.to) + '">'
+      + arrow + ' ' + Math.abs(pct).toFixed(0) + '% <span>مقابل الفترة السابقة</span></div>';
+  }
+
+  // Doctor mode: show ONLY this doctor's own report (the provider card below).
+  // Hide the clinic-wide aggregate summary (sessions/production/lab/collection/
+  // payouts) — a doctor-employee must never see other providers' or whole-clinic
+  // totals. Data is fetched tenant-wide and scoped client-side, so the summary
+  // row would otherwise leak clinic totals. Matches Dentrix/OpenDental provider
+  // self-service scoping. Provider card below already shows all of this doctor's
+  // own numbers, so no information is lost.
+  var summaryEl = document.getElementById('summaryRow');
+  if (window.SyDentLock && window.SyDentLock.isDoctor()) {
+    summaryEl.innerHTML = '';
+    summaryEl.style.display = 'none';
+  } else {
+    summaryEl.style.display = '';
+    summaryEl.innerHTML =
+    '<div class="stat-card blue">'
+      + '<div class="lbl">عدد الجلسات</div>'
+      + '<div class="val">' + fmt(totalSessions) + '</div>'
+      + '<div class="sub">في الفترة المحددة</div>'
+      + deltaHtml(totalSessions, prev && prev.sessions)
+    + '</div>'
+    + '<div class="stat-card green">'
+      + '<div class="lbl">إجمالي الإنتاج</div>'
+      + '<div class="val">' + fmtSY(totalProduction) + '</div>'
+      + '<div class="sub">قيمة كل ما سُجّل</div>'
+      + deltaHtml(totalProduction, prev && prev.production)
+    + '</div>'
+    + '<div class="stat-card orange">'
+      + '<div class="lbl">إجمالي المخبر</div>'
+      + '<div class="val">' + fmtSY(totalLab) + '</div>'
+      + '<div class="sub">من طلبات lab_orders</div>'
+      + deltaHtml(totalLab, prev && prev.lab, true)
+    + '</div>'
+    + '<div class="stat-card blue">'
+      + '<div class="lbl">إجمالي التحصيل</div>'
+      + '<div class="val">' + fmtSY(totalCollection) + '</div>'
+      + '<div class="sub">المدفوعات في الفترة</div>'
+      + deltaHtml(totalCollection, prev && prev.collection)
+    + '</div>'
+    + '<div class="stat-card green">'
+      + '<div class="lbl">مستحق الأطباء</div>'
+      + '<div class="val">' + fmtSY(totalPayouts) + '</div>'
+      + '<div class="sub">حسب الأساس المُختار</div>'
+      + deltaHtml(totalPayouts, prev && prev.payouts)
+    + '</div>';
+  }
+
+  // ─── Provider cards ───
+  var html = '<div class="providers-grid">';
+
+  visibleDoctors.forEach(function(d){
+    var stats = providerStatsCache[d.id];  // Use cached version with deduped labs
+    var payout = computePayout(d, stats);
+    var sharePctDisplay = formatSharePctDisplay(d);
+    // v384: نسبٌ متغيّرة داخل الفترة تُقال صراحةً (كل جلسة بنسبة تاريخها)
+    var _wFrom = document.getElementById('fromDate').value, _wTo = document.getElementById('toDate').value;
+    var _ratesIn = (window.SyDentPayroll && _wFrom && _wTo) ? window.SyDentPayroll.ratesInRange(d.share_history, resolveSharePercent(d), _wFrom, _wTo) : [];
+    if (_ratesIn.length > 1) sharePctDisplay = escapeHtml(_ratesIn.map(function(r){ return r + '%'; }).join(' ← ')) + ' (متغيّرة بالفترة)';
+
+    // F5 (قاعدة #195): اللون يُحقن بسمة style — يُقبل hex أو var(--*) حصراً وإلا الافتراضي.
+    var color = /^#[0-9a-fA-F]{3,8}$/.test(d.color || '') || /^var\(--[a-zA-Z0-9-]+\)$/.test(d.color || '')
+      ? d.color : '#0d8577';
+    var basisLabel = basis === 'production' ? 'الإنتاج' : (basis === 'net' ? 'الصافي' : 'التحصيل');
+    var baseValue = getShareBase(stats);
+
+    // v306: الدفعات تُؤرَّخ بيوم التسديد (لا بتداخل الفترة) + رصيد مرحَّل من قبل الفترة.
+    var from = document.getElementById('fromDate').value;
+    var to   = document.getElementById('toDate').value;
+    var paidInRange = payoutsPaidInWindow(d.id, from, to);
+    var opening = computeOpeningBalance(d, from);          // null = غير متاح / المالك
+    var closing = (opening === null) ? (payout - paidInRange) : (opening + payout - paidInRange);
+    var closingSt = balanceState(closing);
+
+    var ledgerHtml = '';
+    if (opening !== null && Math.abs(opening) >= 0.005) {
+      var opSt = openingState(opening);
+      ledgerHtml += '<div class="prov-row"><span class="k">رصيد سابق قبل ' + escapeHtml(from) + '<span class="hint">' + opSt.txt + '</span></span>'
+        + '<span class="v" style="color:var(--' + (opSt.cls === 'warn' ? 'yellow' : 'blue') + ');">' + (opSt.cls === 'warn' ? '+' : '−') + fmtSY(opSt.val) + '</span></div>';
+    }
+    if (paidInRange > 0) {
+      ledgerHtml += '<div class="prov-row"><span class="k">المدفوع للطبيب بالفترة<span class="hint">بتاريخ التسديد — حصّة الإنتاج من الدفعات</span></span><span class="v">' + fmtSY(paidInRange) + '</span></div>';
+    }
+    // صفّ الرصيد الملوَّن يظهر فقط حين يوجد ما يُسوَّى (دفعة بالفترة أو رصيد مرحَّل) — وإلا فالصندوق يكفي.
+    var remainingHtml = '';
+    if (opening === null ? paidInRange > 0 : (paidInRange > 0 || Math.abs(opening) >= 0.005)) {
+      remainingHtml = '<div class="prov-row remaining ' + closingSt.cls + '">'
+        + '<span class="k">' + closingSt.txt + '</span>'
+        + '<span class="v">' + (closingSt.cls === 'ok' ? '✓' : fmtSY(closingSt.val)) + '</span>'
+      + '</div>';
+    }
+
+    // v382: نموذجُ التعويض يُقال صراحةً — هذا التقرير دفترُ حصّة الإنتاج، والراتبُ الثابت
+    // يُحسب ويُسجَّل من صفحة الرواتب (بأيام الشهر الفعلية) ولا يدخل بالرصيد أدناه.
+    // كان طبيبُ الراتب الثابت يظهر «مستحق 0» ثم «مقدَّم لصالح العيادة» بعد دفع راتبه.
+    var compensationHtml = '';
+    var _cm = d.compensation_model || 'percentage';
+    if ((_cm === 'salary' || _cm === 'hybrid') && !d.is_owner) {
+      var _sal = Number(d.monthly_salary) || 0;
+      /* v452: كان سطراً رمادياً يضيع بين الأرقام، فيُقرأ الراتبُ كأنه داخلٌ
+         بالرصيد أدناه (بلاغ المالك). صار بطاقةً زرقاء بوسمٍ صريح. */
+      compensationHtml = '<div class="prov-row sal-row"><span class="k">💼 راتب ثابت' + (_cm === 'hybrid' ? ' (إضافةً للنسبة)' : '')
+        + '<span class="hint"><b>لا يدخل بالرصيد أدناه</b> — يُحسب ويُسجَّل من صفحة الرواتب</span></span>'
+        + '<span class="v">' + (_sal > 0 ? escapeHtml(_fmtRowAmt({ amount: _sal, currency: d.salary_currency })) + ' / شهر' : 'لم يُحدَّد') + '</span></div>';
+    } else if (_cm === 'none' && !d.is_owner) {
+      compensationHtml = '<div class="prov-row"><span class="k">التعويض<span class="hint">بلا حساب تلقائي — يُدخَل يدوياً من صفحة الرواتب ولا يُخصم من الحصّة</span></span>'
+        + '<span class="v">بدون</span></div>';
+    }
+
+    var avgSessionValue = stats.sessionCount > 0 ? stats.production / stats.sessionCount : 0;
+    // نسبة التحصيل تُعرض فقط حين يوجد إنتاج بالفترة: نقدٌ عابر للفترات ÷ إنتاج فترة واحدة
+    // بلا إنتاج = «(0%)» أو «(462%)» مضلِّل.
+    var collectionRateHtml = stats.production > 0
+      ? ' <span style="color:var(--text2);font-size:10px;">(' + (stats.collection / stats.production * 100).toFixed(0) + '%)</span>'
+      : '';
+    var inactiveBadge = d.is_active === false
+      ? ' <span class="tone tone-red" style="display:inline-block;border-width:1px;border-style:solid;padding:0 5px;border-radius:8px;font-size:9px;font-weight:700;">معطل</span>'
+      : '';
+
+    html += '<div class="prov-card">'
+      + '<div class="color-bar" style="background:' + color + ';"></div>'
+      + '<div class="prov-body">'
+        + '<div class="prov-head">'
+          + '<div class="prov-avatar" style="background:' + color + ';">' + escapeHtml(initials(d.name)) + '</div>'
+          + '<div style="flex:1;">'
+            + '<div class="prov-name">'
+              + providerTypePrefix(d.provider_type)
+              + escapeHtml(d.name) + (d.is_owner ? ' ⭐' : '') + inactiveBadge
+            + '</div>'
+            + '<div class="prov-role">' + (d.role ? escapeHtml(d.role) + ' • ' : '') + 'نسبة: ' + sharePctDisplay + '</div>'
+          + '</div>'
+        + '</div>'
+
+        + '<div class="prov-rows">'
+          + '<div class="prov-row"><span class="k">عدد الجلسات</span><span class="v">' + fmt(stats.sessionCount) + '</span></div>'
+          + '<div class="prov-row"><span class="k">متوسط قيمة الجلسة</span><span class="v">' + fmtSY(avgSessionValue) + '</span></div>'
+          + '<div class="prov-row"><span class="k">الإنتاج</span><span class="v">' + fmtSY(stats.production) + '</span></div>'
+          + '<div class="prov-row"><span class="k">تكلفة المخبر</span><span class="v">' + fmtSY(stats.labCost) + '</span></div>'
+          + '<div class="prov-row"><span class="k">الصافي بعد المخبر</span><span class="v">' + fmtSY(stats.net) + '</span></div>'
+          + '<div class="prov-row"><span class="k">التحصيل النقدي بالفترة<span class="hint">ما قُبض بالفترة لجلساته المكتملة — بأي تاريخ</span></span><span class="v">' + fmtSY(stats.collection) + collectionRateHtml + '</span></div>'
+          + '<div class="prov-row divider"><span class="k">أساس الحساب (' + basisLabel + ')</span><span class="v">' + fmtSY(baseValue) + '</span></div>'
+          + '<div class="prov-row"><span class="k">مستحق الفترة<span class="hint">' + sharePctDisplay + ' × ' + basisLabel + '</span></span><span class="v">' + fmtSY(payout) + '</span></div>'
+          + compensationHtml
+          + ledgerHtml
+          + remainingHtml
+        + '</div>'
+
+        // v306: الصندوق = الرصيد الختامي حتى نهاية الفترة (ما يُسوَّى فعلاً)، لا مستحق الفترة وحده.
+        // المالك دافعٌ لا مستفيد ⇒ يبقى صندوقه «مستحق الفترة» كما كان.
+        + (opening === null
+          ? '<div class="payout-box">'
+              + '<div><div class="lbl">💵 مستحق الطبيب</div><div class="sub">' + sharePctDisplay + ' × ' + basisLabel + '</div></div>'
+              + '<div class="amt">' + fmtSY(payout) + '</div>'
+            + '</div>'
+          : '<div class="payout-box bal-' + closingSt.cls + '">'
+              + '<div><div class="lbl">💵 الرصيد حتى ' + escapeHtml(to) + (_cm === 'percentage' || d.is_owner ? '' : ' — حصّة الإنتاج فقط') + '</div>'
+                + '<div class="sub">' + closingSt.txt + ' · سابق + مستحق الفترة − مدفوع'
+                + (_cm === 'salary' ? ' · الراتبُ الثابت يُسوّى من صفحة الرواتب'
+                   : (_cm === 'hybrid' ? ' · الراتبُ الثابت خارجَه' : '')) + '</div></div>'
+              + '<div class="amt">' + fmtSY(closingSt.val) + '</div>'
+            + '</div>')
+
+        + '<div class="prov-actions sy-acts sy-acts-grid">'
+          + '<button class="sy-act" onclick="showDetails(\'' + d.id + '\',\'' + (_renderCur || '') + '\')">📋 التفاصيل</button>'
+          + '<button class="sy-act" onclick="printSlip(\'' + d.id + '\',\'' + (_renderCur || '') + '\')">🖨️ طباعة كشف</button>'
+          // v308: كشف الحساب (القيد الزمني برصيد جارٍ) — للمستفيد لا للمالك الدافع.
+          + (!d.is_owner ? '<button class="sy-act" onclick="openLedger(\'' + d.id + '\',\'' + (_renderCur || '') + '\')">📒 كشف حساب</button>' : '')
+          // المالك هو الدافع لا المستفيد (مرآة قاعدة payouts.html): أرباحه سحبٌ من حقوق الملكية
+          // لا مصروفاً — ودفعةٌ مسجَّلة له كانت ستدخل مصاريف المحاسبة وتُنقص صافي الربح خطأً.
+          + ((poIsOwner() && !d.is_owner) ? '<button class="sy-act sy-act-primary" onclick="openPayoutModal(\'' + d.id + '\',\'' + (_renderCur || '') + '\')">💵 تسجيل دفعة</button>' : '')
+        + '</div>'
+      + '</div>'
+    + '</div>';
+  });
+
+  // Add unassigned card if relevant and "all" is selected. Show it when there are
+  // unassigned sessions OR unassigned lab cost / collection, so an unassigned lab
+  // (provider_id NULL) never silently disappears from the per-provider view while
+  // still counting in the total.
+  if (providerFilter === 'all') {
+    var stats = computeProviderStats('_unassigned');
+    if (stats.sessionCount > 0 || stats.labCost > 0 || stats.collection > 0) {
+      html += '<div class="prov-card">'
+        + '<div class="color-bar" style="background:var(--text3);"></div>'
+        + '<div class="prov-body">'
+          + '<div class="prov-head">'
+            + '<div class="prov-avatar" style="background:var(--text3);">?</div>'
+            + '<div style="flex:1;">'
+              + '<div class="prov-name">بنود بدون طبيب محدد</div>'
+              + '<div class="prov-role">جلسات/مخابر قديمة أو أُدخلت قبل تحديد الطبيب</div>'
+            + '</div>'
+          + '</div>'
+          + '<div class="prov-rows">'
+            + '<div class="prov-row"><span class="k">عدد الجلسات</span><span class="v">' + fmt(stats.sessionCount) + '</span></div>'
+            + '<div class="prov-row"><span class="k">الإنتاج</span><span class="v">' + fmtSY(stats.production) + '</span></div>'
+            + '<div class="prov-row"><span class="k">تكلفة المخبر</span><span class="v">' + fmtSY(stats.labCost) + '</span></div>'
+          + '</div>'
+          + '<div style="font-size:11px;color:var(--text2);font-style:italic;text-align:center;padding:8px;">💡 افتح كل بند منها وحدّد له طبيباً من بطاقة المريض أو من صفحة المخابر</div>'
+        + '</div>'
+      + '</div>';
+    }
+  }
+
+  html += '</div>';
+  document.getElementById('provList').innerHTML = html;
+}
+
+// ─── Details modal ───
+function render() {
+  // M125: عيادة أحادية العملة → المسار الحرفي السابق بطبقة واحدة (صفر تغيير مرئي).
+  // عملتان نشطتان → كل طبقة تُرسم بالمسار الحرفي نفسه ثم يُجمَّع الناتج برأس عملة.
+  var act = _activeCursPR();
+  if (act.length <= 1) {
+    _renderCur = act.length ? act[0] : null;
+    try { _renderLayerPR(); } finally { _renderCur = null; }
+    return;
+  }
+  var sumEl  = document.getElementById('summaryRow');
+  var listEl = document.getElementById('provList');
+  var html = '';
+  act.forEach(function(cur){
+    withCurrencyLayer(cur, function(){
+      _renderLayerPR();
+      html += renderCurrencyHeaderPR(cur);
+      html += '<div class="' + (sumEl.className || '') + '">' + sumEl.innerHTML + '</div>';
+      html += listEl.innerHTML;
+    });
+  });
+  sumEl.innerHTML = '';
+  listEl.innerHTML = html;
+}
+
+function showDetails(provId, cur) {
+  // M125: زرٌّ داخل كتلة عملة يمرّر عملتها — الحساب يجري داخل شريحتها حصراً.
+  if (cur) { withCurrencyLayer(cur, function(){ _showDetailsCore(provId); }); return; }
+  _showDetailsCore(provId);
+}
+function _showDetailsCore(provId) {
+  var d = doctors.find(function(x){ return x.id === provId; });
+  if (!d) return;
+  var stats = computeProviderStats(provId);
+
+  // F1: الاسم بالقاعدة يحمل لقبه أصلاً (v186) — «د.» محفورة تعطي «د. د.»، وتُلبس غيرَ الطبيب لقباً ليس له.
+  document.getElementById('detailsTitle').textContent = '📋 جلسات ' + providerTypePrefix(d.provider_type) + d.name;
+
+  if (!stats.sessions.length) {
+    document.getElementById('detailsBody').innerHTML =
+      '<div class="empty-state" style="padding:30px 20px;"><div class="ic">📋</div>' +
+      '<div class="ttl">لا توجد جلسات في هذه الفترة</div></div>';
+    openModal('detailsModal');
+    return;
+  }
+
+  // Resolve effective share% via helper (handles null/empty/owner fallback correctly)
+  var sharePct = resolveSharePercent(d);
+
+  // Lab cost is attributed per-provider now (provider_id), not per-session. For this
+  // per-session breakdown we distribute the provider's total lab cost proportionally
+  // by each session's production share, so Σ sLabCost == the provider's labCost and
+  // Σ (net × share%) == the payout shown on the card. No session matching.
+  var dProvLabTotal = stats.labCost || 0;
+  var dProvProdTotal = stats.production || 0;
+  var rows = stats.sessions.slice().sort(function(a,b){
+    return (a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+  }).map(function(s){
+    var sCost = Number(s.cost) || 0;
+    var sLabCost = (dProvProdTotal > 0) ? (dProvLabTotal * sCost / dProvProdTotal) : 0;
+    var net = sCost - sLabCost;
+    var sessionShare;
+    if (basis === 'production') sessionShare = (Number(s.cost) || 0) * sharePct / 100;
+    else if (basis === 'net')   sessionShare = net * sharePct / 100;
+    else                        sessionShare = '—'; // collection per-session is not meaningful (it's pooled)
+
+    var statusBadge = s.status === 'planned'
+      ? '<span class="tone tone-red" style="display:inline-block;border-width:1px;border-style:solid;padding:0 5px;border-radius:8px;font-size:10px;">مخططة</span>'
+      : '';
+
+    return '<tr>'
+      + '<td>' + escapeHtml(SyDT.numDate(s.date) || '—') + '</td>'
+      + '<td>' + sessionPatientCell(s) + '</td>'
+      + '<td>' + escapeHtml(s.type || '—') + ' ' + statusBadge + '</td>'
+      + '<td>' + formatSessionToothCell(s) + '</td>'
+      + '<td class="num">' + fmtSY(s.cost) + '</td>'
+      + '<td class="num" style="color:var(--orange);">' + (sLabCost > 0 ? fmtSY(sLabCost) : '—') + '</td>'
+      + '<td class="num">' + (basis === 'collection' ? '—' : fmtSY(sessionShare)) + '</td>'
+    + '</tr>';
+  }).join('');
+
+  var collectionNote = basis === 'collection'
+    ? '<div style="background:var(--blue-soft);border:1px solid var(--blue-bd);padding:10px;border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--blue-fg);">💡 على أساس "التحصيل": لا يمكن تقسيم المدفوعات على جلسات فردية لأنها تُسجّل على مستوى المريض. النصيب من التحصيل يُحسب فقط على مستوى الإجمالي.</div>'
+    : '';
+
+  document.getElementById('detailsBody').innerHTML = collectionNote
+    + '<table class="data-table">'
+      + '<thead><tr>'
+        + '<th>التاريخ</th><th>المريض</th><th>العلاج</th><th>السن</th>'
+        + '<th class="num">السعر</th><th class="num">المخبر</th><th class="num">نصيب الطبيب</th>'
+      + '</tr></thead>'
+      + '<tbody>' + rows + '</tbody>'
+    + '</table>';
+  openModal('detailsModal');
+}
+
+// ─── Print slip ───
+function printSlip(provId, cur) {
+  if (cur) { withCurrencyLayer(cur, function(){ _printSlipCore(provId); }); return; }
+  _printSlipCore(provId);
+}
+function _printSlipCore(provId) {
+  var d = doctors.find(function(x){ return x.id === provId; });
+  if (!d) return;
+  var stats = computeProviderStats(provId);
+  var payout = computePayout(d, stats);
+  var from = document.getElementById('fromDate').value;
+  var to   = document.getElementById('toDate').value;
+  var sharePct = resolveSharePercent(d);
+  var basisLabel = basis === 'production' ? 'الإنتاج' : (basis === 'net' ? 'الصافي بعد المخبر' : 'التحصيل');
+
+  // Build sessions table. Lab cost is per-provider (provider_id); distribute it
+  // proportionally by production share for the per-session column so the total ties
+  // out to the provider's labCost. No session matching.
+  var pProvLabTotal = stats.labCost || 0;
+  var pProvProdTotal = stats.production || 0;
+  var sessionsRows = stats.sessions.slice().sort(function(a,b){
+    return (a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+  }).map(function(s){
+    var sCost = Number(s.cost) || 0;
+    var sLabCost = (pProvProdTotal > 0) ? (pProvLabTotal * sCost / pProvProdTotal) : 0;
+    return '<tr>'
+      + '<td>' + escapeHtml(SyDT.numDate(s.date) || '—') + '</td>'
+      + '<td>' + sessionPatientCell(s) + '</td>'
+      + '<td>' + escapeHtml(s.type || '—') + '</td>'
+      + '<td style="text-align:center;">' + formatSessionToothCell(s) + '</td>'
+      + '<td style="text-align:left;">' + fmtSY(s.cost) + '</td>'
+      + '<td style="text-align:left;color:var(--orange);">' + (sLabCost > 0 ? fmtSY(sLabCost) : '—') + '</td>'
+    + '</tr>';
+  }).join('');
+
+  // v306: مدفوع بيوم التسديد + رصيد مرحَّل (مرآة البطاقة حرفياً).
+  var paidInRange = payoutsPaidInWindow(d.id, from, to);
+  var opening = computeOpeningBalance(d, from);
+  var closing = (opening === null) ? (payout - paidInRange) : (opening + payout - paidInRange);
+  var closingSt = balanceState(closing);
+  var ledgerLines = '';
+  if (opening !== null && Math.abs(opening) >= 0.005) {
+    var opSt = openingState(opening);
+    ledgerLines += '<span>رصيد سابق قبل ' + escapeHtml(from) + ' (' + opSt.txt + '): <b>' + fmtSY(opSt.val) + '</b></span>';
+  }
+  if (paidInRange > 0) ledgerLines += '<span>المدفوع بالفترة: <b>' + fmtSY(paidInRange) + '</b></span>';
+  var showLedger = opening === null ? paidInRange > 0 : (paidInRange > 0 || Math.abs(opening) >= 0.005);
+
+  var html = ''
+    + '<div style="font-family:Cairo,sans-serif;color:#000;direction:rtl;padding:20px;">'
+    + '<div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #0d8577;padding-bottom:14px;">'
+      + '<div style="font-size:22px;font-weight:800;color:#0a1628;">SyDent — كشف إنتاج طبيب</div>'
+      + '<div style="font-size:13px;color:#666;margin-top:4px;">' + escapeHtml(d.name) + (d.role ? ' — ' + escapeHtml(d.role) : '') + '</div>'
+      + '<div style="font-size:11px;color:#888;margin-top:6px;">الفترة: ' + from + ' ← ' + to + '</div>'
+    + '</div>'
+
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">'
+      + '<div style="border:1px solid #ccc;padding:10px;border-radius:6px;">'
+        + '<div style="font-size:11px;color:#666;">الإنتاج</div>'
+        + '<div style="font-size:18px;font-weight:800;">' + fmtSY(stats.production) + '</div>'
+      + '</div>'
+      + '<div style="border:1px solid #ccc;padding:10px;border-radius:6px;">'
+        + '<div style="font-size:11px;color:#666;">المخبر</div>'
+        + '<div style="font-size:18px;font-weight:800;color:var(--orange);">' + fmtSY(stats.labCost) + '</div>'
+      + '</div>'
+      + '<div style="border:1px solid #ccc;padding:10px;border-radius:6px;">'
+        + '<div style="font-size:11px;color:#666;">الصافي بعد المخبر</div>'
+        + '<div style="font-size:18px;font-weight:800;">' + fmtSY(stats.net) + '</div>'
+      + '</div>'
+      + '<div style="border:1px solid #ccc;padding:10px;border-radius:6px;">'
+        + '<div style="font-size:11px;color:#666;">التحصيل النقدي بالفترة</div>'
+        + '<div style="font-size:18px;font-weight:800;color:var(--blue);">' + fmtSY(stats.collection) + '</div>'
+      + '</div>'
+    + '</div>'
+
+    + '<div style="background:#f0fdf4;border:2px solid #0d8577;padding:14px;border-radius:8px;margin-bottom:22px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+        + '<div>'
+          + '<div style="font-size:12px;color:#666;">المستحق (' + sharePct + '% من ' + basisLabel + ')</div>'
+          + '<div style="font-size:11px;color:#888;margin-top:2px;">عدد الجلسات: ' + fmt(stats.sessionCount) + '</div>'
+        + '</div>'
+        + '<div style="font-size:26px;font-weight:800;color:#0a1628;">' + fmtSY(payout) + '</div>'
+      + '</div>'
+      + (showLedger
+        ? '<div style="border-top:1px dashed #0d8577;margin-top:10px;padding-top:10px;display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between;font-size:13px;">'
+          + ledgerLines
+          + '<span style="font-weight:800;">' + closingSt.txt + (closingSt.cls === 'ok' ? '' : ': ' + fmtSY(closingSt.val)) + '</span>'
+          + '</div>'
+        : '')
+    + '</div>'
+
+    + (sessionsRows ? '<h4 style="margin-bottom:8px;font-size:13px;">📋 تفاصيل الجلسات</h4>'
+        + '<table style="width:100%;border-collapse:collapse;font-size:11px;">'
+        + '<thead><tr style="background:#f3f4f6;">'
+          + '<th style="padding:6px;border:1px solid #ccc;text-align:right;">التاريخ</th>'
+          + '<th style="padding:6px;border:1px solid #ccc;text-align:right;">المريض</th>'
+          + '<th style="padding:6px;border:1px solid #ccc;text-align:right;">العلاج</th>'
+          + '<th style="padding:6px;border:1px solid #ccc;text-align:center;">السن</th>'
+          + '<th style="padding:6px;border:1px solid #ccc;text-align:left;">السعر</th>'
+          + '<th style="padding:6px;border:1px solid #ccc;text-align:left;">المخبر</th>'
+        + '</tr></thead>'
+        + '<tbody>' + sessionsRows.replace(/<td/g, '<td style="padding:6px;border:1px solid #ccc;"') + '</tbody>'
+        + '</table>' : '')
+
+    + '<div style="margin-top:30px;font-size:11px;color:#888;text-align:center;border-top:1px solid #ccc;padding-top:10px;">'
+      + 'SyDent — تم الإنشاء في ' + SyDT.numDate(new Date()) + ' ' + SyDT.time12(new Date())   // v487
+    + '</div>'
+    + '</div>';
+
+  // Open in new window for printing
+  var w = window.open('', '_blank', 'width=900,height=700');
+  if (!w) { showToast('⚠️ افتح صلاحيات النوافذ المنبثقة'); return; }
+  w.document.write('<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">'
+    + '<title>كشف ' + escapeHtml(d.name) + '</title>'
+    + '<link href="/fonts/plex-arabic.css" rel="stylesheet">'
+    + '<style>body{margin:0;font-family:Cairo,sans-serif;}</style>'
+    + '</head><body>' + html + '</body></html>');
+  w.document.close();
+  setTimeout(function(){ w.print(); }, 600);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// v308 — كشف حساب الطبيب (قيدٌ زمني برصيدٍ جارٍ) — مرآة كشف المخبر (labs.html) مع رصيد افتتاحي.
+// افتتاحي (computeOpeningBalance) → حركات الفترة تصاعدياً → ختامي. الحركات:
+//   إنتاج/صافي: كل جلسة +cost×نسبة، وكل طلب مخبر −cost×نسبة (بالصافي فقط)؛
+//   تحصيل: كل توزيع مكتسب +amount×نسبة بتاريخ دفعته (+ سطرٌ واحد للدفعات القديمة بلا توزيع)؛
+//   دفعة للطبيب −amount بيوم تسديدها.
+// مجموعُ الحركات غير النقدية يُطابَق حرفياً مع computePayout (سطرُ «تسوية» عند القصّ على الصفر
+// أو تجميع legacy) — فالكشفُ يقفل مع البطاقة رقماً برقم دائماً. حسابٌ للعرض فقط، صفر كتابة.
+// ═══════════════════════════════════════════════════════════════════════════
+var _ledgerLast = null;
+function buildProviderLedger(d) {
+  var from = document.getElementById('fromDate').value;
+  var to   = document.getElementById('toDate').value;
+  var pct  = resolveSharePercent(d);
+  var stats = computeProviderStats(d.id);
+  var due   = computePayout(d, stats);
+  var paid  = payoutsPaidInWindow(d.id, from, to);
+  var opening = computeOpeningBalance(d, from);
+  var entries = [];
+  var pctTxt = pct + '%';
+  var match = function(pid){ return pid === d.id; };
+
+  if (basis === 'collection') {
+    var payById = {};
+    payments.forEach(function(p){ payById[p.id] = p; });
+    var withSplit = {};
+    paymentSplits.forEach(function(sp){ withSplit[sp.payment_id] = true; });
+    paymentSplits.forEach(function(sp){
+      if (!splitIsEarned(sp) || !match(sp.provider_id)) return;
+      var pm = payById[sp.payment_id] || {};
+      var pn = pm.patient_id ? (patientNames[pm.patient_id] || '') : '';
+      entries.push({ day: pm.date || '', ts: pm.created_at || '', id: String(sp.payment_id || ''), ord: 1,
+        kind: 'earn', label: 'تحصيل' + (pn ? ' — ' + pn : ''), sub: pctTxt + ' × ' + fmtSY(sp.amount),
+        amt: (Number(sp.amount) || 0) * pct / 100 });
+    });
+    var legacy = stats.collection - paymentSplits.reduce(function(a, sp){
+      return a + ((splitIsEarned(sp) && match(sp.provider_id)) ? (Number(sp.amount) || 0) : 0); }, 0);
+    if (Math.abs(legacy) >= 0.005) {
+      entries.push({ day: to, ts: '', id: '', ord: 2, kind: 'earn', label: 'دفعات بلا توزيع (تخصيص نسبي)',
+        sub: pctTxt + ' × ' + fmtSY(legacy), amt: legacy * pct / 100 });
+    }
+  } else {
+    stats.sessions.forEach(function(s){
+      var nm = s.patient_id ? (patientNames[s.patient_id] || '') : '';
+      entries.push({ day: s.date || '', ts: s.created_at || '', id: String(s.id || ''), ord: 1, kind: 'earn',
+        label: (s.type || s.description || 'جلسة') + (nm ? ' — ' + nm : ''),
+        sub: pctTxt + ' × ' + fmtSY(s.cost) + (s.tooth_num ? ' · سن ' + s.tooth_num : '') + (s.status === 'planned' ? ' · مخططة' : ''),
+        amt: (Number(s.cost) || 0) * pct / 100 });
+    });
+    if (basis === 'net') {
+      labOrders.forEach(function(lo){
+        if (!match(lo.provider_id)) return;
+        var d_ = lo.date_sent ? new Date(lo.date_sent) : null;
+        var nm = lo.patient_id ? (patientNames[lo.patient_id] || '') : '';
+        entries.push({ day: (d_ && !isNaN(d_.getTime())) ? toDay(d_) : '', ts: lo.date_sent || '', id: String(lo.id || ''), ord: 2, kind: 'lab',
+          label: 'خصم مخبر' + (nm ? ' — ' + nm : '') + (lo.tooth_num ? ' · سن ' + lo.tooth_num : ''),
+          sub: pctTxt + ' × ' + fmtSY(lo.cost), amt: -((Number(lo.cost) || 0) * pct / 100) });
+      });
+    }
+  }
+  // مطابقة حرفية مع مستحق البطاقة (القصّ على الصفر عند صافٍ سالب، أو فروق تقريب).
+  var earnSum = entries.reduce(function(a, e){ return a + e.amt; }, 0);
+  var residual = Math.round((due - earnSum) * 100) / 100;
+  if (Math.abs(residual) >= 0.005) {
+    entries.push({ day: to, ts: '\uffff', id: '', ord: 3, kind: 'adj',
+      label: residual > 0 ? 'تسوية' : 'تسوية — الصافي السالب يُقصّ عند الصفر', sub: 'ليتطابق مع مستحق الفترة', amt: residual });
+  }
+  payouts.forEach(function(po){
+    if (po.provider_id !== d.id) return;
+    var day = _payoutDay(po);
+    if (day < from || day > to) return;
+    // v382: حصّةُ الإنتاج من الدفعة فقط (الراتبُ الثابت والمكافأة خارج هذا الدفتر)
+    var shareAmt = _payoutShareOf(po);
+    var fullAmt  = Number(po.amount) || 0;
+    if (shareAmt <= 0) return;
+    var partial  = Math.abs(shareAmt - fullAmt) > 0.005;
+    entries.push({ day: day, ts: po.paid_at || '', id: String(po.id || ''), ord: 4, kind: 'pay',
+      label: (partial ? 'حصّة الإنتاج من دفعة للطبيب' : 'دفعة للطبيب') + (po.notes ? ' — ' + po.notes : ''),
+      sub: ((po.period_start && po.period_end) ? 'عن ' + po.period_start + ' ← ' + po.period_end : '')
+         + (partial ? ' · إجمالي الدفعة ' + fmtSY(fullAmt) + ' (الباقي راتب/مكافأة)' : ''),
+      amt: -shareAmt });
+  });
+  entries.sort(function(a, b){
+    if (a.day !== b.day) return a.day.localeCompare(b.day);
+    if (a.ord !== b.ord) return a.ord - b.ord;
+    if (a.ts !== b.ts) return a.ts.localeCompare(b.ts);
+    return a.id.localeCompare(b.id);
+  });
+  var bal = opening === null ? 0 : opening;
+  entries.forEach(function(e){ bal += e.amt; e.bal = bal; });
+  var closing = (opening === null ? 0 : opening) + due - paid;
+  return { d: d, from: from, to: to, pct: pct, basis: basis, opening: opening, due: due, paid: paid,
+           closing: closing, entries: entries, curLbl: fmtCurLabel() };
+}
+function _ledgerBasisLabel(b) { return b === 'production' ? 'الإنتاج' : (b === 'net' ? 'الصافي بعد المخبر' : 'التحصيل'); }
+function _ledgerChipsHtml(L, cls) {
+  var cs = balanceState(L.closing);
+  var os = L.opening === null ? null : openingState(L.opening);
+  var chip = function(v, l, k){ return '<div class="' + cls + (k ? ' ' + k : '') + '"><div class="v">' + v + '</div><div class="l">' + l + '</div></div>'; };
+  return chip(os ? fmtSY(os.val) : '—', 'رصيد سابق · ' + (os ? os.txt : 'غير متاح'), os ? os.cls : '')
+       + chip(fmtSY(L.due), 'مستحق الفترة (' + L.pct + '% × ' + _ledgerBasisLabel(L.basis) + ')', '')
+       + chip(fmtSY(L.paid), 'المدفوع بالفترة', 'ok')
+       + chip(fmtSY(cs.val), 'الرصيد الحالي · ' + cs.txt, cs.cls);
+}
+function _ledgerRowsHtml(L, forPrint) {
+  var rows = '';
+  var os = L.opening === null ? null : openingState(L.opening);
+  rows += '<tr class="open"><td>' + escapeHtml(L.from) + '</td><td>رصيد سابق — ' + (os ? os.txt : 'غير متاح') + '</td><td class="num"></td><td class="num">' + (os ? fmtSY(L.opening) : '—') + '</td></tr>';
+  L.entries.forEach(function(e){
+    var cls = e.kind === 'pay' ? 'pay' : (e.amt < 0 ? 'neg' : 'pos');
+    rows += '<tr><td>' + SyDT.cell(e.day, e.kind === 'pay' ? e.ts : null) + '</td>'   /* v477: التاريخُ أرقاماً ووقتُ الدفعة */
+      + '<td>' + escapeHtml(e.label) + (e.sub ? '<div class="sub">' + escapeHtml(e.sub) + '</div>' : '') + '</td>'
+      + '<td class="num ' + cls + '">' + (e.amt < 0 ? '− ' : '+ ') + fmtSY(Math.abs(e.amt)) + '</td>'
+      + '<td class="num">' + fmtSY(e.bal) + '</td></tr>';
+  });
+  var cs = balanceState(L.closing);
+  rows += '<tr class="close"><td>' + escapeHtml(L.to) + '</td><td>الرصيد الحالي — ' + cs.txt + '</td><td class="num"></td><td class="num">' + fmtSY(L.closing) + '</td></tr>';
+  return rows;
+}
+function openLedger(provId, cur) {
+  if (cur) { withCurrencyLayer(cur, function(){ _openLedgerCore(provId); }); return; }
+  _openLedgerCore(provId);
+}
+function _openLedgerCore(provId) {
+  var d = doctors.find(function(x){ return x.id === provId; });
+  if (!d) return;
+  var L = buildProviderLedger(d);
+  _ledgerLast = L;
+  document.getElementById('ledgerTitle').textContent = '📒 كشف حساب — ' + providerTypePrefix(d.provider_type) + d.name + ' · ' + L.from + ' ← ' + L.to;
+  var note = L.opening === null
+    ? '<div style="font-size:11px;color:var(--yellow);margin-bottom:10px;">⚠️ الرصيد السابق غير متاح — الكشف يبدأ من صفر.</div>' : '';
+  document.getElementById('ledgerBody').innerHTML =
+    '<div class="ledger-chips">' + _ledgerChipsHtml(L, 'ledger-chip') + '</div>' + note
+    + '<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">الأساس: ' + _ledgerBasisLabel(L.basis) + ' · النسبة ' + L.pct + '% · الدفعات بتاريخ تسديدها</div>'
+    + '<div class="ledger-legend">'
+      + '<span><b class="g">+ أخضر</b> — يزيد مستحقَّ الطبيب (حصّته من علاج)</span>'
+      + '<span><b class="r">− أحمر</b> — ينقصه (خصمُ مخبر · دفعةٌ استلمها)</span>'
+      + '<span><b>الرصيد</b> — المتبقّي للطبيب بعد كل حركة (تراكميّ)</span>'
+    + '</div>'
+    + '<table class="data-table ledger-tbl"><thead><tr><th>التاريخ</th><th>البيان</th>'
+      + '<th class="num">الحركة<div class="sub" style="font-weight:400;">+ له / − عليه</div></th>'
+      + '<th class="num">الرصيد بعدها<div class="sub" style="font-weight:400;">المتبقّي للطبيب</div></th></tr></thead>'
+    + '<tbody>' + _ledgerRowsHtml(L) + '</tbody></table>';
+  openModal('ledgerModal');
+}
+function printLedger() {
+  var L = _ledgerLast;
+  if (!L) return;
+  var prev = _renderCur;
+  // fmtSY تقرأ طبقة الرسم النشطة — تُثبَّت على عملة الكشف طوال البناء ثم تُعاد.
+  _renderCur = (L.curLbl === '$') ? 'USD' : (L.curLbl === 'ل.س' ? 'SYP' : prev);
+  var html;
+  try {
+    var cs = balanceState(L.closing);
+    html = '<div style="font-family:Cairo,sans-serif;color:#000;direction:rtl;padding:20px;">'
+      + '<div style="text-align:center;margin-bottom:18px;border-bottom:2px solid #0d8577;padding-bottom:12px;">'
+        + '<div style="font-size:22px;font-weight:800;color:#0a1628;">SyDent — كشف حساب طبيب</div>'
+        + '<div style="font-size:13px;color:#666;margin-top:4px;">' + escapeHtml(providerTypePrefix(L.d.provider_type) + L.d.name) + (L.d.role ? ' — ' + escapeHtml(L.d.role) : '') + '</div>'
+        + '<div style="font-size:11px;color:#888;margin-top:6px;">الفترة: ' + escapeHtml(L.from) + ' ← ' + escapeHtml(L.to) + ' · الأساس: ' + _ledgerBasisLabel(L.basis) + ' · النسبة ' + L.pct + '%</div>'
+      + '</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">'
+        + _ledgerChipsHtml(L, 'pc').replace(/class="pc[^"]*"/g, 'style="border:1px solid #ccc;border-radius:6px;padding:8px;text-align:center;"')
+          .replace(/class="v"/g, 'style="font-size:15px;font-weight:800;"').replace(/class="l"/g, 'style="font-size:10px;color:#666;margin-top:2px;"')
+      + '</div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:11px;">'
+        + '<thead><tr style="background:#f3f4f6;"><th style="padding:6px;border:1px solid #ccc;text-align:right;">التاريخ</th><th style="padding:6px;border:1px solid #ccc;text-align:right;">البيان</th><th style="padding:6px;border:1px solid #ccc;text-align:left;">المبلغ</th><th style="padding:6px;border:1px solid #ccc;text-align:left;">الرصيد</th></tr></thead>'
+        + '<tbody>' + _ledgerRowsHtml(L, true)
+            .replace(/<td class="num[^"]*">/g, '<td style="padding:6px;border:1px solid #ccc;text-align:left;font-variant-numeric:tabular-nums;">')
+            .replace(/<td>/g, '<td style="padding:6px;border:1px solid #ccc;">')
+            .replace(/<div class="sub">/g, '<div style="font-size:9.5px;color:#666;">')
+            .replace(/<tr class="(open|close)">/g, '<tr style="font-weight:800;background:#f0fdf4;">')
+        + '</tbody></table>'
+      + '<div style="margin-top:14px;padding:10px;border:2px solid #0d8577;border-radius:8px;display:flex;justify-content:space-between;font-size:14px;font-weight:800;">'
+        + '<span>' + cs.txt + '</span><span>' + fmtSY(cs.val) + '</span></div>'
+      + '<div style="margin-top:26px;font-size:11px;color:#888;text-align:center;border-top:1px solid #ccc;padding-top:10px;">SyDent — تم الإنشاء في ' + SyDT.numDate(new Date()) + ' ' + SyDT.time12(new Date()) + '</div>'
+      + '</div>';
+  } finally { _renderCur = prev; }
+  var w = window.open('', '_blank', 'width=900,height=700');
+  if (!w) { showToast('⚠️ افتح صلاحيات النوافذ المنبثقة'); return; }
+  w.document.write('<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>كشف حساب ' + escapeHtml(L.d.name) + '</title>'
+    + '<link href="/fonts/plex-arabic.css" rel="stylesheet">'
+    + '<style>body{margin:0;font-family:Cairo,sans-serif;}</style></head><body>' + html + '</body></html>');
+  w.document.close();
+  setTimeout(function(){ w.print(); }, 600);
+}
+
+// ─── Payout modal ───
+// Payout recording (paying a doctor their share/salary) is an owner-only
+// financial action. Non-owners (doctor/secretary device modes) must never
+// record, edit, or delete a payout. fail-open: if the lock system isn't
+// present at all, treat as owner (single-owner install).
+function poIsOwner() {
+  return !window.SyDentLock || window.SyDentLock.isOwner();
+}
+
+function openPayoutModal(provId, cur) {
+  if (cur) { withCurrencyLayer(cur, function(){ _openPayoutModalCore(provId); }); return; }
+  _openPayoutModalCore(provId);
+}
+function _openPayoutModalCore(provId) {
+  if (!poIsOwner()) { showToast('هذا الإجراء متاح للمالك فقط'); return; }
+  var d = doctors.find(function(x){ return x.id === provId; });
+  if (!d) return;
+  if (d.is_owner) { showToast('المالك هو الدافع لا المستفيد — أرباحك ليست دفعة'); return; }
+
+  // Calculate current stats and suggested amount (remaining unpaid)
+  var stats = computeProviderStats(provId);
+  var payout = computePayout(d, stats);
+  var from = document.getElementById('fromDate').value;
+  var to   = document.getElementById('toDate').value;
+  // v306: المقترح = الرصيد الختامي التراكمي (مرحَّل + مستحق الفترة − مدفوع)،
+  // فدفعةُ الشهر الماضي المسدَّدة هذا الشهر لا تُقترَح مرتين، والمتأخّر من قبل لا يضيع.
+  // v382: «المدفوع» هنا بترتيب فترة الدفعة لا يوم تسديدها — دفعةُ أيلول المسجَّلة
+  // 2 تشرين تخصّ أيلول فلا تُقترَح ثانيةً عند فتح أيلول بعدها (مرآةُ اقتراح
+  // صفحة الرواتب)، وحصّةُ الإنتاج وحدها تُخصم (الراتبُ الثابت خارج هذا الدفتر).
+  var openingDue = computeOpeningDue(d);
+  var suggested;
+  if (openingDue === null) {
+    suggested = Math.max(0, payout - payoutsPaidInWindow(d.id, from, to));
+  } else {
+    var paidForPeriods = payouts.filter(function(po){
+      return po.provider_id === d.id && po.period_start && po.period_start <= to;
+    }).reduce(function(sum, po){ return sum + _payoutShareOf(po); }, 0);
+    suggested = Math.max(0, openingDue + payout - paidForPeriods);
+  }
+
+  document.getElementById('payoutProviderId').value = d.id;
+  document.getElementById('payoutProviderName').value = d.name + (d.is_active === false ? ' (معطل)' : '');
+  document.getElementById('payoutFrom').value = from;
+  document.getElementById('payoutTo').value = to;
+  // Pre-fill with suggested amount (user can edit/clear)
+  document.getElementById('payoutAmount').value = suggested > 0 ? (Math.round(suggested * 100) / 100) : '';
+  document.getElementById('payoutAmount').placeholder = 'المقترح: ' + fmtSY(suggested);
+  document.getElementById('payoutNotes').value = '';
+
+  // F3: عملة المودال تُحفظ لحظة الفتح — الحفظ والحذف يعيدان رسم السجل خارج غلاف العملة،
+  // وبدونها كانت القائمة تختلط بالعملتين وتُوسَم كلها بعملة العيادة (صنف v208).
+  _payoutModalCur = _renderCur || null;
+  renderPayoutHistory(provId);
+  // M125: المودال يُفتح من داخل كتلة عملةٍ بعينها (غلاف withCurrencyLayer)،
+  // فالعملة معروفة يقيناً ⇒ المبدّل يُقفَل عليها بدل أن يُترك للاختيار:
+  // دفعةُ طبيبٍ محسوبةٌ من أرقام طبقةٍ لا يجوز أن تُسجَّل بعملة أخرى.
+  try {
+    window.SyDentCurPick.mount('payoutAmount');
+    if (_renderCur) window.SyDentCurPick.lock('payoutAmount', _renderCur);
+  } catch (e) {}
+  openModal('payoutModal');
+}
+
+// F3: تنسيق مبلغ صفٍّ بوسم عملة الصف نفسه — مستقلٌّ عن طبقة الرسم النشطة.
+function _fmtRowAmt(po) {
+  var v = Math.round((Number(po.amount) || 0) * 100) / 100;
+  var lbl = (_rowCur(po) === 'USD') ? '$' : 'ل.س';
+  if (v % 1 === 0) return fmt(v) + ' ' + lbl;
+  return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + lbl;
+}
+function renderPayoutHistory(provId) {
+  // F3: فلترة بعملة المودال (إن عُرفت) — النداء من الحفظ/الحذف يقع خارج غلاف العملة
+  // فمصفوفة payouts غير مفلترة هناك؛ والوسم يتبع عملة الصف نفسه لا عملة العيادة.
+  var list = payouts.filter(function(po){
+    if (po.provider_id !== provId) return false;
+    if (_payoutModalCur && _rowCur(po) !== _payoutModalCur) return false;
+    return true;
+  });
+  var el = document.getElementById('payoutHistoryList');
+  if (!list.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text2);font-style:italic;text-align:center;padding:12px;">لا توجد دفعات سابقة</div>';
+    return;
+  }
+  el.innerHTML = list.map(function(po){
+    return '<div class="payout-history-item">'
+      + '<div>'
+        + '<div class="amt">' + _fmtRowAmt(po) + '</div>'
+        + '<div class="meta">' + escapeHtml(SyDT.numDate(po.period_start)) + ' ← ' + escapeHtml(SyDT.numDate(po.period_end)) + (po.notes ? ' • ' + escapeHtml(po.notes) : '') + '</div>'
+      + '</div>'
+      + '<div class="phi-when">' + SyDT.cell(po.paid_at || po.created_at) + '</div>'   /* v477: متى دُفعت — تاريخاً ووقتاً */
+      + '<div class="sy-acts"><button class="sy-act sy-act-danger" onclick="deletePayout(\'' + po.id + '\')" title="حذف الدفعة">🗑️ حذف</button></div>'
+    + '</div>';
+  }).join('');
+}
+
+/* ═══ v299 — قفلُ الأزرار الكاتبة (مرآةُ ppGuarded) ═══ */
+var _rInFlight = {};
+function rGuarded(name, inner, label) {
+  return async function () {
+    var k = name + ((arguments.length && (typeof arguments[0] === 'string' || typeof arguments[0] === 'number')) ? ':' + arguments[0] : '');
+    if (_rInFlight[k]) return;
+    var btn = null;
+    try { var ev = window.event; var t = ev && (ev.currentTarget || ev.target); if (t && t.closest) btn = t.closest('button'); } catch (_) {}
+    if (!btn && document.activeElement && document.activeElement.tagName === 'BUTTON') btn = document.activeElement;
+    _rInFlight[k] = true;
+    var old = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; if (label) btn.textContent = (old.trim().length <= 3) ? '⏳' : label; }
+    try { return await inner.apply(this, arguments); }
+    finally { delete _rInFlight[k]; if (btn) { btn.disabled = false; btn.textContent = old; } }
+  };
+}
+var savePayout = rGuarded('savePayout', _savePayout_inner, 'جارٍ الحفظ…');   /* v299 */
+async function _savePayout_inner() {
+  if (!poIsOwner()) { showToast('هذا الإجراء متاح للمالك فقط'); return; }
+  var provId = document.getElementById('payoutProviderId').value;
+  var from   = document.getElementById('payoutFrom').value;
+  var to     = document.getElementById('payoutTo').value;
+  var amount = parseFloat(document.getElementById('payoutAmount').value);
+  var notes  = document.getElementById('payoutNotes').value.trim();
+
+  if (!from || !to) { showToast('⚠️ اختر الفترة'); return; }
+  if (!amount || amount <= 0) { showToast('⚠️ أدخل مبلغاً صحيحاً'); return; }
+
+  var payload = {
+    owner_id: currentUser.id,
+    provider_id: provId,
+    period_start: from,
+    period_end: to,
+    amount: amount,
+    notes: notes || null,
+    currency: window.SyDentCurPick.read('payoutAmount')   // M125
+  };
+
+  var res = await window.sb.from('provider_payouts').insert(payload).select().single();
+  if (res.error) {
+    if (res.error.code === '42P01' || (res.error.message && res.error.message.indexOf('provider_payouts') >= 0)) {
+      showToast('⚙️ يجب تشغيل SQL أولاً (جدول provider_payouts)');
+    } else {
+      showToast('⚠️ فشل الحفظ: ' + res.error.message);
+    }
+    return;
+  }
+  if (res.data) payouts.unshift(res.data);
+  renderPayoutHistory(provId);
+  document.getElementById('payoutAmount').value = '';
+  document.getElementById('payoutNotes').value = '';
+  showToast('✅ تم تسجيل الدفعة');
+
+  // Phase 7.2: audit log fires from both provider-reports (quick path)
+  // and payouts.html (full path). Same action_type, same registry.
+  try {
+    if (window.logAudit) {
+      var doc = doctors.find(function(x){ return x.id === provId; });
+      var docName = doc ? doc.name : '—';
+      window.logAudit('payout.create', {
+        entity_type: 'payout',
+        entity_id: res.data ? res.data.id : null,
+        description: 'دفعة لـ ' + docName + ' (' + fmtSY(payload.amount) + ')',
+        new_value: {
+          provider_id: provId,
+          provider_name: docName,
+          period_start: payload.period_start,
+          period_end: payload.period_end,
+          amount: payload.amount
+        }
+      });
+    }
+  } catch (e) { console.warn('audit log failed:', e); }
+
+  render();  // Refresh provider cards to show paid amount
+}
+
+var deletePayout = rGuarded('deletePayout', _deletePayout_inner, 'جارٍ الحذف…');   /* v299 */
+async function _deletePayout_inner(id) {
+  if (!poIsOwner()) { showToast('هذا الإجراء متاح للمالك فقط'); return; }
+  if (!await SyDialog.confirm({ message: 'حذف هذه الدفعة؟', danger: true })) return;
+  // Snapshot for audit BEFORE delete
+  var snapshot = payouts.find(function(po){ return po.id === id; });
+  var snapDoc  = snapshot ? doctors.find(function(x){ return x.id === snapshot.provider_id; }) : null;
+  var snapName = snapDoc ? snapDoc.name : '—';
+  var snapAmt  = snapshot ? Number(snapshot.amount) || 0 : 0;
+
+  var res = await window.sb.from('provider_payouts').delete().eq('id', id);
+  if (res.error) { showToast('⚠️ فشل الحذف: ' + res.error.message); return; }
+  payouts = payouts.filter(function(po){ return po.id !== id; });
+  // Find which provider we're showing
+  var provId = document.getElementById('payoutProviderId').value;
+  renderPayoutHistory(provId);
+  showToast('🗑️ تم الحذف');
+
+  // Audit log (fire-and-forget; snapshot from BEFORE the delete)
+  try {
+    if (window.logAudit) {
+      window.logAudit('payout.delete', {
+        entity_type: 'payout',
+        entity_id: id,
+        description: 'حذف دفعة لـ ' + snapName + ' (' + fmtSY(snapAmt) + ')',
+        old_value: snapshot || null
+      });
+    }
+  } catch (e) { console.warn('audit log failed:', e); }
+
+  render();
+}
+
+// Phase 7.2: redirect to the dedicated payouts page for full breakdown,
+// payment-method tracking, and richer filters. provider-reports keeps the
+// quick-add modal for in-context speed; the dedicated page is the single
+// source of truth for history + audit display.
+function goToFullPayoutsPage() {
+  var provId = document.getElementById('payoutProviderId').value;
+  var from = document.getElementById('payoutFrom').value;
+  var to   = document.getElementById('payoutTo').value;
+  var qs = [];
+  if (provId) qs.push('provider=' + encodeURIComponent(provId));
+  if (from)   qs.push('from=' + encodeURIComponent(from));
+  if (to)     qs.push('to=' + encodeURIComponent(to));
+  window.location.href = 'payouts.html' + (qs.length ? '?' + qs.join('&') : '');
+}
+
+// ─── Filter changes ───
+async function onFilterChange() {
+  // Clear preset highlight when filter changes (any source - manual or preset)
+  // This is called *after* setPreset has already applied its highlight, so only clear
+  // if no preset button is active or if this came from a non-preset change.
+  // We rely on setPreset to re-apply its highlight after this returns.
+  // Rebuild the provider dropdown in case inactive filter changed
+  rebuildProviderDropdown();
+  await loadFilteredData();
+}
+
+// Clear preset highlights when user manually edits date inputs
+function clearPresetHighlight() {
+  document.querySelectorAll('.preset-btn').forEach(function(b){ b.classList.remove('active'); });
+}
+
+function rebuildProviderDropdown() {
+  var sel = document.getElementById('providerFilter');
+  if (!sel) return;
+  var current = sel.value || 'all';
+  var inactiveMode = document.getElementById('inactiveFilter').value;
+  var doctorsForDropdown = doctors.filter(function(d){
+    return inactiveMode === 'show' || d.is_active !== false;
+  });
+  var allLabel = inactiveMode === 'show' ? 'كل الأطباء' : 'كل الأطباء النشطين';
+  sel.innerHTML = '<option value="all">' + allLabel + '</option>' + doctorsForDropdown.map(function(d){
+    var typePrefix = providerTypePrefix(d.provider_type);
+    var lbl = typePrefix + d.name + (d.is_owner ? ' ⭐' : '') + (d.is_active === false ? ' (معطل)' : '');
+    return '<option value="' + d.id + '">' + escapeHtml(lbl) + '</option>';
+  }).join('');
+  if (current === 'all' || doctorsForDropdown.find(function(d){ return d.id === current; })) {
+    sel.value = current;
+  } else {
+    sel.value = 'all';
+  }
+}
+
+async function refresh() {
+  await loadAll();
+  showToast('🔄 تم التحديث');
+}
+
+/* v451: «تسجيل دفعة للطبيب» (ستةُ حقول) كان يُغلق بنقرةٍ خارجية فيمحو ما كُتب.
+   أُزيل المستمعُ المستنديّ — والنقرُ الخارجي بقي لنافذتَي القراءة (تفاصيلُ
+   الجلسات · كشفُ الحساب) بسمةٍ صريحةٍ على كلٍّ منهما. */
+
+// ═══ v307 — حفظُ الفلتر بالرابط (قابلٌ للمشاركة/العودة) ═══
+// الأساسُ يبقى بـlocalStorage (F6)؛ الرابطُ يحمل الفترة والطبيب والنوع والحالة والمعطّلين.
+var _urlProvider = null;   // معرّفُ طبيبٍ من الرابط يُطبَّق بعد بناء القائمة (loadAll)
+function syncUrl() {
+  try {
+    var q = new URLSearchParams();
+    var preset = activePresetKey();
+    if (preset) q.set('preset', preset);
+    q.set('from', document.getElementById('fromDate').value);
+    q.set('to',   document.getElementById('toDate').value);
+    var prov = document.getElementById('providerFilter').value;
+    if (prov && prov !== 'all') q.set('provider', prov);
+    var pt = document.getElementById('providerTypeFilter'); if (pt && pt.value !== 'all') q.set('type', pt.value);
+    var st = document.getElementById('statusFilter').value;  if (st !== 'completed') q.set('status', st);
+    var ia = document.getElementById('inactiveFilter').value; if (ia !== 'hide') q.set('inactive', ia);
+    if (rptTab !== 'prov') q.set('tab', rptTab);   // v539 · v540
+    history.replaceState(null, '', location.pathname + '?' + q.toString());
+  } catch (e) {}
+}
+// يُستدعى قبل loadAll — يُرجِع true إن حمل الرابطُ فترةً (فلا يُطبَّق افتراضيُّ «هذا الشهر»).
+function applyUrlParams() {
+  try {
+    var q = new URLSearchParams(location.search);
+    var ok = /^\d{4}-\d{2}-\d{2}$/;
+    var from = q.get('from'), to = q.get('to'), preset = q.get('preset');
+    var pt = q.get('type'), st = q.get('status'), ia = q.get('inactive');
+    var _tq = q.get('tab');
+    if (_tq && _tq !== 'prov' && Object.prototype.hasOwnProperty.call(RPT_SUB, _tq)) setRptTab(_tq, true);   // v539+
+    if (pt && document.querySelector('#providerTypeFilter option[value="' + pt.replace(/[^a-z_]/g, '') + '"]')) document.getElementById('providerTypeFilter').value = pt;
+    if (st === 'completed_planned') document.getElementById('statusFilter').value = st;
+    if (ia === 'show') document.getElementById('inactiveFilter').value = ia;
+    _urlProvider = q.get('provider') || null;
+    // الفترةُ المسمّاة تُعاد حسابُها لليوم (رابطُ «هذا الشهر» المحفوظ أمس يعني هذا الشهر اليوم)
+    if (preset && PRESETS.some(function(p){ return p.key === preset; })) {
+      var r = presetRange(preset);
+      document.getElementById('fromDate').value = r.from;
+      document.getElementById('toDate').value   = r.to;
+      markPreset(preset);
+      return true;
+    }
+    if (from && to && ok.test(from) && ok.test(to) && from <= to) {
+      document.getElementById('fromDate').value = from;
+      document.getElementById('toDate').value   = to;
+      markPreset('');
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
+// ═══ v307 — تصدير CSV (بطاقةٌ = صفّ، لكل طبقة عملة) ═══
+// أرقامٌ خام بلا تنسيق (Excel يقرؤها أرقاماً)، BOM للعربية، CRLF.
+function _csvCell(v) {
+  if (v === null || v === undefined) return '';
+  var t = String(v);
+  return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+}
+function _csvNum(n) { return Math.round((Number(n) || 0) * 100) / 100; }
+function buildCsvRows() {
+  var from = document.getElementById('fromDate').value;
+  var to   = document.getElementById('toDate').value;
+  var basisLabel = basis === 'production' ? 'الإنتاج' : (basis === 'net' ? 'الصافي بعد المخبر' : 'التحصيل');
+  var rows = [['العملة','الطبيب','النوع','النسبة %','عدد الجلسات','الإنتاج','تكلفة المخبر','الصافي بعد المخبر',
+               'التحصيل النقدي بالفترة','أساس الحساب','مستحق الفترة','رصيد سابق قبل الفترة','المدفوع بالفترة','الرصيد الحالي','حالة الرصيد']];
+  var vis = getVisibleDoctors().list;
+  var act = _activeCursPR();
+  if (!act.length) act = [null];
+  act.forEach(function(cur){
+    var run = function(){
+      vis.forEach(function(d){
+        var st = computeProviderStats(d.id);
+        var due = computePayout(d, st);
+        var paid = payoutsPaidInWindow(d.id, from, to);
+        var opening = computeOpeningBalance(d, from);
+        var closing = (opening === null) ? (due - paid) : (opening + due - paid);
+        var bs = balanceState(closing);
+        rows.push([cur || (window.SyDentCurrency && window.SyDentCurrency.code ? window.SyDentCurrency.code() : 'SYP'),
+          d.name, d.provider_type || 'doctor', resolveSharePercent(d), st.sessionCount,
+          _csvNum(st.production), _csvNum(st.labCost), _csvNum(st.net), _csvNum(st.collection),
+          _csvNum(getShareBase(st)), _csvNum(due), opening === null ? '' : _csvNum(opening), _csvNum(paid),
+          d.is_owner ? '' : _csvNum(closing), d.is_owner ? 'مالك' : bs.txt]);
+      });
+    };
+    if (cur) withCurrencyLayer(cur, run); else run();
+  });
+  rows.push([]);
+  rows.push(['الفترة', from + ' ← ' + to, 'الأساس', basisLabel, 'أُنشئ', SyDT.numDate(new Date()) + ' ' + SyDT.hm(new Date().toISOString())]);   // v487: CSV بلا محارف اتجاه
+  return rows;
+}
+
+// ═══ v539 — أقسامُ التقارير + تبويبُ «العلاجات» (المحرّك والرسم بـrpt-treat.js) ═══
+// لا معادلةَ ماليةً ثانية (#684): الجلساتُ هي نفسُها التي يرسم منها تبويبُ الأطباء —
+// كلُّ جلسات الفترة (= «إجمالي الإنتاج») أو `computeProviderStats(id).sessions` لكل طبيبٍ ظاهر
+// (= إنتاجُ بطاقته) — والوحدةُ تقسّمها حسب العلاج فقط. الطبقاتُ بالعملة عبر withCurrencyLayer،
+// والفترةُ السابقة عبر withCtx(prevCtx) بنفس النطاق.
+var rptTab = 'prov';
+var rptSort = 'prod';
+var trtCatalog = null;        // SyRptTreat.catalogOf(..) — null = لم يصل بعد
+var trtCatalogFailed = false; // فشلُ التحميل يُعلَن: الأرقامُ صحيحة لكن التصنيفَ غير متاح (#689)
+var _trtModels = {}, _trtOrder = [];
+var _prLoaded = false;        // أوّلُ تحميلٍ للفترة انتهى — قبله «جارٍ التحميل» لا «لا جلسات»
+var RPT_SUB = {
+  prov:  'إنتاج وتحصيلات ومستحقات كل طبيب في العيادة',
+  treat: 'العلاجات المُجراة: عددها وإنتاجها ونصيبها — للعيادة كلها أو لطبيب',
+  new:   'المرضى الجدد: كم ومنين إجوا ومين استقبلهم وقدّيش جابوا — ومَن سجّل وما بلّش',
+  att:   'الحضور والغياب: كم موعد ضاع وعند مين وبأي يوم وساعة — ومين المكرّرين',
+  ret:   'الاحتفاظ: كم مريض نشط وعم يكبر العدد ولا يصغر — ومين فقدنا ومين طلع بلا موعد جاي',
+  sum:   'ملخّص الفترة: صفحةٌ واحدة مقابل السابقة ونفس الفترة من السنة الماضية — للطباعة أو الواتساب'
+};
+function setRptTab(t, noSync) {
+  if (!Object.prototype.hasOwnProperty.call(RPT_SUB, t)) t = 'prov';
+  rptTab = t;
+  document.body.setAttribute('data-rpt-tab', t);
+  document.querySelectorAll('.rpt-tab').forEach(function(b){
+    var on = b.getAttribute('data-rpt-tab') === t;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  var host = document.getElementById('treatHost');
+  if (host) host.hidden = (t !== 'treat');
+  var nHost = document.getElementById('newHost');
+  if (nHost) nHost.hidden = (t !== 'new');
+  var aHost = document.getElementById('attHost');
+  if (aHost) aHost.hidden = (t !== 'att');
+  var rHost = document.getElementById('retHost');
+  if (rHost) rHost.hidden = (t !== 'ret');
+  var sHost = document.getElementById('sumHost');
+  if (sHost) sHost.hidden = (t !== 'sum');
+  var sub = document.getElementById('rptSub');
+  if (sub) sub.textContent = RPT_SUB[t];
+  renderTreat();
+  renderNew();
+  renderAtt();
+  renderRet();
+  renderSum();
+  if (!noSync) syncUrl();
+}
+async function loadTrtCatalog() {
+  // كلُّ العلاجات بترتيب الصفحة (والمعطّلُ منها أيضاً — جلساتُه القديمة تبقى مصنّفة).
+  try {
+    var r = await window.sb.from('treatments')
+      .select('treatment_key,name,label,category,sort_order')
+      .eq('doctor_id', currentUser.id)
+      .order('sort_order', { ascending: true });
+    if (r.error) throw r.error;
+    trtCatalog = window.SyRptTreat.catalogOf(r.data || []);
+    trtCatalogFailed = false;
+  } catch (e) {
+    console.warn('treatments catalog:', e);
+    trtCatalog = window.SyRptTreat.catalogOf([]);
+    trtCatalogFailed = true;
+  }
+  renderTreat();
+}
+function treatScopeSessions() {
+  var vis = getVisibleDoctors();
+  var tf = document.getElementById('providerTypeFilter');
+  if (vis.providerFilter === 'all' && (!tf || tf.value === 'all')) return sessions.slice();
+  var out = [];
+  vis.list.forEach(function(d){ out = out.concat(computeProviderStats(d.id).sessions); });
+  return out;
+}
+function _trtScopeLabel() {
+  var st = document.getElementById('statusFilter').value === 'completed_planned' ? 'المنجزة + المخططة' : 'المنجزة';
+  var vis = getVisibleDoctors();
+  if (vis.providerFilter !== 'all') {
+    var d = doctors.find(function(x){ return x.id === vis.providerFilter; });
+    return st + ' · ' + (d ? d.name : '—');
+  }
+  var tf = document.getElementById('providerTypeFilter');
+  if (tf && tf.value !== 'all') return st + ' · ' + tf.options[tf.selectedIndex].text;
+  return st + ' · كل العيادة';
+}
+function _trtModel(cur) {
+  var m = null;
+  withCurrencyLayer(cur, function(){ m = window.SyRptTreat.aggregate(treatScopeSessions(), trtCatalog); });
+  if (prevCtx) {
+    var pm = withCtx(prevCtx, cur, function(){ return window.SyRptTreat.aggregate(treatScopeSessions(), trtCatalog); });
+    window.SyRptTreat.compare(m, pm);
+  }
+  return m;
+}
+function renderTreat() {
+  var host = document.getElementById('treatHost');
+  if (!host || rptTab !== 'treat') return;
+  if (!window.SyRptTreat) {
+    host.innerHTML = '<div class="empty-state"><div class="ic">⚠️</div><div class="ttl">تعذّر تحميل التقرير — حدّث الصفحة</div></div>';
+    return;
+  }
+  if (!trtCatalog || !currentUser || !_prLoaded) {
+    host.innerHTML = '<div class="empty-state"><div class="ic">⏳</div><div class="ttl">جارٍ التحميل…</div></div>';
+    return;
+  }
+  var has = { SYP: 0, USD: 0 };
+  treatScopeSessions().forEach(function(s){ has[_rowCur(s)]++; });
+  var act = [];
+  if (has.SYP) act.push('SYP');
+  if (has.USD) act.push('USD');
+  try { act = window.SyDentCurBag.active(has); } catch (e) {}
+  _trtModels = {}; _trtOrder = act.slice();
+  var html = trtCatalogFailed
+    ? '<div class="rt-note" style="margin:0 0 14px;">⚠️ تعذّر تحميل قائمة العلاجات — الأرقامُ كاملة، لكن التصنيفَ غير متاح الآن.</div>' : '';
+  if (!act.length) {
+    host.innerHTML = html + window.SyRptTreat.render({ rows: [], cats: [], total: { n: 0, prod: 0 } }, {});
+    return;
+  }
+  act.forEach(function(cur){
+    var m = _trtModel(cur);
+    _trtModels[cur] = m;
+    var prevCur = _renderCur;
+    _renderCur = cur;
+    try {
+      if (act.length > 1) html += renderCurrencyHeaderPR(cur);
+      html += window.SyRptTreat.render(m, { fmt: fmtSY, sort: rptSort, scopeLabel: _trtScopeLabel(), cur: cur, treatLink: 'treatments.html' });
+    } finally { _renderCur = prevCur; }
+  });
+  host.innerHTML = html;
+}
+function _trtDoctorName(pid) {
+  if (!pid) return 'بلا طبيب محدد';
+  var d = doctors.find(function(x){ return x.id === pid; });
+  return d ? providerTypePrefix(d.provider_type) + d.name : '—';
+}
+function showTreatDetails(key, cur) {
+  var m = _trtModels[cur];
+  var r = m ? m.rows.filter(function(x){ return x.key === key; })[0] : null;
+  if (!r) return;
+  var prevCur = _renderCur;
+  _renderCur = cur || null;
+  try {
+    document.getElementById('detailsTitle').textContent = '🦷 ' + r.name + ' — ' + window.SyRptTreat.sessWord(r.n);
+    var byDoc = {}, docOrder = [];
+    r.sessions.forEach(function(s){
+      var k = s.provider_id || '_';
+      if (!byDoc[k]) { byDoc[k] = { pid: s.provider_id || null, n: 0, prod: 0 }; docOrder.push(k); }
+      byDoc[k].n++; byDoc[k].prod += Number(s.cost) || 0;   // cur-ok: جلساتُ صفٍّ واحد من نموذج طبقةٍ واحدة (_trtModels[cur])
+    });
+    var docs = docOrder.length > 1
+      ? '<div class="rt-docs">' + docOrder.map(function(k){ return byDoc[k]; })
+          .sort(function(a, b){ return b.prod - a.prod; })
+          .map(function(x){ return '<span class="rt-doc">' + escapeHtml(_trtDoctorName(x.pid)) + ' · <b>' + x.n + '</b> · <b>' + fmtSY(x.prod) + '</b></span>'; }).join('')
+        + '</div>'
+      : '';
+    var rows = r.sessions.slice().sort(function(a, b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); }).map(function(s){
+      var planned = s.status === 'planned'
+        ? ' <span class="tone tone-red" style="display:inline-block;border-width:1px;border-style:solid;padding:0 5px;border-radius:8px;font-size:10px;">مخططة</span>' : '';
+      return '<tr><td>' + escapeHtml(SyDT.numDate(s.date) || '—') + planned + '</td>'
+        + '<td>' + sessionPatientCell(s) + '</td>'
+        + '<td>' + formatSessionToothCell(s) + '</td>'
+        + '<td>' + escapeHtml(_trtDoctorName(s.provider_id)) + '</td>'
+        + '<td class="num">' + fmtSY(s.cost) + '</td></tr>';
+    }).join('');
+    document.getElementById('detailsBody').innerHTML = docs
+      + '<table class="data-table"><thead><tr><th>التاريخ</th><th>المريض</th><th>السن</th><th>الطبيب</th><th class="num">السعر</th></tr></thead>'
+      + '<tbody>' + rows + '</tbody>'
+      + '<tfoot><tr><td colspan="4" style="padding:9px 10px;font-weight:800;">المجموع</td><td class="num" style="padding:9px 10px;font-weight:800;">' + fmtSY(r.prod) + '</td></tr></tfoot></table>';
+  } finally { _renderCur = prevCur; }
+  openModal('detailsModal');
+}
+document.addEventListener('click', function(e){
+  var t = e.target;
+  if (!t || !t.closest) return;
+  var sb = t.closest('#treatHost [data-rt-sort]');
+  if (sb) {
+    rptSort = sb.getAttribute('data-rt-sort') === 'count' ? 'count' : 'prod';
+    try { localStorage.setItem('sydent_rt_sort', rptSort); } catch (e2) {}
+    renderTreat();
+    return;
+  }
+  var row = t.closest('#treatHost [data-rt-key]');
+  if (row) showTreatDetails(row.getAttribute('data-rt-key'), row.getAttribute('data-rt-cur'));
+});
+function _trtCatPlain(c) { return window.SyRptTreat.catLabel(c).replace(/^[^\u0600-\u06FF]+/, ''); }
+function buildTreatRows() {
+  var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+  var rows = [['العملة','التصنيف','العلاج','العدد','الإنتاج','النسبة %','متوسط الجلسة','عدد الفترة السابقة','إنتاج الفترة السابقة']];
+  _trtOrder.forEach(function(cur){
+    var m = _trtModels[cur];
+    if (!m) return;
+    var hp = !!m.hasPrev;
+    window.SyRptTreat.sortRows(m.rows, rptSort).forEach(function(r){
+      rows.push([cur, _trtCatPlain(r.cat), r.name, r.n, _csvNum(r.prod), window.SyRptTreat.share(r.prod, m.total.prod),
+        _csvNum(r.prod / r.n), hp ? r.prevN : '', hp ? _csvNum(r.prevProd) : '']);
+    });
+    rows.push([cur, '', 'المجموع', m.total.n, _csvNum(m.total.prod), m.total.n ? 100 : 0,
+      m.total.n ? _csvNum(m.total.prod / m.total.n) : 0, hp ? m.prevTotal.n : '', hp ? _csvNum(m.prevTotal.prod) : '']);
+  });
+  rows.push([]);
+  rows.push(['الفترة', from + ' ← ' + to, 'النطاق', _trtScopeLabel(), 'أُنشئ', SyDT.numDate(new Date()) + ' ' + SyDT.hm(new Date().toISOString())]);
+  return rows;
+}
+async function exportTreatExcel() {
+  if (!_trtOrder.length) { showToast('لا جلسات للتصدير بهذه الفترة'); return; }
+  var btn = document.getElementById('exportXlsxBtn');
+  if (btn && btn.disabled) return;
+  var old = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'جارٍ التصدير…'; }
+  try {
+    var all = buildTreatRows();
+    var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+    var kind = await window.SyDentXlsx.save({
+      headers: all[0], rows: all.slice(1),
+      filename: 'تقرير-العلاجات-' + from + '_' + to,
+      sheetName: 'العلاجات',
+      cols: [{wch:7},{wch:18},{wch:26},{wch:8},{wch:14},{wch:9},{wch:14},{wch:16},{wch:18}]
+    });
+    showToast(kind === 'xlsx' ? '⬇️ تم تصدير ملف Excel' : '⬇️ تعذّر Excel — صُدّر ملف TSV بديل');
+  } catch (e) { console.error('exportTreatExcel:', e); showToast('⚠️ تعذّر التصدير'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = old; } }
+}
+
+// ═══ v540 — تبويبُ «المرضى الجدد» (المحرّك والرسم بـrpt-newpt.js) ═══
+// الجديد = أوّلُ علاجٍ منجز بالفترة، يُحكم عليه من كل التاريخ قبلها (priorCtx — سياقُ الرصيد المرحَّل
+// نفسُه) + جلسات الفترة؛ الإنتاجُ من treatScopeSessions() نفسها (#684). الأسماءُ والمصادرُ والمسجَّلون
+// بالفترة يُحمَّلون فقط حين يُفتح التبويب (لا يؤخّرون تبويبَ الأطباء — #687)، بمقاطع 150 (#691).
+var _newData = null, _newSeq = 0;
+function _newKey() { return document.getElementById('fromDate').value + '|' + document.getElementById('toDate').value; }
+function _newClinicScope() {
+  if (window.SyDentLock && window.SyDentLock.isDoctor()) return false;
+  var vis = getVisibleDoctors();
+  var tf = document.getElementById('providerTypeFilter');
+  return vis.providerFilter === 'all' && (!tf || tf.value === 'all');
+}
+function _newInScope() {
+  if (_newClinicScope()) return function(){ return true; };
+  var set = {};
+  getVisibleDoctors().list.forEach(function(d){ set[d.id] = true; });
+  return function(pid){ return !!(pid && set[pid]); };
+}
+async function _newFetchPatients(ids) {
+  var out = {}, CH = 150;
+  for (var i = 0; i < ids.length; i += CH) {
+    var r = await window.sb.from('patients').select('id,name,referral_source,created_at,referred_by_patient_id,referrer_name')
+      .eq('doctor_id', currentUser.id).in('id', ids.slice(i, i + CH));
+    if (r.error) throw r.error;
+    (r.data || []).forEach(function(p){ out[p.id] = p; });
+  }
+  return out;
+}
+async function loadNewData(key) {
+  var seq = ++_newSeq;
+  var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+  var d = { key: key, loading: true, patients: {}, reg: null, regFailed: false, namesFailed: false };
+  _newData = d;
+  var pw = prevWindow(from, to), lo = pw ? pw.from : from;
+  try {
+    var first = window.SyRptNew.firstVisits(((priorCtx && priorCtx.sessions) || []).concat(sessions));
+    var ids = Object.keys(first).filter(function(pid){ return first[pid].date >= lo && first[pid].date <= to; });
+    d.patients = await _newFetchPatients(ids);
+    /* M164: أسماءُ المرضى المُعرِّفين غير المحمّلين بعد */
+    var refIds = Object.keys(d.patients).map(function(k){ return d.patients[k].referred_by_patient_id; })
+      .filter(function(x, i, a){ return x && !d.patients[x] && a.indexOf(x) === i; });
+    if (refIds.length) { var more = await _newFetchPatients(refIds); Object.keys(more).forEach(function(k){ d.patients[k] = more[k]; }); }
+  } catch (e) { console.warn('new patients names:', e); d.namesFailed = true; }
+  try {
+    var regRows = (await _fetchAllPR(function(){
+      return window.sb.from('patients').select('id,name,referral_source,created_at')
+        .eq('doctor_id', currentUser.id).gte('created_at', widenStartUtc(from)).lte('created_at', widenEndUtc(to));
+    })).filter(function(p){ return inLocalRange(p.created_at, from, to); });
+    regRows.forEach(function(p){ p.created_day = toDay(new Date(p.created_at)); d.patients[p.id] = d.patients[p.id] || p; });
+    var treated = {}, rids = regRows.map(function(p){ return p.id; }), CH = 150;
+    for (var i = 0; i < rids.length; i += CH) {
+      var r = await window.sb.from('ledger_sessions').select('patient_id,type,description,status')
+        .eq('doctor_id', currentUser.id).eq('status', 'completed').in('patient_id', rids.slice(i, i + CH));
+      if (r.error) throw r.error;
+      (r.data || []).forEach(function(s){ if (window.SyRptNew.isVisit(s)) treated[s.patient_id] = true; });
+    }
+    d.reg = window.SyRptNew.registered(regRows, treated);
+  } catch (e) { console.warn('registered in period:', e); d.reg = null; d.regFailed = true; }
+  d.loading = false;
+  if (seq === _newSeq) renderNew();
+}
+function _newModel() {
+  var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+  return window.SyRptNew.compute({
+    from: from, to: to, prev: prevWindow(from, to),
+    prior: (priorCtx && priorCtx.sessions) || [], period: sessions, scoped: treatScopeSessions(),
+    inScope: _newInScope(), patients: (_newData && _newData.patients) || {}, clinicScope: _newClinicScope()
+  });
+}
+function _newBag(b) { return window.SyDentCurBag.text(b, function(v){ return fmt(Math.round(Number(v) || 0)); }); }
+var _newLast = null;
+function renderNew() {
+  var host = document.getElementById('newHost');
+  if (!host || rptTab !== 'new') return;
+  if (!window.SyRptNew || !window.SyRptTreat) {
+    host.innerHTML = '<div class="empty-state"><div class="ic">⚠️</div><div class="ttl">تعذّر تحميل التقرير — حدّث الصفحة</div></div>';
+    return;
+  }
+  var loading = '<div class="empty-state"><div class="ic">⏳</div><div class="ttl">جارٍ التحميل…</div></div>';
+  if (!_prLoaded || !currentUser) { host.innerHTML = loading; return; }
+  if (!priorCtx) { host.innerHTML = window.SyRptNew.render({}, { priorFailed: true }); return; }
+  var key = _newKey();
+  if (!_newData || _newData.key !== key) { host.innerHTML = loading; loadNewData(key); return; }
+  if (_newData.loading) { host.innerHTML = loading; return; }
+  var m = _newModel(), clinic = _newClinicScope();
+  _newLast = { m: m, reg: clinic ? _newData.reg : null };
+  host.innerHTML = (_newData.namesFailed ? '<div class="rt-note" style="margin:0 0 14px;">⚠️ تعذّر تحميل أسماء المرضى ومصادرهم — الأعدادُ صحيحة لكن المصادرَ تظهر «غير محدد» الآن.</div>' : '')
+    + window.SyRptNew.render(m, {
+      bag: _newBag, doc: _trtDoctorName, reg: _newLast.reg, regFailed: clinic && _newData.regFailed,
+      prof: function(id){ return 'patient-profile.html?id=' + encodeURIComponent(id); }, setupLink: 'patients.html'
+    });
+}
+function buildNewRows() {
+  var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+  var N = window.SyRptNew, m = _newLast.m;
+  var rows = [['المريض','المصدر','أول علاج','الطبيب','إنتاجه بالفترة (ل.س)','إنتاجه بالفترة ($)','المُعرِّف']];
+  m.list.forEach(function(r){
+    rows.push([r.name, N.srcLabel(r.src), r.first, _trtDoctorName(r.provider_id), _csvNum(r.bag.SYP), _csvNum(r.bag.USD), r.ref ? r.ref.name : '']);
+  });
+  if (m.referrers.length) {
+    rows.push([]);
+    rows.push(['المُعرِّف','النوع','عرّف','','الإنتاج (ل.س)','الإنتاج ($)','']);
+    m.referrers.forEach(function(r){ rows.push([r.name, r.kind === 'patient' ? 'مريض' : (r.kind === 'doctor' ? 'طبيب' : 'اسم'), r.n, '', _csvNum(r.bag.SYP), _csvNum(r.bag.USD), '']); });
+  }
+  rows.push([]);
+  rows.push(['المصدر','العدد','الفترة السابقة','','الإنتاج (ل.س)','الإنتاج ($)']);
+  m.sources.forEach(function(s){ rows.push([s.label, s.n, m.prevN === null ? '' : s.prevN, '', _csvNum(s.bag.SYP), _csvNum(s.bag.USD)]); });
+  rows.push(['المجموع', m.n, m.prevN === null ? '' : m.prevN, '', _csvNum(m.total.SYP), _csvNum(m.total.USD)]);
+  if (_newLast.reg) {
+    rows.push([]);
+    rows.push(['سُجّلوا بالفترة', _newLast.reg.n, 'بدأوا العلاج', _newLast.reg.started, '', '']);
+    _newLast.reg.waiting.forEach(function(w){ rows.push([w.name, N.srcLabel(w.src), w.created, 'لم يبدأ', '', '']); });
+  }
+  rows.push([]);
+  rows.push(['الفترة', from + ' ← ' + to, 'النطاق', _trtScopeLabel().replace(/^[^·]*· /, ''), 'أُنشئ', SyDT.numDate(new Date()) + ' ' + SyDT.hm(new Date().toISOString())]);
+  return rows;
+}
+async function exportNewExcel() {
+  if (!_newLast || (!_newLast.m.n && !(_newLast.reg && _newLast.reg.n))) { showToast('لا مرضى جدد للتصدير بهذه الفترة'); return; }
+  var btn = document.getElementById('exportXlsxBtn');
+  if (btn && btn.disabled) return;
+  var old = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'جارٍ التصدير…'; }
+  try {
+    var all = buildNewRows();
+    var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+    var kind = await window.SyDentXlsx.save({
+      headers: all[0], rows: all.slice(1),
+      filename: 'المرضى-الجدد-' + from + '_' + to,
+      sheetName: 'المرضى الجدد',
+      cols: [{wch:24},{wch:18},{wch:12},{wch:20},{wch:18},{wch:16}]
+    });
+    showToast(kind === 'xlsx' ? '⬇️ تم تصدير ملف Excel' : '⬇️ تعذّر Excel — صُدّر ملف TSV بديل');
+  } catch (e) { console.error('exportNewExcel:', e); showToast('⚠️ تعذّر التصدير'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = old; } }
+}
+
+// ═══ v541 — تبويبُ «الحضور والغياب» (المحرّك والرسم بـrpt-att.js) ═══
+// المواعيدُ تُجلب فقط حين يُفتح التبويب (#687) للفترة والفترة السابقة معاً، مع أسماء أنواع المواعيد.
+// النطاقُ = طبيبُ الموعد بنفس قاعدة المرضى الجدد (_newInScope). رسومُ الغياب من treatScopeSessions() (#684).
+var _attData = null, _attSeq = 0, _attLast = null;
+async function loadAttData(key) {
+  var seq = ++_attSeq;
+  var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+  var d = { key: key, loading: true, rows: [], types: {}, failed: false };
+  _attData = d;
+  var pw = prevWindow(from, to), lo = pw ? pw.from : from;
+  try {
+    d.rows = await _fetchAllPR(function(){
+      return window.sb.from('appointments')
+        .select('id,date,time,duration,status,provider_id,patient_id,patient_name,appointment_type_id,type,arrived_at,seated_at,dismissed_at,is_planned')
+        .eq('doctor_id', currentUser.id).gte('date', lo).lte('date', to);
+    });
+  } catch (e) { console.warn('attendance appointments:', e); d.failed = true; }
+  try {
+    var t = await window.sb.from('appointment_types').select('id,name').eq('doctor_id', currentUser.id);
+    (t.data || []).forEach(function(x){ d.types[x.id] = x.name; });
+  } catch (e) { console.warn('appointment types:', e); }
+  d.loading = false;
+  if (seq === _attSeq) renderAtt();
+}
+function _attModel() {
+  var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+  var types = (_attData && _attData.types) || {};
+  return window.SyRptAtt.compute({
+    from: from, to: to, today: toDay(new Date()), prev: prevWindow(from, to),
+    rows: (_attData && _attData.rows) || [], inScope: _newInScope(),
+    typeName: function(a){ return (a.appointment_type_id && types[a.appointment_type_id]) || String(a.type || '').trim(); }
+  });
+}
+function _attFees() {
+  var n = 0, bag = { SYP: 0, USD: 0 };
+  treatScopeSessions().forEach(function(s){
+    if (s.description !== 'رسم عدم الحضور') return;
+    n++; bag[_rowCur(s)] += Number(s.cost) || 0;   // cur-ok: مفهرسٌ بالعملة
+  });
+  return n ? { n: n, text: _newBag(bag) } : null;
+}
+function renderAtt() {
+  var host = document.getElementById('attHost');
+  if (!host || rptTab !== 'att') return;
+  if (!window.SyRptAtt) {
+    host.innerHTML = '<div class="empty-state"><div class="ic">⚠️</div><div class="ttl">تعذّر تحميل التقرير — حدّث الصفحة</div></div>';
+    return;
+  }
+  var loading = '<div class="empty-state"><div class="ic">⏳</div><div class="ttl">جارٍ التحميل…</div></div>';
+  if (!_prLoaded || !currentUser) { host.innerHTML = loading; return; }
+  var key = _newKey();
+  if (!_attData || _attData.key !== key) { host.innerHTML = loading; loadAttData(key); return; }
+  if (_attData.loading) { host.innerHTML = loading; return; }
+  if (_attData.failed) {
+    host.innerHTML = '<div class="empty-state"><div class="ic">⚠️</div><div class="ttl">تعذّر تحميل المواعيد</div><div style="margin-top:6px;">تحقّق من الاتصال ثم اضغط «تحديث».</div></div>';
+    return;
+  }
+  var m = _attModel();
+  _attLast = m;
+  host.innerHTML = window.SyRptAtt.render(m, {
+    docName: _trtDoctorName, fees: _attFees(), apptLink: 'appointments.html',
+    prof: function(id){ return 'patient-profile.html?id=' + encodeURIComponent(id); }
+  });
+}
+function buildAttRows() {
+  var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+  var A = window.SyRptAtt, m = _attLast;
+  var rows = [['القسم','البند','منتهية','حضر','غاب','ألغى','نسبة الغياب والإلغاء %','دقائق ضائعة']];
+  var push = function(sec, list, lbl){
+    list.forEach(function(b){
+      var r = A.rates(b);
+      rows.push([sec, lbl(b), r.f, b.attended, b.missed, b.cancelled, r.f ? Math.round(r.fail * 1000) / 10 : '', b.lostMin]);
+    });
+  };
+  push('المجموع', [m.cur], function(){ return 'كل المواعيد المنتهية'; });
+  if (m.prev) push('الفترة السابقة', [m.prev], function(){ return 'كل المواعيد المنتهية'; });
+  push('الطبيب', m.doctors, function(b){ return _trtDoctorName(b.provider_id); });
+  push('يوم الأسبوع', m.days, function(b){ return b.label; });
+  push('ساعة الموعد', m.hours, function(b){ return b.label; });
+  push('نوع الموعد', m.types, function(b){ return b.label; });
+  push('الشهر', m.months, function(b){ return b.label; });
+  rows.push([]);
+  rows.push(['المريض','غاب','ألغى','آخرها','','','','']);
+  m.repeat.forEach(function(r){ rows.push([r.name, r.missed, r.cancelled, r.last, '', '', '', '']); });
+  rows.push([]);
+  rows.push(['الفترة', from + ' ← ' + to, 'بلا نتيجة مسجّلة', m.cur.unresolved, 'أُعيد جدولته', m.cur.rescheduled, 'أُنشئ', SyDT.numDate(new Date()) + ' ' + SyDT.hm(new Date().toISOString())]);
+  return rows;
+}
+async function exportAttExcel() {
+  if (!_attLast || !window.SyRptAtt.finished(_attLast.cur)) { showToast('لا مواعيد منتهية للتصدير بهذه الفترة'); return; }
+  var btn = document.getElementById('exportXlsxBtn');
+  if (btn && btn.disabled) return;
+  var old = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'جارٍ التصدير…'; }
+  try {
+    var all = buildAttRows();
+    var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+    var kind = await window.SyDentXlsx.save({
+      headers: all[0], rows: all.slice(1),
+      filename: 'الحضور-والغياب-' + from + '_' + to,
+      sheetName: 'الحضور والغياب',
+      cols: [{wch:14},{wch:24},{wch:9},{wch:8},{wch:8},{wch:8},{wch:20},{wch:12}]
+    });
+    showToast(kind === 'xlsx' ? '⬇️ تم تصدير ملف Excel' : '⬇️ تعذّر Excel — صُدّر ملف TSV بديل');
+  } catch (e) { console.error('exportAttExcel:', e); showToast('⚠️ تعذّر التصدير'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = old; } }
+}
+
+// ═══ v542 — تبويبُ «الاحتفاظ» (المحرّك والرسم بـrpt-ret.js) ═══
+// الزياراتُ من كل التاريخ قبل الفترة (priorCtx — بهوية الجلسة) + جلسات الفترة، مفلترةً بطبيب الجلسة بقاعدة
+// _newInScope نفسها؛ الجددُ بـSyRptNew.pickNew نفسه. المواعيدُ من بداية الفترة (لـ«حجزوا الخطوة الجاية»)
+// تُجلب فقط حين يُفتح التبويب (#687)، والأسماءُ لقوائم النطاق الظاهر فقط وبمقاطع 150 (#691).
+var _retData = null, _retSeq = 0, _retLast = null;
+async function loadRetData(key) {
+  var seq = ++_retSeq;
+  var from = document.getElementById('fromDate').value;
+  var d = { key: key, loading: true, appts: [], names: {}, fetching: false, failed: false };
+  _retData = d;
+  try {
+    d.appts = await _fetchAllPR(function(){
+      return window.sb.from('appointments').select('id,patient_id,date,status,is_planned')
+        .eq('doctor_id', currentUser.id).gte('date', from);
+    });
+  } catch (e) { console.warn('retention appointments:', e); d.failed = true; }
+  d.loading = false;
+  if (seq === _retSeq) renderRet();
+}
+function _retModel() {
+  var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+  var inScope = _newInScope();
+  var all = ((priorCtx && priorCtx.sessions) || []).concat(sessions);
+  return window.SyRptRet.compute({
+    from: from, to: to, today: toDay(new Date()), inScope: inScope, all: all,
+    visits: all.filter(function(s){ return inScope(s.provider_id || null); }),
+    appts: (_retData && _retData.appts) || []
+  });
+}
+async function _retFetchNames(ids, d) {
+  d.fetching = true;
+  try {
+    var got = await _newFetchPatients(ids);
+    ids.forEach(function(id){ d.names[id] = (got[id] && got[id].name) || ''; });
+  } catch (e) { console.warn('retention names:', e); ids.forEach(function(id){ if (!(id in d.names)) d.names[id] = ''; }); }
+  d.fetching = false;
+  if (_retData === d) renderRet();
+}
+function renderRet() {
+  var host = document.getElementById('retHost');
+  if (!host || rptTab !== 'ret') return;
+  if (!window.SyRptRet || !window.SyRptNew || !window.SyRptTreat) {
+    host.innerHTML = '<div class="empty-state"><div class="ic">⚠️</div><div class="ttl">تعذّر تحميل التقرير — حدّث الصفحة</div></div>';
+    return;
+  }
+  var loading = '<div class="empty-state"><div class="ic">⏳</div><div class="ttl">جارٍ التحميل…</div></div>';
+  if (!_prLoaded || !currentUser) { host.innerHTML = loading; return; }
+  if (!priorCtx) {
+    host.innerHTML = '<div class="empty-state"><div class="ic">⚠️</div><div class="ttl">تعذّر تحميل تاريخ الزيارات قبل الفترة</div><div style="margin-top:6px;">بلا هذا التاريخ لا يُعرف مَن كان نشطاً — حدّث الصفحة.</div></div>';
+    return;
+  }
+  var key = _newKey();
+  if (!_retData || _retData.key !== key) { host.innerHTML = loading; loadRetData(key); return; }
+  if (_retData.loading) { host.innerHTML = loading; return; }
+  var m = _retModel();
+  _retLast = m;
+  var need = m.noNext.concat(m.lost).map(function(r){ return r.id; }).filter(function(id){ return !(id in _retData.names); });
+  if (need.length && !_retData.fetching) _retFetchNames(need, _retData);
+  var names = _retData.names;
+  host.innerHTML = (_retData.failed ? '<div class="rt-note" style="margin:0 0 14px;">⚠️ تعذّر تحميل المواعيد — «حجزوا الخطوة الجاية» وقائمةُ «بلا موعد جاي» غيرُ دقيقتين الآن.</div>' : '')
+    + window.SyRptRet.render(m, {
+      name: function(id){ return names[id] === undefined ? '…' : names[id]; },
+      prof: function(id){ return 'patient-profile.html?id=' + encodeURIComponent(id); },
+      recallLink: 'patients.html?open=recall', numDate: function(d){ return SyDT.numDate(d); }
+    });
+}
+function buildRetRows() {
+  var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+  var m = _retLast, names = (_retData && _retData.names) || {};
+  var rows = [['البند','القيمة','','']];
+  rows.push(['المرضى النشطون (آخر 12 شهراً)', m.activeEnd, 'بداية الفترة', m.activeStart]);
+  rows.push(['زاروا بالفترة', m.visited, 'جدد / راجعون', m.newN + ' / ' + m.returning]);
+  rows.push(['فقدناهم بالفترة', m.lost.length, 'صافي النمو', m.newN - m.lost.length]);
+  rows.push(['حجزوا الخطوة الجاية', m.booked, 'من', m.visited]);
+  rows.push([]);
+  rows.push(['الشهر','النشطون','جدد','فقدنا']);
+  m.trend.forEach(function(t){ rows.push([t.label, t.active, t.fresh, t.lost]); });
+  rows.push([]);
+  rows.push(['زاروا بلا موعد جاي','آخر زيارة','جديد','']);
+  m.noNext.forEach(function(r){ rows.push([names[r.id] || r.id, r.last, r.isNew ? 'نعم' : '', '']); });
+  rows.push([]);
+  rows.push(['فقدناهم','آخر علاج','','']);
+  m.lost.forEach(function(r){ rows.push([names[r.id] || r.id, r.last, '', '']); });
+  rows.push([]);
+  rows.push(['الفترة', from + ' ← ' + to, 'أُنشئ', SyDT.numDate(new Date()) + ' ' + SyDT.hm(new Date().toISOString())]);
+  return rows;
+}
+async function exportRetExcel() {
+  if (!_retLast) { showToast('لا بيانات للتصدير بعد'); return; }
+  var btn = document.getElementById('exportXlsxBtn');
+  if (btn && btn.disabled) return;
+  var old = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'جارٍ التصدير…'; }
+  try {
+    var all = buildRetRows();
+    var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+    var kind = await window.SyDentXlsx.save({
+      headers: all[0], rows: all.slice(1),
+      filename: 'الاحتفاظ-' + from + '_' + to,
+      sheetName: 'الاحتفاظ',
+      cols: [{wch:30},{wch:14},{wch:16},{wch:12}]
+    });
+    showToast(kind === 'xlsx' ? '⬇️ تم تصدير ملف Excel' : '⬇️ تعذّر Excel — صُدّر ملف TSV بديل');
+  } catch (e) { console.error('exportRetExcel:', e); showToast('⚠️ تعذّر التصدير'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = old; } }
+}
+
+// ═══ v545 — تبويبُ «ملخّص الفترة» (الرسم بـrpt-sum.js؛ الأرقامُ من محرّكات التبويبات نفسها) ═══
+// ثلاث نوافذ: الفترة · السابقة (prevCtx) · نفسها من السنة الماضية (تُجلب عند فتح التبويب بـfetchCtx نفسه — #687).
+// المالُ داخل withCurrencyLayer/withCtx: الإنتاجُ من SyRptTreat.aggregate(treatScopeSessions()) (= تبويب العلاجات)،
+// والتحصيلُ والمخبرُ من clinicTotals() للعيادة كلها أو من computeProviderStats للأطباء الظاهرين (= البطاقات) — #684.
+var _sumData = null, _sumSeq = 0, _sumLast = null;
+function _sumWins() {
+  var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+  var pw = prevWindow(from, to);
+  var ly = pw ? { from: window.SyRptRet.minusMonths(from, 12), to: window.SyRptRet.minusMonths(to, 12) } : null;
+  return { cur: { from: from, to: to }, prev: pw, ly: ly };
+}
+async function loadSumData(key) {
+  var seq = ++_sumSeq;
+  var W = _sumWins();
+  var d = { key: key, loading: true, ly: null, lyFailed: false, appts: [], apptsFailed: false, clinic: '' };
+  _sumData = d;
+  var statusList = document.getElementById('statusFilter').value === 'completed_planned' ? ['completed','planned'] : ['completed'];
+  if (W.ly) {
+    try { d.ly = await fetchCtx(W.ly.from, W.ly.to, statusList, true); }
+    catch (e) { console.warn('summary last-year context:', e); d.lyFailed = true; }
+  }
+  try {
+    d.appts = await _fetchAllPR(function(){
+      return window.sb.from('appointments')
+        .select('id,date,time,duration,status,provider_id,patient_id,patient_name,appointment_type_id,type,arrived_at,seated_at,dismissed_at,is_planned')
+        .eq('doctor_id', currentUser.id).gte('date', (W.ly || W.prev || W.cur).from).lte('date', W.cur.to);
+    });
+  } catch (e) { console.warn('summary appointments:', e); d.apptsFailed = true; }
+  try {
+    var cs = await window.sb.from('clinic_settings').select('clinic_name').eq('owner_id', currentUser.id).maybeSingle();
+    d.clinic = (cs && cs.data && cs.data.clinic_name) || '';
+  } catch (e) {}
+  d.loading = false;
+  if (seq === _sumSeq) renderSum();
+}
+/* نافذةٌ واحدة داخل سياقها: 'cur' ⇒ طبقةُ العملة من بيانات الفترة، 'prev' ⇒ prevCtx، 'ly' ⇒ سياقُ السنة الماضية */
+function _sumIn(which, cur, fn) {
+  var out;
+  if (which === 'cur') withCurrencyLayer(cur, function(){ out = fn(); });
+  else out = withCtx(which === 'prev' ? prevCtx : _sumData.ly, cur, fn);
+  return out;
+}
+function _sumMoney(which) {
+  var clinic = _newClinicScope();
+  var r = { prod: { SYP: 0, USD: 0 }, coll: { SYP: 0, USD: 0 }, lab: { SYP: 0, USD: 0 }, n: 0, rows: {} };
+  ['SYP', 'USD'].forEach(function(cur){
+    _sumIn(which, cur, function(){
+      var agg = window.SyRptTreat.aggregate(treatScopeSessions(), trtCatalog);
+      r.prod[cur] = agg.total.prod; r.n += agg.total.n;
+      agg.rows.forEach(function(x){
+        if (x.cat === window.SyRptTreat.CAT_FEES) return;   /* الرسومُ والرصيدُ السابق ضمن الإنتاج لكنها ليست علاجاً */
+        var g = r.rows[x.key] || (r.rows[x.key] = { name: x.name, n: 0, bag: { SYP: 0, USD: 0 } });
+        g.n += x.n; g.bag[cur] += x.prod;
+      });
+      if (clinic) { var t = clinicTotals(); r.coll[cur] = t.collection; r.lab[cur] = t.lab; }
+      else getVisibleDoctors().list.forEach(function(dd){ var st = computeProviderStats(dd.id); r.coll[cur] += st.collection; r.lab[cur] += st.labCost; });
+    });
+  });
+  r.avg = r.n ? { SYP: r.prod.SYP / r.n, USD: r.prod.USD / r.n } : null;
+  return r;
+}
+function _sumModel() {
+  var W = _sumWins(), today = toDay(new Date()), inScope = _newInScope();
+  var hist = ((priorCtx && priorCtx.sessions) || []).concat(sessions);
+  var bp = window.SyRptRet.byPatient(hist.filter(function(s){ return inScope(s.provider_id || null); }));
+  var R = window.SyRptRet, cnt = function(o){ return Object.keys(o).length; };
+  function pts(w) {
+    if (!w) return { newN: null, active: null, lost: null };
+    var end = w.to < today ? w.to : today;
+    var a1 = R.activeAt(bp, end), a0 = R.activeAt(bp, R.dayBefore(w.from));
+    return { newN: window.SyRptNew.pickNew(hist, w, inScope).length, active: cnt(a1),
+             lost: Object.keys(a0).filter(function(k){ return !a1[k]; }).length };
+  }
+  function att(w) {
+    if (!w || _sumData.apptsFailed) return { rate: null, missed: null, cancelled: null };
+    var m = window.SyRptAtt.compute({ from: w.from, to: w.to, today: today, rows: _sumData.appts, inScope: inScope });
+    var rr = window.SyRptAtt.rates(m.cur);
+    return { rate: rr.f >= window.SyRptAtt.MIN_RATE ? rr.att : null, missed: m.cur.missed, cancelled: m.cur.cancelled };
+  }
+  var hasLy = !!(W.ly && _sumData.ly), hasPrev = !!(W.prev && prevCtx);
+  var M = { cur: _sumMoney('cur'), prev: hasPrev ? _sumMoney('prev') : null, ly: hasLy ? _sumMoney('ly') : null };
+  var P = { cur: pts(W.cur), prev: pts(hasPrev ? W.prev : null), ly: pts(W.ly) };
+  var A = { cur: att(W.cur), prev: att(W.prev), ly: att(W.ly) };
+  var g = function(o, k){ return o ? o[k] : null; };
+  var clinic = _newClinicScope();
+  var sections = [
+    { title: '💰 المال', rows: [
+      { label: 'الإنتاج', kind: 'bag', cur: M.cur.prod, prev: g(M.prev, 'prod'), ly: g(M.ly, 'prod') },
+      { label: 'التحصيل', kind: 'bag', note: clinic ? 'كلُّ المدفوعات بالفترة' : 'المنسوبُ للأطباء المختارين', cur: M.cur.coll, prev: g(M.prev, 'coll'), ly: g(M.ly, 'coll') },
+      { label: 'المخبر', kind: 'bag', higherBad: true, cur: M.cur.lab, prev: g(M.prev, 'lab'), ly: g(M.ly, 'lab') },
+      { label: 'عدد الجلسات', kind: 'num', cur: M.cur.n, prev: g(M.prev, 'n'), ly: g(M.ly, 'n') },
+      { label: 'متوسط الجلسة', kind: 'bag', cur: M.cur.avg, prev: g(M.prev, 'avg'), ly: g(M.ly, 'avg') }
+    ] },
+    { title: '👥 المرضى', rows: [
+      { label: 'مرضى جدد', kind: 'num', note: 'أوّلُ علاجٍ منجز لهم', cur: P.cur.newN, prev: P.prev.newN, ly: P.ly.newN },
+      { label: 'المرضى النشطون', kind: 'num', note: 'علاجٌ خلال 12 شهراً حتى نهاية النافذة', cur: P.cur.active, prev: P.prev.active, ly: P.ly.active },
+      { label: 'فقدناهم', kind: 'num', higherBad: true, cur: P.cur.lost, prev: P.prev.lost, ly: P.ly.lost }
+    ] },
+    { title: '📅 المواعيد', rows: [
+      { label: 'نسبة الحضور', kind: 'pct', note: 'من المواعيد المنتهية', cur: A.cur.rate, prev: A.prev.rate, ly: A.ly.rate },
+      { label: 'غاب', kind: 'num', higherBad: true, cur: A.cur.missed, prev: A.prev.missed, ly: A.ly.missed },
+      { label: 'ألغى', kind: 'num', higherBad: true, cur: A.cur.cancelled, prev: A.prev.cancelled, ly: A.ly.cancelled }
+    ] }
+  ];
+  var top = Object.keys(M.cur.rows).map(function(k){ return M.cur.rows[k]; })
+    .sort(function(a, b){ return (b.n - a.n) || ((b.bag.SYP + b.bag.USD) - (a.bag.SYP + a.bag.USD)); }).slice(0, 5);
+  var nd = function(d){ return SyDT.numDate(d); };
+  var notes = [];
+  if (W.ly && _sumData.lyFailed) notes.push('⚠️ تعذّر تحميل السنة الماضية — عمودُها «—».');
+  if (_sumData.apptsFailed) notes.push('⚠️ تعذّر تحميل المواعيد — قسمُ المواعيد «—».');
+  var scope = _trtScopeLabel().replace(/^[^·]*· /, '');
+  return {
+    title: 'ملخّص ' + (_sumData.clinic || 'العيادة') + (clinic ? '' : ' — ' + scope),
+    sub: 'الفترة ' + nd(W.cur.from) + ' ← ' + nd(W.cur.to)
+      + (W.prev ? ' · السابقة ' + nd(W.prev.from) + ' ← ' + nd(W.prev.to) : '')
+      + (W.ly ? ' · السنة الماضية ' + nd(W.ly.from) + ' ← ' + nd(W.ly.to) : ''),
+    cols: { cur: 'الفترة', prev: 'السابقة', ly: 'السنة الماضية' },
+    sections: sections, top: top, notes: notes,
+    stamp: SyDT.numDate(new Date()) + ' ' + SyDT.hm(new Date().toISOString())
+  };
+}
+function _sumVal(r, v) {
+  if (v === null || v === undefined) return '—';
+  if (r.kind === 'bag') return escapeHtml(_newBag(v));
+  if (r.kind === 'pct') return '<bdi dir="ltr">' + Math.round(v * 100) + '%</bdi>';
+  return escapeHtml(fmt(v));
+}
+function _sumPlain(r, v) {
+  if (v === null || v === undefined) return '—';
+  if (r.kind === 'bag') return _newBag(v);
+  if (r.kind === 'pct') return Math.round(v * 100) + '%';
+  return fmt(v);
+}
+function renderSum() {
+  var host = document.getElementById('sumHost');
+  if (!host || rptTab !== 'sum') return;
+  if (!window.SyRptSum || !window.SyRptRet || !window.SyRptNew || !window.SyRptAtt || !window.SyRptTreat) {
+    host.innerHTML = '<div class="empty-state"><div class="ic">⚠️</div><div class="ttl">تعذّر تحميل التقرير — حدّث الصفحة</div></div>';
+    return;
+  }
+  var loading = '<div class="empty-state"><div class="ic">⏳</div><div class="ttl">جارٍ التحميل…</div></div>';
+  if (!_prLoaded || !currentUser || !trtCatalog) { host.innerHTML = loading; return; }
+  if (!priorCtx) {
+    host.innerHTML = '<div class="empty-state"><div class="ic">⚠️</div><div class="ttl">تعذّر تحميل تاريخ العيادة قبل الفترة</div><div style="margin-top:6px;">حدّث الصفحة.</div></div>';
+    return;
+  }
+  var key = _newKey();
+  if (!_sumData || _sumData.key !== key) { host.innerHTML = loading; loadSumData(key); return; }
+  if (_sumData.loading) { host.innerHTML = loading; return; }
+  _sumLast = _sumModel();
+  host.innerHTML = window.SyRptSum.render(_sumLast, { val: _sumVal, bag: function(b){ return escapeHtml(_newBag(b)); } });
+}
+async function _sumCopy() {
+  if (!_sumLast) return;
+  var txt = window.SyRptSum.text(_sumLast, { plain: _sumPlain });
+  try { await navigator.clipboard.writeText(txt); showToast('📋 نُسخ الملخّص — الصقه بالواتساب'); return; } catch (e) {}
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = txt; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    showToast('📋 نُسخ الملخّص — الصقه بالواتساب');
+  } catch (e2) { showToast('⚠️ تعذّر النسخ'); }
+}
+function _sumPrint() {
+  document.body.classList.add('printing-sum');
+  var done = function(){ document.body.classList.remove('printing-sum'); window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done);
+  try { window.print(); } finally { setTimeout(done, 1500); }
+}
+document.addEventListener('click', function(e){
+  var b = e.target && e.target.closest && e.target.closest('#sumHost [data-rs]');
+  if (!b) return;
+  if (b.getAttribute('data-rs') === 'print') _sumPrint(); else _sumCopy();
+});
+async function exportSumExcel() {
+  if (!_sumLast) { showToast('لا بيانات للتصدير بعد'); return; }
+  var btn = document.getElementById('exportXlsxBtn');
+  if (btn && btn.disabled) return;
+  var old = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'جارٍ التصدير…'; }
+  try {
+    var S = _sumLast, rows = [];
+    S.sections.forEach(function(sec){
+      sec.rows.forEach(function(r){ rows.push([sec.title.replace(/^[^\u0600-\u06FF]+/, ''), r.label, _sumPlain(r, r.cur), _sumPlain(r, r.prev), _sumPlain(r, r.ly)]); });
+    });
+    rows.push([]);
+    rows.push(['', S.sub, '', '', '']);
+    var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+    var kind = await window.SyDentXlsx.save({
+      headers: ['القسم', 'البند', S.cols.cur, S.cols.prev, S.cols.ly], rows: rows,
+      filename: 'ملخص-الفترة-' + from + '_' + to, sheetName: 'ملخص الفترة',
+      cols: [{wch:12},{wch:20},{wch:24},{wch:24},{wch:24}]
+    });
+    showToast(kind === 'xlsx' ? '⬇️ تم تصدير ملف Excel' : '⬇️ تعذّر Excel — صُدّر ملف TSV بديل');
+  } catch (e) { console.error('exportSumExcel:', e); showToast('⚠️ تعذّر التصدير'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = old; } }
+}
+async function exportExcel() {
+  if (rptTab === 'treat') return exportTreatExcel();   // v539: التصديرُ يتبع التبويبَ الظاهر
+  if (rptTab === 'new') return exportNewExcel();       // v540
+  if (rptTab === 'att') return exportAttExcel();       // v541
+  if (rptTab === 'ret') return exportRetExcel();       // v542
+  if (rptTab === 'sum') return exportSumExcel();       // v545
+  if (!doctors.length) { showToast('لا يوجد أطباء للتصدير'); return; }
+  // v309: xlsx حقيقي عبر المصدر الواحد SyDentXlsx (تحميلٌ كسول للمكتبة + احتياط TSV بلا إنترنت).
+  var btn = document.getElementById('exportXlsxBtn');
+  if (btn && btn.disabled) return;
+  var old = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'جارٍ التصدير…'; }
+  try {
+    var all = buildCsvRows();
+    var headers = all[0], rows = all.slice(1);
+    var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+    var kind = await window.SyDentXlsx.save({
+      headers: headers, rows: rows,
+      filename: 'تقارير-الأطباء-' + from + '_' + to,
+      sheetName: 'تقارير الأطباء',
+      cols: [{wch:7},{wch:22},{wch:10},{wch:8},{wch:10},{wch:14},{wch:14},{wch:16},{wch:18},{wch:14},{wch:14},{wch:18},{wch:14},{wch:14},{wch:22}]
+    });
+    showToast(kind === 'xlsx' ? '⬇️ تم تصدير ملف Excel' : '⬇️ تعذّر Excel — صُدّر ملف TSV بديل');
+  } catch (e) { console.error('exportExcel:', e); showToast('⚠️ تعذّر التصدير'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = old; } }
+}
+
+// ─── Init ───
+// Define PTR refresh hook BEFORE initSidebar (so sidebar can wire it up)
+window.onPTRRefresh = function() { loadAll(); };
+
+(async function init() {
+  initSidebar('provider-reports');
+
+  var user = await window.sbRequireAuth();
+  if (!user) return;
+  currentUser = user;
+
+  // Phase 4: Lock guard — Owner + Doctor only (Secretary blocked)
+  if (window.SyDentLock && !window.SyDentLock.guardPage(['owner', 'doctor'])) return;
+
+  // F6: استرجاع أساس الحساب المحفوظ (المالك يعمل على «الصافي» — كان يرجع «الإنتاج» بكل تحميل).
+  try {
+    var savedBasis = localStorage.getItem('sydent_pr_basis');
+    if (savedBasis === 'net' || savedBasis === 'collection' || savedBasis === 'production') {
+      basis = savedBasis;
+      document.querySelectorAll('.basis-btn').forEach(function(btn){
+        btn.classList.toggle('active', btn.getAttribute('data-basis') === savedBasis);
+      });
+      var _bh = document.getElementById('basisHelp');
+      if (_bh) _bh.innerHTML = BASIS_HELP[savedBasis] || BASIS_HELP.production;
+    }
+  } catch (e) {}
+
+  try { if (localStorage.getItem('sydent_rt_sort') === 'count') rptSort = 'count'; } catch (e) {}   // v539
+  document.body.setAttribute('data-rpt-tab', rptTab);
+  // v307: الفترات من الجدول؛ الرابطُ (إن حمل فلتراً) يغلب الافتراضي «هذا الشهر».
+  renderPresetRow();
+  if (!applyUrlParams()) {
+    var _r0 = presetRange('this_month');
+    document.getElementById('fromDate').value = _r0.from;
+    document.getElementById('toDate').value   = _r0.to;
+    markPreset('this_month');
+  }
+
+  _prStartEarly();   /* v553: بياناتُ الفترة تبدأ الآن — الرسمُ ينتظر الفحص أدناه وقائمةَ الأطباء */
+  _prDocsEarly = _prSettle(_prDoctorsQuery());   /* v553: وقائمةُ الأطباء معها */
+
+  // Ensure SyDentLock's employee+doctor caches are loaded BEFORE the
+  // inactive check — otherwise the check returns false on null cache and
+  // the guard silently passes. autoInit preloads these in parallel — await
+  // them explicitly here so timing is deterministic.
+  if (window.SyDentLock) {
+    /* DeepCode #1 (v552): الذاكرتان مستقلتان — تُنتظران معاً (جولةٌ لا جولتان)؛ كلتاهما قبل الفحص كما كان. */
+    await Promise.all([
+      (typeof window.SyDentLock.loadEmployees === 'function') ? Promise.resolve().then(function(){ return window.SyDentLock.loadEmployees(); }).catch(function(){}) : null,
+      (typeof window.SyDentLock.loadDoctors === 'function') ? Promise.resolve().then(function(){ return window.SyDentLock.loadDoctors(); }).catch(function(){}) : null
+    ]);
+  }
+
+  // HARD GUARD: if the locked doctor's employee account is inactive,
+  // replace the main content with an empty state BEFORE loadAll runs.
+  // The autoInit banner+pill handle the rest of the device-wide UX.
+  if (window.SyDentLock && window.SyDentLock.isDoctor()
+      && typeof window.SyDentLock.isDoctorAccountInactive === 'function'
+      && window.SyDentLock.isDoctorAccountInactive()) {
+    var mainEl = document.getElementById('sbMainContent') || document.querySelector('.main');
+    if (mainEl) {
+      mainEl.innerHTML =
+        '<div style="min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center;font-family:\'Cairo\',sans-serif;">' +
+          '<div style="font-size:72px;line-height:1;margin-bottom:20px;">🔒</div>' +
+          '<div style="font-size:20px;font-weight:800;color:#e1f4ee;margin-bottom:12px;">' +
+            'تقارير الأطباء غير متاحة' +
+          '</div>' +
+          '<div style="font-size:13px;color:#8a9ab5;line-height:1.8;max-width:420px;">' +
+            'حسابك معطّل من قِبَل صاحب العيادة. ' +
+            'الرجاء التواصل معه لإعادة التفعيل.' +
+          '</div>' +
+          '<a href="index.html" style="margin-top:28px;padding:12px 28px;background:var(--green);border-radius:10px;color:var(--on-accent);font-size:14px;font-weight:800;text-decoration:none;">' +
+            '↩ العودة للصفحة الرئيسية' +
+          '</a>' +
+        '</div>';
+    }
+    _prCancelEarly();   /* v553 */
+    return;
+  }
+
+  await loadAll();
+
+  // Phase 4: Doctor mode auto-filter (lock the provider dropdown to the doctor's own id)
+  applyDoctorModeFilter();
+})();
+
+// Phase 4: When in Doctor mode, force the provider filter to the doctor's id
+// and disable the dropdown. Visible-but-locked pattern (transparency for the
+// doctor: "I see why I can't change this — I'm in Doctor mode").
+function applyDoctorModeFilter() {
+  if (!window.SyDentLock || !window.SyDentLock.isDoctor()) return;
+  var sel = document.getElementById('providerFilter');
+  if (!sel) return;
+  // Phase 5: resolve effective doctor id (LS_DOCTOR_ID or employee.doctor_id)
+  var did = (typeof window.SyDentLock.getEffectiveDoctorId === 'function')
+    ? window.SyDentLock.getEffectiveDoctorId()
+    : window.SyDentLock.getDoctorId();
+  if (!did) return;
+
+  // Also lock the inactive filter — in Doctor mode, viewing only your own
+  // data means the inactive-doctors toggle is irrelevant + could trigger
+  // rebuilds that drop your locked id from the options.
+  var inactiveSel = document.getElementById('inactiveFilter');
+  if (inactiveSel && !inactiveSel.disabled) {
+    inactiveSel.value = 'show'; // always include the doctor's own id in dropdown
+    inactiveSel.disabled = true;
+    inactiveSel.style.opacity = '0.7';
+    inactiveSel.style.cursor = 'not-allowed';
+    inactiveSel.title = 'مقفول في وضع الطبيب';
+  }
+
+  // Ensure the option exists (in case the filter dropdown was repopulated)
+  var hasOpt = false;
+  for (var i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].value === did) { hasOpt = true; break; }
+  }
+  if (hasOpt) {
+    sel.value = did;
+    sel.disabled = true;
+    sel.style.opacity = '0.7';
+    sel.style.cursor = 'not-allowed';
+    sel.title = 'الفلتر مقفول على إنتاجك في وضع الطبيب';
+    onFilterChange();
+  } else {
+    // Doctor id not found in clinic_doctors list (deactivated or deleted).
+    // CRITICAL: don't let the doctor see other providers' data. Inject a
+    // hidden invalid option so render() finds nothing.
+    // The global "حسابك معطّل" banner is shown by supabase-init.js
+    // (Phase 4.1 applyInactiveDoctorUI). No need to duplicate it here.
+    console.warn('[SyDentLock] Doctor mode: doctor id not in clinic_doctors list — forcing empty state');
+    var opt = document.createElement('option');
+    opt.value = did;
+    opt.textContent = 'حسابك معطّل — لا تظهر بيانات';
+    sel.appendChild(opt);
+    sel.value = did;
+    sel.disabled = true;
+    sel.style.opacity = '0.7';
+    sel.style.cursor = 'not-allowed';
+    sel.title = 'حسابك غير نشط — تواصل مع المالك';
+    onFilterChange();
+  }
+}
+
+async function doLogout() {
+  await window.sb.auth.signOut();
+  window.location.href = 'auth.html?logged_out=1';
+}
+window.doLogout = doLogout;
+
+// زر hamburger للـ topbar
+document.addEventListener('DOMContentLoaded', function() {
+  var btn = document.createElement('button');
+  btn.className = 'sb-hamburger';
+  btn.id = 'sbHamburgerBtn';
+  btn.setAttribute('aria-label', 'القائمة');
+  btn.innerHTML = '<span></span><span></span><span></span>';
+  btn.onclick = function() { window.sbToggle(); };
+  window._sbBtn = btn;
+  var topbar = document.querySelector('.topbar');
+  if (topbar) topbar.insertBefore(btn, topbar.firstChild);
+});
+</script>
+</body>
+</html>
