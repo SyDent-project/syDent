@@ -6,7 +6,7 @@ name: DR Restore Test
 #   آلياً، ويفشل بصوتٍ مسموع عند أي انحراف.
 #
 # ⚠️ لا يعمل أبداً ضد الإنتاج: حارس صلب يرفض أي DR_TARGET_DB_URL يحمل مرجع مشروع
-#   الإنتاج، ويرفض أيضاً أي رابط يشير إلى db.rycqzpdhxabpqrdgtdzg أو postgres.rycqzpdhxabpqrdgtdzg.
+#   الإنتاج، ويرفض أيضاً أي رابط يشير إلى db.<PROD_REF> أو postgres.<PROD_REF>.
 #
 # التشغيل: يدوي (workflow_dispatch) — لا جدول. القاعدة التشغيلية: مرّة قبل أول عميل
 #   يدفع، ثم شهرياً أو بعد أي هجرة تلمس البنية.
@@ -42,7 +42,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TARGET: ${{ secrets.DR_TARGET_DB_URL }}
-      PROD_REF: rycqzpdhxabpqrdgtdzg
+      # Production project ref (repo variable); the guard refuses to restore onto it.
+      PROD_REF: ${{ vars.SUPABASE_PROD_REF || 'nxkalpjrqvpglphmiuui' }}
     steps:
       - name: Guard — target must exist and must not be production
         run: |
@@ -56,7 +57,7 @@ jobs:
       - name: Checkout backup repo
         uses: actions/checkout@v5
         with:
-          repository: AyhamGhnaim/SyDent-backups
+          repository: ${{ github.repository_owner }}/SyDent-backups
           token: ${{ secrets.BACKUP_PAT }}
           path: backups-repo
 

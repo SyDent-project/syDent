@@ -45,8 +45,10 @@ jobs:
         run: |
           set -euo pipefail
           # subscription_plans مفتاحها 'code' (لا يوجد عمود 'id') — طلب عمود غير موجود يسبب 400.
-          URL="https://rycqzpdhxabpqrdgtdzg.supabase.co/rest/v1/subscription_plans?select=code&limit=1"
-          KEY="sb_publishable_7LjceYIlrRrHt86sLpCwPg_TlMO8VJu"
+          # Target project: repo variables SUPABASE_PROJECT_REF / SUPABASE_PUBLISHABLE_KEY
+          # (default to dental-dev).
+          URL="https://${{ vars.SUPABASE_PROJECT_REF || 'peeydqtjwklixphuzvzg' }}.supabase.co/rest/v1/subscription_plans?select=code&limit=1"
+          KEY="${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_H_MS0j2cRi35h0ycqnIl8w_ANOlaQne' }}"
           # المفتاح الجديد sb_publishable_ ليس JWT — يُرسَل في ترويسة apikey فقط.
           # إرساله في Authorization: Bearer يسبب HTTP 400 (البوابة تحاول فكّه كـ JWT وتفشل).
           HTTP=$(curl -sS -o /tmp/resp.txt -w "%{http_code}" "$URL" \
@@ -71,8 +73,8 @@ jobs:
             echo "≥45 days idle — creating marker commit to keep the schedule from being disabled."
             mkdir -p .github
             date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/keepalive-marker
-            git config user.name "AyhamGhnaim"
-            git config user.email "drayhamghnaim@gmail.com"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add .github/keepalive-marker
             git commit -m "chore: keep-alive marker [skip ci]"
             git push

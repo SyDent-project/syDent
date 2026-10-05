@@ -49,7 +49,8 @@ jobs:
     timeout-minutes: 10
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      PROJECT_REF: rycqzpdhxabpqrdgtdzg
+      # Target project: repo variable SUPABASE_PROJECT_REF (defaults to dental-dev).
+      PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || 'peeydqtjwklixphuzvzg' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5

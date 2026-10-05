@@ -5,7 +5,7 @@
 # لا يُستعمل هذا الملف للتطوير المحلي (لا supabase start) ولا للميغريشنات
 # (تُطبَّق يدوياً في SQL Editor حسب منهجية المشروع).
 
-project_id = "rycqzpdhxabpqrdgtdzg"
+project_id = "peeydqtjwklixphuzvzg"
 
 [functions.admin-ops]
 verify_jwt = false
