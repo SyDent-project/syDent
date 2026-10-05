@@ -27,10 +27,10 @@ import {
 } from './lib/session-utils.mjs';
 
 const SUPABASE_URL =
-  process.env.E2E_SUPABASE_URL || 'https://rycqzpdhxabpqrdgtdzg.supabase.co';
+  process.env.E2E_SUPABASE_URL || 'https://peeydqtjwklixphuzvzg.supabase.co';
 // المفتاح العلني (publishable) — علني بالتصميم، نفس قيمة supabase-init.js
 const ANON_KEY =
-  process.env.E2E_SUPABASE_ANON_KEY || 'sb_publishable_7LjceYIlrRrHt86sLpCwPg_TlMO8VJu';
+  process.env.E2E_SUPABASE_ANON_KEY || 'sb_publishable_H_MS0j2cRi35h0ycqnIl8w_ANOlaQne';
 const BASE_URL = process.env.E2E_BASE_URL || 'http://127.0.0.1:8080';
 // مهلة كل محاولة fetch بالإعداد — مرآة API_TIMEOUT_MS بـapi.mjs (عقد #310)
 const SETUP_FETCH_TIMEOUT_MS = 10_000;
