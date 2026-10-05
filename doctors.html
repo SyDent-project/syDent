@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SyDent">
+<meta name="theme-color" content="#0d8577">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=4">
+<link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<title>أطباء العيادة — SyDent</title>
+<!-- Theme system: MUST load before inline <style>
+/* ── Modal ── v447: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
+   (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
+ to apply data-theme synchronously and prevent FOUC. -->
+<script src="theme.js?v=20261002d"></script>
+<script src="/vendor/supabase-2.110.8.min.js"></script>
+<script src="supabase-init.js?v=20261002d"></script>
+<script src="sy-modal.js?v=20261002d"></script>
+<script src="sidebar.js?v=20261002d"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a1628;--bg2:#0f2038;--bg3:#132840;
+  --border:rgba(var(--green-rgb),0.15);
+  --green:var(--green);--red:#ef5350;--yellow:#f5c842;
+  --blue:#63b3ed;--purple:#a78bfa;
+  --text:#e1f4ee;--text2:#8a9ab5;--radius:12px;
+}
+body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px;background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:20;gap:12px;
+}
+.tb-title{font-size:18px;font-weight:800;color:var(--green);}
+.tb-sub{font-size:12px;color:var(--text2);margin-top:2px;}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 18px;border-radius:10px;
+  font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;border:none;transition:all .2s;
+}
+.btn-primary{background:var(--green);color:var(--bg);}
+.btn-primary:hover{background:var(--green2);}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2);}
+.btn-outline:hover{border-color:var(--green);color:var(--green);}
+.btn-sm{padding:7px 14px;font-size:12px;}
+
+.page{padding:24px 28px;max-width:1200px;margin:0 auto;}
+
+/* Phase 6 S: .info-box CSS removed — the box was deleted from the HTML
+   when doctors.html became read-mostly. Class still exists in other pages
+   (employees.html) which carry their own scoped definition. */
+
+/* Doctors grid */
+.doc-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));
+  gap:16px;
+}
+.doc-card{
+  background:linear-gradient(180deg, color-mix(in srgb, var(--text) 3%, transparent) 0%, rgba(0,0,0,0.06) 100%), var(--bg2);   /* v290: text-tinted, not white@3% */
+  border:1px solid rgba(var(--green-rgb),0.22);
+  border-radius:var(--radius);overflow:hidden;
+  transition:transform .2s, box-shadow .2s, border-color .2s;
+  position:relative;
+  box-shadow:0 10px 26px -8px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.30);
+}
+.doc-card:hover{transform:translateY(-3px);box-shadow:0 18px 38px -10px rgba(0,0,0,.62), 0 0 0 1px var(--green);border-color:var(--green);}
+/* v290: the heavy black shadows are a dark-theme look; on light they read as a dirty halo */
+:root[data-theme="light"] .doc-card{box-shadow:var(--shadow-card);border-color:var(--border2);}
+:root[data-theme="light"] .doc-card:hover{box-shadow:0 12px 28px -10px rgba(16,42,67,.22), 0 0 0 1px var(--green);}
+.doc-color-bar{height:5px;width:100%;}
+.doc-body{padding:16px 18px;}
+.doc-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.doc-avatar{
+  width:50px;height:50px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:800;color:#fff;flex-shrink:0;
+}
+.doc-name{font-size:15px;font-weight:800;color:var(--text);line-height:1.3;}
+.doc-role{font-size:11px;color:var(--text2);margin-top:2px;display:flex;gap:6px;align-items:center;}
+.role-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--purple-bg);color:var(--purple-fg);border:1px solid var(--purple-bd);}   /* v368: unified tone tokens; provider types add `tone tone-*` */
+.doc-meta{font-size:12px;color:var(--text2);margin-top:8px;line-height:1.5;}
+.doc-meta b{color:var(--text);font-weight:600;}
+.doc-actions{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:14px;padding-top:12px;
+  border-top:1px solid rgba(var(--green-rgb),0.06);
+}
+.doc-actions > :only-child{grid-column:1 / -1;}   /* بطاقةُ المالك بزرٍّ واحد يملأ السطر */
+/* v474: الأزرار على طقم أزرار الصفوف (.sy-acts-grid) — «تعديل» محايد، و«⭐ المعالج الافتراضي» أخضرُ الحالة الفعّالة. */
+
+.you-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--green-bg);color:var(--green-fg);border:1px solid var(--green-bd);margin-right:4px;}
+.linked-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--blue-bg);color:var(--blue-fg);border:1px solid var(--blue-bd);margin-right:4px;}
+
+.empty-state{
+  background:var(--bg2);border:2px dashed var(--border);
+  border-radius:var(--radius);padding:60px 20px;
+  text-align:center;color:var(--text2);
+}
+.empty-state .ic{font-size:48px;margin-bottom:12px;opacity:.6;}
+.empty-state .ttl{font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px;}
+
+/* Modal */
+.modal-overlay.show{display:flex;}
+.modal-head h3{font-size:16px;font-weight:800;color:var(--green);}
+.modal-close:hover{background:var(--bg3);color:var(--red);}
+
+.form-group{margin-bottom:16px;}
+.form-group label{display:block;font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;}
+.form-group input,.form-group select,.form-group textarea{
+  width:100%;padding:10px 12px;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:8px;
+  font-family:'Cairo',sans-serif;font-size:14px;
+  transition:border-color .15s;
+}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{
+  outline:none;border-color:var(--green);
+}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+/* Phase 6 K2.2: legacy 16-color palette CSS removed. Color selection now
+   goes through the shared SyDentColorPicker (defined in supabase-init.js)
+   via a single swatch button — same UX on iOS, Windows, and Android. */
+
+/* Toast */
+
+@media (max-width:768px){
+  .form-row{grid-template-columns:1fr;}
+  .topbar{padding:12px 16px;flex-wrap:wrap;gap:10px;}
+  .page{padding:16px;}
+}
+/* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
+html[data-sub-level="read"] :is([onclick*="saveDoctor("],[onclick*="unlinkFromUser("],[onclick*="linkToUser("],[onclick*="goEditDoctor("]){display:none !important;}
+</style>
+<!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
+<link rel="stylesheet" href="theme.css?v=20261002d">
+</head>
+<body>
+<div class="main" id="sbMainContent">
+
+<div class="topbar">
+  <div>
+    <div class="tb-title">أطباء العيادة</div>
+    <div class="tb-sub">إدارة الأطباء وأسعارهم الخاصة</div>
+  </div>
+  <!-- Phase 6 S: Header action buttons removed.
+       Previously held a deep-link to employees.html (Phase 6 Q) for adding
+       doctors. After Phase 6 R + S, doctors.html is fully read-mostly:
+       the sidebar nav already lists 'الموظفون' page, and the empty-state
+       on this page surfaces the link when there are zero doctors. -->
+</div>
+
+<div class="page">
+
+  <!-- Phase 6 S: info-box removed.
+       The previous box contained 3 explanatory messages:
+       1) 'Doctors here appear in session forms' — implicit by sidebar nav
+       2) 'Add/Edit/Delete moved to employees page' — already shown when
+          the doctor list is empty (empty-state link below)
+       3) 'Use deactivate button to lock employee device' — belongs in
+          employees.html context, not here
+       Result: a cleaner header → straight to the doctor cards. -->
+
+  <div id="docList"></div>
+
+</div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay sy-m sy-m-md" id="docModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="modalTitle">＋ إضافة طبيب</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="form-group">
+        <label>الاسم الكامل *</label>
+        <input type="text" id="dName" placeholder="د. أحمد محمد">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>التخصص / الدور</label>
+          <input type="text" id="dRole" placeholder="مثلاً: تقويم / لب وجذور / طبيب عام">
+        </div>
+        <div class="form-group">
+          <label>الهاتف (واتساب WhatsApp)</label>
+          <input type="tel" id="dPhone" placeholder="09xxxxxxxx" dir="ltr">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>اللون المميّز (يظهر في كشف الحساب)</label>
+        <!-- Phase 6 K2.2: replaced the fixed 16-color grid with the shared
+             SyDentColorPicker (defined in supabase-init.js). The native HTML5
+             color picker varies wildly across OS (tiny RGB-only on Windows
+             Chrome/Brave vs. the full Grid/Spectrum/Sliders panel on iOS),
+             so we emulate the iOS experience everywhere via our shared
+             component. Hidden #dColor preserves the get/set API used by
+             saveDoctor() and editDoctor() — they read pickedColor unchanged. -->
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input type="hidden" id="dColor" value="#0d8577">
+          <button type="button" id="dColorSwatch" onclick="openDocColorPicker()"
+                  aria-label="اختيار اللون"
+                  style="width:50px;height:40px;padding:0;cursor:pointer;border-radius:8px;border:1px solid var(--border);background:var(--green);flex-shrink:0;"></button>
+          <span style="font-size:12px;color:var(--text-muted);">اختر أي لون — يظهر بجانب اسم الطبيب</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>نسبة الطبيب من الجلسة (%)</label>
+          <input type="number" id="dShare" min="0" max="100" placeholder="مثلاً: 40">
+        </div>
+        <div class="form-group">
+          <label>ساعات العمل (أسبوعياً)</label>
+          <input type="number" id="dHours" min="0" placeholder="مثلاً: 24">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>ملاحظات (اختياري)</label>
+        <textarea id="dNotes" rows="2" placeholder="أي تفاصيل إضافية..."></textarea>
+      </div>
+
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal()">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveDoctor()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var currentUser = null;
+var doctorOwner = null;  // The clinic-owner doctor record
+var doctors = [];
+var editingId = null;
+var pickedColor = 'var(--green)';
+
+// Phase 6 K2.2: keeps the hidden #dColor input, the visible swatch button,
+// and the legacy pickedColor variable all in sync. Every call site (openAdd,
+// editDoctor, the picker callback) goes through this single helper so the
+// three are guaranteed never to drift apart. pickedColor is preserved so
+// saveDoctor()'s existing reads keep working without any changes.
+function _setDocColor(hex) {
+  var safe = (window.SyDentColorPicker && window.SyDentColorPicker.sanitizeHex)
+    ? window.SyDentColorPicker.sanitizeHex(hex)
+    : (/^#[0-9A-Fa-f]{6}$/.test(hex || '') ? hex : 'var(--green)');
+  pickedColor = safe;
+  var inp = document.getElementById('dColor');
+  if (inp) inp.value = safe;
+  var sw = document.getElementById('dColorSwatch');
+  if (sw) sw.style.background = safe;
+}
+
+// Phase 6 K2.2: opens the shared custom color picker. Called from the swatch
+// button's onclick. The picker handles all platform differences — same UI
+// on iOS, Windows, Android, etc.
+function openDocColorPicker() {
+  if (!window.SyDentColorPicker) {
+    // Defensive fallback: if supabase-init.js failed to load the picker
+    // block, let the user type a hex value manually (extremely rare).
+    /* v461: مسارُ احتياطٍ نادر (منتقي الألوان لم يُحمَّل) — بحوار المنصة
+       إن وُجد، وإلا نافذةُ المتصفّح كملاذٍ أخير كي لا يتعطّل الإدخال. */
+    if (window.SyDialog) {
+      SyDialog.prompt({ title: 'لون مخصّص', message: 'أدخل لون hex (مثال: #0d8577):', value: pickedColor })
+        .then(function (typed) { if (typed) _setDocColor(typed); });
+      return;
+    }
+    var typed = window.prompt('أدخل لون hex (مثال: #0d8577):', pickedColor);
+    if (typed) _setDocColor(typed);
+    return;
+  }
+  window.SyDentColorPicker.open(pickedColor, function(newHex) {
+    _setDocColor(newHex);
+  });
+}
+
+// Back-compat alias: legacy code that called pickColor(c) keeps working.
+function pickColor(c) { _setDocColor(c); }
+
+
+function escapeHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function initials(name) {
+  if (!name) return '?';
+  var parts = String(name).trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length-1].charAt(0)).toUpperCase();
+}
+
+async function loadDoctors() {
+  // Load all clinic_doctors for this owner
+  var { data, error } = await window.sb.from('clinic_doctors')
+    .select('*')
+    .eq('owner_id', currentUser.id)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('load doctors:', error);
+    if (error.code === 'PGRST204' || (error.message && error.message.indexOf('clinic_doctors') >= 0)) {
+      document.getElementById('docList').innerHTML =
+        '<div class="empty-state"><div class="ic">⚙️</div>' +
+        '<div class="ttl">يجب تشغيل تحديث قاعدة البيانات أولاً</div>' +
+        '<div style="margin-top:12px;font-size:13px;">انسخ SQL من Claude وشغّله في Supabase SQL Editor.</div></div>';
+      return;
+    }
+    showToast('⚠️ فشل تحميل الأطباء');
+    return;
+  }
+
+  // ── Phase 7.2 v2 Architectural Refactor — Link-based filter ──
+  //
+  // Source of truth: clinic_employees.role (not clinic_doctors.provider_type).
+  //
+  // Mental model (per Owner's stated requirement):
+  //   "صفحة الأطباء = الأطباء المسجلين كموظفين بدور 'doctor'"
+  //   doctors.html shows ONLY clinic_doctors rows that are either:
+  //     (a) is_owner = true (always visible — owner is supreme), OR
+  //     (b) linked via clinic_employees.doctor_id with role='doctor' and is_active=true
+  //
+  // Why this beats the old provider_type filter (Phase 7.2 v1):
+  //   1) Self-healing: orphan clinic_doctors rows (Phase 6 X residue, retry
+  //      fallbacks, manual SQL edits) automatically disappear from the UI.
+  //   2) Aligns with Migration 19 (DB-level trigger that rejects non-clinical
+  //      writes to clinic_doctors) — defense-in-depth.
+  //   3) clinic_employees becomes the single source of truth for HR identity,
+  //      matching payouts.html unified-entry architecture.
+  //   4) Robust against legacy data where provider_type may be NULL or wrong
+  //      (e.g., 'assistant' fallback from Phase 6 X retry logic).
+  //
+  // Graceful fallback: if the clinic_employees query fails (RLS / network /
+  // missing column), we revert to the old provider_type filter so the page
+  // keeps working in degraded mode rather than showing an empty list.
+  var allRows = data || [];
+
+  var linkedDoctorIds = new Set();
+  var empQueryFailed = false;
+  try {
+    var empRes = await window.sb.from('clinic_employees')
+      .select('doctor_id, role')
+      .eq('owner_id', currentUser.id)
+      .eq('is_active', true)
+      .eq('role', 'doctor')
+      .not('doctor_id', 'is', null);
+
+    if (empRes && empRes.error) {
+      empQueryFailed = true;
+      console.warn('Phase 7.2 v2: clinic_employees query failed, using provider_type fallback:', empRes.error);
+    } else if (empRes && Array.isArray(empRes.data)) {
+      empRes.data.forEach(function(e){
+        if (e && e.doctor_id) linkedDoctorIds.add(e.doctor_id);
+      });
+    }
+  } catch (empCatch) {
+    empQueryFailed = true;
+    console.warn('Phase 7.2 v2: clinic_employees query threw, using provider_type fallback:', empCatch);
+  }
+
+  if (empQueryFailed) {
+    // Degraded mode: keep the old behavior so the owner is not locked out.
+    doctors = allRows.filter(function(d){
+      var pt = d.provider_type || 'doctor';
+      return pt !== 'secretary' && pt !== 'other';
+    });
+  } else {
+    // Primary path: link-based filter (self-healing).
+    doctors = allRows.filter(function(d){
+      if (d.is_owner) return true;                  // owner: always shown
+      return linkedDoctorIds.has(d.id);              // others: must be a linked doctor employee
+    });
+  }
+
+  // ── Owner-doctor bootstrap (Migration 108 counterpart) ──
+  // For accounts created after Migration 108 the signup trigger
+  // (handle_new_owner_doctor) seeds the owner row, so this whole block is a
+  // no-op. It remains as the self-heal path for OLDER accounts (and as
+  // defense-in-depth if the trigger insert ever failed).
+  //
+  // Hijack fix (27/07/2026): the gate is now the ABSENCE of an is_owner row,
+  // not table emptiness. The old gate (allRows.length === 0) caused a real
+  // identity hijack: a clinic that hired a doctor via employees.html BEFORE
+  // ever visiting this page had exactly 1 row (the hired doctor) → owner
+  // bootstrap skipped → the old auto-heal promoted doctors[0] (the hired
+  // doctor!) to is_owner → the name-unification block below then renamed
+  // that row to the owner's auth name — erasing the hired doctor from the
+  // doctors layer while their clinic_employees link kept pointing at the
+  // hijacked row.
+  //
+  // New rules:
+  //   • No is_owner row + a row already tied to the owner's auth account
+  //     (user_id === currentUser.id) → promote THAT row only (genuine
+  //     legacy data — pre-is_owner era).
+  //   • No is_owner row + no such candidate → INSERT a fresh owner row.
+  //     Never promote arbitrary rows: any other row may belong to a hired
+  //     doctor (linked via clinic_employees.doctor_id).
+  var hasOwnerRow = allRows.some(function(d){ return d.is_owner === true; });
+  if (!hasOwnerRow) {
+    // Name unification: prefer the auth full_name (single source of truth for
+    // the owner's personal/provider name) over the legacy employee name so a
+    // brand-new owner-doctor row is created correct from the first visit.
+    var ownerName = ((currentUser.user_metadata || {}).full_name
+                  || (currentUser.user_metadata || {}).name
+                  || (doctorOwner && doctorOwner.name)
+                  || (currentUser.email ? currentUser.email.split('@')[0] : 'الطبيب الرئيسي'));
+    var ownerRole = (doctorOwner && doctorOwner.specialty) || 'طبيب أسنان';
+    var ownerPhone = (doctorOwner && doctorOwner.phone) || null;
+
+    // Legacy-heal candidate: ONLY a row already tied to the owner's auth
+    // account. allRows (not the filtered `doctors`) so orphan legacy rows
+    // — pre-clinic_employees era — are still healable.
+    var legacyCandidate = allRows.find(function(d){ return d.user_id === currentUser.id; });
+
+    if (legacyCandidate) {
+      var healRes = await window.sb.from('clinic_doctors')
+        .update({ is_owner: true, updated_at: new Date().toISOString() })
+        .eq('id', legacyCandidate.id)
+        .eq('owner_id', currentUser.id);
+      if (!healRes.error) {
+        legacyCandidate.is_owner = true;
+        // The link-based filter may have excluded an orphan legacy row —
+        // is_owner rows are always shown, so surface it now (owner first).
+        if (doctors.indexOf(legacyCandidate) === -1) doctors.unshift(legacyCandidate);
+        console.log('[SyDent] Auto-healed: promoted "' + legacyCandidate.name + '" to clinic owner');
+      } else {
+        console.warn('owner-doctor legacy heal failed:', healRes.error);
+      }
+    } else {
+      var insertOwner = await window.sb.from('clinic_doctors').insert({
+        owner_id: currentUser.id,
+        user_id: currentUser.id,
+        name: ownerName,
+        role: ownerRole,
+        phone: ownerPhone,
+        color: 'var(--green)',
+        is_owner: true,
+        is_active: true
+      }).select().single();
+      if (!insertOwner.error && insertOwner.data) {
+        doctors.unshift(insertOwner.data);   // keep hired doctors — never overwrite
+      } else if (insertOwner.error) {
+        console.warn('owner-doctor auto-create failed:', insertOwner.error);
+      }
+    }
+  }
+
+  // ── Name unification — read-time self-heal (owner-doctor row) ──
+  // user_metadata.full_name is the single source of truth for the owner's
+  // personal/provider name. Reconcile the owner-doctor row if it drifted
+  // (legacy name, or pre-sync edit). One cheap UPDATE, only when it differs;
+  // non-owner doctor rows are never touched. Fire-and-forget — renderList runs
+  // immediately with the corrected in-memory value.
+  try {
+    var _ownerFull = ((currentUser.user_metadata || {}).full_name
+                   || (currentUser.user_metadata || {}).name || '').trim();
+    if (_ownerFull) {
+      var _od = doctors.find(function(d){ return d.is_owner === true; });
+      if (_od && String(_od.name || '').trim() !== _ownerFull) {
+        _od.name = _ownerFull;  // reflect immediately in renderList
+        window.sb.from('clinic_doctors')
+          .update({ name: _ownerFull, updated_at: new Date().toISOString() })
+          .eq('owner_id', currentUser.id)
+          .eq('is_owner', true)
+          .then(function(){}, function(){});
+      }
+    }
+  } catch (e) { /* non-fatal */ }
+
+  renderList();
+}
+
+function renderList() {
+  var el = document.getElementById('docList');
+  if (!doctors.length) {
+    el.innerHTML =
+      '<div class="empty-state"><div class="ic">👨‍⚕️</div>' +
+      '<div class="ttl">لا يوجد أطباء بعد</div>' +
+      '<div style="margin-top:6px;">أضف أول طبيب من صفحة الموظفين — سيظهر هنا تلقائياً.</div>' +
+      '<a class="btn btn-primary" style="margin-top:16px;display:inline-block;text-decoration:none;" href="employees.html?action=add-doctor">＋ إضافة طبيب من صفحة الموظفين</a></div>';
+    return;
+  }
+
+  var html = '<div class="doc-grid">';
+  doctors.forEach(function(d){
+    var youBadge = d.is_owner ? '<span class="you-badge">⭐ صاحب العيادة</span>' : '';
+    var linkedBadge = (d.user_id === currentUser.id)
+      ? '<span class="linked-badge" title="هذا الطبيب هو معالجك الافتراضي — سيظهر تلقائياً عند تسجيلك للجلسات">⭐ معالجي</span>'
+      : '';
+    var roleBadge = d.role ? '<span class="role-badge">' + escapeHtml(d.role) + '</span>' : '';
+    // Phase 6 R + X: provider_type badge. Renders a colored chip for any
+    // non-doctor provider type. Doctor stays unbadged (the default) to keep
+    // the card visually clean. The five chips match the role icons used
+    // throughout the app for consistency.
+    var typeBadge = '';
+    if (d.provider_type === 'hygienist') {
+      typeBadge = '<span class="role-badge tone tone-blue" title="متدرب/مساعد (Hygienist)">🩺 متدرب/مساعد</span>';
+    } else if (d.provider_type === 'assistant') {
+      typeBadge = '<span class="role-badge tone tone-orange" title="مساعدة كرسي">🤝 مساعدة كرسي</span>';
+    } else if (d.provider_type === 'secretary') {
+      typeBadge = '<span class="role-badge tone tone-yellow" title="سكرتيرة">👩‍💼 سكرتيرة</span>';
+    } else if (d.provider_type === 'other') {
+      typeBadge = '<span class="role-badge tone tone-gray" title="موظف آخر (محاسب/عامل/إلخ)">👥 موظف آخر</span>';
+    }
+
+    var sharePart = (d.share_percent !== null && d.share_percent !== undefined) ? ('<b>النسبة:</b> ' + d.share_percent + '%') : '';
+    var hoursPart = d.weekly_hours ? ('<b>الساعات/الأسبوع:</b> ' + d.weekly_hours) : '';
+    var phonePart = d.phone ? ('<b>الهاتف:</b> ' + escapeHtml(d.phone)) : '';
+    var metaItems = [sharePart, hoursPart, phonePart].filter(function(x){ return x; }).join(' &nbsp;•&nbsp; ');
+
+    // ── Phase 6 R: doctors.html is now read-mostly for the doctor module ──
+    // Removed actions (still available via the unified employees.html flow):
+    //   • Delete button   → Doctor deletion is initiated from employees.html
+    //                       (Phase 6 P deleteEmployee flow). Following the
+    //                       OpenDental philosophy ("Providers cannot be
+    //                       deleted, only hidden"), employees.html performs
+    //                       a soft-deactivation that preserves historical
+    //                       FKs in sessions / appointments.
+    //   • Make-owner btn  → Ownership is fixed by the auth account (auth.uid())
+    //                       and managed automatically: doctors.html bootstraps
+    //                       the owner-doctor on first visit (is_owner=true),
+    //                       and an auto-heal promotes the first active doctor
+    //                       if no is_owner=true row exists. No UI handoff
+    //                       needed — OpenDental treats ownership transfers as
+    //                       a formal off-app process too.
+    // Kept actions:
+    //   • Edit button  → routes via goEditDoctor() (owner-doctor goes through
+    //                    the local modal; others deep-link to employees.html)
+    //   • Link button  → toggles user_id ↔ currentUser.id for the 3-tier
+    //                    provider default resolution. Still useful when the
+    //                    Owner runs the clinic together with hired doctors.
+
+    // Phase 6 S: 'Default provider' toggle.
+    // Same underlying behavior as the previous link/unlink pair — it just
+    // toggles d.user_id between currentUser.id and null (consumed by the
+    // OpenDental-style 3-tier provider default resolution: user_id →
+    // is_owner → first active). New phrasing is meaningful for the Owner:
+    // 'this is the doctor who shows up by default in the session form when
+    // I'm logged in'. The active state gets a filled, high-contrast button
+    // so it's instantly visible on the doctor cards grid.
+    var isDefault = (d.user_id === currentUser.id);
+    var defaultBtn = isDefault
+      ? '<button class="sy-act sy-act-primary" onclick="unlinkFromUser(\'' + d.id + '\')" title="هذا هو معالجك الافتراضي — اضغط للإلغاء">⭐ المعالج الافتراضي</button>'
+      : '<button class="sy-act" onclick="linkToUser(\'' + d.id + '\')" title="تعيين هذا الطبيب كمعالج افتراضي عند تسجيلك للجلسات">☆ تعيين كمعالج افتراضي</button>';
+
+    // Owner-doctor: no edit button. The owner's name/specialty is synced from
+    // the auth account (user_metadata.full_name) via read-time self-heal, so an
+    // in-card edit would be overwritten — hide it to avoid confusion.
+    var editBtn = d.is_owner ? '' : '<button class="sy-act" onclick="goEditDoctor(\'' + d.id + '\')">✏️ تعديل</button>';
+    html += '<div class="doc-card">'
+      + '<div class="doc-color-bar" style="background:' + (d.color || 'var(--green)') + '"></div>'
+      + '<div class="doc-body">'
+      + '<div class="doc-head">'
+      + '<div class="doc-avatar" style="background:' + (d.color || 'var(--green)') + '">' + initials(d.name) + '</div>'
+      + '<div style="flex:1;">'
+      + '<div class="doc-name">' + escapeHtml(d.name) + ' ' + youBadge + ' ' + linkedBadge + '</div>'
+      + '<div class="doc-role">' + roleBadge + ' ' + typeBadge + '</div>'
+      + '</div></div>'
+      + (metaItems ? '<div class="doc-meta">' + metaItems + '</div>' : '')
+      + (d.notes ? '<div class="doc-meta" style="margin-top:6px;font-style:italic;">' + escapeHtml(d.notes) + '</div>' : '')
+      + '<div class="doc-actions sy-acts sy-acts-grid">'
+      + editBtn
+      + defaultBtn
+      + '</div></div></div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function openAddModal() {
+  editingId = null;
+  document.getElementById('modalTitle').textContent = '＋ إضافة طبيب';
+  document.getElementById('dName').value = '';
+  document.getElementById('dRole').value = '';
+  document.getElementById('dPhone').value = '';
+  document.getElementById('dShare').value = '';
+  document.getElementById('dHours').value = '';
+  document.getElementById('dNotes').value = '';
+  _setDocColor('#63b3ed');
+  document.getElementById('docModal').classList.add('show');
+  setTimeout(function(){ document.getElementById('dName').focus(); }, 100);
+}
+
+// Phase 6 Q: 'goEditDoctor' is the entry point used by the action buttons
+// in the doctor cards. It routes ALL non-owner doctor edits to employees.html
+// (via the linked clinic_employees row) so the unified modal is the single
+// place to manage doctor data. Edge cases:
+//   • Owner-doctor (is_owner=true): the owner profile is edited via the
+//     owner-only flow on employees.html (PIN management). We forward to
+//     employees.html with no special action — the user can use the
+//     owner-specific UI there.
+//   • Orphan clinic_doctors (no linked employee): falls back to the legacy
+//     in-page editDoctor() so legacy data is still editable. This covers
+//     pre-Phase-6-P rows where the link was never established.
+function goEditDoctor(id) {
+  var d = doctors.find(function(x){ return x.id === id; });
+  if (!d) { showToast('⚠️ الطبيب غير موجود'); return; }
+
+  // Phase 6 Q: Owner-doctor is a special case. The employees.html edit
+  // modal blocks role==='owner' (the Owner profile is managed via the
+  // separate PIN-change flow), so deep-linking there would just bounce
+  // the user back with a toast. Instead, route owner-doctor edits to
+  // the legacy in-page modal where the clinical fields (color, share,
+  // notes) can still be tweaked. This keeps the Owner's doctor card
+  // editable without conflicting with the unified PIN-management flow.
+  if (d.is_owner) {
+    editDoctor(id);
+    return;
+  }
+
+  // Try to find the linked employee. Lookup via the employees cache (loaded
+  // by loadDoctors via loadEmployees fallback isn't available here — but the
+  // direct DB query is cheap and reliable).
+  window.sb.from('clinic_employees')
+    .select('id')
+    .eq('owner_id', currentUser.id)
+    .eq('doctor_id', id)
+    .limit(1)
+    .maybeSingle()
+    .then(function(res){
+      if (res && res.data && res.data.id) {
+        // Linked employee exists — deep-link to its edit modal in employees.html
+        window.location.href = 'employees.html?action=edit&id=' + encodeURIComponent(res.data.id);
+      } else {
+        // Orphan doctor row (no employee linked) — fall back to legacy in-page edit
+        editDoctor(id);
+      }
+    })
+    .catch(function(err){
+      console.warn('Phase 6 Q: linked employee lookup failed, falling back to in-page edit:', err);
+      editDoctor(id);
+    });
+}
+
+function editDoctor(id) {
+  var d = doctors.find(function(x){ return x.id === id; });
+  if (!d) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = '✏️ تعديل الطبيب';
+  document.getElementById('dName').value = d.name || '';
+  document.getElementById('dRole').value = d.role || '';
+  document.getElementById('dPhone').value = d.phone || '';
+  document.getElementById('dShare').value = (d.share_percent !== null && d.share_percent !== undefined) ? d.share_percent : '';
+  document.getElementById('dHours').value = d.weekly_hours || '';
+  document.getElementById('dNotes').value = d.notes || '';
+  _setDocColor(d.color || 'var(--green)');
+  document.getElementById('docModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('docModal').classList.remove('show');
+}
+
+// Phase post-X10 B1 fix: module-level in-flight flag prevents double-
+// submit when user double-clicks "💾 حفظ" before the await completes.
+// Without this, the insert path could create duplicate doctor rows.
+var _saveDocInFlight = false;
+
+async function saveDoctor() {
+  var name = document.getElementById('dName').value.trim();
+  if (!name) { showToast('⚠️ أدخل اسم الطبيب'); return; }
+
+  var role = document.getElementById('dRole').value.trim() || null;
+  var phone = document.getElementById('dPhone').value.trim() || null;
+  var shareRaw = document.getElementById('dShare').value;
+  var share = shareRaw === '' ? null : parseFloat(shareRaw);
+  var hoursRaw = document.getElementById('dHours').value;
+  var hours = hoursRaw === '' ? null : parseFloat(hoursRaw);
+  var notes = document.getElementById('dNotes').value.trim() || null;
+
+  // Critical section: guard against double-submit (after validation so a
+  // validation failure doesn't lock the form).
+  if (_saveDocInFlight) return;
+  _saveDocInFlight = true;
+  try {
+    if (editingId) {
+      var origDoc = doctors.find(function(x){ return x.id === editingId; });
+      var { error } = await window.sb.from('clinic_doctors')
+        .update({
+          name: name, role: role, phone: phone,
+          share_percent: share, weekly_hours: hours,
+          notes: notes, color: pickedColor,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingId);
+      if (error) { showToast('⚠️ فشل التعديل: ' + error.message); return; }
+      // Phase 5: audit log
+      if (window.logAudit) {
+        window.logAudit('doctor.edit', {
+          entityId: editingId,
+          description: 'تعديل بيانات الطبيب: ' + name,
+          oldValue: origDoc ? { name: origDoc.name, role: origDoc.role, share_percent: origDoc.share_percent } : null,
+          newValue: { name: name, role: role, share_percent: share }
+        });
+      }
+      showToast('✅ تم التعديل');
+    } else {
+      var { data: newDoc, error: insertErr } = await window.sb.from('clinic_doctors').insert({
+        owner_id: currentUser.id,
+        name: name, role: role, phone: phone,
+        share_percent: share, weekly_hours: hours,
+        notes: notes, color: pickedColor,
+        is_owner: false, is_active: true
+      }).select().single();
+      if (insertErr) { showToast('⚠️ فشل الإضافة: ' + insertErr.message); return; }
+      // Phase 5: audit log
+      if (window.logAudit && newDoc) {
+        window.logAudit('doctor.create', {
+          entityId: newDoc.id,
+          description: 'إضافة طبيب جديد: ' + name,
+          newValue: { name: name, role: role, share_percent: share }
+        });
+      }
+      showToast('✅ تمت إضافة الطبيب');
+    }
+    closeModal();
+    await loadDoctors();
+  } finally {
+    _saveDocInFlight = false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Phase 6 R: deleteDoctor() and makeOwner() removed.
+//
+// • deleteDoctor: Replaced by the unified soft-deactivation in employees.html
+//   (deleteEmployee → confirm modal → clinic_doctors.is_active=false).
+//   Matches OpenDental philosophy: "Providers cannot be deleted, only hidden"
+//   to preserve historical FKs in sessions / appointments / payments.
+//
+// • makeOwner: Removed because ownership is bound to the auth account
+//   (currentUser.id) and managed automatically: the owner-doctor is
+//   bootstrapped on first visit (line ~364), and auto-heal promotes the
+//   first active doctor if no is_owner=true row exists (line ~389).
+//   OpenDental also treats ownership transfers as a formal off-app process.
+//
+// The doctor.delete action_type remains registered in audit-log.html for
+// backward compatibility with historical audit records (pre-Phase-6-R).
+// ─────────────────────────────────────────────────────────────
+
+// Link a doctor to the current user's account.
+// OpenDental-style: user_id ↔ provider mapping. The linked doctor becomes the
+// default treating provider for sessions created by this logged-in user.
+// Only one doctor at a time can be linked to a given user_id.
+// Phase 6 S: function name preserved (kept as a stable hook for any callers),
+// but user-facing strings now use 'المعالج الافتراضي' terminology to match
+// the new button label. The underlying behavior is unchanged.
+/* ═══ v290 — قفلُ الأزرار الكاتبة (مرآةُ ppGuarded) ═══ */
+var _dInFlight = {};
+function dGuarded(name, inner, label) {
+  return async function () {
+    var k = name + ((arguments.length && (typeof arguments[0] === 'string' || typeof arguments[0] === 'number')) ? ':' + arguments[0] : '');
+    if (_dInFlight[k]) return;
+    var btn = null;
+    try { var ev = window.event; var t = ev && (ev.currentTarget || ev.target); if (t && t.closest) btn = t.closest('button'); } catch (_) {}
+    if (!btn && document.activeElement && document.activeElement.tagName === 'BUTTON') btn = document.activeElement;
+    _dInFlight[k] = true;
+    var old = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; if (label) btn.textContent = label; }
+    try { return await inner.apply(this, arguments); }
+    finally { delete _dInFlight[k]; if (btn) { btn.disabled = false; btn.textContent = old; } }
+  };
+}
+var linkToUser = dGuarded('linkToUser', _linkToUser_inner, 'جارٍ التعيين…');   /* v290 */
+async function _linkToUser_inner(id) {
+  var d = doctors.find(function(x){ return x.id === id; });
+  if (!d) return;
+  // Find any other doctor currently linked to me (only one allowed)
+  var currentLinked = doctors.find(function(x){ return x.user_id === currentUser.id && x.id !== id; });
+  var msg = currentLinked
+    ? 'تعيين "' + d.name + '" كمعالج افتراضي بدلاً من "' + currentLinked.name + '"؟\n\nهذا الطبيب سيكون الافتراضي عند تسجيلك لأي جلسة جديدة.'
+    : 'تعيين "' + d.name + '" كمعالج افتراضي؟\n\nسيكون هذا الطبيب هو الافتراضي عند تسجيلك لأي جلسة جديدة.';
+  if (!await SyDialog.confirm({ message: msg })) return;   /* تعيينٌ لا حذف */
+
+  // Step 1: unlink previous (if different)
+  if (currentLinked) {
+    var r1 = await window.sb.from('clinic_doctors')
+      .update({ user_id: null, updated_at: new Date().toISOString() })
+      .eq('id', currentLinked.id)
+      .eq('owner_id', currentUser.id);
+    if (r1.error) { showToast('⚠️ فشل إلغاء المعالج السابق: ' + r1.error.message); return; }
+  }
+
+  // Step 2: link new one
+  var r2 = await window.sb.from('clinic_doctors')
+    .update({ user_id: currentUser.id, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('owner_id', currentUser.id);
+  if (r2.error) { showToast('⚠️ فشل التعيين: ' + r2.error.message); return; }
+
+  showToast('⭐ تم تعيين "' + d.name + '" كمعالج افتراضي');
+  await loadDoctors();
+}
+
+var unlinkFromUser = dGuarded('unlinkFromUser', _unlinkFromUser_inner, 'جارٍ فكّ الربط…');   /* v290 */
+async function _unlinkFromUser_inner(id) {
+  var d = doctors.find(function(x){ return x.id === id; });
+  if (!d) return;
+  if (!await SyDialog.confirm({ message: 'إلغاء "' + d.name + '" كمعالج افتراضي؟\n\nسيتم استخدام الافتراضي الآخر (صاحب العيادة أو أول طبيب نشط) عند تسجيل جلسات جديدة.', danger: true })) return;
+
+  var r = await window.sb.from('clinic_doctors')
+    .update({ user_id: null, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('owner_id', currentUser.id);
+  if (r.error) { showToast('⚠️ فشل الإلغاء: ' + r.error.message); return; }
+
+  showToast('☆ تم إلغاء المعالج الافتراضي');
+  await loadDoctors();
+}
+
+/* v447: كان يُغلق نموذجَ الطبيب (سبعةُ حقول) بنقرةٍ خارجية عبر مستمعٍ على
+   المستند فيمحو ما كُتب. أُزيل — الإغلاق بـ✕ أو «إلغاء» أو Escape. */
+
+(async function init() {
+  initSidebar('doctors');
+
+  // Auth check (consistent with other pages)
+  var user = await window.sbRequireAuth();
+  if (!user) return;
+  currentUser = user;
+
+  // Phase 4: Lock guard — Owner-only page
+  if (window.SyDentLock && !window.SyDentLock.guardPage(['owner'])) return;
+
+  // Phase 7.2 cleanup: removed legacy 'doctors' table lookup.
+  // The legacy 'doctors' table is no longer used (replaced by clinic_doctors in
+  // the multi-tenant migration). The old query was causing a silent 400 error
+  // in the console even though .maybeSingle()+try/catch made it non-fatal.
+  // doctorOwner stays null — loadDoctors() will fall back to email-prefix
+  // defaults when auto-creating the owner row for brand-new accounts.
+  doctorOwner = null;
+
+  await loadDoctors();
+})();
+
+async function doLogout() {
+  await window.sb.auth.signOut();
+  window.location.href = 'auth.html?logged_out=1';
+}
+window.doLogout = doLogout;
+
+// زر hamburger للـ topbar
+document.addEventListener('DOMContentLoaded', function() {
+  var btn = document.createElement('button');
+  btn.className = 'sb-hamburger';
+  btn.id = 'sbHamburgerBtn';
+  btn.setAttribute('aria-label', 'القائمة');
+  btn.innerHTML = '<span></span><span></span><span></span>';
+  btn.onclick = function() { window.sbToggle(); };
+  window._sbBtn = btn;
+  var topbar = document.querySelector('.topbar');
+  if (topbar) topbar.insertBefore(btn, topbar.firstChild);
+});
+</script>
+</body>
+</html>

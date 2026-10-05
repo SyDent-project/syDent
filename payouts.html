@@ -1,0 +1,2273 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SyDent">
+<meta name="theme-color" content="#0d8577">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=4">
+<link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<title>SyDent — الرواتب والدفعات</title>
+<!-- Theme system: MUST load before inline <style>
+/* ── Modal ── v447: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
+   (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
+ to apply data-theme synchronously and prevent FOUC. -->
+<script src="theme.js?v=20261002d"></script>
+<style>
+:root {
+  --bg:        #0a1628;
+  --bg2:       #0f2038;
+  --bg3:       #132840;
+  --border:    rgba(var(--green-rgb),0.15);
+  --green:     var(--green);
+  --green-dim: rgba(var(--green-rgb),0.12);
+  --red:       #ef5350;
+  --yellow:    #f5c842;
+  --blue:      #63b3ed;
+  --orange:    #ffa726;
+  --gray:      #a3a3a3;
+  --text:      #e1f4ee;
+  --text2:     #8a9ab5;
+  --radius:    12px;
+  --sidebar:   240px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Cairo', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  overflow-x: hidden;
+}
+
+.main {
+  flex: 1;
+  margin-right: var(--sb-width, 240px);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-width: 0;
+}
+
+.topbar {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 28px;
+  display: flex; align-items: center; gap: 16px;
+  position: sticky; top: 0; z-index: 50;
+}
+.topbar-title { font-size: 20px; font-weight: 700; flex: 1; }
+.topbar-title span { color: var(--green); }
+
+.btn-add {
+  background: var(--green);
+  color: #0a1628;
+  border: none; border-radius: 10px;
+  padding: 10px 20px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 7px;
+  transition: opacity .2s, transform .15s;
+  white-space: nowrap;
+}
+.btn-add:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn-add:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.content { padding: 24px 28px; flex: 1; }
+
+/* ─── Stats strip ──────────────────────────────────────────────────────── */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 6px;
+  position: relative; overflow: hidden;
+}
+.stat-card::before {
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 3px;
+  background: var(--green);
+}
+.stat-card.alt::before { background: var(--blue); }
+.stat-card.alt2::before { background: var(--yellow); }
+.stat-card.alt3::before { background: var(--orange); }
+.stat-label { font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 5px; }
+.stat-value { font-size: 22px; font-weight: 700; color: var(--green); }
+.stat-card.alt .stat-value { color: var(--blue); }
+.stat-card.alt2 .stat-value { color: var(--yellow); }
+.stat-card.alt3 .stat-value { color: var(--orange); }
+.stat-sub { font-size: 11px; color: var(--text2); }
+
+/* ─── Filters ──────────────────────────────────────────────────────────── */
+.filters {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+.filter-row {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.filter-row:last-child { margin-bottom: 0; }
+.filter-label {
+  font-size: 12px; color: var(--text2); font-weight: 600;
+  white-space: nowrap;
+}
+
+.chips {
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+}
+.chip {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 16px;
+  cursor: pointer;
+  font-family: 'Cairo', sans-serif;
+  font-size: 12px; font-weight: 600;
+  transition: all 0.15s;
+  display: flex; align-items: center; gap: 5px;
+  white-space: nowrap;
+}
+.chip:hover { background: rgba(var(--green-rgb),0.08); }
+.chip.active { background: var(--green); color: #0a1628; border-color: var(--green); }
+.chip .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+.date-range {
+  display: flex; gap: 8px; align-items: center;
+}
+.date-range input[type="date"], .date-range input.sy-df-in {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 12px;
+  min-width: 130px;
+}
+
+/* ─── Table ────────────────────────────────────────────────────────────── */
+.payouts-table {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.table-head, .table-row {
+  display: grid;
+  grid-template-columns: 110px 180px 180px 130px 110px 110px;   /* v475: عمودُ الإجراء يتّسع لزرّ «📊 التفصيل» بكلمته */
+  gap: 10px; padding: 12px 16px; align-items: center;
+}
+.table-head {
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px; font-weight: 700; color: var(--text2);
+}
+.table-row {
+  border-bottom: 1px solid var(--border);   /* v292: was white@4% — invisible on light */
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.table-row:hover { background: rgba(var(--green-rgb),0.06); }
+.table-row:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+/* v292: press feedback */
+button:active:not(:disabled) { transform: scale(.97); }
+button:disabled { opacity: .6; cursor: wait; }
+.table-row:last-child { border-bottom: none; }
+.cell-amt { font-weight: 700; color: var(--green); }
+.cell-employee { display: flex; align-items: center; gap: 8px; }
+.dot-color { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.cell-method {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 12px;
+  background: var(--bg3); font-size: 11px; font-weight: 600;
+}
+.cell-method.cash { color: var(--green); }
+.cell-method.bank { color: var(--blue); }
+.cell-method.check { color: var(--yellow-ink); }
+.cell-method.other { color: var(--gray); }
+.cell-method.shamcash, .cell-method.syriatel, .cell-method.mtn, .cell-method.online { color: var(--blue); }   /* M158 */
+.cell-src { font-size: 11px; font-weight: 600; color: var(--text2); white-space: nowrap; }   /* M165: «من خارج الدرج» */
+.cell-actions { display: flex; gap: 6px; justify-content: flex-end; }
+/* v475: زرُّ «📊 التفصيل» على طقم أزرار الصفوف (كان أيقونةً وحدها 28px) */
+
+/* Expandable breakdown row */
+.breakdown-row {
+  grid-column: 1 / -1;
+  padding: 8px 16px 12px;
+  background: rgba(var(--green-rgb),0.04);
+  border-top: 1px dashed var(--border);
+  font-size: 12px; color: var(--text2);
+  display: none;
+}
+.breakdown-row.show { display: block; }
+.breakdown-row .bd-item {
+  display: inline-block;
+  background: var(--bg3);
+  padding: 4px 10px;
+  border-radius: 8px;
+  margin: 0 6px 4px 0;
+}
+.breakdown-row .bd-item b { color: var(--green); }
+
+.empty-state {
+  text-align: center; padding: 40px 20px; color: var(--text2);
+}
+.empty-state .ico { font-size: 40px; margin-bottom: 12px; }
+.empty-state .title { font-size: 16px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+.empty-state .sub { font-size: 13px; }
+
+/* ─── Modal ────────────────────────────────────────────────────────────── */
+.modal-overlay.show { display: flex; }
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-title { font-size: 16px; font-weight: 700; }
+.field { margin-bottom: 14px; }
+.field label {
+  display: block; font-size: 12px; font-weight: 600;
+  color: var(--text2); margin-bottom: 6px;
+}
+.field input, .field select, .field textarea {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+}
+.field input[readonly] {
+  background: rgba(var(--green-rgb),0.06);
+  color: var(--green);
+  font-weight: 700;
+  cursor: default;
+}
+.field textarea { resize: vertical; min-height: 60px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field-hint { font-size: 11px; color: var(--text2); margin-top: 4px; }
+.field-hint.suggest { color: var(--green); font-weight: 600; cursor: pointer; white-space: pre-line; line-height: 1.6; }   /* v382: سطورُ التفصيل تحت الاقتراح */
+.field-hint.suggest:hover { text-decoration: underline; }
+
+.method-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.method-chip {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'Cairo', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  flex: 1; min-width: 80px;
+  text-align: center;
+  transition: all 0.15s;
+}
+.method-chip:hover { background: rgba(var(--green-rgb),0.08); }
+.method-chip.active { background: var(--green); color: #0a1628; border-color: var(--green); }
+
+/* Breakdown section (collapsible) */
+.breakdown-section {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.breakdown-toggle {
+  background: var(--bg3);
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; font-weight: 600;
+  user-select: none;
+}
+.breakdown-toggle:hover { background: rgba(var(--green-rgb),0.06); }
+.breakdown-toggle .arrow { transition: transform 0.2s; }
+.breakdown-section.open .breakdown-toggle .arrow { transform: rotate(180deg); }
+.breakdown-body {
+  padding: 14px;
+  display: none;
+}
+.breakdown-section.open .breakdown-body { display: block; }
+.breakdown-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+}
+.bd-total {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px;
+}
+.bd-total b { color: var(--green); font-size: 15px; }
+
+.btn {
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text);
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+.btn.primary {
+  background: var(--green);
+  color: #0a1628;
+  border-color: var(--green);
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.danger { color: var(--red); }
+.btn.danger:hover { background: var(--red-soft); border-color: var(--red-bd); color: var(--red-ink); }
+
+.inactive-toggle {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; color: var(--text2);
+  margin-top: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+.inactive-toggle input { width: auto; }
+
+/* ─── Toast ────────────────────────────────────────────────────────────── */
+
+/* ─── Responsive ───────────────────────────────────────────────────────── */
+@media (max-width: 980px) {
+  .stats-strip { grid-template-columns: repeat(2, 1fr); }
+  .table-head, .table-row {
+    grid-template-columns: 90px 1fr 1fr 110px 90px 104px;
+    font-size: 12px;
+  }
+  .field-row { grid-template-columns: 1fr; }
+  .breakdown-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .main { margin-right: 0 !important; }
+  .content { padding: 16px 14px; }
+  .topbar { padding: 14px 16px; flex-wrap: wrap; gap: 10px; }
+  .topbar-title { font-size: 16px; }
+  .btn-add { padding: 8px 14px; font-size: 12px; }
+  .stats-strip { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-card { padding: 12px 14px; }
+  .stat-value { font-size: 18px; }
+  .payouts-table { overflow-x: auto; }
+  .table-head, .table-row {
+    min-width: 640px;
+  }
+  /* v363: حقلا التاريخ + «إعادة ضبط» كانوا صفاً لا يلتفّ (130px لكل حقل) فيتجاوز
+     عرض الموبايل بـ114px — يلتفّان الآن ويتقاسمان السطر */
+  .date-range { flex-wrap: wrap; width: 100%; }
+  .date-range input[type="date"], .date-range .sy-df { flex: 1 1 130px; min-width: 0; }
+}
+/* DeepCode #9 (v562): على الهاتف صفُّ الدفعة بطاقةٌ بدل جدولٍ يُمرَّر أفقياً (640px داخل 360px):
+   الموظف والمبلغ بالأعلى · التاريخ والطريقة · الفترة والإجراء. */
+@media (max-width:640px) {
+  .payouts-table { overflow-x: visible; }
+  .payouts-table .table-head { display: none; }
+  .payouts-table .table-row[role="button"] {
+    min-width: 0; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px;
+    grid-template-areas: "emp amt" "date method" "period act";
+  }
+  .payouts-table .table-row[role="button"] > div:nth-child(1) { grid-area: date; font-size: 12px; color: var(--text2); }
+  .payouts-table .table-row[role="button"] > div:nth-child(2) { grid-area: emp; font-weight: 700; min-width: 0; }
+  .payouts-table .table-row[role="button"] > div:nth-child(3) { grid-area: period; }
+  .payouts-table .table-row[role="button"] > div:nth-child(4) { grid-area: amt; justify-self: end; }
+  .payouts-table .table-row[role="button"] > div:nth-child(5) { grid-area: method; justify-self: end; }
+  .payouts-table .table-row[role="button"] > div:nth-child(6) { grid-area: act; justify-self: end; }
+}
+/* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
+html[data-sub-level="read"] :is([onclick*="openModal("],[onclick*="deleteCurrent("],[onclick*="savePayout("]){display:none !important;}
+</style>
+<!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
+<link rel="stylesheet" href="theme.css?v=20261002d">
+<script src="/vendor/supabase-2.110.8.min.js"></script>
+<script src="supabase-init.js?v=20261002d"></script>
+<script src="sy-modal.js?v=20261002d"></script>
+<script src="pay-methods.js?v=20261002d"></script>
+<script src="sidebar.js?v=20261002d"></script>
+<script src="timepicker.js?v=20261002d"></script>
+</head>
+<body>
+
+<div class="main" id="sbMainContent">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="topbar-title">
+      💳 <span>الرواتب والدفعات</span>
+    </div>
+    <button class="btn-add" onclick="openModal()">
+      دفعة جديدة
+    </button>
+  </div>
+
+  <div class="content">
+
+    <!-- Stats strip -->
+    <div class="stats-strip">
+      <div class="stat-card">
+        <div class="stat-label">هذا الشهر</div>
+        <div class="stat-value" id="statMonth">0 <span data-cur>ل.س</span></div>
+        <div class="stat-sub" id="statMonthCount">0 دفعة</div>
+      </div>
+      <div class="stat-card alt">
+        <div class="stat-label">هذه السنة</div>
+        <div class="stat-value" id="statYear">0 <span data-cur>ل.س</span></div>
+        <div class="stat-sub" id="statYearCount">0 دفعة</div>
+      </div>
+      <div class="stat-card alt2">
+        <div class="stat-label">الإجمالي</div>
+        <div class="stat-value" id="statTotal">0 <span data-cur>ل.س</span></div>
+        <div class="stat-sub" id="statTotalCount">0 دفعة</div>
+      </div>
+      <div class="stat-card alt3">
+        <div class="stat-label">الموظفون النشطون</div>
+        <div class="stat-value" id="statEmployees">0</div>
+        <div class="stat-sub">يستلمون دفعات</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+      <div class="filter-row">
+        <span class="filter-label">الموظف:</span>
+        <div class="chips" id="employeeFilters"></div>
+      </div>
+      <div class="filter-row">
+        <span class="filter-label">الطريقة:</span>
+        <div class="chips" id="methodFilters">
+          <div class="chip active" data-method="all" onclick="setMethodFilter('all')">الكل</div>
+          <div class="chip" data-method="cash" onclick="setMethodFilter('cash')">نقد</div>
+          <div class="chip" data-method="bank" onclick="setMethodFilter('bank')">بنك</div>
+          <div class="chip" data-method="check" onclick="setMethodFilter('check')">شيك</div>
+          <div class="chip" data-method="shamcash" onclick="setMethodFilter('shamcash')">شام كاش</div>
+          <div class="chip" data-method="syriatel" onclick="setMethodFilter('syriatel')">سيريتل كاش</div>
+          <div class="chip" data-method="mtn" onclick="setMethodFilter('mtn')">MTN كاش</div>
+          <div class="chip" data-method="online" onclick="setMethodFilter('online')">أونلاين</div>
+          <div class="chip" data-method="other" onclick="setMethodFilter('other')">أخر</div>
+        </div>
+      </div>
+      <div class="filter-row">
+        <span class="filter-label">الفترة:</span>
+        <div class="date-range">
+          <input type="date" id="filterFrom" onchange="renderPayouts()">
+          <span style="color:var(--text2);">←</span>
+          <input type="date" id="filterTo" onchange="renderPayouts()">
+          <div class="chip" onclick="clearPayoutDateFilter()">إعادة ضبط</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payouts table -->
+    <div class="payouts-table">
+      <div class="table-head">
+        <div>تاريخ الدفع</div>
+        <div>الموظف</div>
+        <div>الفترة المغطّاة</div>
+        <div>المبلغ</div>
+        <div>الطريقة</div>
+        <div></div>
+      </div>
+      <div id="payoutsList"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ──────────────────────────────────────────────────────────────────────── -->
+<!-- Modal — Add/Edit Payout                                                  -->
+<!-- ──────────────────────────────────────────────────────────────────────── -->
+<div class="modal-overlay sy-m sy-m-md" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">دفعة جديدة</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <input type="hidden" id="editingId">
+
+      <div class="field">
+        <label>الموظف <span style="color:var(--red);">*</span></label>
+        <select id="fldProvider" onchange="onProviderChange()"></select>
+        <label class="inactive-toggle">
+          <input type="checkbox" id="fldShowInactive" onchange="populateProviderDropdown()">
+          إظهار المعطّلين
+        </label>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>الفترة من <span style="color:var(--red);">*</span></label>
+          <input type="date" id="fldPeriodStart" onchange="onPeriodChange()">
+        </div>
+        <div class="field">
+          <label>الفترة إلى <span style="color:var(--red);">*</span></label>
+          <input type="date" id="fldPeriodEnd" onchange="onPeriodChange()">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>تاريخ الدفع</label>
+          <input type="date" id="fldPaidAt">
+          <div class="field-hint">افتراضي: اليوم</div>
+        </div>
+        <div class="field">
+          <label>وقت الدفع</label>
+          <input type="time" id="fldPaidTime">
+          <div class="field-hint">افتراضي: الآن</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>المبلغ (<span data-cur>ل.س</span>) <span style="color:var(--red);">*</span></label>
+        <input type="number" id="fldAmount" min="0" step="1000" placeholder="0" oninput="onAmountInput()">
+        <div class="field-hint suggest" id="hintSuggest" onclick="applySuggestion()" style="display:none;"></div>
+      </div>
+
+      <div class="field">
+        <label>طريقة الدفع</label>
+        <div class="method-chips" id="methodChipsModal">
+          <div class="method-chip" data-method="cash" onclick="setModalMethod('cash')">نقد</div>
+          <div class="method-chip" data-method="bank" onclick="setModalMethod('bank')">بنك</div>
+          <div class="method-chip" data-method="check" onclick="setModalMethod('check')">شيك</div>
+          <div class="method-chip" data-method="shamcash" onclick="setModalMethod('shamcash')">شام كاش</div>
+          <div class="method-chip" data-method="syriatel" onclick="setModalMethod('syriatel')">سيريتل كاش</div>
+          <div class="method-chip" data-method="mtn" onclick="setModalMethod('mtn')">MTN كاش</div>
+          <div class="method-chip" data-method="online" onclick="setModalMethod('online')">أونلاين</div>
+          <div class="method-chip" data-method="other" onclick="setModalMethod('other')">أخر</div>
+        </div>
+      </div>
+
+      <!-- M165 (v548): مصدرُ النقد — يظهر مع «نقد» فقط. «من خارج الدرج» مصروفٌ بالحسابات ولا يُخصم من إقفال الصندوق -->
+      <div class="field" id="cashSourceField" style="display:none;">
+        <label>مصدر النقد</label>
+        <div class="method-chips" id="cashSourceChips">
+          <div class="method-chip" data-src="drawer" onclick="setModalSource('drawer')">💵 من درج العيادة</div>
+          <div class="method-chip" data-src="outside" onclick="setModalSource('outside')">🏠 من خارج الدرج</div>
+        </div>
+        <div class="field-hint">«من خارج الدرج» (خزنة · جيب الطبيب): يُسجَّل مصروفاً بالحسابات ولا يُخصم من إقفال الصندوق.</div>
+      </div>
+
+      <!-- Breakdown (collapsible) -->
+      <div class="breakdown-section" id="breakdownSection">
+        <div class="breakdown-toggle" onclick="toggleBreakdown()">
+          <span>تفصيل الدفعة (اختياري)</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="breakdown-body">
+          <div class="breakdown-grid">
+            <div class="field">
+              <label>راتب أساسي</label>
+              <input type="number" id="fldSalary" min="0" step="1000" placeholder="0" oninput="onBreakdownChange()">
+            </div>
+            <div class="field">
+              <label>نسبة إنتاج</label>
+              <input type="number" id="fldShare" min="0" step="1000" placeholder="0" oninput="onBreakdownChange()">
+            </div>
+            <div class="field">
+              <label>مكافأة</label>
+              <input type="number" id="fldBonus" min="0" step="1000" placeholder="0" oninput="onBreakdownChange()">
+            </div>
+          </div>
+          <div class="bd-total">
+            <span>المجموع (يحلّ محل المبلغ):</span>
+            <b id="bdTotal">0 <span data-cur>ل.س</span></b>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>ملاحظات</label>
+        <textarea id="fldNotes" placeholder="مثلاً: راتب شهر أيار، أو دفعة جزئية..."></textarea>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn danger" id="deleteBtn" onclick="deleteCurrent()" style="display:none;">حذف</button>
+      <button class="btn" onclick="closeModal()">إلغاء</button>
+      <button class="btn primary" onclick="savePayout()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 7.2 — Payouts page
+// ═══════════════════════════════════════════════════════════════════════════
+// Single source of truth for clinic payouts (Owner pays employees/doctors).
+// Reads provider_payouts table. Smart suggestion calculated client-side from
+// sessions + payment_splits (no DB views; قاعدة #7).
+// ───────────────────────────────────────────────────────────────────────────
+
+var currentUser = null;
+var payouts     = [];     // provider_payouts rows
+var doctors     = [];     // clinic_doctors rows (all, active + inactive)
+var sessions    = [];     // ledger_sessions for production calculation
+
+var employeeFilter = 'all';  // 'all' or provider_id
+var methodFilter   = 'all';  // 'all' | مفتاحٌ من pay-methods.js (cash · bank · check · other · shamcash · syriatel · mtn · online — M158)
+var modalMethod    = null;   // 'cash' | 'bank' | 'check' | 'other' | null
+var modalSource    = 'drawer';   // M165: 'drawer' | 'outside' — يُحفظ مع «نقد» فقط (SyDentPayMethods.sourceForStore)
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+function $(id) { return document.getElementById(id); }
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+/* ── M125 / قاعدة #481: قسمة العملة بصفحة الرواتب والدفعات ─────────────────
+ * كانت الصفحة بصفر بُعدِ عملة على طرف القراءة: الإحصاءات تجمع دفعات العملتين
+ * وتوسمها بعملة العيادة، ومحرّك الاقتراح يجمع إنتاج العملتين ثم يوسم الناتج
+ * بعملة راتب الموظف — رقمٌ صحيح بوحدة خاطئة، وهو خطأ كامل بقاعدة النطاقات.
+ * (_rowCur بايت-مطابقة لنسخة accounting.html — مجموعة المرايا D125.) */
+function _rowCur(r) { return (r && r.currency === 'USD') ? 'USD' : 'SYP'; }
+/* تفويضٌ للمصدر الواحد SyDentCurBag (قاعدة #481). المُنسِّق هو منسِّق هذه
+ * الصفحة حرفياً، فالطبقة الواحدة بعملة العيادة تُخرج نصّاً بايت-مطابقاً
+ * لـfmtSY السابقة. */
+function _payBagText(bag) {
+  return SyDentCurBag.text(bag, function(v){ return _fmtAmt(v); });
+}
+// PY1: الدولار يُعرض بسنتاته (حتى رقمين) والليرة صحيحة — لا بتر بالعرض.
+function _fmtAmt(v) { var n = Number(v) || 0; return (Math.round(n * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
+function fmtSY(n) {
+  if (n === null || n === undefined || isNaN(n)) return '0 ' + curLbl();
+  return _fmtAmt(n) + ' ' + curLbl();
+}
+// v262: وسمُ صفٍّ بعينه بعملته (الدفعة والتفصيل والمودال) — fmtSY تكتب عملة العيادة.
+function fmtRowAmt(n, cur) { return _fmtAmt(n) + ' ' + SyDentCurBag.lblOf(cur); }
+function _payModalCur() { try { return (window.SyDentCurPick.read('fldAmount') === 'USD') ? 'USD' : 'SYP'; } catch (e) { return SyDentCurBag.defCur(); } }
+function fmtDateShort(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.getDate() + '/' + (d.getMonth()+1) + '/' + d.getFullYear();
+}
+function todayISO() {
+  var d = new Date();
+  return d.getFullYear() + '-' +
+         String(d.getMonth()+1).padStart(2,'0') + '-' +
+         String(d.getDate()).padStart(2,'0');
+}
+// v382: اليومُ المحلي لطابع timestamptz. كانت الصفحة تقصّ أول 10 محارف من نصّ
+// PostgREST (يومُ UTC) بالإحصاء والفلتر ومودال التعديل، بينما الجدولُ والمحاسبةُ
+// يقرآن اليومَ المحلي — فدفعةٌ مسجَّلة بين منتصف الليل والثالثة فجراً بتوقيت دمشق
+// تُعرض بيومٍ وتُحصى بيومٍ سابق، وإعادةُ حفظها من مودال التعديل تُرجع تاريخها يوماً.
+function _localDay(ts) {
+  if (!ts) return '';
+  var d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+// يومُ تسديد دفعةٍ (paid_at، وإلا created_at) — دلالةُ _payoutDay بتقارير الأطباء.
+function _payoutDay(po) {
+  return _localDay(po && (po.paid_at || po.created_at));
+}
+
+// Detect migration-missing errors (قاعدة #2)
+function isMigrationMissing(err) {
+  if (!err) return false;
+  var msg = (err.message || '') + ' ' + (err.code || '');
+  return /relation .* does not exist|42P01|PGRST205|42703|23514/i.test(msg);
+}
+
+// Method label + emoji
+function methodLabel(m) {
+  if (m === 'cash')  return '💵 نقد';
+  if (m === 'bank')  return '🏦 بنك';
+  if (m === 'check') return '📋 شيك';
+  if (m === 'other') return '📌 أخر';
+  if (m === 'shamcash' || m === 'syriatel' || m === 'mtn') return '📱 ' + window.SyDentPayMethods.label(m);   // M158: المحافظُ الإلكترونية
+  if (m === 'online') return '💳 ' + window.SyDentPayMethods.label(m);
+  return '— —';
+}
+
+// Provider type label (mirrors employees.html for consistency)
+function providerTypeLabel(pt) {
+  if (pt === 'doctor')    return '🦷 طبيب';
+  if (pt === 'hygienist') return '🩺 متدرب';
+  if (pt === 'assistant') return '🤝 مساعدة';
+  if (pt === 'secretary') return '👩‍💼 سكرتيرة';
+  if (pt === 'other')     return '👥 أخر';
+  return '🦷 طبيب';  // legacy default
+}
+
+// Compensation badge for dropdown
+function compensationLabel(cm) {
+  if (cm === 'salary')     return 'راتب';
+  if (cm === 'percentage') return 'نسبة';
+  if (cm === 'hybrid')     return 'راتب+نسبة';
+  if (cm === 'none')       return 'بدون';
+  return 'نسبة';  // legacy default
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTH BOOTSTRAP
+// ═══════════════════════════════════════════════════════════════════════════
+async function init() {
+  // قاعدة #24 #4: initSidebar BEFORE auth check (sidebar shell first)
+  if (typeof initSidebar === 'function') {
+    initSidebar('payouts');
+  }
+  try {
+    var u = await window.sbGetUser();
+    if (!u) { window.location.href = 'auth.html'; return; }
+    currentUser = u;
+
+    // ── Page guard: Owner-only ──────────────────────────────────────
+    // Defense in depth (قاعدة #16): three layers protect this page.
+    //
+    //   1. Sidebar BLOCKED map hides the link for non-Owners.
+    //   2. window.SyDentLock.guardPage replaces the body with a blocked
+    //      screen if a Doctor/Secretary lands here directly.
+    //   3. Manual role check below as a final safety net — if the
+    //      SyDentLock module fails to load or the guard call throws,
+    //      this still hard-redirects to index.html.
+    //
+    // Phase 7.2 live test surfaced a case where Bug B (role-switch not
+    // refreshing the page) left payouts.html open under a Secretary
+    // session. The reload from supabase-init.js's role-switch handler
+    // should already protect this, but belt-and-suspenders is cheap.
+    if (window.SyDentLock && window.SyDentLock.guardPage) {
+      if (!window.SyDentLock.guardPage(['owner'])) return;
+    }
+    var role = (window.SyDentLock && window.SyDentLock.getRole)
+             ? window.SyDentLock.getRole()
+             : 'owner';
+    if (role !== 'owner') {
+      console.warn('[payouts] non-owner role detected:', role, '— redirecting to index');
+      window.location.href = 'index.html';
+      return;
+    }
+
+    // Date range filter starts EMPTY = show all payouts (owner request,
+    // 12 Sep 2026 — mirrors expenses.html). The old default (current month)
+    // hid older payouts behind a silent filter; "إعادة ضبط" clears it.
+
+    await loadAll();
+
+    // Apply prefill from query string (?provider=xxx&from=...&to=...)
+    // Used when redirected from provider-reports.html "💳 New payout" button.
+    applyQueryPrefill();
+
+    renderEmployeeFilters();
+    renderStats();
+    renderPayouts();
+  } catch (e) {
+    console.error('init failed:', e);
+    showToast('⚠️ خطأ في تحميل الصفحة', true);
+  }
+}
+
+// Load all required data in parallel for speed
+async function loadAll() {
+  await Promise.all([
+    loadDoctors(),
+    loadPayouts(),
+    loadSessions()
+  ]);
+}
+
+async function loadDoctors() {
+  // ── Phase 7.2 Architectural Refactor (محادثة 42) ──
+  //
+  // clinic_employees is the canonical source of truth for ALL staff (clinical
+  // and non-clinical). clinic_doctors holds payroll/clinical-attribute data
+  // for clinical staff only — doctor, hygienist, assistant (post-cleanup SQL).
+  // Non-clinical staff (secretary, other) live exclusively in clinic_employees.
+  //
+  // After Migration 18, provider_payouts has TWO target columns:
+  //   • provider_id (nullable, FK clinic_doctors) — for clinical staff
+  //   • employee_id (nullable, FK clinic_employees) — for non-clinical staff
+  //   • CHECK constraint payouts_has_target ensures at least one is set
+  //
+  // Save logic in savePayout() picks the right column based on _hasDoctorLink:
+  //   • clinical employee → provider_id = doctor_id
+  //   • non-clinical employee → employee_id = clinic_employees.id
+
+  // Step 1: load every active+inactive employee from clinic_employees.
+  // Phase 7.3 Part 2: include the canonical HR fields (Migration 20) so
+  // non-clinical employees can supply monthly_salary/share_percent/etc
+  // directly from clinic_employees (no more null hardcoded for Path B).
+  // Graceful fallback (Rule #15): if Migration 20 isn't applied yet,
+  // retry with the legacy column list so older clinics keep working.
+  var empRes = await window.sb.from('clinic_employees')
+    .select('id, name, role, doctor_id, is_active, created_at, ' +
+            'monthly_salary, salary_currency, share_percent, provider_type, compensation_model, color')
+    .eq('owner_id', currentUser.id)
+    .order('role', { ascending: true })
+    .order('name', { ascending: true });
+
+  // Pre-Migration-20 fallback: retry without the HR fields if missing.
+  if (empRes.error && /42703|monthly_salary|share_percent|provider_type|compensation_model/i.test(
+        (empRes.error.message || '') + ' ' + (empRes.error.code || ''))) {
+    console.warn('[payouts] Migration 20 not applied — retrying clinic_employees with legacy columns');
+    empRes = await window.sb.from('clinic_employees')
+      .select('id, name, role, doctor_id, is_active, created_at')
+      .eq('owner_id', currentUser.id)
+      .order('role', { ascending: true })
+      .order('name', { ascending: true });
+  }
+
+  if (empRes.error) {
+    if (isMigrationMissing(empRes.error)) {
+      console.warn('[payouts] clinic_employees missing — falling back to doctors-only mode');
+    } else {
+      console.error('loadEmployees:', empRes.error);
+    }
+    // Continue to doctors-only fallback below
+  }
+  var employeesList = empRes.data || [];
+
+  // Step 2: load clinical clinic_doctors rows (payroll fields).
+  // Migration 13/14/15 retry pattern for legacy DBs without the new columns.
+  // v384: share_history (Migration 144) — سجلُّ النسب بتاريخ سريان؛ غيابُه (42703) يُسقطه وحده.
+  var docRes = await window.sb.from('clinic_doctors')
+    .select('id, name, color, is_active, is_owner, share_percent, share_history, provider_type, compensation_model, monthly_salary, salary_currency')
+    .eq('owner_id', currentUser.id)
+    .order('name');
+  if (docRes.error && /42703|share_history/i.test((docRes.error.message || '') + ' ' + (docRes.error.code || ''))) {
+    console.warn('v384: Migration 144 not applied — share_history unavailable, current share applies to all dates');
+    docRes = await window.sb.from('clinic_doctors')
+      .select('id, name, color, is_active, is_owner, share_percent, provider_type, compensation_model, monthly_salary, salary_currency')
+      .eq('owner_id', currentUser.id)
+      .order('name');
+  }
+
+  if (docRes.error && /42703|monthly_salary/i.test((docRes.error.message || '') + ' ' + (docRes.error.code || ''))) {
+    docRes = await window.sb.from('clinic_doctors')
+      .select('id, name, color, is_active, is_owner, share_percent, provider_type, compensation_model')
+      .eq('owner_id', currentUser.id)
+      .order('name');
+  }
+  if (docRes.error && /42703|provider_type|compensation_model/i.test((docRes.error.message || '') + ' ' + (docRes.error.code || ''))) {
+    docRes = await window.sb.from('clinic_doctors')
+      .select('id, name, color, is_active, is_owner, share_percent')
+      .eq('owner_id', currentUser.id)
+      .order('name');
+  }
+
+  if (docRes.error) {
+    if (isMigrationMissing(docRes.error)) {
+      doctors = [];
+      return;
+    }
+    console.error('loadDoctors:', docRes.error);
+    doctors = [];
+    return;
+  }
+  var doctorsRaw = docRes.data || [];
+
+  // Step 3: build a doctor lookup by id for fast joining
+  var docById = {};
+  doctorsRaw.forEach(function(d){ docById[d.id] = d; });
+
+  // Step 4: synthesize the unified employee list driven by clinic_employees.
+  // Each unified row has:
+  //   • id: clinic_doctors.id (if linked) OR clinic_employees.id (if not)
+  //   • employeeId: clinic_employees.id (always, for employee_id payout target)
+  //   • doctorId: clinic_doctors.id (only for clinical) — used for provider_id
+  //   • _hasDoctorLink: true for clinical, false for non-clinical
+  // The id field is used as the dropdown's <option value>. savePayout
+  // resolves it back to either provider_id or employee_id at save time.
+  var unified = [];
+
+  if (employeesList.length > 0) {
+    employeesList.forEach(function(emp){
+      if (emp.doctor_id && docById[emp.doctor_id]) {
+        // ─── Path A: clinical employee with linked clinic_doctors row ───
+        // Phase 7.3 Part 2: prefer canonical clinic_employees values when
+        // present (Migration 20 made these the source of truth). Falls back
+        // to the clinic_doctors mirror for any field still null/undefined
+        // on clinic_employees — e.g. pre-Migration-20 clinics, or rows the
+        // Owner hasn't re-saved since the backfill.
+        var doc = docById[emp.doctor_id];
+        var coalesce = function(canon, mirror) {
+          return (canon !== null && canon !== undefined) ? canon : mirror;
+        };
+        unified.push({
+          id: doc.id,                              // = clinic_doctors.id
+          employeeId: emp.id,
+          doctorId: doc.id,
+          name: doc.name || emp.name,
+          color: coalesce(emp.color, doc.color),
+          is_active: doc.is_active !== false && emp.is_active !== false,
+          is_owner: doc.is_owner,
+          share_percent: coalesce(emp.share_percent, doc.share_percent),
+          share_history: doc.share_history || [],   // v384
+          provider_type: coalesce(emp.provider_type, doc.provider_type) || 'doctor',
+          compensation_model: coalesce(emp.compensation_model, doc.compensation_model) || 'percentage',
+          monthly_salary: coalesce(emp.monthly_salary, doc.monthly_salary),
+          salary_currency: coalesce(emp.salary_currency, doc.salary_currency),
+          _hasDoctorLink: true,
+          _employeeRole: emp.role
+        });
+        docById[emp.doctor_id]._consumed = true;
+      } else {
+        // ─── Path B: non-clinical employee (secretary, other) ───
+        // Phase 7.2 reversal: no clinic_doctors row. Phase 7.3 Part 2:
+        // HR fields now live in clinic_employees directly, so monthly_salary
+        // is no longer hardcoded null — it comes from the canonical row.
+        // This fixes the "salary suggestion = 0" bug for secretaries that
+        // showed up during Phase 7.2 v2 Test 4.
+        //
+        // Sensible defaults when the columns aren't populated yet:
+        //   role='secretary' → provider_type='secretary', compensation='salary'
+        //   role='doctor' without doctor_id → unusual legacy edge case; treat
+        //     as 'doctor' so the modal still computes a sensible suggestion.
+        var defaultPT = emp.role === 'secretary' ? 'secretary' : 'doctor';
+        var defaultCM = emp.role === 'secretary' ? 'salary' : 'percentage';
+        unified.push({
+          id: emp.id,                              // = clinic_employees.id
+          employeeId: emp.id,
+          doctorId: null,
+          name: emp.name,
+          color: emp.color || null,                // Phase 7.3 Part 2: was hardcoded null
+          is_active: emp.is_active !== false,
+          is_owner: false,
+          share_percent: (emp.share_percent !== undefined) ? emp.share_percent : null,
+          provider_type: emp.provider_type || defaultPT,
+          compensation_model: emp.compensation_model || defaultCM,
+          monthly_salary: (emp.monthly_salary !== undefined) ? emp.monthly_salary : null,  // Phase 7.3 Part 2: was hardcoded null
+          salary_currency: emp.salary_currency || null,   /* M125: كان يُسقَط هنا فقط — جذر اقتراح راتب الدولار بوسم ل.س */
+          _hasDoctorLink: false,
+          _employeeRole: emp.role
+        });
+      }
+    });
+
+    // Step 5: Also include any clinic_doctors rows that aren't linked from
+    // clinic_employees. These are legacy orphan rows (pre-Phase-7.2). They
+    // can still receive payouts via provider_id for backward compatibility.
+    doctorsRaw.forEach(function(d){
+      if (d._consumed) return;
+      unified.push({
+        id: d.id,
+        employeeId: null,
+        doctorId: d.id,
+        name: d.name,
+        color: d.color,
+        is_active: d.is_active !== false,
+        is_owner: d.is_owner,
+        share_percent: d.share_percent,
+        share_history: d.share_history || [],   // v384
+        provider_type: d.provider_type || 'doctor',
+        compensation_model: d.compensation_model || 'percentage',
+        monthly_salary: d.monthly_salary,
+        salary_currency: d.salary_currency,
+        _hasDoctorLink: true,
+        _orphanDoctor: true,
+        _employeeRole: null
+      });
+    });
+  } else {
+    // Fallback path: clinic_employees missing — use clinic_doctors only
+    doctorsRaw.forEach(function(d){
+      unified.push({
+        id: d.id,
+        employeeId: null,
+        doctorId: d.id,
+        name: d.name,
+        color: d.color,
+        is_active: d.is_active !== false,
+        is_owner: d.is_owner,
+        share_percent: d.share_percent,
+        share_history: d.share_history || [],   // v384
+        provider_type: d.provider_type || 'doctor',
+        compensation_model: d.compensation_model || 'percentage',
+        monthly_salary: d.monthly_salary,
+        salary_currency: d.salary_currency,
+        _hasDoctorLink: true,
+        _orphanDoctor: true,
+        _employeeRole: null
+      });
+    });
+  }
+
+  doctors = unified;
+
+  // DIAGNOSTIC
+  if (doctors.length === 0) {
+    console.warn('[payouts] no employees loaded — empty clinic_employees AND clinic_doctors');
+  } else {
+    var clinical = doctors.filter(function(d){ return d._hasDoctorLink; }).length;
+    var nonClin  = doctors.filter(function(d){ return !d._hasDoctorLink; }).length;
+    console.log('[payouts] loaded ' + doctors.length + ' employees (' + clinical + ' clinical, ' + nonClin + ' non-clinical)');
+  }
+}
+
+
+async function loadPayouts() {
+  // Phase 7.2 / Migration 17 + 18: try with all new columns, fall back if missing.
+  // Migration 18 added employee_id; Migration 17 added payment_method + breakdown_*
+  var res = await window.SyDentFetchAll(function(){ return window.sb.from('provider_payouts')
+    .select('id, provider_id, employee_id, period_start, period_end, paid_at, amount, currency, notes, payment_method, cash_source, breakdown_salary, breakdown_share, breakdown_bonus, created_at')
+    .eq('owner_id', currentUser.id)
+    .order('paid_at', { ascending: false }); });
+
+  // Pre-Migration-18 fallback: drop employee_id
+  if (res.error && /42703|employee_id/i.test((res.error.message || '') + ' ' + (res.error.code || ''))) {
+    res = await window.SyDentFetchAll(function(){ return window.sb.from('provider_payouts')
+      .select('id, provider_id, period_start, period_end, paid_at, amount, currency, notes, payment_method, breakdown_salary, breakdown_share, breakdown_bonus, created_at')
+      .eq('owner_id', currentUser.id)
+      .order('paid_at', { ascending: false }); });
+  }
+
+  // Pre-Migration-17 fallback: drop payment_method + breakdown_*
+  if (res.error && /42703|payment_method|breakdown_/i.test((res.error.message || '') + ' ' + (res.error.code || ''))) {
+    res = await window.SyDentFetchAll(function(){ return window.sb.from('provider_payouts')
+      .select('id, provider_id, period_start, period_end, paid_at, amount, notes, created_at')
+      .eq('owner_id', currentUser.id)
+      .order('paid_at', { ascending: false }); });
+  }
+
+  if (res.error) {
+    if (isMigrationMissing(res.error)) {
+      showToast('⚠️ شغّل Migration 17 في Supabase', true);
+      payouts = [];
+      return;
+    }
+    console.error('loadPayouts:', res.error);
+    payouts = [];
+    return;
+  }
+  payouts = res.data || [];
+}
+
+// v382: جلبُ كل الصفوف بصفحات 1000 (حدّ PostgREST الافتراضي) — مرآةُ _fetchAllPR بتقارير
+// الأطباء. الجلساتُ تُقرأ لكل تاريخ العيادة، وصفحةٌ واحدة كانت ستُسقط ما بعد الألف
+// **بصمت** فينقص إنتاجُ الطبيب وتنقص حصّتُه بلا أي خطأ.
+async function _fetchAllPay(buildQuery) {
+  var PAGE = 1000, out = [], off = 0;
+  for (;;) {
+    var res = await buildQuery().order('id').range(off, off + PAGE - 1);
+    if (res.error) return { error: res.error, data: out };
+    var rows = res.data || [];
+    out = out.concat(rows);
+    if (rows.length < PAGE) break;
+    off += PAGE;
+  }
+  return { error: null, data: out };
+}
+
+async function loadSessions() {
+  // For smart-suggestion: production = sum of completed session costs in period.
+  // Per قاعدة #6 ledger_sessions uses doctor_id (legacy), so try that first
+  // and fall back to owner_id only if a future migration adds it.
+  // v382: الحالةُ تُفلتر عند الخادم (المكتملة وحدها تدخل الإنتاج) والجلبُ مقسَّم.
+  var res = await _fetchAllPay(function(){
+    return window.sb.from('ledger_sessions')
+      .select('id, provider_id, cost, currency, date, status')
+      .eq('doctor_id', currentUser.id)
+      .eq('status', 'completed');
+  });
+
+  // Future-proof: if a multi-tenant migration ever renames the column,
+  // retry with owner_id.
+  if (res.error && /42703|doctor_id/i.test((res.error.message || '') + ' ' + (res.error.code || ''))) {
+    res = await _fetchAllPay(function(){
+      return window.sb.from('ledger_sessions')
+        .select('id, provider_id, cost, currency, date, status')
+        .eq('owner_id', currentUser.id)
+        .eq('status', 'completed');
+    });
+  }
+
+  if (res.error) {
+    console.warn('loadSessions:', res.error);
+    sessions = [];
+    // F4 (v250): فشلٌ يُعلَن لا يُبلَع — اقتراحُ النسبة بلا إنتاج = صفرٌ كاذب.
+    showToast('⚠️ تعذّر تحميل الجلسات — اقتراح النسبة غير متاح، أدخل المبلغ يدوياً', true);
+    return;
+  }
+  // Only completed sessions count toward production for share calculation
+  sessions = (res.data || []).filter(function(s){
+    return s.status === 'completed';
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SMART SUGGESTION
+// ═══════════════════════════════════════════════════════════════════════════
+// v382 — أُعيدت كتابتها بعد بلاغ المالك (17 أيلول 2026): «الراتب ينقسم على 30 والشهر
+// 31 يوماً يزيد». المراجعةُ كشفت ستّ ثغراتٍ صامتة خلف البلاغ، وهذه العقود الجديدة:
+//  • الراتب (salary/hybrid): مستحقُّ الفترة بأيام كل شهرٍ الفعلية (SyDentPayroll —
+//    الشهرُ الكامل = الراتب مهما كان 28 أو 30 أو 31) **ناقص** ما دُفع منه سلفاً عن
+//    الأيام نفسها (الدفعاتُ المتداخلة تُنسب بنسبة تداخلها). كان الراتبُ لا يُخصم
+//    أبداً فتكرّرُ فتح الفترة يقترح الراتبَ مرّةً ثانية.
+//  • الحصّة (percentage/hybrid): **دفترٌ جارٍ** بعملة الحصّة — كلُّ ما كسبه الطبيب
+//    من الإنتاج المكتمل حتى نهاية الفترة ناقص كلُّ ما سُدِّد من حصّته عن الفترات
+//    حتى نهايتها (بترتيب فترة الدفعة لا تاريخ تسديدها؛ فدفعةُ أيلول المسجَّلة
+//    2 تشرين لا تُقترَح ثانيةً). المتأخّرُ من فترةٍ سابقة لا يضيع والمقدَّمُ يُخصم —
+//    وكلاهما يُعلَن بالتلميح لا يُدمج بصمت. كان الطرحُ بتداخل الفترات فدفعةٌ
+//    نصفُها عن آب تُطرح كاملةً من أيلول.
+//  • الدفعةُ التي يُعدَّل عليها الآن تُستثنى من «المدفوع» (كانت تُطرح من نفسها ⇒ صفر).
+//  • الدفعاتُ بلا تفصيل تُصنَّف بنموذج الموظف (SyDentPayroll.payoutParts).
+//  • العملة: الراتبُ يحكم إن وُجد؛ والنسبةُ وحدها تُدفع بعملة إنتاجها إن كان بعملة
+//    واحدة. إنتاجٌ بعملةٍ أخرى لا يدخل ويُحذَّر منه صراحةً (قاعدة #481 مع تحذير).
+//  • نقيّة: تقرأ globals sessions/payouts + الوسائط، صفر DB/DOM (الحارس J يُشغّلها).
+// ───────────────────────────────────────────────────────────────────────────
+function _providerSalaryCur(provider) { return (provider && provider.salary_currency === 'USD') ? 'USD' : 'SYP'; }
+
+// مستحقُّ الراتب عن فترة دفعةٍ ما — بعملة الدفعة نفسها فقط (راتبٌ بالدولار لا يسكن دفعةً بالليرة).
+function _salaryDueForPayout(provider, po) {
+  if (!po || _rowCur(po) !== _providerSalaryCur(provider)) return 0;
+  return window.SyDentPayroll.prorateSalary(provider.monthly_salary, po.period_start, po.period_end, _rowCur(po));
+}
+// Phase 7.2: match by provider_id for clinical OR employee_id for non-clinical
+function _payoutMatches(po, provider) {
+  if (!po || !provider) return false;
+  if (provider._hasDoctorLink) return !!po.provider_id && po.provider_id === provider.doctorId;
+  return !!po.employee_id && po.employee_id === provider.employeeId;
+}
+function _payoutPartsFor(po, provider) {
+  return window.SyDentPayroll.payoutParts(po, provider.compensation_model || 'percentage',
+    function (p) { return _salaryDueForPayout(provider, p); });
+}
+
+function computeSuggestion(provider, periodStart, periodEnd, excludeId) {
+  if (!provider || !periodStart || !periodEnd) return null;
+  var PR = window.SyDentPayroll;
+  var cm = provider.compensation_model || 'percentage';
+  var warnings = [];
+  if (cm === 'none') return { total: 0, salary: 0, share: 0, cur: 'SYP', note: 'لا تعويض محدد', warnings: warnings, meta: {} };
+
+  var startDate = new Date(periodStart);
+  var endDate   = new Date(periodEnd);
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return null;
+  if (startDate > endDate) return null;
+  if (PR.salaryFraction(periodStart, periodEnd) <= 0) return null;   // تاريخٌ مستحيل (مثل 2026-02-31)
+
+  // ─── العملة ──────────────────────────────────────────────────────────
+  var salCur = _providerSalaryCur(provider);
+  var sugCur = salCur;
+  var prodBy = { SYP: 0, USD: 0 };   // إنتاجُ الفترة بكل عملة
+  sessions.forEach(function(s){
+    if (s.provider_id !== provider.id || !s.date) return;
+    if (s.date < periodStart || s.date > periodEnd) return;
+    prodBy[_rowCur(s)] += Number(s.cost) || 0;
+  });
+  if (cm === 'percentage') {
+    var actCurs = ['SYP', 'USD'].filter(function(c){ return prodBy[c] > 0; });
+    if (actCurs.length === 1) sugCur = actCurs[0];   // الحصّةُ تُدفع بعملة ما كُسبت به
+  }
+  var otherCur = (sugCur === 'USD') ? 'SYP' : 'USD';
+  if ((cm === 'percentage' || cm === 'hybrid') && prodBy[otherCur] > 0) {
+    warnings.push({ code: 'foreign_production', cur: otherCur, amount: prodBy[otherCur] });
+  }
+
+  // ─── الراتب ──────────────────────────────────────────────────────────
+  var salaryPart = 0, salaryDue = 0, salaryPaid = 0;
+  if ((cm === 'salary' || cm === 'hybrid') && (Number(provider.monthly_salary) || 0) > 0) {
+    salaryDue = PR.prorateSalary(provider.monthly_salary, periodStart, periodEnd, sugCur);
+    var paidRaw = 0;
+    payouts.forEach(function(po){
+      if (excludeId && po.id === excludeId) return;
+      if (!_payoutMatches(po, provider)) return;
+      if (_rowCur(po) !== sugCur) return;
+      var ov = PR.overlap(po.period_start, po.period_end, periodStart, periodEnd);
+      if (!ov) return;
+      var part = _payoutPartsFor(po, provider).salary;
+      if (part <= 0) return;
+      var poFrac = PR.salaryFraction(po.period_start, po.period_end);
+      if (poFrac <= 0) return;
+      paidRaw += part * (PR.salaryFraction(ov.start, ov.end) / poFrac);   // نسبةُ التداخل
+    });
+    salaryPaid = PR.roundCur(paidRaw, sugCur);
+    salaryPart = Math.max(0, PR.roundCur(salaryDue - salaryPaid, sugCur));
+  }
+
+  // ─── الحصّة (دفترٌ جارٍ بعملتها) ─────────────────────────────────────
+  var sharePart = 0, periodShare = 0, earnedToDate = 0, sharePaid = 0, priorShare = 0;
+  if (cm === 'percentage' || cm === 'hybrid') {
+    var sharePct = resolveSharePct(provider);
+    // v384: كلُّ جلسةٍ × النسبةِ السارية بتاريخها (share_history، Migration 144) — رفعُ
+    // النسبة في أيلول لا يُعيد حسابَ آب بالنسبة الجديدة. سجلٌّ فارغ ⇒ النسبةُ الحالية.
+    var _rate = function(date){ return PR.rateAt(provider.share_history, sharePct, date); };
+    var earnedRaw = 0, periodRaw = 0;
+    sessions.forEach(function(s){
+      if (s.provider_id !== provider.id || !s.date) return;
+      if (s.date > periodEnd) return;
+      if (_rowCur(s) !== sugCur) return;
+      var c = (Number(s.cost) || 0) * _rate(s.date) / 100;
+      earnedRaw += c;
+      if (s.date >= periodStart) periodRaw += c;
+    });
+    earnedToDate = earnedRaw;
+    periodShare  = periodRaw;
+    var paidShareRaw = 0;
+    payouts.forEach(function(po){
+      if (excludeId && po.id === excludeId) return;
+      if (!_payoutMatches(po, provider)) return;
+      if (_rowCur(po) !== sugCur) return;
+      if (!po.period_start || po.period_start > periodEnd) return;   // دفعاتُ فتراتٍ لاحقة لا تُطرح
+      paidShareRaw += _payoutPartsFor(po, provider).share;
+    });
+    sharePaid   = PR.roundCur(paidShareRaw, sugCur);
+    var balance = earnedToDate - paidShareRaw;
+    sharePart   = Math.max(0, PR.roundCur(balance, sugCur));
+    // موجب = رصيدٌ سابق غير مسدَّد أُضيف · سالب = مقدَّم/مدفوعٌ زائد سابقاً خُصم
+    priorShare  = PR.roundCur(balance - periodShare, sugCur);
+    periodShare = PR.roundCur(periodShare, sugCur);
+
+    // رصيدُ حصّةٍ غير مسدَّد بالعملة الأخرى (إنتاجٌ قديم لم يُدفع) لا يدخل هنا — ويُعلَن.
+    var otherEarned = 0, otherPaid = 0;
+    sessions.forEach(function(s){
+      if (s.provider_id !== provider.id || !s.date || s.date > periodEnd) return;
+      if (_rowCur(s) !== otherCur) return;
+      otherEarned += (Number(s.cost) || 0) * _rate(s.date) / 100;
+    });
+    payouts.forEach(function(po){
+      if (excludeId && po.id === excludeId) return;
+      if (!_payoutMatches(po, provider) || _rowCur(po) !== otherCur) return;
+      if (!po.period_start || po.period_start > periodEnd) return;
+      otherPaid += _payoutPartsFor(po, provider).share;
+    });
+    var otherBal = PR.roundCur(otherEarned - otherPaid, otherCur);
+    if (otherBal > 0.004 && !(prodBy[otherCur] > 0)) {
+      warnings.push({ code: 'foreign_balance', cur: otherCur, amount: otherBal });
+    }
+  }
+
+  return {
+    total:  salaryPart + sharePart,
+    cur:    sugCur,
+    salary: salaryPart,
+    share:  sharePart,
+    note:   cm === 'salary' ? 'راتب الفترة بأيام الشهر الفعلية − ما دُفع منه'
+          : cm === 'percentage' ? 'إنتاج × نسبة − ما سُدِّد من الحصّة'
+          : 'راتب + نسبة − ما دُفع منهما',
+    warnings: warnings,
+    meta: { salaryDue: salaryDue, salaryPaid: salaryPaid,
+            periodShare: periodShare, priorShare: priorShare, sharePaid: sharePaid,
+            rates: (cm === 'percentage' || cm === 'hybrid') ? PR.ratesInRange(provider.share_history, resolveSharePct(provider), periodStart, periodEnd) : [] }
+  };
+}
+
+function resolveSharePct(provider) {
+  var raw = provider.share_percent;
+  if (raw === null || raw === undefined || raw === '') {
+    return provider.is_owner ? 100 : 0;
+  }
+  var n = Number(raw);
+  if (!isFinite(n)) return provider.is_owner ? 100 : 0;
+  return n;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER — Filters
+// ═══════════════════════════════════════════════════════════════════════════
+function renderEmployeeFilters() {
+  var el = $('employeeFilters');
+  var html = '<div class="chip ' + (employeeFilter === 'all' ? 'active' : '')
+           + '" data-id="all" onclick="setEmployeeFilter(\'all\')">الكل</div>';
+
+  // Only employees who actually received payouts get a chip — keeps the UI
+  // focused on what's relevant. Inactive doctors still appear if they have
+  // historical payouts.
+  // Phase 7.2: chips key by unified-entry.id, which is either clinic_doctors.id
+  // (clinical) or clinic_employees.id (non-clinical). Match by both po.provider_id
+  // and po.employee_id back through the unified list.
+  var seen = {};
+  payouts.forEach(function(po){
+    if (po.provider_id) {
+      var d = doctors.find(function(x){ return x.doctorId === po.provider_id; });
+      if (d) seen[d.id] = true;
+    } else if (po.employee_id) {
+      var e = doctors.find(function(x){ return x.employeeId === po.employee_id; });
+      if (e) seen[e.id] = true;
+    }
+  });
+
+  // v384: الموظفُ المفلتَر عليه (رابطٌ من تقارير الأطباء) تُرسم رقاقتُه ولو بلا دفعات،
+  // وإلا ظهر جدولٌ فارغ بلا رقاقةٍ مفعّلة توضّح سببَه.
+  if (employeeFilter !== 'all') seen[employeeFilter] = true;
+
+  doctors.forEach(function(d){
+    if (!seen[d.id]) return;
+    var safeColor = (d.color && /^#[0-9a-f]{6}$/i.test(d.color)) ? d.color : 'var(--green)';
+    html += '<div class="chip ' + (employeeFilter === d.id ? 'active' : '')
+         + '" data-id="' + escapeHtml(d.id) + '" onclick="setEmployeeFilter(\'' + escapeHtml(d.id) + '\')">'
+         + '<span class="dot" style="background:' + safeColor + ';"></span>'
+         + escapeHtml(d.name)
+         + (d.is_active === false ? ' <span style="opacity:0.6;">(معطل)</span>' : '')
+         + '</div>';
+  });
+
+  el.innerHTML = html;
+}
+
+function setEmployeeFilter(id) {
+  employeeFilter = id;
+  renderEmployeeFilters();
+  renderPayouts();
+}
+
+function setMethodFilter(m) {
+  methodFilter = m;
+  document.querySelectorAll('#methodFilters .chip').forEach(function(c){
+    c.classList.toggle('active', c.getAttribute('data-method') === m);
+  });
+  renderPayouts();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER — Stats
+// ═══════════════════════════════════════════════════════════════════════════
+function renderStats() {
+  // Use local date components (NOT toISOString which is UTC and could
+  // shift the period boundary by a day for users east of UTC).
+  var now = new Date();
+  var y = now.getFullYear();
+  var m = String(now.getMonth() + 1).padStart(2, '0');
+  var monthStart = y + '-' + m + '-01';
+  var yearStart  = y + '-01-01';
+
+  var monthTotal = { SYP: 0, USD: 0 }, monthCount = 0;
+  var yearTotal  = { SYP: 0, USD: 0 }, yearCount = 0;
+  var grandTotal = { SYP: 0, USD: 0 };
+  var employeesWithPayouts = {};
+
+  payouts.forEach(function(po){
+    var amt = Number(po.amount) || 0;
+    var poCur = _rowCur(po);
+    grandTotal[poCur] += amt;
+    // Phase 7.2: track recipients via unified-entry id (doctor or employee)
+    if (po.provider_id) {
+      var d1 = doctors.find(function(x){ return x.doctorId === po.provider_id; });
+      if (d1) employeesWithPayouts[d1.id] = true;
+    } else if (po.employee_id) {
+      var d2 = doctors.find(function(x){ return x.employeeId === po.employee_id; });
+      if (d2) employeesWithPayouts[d2.id] = true;
+    }
+
+    var paidDate = _payoutDay(po);   // v382: يومٌ محلي لا قصّةُ UTC
+    if (paidDate >= yearStart) { yearTotal[poCur] += amt; yearCount++; }
+    if (paidDate >= monthStart) { monthTotal[poCur] += amt; monthCount++; }
+  });
+
+  $('statMonth').textContent = _payBagText(monthTotal);
+  $('statMonthCount').textContent = monthCount + ' دفعة';
+  $('statYear').textContent = _payBagText(yearTotal);
+  $('statYearCount').textContent = yearCount + ' دفعة';
+  $('statTotal').textContent = _payBagText(grandTotal);
+  $('statTotalCount').textContent = payouts.length + ' دفعة';
+
+  // Active employees who received any payout
+  var activeReceiving = 0;
+  doctors.forEach(function(d){
+    if (d.is_active !== false && employeesWithPayouts[d.id]) activeReceiving++;
+  });
+  $('statEmployees').textContent = activeReceiving;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER — Payouts table
+// ═══════════════════════════════════════════════════════════════════════════
+function clearPayoutDateFilter() {
+  $('filterFrom').value = '';
+  $('filterTo').value   = '';
+  renderPayouts();
+}
+
+function renderPayouts() {
+  var list = $('payoutsList');
+  var fromDate = $('filterFrom').value;
+  var toDate   = $('filterTo').value;
+
+  // Apply filters
+  var filtered = payouts.filter(function(po){
+    if (employeeFilter !== 'all') {
+      // Phase 7.2: resolve the unified-entry id for this payout (matches chip id).
+      // Chip id = unified.id = clinic_doctors.id OR clinic_employees.id.
+      var poUnifiedId = null;
+      if (po.provider_id) {
+        var d = doctors.find(function(x){ return x.doctorId === po.provider_id; });
+        if (d) poUnifiedId = d.id;
+      } else if (po.employee_id) {
+        var e = doctors.find(function(x){ return x.employeeId === po.employee_id; });
+        if (e) poUnifiedId = e.id;
+      }
+      if (poUnifiedId !== employeeFilter) return false;
+    }
+    if (methodFilter !== 'all') {
+      // null payment_method (legacy rows from provider-reports modal) treated
+      // as 'other' for filter purposes — they belong to the 'unclassified' bucket.
+      var poMethod = po.payment_method || 'other';
+      if (poMethod !== methodFilter) return false;
+    }
+    var paidDate = _payoutDay(po);   // v382: يومٌ محلي لا قصّةُ UTC
+    if (fromDate && paidDate < fromDate) return false;
+    if (toDate && paidDate > toDate) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-state">'
+      + '<div class="ico">💳</div>'
+      + '<div class="title">لا توجد دفعات</div>'
+      + '<div class="sub">' + (employeeFilter !== 'all' && !fromDate && !toDate
+          ? 'لم تُسجَّل أي دفعة لهذا الموظف بعد — «دفعة جديدة» تسجّل أول دفعة له.'
+          : 'لم يتم تسجيل أي دفعة ضمن الفلاتر الحالية.') + '</div>'
+      + '</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(function(po){
+    // ── Phase 7.2: match the unified entry via provider_id OR employee_id ──
+    // The unified list has `id` set to either clinic_doctors.id (clinical)
+    // or clinic_employees.id (non-clinical). A payout points to ONE of these
+    // via provider_id (clinical) or employee_id (non-clinical).
+    var doctor = null;
+    if (po.provider_id) {
+      // Clinical case: match by doctorId
+      doctor = doctors.find(function(d){ return d.doctorId === po.provider_id; });
+    } else if (po.employee_id) {
+      // Non-clinical case (Migration 18): match by employeeId
+      doctor = doctors.find(function(d){ return d.employeeId === po.employee_id; });
+    }
+
+    var docName, docColor, inactiveBadge;
+    var displayNotes = po.notes;
+
+    if (doctor) {
+      // Normal case: matched a known doctor/employee
+      docName = doctor.name;
+      docColor = (doctor.color && /^#[0-9a-f]{6}$/i.test(doctor.color))
+               ? doctor.color : 'var(--text3)';
+      inactiveBadge = (doctor.is_active === false)
+                    ? ' <span style="font-size:10px;opacity:0.7;">(معطل)</span>' : '';
+    } else if (po.provider_id === null && po.notes && /^\[([^\]]+)\]\s/.test(po.notes)) {
+      // Backward-compat: payouts saved before the auto-create fix may have
+      // null provider_id + '[Name] ' notes prefix. Extract the name back out.
+      // This branch handles legacy rows; new saves always have provider_id set.
+      var match = po.notes.match(/^\[([^\]]+)\]\s*(.*)$/);
+      docName = match[1];
+      displayNotes = match[2] || null;
+      docColor = 'var(--text3)';
+      inactiveBadge = '';
+    } else {
+      // Truly orphaned (provider_id pointed at a now-deleted doctor)
+      docName = '— محذوف —';
+      docColor = 'var(--text3)';
+      inactiveBadge = '';
+    }
+
+    var hasBreakdown = (Number(po.breakdown_salary) || 0)
+                     + (Number(po.breakdown_share) || 0)
+                     + (Number(po.breakdown_bonus) || 0) > 0;
+
+    var method = po.payment_method || 'other';
+    var methodClass = (po.payment_method && ['cash','bank','check','other','shamcash','syriatel','mtn','online'].indexOf(po.payment_method) >= 0)
+                    ? po.payment_method : 'other';
+
+    var row = '<div class="table-row" tabindex="0" role="button" onclick="openEditModal(\'' + escapeHtml(po.id) + '\')" onkeydown="if(event.key===\'Enter\'&&event.target===this)openEditModal(\'' + escapeHtml(po.id) + '\')">'
+      + '<div>' + SyDT.cell(po.paid_at || po.created_at) + '</div>'
+      + '<div class="cell-employee">'
+        + '<span class="dot-color" style="background:' + docColor + ';"></span>'
+        + '<span>' + escapeHtml(docName) + inactiveBadge + '</span>'
+      + '</div>'
+      + '<div style="font-size:12px;color:var(--text2);">'
+        + escapeHtml(fmtDateShort(po.period_start)) + ' ← ' + escapeHtml(fmtDateShort(po.period_end))
+      + '</div>'
+      + '<div class="cell-amt">' + escapeHtml(fmtRowAmt(po.amount, _rowCur(po))) + '</div>'
+      + '<div><span class="cell-method ' + methodClass + '">'
+        + escapeHtml(po.payment_method ? methodLabel(po.payment_method) : '— —')
+        + (window.SyDentPayMethods.isCash(po.payment_method) && window.SyDentPayMethods.normSource(po.cash_source) === 'outside'
+            ? ' <span class="cell-src" title="دُفعت من خارج درج العيادة — لا تُخصم من إقفال الصندوق">· من خارج الدرج</span>' : '')   /* M165 */
+      + '</span></div>'
+      + '<div class="cell-actions sy-acts">'
+        + (hasBreakdown
+            ? '<button class="sy-act" onclick="event.stopPropagation();toggleBreakdownRow(\'' + escapeHtml(po.id) + '\')" title="عرض تفصيل الدفعة (راتب · نسبة · مكافأة)">📊 التفصيل</button>'
+            : '')
+      + '</div>'
+    + '</div>';
+
+    if (hasBreakdown) {
+      var bs = Number(po.breakdown_salary) || 0;
+      var bsh = Number(po.breakdown_share) || 0;
+      var bb = Number(po.breakdown_bonus) || 0;
+      row += '<div class="breakdown-row" id="bd-' + escapeHtml(po.id) + '">';
+      if (bs > 0)  row += '<span class="bd-item">راتب: <b>' + escapeHtml(fmtRowAmt(bs, _rowCur(po))) + '</b></span>';
+      if (bsh > 0) row += '<span class="bd-item">نسبة: <b>' + escapeHtml(fmtRowAmt(bsh, _rowCur(po))) + '</b></span>';
+      if (bb > 0)  row += '<span class="bd-item">مكافأة: <b>' + escapeHtml(fmtRowAmt(bb, _rowCur(po))) + '</b></span>';
+      if (displayNotes) row += '<div style="margin-top:6px;font-style:italic;">📝 ' + escapeHtml(displayNotes) + '</div>';
+      row += '</div>';
+    }
+
+    return row;
+  }).join('');
+}
+
+function toggleBreakdownRow(id) {
+  var el = $('bd-' + id);
+  if (el) el.classList.toggle('show');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MODAL — Add / Edit
+// ═══════════════════════════════════════════════════════════════════════════
+function openModal(prefillProviderId, prefillFrom, prefillTo) {
+  $('editingId').value = '';
+  $('modalTitle').textContent = 'دفعة جديدة';
+  $('deleteBtn').style.display = 'none';
+
+  $('fldShowInactive').checked = false;
+  populateProviderDropdown();
+
+  if (prefillProviderId) {
+    $('fldProvider').value = prefillProviderId;
+  }
+
+  // Period defaults: explicit prefill → active filter → current month (local
+  // date parts, NOT toISOString/UTC). The list filter no longer defaults to
+  // the month (12 Sep 2026), so the month fallback lives here instead.
+  var _nowL = new Date();
+  var _fom  = _nowL.getFullYear() + '-' + String(_nowL.getMonth() + 1).padStart(2, '0') + '-01';
+  // v383: النهاية الافتراضية بنموذج الموظف المختار (آخر الشهر للراتب الثابت، اليوم للنسبة)
+  var _prov0 = prefillProviderId ? doctors.find(function(d){ return d.id === prefillProviderId; }) : null;
+  $('fldPeriodStart').value = prefillFrom || $('filterFrom').value || _fom;
+  $('fldPeriodEnd').value   = prefillTo   || $('filterTo').value   || _defaultPeriodEnd(_prov0);
+  _periodEndAuto = !prefillTo && !$('filterTo').value;
+  $('fldPaidAt').value      = todayISO();
+  $('fldPaidTime').value    = SyDT.nowHM();                     // v476: الآن (SyDT — v477)
+  $('fldAmount').value      = '';
+  $('fldSalary').value      = '';
+  $('fldShare').value       = '';
+  $('fldBonus').value       = '';
+  $('fldNotes').value       = '';
+
+  // v548: الطريقةُ الافتراضية «نقد» من الدرج (كالمصروفات) — كانت فارغةً فتُحفظ «أخرى» بصمت
+  setModalMethod('cash');
+  setModalSource('drawer');
+
+  $('breakdownSection').classList.remove('open');
+
+  updateSuggestion();
+
+  try { window.SyDentCurPick.mount('fldAmount', { clearAlso: ['fldSalary','fldShare','fldBonus'] }); } catch (e) {}   // M125
+  $('modalOverlay').classList.add('show');
+}
+
+function openEditModal(id) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;   /* M141-ب: الصفُّ/البطاقة بيانات — يبقى ظاهراً ولا يفتح نموذجاً */
+  var po = payouts.find(function(p){ return p.id === id; });
+  if (!po) { showToast('⚠️ الدفعة غير موجودة', true); return; }
+
+  $('editingId').value = id;
+  $('modalTitle').textContent = 'تعديل دفعة';
+  $('deleteBtn').style.display = '';
+
+  // ── Phase 7.2: resolve the unified-entry id from the payout ──
+  // Match by provider_id (clinical) → doctorId, or employee_id (non-clinical) → employeeId.
+  var effectiveProvId = '';
+  var cleanNotes = po.notes || '';
+
+  if (po.provider_id) {
+    var dClin = doctors.find(function(d){ return d.doctorId === po.provider_id; });
+    if (dClin) effectiveProvId = dClin.id;
+  } else if (po.employee_id) {
+    var dEmp = doctors.find(function(d){ return d.employeeId === po.employee_id; });
+    if (dEmp) effectiveProvId = dEmp.id;
+  } else if (cleanNotes && /^\[([^\]]+)\]\s/.test(cleanNotes)) {
+    // Backward-compat: payouts saved by the earlier buggy commit (52a19e7)
+    // with null provider_id + '[Name] ' notes prefix. Extract the name.
+    var match = cleanNotes.match(/^\[([^\]]+)\]\s*(.*)$/);
+    var extractedName = match[1];
+    cleanNotes = match[2] || '';
+    var matchedEmp = doctors.find(function(d){ return d.name === extractedName; });
+    if (matchedEmp) effectiveProvId = matchedEmp.id;
+  }
+
+  // If the edited payout's provider is inactive, force-show inactives
+  var doctor = doctors.find(function(d){ return d.id === effectiveProvId; });
+  $('fldShowInactive').checked = !!(doctor && doctor.is_active === false);
+  populateProviderDropdown();
+
+  $('fldProvider').value    = effectiveProvId || '';
+  $('fldPeriodStart').value = po.period_start || '';
+  $('fldPeriodEnd').value   = po.period_end || '';
+  _periodEndAuto = false;   // v383: فترةُ دفعةٍ محفوظة لا تُعاد ضبطها تلقائياً
+  $('fldPaidAt').value      = _payoutDay(po) || todayISO();   // v382: يومٌ محلي لا قصّةُ UTC
+  $('fldPaidTime').value    = SyDT.hm(po.paid_at);                // v476: وقتُ الدفع المحفوظ (فارغٌ لصفٍّ قديم بلا وقت)
+  $('fldAmount').value      = po.amount || '';
+  $('fldSalary').value      = po.breakdown_salary || '';
+  $('fldShare').value       = po.breakdown_share || '';
+  $('fldBonus').value       = po.breakdown_bonus || '';
+  $('fldNotes').value       = cleanNotes;
+
+  modalMethod = po.payment_method || null;
+  document.querySelectorAll('#methodChipsModal .method-chip').forEach(function(c){
+    c.classList.toggle('active', c.getAttribute('data-method') === modalMethod);
+  });
+  setModalSource(window.SyDentPayMethods.normSource(po.cash_source));   // M165: الفارغُ = من الدرج
+  _syncSourceField();
+
+  var hasBreakdown = (Number(po.breakdown_salary) || 0)
+                   + (Number(po.breakdown_share) || 0)
+                   + (Number(po.breakdown_bonus) || 0) > 0;
+  $('breakdownSection').classList.toggle('open', hasBreakdown);
+  if (hasBreakdown) {
+    // v382: المبلغُ المحفوظ لا يُستبدل بمجموع التفصيل بصمت — إن تطابقا (كل الصفوف
+    // الجديدة) فالمزامنةُ محايدة، وإن تباينا (صفٌّ قديم) يبقى المبلغُ كما حُفظ
+    // ويُنبَّه المالك ليحسم بيده قبل الحفظ.
+    var _bdSum = (Number(po.breakdown_salary) || 0) + (Number(po.breakdown_share) || 0) + (Number(po.breakdown_bonus) || 0);
+    if (Math.abs(_bdSum - (Number(po.amount) || 0)) <= 0.005) {
+      onBreakdownChange();
+    } else {
+      $('bdTotal').textContent = fmtRowAmt(_bdSum, (po.currency === 'USD') ? 'USD' : 'SYP');
+      showToast('⚠️ تفصيل هذه الدفعة (' + _fmtAmt(_bdSum) + ') لا يطابق مبلغها (' + _fmtAmt(po.amount) + ') — صحّحه قبل الحفظ', true);
+    }
+  }
+
+  updateSuggestion();
+
+  // M125: التعديل يفتح بعملة الدفعة المحفوظة لا بعملة العيادة (صنف v181).
+  try { window.SyDentCurPick.pin('fldAmount', (po.currency === 'USD') ? 'USD' : 'SYP'); } catch (e) {}
+  try { window.SyDentCurPick.mount('fldAmount', { clearAlso: ['fldSalary','fldShare','fldBonus'] }); } catch (e) {}   // M125
+  $('modalOverlay').classList.add('show');
+}
+
+function closeModal() {
+  $('modalOverlay').classList.remove('show');
+}
+
+function populateProviderDropdown() {
+  var sel = $('fldProvider');
+  var prev = sel.value;
+  var showInactive = $('fldShowInactive').checked;
+
+  var list = doctors.slice().sort(function(a,b){
+    // active first, then by name
+    var aAct = a.is_active !== false;
+    var bAct = b.is_active !== false;
+    if (aAct !== bAct) return aAct ? -1 : 1;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  var html = '<option value="">— اختر الموظف —</option>';
+  list.forEach(function(d){
+    // Owner is the payer, never a payee — exclude the clinic owner from the
+    // employee dropdown when recording a payout. Two signals are needed:
+    //   • is_owner===true   → clinic_doctors / Step-5 orphan rows
+    //   • _employeeRole==='owner' → clinic_employees Path-B rows, where
+    //     is_owner is hardcoded false. Checking both kills the duplicate the
+    //     Owner currently sees (one entry per path).
+    if (d.is_owner === true || d._employeeRole === 'owner') return;
+    if (d.is_active === false && !showInactive) return;
+    var inactive = (d.is_active === false) ? ' (معطل)' : '';
+    var pt = providerTypeLabel(d.provider_type);
+    var cm = compensationLabel(d.compensation_model);
+    html += '<option value="' + escapeHtml(d.id) + '">'
+         + escapeHtml(d.name) + ' — ' + pt + ' • ' + cm + inactive
+         + '</option>';
+  });
+  sel.innerHTML = html;
+  if (prev) sel.value = prev;
+}
+
+// v383: نهايةُ الفترة الافتراضية تتبع نموذجَ الموظف — الراتبُ الثابت يُدفع عن الشهر
+// كاملاً فنهايتُه آخرُ الشهر (كانت «اليوم» فيقترح 17 يوماً من الراتب بمنتصف الشهر)،
+// والنسبةُ تُحسب حتى اليوم كما كانت. تسري ما دام المالكُ لم يلمس تاريخَ النهاية.
+var _periodEndAuto = false;
+function _defaultPeriodEnd(provider) {
+  var cm = provider ? (provider.compensation_model || 'percentage') : 'percentage';
+  if (cm === 'salary' || cm === 'hybrid') {
+    var n = new Date();
+    var last = new Date(n.getFullYear(), n.getMonth() + 1, 0);   // آخر يوم بالشهر الحالي (محلي)
+    return last.getFullYear() + '-' + String(last.getMonth() + 1).padStart(2, '0') + '-' + String(last.getDate()).padStart(2, '0');
+  }
+  return todayISO();
+}
+
+function onProviderChange() {
+  // اختيارُ موظفٍ آخر بنموذجٍ آخر يعيد ضبطَ النهاية الافتراضية — إن لم يُعدّلها المالك.
+  if (_periodEndAuto && !$('editingId').value) {
+    var _sel = $('fldProvider').value;
+    var _p = doctors.find(function(d){ return d.id === _sel; });
+    $('fldPeriodEnd').value = _defaultPeriodEnd(_p);
+  }
+  updateSuggestion();
+}
+
+function onPeriodChange() {
+  _periodEndAuto = false;   // المالك لمس التاريخ ⇒ لا إعادة ضبط تلقائية بعده
+  updateSuggestion();
+}
+
+// Update the suggestion hint based on current provider + period.
+// When suggestion = 0, give a diagnostic message explaining WHY so the Owner
+// knows whether to enter manually or first set monthly_salary/share_percent
+// in employees.html.
+// v382: سطورُ التفصيل والتحذير تحت الاقتراح — كلُّ ما خُصم أو أُضيف يُقال صراحةً
+// (رصيدٌ سابق · مقدَّمٌ مخصوم · راتبٌ مدفوع جزئياً · إنتاجٌ بعملةٍ أخرى لم يدخل).
+// نصٌّ خالص يُحقن بـtextContent (لا HTML).
+function _suggestionDetail(sug, lbl) {
+  if (!sug) return '';
+  var m = sug.meta || {}, lines = [];
+  if ((m.salaryDue || 0) > 0 && (m.salaryPaid || 0) > 0) {
+    lines.push('راتب الفترة ' + _fmtAmt(m.salaryDue) + ' ' + lbl + ' − مدفوع منه سابقاً ' + _fmtAmt(m.salaryPaid) + ' ' + lbl);
+  }
+  if ((m.priorShare || 0) > 0.004) {
+    lines.push('نسبة الفترة ' + _fmtAmt(m.periodShare) + ' ' + lbl + ' + رصيد حصّة سابق غير مسدَّد ' + _fmtAmt(m.priorShare) + ' ' + lbl);
+  } else if ((m.priorShare || 0) < -0.004) {
+    lines.push('نسبة الفترة ' + _fmtAmt(m.periodShare) + ' ' + lbl + ' − مقدَّم/مدفوع زائد سابقاً ' + _fmtAmt(-m.priorShare) + ' ' + lbl);
+  }
+  if (Array.isArray(m.rates) && m.rates.length > 1) {
+    lines.push('النسبة تغيّرت داخل الفترة (' + m.rates.map(function(r){ return r + '%'; }).join(' ← ') + ') — كل جلسة بنسبة تاريخها');
+  }
+  (sug.warnings || []).forEach(function(w){
+    if (w.code === 'foreign_production') {
+      lines.push('⚠️ يوجد إنتاج بـ' + SyDentCurBag.lblOf(w.cur) + ' (' + _fmtAmt(w.amount) + ' ' + SyDentCurBag.lblOf(w.cur)
+               + ') لم يدخل في هذه الحصّة — سجّل له دفعة مستقلة بعملته');
+    } else if (w.code === 'foreign_balance') {
+      lines.push('⚠️ رصيد حصّة غير مسدَّد بـ' + SyDentCurBag.lblOf(w.cur) + ' (' + _fmtAmt(w.amount) + ' ' + SyDentCurBag.lblOf(w.cur)
+               + ') لم يدخل هنا — سجّل له دفعة مستقلة بعملته');
+    }
+  });
+  return lines.length ? '\n' + lines.join('\n') : '';
+}
+
+function updateSuggestion() {
+  var hint = $('hintSuggest');
+  var provId = $('fldProvider').value;
+  var from = $('fldPeriodStart').value;
+  var to   = $('fldPeriodEnd').value;
+
+  if (!provId || !from || !to) {
+    hint.style.display = 'none';
+    return;
+  }
+
+  var provider = doctors.find(function(d){ return d.id === provId; });
+  if (!provider) {
+    hint.style.display = 'none';
+    return;
+  }
+
+  // v382: الدفعةُ المفتوحة للتعديل تُستثنى من «المدفوع» — كانت تُطرح من نفسها فيظهر
+  // «0 — تم سداد ما يكفي» وهي الدفعةُ ذاتها.
+  var sug = computeSuggestion(provider, from, to, $('editingId').value || null);
+  if (!sug) { hint.style.display = 'none'; return; }
+
+  hint.style.display = 'block';
+  /* M125: وسم موحّد بعملة الاقتراح لكل الفروع (بما فيها الصفرية) */
+  var _sugLbl0 = SyDentCurBag.lblOf(sug && sug.cur);   // v262: عملة الاقتراح بالاتجاهين
+  var _detail = _suggestionDetail(sug, _sugLbl0);      // v382: تفصيلٌ وتحذيراتٌ صريحة
+
+  if (sug.total > 0) {
+    // Happy path — suggestion ready, click to apply
+    // M125: نصّ الاقتراح يحمل عملة راتب الموظف — fmtSY يكتب وسم العيادة
+    // دائماً، فراتب الدولار كان يُعرض «150 ل.س» وهو رقمٌ صحيح بوحدة كاذبة.
+    var _sugCur = SyDentCurBag.lblOf(sug && sug.cur);   // v262
+    hint.textContent = '💡 الاقتراح: ' + _fmtAmt(sug.total)
+                     + ' ' + _sugCur + ' — اضغط لتطبيقه (' + sug.note + ')' + _detail;
+    hint.dataset.amount = String(sug.total);
+    hint.dataset.salary = String(sug.salary);
+    hint.dataset.share = String(sug.share);
+    // M125: عملة الاقتراح = عملة راتب الموظف نفسه (الغياب ⇒ ل.س).
+    hint.dataset.cur = (sug && sug.cur === 'USD') ? 'USD' : 'SYP';
+    hint.style.cursor = 'pointer';
+    return;
+  }
+
+  // Zero — diagnose why and tell the Owner what to do
+  hint.dataset.amount = '0';
+  hint.dataset.salary = '0';
+  hint.dataset.share = '0';
+  hint.style.cursor = 'default';
+  var cm = provider.compensation_model || 'percentage';
+
+  if (cm === 'none') {
+    hint.textContent = 'ℹ️ هذا الموظف لا يخضع لحساب تلقائي — أدخل المبلغ يدوياً';
+  } else if (cm === 'salary') {
+    if (!provider.monthly_salary || Number(provider.monthly_salary) <= 0) {
+      hint.innerHTML = '⚠️ لم يُحدّد الراتب الشهري لـ ' + escapeHtml(provider.name)
+                     + ' — افتح <a href="employees.html" onclick="event.stopPropagation()" style="color:var(--green);text-decoration:underline;">صفحة الموظفون</a>'
+                     + ' وحدّد الراتب ليُحسب تلقائياً';
+    } else {
+      hint.textContent = '💡 الاقتراح: 0 ' + _sugLbl0 + ' (تم سداد كامل الفترة سابقاً)' + _detail;
+    }
+  } else if (cm === 'percentage') {
+    var hasShare = provider.share_percent !== null && provider.share_percent !== '' && Number(provider.share_percent) > 0;
+    if (!hasShare) {
+      hint.innerHTML = '⚠️ لم تُحدّد نسبة الإنتاج لـ ' + escapeHtml(provider.name)
+                     + ' — افتح <a href="employees.html" onclick="event.stopPropagation()" style="color:var(--green);text-decoration:underline;">صفحة الموظفون</a>'
+                     + ' وحدّد النسبة';
+    } else {
+      hint.textContent = '💡 الاقتراح: 0 ' + _sugLbl0 + ' (لا يوجد إنتاج جديد في الفترة أو تم سداد ما يكفي)' + _detail;
+    }
+  } else if (cm === 'hybrid') {
+    var missingSalary = !provider.monthly_salary || Number(provider.monthly_salary) <= 0;
+    var missingShare  = !provider.share_percent || Number(provider.share_percent) <= 0;
+    if (missingSalary || missingShare) {
+      hint.innerHTML = '⚠️ لم تكتمل بيانات الراتب أو النسبة — افتح '
+                     + '<a href="employees.html" onclick="event.stopPropagation()" style="color:var(--green);text-decoration:underline;">صفحة الموظفون</a>';
+    } else {
+      hint.textContent = '💡 الاقتراح: 0 ' + _sugLbl0 + ' (لا يوجد إنتاج وتم سداد كامل الفترة)' + _detail;
+    }
+  } else {
+    hint.textContent = '💡 الاقتراح: 0 ' + _sugLbl0 + ' (' + sug.note + ')';
+  }
+}
+
+function applySuggestion() {
+  var hint = $('hintSuggest');
+  var amt = Number(hint.dataset.amount) || 0;
+  if (amt <= 0) return;
+
+  $('fldAmount').value = amt;
+  // M125: الاقتراح محسوبٌ من راتب هذا الموظف، فالعملة تتبعه لا عملة العيادة —
+  // رقمُ دولارٍ تحت وسم ليرة خطأٌ كامل وإن كان الرقم صحيحاً.
+  try {
+    if (hint.dataset.cur) window.SyDentCurPick.set('fldAmount', hint.dataset.cur);
+  } catch (e) {}
+  // v382: التفصيلُ يُفتح ويُملأ دائماً عند تطبيق الاقتراح — فالمكوّنُ (راتب/نسبة)
+  // يُحفظ صريحاً بالدفعة ويراه المالك. كان يُملأ خفيّاً والقسمُ مغلق، فتعديلُ
+  // المبلغ يدوياً يترك تفصيلاً قديماً يُحفظ بصمت ويُعيد المبلغَ القديم عند التعديل.
+  var sal = Number(hint.dataset.salary) || 0;
+  var shr = Number(hint.dataset.share) || 0;
+  $('fldSalary').value = sal > 0 ? sal : '';
+  $('fldShare').value  = shr > 0 ? shr : '';
+  $('fldBonus').value  = '';
+  if (sal > 0 || shr > 0) {
+    $('breakdownSection').classList.add('open');
+    onBreakdownChange();
+  }
+}
+
+function setModalMethod(m) {
+  modalMethod = m;
+  document.querySelectorAll('#methodChipsModal .method-chip').forEach(function(c){
+    c.classList.toggle('active', c.getAttribute('data-method') === m);
+  });
+  _syncSourceField();
+}
+
+// M165: مصدرُ النقد — ظاهرٌ مع «نقد» فقط؛ القيمةُ تبقى محفوظةً بالذاكرة إن بدّل الطريقة ثم رجع
+function setModalSource(src) {
+  modalSource = window.SyDentPayMethods.normSource(src);
+  document.querySelectorAll('#cashSourceChips .method-chip').forEach(function(c){
+    c.classList.toggle('active', c.getAttribute('data-src') === modalSource);
+  });
+}
+function _syncSourceField() {
+  var f = $('cashSourceField');
+  if (f) f.style.display = window.SyDentPayMethods.isCash(modalMethod) ? '' : 'none';
+}
+
+function toggleBreakdown() {
+  var sec = $('breakdownSection');
+  sec.classList.toggle('open');
+  if (sec.classList.contains('open')) {
+    onBreakdownChange();
+  } else {
+    // Closing: clear breakdown values so a simple-mode save doesn't carry
+    // stale breakdown numbers that would mismatch the user-edited amount.
+    // (QuickBooks/Xero behavior — collapse = "I changed my mind, simple total only")
+    $('fldSalary').value = '';
+    $('fldShare').value  = '';
+    $('fldBonus').value  = '';
+    $('bdTotal').textContent = fmtRowAmt(0, _payModalCur());
+    // Note: amount field is preserved so the user can edit it freely.
+  }
+}
+
+// QuickBooks/Xero-style behavior:
+//  - Open breakdown: amount field is computed (read-only-like, but kept
+//    enabled in case the user wants to clear it and start over).
+//  - When the user types a breakdown line, sum them into amount.
+// (قاعدة #18: unification — no warnings; UI guarantees consistency)
+function onBreakdownChange() {
+  var sal = Number($('fldSalary').value) || 0;
+  var shr = Number($('fldShare').value) || 0;
+  var bon = Number($('fldBonus').value) || 0;
+  var total = sal + shr + bon;
+  $('bdTotal').textContent = fmtRowAmt(total, _payModalCur());
+
+  if ($('breakdownSection').classList.contains('open')) {
+    // Sync amount to breakdown total when breakdown is the active source
+    $('fldAmount').value = total > 0 ? total : '';
+  }
+}
+
+function onAmountInput() {
+  // Behavior: when breakdown is closed, the user types amount freely.
+  // When breakdown is open, the breakdown fields drive the amount via
+  // onBreakdownChange(). v382: إن كان التفصيلُ مفتوحاً وفيه بندٌ واحد فقط
+  // يتبع المبلغَ المكتوب (تعديلُ 103.33 إلى 100 يعدّل الراتبَ معه)؛ أكثرُ من
+  // بند = يحسمه المالك بيده، والحفظُ يرفض أي تباين (لا تباينَ صامت).
+  if (!$('breakdownSection').classList.contains('open')) return;
+  var ids = ['fldSalary', 'fldShare', 'fldBonus'];
+  var nonZero = ids.filter(function(id){ return (Number($(id).value) || 0) > 0; });
+  if (nonZero.length !== 1) return;
+  var amt = parseFloat($('fldAmount').value);
+  if (!(amt > 0)) return;
+  $(nonZero[0]).value = amt;
+  $('bdTotal').textContent = fmtRowAmt(amt, _payModalCur());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SAVE / DELETE
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase post-X10 B1 fix: module-level in-flight flag prevents double-
+// submit on "💾 حفظ". Without this, an insert path could create
+// duplicate provider_payouts rows (and double audit-log entries).
+var _savePayoutInFlight = false;
+
+async function savePayout() {
+  var editingId = $('editingId').value;
+  var provId    = $('fldProvider').value;
+  var from      = $('fldPeriodStart').value;
+  var to        = $('fldPeriodEnd').value;
+  var paidAt    = $('fldPaidAt').value;
+  var amount    = parseFloat($('fldAmount').value);
+  var notes     = $('fldNotes').value.trim();
+  // v382: التفصيلُ يُحفظ فقط إذا كان قسمُه مفتوحاً — القسمُ المغلق = لا تفصيل (أصفار)،
+  // فلا يبقى رقمٌ خفيّ عبّأه الاقتراحُ ثم عدّل المالكُ المبلغَ فوقه.
+  var bdOpen    = $('breakdownSection').classList.contains('open');
+  var salary    = bdOpen ? (parseFloat($('fldSalary').value) || 0) : 0;
+  var share     = bdOpen ? (parseFloat($('fldShare').value)  || 0) : 0;
+  var bonus     = bdOpen ? (parseFloat($('fldBonus').value)  || 0) : 0;
+
+  // Validation (runs BEFORE in-flight flag so failures don't lock the form)
+  if (!provId)              { showToast('⚠️ اختر الموظف', true); return; }
+  if (!from || !to)         { showToast('⚠️ حدد فترة الدفعة', true); return; }
+  if (from > to)            { showToast('⚠️ تاريخ البداية بعد النهاية', true); return; }
+  if (window.SyDentPayroll.salaryFraction(from, to) <= 0) { showToast('⚠️ تاريخ الفترة غير صالح', true); return; }
+  if (!amount || amount<=0) { showToast('⚠️ أدخل مبلغاً صحيحاً', true); return; }
+  if (salary < 0 || share < 0 || bonus < 0) { showToast('⚠️ بنود التفصيل لا تكون سالبة', true); return; }
+  // التفصيلُ المفتوح يجب أن يساوي المبلغَ حرفياً (بوحدة السنت) — تباينٌ صامت هنا كان
+  // يُحفظ ثم يُعيد المبلغَ القديم عند فتح التعديل ويُفسد حارسَ الدفع المزدوج.
+  var bdSum = salary + share + bonus;
+  if (bdOpen && bdSum > 0 && Math.abs(bdSum - amount) > 0.005) {
+    showToast('⚠️ مجموع التفصيل (' + _fmtAmt(bdSum) + ') لا يطابق المبلغ (' + _fmtAmt(amount) + ') — عدّل التفصيل أو أغلقه', true);
+    return;
+  }
+
+  // Critical section guard
+  if (_savePayoutInFlight) return;
+  _savePayoutInFlight = true;
+  try {
+    // Build payload. paid_at: combine date with current time (local) AND
+    // include the timezone offset so Postgres doesn't interpret as UTC and
+    // shift the displayed day for users in non-UTC zones (Syria = UTC+3).
+    // Without an offset, "2026-05-21T14:30:00" would be stored as UTC and
+    // could display as the wrong day for late-night entries.
+    var paidAtIso = null;
+    if (paidAt) {
+      var now = new Date();
+      // v476: الوقتُ المختار بالنافذة إن وُجد، وإلا الآن (السلوك السابق)
+      var _pt = /^(\d{2}):(\d{2})/.exec($('fldPaidTime') ? $('fldPaidTime').value : '');
+      var hh = _pt ? _pt[1] : String(now.getHours()).padStart(2, '0');
+      var mm = _pt ? _pt[2] : String(now.getMinutes()).padStart(2, '0');
+      var ss = _pt ? '00' : String(now.getSeconds()).padStart(2, '0');
+      // Compute local timezone offset in ±HH:MM format — لتاريخ الدفع نفسه لا لليوم
+      var _at = new Date(paidAt + 'T' + hh + ':' + mm + ':00');
+      var tzMin = -(isNaN(_at.getTime()) ? now : _at).getTimezoneOffset();   // positive east of UTC
+      var tzSign = tzMin >= 0 ? '+' : '-';
+      var tzAbs = Math.abs(tzMin);
+      var tzH = String(Math.floor(tzAbs / 60)).padStart(2, '0');
+      var tzM = String(tzAbs % 60).padStart(2, '0');
+      paidAtIso = paidAt + 'T' + hh + ':' + mm + ':' + ss + tzSign + tzH + ':' + tzM;
+    }
+
+    // ── Phase 7.2: Resolve the selected entry → provider_id OR employee_id ──
+    //
+    // After Migration 18, provider_payouts has BOTH columns:
+    //   • provider_id (nullable, FK clinic_doctors) — for clinical staff
+    //   • employee_id (nullable, FK clinic_employees) — for non-clinical staff
+    // CHECK constraint payouts_has_target ensures at least one is set.
+    //
+    // The unified loadDoctors() builds entries with:
+    //   • _hasDoctorLink=true → clinical → save via provider_id = doctorId
+    //   • _hasDoctorLink=false → non-clinical → save via employee_id (no late
+    //     bootstrap, no clinic_doctors row pollution)
+    // Orphan legacy clinic_doctors rows (no employee link) also use provider_id.
+    var selectedEntry = doctors.find(function(d){ return d.id === provId; });
+    if (!selectedEntry) { showToast('⚠️ الموظف غير موجود', true); return; }
+
+    var resolvedProviderId = selectedEntry._hasDoctorLink ? selectedEntry.doctorId : null;
+    var resolvedEmployeeId = (!selectedEntry._hasDoctorLink && selectedEntry.employeeId)
+                             ? selectedEntry.employeeId
+                             : null;
+
+    // Sanity: at least one must be set (matches the DB CHECK constraint)
+    if (!resolvedProviderId && !resolvedEmployeeId) {
+      showToast('⚠️ تعذّر تحديد هوية الموظف للدفعة', true);
+      console.error('[payouts] save aborted: selectedEntry has neither doctorId nor employeeId', selectedEntry);
+      return;
+    }
+
+    var payload = {
+      owner_id:     currentUser.id,
+      provider_id:  resolvedProviderId,
+      employee_id:  resolvedEmployeeId,
+      period_start: from,
+      period_end:   to,
+      paid_at:      paidAtIso,  // null → DB default now()
+      amount:       amount,
+      notes:        notes || null,
+      payment_method: modalMethod || null,
+      cash_source:  window.SyDentPayMethods.sourceForStore(modalMethod, modalSource),   // M165: غيرُ النقدي ⇒ null
+      breakdown_salary: salary || 0,
+      breakdown_share:  share  || 0,
+      breakdown_bonus:  bonus  || 0,
+      currency: window.SyDentCurPick.read('fldAmount')   // M125
+    };
+
+    // Remove null paid_at so the DB default kicks in
+    if (!payload.paid_at) delete payload.paid_at;
+
+    var res;
+    if (editingId) {
+      res = await window.sb.from('provider_payouts')
+        .update(payload).eq('id', editingId).select().single();
+    } else {
+      res = await window.sb.from('provider_payouts')
+        .insert(payload).select().single();
+    }
+
+    // Pre-Migration-18 fallback: if INSERT fails because employee_id column
+    // doesn't exist, retry without it. This only matters for non-clinical staff;
+    // for clinical staff (provider_id set, employee_id null), the insert would
+    // succeed anyway because PostgREST drops null-valued columns from the body.
+    if (res.error && /42703|employee_id/i.test(
+        (res.error.message || '') + ' ' + (res.error.code || ''))) {
+      if (resolvedEmployeeId && !resolvedProviderId) {
+        // Non-clinical save on unmigrated DB — can't save without Migration 18
+        showToast('⚠️ شغّل Migration 18 في Supabase لحفظ دفعات الموظفين غير-السريريين', true);
+        return;
+      }
+      // Clinical save: strip employee_id and retry
+      var noEmp = Object.assign({}, payload);
+      delete noEmp.employee_id;
+      if (editingId) {
+        res = await window.sb.from('provider_payouts')
+          .update(noEmp).eq('id', editingId).select().single();
+      } else {
+        res = await window.sb.from('provider_payouts')
+          .insert(noEmp).select().single();
+      }
+    }
+
+    // Pre-Migration-17 fallback: strip new columns and retry
+    if (res.error && /42703|payment_method|breakdown_/i.test(
+        (res.error.message || '') + ' ' + (res.error.code || ''))) {
+      var legacy = {
+        owner_id:     payload.owner_id,
+        provider_id:  payload.provider_id,
+        period_start: payload.period_start,
+        period_end:   payload.period_end,
+        amount:       payload.amount,
+        notes:        payload.notes
+      };
+      if (payload.paid_at) legacy.paid_at = payload.paid_at;
+      if (editingId) {
+        res = await window.sb.from('provider_payouts')
+          .update(legacy).eq('id', editingId).select().single();
+      } else {
+        res = await window.sb.from('provider_payouts')
+          .insert(legacy).select().single();
+      }
+      if (!res.error) {
+        showToast('⚠️ شُغّل Migration 17 لحفظ الطريقة والتفصيل', true);
+      }
+    }
+
+    if (res.error) {
+      if (isMigrationMissing(res.error)) {
+        showToast('⚠️ شغّل Migration 17 في Supabase أولاً', true);
+      } else {
+        showToast('⚠️ فشل الحفظ: ' + res.error.message, true);
+      }
+      return;
+    }
+
+    // Audit log (fire-and-forget; قاعدة #11 single source of truth for payouts)
+    try {
+      if (window.logAudit) {
+        // selectedEntry is the unified employee/doctor record (set above).
+        // For employees without doctor link, resolvedProviderId is null,
+        // but the name is still in selectedEntry.name.
+        var docName = (selectedEntry && selectedEntry.name) || '—';
+        var actionType = editingId ? 'payout.edit' : 'payout.create';
+        var description = (editingId ? 'تعديل دفعة لـ ' : 'دفعة لـ ') + docName
+                        + ' (' + fmtRowAmt(payload.amount, _rowCur(payload)) + ')';
+        window.logAudit(actionType, {
+          entity_type: 'payout',
+          entity_id: res.data ? res.data.id : editingId,
+          description: description,
+          new_value: {
+            provider_id: resolvedProviderId,    // matches DB (may be null)
+            provider_name: docName,
+            employee_id: selectedEntry ? selectedEntry.employeeId : null,
+            period_start: from,
+            period_end: to,
+            amount: payload.amount,
+            payment_method: payload.payment_method,
+            cash_source: payload.cash_source
+          }
+        });
+      }
+    } catch (e) { console.warn('audit log failed:', e); }
+
+    // Update local state + re-render
+    if (editingId) {
+      var idx = payouts.findIndex(function(p){ return p.id === editingId; });
+      if (idx >= 0 && res.data) payouts[idx] = res.data;
+    } else {
+      if (res.data) payouts.unshift(res.data);
+    }
+
+    closeModal();
+    renderEmployeeFilters();
+    renderStats();
+    renderPayouts();
+    showToast(editingId ? '✅ تم تحديث الدفعة' : '✅ تم تسجيل الدفعة');
+  } finally {
+    _savePayoutInFlight = false;
+  }
+}
+
+/* ═══ v292 — قفلُ زرّ الحذف (مرآةُ ppGuarded) ═══ */
+var _pInFlight = {};
+function pGuarded(name, inner, label) {
+  return async function () {
+    if (_pInFlight[name]) return;
+    var btn = null;
+    try { var ev = window.event; var t = ev && (ev.currentTarget || ev.target); if (t && t.closest) btn = t.closest('button'); } catch (_) {}
+    if (!btn && document.activeElement && document.activeElement.tagName === 'BUTTON') btn = document.activeElement;
+    _pInFlight[name] = true;
+    var old = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; if (label) btn.textContent = label; }
+    try { return await inner.apply(this, arguments); }
+    finally { delete _pInFlight[name]; if (btn) { btn.disabled = false; btn.textContent = old; } }
+  };
+}
+var deleteCurrent = pGuarded('deleteCurrent', _deleteCurrent_inner, 'جارٍ الحذف…');   /* v292 */
+async function _deleteCurrent_inner() {
+  var id = $('editingId').value;
+  if (!id) return;
+  if (!await SyDialog.confirm({ message: 'حذف هذه الدفعة؟ لا يمكن التراجع.', danger: true })) return;
+
+  // Snapshot for audit BEFORE delete
+  // Phase 7.2: resolve doctor via provider_id (clinical) or employee_id (non-clinical)
+  var po = payouts.find(function(p){ return p.id === id; });
+  var doctor = null;
+  if (po && po.provider_id) {
+    doctor = doctors.find(function(d){ return d.doctorId === po.provider_id; });
+  } else if (po && po.employee_id) {
+    doctor = doctors.find(function(d){ return d.employeeId === po.employee_id; });
+  }
+  var docName = doctor ? doctor.name : '—';
+  var amount = po ? Number(po.amount) || 0 : 0;
+  var amtLbl = fmtRowAmt(amount, _rowCur(po));   /* M125 · v262: بالاتجاهين */
+
+  var res = await window.sb.from('provider_payouts').delete().eq('id', id);
+  if (res.error) {
+    showToast('⚠️ فشل الحذف: ' + res.error.message, true);
+    return;
+  }
+
+  // Audit
+  try {
+    if (window.logAudit) {
+      window.logAudit('payout.delete', {
+        entity_type: 'payout',
+        entity_id: id,
+        description: 'حذف دفعة لـ ' + docName + ' (' + amtLbl + ')',
+        old_value: po || null
+      });
+    }
+  } catch (e) { console.warn('audit log failed:', e); }
+
+  payouts = payouts.filter(function(p){ return p.id !== id; });
+  closeModal();
+  renderEmployeeFilters();
+  renderStats();
+  renderPayouts();
+  showToast('🗑️ تم الحذف');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// QUERY PREFILL (from provider-reports.html redirect)
+// ═══════════════════════════════════════════════════════════════════════════
+// provider-reports.html sends users here via:
+//   payouts.html?provider=<uuid>&from=<date>&to=<date>&action=new
+// When action=new is present, we auto-open the new-payout modal pre-filled.
+function applyQueryPrefill() {
+  var qs = new URLSearchParams(window.location.search);
+  var provId = qs.get('provider');
+  var from   = qs.get('from');
+  var to     = qs.get('to');
+  var action = qs.get('action');
+
+  if (action === 'new') {
+    // Defer to next tick so all loadXxx data is settled
+    // M141-ب: وضعُ القراءة — لا نموذج دفعة من الرابط (ننتظر المستوى الحيّ؛ fail-open)
+    (window.SyDentSub ? window.SyDentSub.load() : Promise.resolve(null)).then(function (_sub) {
+      if (_sub && _sub.level !== 'full') return;
+      setTimeout(function(){
+        openModal(provId || null, from || null, to || null);
+      }, 50);
+    });
+  } else if (provId) {
+    // Just filter to that provider
+    employeeFilter = provId;
+  }
+}
+
+/* v447: كان يُغلق نموذجَ الدفعة (أحدَ عشرَ حقلاً) بنقرةٍ خارجية عبر مستمعٍ على
+   المستند — سلكٌ لا يراه فحصُ المعرّف، فيمحو النموذجَ بلا إنذار. أُزيل.
+   وEscape صار من عُدّة النوافذ (تغلق الأعلى فقط عبر زرّ ✕ نفسه). */
+
+// زر hamburger للـ topbar (Phase 7.6H: missing on mobile — added per
+// canonical pattern from patients.html. Without this the sidebar can't be
+// opened on screens ≤ 820px because the .sb-hamburger CSS exists in sidebar.js
+// but no page-level markup invokes window.sbToggle().)
+document.addEventListener('DOMContentLoaded', function() {
+  var btn = document.createElement('button');
+  btn.className = 'sb-hamburger';
+  btn.id = 'sbHamburgerBtn';
+  btn.setAttribute('aria-label', 'القائمة');
+  btn.innerHTML = '<span></span><span></span><span></span>';
+  btn.onclick = function() { window.sbToggle(); };
+  window._sbBtn = btn;
+  var topbar = document.querySelector('.topbar');
+  if (topbar) topbar.insertBefore(btn, topbar.firstChild);
+});
+
+// Boot
+init();
+</script>
+
+</body>
+</html>

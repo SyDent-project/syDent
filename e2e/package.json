@@ -1,0 +1,15 @@
+{
+  "name": "sydent-e2e",
+  "private": true,
+  "description": "SyDent Playwright smoke E2E — isolated workspace; the repo root stays zero-npm. Tests run against a locally built dist/ served on localhost, never against sydent.app.",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.1",
+    "@types/node": "22.10.2",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,3203 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SyDent">
+<meta name="theme-color" content="#0d8577">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=4">
+<link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<title>SyDent — المحاسبة</title>
+<!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
+<script src="theme.js?v=20261002d"></script>
+<style>
+:root {
+  --bg:        #0a1628;
+  --bg2:       #0f2038;
+  --bg3:       #132840;
+  --border:    rgba(var(--green-rgb),0.15);
+  --green-dim: rgba(var(--green-rgb),0.12);
+  --red:       #ef5350;
+  --red-dim:   rgba(239,83,80,0.12);
+  --yellow:    #f5c842;
+  --yellow-dim:rgba(245,200,66,0.12);
+  --blue:      #63b3ed;
+  --blue-dim:  rgba(99,179,237,0.12);
+  --orange:    #ffa726;
+  --purple:    #a78bfa;
+  --text:      #e7eef9;
+  --text2:     #8da0bd;
+  --text3:     #5d748f;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Cairo', sans-serif; }
+body { min-height: 100vh; }
+
+.main {
+  margin-right: var(--sb-width, 240px);
+  min-height: 100vh;
+  padding: 24px 28px;
+  transition: margin-right 0.25s ease;
+}
+@media (max-width: 820px) {
+  .main { margin-right: 0; padding: 16px 14px; }
+}
+
+/* ─── Header ─── */
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 18px;
+}
+.page-header h1 { margin: 0; font-size: 24px; font-weight: 700; }
+.page-header > div:first-of-type { flex: 1; min-width: 0; }
+.page-header .header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* ─── Filter bar ─── */
+.filter-bar {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: end;
+}
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 12px; color: var(--text2); font-weight: 500; }
+.field input[type="date"], .field input.sy-df-in {
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); padding: 7px 10px; border-radius: 8px;
+  font-family: 'Cairo', sans-serif; font-size: 13px;
+}
+.field input:focus { outline: 1px solid var(--green); }
+
+.quick-btns { display: flex; gap: 6px; }
+.qb {
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); padding: 7px 12px; border-radius: 8px;
+  font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer;
+  transition: all 0.15s;
+}
+.qb:hover { background: var(--green-dim); border-color: var(--green); }
+.qb.active { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+
+.btn-apply {
+  background: var(--green); color: #001a0d; border: 0;
+  padding: 8px 18px; border-radius: 8px; cursor: pointer;
+  font-family: 'Cairo', sans-serif; font-weight: 600; font-size: 13px;
+}
+.btn-apply:hover { filter: brightness(1.1); }
+.btn-apply:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+
+/* ─── Summary cards ─── */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  position: relative;
+  overflow: hidden;
+}
+.card .label {
+  font-size: 12px; color: var(--text2); font-weight: 500;
+  display: flex; align-items: center; gap: 6px;
+}
+.card .value {
+  font-size: 22px; font-weight: 700; margin-top: 8px;
+  letter-spacing: -0.3px;
+}
+.card .sub {
+  font-size: 11px; color: var(--text3); margin-top: 4px;
+}
+.card.green .value { color: var(--green); }
+.card.red .value { color: var(--red); }
+.card.yellow .value { color: var(--yellow); }
+.card.blue .value { color: var(--blue); }
+.card.dim .value { color: var(--text); }
+
+/* ─── Section ─── */
+.section {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+.section h2 {
+  margin: 0 0 14px 0; font-size: 16px; font-weight: 700;
+  display: flex; align-items: center; gap: 8px;
+}
+.section h2 .count {
+  background: var(--bg3); color: var(--text2);
+  font-size: 11px; padding: 2px 8px; border-radius: 10px;
+  font-weight: 500;
+}
+
+/* ─── v507: تقادم ذمم المرضى ─── */
+.ag-buckets { display:grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap:10px; margin-bottom:12px; }
+.ag-bucket { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:10px 12px; }
+.ag-bucket .ag-lbl { font-size:11px; color:var(--text2); }
+.ag-bucket .ag-val { font-size:16px; font-weight:800; margin-top:4px; white-space:nowrap; }
+.ag-bucket .ag-sub { font-size:11px; color:var(--text3); margin-top:2px; }
+.ag-total { border-color:var(--yellow-bd); background:var(--yellow-dim); }
+.ag-total .ag-val { color:var(--yellow-ink); }
+.ag-b2 .ag-val { color:var(--yellow-ink); }
+.ag-b3 { border-color:var(--red-bd); }
+.ag-b3 .ag-val { color:var(--red-ink); }
+.ag-chips { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+.ag-chip { border:1px solid var(--border); background:var(--bg3); color:var(--text); border-radius:20px; padding:4px 12px; font-size:12px; cursor:pointer; font-family:inherit; }
+.ag-chip.active { background:var(--green); color:#fff; border-color:var(--green); }
+.ag-table td.num { white-space:nowrap; }   /* المبلغُ ورمزُ عملته سطرٌ واحد (لقطةُ الفحص: كان ينكسر «2,925,000 / ل.س») */
+.ag-table td:first-child { min-width:130px; }
+.ag-link { color:var(--text); text-decoration:none; } .ag-link:hover { color:var(--green); text-decoration:underline; }
+.ag-table td.ag-strong { font-weight:800; }
+.ag-table td.ag-zero { color:var(--text3); }
+.ag-table td.ag-c2 { color:var(--yellow-ink); font-weight:700; }
+.ag-table td.ag-c3 { color:var(--red-ink); font-weight:700; }
+.ag-plan { color:var(--red-ink); font-size:12px; }
+.ag-credits { margin-top:12px; }
+.ag-credits summary { cursor:pointer; font-weight:700; color:var(--green); }
+.ag-note { font-size:12px; color:var(--text2); line-height:1.6; margin-top:10px; }
+@media (max-width: 700px) { .ag-buckets { grid-template-columns: repeat(2, minmax(0,1fr)); } .ag-total { grid-column: 1 / -1; } }
+
+/* ─── v509: الاتجاه الشهري ─── */
+.tr-section summary { cursor:pointer; list-style:none; }
+.tr-section summary::-webkit-details-marker { display:none; }
+.tr-section summary h2 { display:inline-block; margin:0; }
+.tr-section summary h2::before { content:'◂ '; color:var(--text3); font-size:14px; }
+.tr-section[open] summary h2::before { content:'▾ '; }
+.tr-section[open] summary { margin-bottom:10px; }
+.tr-chart { width:100%; min-width:560px; height:auto; display:block; margin:6px 0 4px; }
+.tr-legend { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--text2); margin-bottom:6px; }
+.tr-legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-inline-end:5px; vertical-align:middle; }
+.tr-table td.tr-rate { white-space:nowrap; }
+.tr-table td.tr-low { color:var(--red-ink); }
+.tr-table td.tr-hit { color:var(--green); font-weight:700; }   /* v521: شهرٌ بلغ الهدف */
+.tr-legend i.tr-goal-key { height:0; border-top:2px dashed var(--orange); border-radius:0; }
+.tr-note { font-size:12px; color:var(--text2); line-height:1.6; margin-top:8px; }
+
+/* ─── v508: كشف اليوم ─── */
+.ds-section { margin-bottom: 18px; }
+.ds-head-row { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.ds-head-row h2 { margin:0; }
+.ds-ctl { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.ds-ctl input[type="date"], .ds-ctl input.sy-df-in { background:var(--bg3); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:6px 8px; font-family:inherit; font-size:13px; }
+.ds-qb { border:1px solid var(--border); background:var(--bg3); color:var(--text); border-radius:20px; padding:5px 12px; font-size:12px; cursor:pointer; font-family:inherit; }
+.ds-qb:hover { background:var(--green-dim); border-color:var(--green); }
+.ds-cards { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:10px; margin:12px 0; }
+.ds-card { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:10px 12px; }
+.ds-card .ds-lbl { font-size:11px; color:var(--text2); }
+.ds-card .ds-val { font-size:17px; font-weight:800; margin-top:4px; white-space:nowrap; }
+.ds-card .ds-note { font-size:11px; color:var(--text3); margin-top:2px; line-height:1.5; }
+.ds-blue .ds-val { color:var(--blue); } .ds-green .ds-val { color:var(--green); } .ds-red .ds-val { color:var(--red-ink); } .ds-yellow { border-color:var(--yellow-bd); background:var(--yellow-dim); } .ds-yellow .ds-val { color:var(--yellow-ink); }
+table.providers.ds-table { min-width:0; }   /* الكشفُ عمودان فيلائم عرضَ الهاتف بلا تمرير (لقطةُ الفحص: كانت المبالغ مقصوصة) */
+.ds-table td:first-child { white-space:normal; word-break:break-word; }
+.ds-table td.num { white-space:nowrap; width:1%; }
+.ds-table tr.ds-head td { background:var(--bg3); font-weight:700; }
+.ds-table tr.ds-m2 td { color:var(--text2); font-size:12px; }
+.ds-table tr.ds-total td { font-weight:800; border-top:2px solid var(--border); }
+.ds-table tr.ds-cash td { color:var(--yellow-ink); }
+.ds-table td.ds-empty, .ds-empty { color:var(--text3); padding:10px; }
+.ds-sub { font-size:11px; color:var(--text3); font-weight:400; }
+.ds-curhead { font-weight:800; margin:14px 0 4px; color:var(--text2); }
+.ds-note-foot { font-size:12px; color:var(--text2); line-height:1.6; margin-top:10px; }
+/* M158: إقفال الصندوق */
+.ds-close { margin-top:12px; border:1px solid var(--border); border-radius:12px; padding:12px 14px; background:var(--bg3); }
+.ds-close-head { font-weight:800; margin-bottom:8px; }
+.ds-close-grid { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:10px; }
+.ds-val-s { font-weight:800; font-size:15px; white-space:nowrap; }
+.ds-var-ok { color:var(--green); } .ds-var-over { color:var(--yellow-ink); } .ds-var-short { color:var(--red-ink); }
+.ds-close-note { font-size:12px; color:var(--text2); margin-top:8px; }
+.ds-close-warn { font-size:12px; color:var(--yellow-ink); margin-top:8px; }
+.ds-close-row { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,2fr) auto; gap:8px; align-items:end; }
+.ds-close-row label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--text2); min-width:0; }
+.ds-close-row input { background:var(--bg2, var(--bg)); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:7px 9px; font-family:inherit; font-size:14px; min-width:0; width:100%; box-sizing:border-box; }
+.ds-close-btn { background:var(--green); color:#fff; border-color:var(--green); padding:8px 16px; white-space:nowrap; }
+.ds-close .ds-noprint { margin-top:8px; }
+@media (max-width: 700px) { .ds-cards { grid-template-columns: repeat(2, minmax(0,1fr)); } .ds-close-row { grid-template-columns: minmax(0,1fr); } .ds-close-grid { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+
+/* ─── فاصل المعلومات التكميلية ─── */
+.supp-head {
+  margin: 30px 0 16px; padding-top: 20px;
+  border-top: 1px dashed var(--border);
+}
+.supp-head .ttl {
+  font-size: 15px; font-weight: 700; color: var(--text2);
+  margin-bottom: 6px;
+}
+.supp-head .sub {
+  font-size: 12px; color: var(--text2); line-height: 1.6; opacity: .85;
+}
+
+/* ─── AI digest (بند #8 — الملخّص الذكي للفترة) ─── */
+.digest-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+.digest-btn {
+  background: var(--green); color: #062018;
+  border: none; border-radius: 8px;
+  padding: 8px 16px; font-size: 13px; font-weight: 700;
+  font-family: 'Cairo', sans-serif; cursor: pointer;
+  transition: opacity .15s;
+}
+.digest-btn:hover { opacity: .88; }
+.digest-btn:disabled { opacity: .55; cursor: default; }
+.digest-hint { font-size: 11.5px; color: var(--text3); margin-top: 10px; line-height: 1.8; }
+.digest-out {
+  margin-top: 14px; padding: 14px 16px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13.5px; line-height: 2.05; color: var(--text);
+  white-space: pre-wrap;
+}
+.digest-out.err { color: var(--red); }
+.digest-warn {
+  margin-top: 14px; padding: 9px 12px;
+  background: var(--orange-soft); border: 1px solid var(--orange-bd);   /* v375: unified tokens */
+  border-radius: 10px;
+  font-size: 12px; font-weight: 700; line-height: 1.8; color: var(--orange-ink);
+  white-space: pre-wrap;
+}
+
+/* ─── Warning banner ─── */
+.warn-banner {
+  background: var(--yellow-soft);
+  border: 1px solid var(--yellow-bd);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--yellow-ink);
+  font-size: 12px;
+  margin-bottom: 14px;
+  display: flex; align-items: flex-start; gap: 8px;
+  line-height: 1.6;
+}
+.warn-banner .ico { font-size: 16px; flex-shrink: 0; }
+.warn-banner b { color: var(--yellow-ink); }
+
+/* ─── Expense breakdown rows ─── */
+.exp-row {
+  display: grid;
+  grid-template-columns: 24px 1fr 110px 60px;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+.exp-row:last-child { border-bottom: 0; }
+.exp-row .ico { font-size: 18px; text-align: center; }
+.exp-row .name {
+  font-size: 13px; display: flex; align-items: center; gap: 6px;
+}
+.exp-row .name .warn-chip {
+  background: var(--yellow-bg);
+  color: var(--yellow-ink);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--yellow-bd);
+}
+.exp-row .amt {
+  font-size: 13px; text-align: left; font-variant-numeric: tabular-nums;
+}
+.exp-row .pct {
+  font-size: 12px; color: var(--text2); text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.exp-row .bar-track {
+  grid-column: 2 / 5;
+  height: 4px;
+  background: var(--bg3);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+/* v298: press feedback */
+button:active:not(:disabled) { transform: scale(.97); }
+button:disabled { opacity: .6; cursor: wait; }
+.exp-row .bar-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.exp-total {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 2px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.exp-total .lbl { font-weight: 600; font-size: 14px; }
+.exp-total .val { font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums; }
+
+/* ─── Provider table ─── */
+.tbl-wrap { overflow-x: auto; }
+table.providers {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+  min-width: 700px;
+}
+table.providers th, table.providers td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+}
+table.providers th {
+  color: var(--text2); font-weight: 600; font-size: 12px; white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+table.providers td.num, table.providers th.num {
+  font-variant-numeric: tabular-nums; text-align: left;   /* v513: رأسُ العمود الرقمي يُحاذي أرقامَه (لقطة المالك: الرؤوسُ كانت يميناً والأرقامُ يساراً) */
+}
+table.providers tr:hover td { background: var(--bg3); }
+@media (max-width:820px){
+  table.providers { display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; white-space:nowrap; }
+}
+/* DeepCode #9 (v562): على الهاتف كانت جداول المحاسبة الستّ (الأطباء · الاتجاه الشهري · أعمار الذمم…) بعرض 700px تُمرَّر
+   أفقياً داخل 320px — تصير بطاقات: الخليةُ الأولى عنوانُ البطاقة، وكلُّ خليةٍ بعدها سطرٌ «اسمُ العمود … القيمة»
+   (data-label من رأس الجدول — accLabelCells). كشفُ اليوم (عمودان) يبقى جدولاً. */
+@media (max-width:640px){
+  .tbl-wrap { overflow-x: visible; }
+  table.providers.acc-mcards { min-width:0; display:block; white-space:normal; overflow:visible; }
+  table.providers.acc-mcards thead { display:none; }
+  table.providers.acc-mcards tbody, table.providers.acc-mcards tfoot { display:block; }
+  table.providers.acc-mcards tr { display:block; background:var(--bg3); border:1px solid var(--border); border-radius:10px; margin:8px 0; padding:8px 12px; }
+  table.providers.acc-mcards tr:hover td { background:transparent; }
+  table.providers.acc-mcards td { display:flex; justify-content:space-between; align-items:baseline; gap:12px; border:none; padding:4px 0; text-align:left; min-width:0; }
+  table.providers.acc-mcards td::before { content:attr(data-label); color:var(--text2); font-size:12px; font-weight:600; text-align:right; }
+  table.providers.acc-mcards td:first-child { font-weight:800; font-size:14px; justify-content:flex-start; }
+  table.providers.acc-mcards td:first-child::before { display:none; }
+}
+
+/* ملاحظات طريقة الاحتساب — مطوية افتراضياً (قرار المالك: كانت تزحم الشاشة).
+   <details> أصلية: تعمل بلا JS وتفتح بالكيبورد وتطبع مفتوحة إن طلبها المتصفّح. */
+.calc-note { margin-top: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg3); }
+.calc-note > summary {
+  list-style: none; cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 12px; font-size: 11.5px; font-weight: 600; color: var(--text2);
+}
+.calc-note > summary::-webkit-details-marker { display: none; }
+.calc-note > summary::after { content: '▾'; margin-inline-start: auto; font-size: 13px; transition: transform .18s ease; }
+.calc-note[open] > summary::after { transform: rotate(180deg); }
+.calc-note > summary:hover { color: var(--text); }
+.calc-note > summary:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; border-radius: 10px; }
+.calc-note-body {
+  padding: 10px 12px 11px; border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text2); line-height: 1.7;
+}
+@media (prefers-reduced-motion: reduce) { .calc-note > summary::after { transition: none; } }
+.prov-name {
+  display: flex; align-items: center; gap: 8px;
+}
+.prov-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.prov-name .badge {
+  font-size: 10px; padding: 1px 5px;
+  background: var(--gray-bg); color: var(--gray-fg);
+  border: 1px solid var(--gray-bd);
+  border-radius: 6px;
+}
+.net-pos { color: var(--green); font-weight: 600; }
+.net-neg { color: var(--red); font-weight: 600; }
+
+/* ─── Empty state ─── */
+.empty {
+  text-align: center; padding: 40px 20px; color: var(--text2);
+}
+.empty .icon { font-size: 36px; margin-bottom: 10px; }
+.empty .ttl { font-size: 15px; margin-bottom: 6px; color: var(--text); }
+.empty .sub { font-size: 12px; }
+
+/* ─── Loading ─── */
+.loading {
+  display: flex; align-items: center; justify-content: center;
+  padding: 60px 20px;
+  color: var(--text2);
+  font-size: 13px;
+}
+.loading .spinner {
+  width: 18px; height: 18px; border: 2px solid var(--border);
+  border-top-color: var(--green); border-radius: 50%;
+  animation: spin 0.6s linear infinite; margin-left: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Debug panel (hidden by default) ─── */
+.debug-panel {
+  position: fixed; bottom: 12px; left: 12px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 14px;
+  font-size: 11px; color: var(--text2);
+  max-width: 380px; z-index: 999;
+  font-family: 'Courier New', monospace;
+  display: none;
+}
+.debug-panel.show { display: block; }
+.debug-panel h4 { margin: 0 0 6px 0; font-size: 12px; color: var(--text); font-family: 'Cairo', sans-serif; }
+.debug-panel .row { display: flex; justify-content: space-between; padding: 2px 0; gap: 10px; }
+.debug-panel .pass { color: var(--green); }
+.debug-panel .fail { color: var(--red); font-weight: 700; }
+.debug-panel .close {
+  position: absolute; top: 4px; right: 6px; cursor: pointer; color: var(--text3);
+  background: transparent; border: 0; font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .summary-grid { grid-template-columns: 1fr 1fr; }
+  .card .value { font-size: 18px; }
+  .filter-bar { flex-direction: column; align-items: stretch; }
+  .quick-btns { flex-wrap: wrap; }
+}
+/* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
+html[data-sub-level="read"] :is([onclick*="digestGenerate("],[onclick*="setAccUnifyCur("],[onclick*="saveAccUsdRate("]){display:none !important;}
+</style>
+<!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
+<link rel="stylesheet" href="theme.css?v=20261002d">
+<!-- CRITICAL: Supabase CDN MUST load BEFORE supabase-init.js. The init
+     script accesses window.supabase synchronously to expose sbGetUser and
+     window.sb on the global. If the CDN loads later (e.g. at end of body),
+     init() will throw "sbGetUser is not a function". This 3-line block
+     matches the exact pattern used in expenses.html, payouts.html, etc. -->
+<script src="/vendor/supabase-2.110.8.min.js"></script>
+<script src="supabase-init.js?v=20261002d"></script>
+<script src="sy-modal.js?v=20261002d"></script>
+<script src="sidebar.js?v=20261002d"></script>
+<script src="acc-aging.js?v=20261002d"></script>
+<script src="pay-methods.js?v=20261002d"></script>
+<script src="acc-daysheet.js?v=20261002d"></script>
+</head>
+<body>
+
+<div class="main" id="sbMainContent">
+
+  <div class="page-header">
+    <div>
+      <h1>المحاسبة</h1>
+    </div>
+    <!-- v512: مرساةُ زرّ الدور (المالك 👑) — supabase-init يبحث عن .topbar ثم .header-actions؛ بغيابهما كان يطفو
+         مثبَّتاً أعلى اليسار فوق العنوان بالهاتف (لقطة المالك). الصفحاتُ الأخرى تحمله بـ.topbar. -->
+    <div class="header-actions" id="pageHeaderActions"></div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="field">
+      <label for="fromDate">من تاريخ</label>
+      <input type="date" id="fromDate">
+    </div>
+    <div class="field">
+      <label for="toDate">إلى تاريخ</label>
+      <input type="date" id="toDate">
+    </div>
+    <div class="quick-btns">
+      <button class="qb" id="qbMonth" type="button">الشهر الحالي</button>
+      <button class="qb" id="qbLast" type="button">الشهر السابق</button>
+      <button class="qb" id="qbQuarter" type="button">آخر 3 شهور</button>
+      <button class="qb" id="qbYear" type="button">السنة الحالية</button>
+    </div>
+    <button class="btn-apply" id="btnApply" type="button">تطبيق</button>
+    <!-- v546: تصديرُ الفترة المطبَّقة — مصنّفٌ بأوراق (الملخّص · المصروفات · الأطباء · الاتجاه · التقادم) من الطبقات المحسوبة نفسها -->
+    <button class="qb" id="btnExportXlsx" type="button" title="تصدير الفترة المطبَّقة إلى ملف Excel بعدّة أوراق">⬇️ Excel</button>
+  </div>
+
+  <!-- v508: كشف اليوم — يومٌ واحد مستقلٌّ عن فترة التقرير (acc-daysheet.js) -->
+  <div id="daySheetHost"></div>
+
+  <!-- Body (loading / content) -->
+  <div id="body">
+    <div class="loading">
+      <div class="spinner"></div>
+      جاري تحميل البيانات...
+    </div>
+  </div>
+
+</div>
+
+<!-- Debug panel (toggled via Ctrl+Shift+D) -->
+<div class="debug-panel" id="debugPanel">
+  <button class="close" id="debugClose" type="button">✕</button>
+  <h4>🔬 Identity Tests</h4>
+  <div id="debugBody"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// SyDent — Phase 7.5 Accounting Dashboard (P&L)
+//
+// Architecture:
+//   - Read-only page. Zero mutations to DB.
+//   - Cash basis (revenue counted when received, not when earned).
+//   - Owner-only via 3-layer defense (sidebar BLOCKED + guardPage + role check).
+//   - Aggregates from 6 sources:
+//       1. ledger_sessions   → production (completed only, by date)
+//       2. payment_splits    → revenue allocated to production (preferred)
+//       3. ledger_payments   → revenue fallback for pre-Migration-3 legacy
+//       4. expenses          → operational expenses (Phase 7.1)
+//       5. provider_payouts  → doctor + employee compensation (Phase 7.2)
+//       6. lab_orders        → lab costs (by date_sent, status != rejected)
+//
+// Anti-double-counting:
+//   - payouts NEVER appear in expenses table by convention (default categories
+//     don't include salaries). Warning chip on any category containing
+//     راتب/موظف/طبيب/حصة triggers visual flag.
+//   - lab_orders.cost is separate from expenses.amount; no overlap possible.
+//   - payment_splits superset of ledger_payments — for any payment_id present
+//     in splits, we count splits; for the rest, fall back to raw payments.
+//
+// Identity tests (Ctrl+Shift+D to view):
+//   A. Revenue conservation:   Σ per-provider collection = total revenue
+//   B. Production conservation: Σ per-provider production = total production
+//   C. Expense sum:            expenses + payouts + labs   = total expenses
+//   D. Net profit:             revenue - expenses          = net (exact)
+//   E. Lab attribution:        Σ per-provider lab          = total labs (M73: provider_id صريح)
+// ═══════════════════════════════════════════════════════════════════════════
+
+var currentUser = null;
+var doctors = [];           // clinic_doctors rows
+var expenseCategories = []; // expense_categories rows
+var allEmployees = [];      // clinic_employees rows (for payout employee_id resolution)
+
+// In-period datasets (refreshed each filter apply)
+var sessions       = [];
+var payments       = [];
+var paymentSplits  = [];
+var expenses       = [];
+var payouts        = [];
+var labOrders      = [];
+var adjustments    = [];   // account_adjustments (Migration 45): discount / write_off / refund
+var materialCost   = 0;    // P3-C1: تكلفة المواد المستهلكة (تقديري، عرض فقط — لا يدخل معادلة الربح)
+// Migration 118: ذمم المخابر المتبقية (رقم ميزانية all-time، عرض فقط — لا يدخل معادلة الربح).
+// = Σ lab_orders.cost (!rejected، كل التاريخ) − Σ lab_payments.amount (كل التاريخ).
+// المصروف المحاسبي يبقى labsTotal (cost بنافذة date_sent) — الدفعات تسوية ذمة لا مصروف.
+// null = الجدول غائب/فشل الجلب → البطاقة تُخفى كلياً بلا كسر.
+var labPayable     = null;
+
+// بند #8 — الملخّص الذكي: إحصاء مواعيد الفترة (عدّ فقط، صفر بيانات مريض)
+// وبوابة الـAI (opt-in العيادة + بوابة الخطة). كلاهما خارج المعادلات المالية.
+var apptStats   = { total: 0, noShow: 0 };
+var _renderCur      = null;               // M125: عملة الطبقة قيد الرسم — null = عملة العيادة
+var materialCostBag = { SYP: 0, USD: 0 }; // M125: تكلفة المواد المستهلكة بعملة كل صنف
+var labPayableBag   = null;               // M125: ذمم المخابر بالعملتين (null = الجدول غائب/فشل)
+// 🔴 الإجمالي (gross) لا الصافي: { cur: { due, credit } } — الصافي وحده كان
+// يُقاصّ ذمّةَ مخبرٍ برصيدِ مخبرٍ آخر فتختفي إحداهما. null = نفس حالة الكيس.
+var labPayableGrossBag = null;
+var labPayableGross    = null;            // طبقةُ العملة قيد الرسم (نظير labPayable)
+var agingResult        = null;            // v507: تقادمُ ذمم المرضى (acc-aging.js) — all-time، قراءة فقط؛ null = فشل/غير محمَّل
+var ACC_AI_ON   = false;   // opt-in العيادة + بوابة الخطة — يُظهر زر الملخّص
+var ACC_USD_RATE = null;   // M126: سعر صرف التقارير (دولار→ليرة) للعيادة — عرض/جرد فقط، لا يمسّ أي مبلغ مخزَّن
+var _accRateSaveInFlight = false; // M126: حارس نداء حفظ متزامن لسعر الصرف
+var ACC_UNIFY_CUR = null;  // M129: عملة الإجمالي الموحّد المختارة صراحةً (null = اتبع عملة العيادة)
+var _accUnifySaveInFlight = false; // M129: حارس نداء حفظ متزامن لعملة التوحيد
+var digestBusy  = false;   // حارس نداء متزامن
+var lastDigest  = '';      // آخر نصّ مولَّد (عرض فقط — لا يُحفَظ بالقاعدة)
+var lastDigestWarn = '';   // تحذير حارس الأرقام المرافق (عرض فقط)
+
+// Status of EVERY ledger_session referenced by an in-range split (id → status),
+// fetched regardless of date/status. Needed to apply the canonical planned-session
+// rule directly in this read path: a non-unearned split is only EARNED revenue if it
+// sits on a COMPLETED session. This makes the clinic summary correct by construction,
+// independent of whether each writer produced clean splits or whether patient-profile
+// self-heal has run. Legacy sessions (status '' / null) fold to 'completed'.
+var splitSessionStatus = {};
+// F1 (فحص v255): فشلُ تحميل التوزيعات بخطأٍ غير «الجدول مفقود» (شبكة · طولُ العنوان ·
+// RLS) كان يُبتلع بصمت فترتدّ الصفحةُ كاملةً لمجموع الدفعات الخام — المقدّماتُ تُعدّ
+// إيراداً وتوزيعُ الأطباء يصير تقريبياً. صار العلمُ يُرفع ويُعلَن بشريطٍ داخل التقرير.
+var splitsLoadFailed = false;
+
+// Computed identities (for debug panel)
+var lastIdentities = null;
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+function $(id) { return document.getElementById(id); }
+// F2 (صنف v246): بوابةٌ (خطة · إيقاف · دور) قد تستبدل document.body أثناء طيران
+// init/applyFilter — فالكتابةُ للـDOM بعد أي await تمرّ من هنا ولا ترمي على null.
+function _blocked() { return !!window.__sydentBlocked; }
+function _setBody(html) { var b = $('body'); if (b) b.innerHTML = html; }
+// F6 (قاعدة #195): لونٌ يُحقن بسمة style — hex أو var(--*) حصراً وإلا الافتراضي.
+// حيّاً: 5 أطباء لونهم var(--green) فالقائمةُ البيضاء تقبله (مرآة v250 F5).
+function _sanColor(c, def) {
+  var v = String(c || '');
+  return (/^#[0-9a-fA-F]{3,8}$/.test(v) || /^var\(--[a-zA-Z0-9-]+\)$/.test(v)) ? v : (def || '#5d748f');
+}
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// M125: تسمية عملة الرسم — طبقة العملة النشطة إن وُجدت، وإلا عملة العيادة (M107).
+function fmtCurLabel() {
+  if (_renderCur === 'USD') return '$';
+  if (_renderCur === 'SYP') return 'ل.س';
+  return curLbl();
+}
+function fmtSY(n) {
+  if (n === null || n === undefined || isNaN(n)) return '0 ' + fmtCurLabel();
+  var v = Math.round(Number(n) * 100) / 100;
+  var st = (v % 1 === 0)
+    ? Math.round(v).toLocaleString('en-US')
+    : v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return st + ' ' + fmtCurLabel();
+}
+
+/* DeepCode #9 (v562): كلُّ خليةٍ تحمل اسمَ عمودها (data-label من thead) فتصير الجداولُ بطاقاتٍ على الهاتف بـCSS وحده.
+   مراقبٌ واحد يلتقط كلَّ جدولٍ يُرسم أو يُعاد رسمُه (لا لمسَ لبُناة الجداول). */
+function accLabelCells(root) {
+  var ts = (root || document).querySelectorAll('table.providers:not(.ds-table)');
+  for (var k = 0; k < ts.length; k++) {
+    var t = ts[k], hs = [];
+    var th = t.querySelectorAll('thead th');
+    for (var i = 0; i < th.length; i++) hs.push(th[i].textContent.trim());
+    var trs = t.querySelectorAll('tbody tr, tfoot tr');
+    for (var r = 0; r < trs.length; r++) {
+      var cells = trs[r].children;
+      for (var c = 0; c < cells.length; c++) if (hs[c] && !cells[c].hasAttribute('data-label')) cells[c].setAttribute('data-label', hs[c]);
+    }
+    if (!t.classList.contains('acc-mcards')) t.classList.add('acc-mcards');
+  }
+}
+(function () {
+  var pending = false;
+  function run() { pending = false; try { accLabelCells(document); } catch (e) {} }
+  if (typeof MutationObserver === 'function') {
+    new MutationObserver(function () { if (!pending) { pending = true; (window.requestAnimationFrame || setTimeout)(run); } })
+      .observe(document.documentElement, { childList: true, subtree: true });
+  }
+})();
+
+function fmtPct(n, decimals) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  var d = (decimals === undefined) ? 1 : decimals;
+  return Number(n).toFixed(d) + '%';
+}
+/* DeepCode #3 (v558): نسبةٌ بطاقية بحدٍّ منطقي. المعادلةُ صحيحة لكن مقامها قد يكون ضئيلاً (إنتاجُ فترةٍ صغير مقابل تحصيلِ ذممٍ
+   قديمة ⇒ 187187%، أو إيرادٌ دولاريٌّ ضئيل مقابل مصروفاته ⇒ −220%) فيقرأ الطبيبُ رقماً عبثياً. ما يتجاوز ±999% يُعرض
+   «>999%» مع تفسيرٍ بالسطر الفرعي؛ التصديرُ وملخّصُ الذكاء يبقيان على الرقم الخام. */
+var ACC_PCT_CAP = 999;
+function fmtPctCard(n) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  if (n > ACC_PCT_CAP) return '>' + ACC_PCT_CAP + '%';
+  if (n < -ACC_PCT_CAP) return '<−' + ACC_PCT_CAP + '%';
+  return fmtPct(n);
+}
+function pctOutOfRange(n) { return n !== null && n !== undefined && !isNaN(n) && Math.abs(n) > ACC_PCT_CAP; }
+
+function todayISO() {
+  var d = new Date();
+  return d.getFullYear() + '-' +
+         String(d.getMonth()+1).padStart(2,'0') + '-' +
+         String(d.getDate()).padStart(2,'0');
+}
+
+function isoDate(year, monthZeroBased, day) {
+  // Build an ISO YYYY-MM-DD string without timezone surprises.
+  // Use this instead of new Date(...).toISOString() which can shift dates
+  // across UTC boundaries depending on local timezone.
+  var m = String(monthZeroBased + 1).padStart(2, '0');
+  var d = String(day).padStart(2, '0');
+  return year + '-' + m + '-' + d;
+}
+
+
+// Graceful "migration missing" detector — same pattern used in expenses.html,
+// payouts.html, etc. Lets the page degrade rather than crash on a fresh DB.
+function isMigrationMissing(err) {
+  if (!err) return false;
+  var msg = (err.message || '') + ' ' + (err.code || '');
+  return /relation .* does not exist|42P01|PGRST205|42703|23514/i.test(msg);
+}
+
+// Build an "inclusive end-of-day" filter value for TIMESTAMPTZ columns.
+// `paid_at` (provider_payouts) and `date_sent` (lab_orders) are TIMESTAMPTZ,
+// so a naive `.lte('paid_at', '2026-05-21')` matches only the instant
+// '2026-05-21 00:00:00 UTC' — any payout entered later in the day (e.g.
+// 14:30) is silently EXCLUDED. We append T23:59:59.999Z to make the filter
+// cover the full calendar day in UTC.
+//
+// IMPORTANT — timezone caveat: the Owner picks dates in *local* time, but
+// the column stores UTC. For Syria (UTC+3), early-morning entries on day
+// D (e.g. 02:00 local) translate to D-1 in UTC. To avoid losing such
+// rows, we widen the filter window by ±1 day in UTC and then apply a
+// strict local-date filter client-side via inLocalRange().
+//
+// For DATE columns (ledger_sessions.date, ledger_payments.date,
+// expenses.date) none of this is needed — they're date-only.
+function widenStartUtc(isoDay) {
+  if (!isoDay || !/^\d{4}-\d{2}-\d{2}$/.test(isoDay)) return isoDay;
+  // Take from-day minus 1 day in UTC as the lower bound — covers any
+  // local-timezone offset up to ±24h.
+  var d = new Date(isoDay + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString();
+}
+function widenEndUtc(isoDay) {
+  if (!isoDay || !/^\d{4}-\d{2}-\d{2}$/.test(isoDay)) return isoDay;
+  var d = new Date(isoDay + 'T23:59:59.999Z');
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString();
+}
+
+// Client-side filter: keep rows whose timestamp, when displayed in LOCAL
+// time, falls on a calendar day between `from` and `to` (inclusive). The
+// DB query overshoots by ±1 day to be timezone-safe; this trims back to
+// exactly the dates the Owner asked for. Returns true if the row should
+// be kept.
+function inLocalRange(timestamptz, from, to) {
+  if (!timestamptz) return false;
+  var d = new Date(timestamptz);
+  if (isNaN(d.getTime())) return false;
+  // Compose the local-date string YYYY-MM-DD for comparison.
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var day = String(d.getDate()).padStart(2, '0');
+  var localDay = y + '-' + m + '-' + day;
+  return localDay >= from && localDay <= to;
+}
+
+// ─── Auth bootstrap ────────────────────────────────────────────────────────
+async function init() {
+  // Rule #24: initSidebar BEFORE auth check so sidebar shell appears even
+  // during a transient auth delay.
+  if (typeof initSidebar === 'function') {
+    initSidebar('accounting');
+  }
+
+  try {
+    var u = await window.sbGetUser();
+    if (!u) { window.location.href = 'auth.html'; return; }
+    if (_blocked()) return;
+    currentUser = u;
+
+    // Page guard: Owner-only. Defense in depth (rule #16):
+    //   1. Sidebar BLOCKED hides the link for non-owners.
+    //   2. SyDentLock.guardPage replaces body with blocked screen.
+    //   3. Manual role check as final safety net if SyDentLock fails to load.
+    if (window.SyDentLock && window.SyDentLock.guardPage) {
+      if (!window.SyDentLock.guardPage(['owner'])) return;
+    }
+    var role = (window.SyDentLock && window.SyDentLock.getRole)
+             ? window.SyDentLock.getRole()
+             : 'owner';
+    if (role !== 'owner') {
+      console.warn('[accounting] non-owner role:', role, '— redirecting');
+      window.location.href = 'index.html';
+      return;
+    }
+
+    /* DeepCode #1 (v557): قراءاتُ الإعدادات الثلاث (بوابةُ الـAI · هدفُ الإنتاج · سعرُ الصرف) كانت تُنتظر واحدةً واحدة
+       **بعد** البيانات المرجعية (4 جولات قبل أي رقم). تبقى نداءاتٍ منفصلة عمداً (عمودٌ غائب يُفشل نداءه وحده) — لكنها
+       تُطلَق الآن مع البيانات المرجعية وتُستهلك بكتلها الأصلية وبالترتيب نفسه. */
+    var _accS = function (p) { return Promise.resolve(p).then(function (r) { return { r: r }; }, function (e) { return { e: e }; }); };
+    var _accT = function (x) { if (x.e) throw x.e; return x.r; };
+    var _csAP = _accS(window.sb.from('clinic_settings')
+        .select('ai_features_enabled').eq('owner_id', currentUser.id).maybeSingle());
+    var _csGP = _accS(window.sb.from('clinic_settings')
+        .select('production_goal_syp, production_goal_usd').eq('owner_id', currentUser.id).maybeSingle());
+    var _csRP = _accS(window.sb.from('clinic_settings')
+        .select('usd_report_rate, report_unify_currency').eq('owner_id', currentUser.id).maybeSingle());
+    var _planP = _accS(window.SyDentPlan ? window.SyDentPlan.load() : null);   /* محفوظٌ مشترك — تحمّله القائمةُ أصلاً */
+
+    // Load reference data (doctors + categories + employees) once.
+    await Promise.all([
+      loadDoctors(),
+      loadExpenseCategories(),
+      loadEmployees()
+    ]);
+    if (_blocked()) return;
+
+    // بند #8 — بوابة الملخّص الذكي (طبقتان، نفس نمط patients.html حرفياً):
+    //   (1) opt-in العيادة  clinic_settings.ai_features_enabled — غير قابلة للتجاوز
+    //   (2) بوابة الخطة     SyDentPlan.can('ai_features') — تحترم تجاوز الأدمن (M110)
+    // fail-open عميلاً؛ الفرض الحقيقي سيرفر-سايد داخل ai-assist.
+    try {
+      var csA = _accT(await _csAP);   /* v557: أُطلق مع البيانات المرجعية */
+      ACC_AI_ON = !!(csA && csA.data && csA.data.ai_features_enabled);
+    } catch (e) { /* graceful */ }
+
+    // M159 (v521): هدفُ الإنتاج الشهري لكل عملة — خطٌّ على الاتجاه الشهري. نداءٌ منفصل (عمودٌ غائب يُفشله وحده).
+    try {
+      var csG = _accT(await _csGP);   /* v557 */
+      if (csG && !csG.error && csG.data) {
+        var _gS = Number(csG.data.production_goal_syp), _gU = Number(csG.data.production_goal_usd);
+        TREND_GOALS = { SYP: (_gS > 0) ? _gS : null, USD: (_gU > 0) ? _gU : null };
+      }
+    } catch (e) { /* graceful — بلا خط هدف */ }
+
+    // M126: سعر صرف التقارير للعيادة — نداءٌ منفصل عمداً (فكُّ ارتباطٍ عن بوابة
+    // الـAI أعلاه: لو غاب العمود لأي سبب يفشل هذا وحده والبوابة سليمة). عرض فقط.
+    try {
+      var csR = _accT(await _csRP);   /* v557 */
+      // M129: عمودٌ غائب يُفشل الـselect كاملاً بـPostgREST ⇒ إعادةُ محاولةٍ بالعمود
+      // القديم وحده، فيصل السعرُ وتبقى العملةُ على الافتراضي (سابقة SyDentCurrency.load).
+      if (csR && csR.error) {
+        csR = await window.sb.from('clinic_settings')
+          .select('usd_report_rate').eq('owner_id', currentUser.id).maybeSingle();
+      }
+      var _rr0 = (csR && csR.data) ? parseFloat(csR.data.usd_report_rate) : NaN;
+      ACC_USD_RATE = (isFinite(_rr0) && _rr0 > 0) ? _rr0 : null;
+      var _uc0 = (csR && csR.data) ? csR.data.report_unify_currency : null;
+      ACC_UNIFY_CUR = (_uc0 === 'USD' || _uc0 === 'SYP') ? _uc0 : null;
+    } catch (e) { /* graceful — البطاقة تعمل بلا سعر */ }
+    try {
+      if (ACC_AI_ON && window.SyDentPlan) {
+        _accT(await _planP);   /* v557 */
+        if (window.SyDentPlan.can('ai_features') === false) ACC_AI_ON = false;
+      }
+    } catch (e) { /* fail-open */ }
+    if (_blocked()) return;   // F2: body قد استُبدل أثناء الجلب — لا كتابة على عناصرٍ زالت
+
+    // Default range: current month (first of month → today).
+    var now = new Date();
+    var firstOfMonth = isoDate(now.getFullYear(), now.getMonth(), 1);
+    $('fromDate').value = firstOfMonth;
+    $('toDate').value = todayISO();
+    setActiveQuickButton('qbMonth');
+
+    // بند #10 (تسليم محروس): ?from=&to= من شريط السؤال بالداشبورد —
+    // تُطبَّق الفترة المطلوبة قبل التحميل الأولي فيصل الطبيب للرقم
+    // القانوني مباشرة. طبقة عرض بحتة: تعبئة الحقلين القائمين لا غير.
+    try {
+      var qpNl = new URLSearchParams(window.location.search || '');
+      var qFromNl = qpNl.get('from') || '', qToNl = qpNl.get('to') || '';
+      var reYmdNl = /^\d{4}-\d{2}-\d{2}$/;
+      if (reYmdNl.test(qFromNl) && reYmdNl.test(qToNl) && qFromNl <= qToNl) {
+        $('fromDate').value = qFromNl;
+        $('toDate').value = qToNl;
+        clearActiveQuickButton();
+      }
+    } catch (e) { /* malformed URL: ignore */ }
+
+    // Wire up filter controls
+    $('btnApply').addEventListener('click', applyFilter);
+    $('btnExportXlsx').addEventListener('click', exportAccExcel);   // v546 — قراءةٌ بحتة
+    $('qbMonth').addEventListener('click',   function(){ setMonthRange();   applyFilter(); });
+    $('qbLast').addEventListener('click',    function(){ setLastMonthRange(); applyFilter(); });
+    $('qbQuarter').addEventListener('click', function(){ setQuarterRange(); applyFilter(); });
+    $('qbYear').addEventListener('click',    function(){ setYearRange();    applyFilter(); });
+    $('fromDate').addEventListener('change', clearActiveQuickButton);
+    $('toDate').addEventListener('change',   clearActiveQuickButton);
+
+    // v508: كشف اليوم — مستقلٌّ عن فترة التقرير؛ يُركَّب مرةً ويعيد تحميلَ يومه وحده عند
+    // تغيير التاريخ. قراءةٌ محضة خارج كل المعادلات؛ فشلُه لا يمسّ التقرير.
+    loadDaySheet();
+
+    // Debug panel toggle
+    document.addEventListener('keydown', function(e){
+      if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+        e.preventDefault();
+        toggleDebugPanel();
+      }
+    });
+    $('debugClose').addEventListener('click', function(){
+      $('debugPanel').classList.remove('show');
+    });
+
+    // Audit log: fire-and-forget. report.view_accounting is a new action_type
+    // registered in supabase-init.js VALID_ACTION_PREFIXES.
+    if (window.logAudit) {
+      window.logAudit('report.view_accounting', {
+        description: 'فتح صفحة المحاسبة'
+      }).catch(function(){});
+    }
+
+    // Initial load
+    await applyFilter();
+
+  } catch (e) {
+    console.error('[accounting] init error:', e);
+    _setBody('<div class="empty"><div class="icon">⚠️</div><div class="ttl">حدث خطأ</div><div class="sub">' + escapeHtml(e.message || 'غير معروف') + '</div></div>');
+  }
+}
+
+// ─── Reference data loaders ────────────────────────────────────────────────
+async function loadDoctors() {
+  var res = await window.sb.from('clinic_doctors')
+    .select('*')
+    .eq('owner_id', currentUser.id)
+    .order('is_owner', { ascending: false })
+    .order('created_at', { ascending: true });
+  if (res.error) {
+    if (isMigrationMissing(res.error)) { doctors = []; return; }
+    console.warn('loadDoctors:', res.error);
+    doctors = [];
+    return;
+  }
+  doctors = res.data || [];
+}
+
+async function loadExpenseCategories() {
+  var res = await window.sb.from('expense_categories')
+    .select('*')
+    .eq('owner_id', currentUser.id);
+  if (res.error) {
+    if (isMigrationMissing(res.error)) { expenseCategories = []; return; }
+    console.warn('loadExpenseCategories:', res.error);
+    expenseCategories = [];
+    return;
+  }
+  expenseCategories = res.data || [];
+}
+
+async function loadEmployees() {
+  var res = await window.sb.from('clinic_employees')
+    .select('id, name, role')
+    .eq('owner_id', currentUser.id);
+  if (res.error) {
+    if (isMigrationMissing(res.error)) { allEmployees = []; return; }
+    console.warn('loadEmployees:', res.error);
+    allEmployees = [];
+    return;
+  }
+  allEmployees = res.data || [];
+}
+
+// ─── Quick range buttons ───────────────────────────────────────────────────
+function setMonthRange() {
+  var now = new Date();
+  $('fromDate').value = isoDate(now.getFullYear(), now.getMonth(), 1);
+  $('toDate').value = todayISO();
+  setActiveQuickButton('qbMonth');
+}
+
+function setLastMonthRange() {
+  var now = new Date();
+  var firstThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  var lastMonthEnd = new Date(firstThisMonth.getTime() - 86400000);
+  var lastMonthStart = new Date(lastMonthEnd.getFullYear(), lastMonthEnd.getMonth(), 1);
+  $('fromDate').value = isoDate(lastMonthStart.getFullYear(), lastMonthStart.getMonth(), 1);
+  $('toDate').value = isoDate(lastMonthEnd.getFullYear(), lastMonthEnd.getMonth(), lastMonthEnd.getDate());
+  setActiveQuickButton('qbLast');
+}
+
+function setQuarterRange() {
+  // Last 3 months: today - 90 days → today
+  var now = new Date();
+  var start = new Date(now.getTime() - 90 * 86400000);
+  $('fromDate').value = isoDate(start.getFullYear(), start.getMonth(), start.getDate());
+  $('toDate').value = todayISO();
+  setActiveQuickButton('qbQuarter');
+}
+
+function setYearRange() {
+  var now = new Date();
+  $('fromDate').value = isoDate(now.getFullYear(), 0, 1);
+  $('toDate').value = todayISO();
+  setActiveQuickButton('qbYear');
+}
+
+function setActiveQuickButton(id) {
+  ['qbMonth','qbLast','qbQuarter','qbYear'].forEach(function(b){
+    $(b).classList.toggle('active', b === id);
+  });
+}
+function clearActiveQuickButton() {
+  ['qbMonth','qbLast','qbQuarter','qbYear'].forEach(function(b){
+    $(b).classList.remove('active');
+  });
+}
+
+// ─── Main filter apply ─────────────────────────────────────────────────────
+// Concurrency guard: when the Owner clicks Apply (or a quick-range button)
+// repeatedly while a load is in flight, ignore subsequent calls. This avoids
+// a race where the older async call's render() overwrites the newer one's
+// loading state with stale data.
+var _applyInFlight = false;
+async function applyFilter() {
+  if (_applyInFlight) return;
+  var from = $('fromDate').value;
+  var to   = $('toDate').value;
+  if (!from || !to) {
+    showToast('الرجاء تحديد الفترة', true);
+    return;
+  }
+  if (from > to) {
+    showToast('"من تاريخ" يجب أن يكون قبل "إلى تاريخ"', true);
+    return;
+  }
+
+  _applyInFlight = true;
+  var _ba = $('btnApply'); if (_ba) _ba.disabled = true;
+  _setBody('<div class="loading"><div class="spinner"></div>جاري تحميل البيانات...</div>');
+
+  try {
+    await loadAllInRange(from, to);
+    if (_blocked()) return;   // F2: الحجب وقع أثناء الطيران — الشاشةُ للبوابة لا للتقرير
+    render(from, to);
+  } catch (e) {
+    console.error('[accounting] applyFilter error:', e);
+    _setBody('<div class="empty"><div class="icon">⚠️</div><div class="ttl">فشل تحميل البيانات</div><div class="sub">' + escapeHtml(e.message || 'غير معروف') + '</div></div>');
+  } finally {
+    _applyInFlight = false;
+    var _bb = $('btnApply'); if (_bb) _bb.disabled = false;
+  }
+}
+
+// ─── Data layer ────────────────────────────────────────────────────────────
+async function loadAllInRange(from, to) {
+  // 5 parallel queries, then payment_splits sequentially (it depends on
+  // the payments array). Each tolerates migration-missing gracefully so
+  // a freshly-installed clinic still gets a usable (mostly-empty) report.
+  await Promise.all([
+    loadSessions(from, to),
+    loadPayments(from, to),
+    loadExpenses(from, to),
+    loadPayouts(from, to),
+    loadLabOrders(from, to),
+    loadAdjustments(from, to),
+    loadMaterialCost(from, to),
+    loadLabPayable(),          // Migration 118: all-time عمداً — الذمة لا تتبع النافذة
+    loadAging(),               // v507: تقادمُ ذمم المرضى — all-time كذلك، قراءةٌ محضة خارج كل المعادلات
+    loadTrend(),               // v509: الاتجاهُ الشهري — آخرُ 12 شهراً، يُحمَّل مرةً ويُحسب بمعادلات الصفحة نفسها
+    loadAppointmentStats(from, to)
+  ]);
+
+  // After payments load, fetch their splits (filtered by payment_id).
+  await loadPaymentSplits(from, to);
+}
+
+// v547 (الفحص الشامل لجولة التقارير): حدُّ PostgREST 1000 صفّ للطلب — قراءاتُ الفترة كانت بطلبٍ واحد فتُقصّ بصمت
+// فوق 1000 (سنةُ عيادةٍ مشغولة · الاتجاهُ 12 شهراً). هذا الجالب يصفّح بـorder('id').range ويرجع الشكلَ نفسَه
+// { data, error } فيبقى كلُّ فرعِ خطأٍ/هجرةٍ مفقودة كما هو حرفياً (قاعدة #630 مُعمَّمةً على النوافذ).
+async function _pagedAcc(build) {
+  var PAGE = 1000, out = [], off = 0;
+  for (;;) {
+    var res = await build().order('id').range(off, off + PAGE - 1);
+    if (res.error) return { data: null, error: res.error };
+    var rows = res.data || [];
+    out = out.concat(rows);
+    if (rows.length < PAGE) break;
+    off += PAGE;
+  }
+  return { data: out, error: null };
+}
+
+async function loadSessions(from, to) {
+  // ledger_sessions: production. Filter by date (the procedure date) and
+  // status='completed'. Planned sessions are excluded — they're not real
+  // production yet (parity with OpenDental Total Prod definition).
+  var res = await _pagedAcc(function(){ return window.sb.from('ledger_sessions')
+    .select('id, patient_id, provider_id, tooth_num, cost, date, status, type, currency')
+    .eq('doctor_id', currentUser.id)
+    .eq('status', 'completed')
+    .gte('date', from)
+    .lte('date', to); });
+  if (res.error) {
+    if (isMigrationMissing(res.error)) { sessions = []; return; }
+    console.warn('loadSessions:', res.error);
+    sessions = [];
+    return;
+  }
+  sessions = res.data || [];
+}
+
+async function loadPayments(from, to) {
+  // ledger_payments: collected cash by patient. The amount is the gross
+  // payment; splits attribute it to specific sessions/providers.
+  var res = await _pagedAcc(function(){ return window.sb.from('ledger_payments')
+    .select('id, patient_id, amount, date, currency')
+    .eq('doctor_id', currentUser.id)
+    .gte('date', from)
+    .lte('date', to); });
+  if (res.error) {
+    if (isMigrationMissing(res.error)) { payments = []; return; }
+    console.warn('loadPayments:', res.error);
+    payments = [];
+    return;
+  }
+  payments = res.data || [];
+}
+
+async function loadPaymentSplits(from, to) {
+  // payment_splits: per-session/per-provider allocation of each payment.
+  //
+  // We filter by payment_id (the in-range payments we just loaded) rather
+  // than by payment_date. Two reasons:
+  //   1. payment_date can be NULL on legacy splits (when payment.date was
+  //      empty at split-creation time) — PostgREST .gte/.lte exclude NULLs,
+  //      so a payment-date filter would silently drop those rows.
+  //   2. Filtering by payment_id is exact: every split's parent payment is
+  //      already in our `payments` array (loaded by date), so this covers
+  //      every split we care about for the period.
+  //
+  // Pre-Migration-3 fallback: empty array (raw payments serve as the source).
+  paymentSplits = [];
+  splitSessionStatus = {};
+  splitsLoadFailed = false;
+  if (!payments.length) return;
+  try {
+    var paymentIds = payments.map(function(p){ return p.id; });
+    // F1: مقطَّعٌ بـ150 معرّفاً كما loadSplitSessionStatuses — نداءٌ واحد بكل معرّفات
+    // فترةٍ طويلة كان يتجاوز حدَّ طول عنوان GET فيرجع خطأٌ لا يحمل اسم الجدول ⇒ كان
+    // يُصنَّف «غير مفقود» ويُبتلع ⇒ ارتدادٌ صامت لمجموع الدفعات الخام (تضخيم إيراد).
+    var CHUNK = 150, acc = [];
+    for (var c = 0; c < paymentIds.length; c += CHUNK) {
+      var res = await _pagedAcc(function(){ return window.sb.from('payment_splits')
+        .select('payment_id, session_id, provider_id, amount, is_unearned, payment_date, currency')
+        .eq('doctor_id', currentUser.id)
+        .in('payment_id', paymentIds.slice(c, c + CHUNK)); });
+      if (res.error) {
+        var msg = (res.error.message || '').toLowerCase();
+        var missing = res.error.code === '42P01' || res.error.code === 'PGRST205' ||
+                      msg.indexOf('payment_splits') !== -1;
+        if (missing) return;   // ما قبل Migration 3: الدفعاتُ الخام هي المصدر بالتصميم
+        console.error('loadPaymentSplits:', res.error);
+        splitsLoadFailed = true;   // يُعلَن بشريطٍ داخل التقرير (render) — لا صمت
+        return;                    // مجموعةٌ ناقصة أسوأ من فارغة: الارتدادُ كاملٌ ومُعلَن
+      }
+      acc = acc.concat(res.data || []);
+    }
+    paymentSplits = acc;
+    // Fetch the status of every session referenced by these splits so revenue can
+    // exclude allocations sitting on planned (not-yet-done) sessions.
+    await loadSplitSessionStatuses();
+  } catch(e) {
+    console.error('loadPaymentSplits threw:', e);
+    paymentSplits = [];
+    splitsLoadFailed = true;
+  }
+}
+
+// Populate splitSessionStatus for every distinct session_id referenced by the
+// loaded splits. Fetched independently of the in-range `sessions` array because a
+// split's session may be completed-but-out-of-range (must still count as earned) or
+// planned (must count as unearned) — neither is reliably present in `sessions`.
+// Chunked to keep the PostgREST .in() URL within length limits.
+async function loadSplitSessionStatuses() {
+  var idSet = {};
+  for (var i = 0; i < paymentSplits.length; i++) {
+    var sid = paymentSplits[i].session_id;
+    if (sid) idSet[sid] = true;
+  }
+  var ids = Object.keys(idSet);
+  if (!ids.length) return;
+  var CHUNK = 150;
+  for (var c = 0; c < ids.length; c += CHUNK) {
+    var slice = ids.slice(c, c + CHUNK);
+    try {
+      var res = await window.sb.from('ledger_sessions')
+        .select('id, status')
+        .eq('doctor_id', currentUser.id)
+        .in('id', slice);
+      if (res.error) {
+        // On error, leave these ids unmapped. splitIsEarned() then treats them as
+        // NOT-completed (conservative: avoids inflating revenue). A migration-missing
+        // DB has no splits anyway, so this path is benign.
+        if (!isMigrationMissing(res.error)) console.warn('loadSplitSessionStatuses:', res.error);
+        continue;
+      }
+      (res.data || []).forEach(function(row){
+        // Legacy sessions with empty/null status fold to 'completed' (system-wide convention).
+        splitSessionStatus[row.id] = row.status || 'completed';
+      });
+    } catch(e) {
+      console.warn('loadSplitSessionStatuses threw:', e);
+    }
+  }
+}
+
+// Canonical earned-split test (parity with patient-profile.html computeFinancials):
+// a split is EARNED revenue only when it is not unearned AND it is allocated to a
+// COMPLETED session. Non-unearned splits on planned sessions (or with no session_id)
+// are treated as unearned credit — money received for work not yet done.
+function splitIsEarned(sp) {
+  if (!sp || sp.is_unearned) return false;
+  return !!sp.session_id && splitSessionStatus[sp.session_id] === 'completed';
+}
+
+async function loadExpenses(from, to) {
+  var res = await _pagedAcc(function(){ return window.sb.from('expenses')
+    .select('id, date, category_id, amount, description, vendor, currency')
+    .eq('owner_id', currentUser.id)
+    .gte('date', from)
+    .lte('date', to); });
+  if (res.error) {
+    if (isMigrationMissing(res.error)) { expenses = []; return; }
+    console.warn('loadExpenses:', res.error);
+    expenses = [];
+    return;
+  }
+  expenses = res.data || [];
+}
+
+// P3-C1: تكلفة المواد المستهلكة في الفترة (تقديري — عرض فقط).
+// = Σ (كمية الاستهلاك × سعر شراء الصنف) لحركات reason='consume'.
+// معزولة تماماً: لا تدخل computeExpenseTotals ولا netProfit ولا اختبارات الهوية.
+// graceful: لو جداول المخزون مفقودة (Migration 52/53 غير مشغّل) → 0 بلا كسر.
+// ملاحظة: inventory_movements يستخدم created_at (timestamptz)، نفلتر بالنطاق
+// عبر inLocalRange مثل بقية المصادر الزمنية.
+async function loadMaterialCost(from, to) {
+  materialCost = 0;
+  materialCostBag = { SYP: 0, USD: 0 };
+  try {
+    // 1) أسعار الأصناف (id → purchase_price)
+    var itemsRes = await _pagedAcc(function(){ return window.sb.from('inventory_items')
+      .select('id, purchase_price, currency')
+      .eq('owner_id', currentUser.id); });
+    if (itemsRes.error || !itemsRes.data) return;  // graceful
+    var priceById = {};
+    itemsRes.data.forEach(function(it){ priceById[it.id] = { p: Number(it.purchase_price) || 0, cur: _rowCur(it) }; });
+
+    // 2) حركات الاستهلاك: created_at من نوع TIMESTAMPTZ — نجلب نافذة UTC موسّعة (±يوم)
+    //    ثم نقصّ محلياً بـ inLocalRange (نفس نمط loadPayouts/loadLabOrders). التقييد يمنع
+    //    مسح كل حركات الاستهلاك مدى عمر العيادة؛ النتيجة الرقمية لا تتغيّر (الفلتر المحلي ذاته).
+    var loUtc = widenStartUtc(from), hiUtc = widenEndUtc(to);
+    var movRes = await _pagedAcc(function(){ return window.sb.from('inventory_movements')
+      .select('item_id, change, reason, created_at')
+      .eq('owner_id', currentUser.id)
+      .eq('reason', 'consume')
+      .gte('created_at', loUtc)
+      .lte('created_at', hiUtc); });
+    if (movRes.error || !movRes.data) return;  // graceful
+
+    movRes.data.forEach(function(m){
+      if (!inLocalRange(m.created_at, from, to)) return;
+      var qty = Math.abs(Number(m.change) || 0);
+      var it = priceById[m.item_id];
+      if (!it) return;
+      materialCostBag[it.cur] += qty * it.p;   // M125: التكلفة بعملة الصنف — صفر جمع عابر
+    });
+  } catch (e) {
+    console.warn('loadMaterialCost (non-critical):', e);
+    materialCost = 0;  // أي خطأ → 0، لا يؤثّر على أي رقم مالي آخر
+    materialCostBag = { SYP: 0, USD: 0 };
+  }
+}
+
+// Migration 118: ذمم المخابر — رصيد ميزانية all-time (لا يتبع نافذة الفترة عمداً:
+// الذمة التزام قائم بمعزل عن أي فترة تقرير). عرض فقط عبر renderLabPayableSection —
+// لا يُقرأ في computeTotals ولا أي معادلة، فTests A–E وnetProfit بلا مساس بالبناء.
+// graceful: جدول lab_payments غائب أو أي فشل → null → البطاقة تُخفى بلا كسر.
+function _labIsDraft(o) {
+  return !!(o && o.status === 'draft');
+}
+
+async function loadLabPayable() {
+  labPayable = null;
+  labPayableBag = null;
+  labPayableGrossBag = null;
+  try {
+    var loRes = await _pagedAcc(function(){ return window.sb.from('lab_orders')
+      .select('cost, status, currency, lab_id')
+      .eq('doctor_id', currentUser.id); });
+    if (loRes.error || !loRes.data) return;  // graceful
+    var payRes = await _pagedAcc(function(){ return window.sb.from('lab_payments')
+      .select('amount, currency, lab_id')
+      .eq('doctor_id', currentUser.id); });
+    if (payRes.error || !payRes.data) return;  // graceful (قبل الترحيل → تُخفى)
+    /* 🔴 الرصيد يُحسب **لكل مخبر داخل كل عملة**، والإجمالي يُشتقّ منه بعد ذلك.
+       المُراكم الواحد لكل عملة كان يطرح رصيدَ مخبرٍ دائنٍ من ذمّة مخبرٍ آخر —
+       ومقاصّةُ مورّدٍ بمورّدٍ لا تصحّ محاسبياً: ذمّةُ كل مخبر التزامٌ قائمٌ
+       بذاته، والرصيدُ عند مخبرٍ آخر أصلٌ مستقل. وأثرُه ليس تجميلياً: عيادةٌ
+       عليها 210 لمخبرٍ ولها 10 عند آخر كانت تقرأ «200» ويختفي العشرة كلياً
+       من الصفحة لأنها لا تحمل أي سطحٍ لكل مخبر (بخلاف صفحة المخابر).
+       والمفتاح lab_id، والصفوفُ التي فقدت مخبرها (ON DELETE SET NULL) تُجمَع
+       بمجموعةٍ واحدة مسمّاة فلا تسقط ولا تُقاصَّ بغيرها. */
+    var per = { SYP: {}, USD: {} };
+    loRes.data.forEach(function(o){
+      if (o.status === 'rejected' || _labIsDraft(o)) return;
+      var c = _rowCur(o), k = String(o.lab_id || '__unlinked');
+      if (per[c][k] === undefined) per[c][k] = 0;
+      per[c][k] += Number(o.cost) || 0;
+    });
+    payRes.data.forEach(function(p){
+      var c = _rowCur(p), k = String(p.lab_id || '__unlinked');
+      if (per[c][k] === undefined) per[c][k] = 0;
+      per[c][k] -= Number(p.amount) || 0;
+    });
+    var bag   = { SYP: 0, USD: 0 };
+    var gross = { SYP: { due: 0, credit: 0 }, USD: { due: 0, credit: 0 } };
+    ['SYP', 'USD'].forEach(function(c){
+      Object.keys(per[c]).forEach(function(k){
+        var v = per[c][k];
+        bag[c] += v;
+        if (v > 0) gross[c].due += v;
+        else if (v < 0) gross[c].credit += -v;
+      });
+    });
+    labPayableBag = bag;              // الصافي — يبقى كما كان لمن يقرؤه
+    labPayableGrossBag = gross;
+  } catch (e) {
+    console.warn('loadLabPayable (non-critical):', e);
+    labPayable = null;  // أي خطأ → إخفاء، لا يؤثّر على أي رقم مالي آخر
+    labPayableBag = null;
+    labPayableGrossBag = null;
+  }
+}
+
+// account_adjustments (Migration 45): discount / write_off / refund. DATE column
+// (direct compare, no timezone widening). Graceful on a pre-Migration-45 DB.
+async function loadAdjustments(from, to) {
+  adjustments = [];
+  try {
+    var res = await _pagedAcc(function(){ return window.sb.from('account_adjustments')
+      .select('id, patient_id, kind, amount, date, currency')
+      .eq('doctor_id', currentUser.id)
+      .gte('date', from)
+      .lte('date', to); });
+    if (res.error) {
+      if (!isMigrationMissing(res.error)) console.warn('loadAdjustments:', res.error);
+      return;
+    }
+    adjustments = res.data || [];
+  } catch(e) { console.warn('loadAdjustments threw:', e); }
+}
+
+async function loadPayouts(from, to) {
+  // provider_payouts: filter by paid_at (the date the money actually left
+  // the clinic, regardless of which period the payout covered). This is
+  // cash-basis correct: a payout "covering April" but paid on May 5 hits
+  // May's books.
+  //
+  // paid_at is TIMESTAMPTZ — query a widened UTC window (±1 day around the
+  // Owner-picked dates) to be timezone-safe, then trim client-side using
+  // local-date matching via inLocalRange(). A payout entered at 02:00 local
+  // on 21/05 in Syria is stored as ~23:00 UTC on 20/05 — naively filtering
+  // by UTC would drop it from a "21/05 → 21/05" query.
+  //
+  // Try Migration 18 schema (employee_id), fall back to Migration 17, then
+  // pre-Migration-17 minimal columns.
+  var lo = widenStartUtc(from), hi = widenEndUtc(to);
+  var res = await _pagedAcc(function(){ return window.sb.from('provider_payouts')
+    .select('id, provider_id, employee_id, paid_at, amount, payment_method, currency')
+    .eq('owner_id', currentUser.id)
+    .gte('paid_at', lo)
+    .lte('paid_at', hi); });
+
+  if (res.error && /42703|employee_id/i.test((res.error.message || '') + ' ' + (res.error.code || ''))) {
+    res = await _pagedAcc(function(){ return window.sb.from('provider_payouts')
+      .select('id, provider_id, paid_at, amount, payment_method, currency')
+      .eq('owner_id', currentUser.id)
+      .gte('paid_at', lo)
+      .lte('paid_at', hi); });
+  }
+  if (res.error && /42703|payment_method/i.test((res.error.message || '') + ' ' + (res.error.code || ''))) {
+    res = await _pagedAcc(function(){ return window.sb.from('provider_payouts')
+      .select('id, provider_id, paid_at, amount, currency')
+      .eq('owner_id', currentUser.id)
+      .gte('paid_at', lo)
+      .lte('paid_at', hi); });
+  }
+  if (res.error) {
+    if (isMigrationMissing(res.error)) { payouts = []; return; }
+    console.warn('loadPayouts:', res.error);
+    payouts = [];
+    return;
+  }
+  // Strict local-date trim — drops any rows that fell into the ±1 day buffer.
+  payouts = (res.data || []).filter(function(p){
+    return inLocalRange(p.paid_at, from, to);
+  });
+}
+
+async function loadLabOrders(from, to) {
+  // lab_orders: cost is incurred at date_sent (cash-basis: outflow happens
+  // when the work is commissioned, not when delivered). status='rejected'
+  // means the order was cancelled before the lab worked on it — exclude.
+  //
+  // date_sent is TIMESTAMPTZ — same timezone-safe pattern as loadPayouts.
+  //
+  // Note: lab_orders uses doctor_id (legacy ownership column), same pattern
+  // as labs.html and provider-reports.html.
+  var lo = widenStartUtc(from), hi = widenEndUtc(to);
+  var res = await _pagedAcc(function(){ return window.sb.from('lab_orders')
+    .select('id, patient_id, tooth_num, cost, status, date_sent, provider_id, currency')
+    .eq('doctor_id', currentUser.id)
+    .gte('date_sent', lo)
+    .lte('date_sent', hi); });
+  if (res.error) {
+    if (isMigrationMissing(res.error)) { labOrders = []; return; }
+    console.warn('loadLabOrders:', res.error);
+    labOrders = [];
+    return;
+  }
+  // Strict local-date trim + exclude rejected.
+  labOrders = (res.data || []).filter(function(loRow){
+    if (loRow.status === 'rejected' || _labIsDraft(loRow)) return false;
+    return inLocalRange(loRow.date_sent, from, to);
+  });
+}
+
+// ─── Computation layer (Equations 1-7 from spec) ───────────────────────────
+
+// EQUATION 1: Revenue (cash collected, excluding unearned).
+// EQUATION 2: Production (completed work).
+// EQUATION 3: Collection rate.
+// ═══ بند #8 — إحصاء المواعيد للفترة (لنسبة الغياب) ═══
+// قراءة فقط، عدّ فقط: صفر أسماء وصفر بيانات مريض. تُستعمل حصراً ببناء
+// حقائق الملخّص. الفشل صامت (المصفوفة تبقى صفرية) فلا يتأثّر أي رقم مالي.
+async function loadAppointmentStats(from, to) {
+  apptStats = { total: 0, noShow: 0 };
+  try {
+    var res = await _pagedAcc(function(){ return window.sb.from('appointments')
+      .select('status')
+      .eq('doctor_id', currentUser.id)
+      .gte('date', from)
+      .lte('date', to); });
+    if (res.error) { if (!isMigrationMissing(res.error)) console.warn('loadAppointmentStats:', res.error); return; }
+    var rows = res.data || [];
+    for (var i = 0; i < rows.length; i++) {
+      apptStats.total++;
+      if (rows[i].status === 'no_show') apptStats.noShow++;
+    }
+  } catch (e) { /* graceful — الملخّص يتخطّى البند ويكتب «غير متاح» */ }
+}
+
+function computeSummary() {
+  // 1a. Splits-based revenue (preferred). is_unearned splits are prepayments
+  // and don't count as earned revenue.
+  var splitsRevenue = 0;
+  var unearnedTotal = 0;
+  var splitPaymentIds = {};
+  for (var i = 0; i < paymentSplits.length; i++) {
+    var sp = paymentSplits[i];
+    splitPaymentIds[sp.payment_id] = true;   // mark for legacy de-dup regardless of earned/unearned
+    if (splitIsEarned(sp)) {
+      splitsRevenue += Number(sp.amount) || 0;
+    } else {
+      // is_unearned OR allocated to a planned session → mobile credit (liability), NOT revenue.
+      unearnedTotal += Number(sp.amount) || 0;
+    }
+  }
+
+  // 1b. Legacy payments (no splits). Sum the raw amount.
+  var legacyRevenue = 0;
+  for (var j = 0; j < payments.length; j++) {
+    var p = payments[j];
+    if (!splitPaymentIds[p.id]) {
+      legacyRevenue += Number(p.amount) || 0;
+    }
+  }
+
+  var revenue = splitsRevenue + legacyRevenue;
+
+  // 2. Production
+  var production = 0;
+  for (var k = 0; k < sessions.length; k++) {
+    production += Number(sessions[k].cost) || 0;
+  }
+
+  // 3. Collection rate (with division-by-zero guard)
+  var collectionRate = (production > 0) ? (revenue / production) * 100 : null;
+
+  return {
+    revenue: revenue,
+    splitsRevenue: splitsRevenue,
+    legacyRevenue: legacyRevenue,
+    unearnedTotal: unearnedTotal,
+    production: production,
+    collectionRate: collectionRate
+  };
+}
+
+// EQUATION 4: Total expenses.
+function computeExpenseTotals() {
+  var expensesTotal = 0;
+  for (var i = 0; i < expenses.length; i++) {
+    expensesTotal += Number(expenses[i].amount) || 0;
+  }
+  var payoutsTotal = 0;
+  for (var j = 0; j < payouts.length; j++) {
+    payoutsTotal += Number(payouts[j].amount) || 0;
+  }
+  var labsTotal = 0;
+  for (var k = 0; k < labOrders.length; k++) {
+    labsTotal += Number(labOrders[k].cost) || 0;
+  }
+  return {
+    expensesTotal: expensesTotal,
+    payoutsTotal: payoutsTotal,
+    labsTotal: labsTotal,
+    totalExpenses: expensesTotal + payoutsTotal + labsTotal
+  };
+}
+
+// EQUATION 5 + 6: Net profit + per-category breakdown.
+function computeExpenseBreakdown(totals) {
+  // Group by category_id for the expenses table portion. Combine with two
+  // synthetic categories: "رواتب وحصص" (payouts) and "تكاليف المخابر" (labs).
+  var byCategory = {};
+  for (var i = 0; i < expenses.length; i++) {
+    var e = expenses[i];
+    var cid = e.category_id || '_uncat';
+    if (!byCategory[cid]) byCategory[cid] = 0;
+    byCategory[cid] += Number(e.amount) || 0;
+  }
+
+  // Heuristic detector for suspected double-counted salary expenses (rule:
+  // employee salaries SHOULD go in provider_payouts, not expenses). If an
+  // expense category name hints at "salary/wages/employee/doctor", flag it.
+  var SALARY_HINT_RE = /راتب|رواتب|أجر|أجور|اجر|اجور|موظف|موظفين|طبيب|أطباء|اطباء|حصة|حصص|تعويض/i;
+
+  var rows = [];
+
+  // Synthetic: payouts (always shown if > 0)
+  if (totals.payoutsTotal > 0) {
+    rows.push({
+      key: '_payouts',
+      icon: '💼',
+      name: 'رواتب وحصص الأطباء والموظفين',
+      color: 'var(--purple)',
+      amount: totals.payoutsTotal,
+      isSynthetic: true,
+      warnDup: false
+    });
+  }
+
+  // Synthetic: labs
+  if (totals.labsTotal > 0) {
+    rows.push({
+      key: '_labs',
+      icon: '🥽',
+      name: 'تكاليف المخابر',
+      color: 'var(--blue)',
+      amount: totals.labsTotal,
+      isSynthetic: true,
+      warnDup: false
+    });
+  }
+
+  // expense_categories rows
+  Object.keys(byCategory).forEach(function(cid){
+    var amt = byCategory[cid];
+    if (amt <= 0) return;
+    var cat = (cid === '_uncat') ? null : expenseCategories.find(function(c){ return c.id === cid; });
+    var name = cat ? cat.name : 'بدون تصنيف';
+    rows.push({
+      key: 'cat_' + cid,
+      icon: cat ? (cat.icon || '📋') : '📋',
+      name: name,
+      color: cat ? (cat.color || 'var(--text3)') : 'var(--text3)',
+      amount: amt,
+      isSynthetic: false,
+      // Warn if name hints at salary — likely double-counted with payouts.
+      warnDup: SALARY_HINT_RE.test(name)
+    });
+  });
+
+  // Sort descending by amount
+  rows.sort(function(a, b){ return b.amount - a.amount; });
+
+  // Add percentages (guard against zero total)
+  var total = totals.totalExpenses;
+  for (var i = 0; i < rows.length; i++) {
+    rows[i].pct = (total > 0) ? (rows[i].amount / total) * 100 : 0;
+  }
+
+  return rows;
+}
+
+// EQUATION 7: Per-provider performance.
+//
+// Re-uses the same allocation logic as provider-reports.html for consistency.
+// For each clinic_doctor:
+//   - production_p = Σ sessions.cost where provider_id matches
+//   - labCost_p    = Σ matching lab_orders.cost (de-duped via shared set)
+//   - collection_p = Σ payment_splits.amount where provider_id matches
+//                     + proportional fallback for legacy payments
+//   - paidOut_p    = Σ provider_payouts.amount where provider_id matches
+//   - clinicNet_p  = collection_p - labCost_p - paidOut_p
+//
+// Note: provSessions can include sessions on inactive doctors (historical
+// data). That's correct — we want full P&L visibility.
+function computeProviderPerformance() {
+  var rows = [];
+
+  // Lookup helpers
+  var paymentIdsWithSplits = {};
+  for (var i = 0; i < paymentSplits.length; i++) {
+    paymentIdsWithSplits[paymentSplits[i].payment_id] = true;
+  }
+  var legacyPayments = payments.filter(function(p){ return !paymentIdsWithSplits[p.id]; });
+
+  // Build per-patient totals for legacy proportional allocation
+  var byPatientTotals = {};
+  for (var j = 0; j < sessions.length; j++) {
+    var s = sessions[j];
+    if (!byPatientTotals[s.patient_id]) byPatientTotals[s.patient_id] = { total: 0 };
+    byPatientTotals[s.patient_id].total += Number(s.cost) || 0;
+  }
+  var legacyPaymentsByPatient = {};
+  legacyPayments.forEach(function(p){
+    legacyPaymentsByPatient[p.patient_id] =
+      (legacyPaymentsByPatient[p.patient_id] || 0) + (Number(p.amount) || 0);
+  });
+
+  // Audit-critical: identify legacy payments whose patient has NO sessions
+  // in the period. These can't be proportionally allocated to any provider,
+  // so they must flow into _unassigned to preserve Test A (revenue
+  // conservation). Without this, Σ per-provider collection < total revenue.
+  var orphanLegacyRevenue = 0;
+  Object.keys(legacyPaymentsByPatient).forEach(function(pid){
+    if (!byPatientTotals[pid] || byPatientTotals[pid].total <= 0) {
+      orphanLegacyRevenue += legacyPaymentsByPatient[pid];
+    }
+  });
+
+  // Iterate providers (only those present in sessions, splits, OR payouts to
+  // keep the table relevant — empty rows would clutter). Then add _unassigned.
+  //
+  // Including splits provider_ids handles the edge case where an old split
+  // references a doctor whose clinic_doctors row was later deleted (FK is
+  // ON DELETE SET NULL) or whose only activity in this period is on
+  // somebody else's session via a manual split allocation. Without this,
+  // those amounts would silently fail to attribute and break Test A.
+  var providerIdsInData = {};
+  sessions.forEach(function(s){ if (s.provider_id) providerIdsInData[s.provider_id] = true; });
+  payouts.forEach(function(p){ if (p.provider_id) providerIdsInData[p.provider_id] = true; });
+  paymentSplits.forEach(function(sp){
+    if (splitIsEarned(sp) && sp.provider_id) providerIdsInData[sp.provider_id] = true;
+  });
+  // Lab orders also anchor a provider (Migration 73): a doctor may have an in-window
+  // lab cost even with no in-window sessions/splits/payouts (e.g. lab sent this month
+  // for a session done last month). Including them here ensures that doctor's row is
+  // rendered and the lab cost is attributed, so the per-provider lab split reconciles
+  // exactly to labsTotal (Test E equality rather than a strict inequality).
+  labOrders.forEach(function(lo){ if (lo.provider_id) providerIdsInData[lo.provider_id] = true; });
+
+  // Track which provider_ids are matched by a doctor row. Splits referencing
+  // a provider_id with no current clinic_doctors row contribute to a special
+  // "محذوف" bucket so Test A still passes.
+  var knownDoctorIds = {};
+  doctors.forEach(function(doc){ knownDoctorIds[doc.id] = true; });
+
+  doctors.forEach(function(doc){
+    if (!providerIdsInData[doc.id]) return;
+    rows.push(computeOneProviderRow(doc, byPatientTotals,
+                                     legacyPaymentsByPatient, paymentIdsWithSplits));
+  });
+
+  // Orphan provider_ids from splits/sessions/payouts where the doctor row
+  // has been deleted. Aggregate as one synthetic "deleted doctor" bucket.
+  //
+  // Conservation note: this bucket must absorb three streams to preserve
+  // Test A:
+  //   1. Splits attributed directly to orphan provider_ids.
+  //   2. Legacy-payment proportional share for any orphan sessions
+  //      (without this, the legacy proportional only fires for known
+  //      doctors and 'tax' the orphan share into a black hole).
+  //   3. Direct payouts logged against orphan provider_ids.
+  var orphanCollection = 0;
+  var orphanProduction = 0;
+  var orphanPaidOut    = 0;
+  var orphanLabCost    = 0;
+  var orphanSessionCount = 0;
+  Object.keys(providerIdsInData).forEach(function(pid){
+    if (knownDoctorIds[pid]) return;
+    // Sessions
+    sessions.forEach(function(s){
+      if (s.provider_id !== pid) return;
+      orphanProduction += Number(s.cost) || 0;
+      orphanSessionCount++;
+    });
+    // Lab cost for this orphan (deleted) provider — explicit provider_id
+    // (Migration 73). Counted once by construction; no session matching.
+    labOrders.forEach(function(lo){
+      if (lo.provider_id === pid) orphanLabCost += Number(lo.cost) || 0;
+    });
+    // Splits — direct attribution to orphan provider_id (earned only).
+    paymentSplits.forEach(function(sp){
+      if (!splitIsEarned(sp)) return;
+      if (sp.provider_id === pid) orphanCollection += Number(sp.amount) || 0;
+    });
+    // Legacy proportional — for each in-range patient with sessions on this
+    // orphan provider, route the orphan's share of legacy (split-less)
+    // payments into the bucket. Without this, the known-doctor proportional
+    // loop only divides the legacy payment among known providers and the
+    // deleted doctor's share quietly vanishes, breaking Test A.
+    Object.keys(byPatientTotals).forEach(function(patId){
+      var patTotal = byPatientTotals[patId].total;
+      if (patTotal <= 0) return;
+      var orphanProvTotal = 0;
+      sessions.forEach(function(s){
+        if (s.patient_id !== patId) return;
+        if (s.provider_id === pid) orphanProvTotal += Number(s.cost) || 0;
+      });
+      if (orphanProvTotal <= 0) return;
+      var ratio = orphanProvTotal / patTotal;
+      orphanCollection += (legacyPaymentsByPatient[patId] || 0) * ratio;
+    });
+    // Payouts — direct attribution.
+    payouts.forEach(function(p){
+      if (p.provider_id === pid) orphanPaidOut += Number(p.amount) || 0;
+    });
+  });
+  if (orphanCollection > 0 || orphanProduction > 0 || orphanPaidOut > 0 || orphanLabCost > 0) {
+    rows.push({
+      id: '_deleted_doctors',
+      name: 'أطباء محذوفون',
+      color: '#5d748f',
+      isOwner: false,
+      isActive: false,
+      isUnassigned: false,
+      isDeleted: true,
+      sessionCount: orphanSessionCount,
+      production: orphanProduction,
+      labCost: orphanLabCost,
+      collection: orphanCollection,
+      paidOut: orphanPaidOut,
+      clinicNet: orphanCollection - orphanLabCost - orphanPaidOut
+    });
+  }
+
+  // _unassigned bucket — shown whenever there's something to report under it:
+  //   - sessions without provider_id (orphan sessions), OR
+  //   - splits with null provider_id (rare but possible after data edits), OR
+  //   - lab orders with null provider_id (Migration 73 — must be counted so the
+  //     per-provider lab split still reconciles to labsTotal / Test E), OR
+  //   - orphan legacy payments (patient has no in-range sessions).
+  var hasUnassignedSessions = sessions.some(function(s){ return !s.provider_id; });
+  var hasUnassignedSplits = paymentSplits.some(function(sp){
+    return splitIsEarned(sp) && !sp.provider_id;
+  });
+  var hasUnassignedLab = labOrders.some(function(lo){ return !lo.provider_id; });
+  if (hasUnassignedSessions || hasUnassignedSplits || hasUnassignedLab || orphanLegacyRevenue > 0) {
+    var unassignedRow = computeOneProviderRow(
+      { id: '_unassigned', name: 'غير محدد', color: '#5d748f', is_owner: false },
+      byPatientTotals, legacyPaymentsByPatient, paymentIdsWithSplits
+    );
+    // Add orphan legacy revenue (patients with payments but no in-range sessions).
+    unassignedRow.collection += orphanLegacyRevenue;
+    rows.push(unassignedRow);
+  }
+
+  return rows;
+}
+
+function computeOneProviderRow(doc, byPatientTotals,
+                                legacyPaymentsByPatient, paymentIdsWithSplits) {
+  var provId = doc.id;
+  var isUnassigned = (provId === '_unassigned');
+
+  // Sessions for this provider
+  var provSessions = sessions.filter(function(s){
+    return isUnassigned ? !s.provider_id : s.provider_id === provId;
+  });
+  var production = 0;
+  for (var i = 0; i < provSessions.length; i++) {
+    production += Number(provSessions[i].cost) || 0;
+  }
+
+  // Lab cost: explicit per-provider attribution via provider_id (Migration 73).
+  // Each lab_order carries exactly one provider_id, so it is counted once by
+  // construction — no session matching, no shared dedup set needed. labOrders is
+  // already filtered to the window by date_sent at load time.
+  var labCost = 0;
+  for (var li = 0; li < labOrders.length; li++) {
+    var loRow = labOrders[li];
+    var matchLab = isUnassigned ? !loRow.provider_id : loRow.provider_id === provId;
+    if (matchLab) labCost += Number(loRow.cost) || 0;
+  }
+
+  // Collection (exact via splits + proportional fallback for legacy)
+  var collection = 0;
+  for (var k = 0; k < paymentSplits.length; k++) {
+    var sp = paymentSplits[k];
+    if (!splitIsEarned(sp)) continue;   // unearned OR on a planned session → not collected revenue
+    var matchesProv = isUnassigned ? !sp.provider_id : (sp.provider_id === provId);
+    if (matchesProv) collection += Number(sp.amount) || 0;
+  }
+  // Legacy proportional
+  Object.keys(byPatientTotals).forEach(function(pid){
+    var patTotals = byPatientTotals[pid];
+    if (patTotals.total <= 0) return;
+    // Compute provider share of this patient's production
+    var provTotal = 0;
+    sessions.forEach(function(s){
+      if (s.patient_id !== pid) return;
+      if (isUnassigned ? !s.provider_id : s.provider_id === provId) {
+        provTotal += Number(s.cost) || 0;
+      }
+    });
+    if (provTotal <= 0) return;
+    var ratio = provTotal / patTotals.total;
+    collection += (legacyPaymentsByPatient[pid] || 0) * ratio;
+  });
+
+  // Payouts (only those with provider_id matching — employee_id payouts are
+  // separate and shown in totals, not per-provider).
+  var paidOut = 0;
+  if (!isUnassigned) {
+    for (var m = 0; m < payouts.length; m++) {
+      if (payouts[m].provider_id === provId) {
+        paidOut += Number(payouts[m].amount) || 0;
+      }
+    }
+  }
+
+  // Clinic net from this provider's activity:
+  //   what they collected - lab they consumed - what we paid them.
+  var clinicNet = collection - labCost - paidOut;
+
+  return {
+    id: provId,
+    name: doc.name || '—',
+    color: doc.color || '#5d748f',
+    isOwner: !!doc.is_owner,
+    isActive: doc.is_active !== false,
+    isUnassigned: isUnassigned,
+    sessionCount: provSessions.length,
+    production: production,
+    labCost: labCost,
+    collection: collection,
+    paidOut: paidOut,
+    clinicNet: clinicNet
+  };
+}
+
+// Identity tests — run after each render to verify accounting integrity.
+// Stored in lastIdentities; viewable via Ctrl+Shift+D debug panel.
+//
+// Tolerance: 0.01 ل.س is too tight when legacy proportional allocation
+// involves many patients (each contributes a floating-point ratio).
+// We use 1 ل.س cumulative tolerance — generous for FP error, strict
+// enough to catch real bugs (which would diff by hundreds or more).
+// F9 (M125): الدولارُ يُحفَظ بالسنت فتسامحُ 1$ = مئةُ سنتٍ تفلت منه أخطاءٌ حقيقية —
+// طبقتُه تأخذ 0.01 (خطأُ FP للنِّسَب بحدود 1e-9، بعيدٌ عنها بمراتب).
+function runIdentityTests(summary, totals, providerRows, cur) {
+  var results = [];
+  var TOLERANCE = (cur === 'USD') ? 0.01 : 1;
+
+  // Test A: Revenue conservation.
+  //   Σ per-provider collection should equal total revenue.
+  var sumProvCollection = 0;
+  providerRows.forEach(function(r){ sumProvCollection += r.collection; });
+  var diffA = Math.abs(sumProvCollection - summary.revenue);
+  results.push({
+    name: 'A. Revenue conservation',
+    pass: diffA < TOLERANCE,
+    detail: 'Σ providers: ' + Math.round(sumProvCollection) +
+            ' vs total: ' + Math.round(summary.revenue) +
+            ' (Δ=' + diffA.toFixed(2) + ')'
+  });
+
+  // Test B: Production conservation.
+  var sumProvProduction = 0;
+  providerRows.forEach(function(r){ sumProvProduction += r.production; });
+  var diffB = Math.abs(sumProvProduction - summary.production);
+  results.push({
+    name: 'B. Production conservation',
+    pass: diffB < TOLERANCE,
+    detail: 'Σ providers: ' + Math.round(sumProvProduction) +
+            ' vs total: ' + Math.round(summary.production) +
+            ' (Δ=' + diffB.toFixed(2) + ')'
+  });
+
+  // Test C: Expense sum identity (no FP risk, additive integers).
+  var sumC = totals.expensesTotal + totals.payoutsTotal + totals.labsTotal;
+  var diffC = Math.abs(sumC - totals.totalExpenses);
+  results.push({
+    name: 'C. Expense sum',
+    pass: diffC < TOLERANCE,
+    detail: 'exp+pay+lab: ' + Math.round(sumC) +
+            ' vs total: ' + Math.round(totals.totalExpenses)
+  });
+
+  // Test D: Net profit identity (always exact by construction).
+  var netCheck = summary.revenue - totals.totalExpenses;
+  results.push({
+    name: 'D. Net profit identity',
+    pass: true,
+    detail: 'rev - exp = ' + Math.round(netCheck)
+  });
+
+  // Test E: Lab attribution conservation.
+  //   Σ per-provider labCost = total labsTotal exactly. Since Migration 73 every
+  //   lab_order carries one explicit provider_id and lands in exactly one row
+  //   (known doctor · deleted-doctor bucket · unassigned), so the sum reconciles
+  //   to the total by construction. F4: كان «≤» من عهد الاستدلال بالنافذة (±90 يوم)
+  //   فلا يمسك نقصاً بالإسناد — صار مساواةً كما يدّعي تعليقُ providerIdsInData.
+  var sumProvLab = 0;
+  providerRows.forEach(function(r){ sumProvLab += r.labCost; });
+  var diffE = Math.abs(sumProvLab - totals.labsTotal);
+  results.push({
+    name: 'E. Lab attribution',
+    pass: diffE < TOLERANCE,
+    detail: 'Σ providers: ' + Math.round(sumProvLab) +
+            ' vs total: ' + Math.round(totals.labsTotal) +
+            ' (Δ=' + diffE.toFixed(2) + ')'
+  });
+
+  return results;
+}
+
+// ─── Rendering ─────────────────────────────────────────────────────────────
+// Account adjustments (Migration 45). discount/write_off reduce the charge
+// (net production); refunds reduce collected cash (net revenue + net profit).
+// These are CLINIC-LEVEL deductions shown separately — they are NOT attributed
+// per provider, so the gross per-provider conservation (Test A/B) is untouched.
+function computeAdjustmentTotals() {
+  var chargeReductions = 0;  // discount + write_off
+  var refundsTotal     = 0;  // refund
+  for (var i = 0; i < adjustments.length; i++) {
+    var a = adjustments[i];
+    var amt = Number(a.amount) || 0;
+    if (amt <= 0) continue;
+    if (a.kind === 'refund')                                  refundsTotal     += amt;
+    else if (a.kind === 'discount' || a.kind === 'write_off') chargeReductions += amt;
+  }
+  return {
+    chargeReductions: chargeReductions,
+    refundsTotal: refundsTotal,
+    adjTotal: chargeReductions + refundsTotal
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// بند #8 — الملخّص الذكي للفترة (AI)
+// ═══════════════════════════════════════════════════════════════════════════
+// المبدأ (درس الجلسات السابقة): **الحساب deterministic والـAI للصياغة فقط.**
+// كل رقم يصل الموديل مُنسَّقاً مسبقاً بنفس دوال العرض (fmtSY/fmtPct) التي
+// تبني البطاقات ⇒ يستحيل أن يخالف الملخّص ما يراه المالك على الشاشة.
+//
+// 🔒 عزل مالي مطلق: قراءة فقط — صفر كتابة في ledger_*/payment_splits/realloc.
+// 🔒 صفر PII: أرقام مجمّعة + أسماء علاجات من الكتالوج. لا اسم مريض ولا طبيب
+//    ولا معرّف يغادر المتصفح.
+var digestFacts = '';   // آخر حقائق مبنيّة (تُعاد بناؤها مع كل render)
+
+// أعلى العلاجات تكراراً في الفترة — من ledger_sessions.type (اسم من كتالوج
+// العيادة، ليس بياناً شخصياً). تجميع deterministic بلا أي AI.
+function digestTopTreatments(limit) {
+  var map = {}, i, t;
+  for (i = 0; i < sessions.length; i++) {
+    t = String(sessions[i].type || '').trim();
+    if (!t) continue;
+    if (!map[t]) map[t] = { n: 0, sum: 0 };
+    map[t].n++;
+    map[t].sum += Number(sessions[i].cost) || 0;
+  }
+  var arr = Object.keys(map).map(function(k){ return { name: k, n: map[k].n, sum: map[k].sum }; });
+  arr.sort(function(a, b){ return (b.n - a.n) || (b.sum - a.sum); });
+  return arr.slice(0, limit || 3);
+}
+
+// أعلى بنود المصروفات — `breakdown` مصفوفة مرتّبة تنازلياً أصلاً (نفس
+// المصدر الذي يبني قسم «تفصيل المصروفات»)، فنأخذ رأسها بلا إعادة فرز.
+function digestTopExpenses(breakdown, limit) {
+  var rows = Array.isArray(breakdown) ? breakdown : [];
+  return rows.slice(0, limit || 3);
+}
+
+// بناء نصّ الحقائق المُرسَل للموديل. كل قيمة منسّقة كما تُعرض حرفياً.
+function buildDigestFacts(from, to, s, t, netProfit, profitMargin, adj, netRevenue, netProduction, collectionRate, breakdown) {
+  var lines = [];
+  var days = 0;
+  try {
+    var d1 = new Date(from + 'T00:00:00'), d2 = new Date(to + 'T00:00:00');
+    days = Math.round((d2 - d1) / 86400000) + 1;
+  } catch (e) { days = 0; }
+
+  lines.push('الفترة: من ' + from + ' إلى ' + to + (days > 0 ? ' (' + days + ' يوماً)' : ''));
+  lines.push('الإيرادات المحصّلة: ' + fmtSY(s.revenue));
+  if (adj && adj.refundsTotal > 0) lines.push('صافي الإيراد بعد الاسترداد: ' + fmtSY(netRevenue));
+  lines.push('الإنتاج المنجز: ' + fmtSY(s.production));
+  if (adj && adj.chargeReductions > 0) lines.push('صافي الإنتاج بعد الخصومات: ' + fmtSY(netProduction));
+  lines.push('معدّل التحصيل: ' + (collectionRate === null ? 'غير متاح' : fmtPct(collectionRate)));
+  lines.push('المصروفات الإجمالية: ' + fmtSY(t.totalExpenses));
+  lines.push((netProfit >= 0 ? 'صافي الربح: ' : 'صافي الخسارة: ') + fmtSY(Math.abs(netProfit)));
+  lines.push('هامش الربح: ' + (profitMargin === null ? 'غير متاح' : fmtPct(profitMargin)));
+  lines.push('الرصيد غير المكتسب (دفعات مقابل علاج لم يُنفَّذ بعد): ' + fmtSY(s.unearnedTotal));
+  lines.push('عدد الجلسات المكتملة: ' + sessions.length);
+
+  // الفارق بين الإنتاج والتحصيل + النسبة غير المحصّلة.
+  // سببهما: الموديل احتاج هذين الرقمين للسرد فاشتقّهما بنفسه وأخطأ (طرَح
+  // وقرّب فأنتج مبلغاً غير موجود). الحلّ ليس منعاً إضافياً بل تزويده بهما
+  // محسوبَين — نفس مبدأ «الحساب deterministic والـAI للصياغة».
+  var _gap = (Number(s.production) || 0) - (Number(s.revenue) || 0);
+  if (_gap > 0) {
+    lines.push('الفارق بين الإنتاج المنجز والإيراد المحصّل في هذه الفترة: ' + fmtSY(_gap) +
+               ' (فارق توقيت وتحصيل ضمن حدود الفترة — ليس بالضرورة ديوناً مستحقة على المرضى)');
+  }
+  if (collectionRate !== null && collectionRate < 100) {
+    lines.push('النسبة غير المحصّلة من الإنتاج: ' + fmtPct(100 - collectionRate));
+  }
+
+  // نسبة الغياب — تُذكر فقط إن وُجدت مواعيد بالفترة
+  if (apptStats.total > 0) {
+    var nsPct = (apptStats.noShow / apptStats.total) * 100;
+    lines.push('المواعيد في الفترة: ' + apptStats.total + ' موعداً، منها ' + apptStats.noShow +
+               ' عدم حضور — نسبة الغياب: ' + fmtPct(nsPct));
+  } else {
+    lines.push('نسبة الغياب: غير متاح');
+  }
+
+  var tops = digestTopTreatments(3);
+  if (tops.length) {
+    lines.push('العلاجات الأكثر تكراراً في الفترة (مرتّبة حسب عدد الجلسات، لا حسب القيمة):');
+    for (var i = 0; i < tops.length; i++) {
+      lines.push('  - ' + tops[i].name + ': ' + tops[i].n + ' جلسة بقيمة ' + fmtSY(tops[i].sum));
+    }
+  } else {
+    lines.push('العلاجات الأكثر تكراراً: غير متاح');
+  }
+
+  var texp = digestTopExpenses(breakdown, 3);
+  if (texp.length) {
+    lines.push('أعلى بنود المصروفات (مرتّبة حسب المبلغ):');
+    for (var j = 0; j < texp.length; j++) {
+      var pctTxt = (texp[j].pct === null || texp[j].pct === undefined || isNaN(texp[j].pct))
+        ? '' : ' (' + fmtPct(texp[j].pct) + ' من إجمالي المصروفات)';
+      lines.push('  - ' + (texp[j].name || 'غير مصنّف') + ': ' + fmtSY(texp[j].amount) + pctTxt);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+// بطاقة الملخّص — تظهر فقط عند فتح البوابتين (opt-in + الخطة).
+function renderDigestCard() {
+  if (!ACC_AI_ON) return '';
+  var body = lastDigest
+    ? '<div class="digest-out" id="digestOut">' + escapeHtml(lastDigest) + '</div>'
+    : '';
+  // شريط الحارس يُرسَم دائماً (مخفيّاً عند الفراغ) كي تجده digestGenerate.
+  var warnBody = '<div class="digest-warn" id="digestWarn"' +
+    (lastDigestWarn ? '' : ' style="display:none"') + '>' +
+    escapeHtml(lastDigestWarn || '') + '</div>';
+  return '' +
+    '<div class="section">' +
+      '<div class="digest-head">' +
+        '<h2 style="margin:0">🤖 ملخّص الفترة الذكي</h2>' +
+        '<button type="button" class="digest-btn" id="digestBtn" onclick="digestGenerate()">' +
+          (lastDigest ? '🔄 إعادة التوليد' : '✨ اقرأ لي الفترة') +
+        '</button>' +
+      '</div>' +
+      warnBody +
+      body +
+      '<div class="digest-hint">قراءة سريعة للأرقام المعروضة أعلاه — تُبنى من نفس القيم حرفياً ' +
+      'ولا تُحتسب من جديد. تُرسَل أرقام مجمّعة فقط بلا أي اسم مريض أو بيانات شخصية، ' +
+      'والملخّص للعرض فقط ولا يُحفَظ ولا يُعدّل أي رقم محاسبي.</div>' +
+    '</div>';
+}
+
+// F5: خريطةُ أخطاء ai-assist (مرآة prmAiErrText بـpatients.html) — «حاول بعد قليل»
+// كانت الرسالةَ الوحيدة حتى لسقفٍ شهريّ بلغ أو خطةٍ لا تشمل الميزة، فتُضلّل القارئ.
+function _accAiErrText(code) {
+  var map = {
+    ai_not_enabled: 'فعّل مساعد الذكاء الاصطناعي من الإعدادات أولاً',
+    ai_plan_not_included: 'مساعد الذكاء الاصطناعي غير متاح في خطتك الحالية',
+    ai_override_off: 'مساعد الذكاء الاصطناعي موقوف لهذا الحساب من إدارة المنصة',
+    account_not_active: 'الحساب غير مفعّل حالياً — تواصل مع إدارة المنصة',
+    subscription_inactive: 'انتهى اشتراك العيادة — جدّد الاشتراك لاستخدام مساعد الذكاء الاصطناعي',
+    quota_exceeded: 'بلغت الحد الشهري لمساعد الذكاء الاصطناعي — يتجدّد مطلع الشهر',
+    rate_limited: 'طلبات متتالية سريعة — انتظر دقيقة ثم حاول مجدداً',
+    ai_key_missing: 'المساعد غير مهيّأ بعد (مفتاح الخدمة مفقود)',
+    ai_upstream_error: 'تعذّر توليد الملخّص — تحقّق من رصيد خدمة الذكاء الاصطناعي',
+    ai_empty_response: 'لم يصل ملخّص — حاول مجدداً',
+    empty_input: 'لا أرقام كافية بالفترة لتلخيصها'
+  };
+  return map[code] || 'تعذّر توليد الملخّص الآن. حاول بعد قليل.';
+}
+async function _accAiErrCode(resp) {
+  try {
+    if (resp && resp.error && resp.error.context && typeof resp.error.context.json === 'function') {
+      var j = await resp.error.context.json();
+      return (j && j.error) ? String(j.error) : '';
+    }
+  } catch (e) {}
+  return '';
+}
+// التوليد — نداء واحد لـai-assist، والفرض النهائي سيرفر-سايد.
+async function digestGenerate() {
+  if (digestBusy) return;
+  if (!digestFacts) { return; }
+  var btn = $('digestBtn');
+  digestBusy = true;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ جارٍ التحليل...'; }
+  // تصفير التحذير مع كل توليد.
+  lastDigestWarn = '';
+  var wEl = $('digestWarn');
+  if (wEl) { wEl.textContent = ''; wEl.style.display = 'none'; }
+  var out = $('digestOut');
+  if (!out) {
+    var host = btn ? btn.parentNode.parentNode : null;
+    if (host) {
+      var div = document.createElement('div');
+      div.className = 'digest-out';
+      div.id = 'digestOut';
+      host.insertBefore(div, btn.parentNode.nextSibling);
+      out = div;
+    }
+  }
+  if (out) { out.className = 'digest-out'; out.textContent = 'جارٍ قراءة أرقام الفترة...'; }
+
+  try {
+    var resp = await window.sb.functions.invoke('ai-assist', {
+      body: { feature: 'monthly_digest', input: { facts: digestFacts } }
+    });
+    if (resp && resp.error) {
+      var _code = await _accAiErrCode(resp);
+      if (out) { out.className = 'digest-out err'; out.textContent = _accAiErrText(_code); }
+    } else {
+      var txt = (resp && resp.data && resp.data.text) ? String(resp.data.text).trim() : '';
+      if (!txt) {
+        if (out) { out.className = 'digest-out err'; out.textContent = 'تعذّر توليد الملخّص الآن. حاول بعد قليل.'; }
+      } else {
+        lastDigest = txt;
+        if (out) { out.className = 'digest-out'; out.textContent = txt; }
+        // حارس الأرقام الحتميّ — تدهور صامت لو غاب المشترك.
+        try {
+          if (window.SyDentAiGuard) lastDigestWarn = window.SyDentAiGuard.check(txt, digestFacts);
+        } catch (_e) { lastDigestWarn = ''; }
+        if (wEl) { wEl.textContent = lastDigestWarn; wEl.style.display = lastDigestWarn ? 'block' : 'none'; }
+      }
+    }
+  } catch (e) {
+    if (out) { out.className = 'digest-out err'; out.textContent = 'تعذّر توليد الملخّص الآن. حاول بعد قليل.'; }
+  }
+  digestBusy = false;
+  if (btn) { btn.disabled = false; btn.textContent = lastDigest ? '🔄 إعادة التوليد' : '✨ اقرأ لي الفترة'; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// M125 — تعدد العملات (ل.س / $): طبقة القسمة
+// ═══════════════════════════════════════════════════════════════════════════
+// المبدأ: العملة بُعد قسمة (partition) فوق المعادلات السبع كلها. لا نعيد كتابة
+// أي دالة حساب — المحرّك الحرفي (computeSummary/computeExpenseTotals/
+// computeProviderPerformance/runIdentityTests/computeAdjustmentTotals) يعمل
+// مرةً لكل عملة نشطة على مدخلات مفلترة بعملتها، بتبديل المصفوفات العامة ثم
+// إرجاعها. النتائج بالبناء لا بالانضباط:
+//   · صفر انحدار: عيادة أحادية العملة = طبقة واحدة بمدخلات كاملة = مخرجات
+//     مطابقة رقمياً للنسخة السابقة حرفياً.
+//   · التخصيص النسبي للـlegacy والـorphan على مستوى (مريض، عملة) تلقائياً —
+//     كل طبقة لا ترى إلا صفوف عملتها، فدفعة legacy دولارية لمريض جلساته
+//     بالليرة تسقط orphan بطبقة الدولار (حفظ Test A داخل كل طبقة).
+//   · Tests A–E تجري داخل كل طبقة، وصفر عملية جمع عابرة للعملات بالملف كله.
+function _rowCur(r) { return (r && r.currency === 'USD') ? 'USD' : 'SYP'; }
+function _defCurAcc() { return SyDentCurBag.defCur(); }
+function _filterCur(arr, cur) {
+  return (arr || []).filter(function(r){ return _rowCur(r) === cur; });
+}
+function computeLayersByCurrency() {
+  var full = {
+    sessions: sessions, payments: payments, paymentSplits: paymentSplits,
+    expenses: expenses, payouts: payouts, labOrders: labOrders, adjustments: adjustments
+  };
+  var layers = {};
+  var active = [];
+  ['SYP', 'USD'].forEach(function(cur){
+    sessions      = _filterCur(full.sessions, cur);
+    payments      = _filterCur(full.payments, cur);
+    paymentSplits = _filterCur(full.paymentSplits, cur);
+    expenses      = _filterCur(full.expenses, cur);
+    payouts       = _filterCur(full.payouts, cur);
+    labOrders     = _filterCur(full.labOrders, cur);
+    adjustments   = _filterCur(full.adjustments, cur);
+
+    var summary      = computeSummary();
+    var totals       = computeExpenseTotals();
+    var breakdown    = computeExpenseBreakdown(totals);
+    var providerRows = computeProviderPerformance();
+    var adj          = computeAdjustmentTotals();
+    var identities   = runIdentityTests(summary, totals, providerRows, cur);
+
+    // كتلة هوية صافي الربح — منقولة من render() بايت-بايت (مرساة الحارس H).
+    var grossRevenue    = summary.revenue;
+  var grossProduction = summary.production;
+  // Net figures (cash-basis): refunds are cash out → reduce revenue + profit.
+  // Discounts/write-offs are NOT cash → reduce only the charge (net production
+  // and thus the collection-rate denominator), never net profit directly.
+  var netRevenue    = grossRevenue - adj.refundsTotal;
+  var netProduction = grossProduction - adj.chargeReductions;
+
+  var netProfit = netRevenue - totals.totalExpenses;
+  var profitMargin = (netRevenue > 0) ? (netProfit / netRevenue) * 100 : null;
+  // Collection rate = collected cash ÷ NET charge (you can't collect a discount).
+  var collectionRate = (netProduction > 0) ? (grossRevenue / netProduction) * 100 : null;
+
+    var hasRows = !!(sessions.length || payments.length || paymentSplits.length ||
+                     expenses.length || payouts.length || labOrders.length ||
+                     adjustments.length || (materialCostBag[cur] || 0) > 0 ||
+                     // 🔴 الإجمالي لا الصافي: طبقةٌ عليها 50 عند مخبرٍ ولها 50
+                     // عند آخر صافيها صفر — وكانت تختفي كلياً وهي حركةٌ حقيقية.
+                     (labPayableGrossBag && (labPayableGrossBag[cur].due > 0 ||
+                                             labPayableGrossBag[cur].credit > 0)));
+    layers[cur] = {
+      summary: summary, totals: totals, breakdown: breakdown,
+      providerRows: providerRows, adj: adj, identities: identities,
+      netRevenue: netRevenue, netProduction: netProduction, netProfit: netProfit,
+      profitMargin: profitMargin, collectionRate: collectionRate,
+      hasRows: hasRows
+    };
+    if (hasRows) active.push(cur);
+  });
+  // إرجاع المصفوفات الكاملة — إلزامي قبل أي مسار آخر يقرؤها.
+  sessions = full.sessions; payments = full.payments; paymentSplits = full.paymentSplits;
+  expenses = full.expenses; payouts = full.payouts; labOrders = full.labOrders;
+  adjustments = full.adjustments;
+
+  // ترتيب الطبقات يتبع عملة العيادة الافتراضية (سابقة v200) لا قائمةً مثبّتة.
+  // الحسابُ أعلاه يمشي على العملتين دائماً وهو مستقلٌّ عن الترتيب تماماً، فالترتيبُ
+  // يُشتقّ عند الإخراج وحده من المصدر الواحد `SyDentCurBag.active`. أيُّ خطأ ⇒
+  // يبقى الترتيبُ المثبَّت (سلوكُ ما قبل التغيير حرفياً).
+  try {
+    var _bagOrd = { SYP: 0, USD: 0 };
+    active.forEach(function(c){ _bagOrd[c] = 1; });
+    active = window.SyDentCurBag.active(_bagOrd);
+  } catch (e) {}
+
+  if (!active.length) {
+    // عيادة بلا أي حركة بالفترة → طبقة واحدة بعملة العيادة (حالة الفراغ كما كانت).
+    active = [ (typeof curLbl === 'function' && String(curLbl()).indexOf('$') !== -1) ? 'USD' : 'SYP' ];
+  }
+  layers._active = active;
+  return layers;
+}
+
+// رأس طبقة العملة — يظهر فقط عند نشاط العملتين معاً.
+function renderCurrencyHeader(cur) {
+  var label = (cur === 'USD') ? 'حساب الدولار ($)' : 'حساب الليرة السورية (ل.س)';
+  var ico = (cur === 'USD') ? '💵' : '💰';
+  return '<div style="display:flex;align-items:center;gap:10px;margin:26px 0 14px;">' +
+    '<span style="font-weight:800;font-size:17px;">' + ico + ' ' + label + '</span>' +
+    '<span style="flex:1;height:1px;background:var(--border, rgba(120,150,180,.35));"></span>' +
+  '</div>';
+}
+
+// حقائق الملخّص الذكي متعددة الطبقات — buildDigestFacts الحرفية تُستدعى لكل
+// طبقة على جلساتها المفلترة (نفس نمط تبديل/إرجاع المصفوفات)، وقاعدة حديدية
+// تسبق الطبقتين عند التعدد: يُمنع أي جمع أو مقارنة أو تحويل بين العملتين.
+function buildDigestFactsAllLayers(from, to, layers, act) {
+  var parts = [];
+  if (act.length > 1) {
+    parts.push('تنبيه بنيوي: حسابات هذه العيادة بعملتين منفصلتين (ليرة سورية ودولار أمريكي). ' +
+               'كل قسم أدناه طبقة عملة مستقلة تماماً — يُمنع منعاً باتاً جمع أو طرح أو مقارنة أو تحويل أي رقم بين الطبقتين، ' +
+               'ويُنسب كل رقم لعملته كما هو موسوم حرفياً.');
+  }
+  for (var i = 0; i < act.length; i++) {
+    var cur = act[i];
+    var L = layers[cur];
+    _renderCur = cur;
+    if (act.length > 1) {
+      parts.push('— طبقة ' + (cur === 'USD' ? 'الدولار ($)' : 'الليرة السورية (ل.س)') + ' —');
+    }
+    var fullSessions = sessions;
+    sessions = _filterCur(fullSessions, cur);
+    try {
+      parts.push(buildDigestFacts(from, to, L.summary, L.totals, L.netProfit, L.profitMargin,
+                                  L.adj, L.netRevenue, L.netProduction, L.collectionRate, L.breakdown));
+    } finally {
+      sessions = fullSessions;
+      _renderCur = null;
+    }
+  }
+  return parts.join('\n');
+}
+
+var _accLastRange = null;   // v546: الفترةُ المرسومة فعلاً — التصديرُ يتبعها لا حقلي التاريخ غير المطبَّقين
+function render(from, to) {
+  _accLastRange = { from: from, to: to };
+  // M125: المحرّك الحرفي يعمل مرةً لكل طبقة عملة نشطة (computeLayersByCurrency)،
+  // والرسم كتلة قوائم أساسية كاملة لكل طبقة — الترتيب داخل الطبقة حرفي كما كان
+  // (عقد v160: ملخّص ← مصروفات ← تسويات ← أطباء ← ملخّص ذكي ← فاصل ← تكميلية).
+  var layers = computeLayersByCurrency();
+  var act = layers._active;
+  var dual = act.length > 1;
+
+  // اختبارات الهوية لكل طبقة (GROSS داخل العملة) — موسومة للوحة Ctrl+Shift+D
+  // عند التعدد فقط، فالعيادة الأحادية ترى أسماءها كما كانت حرفياً.
+  lastIdentities = [];
+  act.forEach(function(cur){
+    layers[cur].identities.forEach(function(t){
+      lastIdentities.push({
+        name: (dual ? '[' + cur + '] ' : '') + t.name,
+        pass: t.pass,
+        detail: t.detail
+      });
+    });
+  });
+
+  // Build HTML
+  var html = '';
+  // F1: فشلُ تحميل التوزيعات يُعلَن فوق كل الطبقات — الأرقامُ تُعرض ولا تُحجب، لكنّ
+  // القارئ يعرف أنها ارتدادٌ خام (المقدّمات ضمن الإيراد · توزيعُ الأطباء نسبي).
+  if (splitsLoadFailed) {
+    html += '<div class="warn-banner"><span class="ico">⚠️</span><span>' +
+      '<b>تعذّر تحميل توزيعات الدفعات</b> — الإيراد أدناه محسوبٌ من الدفعات الخام: ' +
+      'المبالغُ المقدّمة (غير المكتسبة) تُعدّ إيراداً، وتوزيعُ التحصيل على الأطباء تقريبي. ' +
+      'أعد التحميل أو ضيّق الفترة، ولا تعتمد هذه الأرقام قبل ذلك.</span></div>';
+  }
+  act.forEach(function(cur){
+    var L = layers[cur];
+    _renderCur = cur;
+    if (dual) html += renderCurrencyHeader(cur);
+    html += renderSummaryCards(L.summary, L.totals, L.netProfit, L.profitMargin, L.adj, L.netRevenue, L.netProduction, L.collectionRate);
+    html += renderExpenseSection(L.breakdown, L.totals);
+    html += renderAdjustmentsSection(L.adj);   // تدخل المعادلة (netRevenue/netProduction) — قائمة أساسية
+    html += renderProviderSection(L.providerRows);
+    html += renderTrendSection(cur);   // v509: 12 شهراً بمعادلات الصفحة نفسها (computeSummary بتبديل السياق) — عرضٌ فقط
+    _renderCur = null;
+  });
+
+  // بند #8 — بطاقة واحدة (معرّفاتها فريدة)؛ الحقائق تحمل كل الطبقات النشطة
+  // موسومةً بعملتها. وأي إعادة عرض (تغيير الفترة) تُسقط الملخّص السابق: ملخّصٌ
+  // قديم فوق أرقام جديدة أسوأ من لا ملخّص.
+  lastDigest = '';
+  lastDigestWarn = '';
+  digestFacts = buildDigestFactsAllLayers(from, to, layers, act);
+  html += renderDigestCard();
+
+  // M126/M129: بطاقة الإجمالي الموحّد — تظهر فقط عند نشاط العملتين معاً. تجمع مخرجاتِ
+  // الطبقتين الجاهزة (لا مدخلاتهما) بسعرٍ يدويّ للتقارير حصراً — المحرّك لا
+  // يُلمس، والرقم الموحّد لا يدخل حقائق الملخّص الذكي (قاعدة منع الخلط سارية).
+  // موضعُها فوق فاصل «معلومات إضافية» بقرار المالك بعد استعمالٍ حيّ: دفنُها خلف
+  // كل البطاقات المرجعية كان يفرض السكرول لآخر الصفحة لبلوغ رقم الجرد. وعقد
+  // v160 محفوظ لا مخروق: هذه **إعادةُ عرضٍ للقوائم الأساسية** بوحدةٍ واحدة، لا
+  // حسابَ مذكّرة — وحساباتُ المذكّرة الحقيقية (المواد · ذمم المخابر · الرصيد
+  // غير المكتسب) تبقى وحدها تحت الفاصل.
+  html += renderUnifiedReportCard(layers, act);
+
+  // المعلومات التكميلية — ثلاث بطاقات خارج معادلة الربح تماماً، لكل طبقة
+  // قيمُها بعملتها. كلٌّ منها يُرجِع '' عند انعدام قيمته، فالفاصل يُطبع مرة
+  // واحدة فقط إذا بقي منها محتوى (عقد v160 محفوظ حرفياً بالعيادة الأحادية).
+  var suppAll = '';
+  act.forEach(function(cur){
+    _renderCur = cur;
+    materialCost = materialCostBag[cur] || 0;
+    labPayable   = labPayableBag ? labPayableBag[cur] : null;
+    labPayableGross = labPayableGrossBag ? labPayableGrossBag[cur] : null;
+    var s1 = renderAgingSection(cur) +   // v507: ذمم المرضى (تقادم) — عرض فقط، خارج كل المعادلات
+             renderMaterialCostSection() +
+             renderLabPayableSection() +   // Migration 118: عرض فقط — خارج كل المعادلات
+             renderUnearnedSection(layers[cur].summary);
+    if (s1 && dual) s1 = renderCurrencyHeader(cur) + s1;
+    suppAll += s1;
+    _renderCur = null;
+  });
+  if (suppAll) html += renderSupplementaryDivider() + suppAll;
+
+  _setBody(html);
+
+  // Animate bars
+  setTimeout(function(){
+    document.querySelectorAll('.bar-fill').forEach(function(el){
+      var w = el.getAttribute('data-w');
+      if (w) el.style.width = w + '%';
+    });
+  }, 20);
+
+  // Update debug panel if open
+  refreshDebugPanel();
+}
+
+
+// ═══ v546 — تصديرُ المحاسبة إلى Excel (جولة التقارير، البند 7) ═══════════════════
+// لا معادلةَ ثانية (#684): كلُّ رقمٍ يُقرأ من computeLayersByCurrency() — الطبقاتُ نفسها التي ترسم الصفحة —
+// ومن computeTrend(cur) وagingResult كما تُرسم؛ هذه الدالّة ترتّب الصفوف فقط. كلُّ صفٍّ موسومٌ بعملته، والنسبُ
+// أرقامٌ بالمئة كما تُعرض. الفترةُ هي المطبَّقة (_accLastRange) لا حقلا التاريخ.
+function _accNum(n) { return (n === null || n === undefined || isNaN(n)) ? '' : Math.round(Number(n) * 100) / 100; }
+function _accCurLbl(cur) { try { return window.SyDentCurrency.labelOf(cur); } catch (e) { return cur === 'USD' ? '$' : 'ل.س'; } }
+function buildAccSheets() {
+  var R = _accLastRange, layers = computeLayersByCurrency(), act = layers._active;
+  var sum = [], exp = [], prov = [], trend = [], aging = [], credit = [];
+  act.forEach(function(cur){
+    var L = layers[cur], s = L.summary, t = L.totals, a = L.adj || { chargeReductions: 0, refundsTotal: 0 }, c = _accCurLbl(cur);
+    sum.push([c, 'الإيرادات المحصّلة', _accNum(s.revenue)]);
+    if (a.refundsTotal > 0) sum.push([c, 'صافي الإيراد بعد الاسترداد', _accNum(L.netRevenue)]);
+    sum.push([c, 'الإنتاج المنجز', _accNum(s.production)]);
+    if (a.chargeReductions > 0) sum.push([c, 'صافي الإنتاج بعد الخصم', _accNum(L.netProduction)]);
+    sum.push([c, 'معدّل التحصيل %', _accNum(L.collectionRate)]);
+    sum.push([c, 'المصروفات الإجمالية', _accNum(t.totalExpenses)]);
+    sum.push([c, L.netProfit >= 0 ? 'صافي الربح' : 'صافي الخسارة', _accNum(Math.abs(L.netProfit))]);
+    sum.push([c, 'هامش الربح %', _accNum(L.profitMargin)]);
+    if (a.chargeReductions > 0) sum.push([c, 'خصومات وإعفاءات', _accNum(a.chargeReductions)]);
+    if (a.refundsTotal > 0) sum.push([c, 'مبالغ مستردّة', _accNum(a.refundsTotal)]);
+    if (s.unearnedTotal > 0) sum.push([c, 'مدفوعات مقدّمة (غير مكتسبة)', _accNum(s.unearnedTotal)]);
+    (L.breakdown || []).forEach(function(b){
+      exp.push([c, b.name, _accNum(b.amount), t.totalExpenses > 0 ? _accNum(b.amount / t.totalExpenses * 100) : '']);
+    });
+    (L.providerRows || []).forEach(function(p){
+      prov.push([c, p.isUnassigned ? 'بلا طبيب محدد' : p.name, p.sessionCount, _accNum(p.production), _accNum(p.labCost), _accNum(p.collection), _accNum(p.paidOut), _accNum(p.clinicNet)]);
+    });
+    (computeTrend(cur) || []).forEach(function(m){
+      trend.push([c, m.label, _accNum(m.production), _accNum(m.revenue), _accNum(m.netProduction), _accNum(m.collectionRate)]);
+    });
+    var ag = agingResult && agingResult[cur];
+    if (ag && ag.due) ag.due.rows.forEach(function(r){
+      aging.push([c, r.name, r.phone || '', _accNum(r.total)].concat(r.b.map(_accNum)).concat([r.oldestDate || '']));
+    });
+    if (ag && ag.credit) ag.credit.rows.forEach(function(r){ credit.push([c, r.name, r.phone || '', _accNum(r.amount)]); });
+  });
+  var stamp = SyDT.numDate(new Date()) + ' ' + SyDT.hm(new Date().toISOString());
+  sum.push([]); sum.push(['الفترة', R.from + ' ← ' + R.to, '']); sum.push(['أُنشئ', stamp, '']);
+  var bk = (window.SyDentAging && window.SyDentAging.BUCKETS) ? window.SyDentAging.BUCKETS.map(function(b){ return b.label; }) : ['1', '2', '3', '4'];
+  var sheets = [
+    { name: 'الملخّص', headers: ['العملة', 'البند', 'القيمة'], rows: sum, cols: [{wch:7},{wch:30},{wch:18}] },
+    { name: 'المصروفات', headers: ['العملة', 'البند', 'المبلغ', 'النسبة من المصروفات %'], rows: exp, cols: [{wch:7},{wch:30},{wch:16},{wch:20}] },
+    { name: 'الأطباء', headers: ['العملة', 'الطبيب', 'الجلسات', 'الإنتاج', 'المخبر', 'التحصيل', 'المدفوع له', 'صافي العيادة'], rows: prov, cols: [{wch:7},{wch:22},{wch:9},{wch:14},{wch:12},{wch:14},{wch:14},{wch:14}] }
+  ];
+  if (trend.length) sheets.push({ name: 'الاتجاه الشهري', headers: ['العملة', 'الشهر', 'الإنتاج', 'الإيراد', 'صافي الإنتاج', 'معدّل التحصيل %'], rows: trend, cols: [{wch:7},{wch:14},{wch:14},{wch:14},{wch:14},{wch:16}] });
+  if (aging.length) sheets.push({ name: 'تقادم الذمم', headers: ['العملة', 'المريض', 'الهاتف', 'المستحق'].concat(bk).concat(['أقدم استحقاق']), rows: aging });
+  if (credit.length) sheets.push({ name: 'أرصدة دائنة', headers: ['العملة', 'المريض', 'الهاتف', 'رصيده لدى العيادة'], rows: credit });
+  return sheets;
+}
+var _accExportBusy = false;
+async function exportAccExcel() {
+  if (_accExportBusy) return;
+  if (!_accLastRange || _applyInFlight) { if (window.showToast) showToast('⏳ انتظر اكتمال التحميل'); return; }
+  var btn = $('btnExportXlsx'), old = btn ? btn.textContent : '';
+  _accExportBusy = true;
+  if (btn) { btn.disabled = true; btn.textContent = 'جارٍ…'; }
+  try {
+    var kind = await window.SyDentXlsx.save({ filename: 'المحاسبة-' + _accLastRange.from + '_' + _accLastRange.to, sheets: buildAccSheets() });
+    if (window.showToast) showToast(kind === 'xlsx' ? '⬇️ تم تصدير ملف Excel' : '⬇️ تعذّر Excel — صُدّر ملف TSV بديل');
+  } catch (e) { console.error('exportAccExcel:', e); if (window.showToast) showToast('⚠️ تعذّر التصدير'); }
+  finally { _accExportBusy = false; if (btn) { btn.disabled = false; btn.textContent = old; } }
+}
+
+function renderSummaryCards(s, t, netProfit, profitMargin, adj, netRevenue, netProduction, collectionRate) {
+  adj = adj || { chargeReductions: 0, refundsTotal: 0 };
+  var netClass = netProfit >= 0 ? 'green' : 'red';
+  var marginClass = (profitMargin === null) ? 'dim' : (profitMargin >= 0 ? 'green' : 'red');
+  var cr = (typeof collectionRate === 'undefined') ? s.collectionRate : collectionRate;
+  var collectionRateStr = (cr === null) ? '—' : fmtPctCard(cr);   /* v558 (#3) */
+  var revSub  = (adj.refundsTotal > 0 && netRevenue >= 0)
+    ? 'صافي بعد الاسترداد: ' + fmtSY(netRevenue)
+    : 'مدفوعات مُخصّصة للإنتاج (cash basis)';
+  var prodSub = (adj.chargeReductions > 0 && netProduction >= 0)
+    ? 'صافي بعد الخصم: ' + fmtSY(netProduction)
+    : 'الجلسات المكتملة في الفترة';
+  var crSub = (cr === null) ? 'لا يوجد إنتاج'
+            : pctOutOfRange(cr) ? 'تحصيلُ ذممٍ سابقة أكبرُ بكثير من إنتاج هذه الفترة — النسبة لا تعبّر عن أداء الفترة'
+            : (adj.chargeReductions > 0 ? 'الإيراد ÷ صافي الإنتاج' : 'الإيراد ÷ الإنتاج');
+  var netSub = (adj.refundsTotal > 0) ? 'صافي الإيراد − المصروفات' : 'الإيرادات − المصروفات';
+  var marginSub = (profitMargin === null) ? 'لا يوجد إيراد'
+                : pctOutOfRange(profitMargin) ? 'الإيرادُ ضئيلٌ جداً مقابل المصروفات — النسبة لا تعبّر عن أداء الفترة'
+                : (adj.refundsTotal > 0 ? 'الصافي ÷ صافي الإيراد' : 'الصافي ÷ الإيراد');
+
+  return '' +
+    '<div class="summary-grid">' +
+      // Revenue (cash collected, allocated) — gross; net shown in sub when refunds exist
+      '<div class="card green">' +
+        '<div class="label">💰 الإيرادات المحصّلة</div>' +
+        '<div class="value">' + fmtSY(s.revenue) + '</div>' +
+        '<div class="sub">' + revSub + '</div>' +
+      '</div>' +
+      // Production — gross; net (after discounts/write-offs) shown in sub when present
+      '<div class="card blue">' +
+        '<div class="label">💎 الإنتاج المنجز</div>' +
+        '<div class="value">' + fmtSY(s.production) + '</div>' +
+        '<div class="sub">' + prodSub + '</div>' +
+      '</div>' +
+      // Collection rate (collected ÷ net production)
+      '<div class="card yellow">' +
+        '<div class="label">📊 معدّل التحصيل</div>' +
+        '<div class="value">' + collectionRateStr + '</div>' +
+        '<div class="sub">' + crSub + '</div>' +
+      '</div>' +
+      // Total expenses
+      '<div class="card red">' +
+        '<div class="label">💸 المصروفات الإجمالية</div>' +
+        '<div class="value">' + fmtSY(t.totalExpenses) + '</div>' +
+        '<div class="sub">مصاريف + مدفوعات + مخابر</div>' +
+      '</div>' +
+      // Net profit (net revenue − expenses)
+      '<div class="card ' + netClass + '">' +
+        '<div class="label">' + (netProfit >= 0 ? '🟢 صافي الربح' : '🔴 صافي الخسارة') + '</div>' +
+        '<div class="value">' + fmtSY(Math.abs(netProfit)) + '</div>' +
+        '<div class="sub">' + netSub + '</div>' +
+      '</div>' +
+      // Profit margin
+      '<div class="card ' + marginClass + '">' +
+        '<div class="label">📐 هامش الربح</div>' +
+        '<div class="value">' + (profitMargin === null ? '—' : fmtPctCard(profitMargin)) + '</div>' +   /* v558 (#3) */
+        '<div class="sub">' + marginSub + '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+// Adjustments section (Migration 45) — shown only when adjustments exist in the
+// period. Makes the discount/write-off and refund impact explicit for the owner.
+function renderAdjustmentsSection(adj) {
+  if (!adj || adj.adjTotal <= 0) return '';
+  var rows = '';
+  if (adj.chargeReductions > 0) {
+    rows += '<div class="exp-row">' +
+      '<div class="ico">🏷️</div>' +
+      '<div class="name">خصومات وإعدام ديون <span style="color:var(--text2);font-size:11px;">(تخفيض على الإنتاج — ليس نقداً)</span></div>' +
+      '<div class="amt">− ' + fmtSY(adj.chargeReductions) + '</div>' +
+      '<div class="pct"></div>' +
+    '</div>';
+  }
+  if (adj.refundsTotal > 0) {
+    rows += '<div class="exp-row">' +
+      '<div class="ico">💸</div>' +
+      '<div class="name">مبالغ مستردّة <span style="color:var(--text2);font-size:11px;">(نقد خارج — يُخصم من الإيراد)</span></div>' +
+      '<div class="amt">− ' + fmtSY(adj.refundsTotal) + '</div>' +
+      '<div class="pct"></div>' +
+    '</div>';
+  }
+  return '' +
+    '<div class="section">' +
+      '<h2>🧾 التسويات</h2>' +
+      '<div class="exp-list">' + rows + '</div>' +
+    '</div>';
+}
+
+function renderExpenseSection(breakdown, totals) {
+  if (!breakdown.length) {
+    return '' +
+      '<div class="section">' +
+        '<h2>📋 تفصيل المصروفات</h2>' +
+        '<div class="empty">' +
+          '<div class="icon">📭</div>' +
+          '<div class="ttl">لا توجد مصروفات في هذه الفترة</div>' +
+          '<div class="sub">جرّب فترة أوسع أو سجّل مصاريف من صفحة المصاريف</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  // Detect if any salary-hint category was found
+  var hasWarnDup = breakdown.some(function(r){ return r.warnDup; });
+
+  var rowsHtml = breakdown.map(function(r){
+    var warnChip = r.warnDup
+      ? '<span class="warn-chip" title="قد يكون مكرراً مع المدفوعات">⚠️ تحقق</span>'
+      : '';
+    var widthPct = Math.max(0, Math.min(100, r.pct));
+    return '' +
+      '<div class="exp-row">' +
+        '<div class="ico">' + escapeHtml(r.icon) + '</div>' +
+        '<div class="name">' + escapeHtml(r.name) + warnChip + '</div>' +
+        '<div class="amt">' + fmtSY(r.amount) + '</div>' +
+        '<div class="pct">' + fmtPct(r.pct) + '</div>' +
+        '<div class="bar-track">' +
+          '<div class="bar-fill" data-w="' + widthPct.toFixed(2) + '" style="width:0%;background:' + escapeHtml(_sanColor(r.color, 'var(--text3)')) + ';"></div>' +
+        '</div>' +
+      '</div>';
+  }).join('');
+
+  var warnBanner = hasWarnDup
+    ? '<div class="warn-banner">' +
+        '<span class="ico">⚠️</span>' +
+        '<span><b>تنبيه محاسبي:</b> إحدى تصنيفات المصاريف اسمها يوحي بالرواتب أو الحصص. ' +
+        'للحفاظ على دقّة الحسابات، يجب أن تُسجّل رواتب الأطباء والموظفين في صفحة <b>المدفوعات</b> فقط ' +
+        'وليس في المصاريف (لتجنب الازدواج في المحاسبة).</span>' +
+      '</div>'
+    : '';
+
+  return '' +
+    '<div class="section">' +
+      '<h2>📋 تفصيل المصروفات <span class="count">' + breakdown.length + ' تصنيف</span></h2>' +
+      warnBanner +
+      rowsHtml +
+      '<div class="exp-total">' +
+        '<div class="lbl">المجموع</div>' +
+        '<div class="val">' + fmtSY(totals.totalExpenses) + '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+// P3-C1: بطاقة تكلفة المواد المستهلكة — عرض فقط، منفصلة عن معادلة الربح.
+// لا تُضاف لإجمالي المصروفات ولا تؤثّر على صافي الربح. معلومة تقديرية فقط.
+function renderMaterialCostSection() {
+  if (!materialCost || materialCost <= 0) return '';  // لا شيء لعرضه
+  return '' +
+    '<div class="section">' +
+      '<h2>💊 تكلفة المواد المستهلكة <span class="count">تقديري</span></h2>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;background:var(--cyan-soft);border:1px solid var(--cyan-bd);border-radius:12px;">' +
+        '<div style="font-size:13px;color:var(--text2,#8aa3b8);line-height:1.6;">' +
+          'القيمة التقديرية للمواد التي استُهلكت من المخزون في هذه الفترة ' +
+          '(كمية الاستهلاك × سعر الشراء).<br>' +
+          '<strong style="color:var(--cyan);">معلومة مرجعية فقط</strong> — غير مُدرَجة في إجمالي المصروفات أو صافي الربح: ' +
+          'مشترياتُ المواد تدخل الربح حين تُسجَّل كمصروف بصفحة المصاريف، فإدراجُ استهلاكها أيضاً يحسبها مرتين.' +   /* v558 (#4) */
+        '</div>' +
+        '<div style="font-size:20px;font-weight:800;color:var(--cyan);white-space:nowrap;">' + fmtSY(materialCost) + '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// M126/M129 — الإجمالي الموحّد (للجرد فقط): سعرُ صرفٍ يدويّ خاصٌّ بالعيادة يُخزَّن
+// في clinic_settings.usd_report_rate ويُستخدم حصراً لعرض مجموعٍ موحَّدٍ بعملةٍ واحدة
+// أسفل طبقتَي العملة عند نشاطهما معاً — نمطُ الأدمن نفسه (Migration 105):
+//   · لا يمسّ أي سعر علاج أو دفعة أو مصروف — الأرقام الأصلية بعملتها كما هي.
+//   · يجمع مخرجاتِ الطبقتين الجاهزة (revenue / totalExpenses / netProfit) —
+//     صفر استدعاء إضافي للمحرّك وصفر تعديل على أي معادلة.
+//   · لا يظهر إلا عند نشاط العملتين معاً؛ عيادةُ العملة الواحدة لا ترى شيئاً.
+//   · الرقم الموحّد لا يُغذّى للملخّص الذكي — قاعدةُ منع الجمع بين العملتين في
+//     طبقة الـAI (buildDigestFactsAllLayers) تبقى مطلقة.
+//
+// 🔴 M129 — سعرٌ واحد باتجاهين، لا سعران: الطبيبُ يختار وحدةَ الإجمالي (ل.س أو $)
+// والحسابُ ينقلب على السعر نفسه — ليرة: SYP + USD×السعر · دولار: USD + SYP÷السعر.
+// وحقلُ الإدخال يبقى واحداً («1 دولار = كم ليرة؟») بالوضعين عمداً: سعرٌ ثانٍ مستقلّ
+// كان سيسمح بانحرافٍ صامت ($1=13000 بينما 1ل.س=1/14000) وهو رقمٌ صحيحُ الشكل
+// كاذبُ المعنى. والافتراضُ بغياب اختيارٍ صريح هو عملةُ العيادة لا الليرةُ المثبَّتة
+// (سابقة v200): عيادةُ الدولار كانت مقفولةً على وحدةٍ ليست وحدتها.
+// ═══════════════════════════════════════════════════════════════════════════
+// عملةُ الإجمالي الفعّالة: المختارُ صراحةً، وإلا عملةُ العيادة، وإلا الليرة.
+function _accUnifyCurEff() {
+  if (ACC_UNIFY_CUR === 'USD' || ACC_UNIFY_CUR === 'SYP') return ACC_UNIFY_CUR;
+  try {
+    return (window.SyDentCurrency && window.SyDentCurrency.code() === 'USD') ? 'USD' : 'SYP';
+  } catch (e) { return 'SYP'; }
+}
+// تحويلٌ عرضيّ باتجاهٍ واحدٍ لكل وضع — بسعرٍ موجبٍ محقَّقٍ عند نقطة النداء.
+function _accToUnified(sypVal, usdVal, rate, cur) {
+  return (cur === 'USD') ? (usdVal + sypVal / rate) : (sypVal + usdVal * rate);
+}
+function _accFmtUnified(n, cur) {
+  var v = Math.round(Number(n) * 100) / 100;
+  var st = (v % 1 === 0)
+    ? Math.round(v).toLocaleString('en-US')
+    : v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return st + (cur === 'USD' ? ' $' : ' ل.س');
+}
+// مبدّلُ وحدة الإجمالي — نصوصٌ ثابتة حرفياً بلا أي إقحامٍ لمُدخَل (صفر سطح XSS).
+function _accUnifySeg(cur) {
+  function opt(c, lbl) {
+    var on = (cur === c);
+    return '<button type="button" role="radio" aria-checked="' + (on ? 'true' : 'false') + '" ' +
+      'onclick="setAccUnifyCur(\'' + c + '\')" ' +
+      'style="padding:6px 16px;border-radius:8px;cursor:pointer;font-size:13px;' +
+      'font-family:\'Cairo\', sans-serif;' +
+      'font-weight:' + (on ? '800' : '600') + ';' +
+      'border:1px solid ' + (on ? 'var(--purple)' : 'var(--border)') + ';' +
+      'background:' + (on ? 'rgba(139,92,246,0.18)' : 'var(--bg3)') + ';' +
+      'color:' + (on ? 'var(--purple)' : 'var(--text2,#8aa3b8)') + ';">' + lbl + '</button>';
+  }
+  return '<div role="radiogroup" aria-label="عملة الإجمالي الموحّد" style="display:inline-flex;gap:6px;">' +
+    opt('SYP', 'ل.س') + opt('USD', '$') + '</div>';
+}
+function renderUnifiedReportCard(layers, act) {
+  if (!act || act.length < 2) return '';   // عملة واحدة نشطة — لا توحيد ولا بطاقة
+  var S = layers.SYP, U = layers.USD;
+  if (!S || !U) return '';
+  var rate = (isFinite(ACC_USD_RATE) && ACC_USD_RATE > 0) ? ACC_USD_RATE : 0;
+  var uCur = _accUnifyCurEff();
+  var body;
+  if (rate > 0) {
+    var uRev = _accToUnified(S.summary.revenue,      U.summary.revenue,      rate, uCur);
+    var uExp = _accToUnified(S.totals.totalExpenses, U.totals.totalExpenses, rate, uCur);
+    var uNet = _accToUnified(S.netProfit,            U.netProfit,            rate, uCur);
+    // مجموع الاستردادات موحَّداً — الصافي محسوبٌ من صافي الإيراد (الإجمالي ناقص
+    // الاسترداد) بينما المعروض أعلاه هو الإجمالي، تماماً كبطاقات الطبقة الواحدة.
+    // فلولا هذا السطر يطرح الطبيبُ الرقمين وقتَ الجرد فيجد فرقاً بلا تفسير —
+    // وهو نفس عقد revSub ببطاقة الإيرادات: الرقم الصحيح الذي يُقرأ خطأً خطأٌ.
+    var uRefunds = _accToUnified(S.adj.refundsTotal, U.adj.refundsTotal, rate, uCur);
+    var revSubU = (uRefunds > 0)
+      ? '<div style="font-size:11px;color:var(--text2,#8aa3b8);margin-top:2px;">صافي بعد الاسترداد: ' + _accFmtUnified(uRev - uRefunds, uCur) + '</div>'
+      : '';
+    var netColor = uNet >= 0 ? 'var(--green)' : 'var(--red)';
+    body =
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:12px;">' +
+        '<div><div style="font-size:12px;color:var(--text2,#8aa3b8);">💰 الإيرادات الموحّدة</div>' +
+          '<div style="font-size:18px;font-weight:800;">' + _accFmtUnified(uRev, uCur) + '</div>' + revSubU + '</div>' +
+        '<div><div style="font-size:12px;color:var(--text2,#8aa3b8);">💸 المصروفات الموحّدة</div>' +
+          '<div style="font-size:18px;font-weight:800;">' + _accFmtUnified(uExp, uCur) + '</div></div>' +
+        '<div><div style="font-size:12px;color:var(--text2,#8aa3b8);">📈 صافي الربح الموحّد</div>' +
+          '<div style="font-size:18px;font-weight:800;color:' + netColor + ';">' + _accFmtUnified(uNet, uCur) + '</div></div>' +
+      '</div>' +
+      // سطرُ السعر بيانٌ عن السعر نفسه لا عن الإجمالي، فيبقى بصيغته الليرية
+      // بالوضعين — هو السعرُ الواحد الذي ينقلب عليه الاتجاهان.
+      '<div style="font-size:12px;color:var(--text2,#8aa3b8);margin-top:10px;">$1 = ' + _accFmtUnified(rate, 'SYP') + ' (سعر التقارير)</div>';
+  } else {
+    body = '<div style="font-size:13px;color:var(--yellow);margin-top:12px;">⚠️ حسابك يحوي حركة بالليرة والدولار معاً — اضبط سعر الصرف أدناه لرؤية المجموع الموحّد.</div>';
+  }
+  return '' +
+    '<div class="section" id="accUnifiedCard">' +
+      '<h2>🔗 الإجمالي الموحّد — ' + (uCur === 'USD' ? 'بالدولار' : 'بالليرة') + ' <span class="count">للجرد فقط</span></h2>' +
+      '<div style="padding:14px 16px;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.25);border-radius:12px;">' +
+        '<div style="font-size:13px;color:var(--text2,#8aa3b8);line-height:1.6;">' +
+          'تجميعٌ عرضيّ لطبقتَي الليرة والدولار بسعر صرفٍ تُدخله يدوياً. ' +
+          '<strong style="color:var(--purple);">للتقارير والجرد فقط</strong> — لا يمسّ أي دفعة أو سعر أو مصروف مسجَّل، وكل طبقة أعلاه تبقى بعملتها كما هي.' +
+        '</div>' +
+        body +
+        '<div style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap;">' +
+          '<label style="font-size:13px;white-space:nowrap;">عملة الإجمالي</label>' +
+          _accUnifySeg(uCur) +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;">' +
+          '<label for="accUsdRateInput" style="font-size:13px;white-space:nowrap;">1 دولار = كم ليرة؟</label>' +
+          '<input type="number" id="accUsdRateInput" min="0" step="any" autocomplete="off" placeholder="مثلاً 15000" value="' + (rate > 0 ? rate : '') + '" ' +
+            'style="width:140px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:\'Cairo\', sans-serif;font-size:13px;">' +
+          '<button type="button" id="btnAccSaveUsdRate" onclick="saveAccUsdRate()" class="btn-apply">💾 حفظ السعر</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+}
+async function saveAccUsdRate() {
+  if (_accRateSaveInFlight) return;
+  if (!window.sb || !currentUser) { if (window.showToast) showToast('الجلسة غير جاهزة — أعد تحميل الصفحة', true); return; }
+  var inp = document.getElementById('accUsdRateInput');
+  var btn = document.getElementById('btnAccSaveUsdRate');
+  if (!inp) return;
+  var val = String(inp.value || '').trim();
+  var n = null;
+  if (val !== '') {
+    n = Number(val);
+    if (!isFinite(n) || n <= 0) {
+      if (window.showToast) showToast('سعر الصرف يجب أن يكون رقماً أكبر من صفر، أو اتركه فارغاً لإلغائه', true);
+      return;
+    }
+  }
+  _accRateSaveInFlight = true;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري الحفظ...'; }
+  try {
+    // نمط settings.html الحرفي: upsert على صف المالك (onConflict: owner_id).
+    var payload = { owner_id: currentUser.id, usd_report_rate: n, updated_at: new Date().toISOString() };
+    var res = await window.sb.from('clinic_settings').upsert(payload, { onConflict: 'owner_id' });
+    if (res.error) {
+      if (window.showToast) showToast('فشل الحفظ: ' + (res.error.message || ''), true);
+      return;
+    }
+    ACC_USD_RATE = (n !== null && n > 0) ? n : null;
+    if (window.showToast) showToast(n !== null ? '✅ تم حفظ سعر صرف التقارير' : 'أُلغي سعر الصرف');
+    // تحديثٌ بالمكان لا إعادةَ رسمٍ كاملة: render() تُصفّر lastDigest عمداً (ملخّصٌ
+    // قديم فوق أرقام جديدة أسوأ من لا ملخّص — عقد v143)، لكن ذلك عقدُ *تغيّر
+    // البيانات*؛ وهنا لم تتغيّر جلسةٌ ولا دفعة، بل رقمُ عرضٍ وحده. وإسقاطُ ملخّصٍ
+    // مولَّدٍ يكلّف الطبيب نداءَ AI ثانياً من سقفه الشهري بلا سبب.
+    _accRepaintUnifiedCard();
+  } catch (ex) {
+    if (window.showToast) showToast('خطأ غير متوقع: ' + (ex && ex.message ? ex.message : String(ex)), true);
+  } finally {
+    _accRateSaveInFlight = false;
+    var b2 = document.getElementById('btnAccSaveUsdRate');
+    if (b2) { b2.disabled = false; b2.textContent = '💾 حفظ السعر'; }
+  }
+}
+// تحديثٌ بالمكان معلَّقٌ بالغلاف المُعرَّف لا بالموضع (عقد v193): مصدرٌ واحدٌ
+// يخدم مساري الحفظ معاً فيستحيل أن ينحرف أحدهما عن الآخر.
+function _accRepaintUnifiedCard() {
+  var _uc = document.getElementById('accUnifiedCard');
+  if (_uc) {
+    var _L = computeLayersByCurrency();
+    _uc.outerHTML = renderUnifiedReportCard(_L, _L._active);
+  } else {
+    var _f = $('fromDate'), _t = $('toDate');
+    if (_f && _t && !_blocked()) render(_f.value, _t.value);  // ارتداد دفاعي (null-safe — F2)
+  }
+}
+// M129: اختيارُ وحدة الإجمالي الموحّد. كتابةُ عمودِ عرضٍ وحده — صفر مبلغ بالحمولة
+// وصفر مساسٍ بأي صفٍّ ماليّ؛ والقيمةُ enum مغلق يفرضه قيدُ القاعدة كذلك.
+async function setAccUnifyCur(cur) {
+  var n = (cur === 'USD') ? 'USD' : 'SYP';
+  if (n === _accUnifyCurEff()) return;              // نفسُ الوضع — صفر نداء وصفر رسم
+  if (_accUnifySaveInFlight) return;
+  if (!window.sb || !currentUser) { if (window.showToast) showToast('الجلسة غير جاهزة — أعد تحميل الصفحة', true); return; }
+  _accUnifySaveInFlight = true;
+  try {
+    // نمط settings.html الحرفي: upsert على صف المالك (onConflict: owner_id).
+    var payload = { owner_id: currentUser.id, report_unify_currency: n, updated_at: new Date().toISOString() };
+    var res = await window.sb.from('clinic_settings').upsert(payload, { onConflict: 'owner_id' });
+    if (res.error) {
+      if (window.showToast) showToast('فشل حفظ عملة الإجمالي: ' + (res.error.message || ''), true);
+      return;                                        // الحالةُ لم تُلمس ⇒ لا شيء يُرجَّع
+    }
+    // 🔴 الإسنادُ بعد تأكيد الكتابة حصراً — لا قبلها ولا بتفاؤل: واجهةٌ تعرض ما ليس
+    // محفوظاً أسوأ من واجهةٍ تنتظر (ثابت v211). وبهذا يستحيل وجودُ حالةٍ تحتاج
+    // ترجيعاً، فلا سطرَ ترجيعٍ ميتاً يوهم قارئَه بحمايةٍ لا يقدّمها.
+    ACC_UNIFY_CUR = n;
+    if (window.showToast) showToast(n === 'USD' ? '✅ الإجمالي الموحّد بالدولار' : '✅ الإجمالي الموحّد بالليرة');
+  } catch (ex) {
+    if (window.showToast) showToast('خطأ غير متوقع: ' + (ex && ex.message ? ex.message : String(ex)), true);
+  } finally {
+    _accUnifySaveInFlight = false;
+    _accRepaintUnifiedCard();
+  }
+}
+
+// فاصل «معلومات إضافية» — نمط Supplementary Information: المعلومات التكميلية
+// تلي القوائم الأساسية ولا تدخل فيها. لا يُطبع إلا إذا تلته بطاقة واحدة على الأقل
+// (المستدعي يحرس ذلك) — عنوانٌ فوق فراغ أسوأ من لا عنوان.
+function renderSupplementaryDivider() {
+  return '' +
+    '<div class="supp-head">' +
+      '<div class="ttl">📎 معلومات إضافية</div>' +
+      '<div class="sub">أرقام مرجعية خارج معادلة الربح — لأن كلفتها محسوبة أصلاً: تكلفةُ المخبر تدخل المصروفات لحظة الإرسال، ' +
+        'ومشترياتُ المواد حين تُسجَّل كمصروف. إدخالُها هنا مرةً ثانية يحسبها مرتين.</div>' +   /* v558 (#4) */
+    '</div>';
+}
+
+// Migration 118: بطاقة ذمم المخابر — عرض فقط، منفصلة عن معادلة الربح.
+// لا تُضاف لإجمالي المصروفات ولا تؤثّر على صافي الربح: تكلفة المخبر مصروفٌ
+// مُعترَف به لحظة الإرسال (labsTotal)، وهذه الذمة تتبّع سدادٍ فقط (رقم ميزانية).
+function renderLabPayableSection() {
+  if (labPayable === null) return '';  // الجدول غائب/فشل الجلب → لا شيء لعرضه
+  var _g  = labPayableGross ||
+            { due: (labPayable > 0 ? labPayable : 0), credit: (labPayable < 0 ? -labPayable : 0) };
+  var _bothWays = (_g.due > 0 && _g.credit > 0);
+  var _note = '<strong style="color:var(--yellow);">رقم ميزانية فقط</strong> — تكلفة المخبر محسوبة أصلاً في المصروفات لحظة الإرسال، فدفعات السداد لا تدخل صافي الربح (منعاً للازدواج).';
+
+  /* 🔴 اتجاهان معاً ⇒ سطران، وصفر رقمٍ مقاصّ. عرضُ الفرق وحده كان يمحو أحد
+     الطرفين من الشاشة تماماً، والمقاصّةُ نفسها غير صحيحة: ما تدين به لمخبرٍ
+     ليس أقلَّ لأن لك رصيداً عند مخبرٍ آخر. واتجاهٌ واحد ⇒ المخرجُ بايت-مطابق
+     لما قبل هذا التغيير حرفياً (لا سطرَ ثانٍ ولا نصَّ إضافي). */
+  if (_bothWays) {
+    var _line = function(lbl, val, color){
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;">' +
+               '<div style="font-size:15px;font-weight:800;color:' + color + ';">' + lbl + '</div>' +
+               '<div style="font-size:20px;font-weight:800;color:' + color + ';white-space:nowrap;">' + fmtSY(val) + '</div>' +
+             '</div>';
+    };
+    return '' +
+      '<div class="section">' +
+        '<h2>🥽 ذمم المخابر <span class="count">حتى اليوم</span></h2>' +
+        '<div style="padding:14px 16px;background:var(--orange-soft);border:1px solid var(--orange-bd);border-radius:12px;">' +
+          _line('المستحق المتبقي للمخابر', _g.due, 'var(--yellow)') +
+          '<div style="height:1px;background:var(--orange-bd);margin:10px 0;"></div>' +
+          _line('رصيد لصالح العيادة عند مخابر أخرى', _g.credit, 'var(--green)') +
+          '<div style="font-size:13px;color:var(--text2,#8aa3b8);line-height:1.6;margin-top:10px;">' +
+            'الرقمان <strong style="color:var(--text,#e6edf3);">لا يُقاصّان</strong> — ذمّة كل مخبر التزامٌ مستقل، والرصيد الذي لك عند مخبرٍ لا ينقص ما تدين به لآخر.<br>' +
+            _note +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  var isCredit = labPayable < 0;
+  var shown = Math.abs(labPayable);
+  var color = labPayable > 0 ? 'var(--yellow)' : 'var(--green)';
+  var lbl = labPayable > 0 ? 'المستحق المتبقي للمخابر'
+          : (isCredit ? 'رصيد لصالح العيادة عند المخابر' : 'ذمم المخابر مسدَّدة بالكامل');
+  return '' +
+    '<div class="section">' +
+      '<h2>🥽 ذمم المخابر <span class="count">حتى اليوم</span></h2>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;background:var(--orange-soft);border:1px solid var(--orange-bd);border-radius:12px;">' +
+        '<div style="font-size:13px;color:var(--text2,#8aa3b8);line-height:1.6;">' +
+          '<div style="font-size:15px;font-weight:800;color:' + color + ';margin-bottom:6px;">' + lbl + '</div>' +
+          '<strong style="color:' + color + ';">رقم ميزانية فقط</strong> — تكلفة المخبر محسوبة أصلاً في المصروفات لحظة الإرسال، فدفعات السداد لا تدخل صافي الربح (منعاً للازدواج).' +
+        '</div>' +
+        '<div style="font-size:20px;font-weight:800;color:' + color + ';white-space:nowrap;">' + fmtSY(shown) + '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+function renderProviderSection(rows) {  if (!rows.length) {
+    return '' +
+      '<div class="section">' +
+        '<h2>👨‍⚕️ الأداء حسب الطبيب</h2>' +
+        '<div class="empty">' +
+          '<div class="icon">📭</div>' +
+          '<div class="ttl">لا يوجد نشاط للأطباء في هذه الفترة</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  // Sort by collection descending
+  rows.sort(function(a, b){ return b.collection - a.collection; });
+
+  // Compute non-clinical payouts (employee_id-only, no provider_id) for the
+  // explanatory note. These are sums shown in the totals/breakdown but not
+  // in the per-doctor rows.
+  // قاعدة #481: هذه الدالة تُنادى مرةً لكل طبقة عملة، وغلافُ الطبقة
+  // يُرجِعُ المصفوفات قبل الرسم — فـ`payouts` هنا كاملةٌ غير مفلترة.
+  // والوسم صحيحٌ أصلاً (fmtSY ← fmtCurLabel ← _renderCur)، فالرقم وحده
+  // كان يجمع الليرة مع الدولار ثم يُطبَع مرتين تحت وسمين مختلفين.
+  var nonClinicalPayouts = 0;
+  var _ncCur = _renderCur || _defCurAcc();
+  for (var i = 0; i < payouts.length; i++) {
+    if (!payouts[i].provider_id && _rowCur(payouts[i]) === _ncCur) {
+      nonClinicalPayouts += Number(payouts[i].amount) || 0;
+    }
+  }
+
+  // F8: العدّادُ يعدّ الأطباءَ الفعليين فقط — صفّا «غير محدد» و«أطباء محذوفون» دلوان
+  // تجميعيان لا طبيبان، فكان الرقمُ يكذب على لصيقته.
+  var nDoctors = rows.filter(function(r){ return !r.isUnassigned && !r.isDeleted; }).length;
+  var rowsHtml = rows.map(function(r){
+    var netClass = r.clinicNet >= 0 ? 'net-pos' : 'net-neg';
+    var dotStyle = 'background:' + escapeHtml(_sanColor(r.color));
+    var ownerBadge = r.isOwner ? '<span class="badge">المالك</span>' : '';
+    var inactiveBadge = !r.isActive && !r.isDeleted && !r.isUnassigned
+      ? '<span class="badge tone tone-red">معطّل</span>'
+      : '';
+    var unassignedBadge = r.isUnassigned ? '<span class="badge">غير محدد</span>' : '';
+    var deletedBadge = r.isDeleted
+      ? '<span class="badge tone tone-red">محذوف</span>'
+      : '';
+
+    return '' +
+      '<tr>' +
+        '<td>' +
+          '<div class="prov-name">' +
+            '<div class="prov-dot" style="' + dotStyle + '"></div>' +
+            '<span>' + escapeHtml(r.name) + '</span>' +
+            ownerBadge + inactiveBadge + unassignedBadge + deletedBadge +
+          '</div>' +
+        '</td>' +
+        '<td class="num">' + r.sessionCount + '</td>' +
+        '<td class="num">' + fmtSY(r.production) + '</td>' +
+        '<td class="num">' + fmtSY(r.collection) + '</td>' +
+        '<td class="num">' + fmtSY(r.labCost) + '</td>' +
+        '<td class="num">' + fmtSY(r.paidOut) + '</td>' +
+        '<td class="num ' + netClass + '">' +
+          (r.clinicNet >= 0 ? '' : '−') + fmtSY(Math.abs(r.clinicNet)) +
+        '</td>' +
+      '</tr>';
+  }).join('');
+
+  return '' +
+    '<div class="section">' +
+      '<h2>👨‍⚕️ الأداء حسب الطبيب' + (nDoctors ? ' <span class="count">' + nDoctors + ' طبيب</span>' : '') + '</h2>' +
+      '<div class="tbl-wrap">' +
+      '<table class="providers">' +
+        '<thead><tr>' +
+          '<th>الطبيب</th>' +
+          '<th style="text-align:left;">الجلسات</th>' +
+          '<th style="text-align:left;">الإنتاج</th>' +
+          '<th style="text-align:left;">المحصّل</th>' +
+          '<th style="text-align:left;">المخبر</th>' +
+          '<th style="text-align:left;">المدفوع له</th>' +
+          '<th style="text-align:left;">صافي العيادة</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rowsHtml + '</tbody>' +
+      '</table>' +
+      '</div>' +
+      '<details class="calc-note">' +
+        '<summary>ℹ️ كيف تُحسب هذه الأرقام؟</summary>' +
+        '<div class="calc-note-body">' +
+        '<b>صافي العيادة</b> = ما حصّلته العيادة من إنتاج هذا الطبيب − تكلفة المخبر المرتبطة بإنتاجه − ما دُفع له. ' +
+        'القيمة الموجبة تعني ربح العيادة بعد تعويض الطبيب؛ السالبة تعني الطبيب قُبض منه أكثر مما تحصّل من إنتاجه (طبيعي عندما يكون الإنتاج لم يُحصَّل بعد).' +
+        '<br><br>📐 <b>عن المخبر:</b> تكلفة المخبر تُنسب لكل طبيب من الطبيب المسجَّل على طلب المخبر نفسه لحظة إنشائه، لكل طلبٍ مُرسَل ضمن الفترة (غير مرفوض وغير مسودّة). كل طلب يُحسب مرة واحدة، فمجموع هذا العمود يساوي «تكاليف المخابر» في تفصيل المصروفات تماماً؛ والطلبات بلا طبيب محدد تظهر في صف «غير محدد».' +
+        (nonClinicalPayouts > 0
+          ? '<br><br>📝 <b>ملاحظة:</b> هذا الجدول يعرض الأطباء فقط. الرواتب المدفوعة للموظفين غير السريريين (سكرتيرة، مساعدين) ' +
+            'ضمن هذه الفترة (' + fmtSY(nonClinicalPayouts) + ') ' +
+            'مُدرَجة في "المصروفات الإجمالية" وتظهر تحت "رواتب وحصص الأطباء والموظفين" في تفصيل المصروفات.'
+          : '') +
+        '</div>' +
+      '</details>' +
+    '</div>';
+}
+
+// ═══ v509: الاتجاهُ الشهري — الإنتاجُ مقابل التحصيل، آخرُ 12 شهراً (Curve «Production vs Collections by month») ═══
+// المبدأ: **لا معادلةَ ثانية.** كلُّ شهرٍ يُحسب بـcomputeSummary وcomputeAdjustmentTotals
+// نفسِهما بعد تبديل السياق (المصفوفاتُ العامّة) على صفوف ذلك الشهر وعملة الطبقة، ثم
+// تُعاد المصفوفاتُ كما كانت (نمطُ computeLayersByCurrency). تحميلٌ واحد يعكس تعريفات
+// loadSessions/loadPayments/loadPaymentSplits/loadSplitSessionStatuses حرفياً (التوزيعاتُ
+// بمعرّف الدفعة لا بتاريخها · حالاتُ جلسات التوزيعات مستقلةٌ عن النافذة · مقاطعُ 150).
+// عرضٌ فقط: لا يدخل حقائقَ الملخّص الذكي ولا الإجماليَّ الموحّد ولا أيَّ رقمٍ آخر.
+var trendData = null;      // { months, sessions, payments, splits, statuses, adjustments } — null = فشل/غير محمَّل
+var _trendLoaded = false;
+var TREND_MONTHS = 12;
+var TREND_GOALS = { SYP: null, USD: null };   // v521 (M159): الهدفُ الشهري الحالي لكل عملة — عرضٌ فقط
+function trendMonths(todayYmd) {
+  var p = String(todayYmd).split('-'), y = +p[0], m = +p[1] - 1;
+  var out = [];
+  for (var k = TREND_MONTHS - 1; k >= 0; k--) {
+    var mm = m - k, yy = y + Math.floor(mm / 12); mm = ((mm % 12) + 12) % 12;
+    var last = new Date(yy, mm + 1, 0).getDate();
+    out.push({ ym: yy + '-' + String(mm + 1).padStart(2, '0'), from: isoDate(yy, mm, 1), to: isoDate(yy, mm, last), label: (mm + 1) + '/' + String(yy).slice(2) });
+  }
+  return out;
+}
+async function loadTrend() {
+  if (_trendLoaded) return;
+  trendData = null;
+  try {
+    var months = trendMonths(todayISO());
+    var from = months[0].from, to = todayISO();
+    var uid = currentUser.id;
+    var rs = await Promise.all([   // v547: مصفّحة — 12 شهراً تتجاوز 1000 صفّ بعيادةٍ مشغولة
+      _pagedAcc(function(){ return window.sb.from('ledger_sessions').select('id, cost, date, status, currency').eq('doctor_id', uid).eq('status', 'completed').gte('date', from).lte('date', to); }),
+      _pagedAcc(function(){ return window.sb.from('ledger_payments').select('id, amount, date, currency').eq('doctor_id', uid).gte('date', from).lte('date', to); }),
+      _pagedAcc(function(){ return window.sb.from('account_adjustments').select('id, kind, amount, date, currency').eq('doctor_id', uid).gte('date', from).lte('date', to); })
+    ]);
+    if (rs[0].error || rs[1].error) { if (!isMigrationMissing(rs[0].error || rs[1].error)) console.warn('loadTrend core:', rs[0].error || rs[1].error); return; }
+    var tSessions = rs[0].data || [], tPayments = rs[1].data || [];
+    var tAdj = (rs[2].error) ? [] : (rs[2].data || []);          // ما قبل Migration 45: بلا تسويات
+    // التوزيعاتُ بمعرّف الدفعة (مرآةُ loadPaymentSplits) — مقاطعُ 150 بالتوازي
+    var CHUNK = 150, pids = tPayments.map(function (p) { return p.id; }), reqs = [];
+    for (var c = 0; c < pids.length; c += CHUNK) {
+      reqs.push((function (ids) { return _pagedAcc(function(){ return window.sb.from('payment_splits').select('id, payment_id, session_id, amount, is_unearned, currency').eq('doctor_id', uid).in('payment_id', ids); }); })(pids.slice(c, c + CHUNK)));
+    }
+    var srs = await Promise.all(reqs), tSplits = [];
+    for (var i = 0; i < srs.length; i++) {
+      if (srs[i].error) {
+        var msg = (srs[i].error.message || '').toLowerCase();
+        var missing = srs[i].error.code === '42P01' || srs[i].error.code === 'PGRST205' || msg.indexOf('payment_splits') !== -1;
+        if (missing) { tSplits = []; break; }               // ما قبل Migration 3: الدفعاتُ الخام هي المصدر
+        console.warn('loadTrend splits:', srs[i].error); return;   // مجموعةٌ ناقصة ⇒ لا اتجاه (لا صمت ولا تضخيم)
+      }
+      tSplits = tSplits.concat(srs[i].data || []);
+    }
+    // حالاتُ جلسات التوزيعات — مستقلةٌ عن النافذة (مرآةُ loadSplitSessionStatuses)
+    var idSet = {}; tSplits.forEach(function (sp) { if (sp.session_id) idSet[sp.session_id] = true; });
+    var sids = Object.keys(idSet), sreqs = [];
+    for (var c2 = 0; c2 < sids.length; c2 += CHUNK) {
+      sreqs.push(window.sb.from('ledger_sessions').select('id, status').eq('doctor_id', uid).in('id', sids.slice(c2, c2 + CHUNK)));
+    }
+    var stRs = await Promise.all(sreqs), tStatuses = {};
+    for (var j = 0; j < stRs.length; j++) {
+      if (stRs[j].error) { if (!isMigrationMissing(stRs[j].error)) console.warn('loadTrend statuses:', stRs[j].error); continue; }   // غيرُ المعروف = غيرُ مكتمل (محافظ)
+      (stRs[j].data || []).forEach(function (row) { tStatuses[row.id] = row.status || 'completed'; });
+    }
+    trendData = { months: months, sessions: tSessions, payments: tPayments, splits: tSplits, statuses: tStatuses, adjustments: tAdj };
+    _trendLoaded = true;
+  } catch (e) { console.warn('loadTrend threw (non-critical):', e); trendData = null; }
+}
+// يُعيد صفوفَ الأشهر لطبقة عملة — بتبديل السياق على دوالّ الصفحة نفسها ثم إرجاعه.
+function computeTrend(cur) {
+  if (!trendData) return null;
+  var keep = { sessions: sessions, payments: payments, paymentSplits: paymentSplits, splitSessionStatus: splitSessionStatus, adjustments: adjustments };
+  var rows = [];
+  try {
+    var td = trendData;
+    var inM = function (r, m) { var d = String(r.date || '').slice(0, 10); return d >= m.from && d <= m.to; };
+    td.months.forEach(function (m) {
+      sessions = td.sessions.filter(function (r) { return _rowCur(r) === cur && inM(r, m); });
+      payments = td.payments.filter(function (r) { return _rowCur(r) === cur && inM(r, m); });
+      var pidSet = {}; payments.forEach(function (p) { pidSet[p.id] = true; });
+      paymentSplits = td.splits.filter(function (sp) { return _rowCur(sp) === cur && pidSet[sp.payment_id]; });
+      splitSessionStatus = td.statuses;
+      adjustments = td.adjustments.filter(function (r) { return _rowCur(r) === cur && inM(r, m); });
+      var s = computeSummary(), adj = computeAdjustmentTotals();
+      var netProduction = s.production - adj.chargeReductions;
+      rows.push({ ym: m.ym, label: m.label, production: s.production, revenue: s.revenue, netProduction: netProduction,
+                  collectionRate: (netProduction > 0) ? (s.revenue / netProduction) * 100 : null });
+    });
+  } finally {
+    sessions = keep.sessions; payments = keep.payments; paymentSplits = keep.paymentSplits;
+    splitSessionStatus = keep.splitSessionStatus; adjustments = keep.adjustments;
+  }
+  return rows;
+}
+function renderTrendSection(cur) {
+  var rows = computeTrend(cur);
+  if (!rows) return '';                                                   // فشلُ التحميل ⇒ لا قسم، لا أثرَ على شيء
+  var any = rows.some(function (r) { return r.production > 0 || r.revenue > 0; });
+  if (!any) return '';
+  var goal = (TREND_GOALS && TREND_GOALS[cur] > 0) ? TREND_GOALS[cur] : null;   // v521: خطُّ الهدف (M159)
+  var max = goal || 0; rows.forEach(function (r) { max = Math.max(max, r.production, r.revenue); });
+  var W = 720, H = 220, padL = 8, padR = 8, padT = 14, padB = 26, n = rows.length;
+  var slot = (W - padL - padR) / n, bw = Math.max(4, Math.floor(slot * 0.32)), gap = 2;
+  var yOf = function (v) { return padT + (H - padT - padB) * (1 - (max > 0 ? v / max : 0)); };
+  var svg = '<svg class="tr-chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="الإنتاج مقابل التحصيل شهرياً">';
+  [0.25, 0.5, 0.75, 1].forEach(function (f) { var y = yOf(max * f); svg += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="var(--border)" stroke-width="1"/>'; });
+  rows.forEach(function (r, i) {
+    var x0 = padL + i * slot + (slot - (2 * bw + gap)) / 2;
+    var yp = yOf(r.production), yr = yOf(r.revenue);
+    svg += '<rect x="' + x0.toFixed(1) + '" y="' + yp.toFixed(1) + '" width="' + bw + '" height="' + (H - padB - yp).toFixed(1) + '" fill="var(--blue)" rx="2"><title>' + escapeHtml(r.label) + ' — إنتاج ' + escapeHtml(fmtSY(r.production)) + '</title></rect>';
+    svg += '<rect x="' + (x0 + bw + gap).toFixed(1) + '" y="' + yr.toFixed(1) + '" width="' + bw + '" height="' + (H - padB - yr).toFixed(1) + '" fill="var(--green)" rx="2"><title>' + escapeHtml(r.label) + ' — تحصيل ' + escapeHtml(fmtSY(r.revenue)) + '</title></rect>';
+    svg += '<text x="' + (padL + i * slot + slot / 2).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" fill="var(--text2)" direction="ltr">' + escapeHtml(r.label) + '</text>';
+  });
+  if (goal) {
+    var yg = yOf(goal);
+    svg += '<line class="tr-goal" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + yg.toFixed(1) + '" y2="' + yg.toFixed(1) + '" stroke="var(--orange)" stroke-width="2" stroke-dasharray="6 4"><title>الهدف الشهري ' + escapeHtml(fmtSY(goal)) + '</title></line>';
+  }
+  svg += '</svg>';
+  var tbl = '<div class="tbl-wrap"><table class="providers tr-table"><thead><tr><th>الشهر</th><th class="num">الإنتاج</th>' + (goal ? '<th class="num">من الهدف</th>' : '') + '<th class="num">التحصيل</th><th class="num">نسبة التحصيل</th></tr></thead><tbody>';
+  rows.forEach(function (r, i) {
+    var rate = r.collectionRate;
+    var cls = (rate !== null && rate < 70) ? ' tr-low' : '';
+    var lbl = (i === n - 1) ? '<bdi>' + escapeHtml(r.label) + '</bdi> <span class="count">حتى اليوم</span>' : '<bdi>' + escapeHtml(r.label) + '</bdi>';
+    var gp = goal ? (r.production / goal) * 100 : null;
+    var gCell = goal ? '<td class="num tr-rate' + (gp >= 100 ? ' tr-hit' : '') + '">' + (gp >= 100 ? '✅ ' : '') + fmtPct(gp) + '</td>' : '';
+    tbl += '<tr><td>' + lbl + '</td><td class="num">' + fmtSY(r.production) + '</td>' + gCell + '<td class="num">' + fmtSY(r.revenue) + '</td><td class="num tr-rate' + cls + '">' + (rate === null ? '—' : fmtPct(rate)) + '</td></tr>';
+  });
+  tbl += '</tbody></table></div>';
+  // v513: مطويٌّ افتراضياً (قرار المالك — «داخل دروب داون»): <details> أصلية، تفتح بالكيبورد وبلا JS.
+  return '<details class="section tr-section" data-tr-cur="' + escapeHtml(cur) + '">' +
+    '<summary><h2>📈 الاتجاه الشهري <span class="count">آخر 12 شهراً</span></h2></summary>' +
+    '<div class="tr-legend"><span><i style="background:var(--blue)"></i>الإنتاج المنجز</span><span><i style="background:var(--green)"></i>الإيرادات المحصّلة</span>' +
+      (goal ? '<span><i class="tr-goal-key"></i>الهدف الشهري ' + fmtSY(goal) + '</span>' : '') + '</div>' +
+    '<div class="tbl-wrap">' + svg + '</div>' + tbl +
+    '<div class="tr-note">كلُّ شهرٍ محسوبٌ بمعادلات هذه الصفحة نفسها (الإنتاج = الجلسات المنجزة بتاريخها · التحصيل = المدفوعات المخصّصة للإنجاز بتاريخ الدفع · النسبة = التحصيل ÷ صافي الإنتاج بعد الخصم) — مستقلٌّ عن الفترة المختارة أعلاه. الشهرُ الأخير جزئيّ.' +
+      (goal ? ' «من الهدف» = الإنتاجُ ÷ الهدفِ الشهري <b>الحالي</b> بالإعدادات، مطبَّقاً على كل الأشهر (الأهدافُ السابقة لا تُحفظ).' : '') + '</div>' +
+  '</details>';
+}
+
+// v508: كشف اليوم — المحرّك بـacc-daysheet.js (يومٌ واحد، طرقُ الدفع عبر pay-methods.js، بلا كتابة).
+function dsFmt(n, cur) { var keep = _renderCur; _renderCur = cur; var s = fmtSY(n); _renderCur = keep; return s; }
+function loadDaySheet() {
+  try {
+    var host = $('daySheetHost');
+    if (!host || !window.SyDentDaySheet || !currentUser) return;
+    /* v517: ?ds=YYYY-MM-DD من ملخّص أمس باللوحة — يفتح كشفَ ذلك اليوم ويمرّر إليه (طبقةُ عرضٍ بحتة). */
+    var _dsQ = '';
+    try { _dsQ = new URLSearchParams(window.location.search || '').get('ds') || ''; } catch (e) { _dsQ = ''; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(_dsQ)) _dsQ = '';
+    window.SyDentDaySheet.mount(host, window.sb, currentUser.id, dsFmt).then(function () {
+      if (!_dsQ) return;
+      return window.SyDentDaySheet.pick(_dsQ).then(function () { try { host.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} });
+    }).catch(function (e) { console.warn('daysheet (non-critical):', e); });
+  } catch (e) { console.warn('daysheet (non-critical):', e); }
+}
+
+// v507: تقادمُ ذمم المرضى — المحرّك بـacc-aging.js (مرآةُ رصيد اللوحة، بلا كتابة).
+async function loadAging() {
+  agingResult = null;
+  try {
+    if (!window.SyDentAging || !currentUser) return;
+    var r = await window.SyDentAging.load(window.sb, currentUser.id);
+    if (r && r.ok) agingResult = window.SyDentAging.compute(r.data, todayISO());
+  } catch (e) { console.warn('loadAging (non-critical):', e); agingResult = null; }
+}
+function renderAgingSection(cur) {
+  if (!agingResult || !window.SyDentAging) return '';   // فشلٌ/غياب ⇒ لا شيء، ولا أثر على أي رقم آخر
+  return window.SyDentAging.renderSection(agingResult[cur], cur, fmtSY);
+}
+
+function renderUnearnedSection(s) {
+  if (s.unearnedTotal <= 0) return '';
+  return '' +
+    '<div class="section" style="border-color:var(--yellow-bd);">' +
+      '<h2 style="color:var(--yellow-ink);">💳 رصيد مدفوعات مقدّمة (غير مُكتسَب)</h2>' +
+      '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">' +
+        '<div style="font-size:24px;font-weight:700;color:var(--yellow);">' + fmtSY(s.unearnedTotal) + '</div>' +
+        '<div style="font-size:12px;color:var(--text2);line-height:1.6;flex:1;min-width:200px;">' +
+          'مدفوعات استلمتها العيادة في هذه الفترة لكن لم تُخصَّص لإنتاج بعد ' +
+          '(prepayments / credits). محاسبياً هذه التزام على العيادة، وليست إيراداً. ' +
+          'تظهر هنا للشفافية ولا تدخل في صافي الربح.' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+// ─── Debug panel ───────────────────────────────────────────────────────────
+function toggleDebugPanel() {
+  var p = $('debugPanel');
+  p.classList.toggle('show');
+  if (p.classList.contains('show')) refreshDebugPanel();
+}
+
+function refreshDebugPanel() {
+  if (!$('debugPanel').classList.contains('show')) return;
+  if (!lastIdentities) return;
+  var html = '';
+  lastIdentities.forEach(function(t){
+    var cls = t.pass ? 'pass' : 'fail';
+    var icon = t.pass ? '✓' : '✗';
+    html += '<div class="row"><span class="' + cls + '">' + icon + ' ' + escapeHtml(t.name) + '</span></div>';
+    html += '<div class="row" style="font-size:10px;color:var(--text3);padding-right:14px;">' + escapeHtml(t.detail) + '</div>';
+  });
+  $('debugBody').innerHTML = html;
+}
+
+// ─── Boot ──────────────────────────────────────────────────────────────────
+// زر hamburger للـ page-header (Phase 7.6H follow-up: live test كشف أن
+// accounting.html ينقصها hamburger. الصفحة تستعمل .page-header بدلاً من
+// .topbar، لذا تطلّب canonical pattern معدّل: querySelector('.page-header').
+// كل صفحات tenant الأخرى تستعمل .topbar — لكن accounting.html design مختلف.)
+document.addEventListener('DOMContentLoaded', function() {
+  var btn = document.createElement('button');
+  btn.className = 'sb-hamburger';
+  btn.id = 'sbHamburgerBtn';
+  btn.setAttribute('aria-label', 'القائمة');
+  btn.innerHTML = '<span></span><span></span><span></span>';
+  btn.onclick = function() { window.sbToggle(); };
+  window._sbBtn = btn;
+  var header = document.querySelector('.page-header');
+  if (header) header.insertBefore(btn, header.firstChild);
+});
+
+init();
+</script>
+
+</body>
+</html>

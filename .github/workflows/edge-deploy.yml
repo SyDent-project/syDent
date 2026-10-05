@@ -1,0 +1,73 @@
+# ════════════════════════════════════════════════════════════════════════
+# SyDent — Edge Functions auto-deploy
+# ════════════════════════════════════════════════════════════════════════
+# الغرض
+#   نشر Edge Functions (admin-ops + ai-assist) تلقائياً عبر Supabase CLI
+#   بدل النسخ-واللصق اليدوي في الـ Dashboard. الريبو هو مصدر الحقيقة.
+#
+# متى يعمل؟
+#   • push على main يلمس supabase/functions/** أو هذا الملف نفسه.
+#   • يدوياً عبر Run workflow (workflow_dispatch) — للتجربة أو إعادة النشر.
+#   ملاحظة: لا ينتظر بوابة ci-guards لأن الحُرّاس لا يفحصون Deno/TS أصلاً،
+#   والـ functions لا تُخدَم من Cloudflare Pages (مسار نشر مستقل).
+#
+# الأسرار المطلوبة (Repository secrets)
+#   • SUPABASE_ACCESS_TOKEN — توكن حساب Supabase (sbp_…) باسم
+#     github-edge-deploy، يقرؤه الـ CLI تلقائياً من env.
+#
+# أمان (حرج)
+#   --no-verify-jwt إلزامي لكل function: نموذج SyDent يقوم على
+#   verify_jwt=OFF والمصادقة كاملة داخل الـ handler (getUser(jwt) ثم
+#   platform_admins / clinic_settings). لو انقلب ON تنكسر admin-ops
+#   وai-assist بـ401 (العميل يستعمل sb_publishable_ الجديد والبوابة
+#   legacy-JWT). supabase/config.toml يثبّت الإعداد إعلانياً أيضاً.
+#   ANTHROPIC_API_KEY سر منصّة (Edge Functions secrets) — لا يُلمس هنا.
+#
+# النشر بدون Docker: --use-api (تجميع عبر Management API مباشرة).
+# ════════════════════════════════════════════════════════════════════════
+name: Edge Functions Deploy
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/edge-deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: edge-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: rycqzpdhxabpqrdgtdzg
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      - name: Deploy admin-ops (verify_jwt OFF)
+        run: supabase functions deploy admin-ops --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+
+      - name: Deploy ai-assist (verify_jwt OFF)
+        run: supabase functions deploy ai-assist --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+
+      - name: Summary
+        run: |
+          echo "## Edge Functions deployed ✅" >> "$GITHUB_STEP_SUMMARY"
+          echo "- admin-ops → https://$PROJECT_REF.functions.supabase.co/admin-ops" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ai-assist → https://$PROJECT_REF.functions.supabase.co/ai-assist" >> "$GITHUB_STEP_SUMMARY"
+          echo "- verify_jwt: OFF (بالتصميم — المصادقة داخل الـ handler)" >> "$GITHUB_STEP_SUMMARY"

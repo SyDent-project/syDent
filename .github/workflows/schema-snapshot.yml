@@ -1,0 +1,89 @@
+# ════════════════════════════════════════════════════════════════════════
+# SyDent — schema-snapshot.yml  ·  لقطة الـ schema داخل الريبو (الخطوة 2.1)
+# ════════════════════════════════════════════════════════════════════════
+# الغاية
+#   حفظ بنية قاعدة البيانات (DDL: جداول · دوال · سياسات RLS · فهارس) داخل
+#   الريبو الرئيسي كـ db/schema.sql، حتى يصير الريبو مكتفياً ذاتياً لإعادة
+#   البناء والتسليم — لا يعتمد فقط على ريبو النسخ الاحتياطي المنفصل.
+#
+# ليش
+#   migrations الحالية تبدأ من 9.1؛ القاعدة (patients/treatments/…) ليست
+#   ضمنها كـ migrations. هذه اللقطة توثّق البنية الكاملة الحيّة في مكان واحد.
+#   (النسخ الاحتياطي اليومي يلتقط schema.sql أيضاً، لكن في ريبو SyDent-backups
+#    الخاص — هذه نسخة مرئية داخل الريبو الرئيسي للمطوّر المستلم.)
+#
+# الأمان
+#   • يعيد استخدام السر الموجود SUPABASE_DB_URL (نفسه المستخدَم في backup.yml)
+#     — لا سرّ جديد.
+#   • dump الـ schema = DDL فقط (بلا بيانات، بلا كلمات مرور) — آمن للنشر.
+#     (نلتقط schema فقط؛ لا roles.sql هنا تفادياً لأي سمة حسّاسة على الأدوار.)
+#   • قبل أي commit: نشغّل الحُرّاس كلهم (validate.sh) على الملف الملتقَط —
+#     بلا عددٍ مكتوب هنا عمداً: العدد يتغيّر مع كل حارسٍ جديد ورقمٌ متجمّد
+#     بتعليقٍ جانبيّ يصير كاذباً بصمت (كان «السبعة» منذ الحارس السابع).
+#     لو رصد ماسح الأسرار أي شيء، يفشل الـ job بلا commit.
+#
+# ملاحظة على مسار النشر
+#   الدفع هنا يتم بـ GITHUB_TOKEN، وهو لا يُطلق ci-guards (منع الحلقات من
+#   GitHub). فيبقى db/schema.sql على main (مُدار بالإصدارات) دون أن يُنشَر
+#   فوراً — وهذا مقبول بل مفضّل (لا داعي لخدمة schema.sql على الموقع). عند
+#   أول push حقيقي لاحق، تُرقّي بوابة promote فرع release ليشمل هذه اللقطة.
+# ════════════════════════════════════════════════════════════════════════
+name: schema-snapshot
+
+on:
+  workflow_dispatch:            # تشغيل يدوي (Run workflow)
+  schedule:
+    - cron: '0 3 * * 0'         # أسبوعياً — الأحد 03:00 UTC (احذفه لو أردته يدوياً فقط)
+
+# يكتب db/schema.sql على main عند التغيّر فقط.
+permissions:
+  contents: write
+
+concurrency:
+  group: schema-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node 22 (تحتاجه الحُرّاس)
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      - name: dump schema → db/schema.sql
+        run: |
+          mkdir -p db
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f db/schema.sql
+          echo "حجم اللقطة:" && wc -l db/schema.sql
+
+      - name: فحص الحُرّاس على اللقطة قبل الحفظ (بوابة أمان)
+        run: |
+          git add db/schema.sql
+          bash scripts/validate.sh
+
+      - name: commit + push عند التغيّر فقط
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --cached --quiet -- db/schema.sql; then
+            echo "لا تغيير في الـ schema — لا commit."
+          else
+            git commit -m "chore(db): لقطة schema — $(date -u +%Y-%m-%d)"
+            git push origin main
+            echo "✅ حُدّث db/schema.sql على main."
+          fi

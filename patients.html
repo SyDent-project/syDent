@@ -1,0 +1,3670 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SyDent">
+<meta name="theme-color" content="#0d8577">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=4">
+<link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<title>SyDent — المرضى</title>
+<!-- حارس متزامن قبل أي رسم: غياب مفتاح الجلسة = لا جلسة يقيناً، فالتحويل يقع قبل
+     أن يوجد الـ<body> أصلاً ⇒ صفر وميض للشيل على زائر غير مسجَّل. وجودُ المفتاح لا
+     يعني صلاحية الجلسة — الحارس غير المتزامن بالـ<body> يبقى المرجع الوحيد.
+     المفتاح عقدٌ مع supabase-init.js (storageKey) ومحروس بـcheck-mirrors (المجموعة O).
+     localStorage محجوب ⇒ catch ⇒ السلوك السابق حرفياً (تدهور رشيق، لا صفحة بيضاء). -->
+<script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
+<script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
+<!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
+<script src="theme.js?v=20261002d"></script>
+<style>
+:root {
+  --bg:        #0a1628;
+  --bg2:       #0f2038;
+  --bg3:       #132840;
+  --border:    rgba(var(--green-rgb),0.15);
+  --green:     var(--green);
+  --green-dim: rgba(var(--green-rgb),0.12);
+  --red:       #ef5350;
+  --yellow:    #f5c842;
+  --text:      #e1f4ee;
+  --text2:     #8a9ab5;
+  --radius:    12px;
+  --sidebar:   240px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Cairo', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  overflow-x: hidden;
+}
+
+
+
+/* ─── Main ─── */
+.main {
+  flex: 1;
+  margin-right: var(--sb-width, 240px);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ─── Top Bar ─── */
+.topbar {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 28px;
+  display: flex; align-items: center; gap: 16px;
+  position: sticky; top: 0; z-index: 50;
+}
+.topbar-title { font-size: 20px; font-weight: 700; flex: 1; }
+.topbar-title span { color: var(--green); }
+
+.search-wrap {
+  position: relative; flex: 1; max-width: 380px;
+}
+.search-wrap input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 40px 10px 14px;
+  color: var(--text);
+  font-family: 'Cairo', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color .2s;
+}
+.search-wrap input:focus { border-color: var(--green); }
+.search-wrap input::placeholder { color: var(--text2); }
+.search-icon {
+  position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
+  color: var(--text2); font-size: 15px; pointer-events: none;
+}
+.search-wrap input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }  /* one clear control, ours */
+.search-wrap input { padding-left: 34px; }
+.search-clear {
+  position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+  width: 24px; height: 24px; border-radius: 50%; border: none;
+  background: var(--bg2); color: var(--text2); font-size: 12px; line-height: 1;
+  cursor: pointer; display: none; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+}
+.search-clear:hover { background: var(--green-dim); color: var(--green); }
+.search-wrap.has-q .search-clear { display: flex; }
+
+.btn-add {
+  background: var(--green);
+  color: var(--on-accent);
+  border: none; border-radius: 10px;
+  padding: 10px 20px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 7px;
+  transition: opacity .2s, transform .15s;
+  white-space: nowrap;
+}
+.btn-add:hover { opacity: .88; transform: translateY(-1px); }
+
+/* ─── Content ─── */
+.content { padding: 28px; flex: 1; }
+
+/* ─── Stats Strip ─── */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: flex; align-items: center; gap: 14px;
+}
+.stat-icon {
+  width: 44px; height: 44px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.stat-icon.g { background: var(--green-bg); }   /* v351: unified chip tokens */
+.stat-icon.b { background: var(--blue-bg); }
+.stat-icon.y { background: var(--yellow-bg); }
+.stat-icon.r { background: var(--red-bg); }
+.stat-num { font-size: 22px; font-weight: 800; line-height: 1; }
+.stat-lbl { font-size: 12px; color: var(--text2); margin-top: 3px; }
+
+/* ─── Filters ─── */
+.filters {
+  display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;
+}
+.filter-btn {
+  padding: 7px 16px; border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--text2);
+  font-family: 'Cairo', sans-serif; font-size: 13px;
+  cursor: pointer; transition: all .2s;
+}
+.filter-btn:hover, .filter-btn.active {
+  background: var(--green-dim);
+  border-color: var(--green);
+  color: var(--green);
+}
+/* v276: per-tab counts (the search text narrows them too) */
+.filter-n {
+  display: inline-block; min-width: 20px; padding: 0 6px; margin-inline-start: 4px;
+  border-radius: 10px; background: var(--bg3); color: var(--text2);
+  font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.filter-n:empty { display: none; }
+.filter-btn.active .filter-n { background: rgba(var(--green-rgb), 0.18); color: var(--green); }
+/* v276: press feedback */
+.filter-btn:active, .btn-add:active:not(:disabled), .page-btn:active:not(:disabled) { transform: scale(.96); }
+.btn-add:disabled { opacity: .6; cursor: wait; transform: none; }
+tbody tr.row-busy { opacity: .45; pointer-events: none; }
+tbody tr:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+
+/* ─── Table ─── */
+.table-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.table-head {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.table-head-title { font-size: 15px; font-weight: 700; }
+.count-badge {
+  background: var(--green-dim);
+  color: var(--green);
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 12px; font-weight: 600;
+}
+
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  padding: 12px 18px;
+  text-align: right;
+  font-size: 12px; font-weight: 600;
+  color: var(--text2);
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background .2s ease, transform .2s ease;
+  cursor: pointer;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(var(--green-rgb),0.07); transform: translateX(-3px); }
+tbody tr:active { transform: translateX(-1px) scale(0.995); }
+tbody tr:hover .patient-name { color: var(--green); }
+tbody tr:hover .seq-badge { transform: scale(1.08); box-shadow: 0 0 0 3px rgba(var(--green-rgb),0.18); }
+@media (prefers-reduced-motion: reduce) {
+  tbody tr:hover, tbody tr:active, tbody tr:hover .seq-badge { transform: none; }
+}
+td {
+  padding: 14px 18px;
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+.patient-cell { display: flex; align-items: center; gap: 12px; }
+.avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700; flex-shrink: 0;
+}
+.seq-badge {
+  width: 38px; height: 38px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 800; flex-shrink: 0;
+  background: rgba(var(--green-rgb),0.10);
+  color: var(--green);
+  border: 1px solid rgba(var(--green-rgb),0.25);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.patient-name { font-weight: 600; font-size: 14px; transition: color .2s ease; }
+/* M87: التحذيرات الطبية */
+.med-flags-chips { display:flex; flex-wrap:wrap; gap:8px; }
+.mf-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 11px;
+  border:1px solid var(--border); border-radius:20px; font-size:12.5px; font-weight:700;
+  cursor:pointer; user-select:none; color:var(--text2); background:var(--bg2); width:auto; }
+.mf-chip.on { color:var(--red-ink); border-color:var(--red-bd); background:var(--red-bg); }
+.mf-chip.alg.on { color:var(--yellow-ink); border-color:var(--yellow-bd); background:var(--yellow-bg); }
+.med-flag-badge { display:inline-block; margin-inline-start:5px; color:var(--red);
+  font-size:12px; font-weight:800; cursor:help; }
+.allergy-flag-badge { display:inline-block; margin-inline-start:5px; color:var(--yellow-ink);
+  font-size:12px; font-weight:800; cursor:help; }
+.patient-id   { font-size: 11px; color: var(--text2); }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border: 1px solid transparent; border-radius: 6px;
+  font-size: 12px; font-weight: 600;
+}
+/* v351: the unified tone look (theme.css) — class names kept: payBadgeHtml is guard-evaluated */
+.badge.green  { background: var(--green-bg);  color: var(--green-fg);   border-color: var(--green-bd); }
+.badge.yellow { background: var(--yellow-bg); color: var(--yellow-ink); border-color: var(--yellow-bd); }
+.badge.red    { background: var(--red-bg);    color: var(--red-ink);    border-color: var(--red-bd); }
+.badge.blue   { background: var(--blue-bg);   color: var(--blue-fg);    border-color: var(--blue-bd); }
+.badge.gray   { background: var(--gray-bg);   color: var(--gray-fg);    border-color: var(--gray-bd); }
+.badge::before { content: '●'; font-size: 8px; }
+
+.text-muted { color: var(--text2); font-size: 13px; }
+
+.action-btns { position: relative; }   /* v470: الأزرارُ على طقم أزرار الصفوف (theme.css) — قواعدُها المحلية حُذفت بعد نقل قيمها */
+.dots-menu {
+  display: none; position: fixed;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; z-index: 100; min-width: 120px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4); overflow: hidden;
+}
+.dots-menu.open { display: block; }
+.dots-menu button {
+  display: block; width: 100%; padding: 9px 14px;
+  background: transparent; border: none; text-align: right;
+  color: var(--red); font-family: 'Cairo', sans-serif; font-size: 13px;
+  cursor: pointer; transition: background .15s;
+}
+.dots-menu button:hover { background: var(--red-soft); }
+
+/* Row colors by status */
+tbody tr.row-new       td { background: rgba(var(--yellow-rgb), 0.06) !important; }   /* v351: theme rgb companions */
+tbody tr.row-new:hover td { background: rgba(var(--yellow-rgb), 0.12) !important; }
+tbody tr.row-active       td { background: rgba(var(--blue-rgb), 0.05) !important; }
+tbody tr.row-active:hover td { background: rgba(var(--blue-rgb), 0.10) !important; }
+tbody tr.row-done       td { background: rgba(var(--green-rgb), 0.05) !important; }
+tbody tr.row-done:hover td { background: rgba(var(--green-rgb), 0.10) !important; }
+
+/* ─── Empty State ─── */
+.empty {
+  text-align: center; padding: 60px 20px;
+  color: var(--text2);
+}
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-text { font-size: 16px; margin-bottom: 6px; color: var(--text); }
+.empty-sub  { font-size: 13px; }
+
+/* ─── Pagination ─── */
+.pagination {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--text2);
+}
+.page-btns { display: flex; gap: 6px; }
+.pagination-end { display: flex; align-items: center; gap: 14px; }
+.page-size { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text2); }
+.page-size select {
+  background: var(--bg3); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+  padding: 5px 8px; font-family: 'Cairo', sans-serif; font-size: 12.5px; cursor: pointer;
+}
+.page-size select:focus { outline: none; border-color: var(--green); }
+@media (max-width: 700px) { .pagination { flex-wrap: wrap; gap: 10px; } }
+.page-btn {
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent; color: var(--text2);
+  font-family: 'Cairo', sans-serif; font-size: 13px;
+  cursor: pointer; transition: all .2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.page-btn:hover:not(:disabled), .page-btn.active {
+  background: var(--green-dim); border-color: var(--green); color: var(--green);
+}
+.page-btn:disabled { opacity: .35; cursor: default; }
+.page-btn.page-nav svg { display: block; }
+.page-gap { width: 20px; text-align: center; color: var(--text2); user-select: none; }
+
+/* ─── Modal ───
+   v441: التعريف المحلي حُذف — الصفحة انتقلت لعُدّة SyDent الموحّدة
+   (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js).
+   ما بقي هنا خاصٌّ بالصفحة: .modal-title · .btn-cancel · .btn-save · الشبكة. */
+
+.form-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group.full { grid-column: 1 / -1; }
+/* DeepCode #13 (v559): تلميحاتُ الهاتف والتكرار تحت حقل الهاتف — معلومةٌ لا منع */
+.pt-hint{display:flex;flex-direction:column;gap:6px;font-size:12px;line-height:1.6;}
+.pt-hint[hidden]{display:none;}
+.pt-hint-warn{color:var(--yellow-ink);background:var(--yellow-bg);border:1px solid var(--yellow-bd);border-radius:8px;padding:6px 10px;}
+.pt-hint-info{color:var(--text2);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 10px;}
+.pt-hint-fam{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);cursor:pointer;}
+.pt-hint-fam input[type=checkbox]{width:16px;height:16px;min-height:0;flex:0 0 auto;margin:0;padding:0;accent-color:var(--accent);}
+#fPhone{text-align:right;}
+label { font-size: 13px; font-weight: 600; color: var(--text2); }
+input, select, textarea {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--text);
+  font-family: 'Cairo', sans-serif; font-size: 14px;
+  outline: none; transition: border-color .2s;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+}
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a9ab5' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 12px center;
+  padding-left: 36px;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--green); }
+input::placeholder, textarea::placeholder { color: var(--text2); }
+select option { background: var(--bg2); color: var(--text); }
+textarea { resize: vertical; min-height: 80px; }
+
+.btn-cancel {
+  padding: 10px 22px; border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent; color: var(--text2);
+  font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all .2s;
+}
+.btn-cancel:hover { border-color: var(--text2); color: var(--text); }
+.btn-save {
+  padding: 10px 24px; border-radius: 10px;
+  border: none;
+  background: var(--green); color: var(--on-accent);
+  font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: all .2s;
+}
+.btn-save:hover { opacity: .88; }
+
+/* ─── Toast ─── */
+
+
+
+/* ─── Responsive ─── */
+@media (max-width: 1100px) {
+  .stats-strip { grid-template-columns: repeat(2, 1fr); }
+  /* v363: شريطُ العنوان (بحث + خمسة أزرار + شارة المستخدم) لم يكن يلتفّ إلا تحت 480px،
+     فتجاوز العرضَ بين 481 و1100px (حتى 175px على 1024). البحث يأخذ سطراً والأزرار تلتفّ */
+  .topbar { flex-wrap: wrap; }
+  .search-wrap { order: 3; flex: 1 1 100%; max-width: 100%; }
+}
+
+@media (max-width: 820px) {
+  .hamburger { display: flex; }
+
+  
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .main { margin-right: 0; }
+  .content { padding: 12px; }
+  .stats-strip { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .form-grid { grid-template-columns: 1fr; }
+
+  /* إضافة مكان للهامبرغر في التوب بار */
+  .topbar { padding: 12px 14px; gap: 10px; }
+
+  /* الجدول على الموبايل */
+  td:nth-child(2), th:nth-child(2),
+  td:nth-child(4), th:nth-child(4),
+  td:nth-child(5), th:nth-child(5) { display: none; }
+
+  .patient-name { font-size: 13px; white-space: nowrap; }
+  .patient-id   { font-size: 10px; }
+  .avatar       { width: 32px; height: 32px; font-size: 12px; }
+  td, th        { padding: 10px 10px; }
+  td:nth-child(3) { padding: 10px 6px; }
+
+  /* v470: كلُّ مريضٍ بطاقة — الاسمُ وحالةُ الدفع بالسطر الأول، والأزرارُ سطرٌ كامل تحتهما
+     (معيارُ أزرار الصفوف: بالموبايل تنزل الأزرار لسطرٍ خاصّ بعرض البطاقة، كطلبات الحجز).
+     كان عمودُ الإجراءات يكدّس الأزرار الثلاثة فوق بعضها بخلية ضيّقة. */
+  .table-wrap table, .table-wrap tbody { display: block; width: 100%; }
+  .table-wrap thead { display: none; }
+  tbody tr[data-patient-id] { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; }
+  tbody tr[data-patient-id] > td { display: flex; align-items: center; }   /* الخلايا تملأ ارتفاعَ السطر فيبقى لونُ الحالة متصلاً */
+  tbody tr[data-patient-id] > td:nth-child(2),
+  tbody tr[data-patient-id] > td:nth-child(4),
+  tbody tr[data-patient-id] > td:nth-child(5) { display: none; }
+  tbody tr[data-patient-id] > td:nth-child(1) { grid-column: 1; min-width: 0; }
+  tbody tr[data-patient-id] > td:nth-child(3) { grid-column: 2; }
+  tbody tr[data-patient-id] > td:nth-child(6) { display: block; grid-column: 1 / -1; padding: 0 10px 12px; }
+  tbody tr[data-patient-id] .patient-name { white-space: normal; }
+  tbody tr[data-patient-id] .action-btns { border-top: 1px dashed var(--border); padding-top: 10px; }
+}
+
+@media (max-width: 480px) {
+  .stats-strip { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-num    { font-size: 18px; }
+  .stat-lbl    { font-size: 11px; }
+  .stat-icon   { width: 38px; height: 38px; font-size: 16px; }
+
+  /* التوب بار */
+  .topbar             { padding: 12px 14px; gap: 8px; flex-wrap: wrap; }
+  .topbar-title       { font-size: 16px; }
+  .search-wrap        { max-width: 100%; width: 100%; order: 3; }
+  .btn-add            { padding: 9px 14px; font-size: 13px; }
+
+  /* الجدول */
+  .table-wrap         { border-radius: 10px; }
+  table               { font-size: 13px; }
+  td, th              { padding: 10px 8px; }
+
+  label               { font-size: 12px; }
+  input, select, textarea { font-size: 14px; padding: 10px 12px; }
+
+  /* فلاتر */
+  .filters            { gap: 6px; }
+  .filter-btn         { padding: 6px 12px; font-size: 12px; }
+}
+</style>
+<!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
+<link rel="stylesheet" href="theme.css?v=20261002d">
+<script src="/vendor/supabase-2.110.8.min.js"></script>
+<script src="supabase-init.js?v=20261002d"></script>
+<script src="sy-modal.js?v=20261002d"></script>
+<script src="pt-reliability.js?v=20261002d"></script>
+<script src="sidebar.js?v=20261002d"></script>
+<script src="ref-pick.js?v=20261002d"></script>
+</head>
+<body>
+<script>
+// SyDent auth guard
+(async function(){
+  if (!window.sb) { console.warn('Supabase not loaded'); return; }
+  const { data } = await window.sb.auth.getUser();
+  if (!data || !data.user) {
+    window.location.replace('auth.html');
+  }
+})();
+</script>
+
+
+<!-- ═══ Main ═══ -->
+<div class="main" id="sbMainContent">
+
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div class="topbar-title">سجل <span>المرضى</span></div>
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="search" id="searchInput" placeholder="بحث بالاسم أو رقم الهاتف أو رقم المريض…" autocomplete="off" enterkeyhint="search" aria-label="بحث عن مريض">
+      <!-- v276: explicit clear — Esc does the same. Hidden while the box is empty. -->
+      <button type="button" class="search-clear" id="searchClear" onclick="clearSearch()" title="مسح البحث" aria-label="مسح البحث">✕</button>
+    </div>
+    <button class="btn-add" onclick="openModal()" data-test="add-patient" data-doctor-inactive-block data-sub-write>
+      ＋ مريض جديد
+    </button>
+    <button class="btn-add" onclick="exportPatientsCsv()" title="تصدير قائمة المرضى إلى ملف Excel (xlsx)"
+            style="background:transparent;border:1px solid var(--border, #1e3556);color:var(--text2, #8da0bd);">
+      تصدير Excel
+    </button>
+    <button class="btn-add" onclick="openImportModal()" title="استيراد مرضى من ملف Excel (xlsx) أو CSV" data-doctor-inactive-block
+            style="background:transparent;border:1px solid var(--border, #1e3556);color:var(--text2, #8da0bd);" data-sub-write>
+      استيراد Excel
+    </button>
+    <button class="btn-add" onclick="openPrmModal()" title="متابعة المرضى: الاستدعاء الدوري وأعياد الميلاد"
+            style="background:transparent;border:1px solid var(--border, #1e3556);color:var(--text2, #8da0bd);" data-sub-write>
+      متابعة <span id="prmBadge" style="display:none;background:var(--red-solid);color:var(--on-red-solid);border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;margin-right:4px;">0</span>
+    </button>
+    <button class="btn-add" onclick="openSrcModal()" title="توزيع مصادر المرضى: كيف سمعوا عن العيادة؟"
+            style="background:transparent;border:1px solid var(--border, #1e3556);color:var(--text2, #8da0bd);">
+      📊 المصادر
+    </button>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- Stats -->
+    <div class="stats-strip">
+      <div class="stat-card">
+        <div class="stat-icon g">👥</div>
+        <div>
+          <div class="stat-num" id="statTotal">0</div>
+          <div class="stat-lbl">إجمالي المرضى</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon b">📅</div>
+        <div>
+          <div class="stat-num" id="statNew">0</div>
+          <div class="stat-lbl">مرضى هذا الشهر</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon y">⏳</div>
+        <div>
+          <div class="stat-num" id="statPending">0</div>
+          <div class="stat-lbl">مستحقات متبقية</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon r">🦷</div>
+        <div>
+          <div class="stat-num" id="statActive">0</div>
+          <div class="stat-lbl">تحت العلاج</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+      <button class="filter-btn active" onclick="setFilter('all', this)">الكل <span class="filter-n" data-filter-n="all"></span></button>
+      <button class="filter-btn" onclick="setFilter('active', this)">تحت العلاج <span class="filter-n" data-filter-n="active"></span></button>
+      <button class="filter-btn" onclick="setFilter('pending', this)">متبقي دفع <span class="filter-n" data-filter-n="pending"></span></button>
+      <button class="filter-btn" onclick="setFilter('new', this)">جدد (هذا الشهر) <span class="filter-n" data-filter-n="new"></span></button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <div class="table-head">
+        <span class="table-head-title">قائمة المرضى</span>
+        <span class="count-badge" id="countBadge">0 مريض</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>المريض</th>
+            <th>رقم الهاتف</th>
+            <th>حالة الدفع</th>
+            <th>آخر زيارة</th>
+            <th>الحالة</th>
+            <th data-sub-write>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"><tr><td colspan="7" style="padding:6px 12px;border:none;"><div class="sy-skel" style="height:38px;"></div></td></tr><tr><td colspan="7" style="padding:6px 12px;border:none;"><div class="sy-skel" style="height:38px;"></div></td></tr><tr><td colspan="7" style="padding:6px 12px;border:none;"><div class="sy-skel" style="height:38px;"></div></td></tr><tr><td colspan="7" style="padding:6px 12px;border:none;"><div class="sy-skel" style="height:38px;"></div></td></tr><tr><td colspan="7" style="padding:6px 12px;border:none;"><div class="sy-skel" style="height:38px;"></div></td></tr></tbody>
+      </table>
+      <div id="emptyState" class="empty" style="display:none">
+        <!-- Two variants chosen by JS:
+             - obFirstTime: patients table is truly empty (new tenant)
+             - obNoResults: search/filter returned nothing -->
+        <div id="obEmptyFirstTime" style="display:none">
+          <div class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.5C10.4 3.9 8.5 3.4 6.9 4 4.6 4.8 3.1 7 3.3 9.6c.2 2.5 1.2 4.3 1.9 6.5.6 2 .8 5 2.4 5 1.7 0 1.3-3.6 2.4-5.3.5-.8 1.5-.8 2 0 1.1 1.7.7 5.3 2.4 5.3 1.6 0 1.8-3 2.4-5 .7-2.2 1.7-4 1.9-6.5.2-2.6-1.3-4.8-3.6-5.6-1.6-.6-3.5-.1-5.1 1.5z"/></svg></div>
+          <div class="empty-text">لم تضف أي مريض بعد</div>
+          <div class="empty-sub" data-sub-write>ابدأ بإضافة أول مريض الآن — لا يستغرق سوى 30 ثانية.</div>
+          <div style="margin-top:18px;">
+            <button type="button" class="btn btn-primary" onclick="openModal()" data-doctor-inactive-block data-sub-write style="font-size:14px;padding:10px 20px;">
+              ＋ إضافة أول مريض
+            </button>
+          </div>
+          <!-- Demo patient (virtual — zero DB rows; opens patient-profile.html?id=demo sandbox).
+               Dismissal = localStorage flag; "deletion" = hiding, exactly as the card promises. -->
+          <div id="obDemoCard" data-sub-write style="display:none;margin:26px auto 0;max-width:440px;text-align:right;background:var(--bg3);border:1px dashed var(--border);border-radius:14px;padding:14px 16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+              <div style="font-weight:800;font-size:14px;color:var(--text);">🧪 مريض تجريبي <span style="font-weight:600;color:var(--text2);font-size:12px;">· رقم: 0</span></div>
+              <button type="button" onclick="obDemoDismiss()" title="حذف البطاقة التجريبية" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:15px;font-family:Cairo,sans-serif;">✕ حذف</button>
+            </div>
+            <div style="font-size:12.5px;color:var(--text2);margin:6px 0 12px;line-height:1.7;">
+              بطاقة جاهزة للتجربة: مخطط أسنان معبّأ، جلسات، ومدفوعات — جرّب كل شيء بحرّية، لا شيء فيها يُحفظ أو يدخل في تقاريرك.
+            </div>
+            <button type="button" class="btn btn-primary" onclick="location.href='patient-profile.html?id=demo'" style="font-size:13px;padding:8px 16px;">فتح البطاقة التجريبية</button>
+          </div>
+        </div>
+        <div id="obEmptyNoResults">
+          <div class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
+          <div class="empty-text">لا توجد نتائج</div>
+          <div class="empty-sub">جرّب كلمة بحث مختلفة<span data-sub-write> أو أضف مريضاً جديداً</span></div>
+        </div>
+      </div>
+      <div class="pagination" id="pagination">
+        <span id="pageInfo"></span>
+        <div class="pagination-end">
+          <!-- v278: per-page size, remembered per device; hidden while ≤10 patients (nothing to choose) -->
+          <label class="page-size" id="pageSizeWrap">عرض
+            <select id="pageSize" onchange="setPageSize(this.value)" aria-label="عدد المرضى بالصفحة">
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="0">الكل</option>
+            </select>
+          </label>
+          <div class="page-btns" id="pageBtns"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ═══ Modal: إضافة مريض ═══ -->
+<div class="modal-overlay sy-m sy-m-md" id="modalOverlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">إضافة مريض جديد</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <form id="patientForm" onsubmit="submitPatient(event)">
+      <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>الاسم الكامل *</label>
+          <input type="text" id="fName" placeholder="مثال: أحمد محمود السيد" required onblur="window.prmPhoneHint && prmPhoneHint()">
+        </div>
+        <div class="form-group">
+          <label>رقم الهاتف (واتساب WhatsApp) *</label>
+          <input type="text" id="fPhone" placeholder="09xxxxxxxx — غير سوري؟ +رمز الدولة" required dir="ltr" oninput="window.prmPhoneHint && prmPhoneHint()" onblur="window.prmPhoneHint && prmPhoneHint()">
+          <div class="pt-hint" id="fPhoneHint" hidden></div>
+        </div>
+        <div class="form-group">
+          <label>تاريخ الميلاد</label>
+          <input type="date" id="fDob" onchange="window.prmPhoneHint && prmPhoneHint()">
+        </div>
+        <div class="form-group">
+          <label>الجنس</label>
+          <select id="fGender">
+            <option value="">— اختر —</option>
+            <option value="ذكر">ذكر</option>
+            <option value="أنثى">أنثى</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>حالة العلاج</label>
+          <select id="fStatus">
+            <option value="تحت العلاج">تحت العلاج</option>
+            <option value="مكتمل">مكتمل</option>
+            <option value="جديد">جديد</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>كيف سمع عنّا؟ (اختياري)</label>
+          <select id="fSource">
+            <option value="">— اختر —</option>
+            <option value="friend">صديق / قريب</option>
+            <option value="search">غوغل / بحث</option>
+            <option value="social">فيسبوك / إنستغرام</option>
+            <option value="walk_in">مرور بالشارع</option>
+            <option value="doctor_referral">طبيب محوِّل</option>
+            <option value="booking">بوابة الحجز</option>
+            <option value="other">أخرى</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>الحساسيات</label>
+          <div id="fAllergyFlags" class="med-flags-chips" style="margin-bottom:8px;"></div>
+          <input type="text" id="fAllergies" placeholder="حساسية أخرى: مثال بنسلين، لاتكس…">
+        </div>
+        <div class="form-group full">
+          <label>تحذيرات طبية (الحالة الصحية)</label>
+          <div id="fMedFlags" class="med-flags-chips" style="margin-bottom:8px;"></div>
+          <input type="text" id="fMedOther" placeholder="تحذير آخر يكتبه الطبيب (اختياري)…">
+        </div>
+        <div class="form-group full">
+          <label>ملاحظات</label>
+          <textarea id="fNotes" placeholder="أي ملاحظات إضافية…"></textarea>
+        </div>
+      </div>
+      </div><!-- /.modal-body -->
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal()">إلغاء</button>
+        <button type="submit" class="btn-save" id="saveBtn">حفظ المريض</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ Modal: استيراد مرضى من CSV ═══ -->
+<div class="modal-overlay sy-m sy-m-lg" id="importModal">
+  <div class="modal" id="importBox">
+    <div class="modal-header">
+      <div class="modal-title">استيراد مرضى من Excel</div>
+      <button class="modal-close" onclick="closeImportModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text2);font-size:13px;line-height:1.7;margin-bottom:12px;">
+        ارفع ملف Excel (xlsx) أو CSV بالأعمدة: <b>الاسم</b>*، <b>الهاتف</b>*، تاريخ الميلاد، الجنس، ملاحظات، <b>المتبقي على المريض</b>، تاريخ الذمة.
+        الاسم والهاتف إجباريان. رقم المريض يُولَّد تلقائياً. المتبقي (إن وُجد) يُسجَّل تلقائياً كذمة سابقة على بطاقة المريض بتاريخ الذمة (فارغ = أمس)، وأي دفعة جديدة تُسدَّد منه.
+        <a href="#" onclick="downloadImportTemplate();return false;" style="color:var(--green);text-decoration:underline;">تنزيل قالب Excel فارغ</a>
+      </p>
+      <input type="file" id="importFile" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onchange="handleImportFile(event)"
+             style="display:block;width:100%;padding:10px;border:1px dashed var(--border,#1e3556);border-radius:8px;color:var(--text2,#8da0bd);background:transparent;cursor:pointer;">
+      <div id="importSummary" style="margin-top:14px;font-size:13px;color:var(--text,#e1f4ee);"></div>
+      <div id="importPreview" style="margin-top:10px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-cancel" onclick="closeImportModal()">إلغاء</button>
+      <button type="button" class="btn-save" id="importConfirmBtn" onclick="runPatientImport()" disabled>تأكيد الاستيراد</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: توزيع مصادر المرضى (Backlog #4) — عدّ ونِسَب من المصفوفة المحمّلة، صفر استعلامات -->
+<div class="modal-overlay sy-m sy-m-md" id="srcModal" onclick="if(event.target===this)closeSrcModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📊 مصادر المرضى — كيف سمعوا عنّا؟</div>
+      <button class="modal-close" onclick="closeSrcModal()">✕</button>
+    </div>
+    <div class="modal-body" id="srcModalBody"></div>
+  </div>
+</div>
+
+<!-- Modal: متابعة المرضى — الاستدعاء الدوري + أعياد الميلاد (P6) -->
+<div class="modal-overlay sy-m sy-m-lg" id="prmModal" onclick="if(event.target===this)prmClose()">
+  <div class="modal" id="prmBox">
+    <div class="modal-header">
+      <div class="modal-title">متابعة المرضى</div>
+      <button class="modal-close" onclick="prmClose()">✕</button>
+    </div>
+    <div class="modal-body">
+    <div style="display:flex;gap:8px;padding:0 0 12px;border-bottom:1px solid var(--border);margin-bottom:6px;">
+      <button id="prmTabRecall" onclick="prmSwitchTab('recall')" style="flex:1;padding:9px;border:1px solid var(--border,#1e3556);border-radius:8px;background:var(--green);color:var(--on-accent);font-family:Cairo,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">الاستدعاء الدوري <span id="prmRecallCount" style="opacity:.8;">0</span></button>
+      <button id="prmTabBday" onclick="prmSwitchTab('bday')" style="flex:1;padding:9px;border:1px solid var(--border,#1e3556);border-radius:8px;background:transparent;color:var(--text2,#8da0bd);font-family:Cairo,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">أعياد الميلاد <span id="prmBdayCount" style="opacity:.8;">0</span></button>
+      <button id="prmTabInst" onclick="prmSwitchTab('inst')" style="flex:1;padding:9px;border:1px solid var(--border,#1e3556);border-radius:8px;background:transparent;color:var(--text2,#8da0bd);font-family:Cairo,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">الأقساط 💰 <span id="prmInstCount" style="opacity:.8;">0</span></button>
+      <button id="prmTabNoShow" onclick="prmSwitchTab('noshow')" style="flex:1;padding:9px;border:1px solid var(--border,#1e3556);border-radius:8px;background:transparent;color:var(--text2,#8da0bd);font-family:Cairo,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">⚠ غابوا <span id="prmNoShowCount" style="opacity:.8;">0</span></button>
+    </div>
+    <div id="prmRecallView"></div>
+    <div id="prmBdayView" style="display:none;"></div>
+    <div id="prmInstView" style="display:none;"></div>
+    <div id="prmNoShowView" style="display:none;"></div>
+    </div><!-- /.modal-body -->
+  </div>
+</div>
+
+
+<!-- Toast -->
+
+<script>
+// ─── State ───
+let patients   = [];
+let filter     = 'all';
+let page       = 1;
+// v278 (owner): 7 per page was too few — 25 by default, with a per-device
+// selector (10 · 25 · 50 · الكل) persisted in localStorage. «الكل» = one page.
+var PAGE_SIZES = [10, 25, 50, 0];   // 0 = الكل
+var PER_PAGE = _loadPageSize();
+function _loadPageSize() {
+  try { var v = parseInt(localStorage.getItem('sydent.patients.pageSize'), 10); if (PAGE_SIZES.indexOf(v) > -1) return v; } catch (_) {}
+  return 25;
+}
+function _pageSizeOrAll(total) { return PER_PAGE > 0 ? PER_PAGE : Math.max(1, total); }
+function setPageSize(n) {
+  n = parseInt(n, 10); if (PAGE_SIZES.indexOf(n) === -1) return;
+  PER_PAGE = n; page = 1;
+  try { localStorage.setItem('sydent.patients.pageSize', String(n)); } catch (_) {}
+  render();
+}
+let editingId  = null;
+var _deletingIds = {};   // v276: patient ids with a delete in flight
+
+/* ── M87: التحذيرات الطبية — MEDICAL_FLAGS_DEFS مرآة ×3 بايت-بايت
+   (patients.html ↔ patient-profile.html ↔ appointments.html) محروسة
+   بـscripts/check-mirrors.js. أي تعديل دلالي يُعمَّم على النسخ الثلاث. ── */
+const MEDICAL_FLAGS_DEFS = [
+  { key:'diabetes',           label:'سكري' },
+  { key:'hypertension',       label:'ضغط دم' },
+  { key:'cardiac',            label:'أمراض قلب' },
+  { key:'anticoagulants',     label:'مميعات دم' },
+  { key:'pregnancy',          label:'حمل / إرضاع' },
+  { key:'asthma',             label:'ربو' }
+];
+/* فصل التحذيرات عن الحساسيات (قرار المالك 19/07/2026): مفتاحا الحساسية يبقيان
+   مخزَّنين داخل medical_flags نفسها (صفر ترحيل بيانات) لكن يُعرَضان تحت الحساسيات. */
+const ALLERGY_FLAGS_DEFS = [
+  { key:'penicillin_allergy', label:'بنسلين' },
+  { key:'latex_allergy',      label:'لاتكس' },
+  { key:'anesthetic_allergy', label:'مخدر موضعي' },
+  { key:'nsaid_allergy',      label:'أسبرين / مسكنات' }
+];
+/* مفاتيح مجهولة تُهمَل بنيوياً — التسميات ثوابت فقط = صفر سطح XSS من الأعلام */
+function medFlagLabels(flags) {
+  if (!Array.isArray(flags)) return [];
+  return MEDICAL_FLAGS_DEFS.filter(function(d){ return flags.indexOf(d.key) >= 0; })
+                           .map(function(d){ return d.label; });
+}
+function allergyFlagLabels(flags) {
+  if (!Array.isArray(flags)) return [];
+  return ALLERGY_FLAGS_DEFS.filter(function(d){ return flags.indexOf(d.key) >= 0; })
+                           .map(function(d){ return d.label; });
+}
+/* التحذيرات الكاملة = الأعلام + النص الحر (M92) — يستهلكه كل عرض تحذيري */
+function warnParts(rec) {
+  var out = medFlagLabels(rec && rec.medical_flags);
+  var t = (rec && rec.medical_flags_other) ? String(rec.medical_flags_other).trim() : '';
+  if (t) out.push(t);
+  return out;
+}
+/* الحساسيات الكاملة = chips + النص الحر مع إسقاط التكرار الحرفي */
+function allergyParts(rec) {
+  var out = allergyFlagLabels(rec && rec.medical_flags);
+  var t = (rec && rec.allergies && rec.allergies !== 'لا يوجد') ? String(rec.allergies).trim() : '';
+  if (t && out.indexOf(t) < 0) out.push(t);
+  return out;
+}
+/* ── Backlog #4: مصدر المريض («كيف سمع عنّا؟») — REFERRAL_SOURCE_DEFS مرآة ×2
+   بايت-بايت (patients.html ↔ patient-profile.html) محروسة بـscripts/check-mirrors.js.
+   المفاتيح إنكليزية مستقرة بالـDB (Migration 89 CHECK) والتسميات عربية بطبقة العرض. ── */
+const REFERRAL_SOURCE_DEFS = [
+  { key:'friend',          label:'صديق / قريب' },
+  { key:'search',          label:'غوغل / بحث' },
+  { key:'social',          label:'فيسبوك / إنستغرام' },
+  { key:'walk_in',         label:'مرور بالشارع' },
+  { key:'doctor_referral', label:'طبيب محوِّل' },
+  { key:'booking',         label:'بوابة الحجز' },
+  { key:'other',           label:'أخرى' }
+];
+/* مفتاح مجهول/فارغ → '' — التسميات ثوابت فقط = صفر سطح XSS من المصدر */
+function refSourceLabel(key) {
+  for (var i = 0; i < REFERRAL_SOURCE_DEFS.length; i++)
+    if (REFERRAL_SOURCE_DEFS[i].key === key) return REFERRAL_SOURCE_DEFS[i].label;
+  return '';
+}
+/* مرآة دلالية ×2 (patients ↔ patient-profile): chips الأعلام
+   checkbox داخل chip — appearance:auto إلزامي تحت قاعدة input العامة (#257) */
+function renderMedFlagChips(containerId, selected) {
+  var el = document.getElementById(containerId);
+  if (!el) return;
+  var sel = Array.isArray(selected) ? selected : [];
+  el.innerHTML = MEDICAL_FLAGS_DEFS.map(function(d){
+    var on = sel.indexOf(d.key) >= 0;
+    return '<label class="mf-chip' + (on ? ' on' : '') + '">' +
+      '<input type="checkbox" value="' + d.key + '"' + (on ? ' checked' : '') +
+      ' style="appearance:auto;-webkit-appearance:auto;width:15px;height:15px;accent-color:var(--red);margin:0;"' +
+      ' onchange="this.parentElement.classList.toggle(\'on\', this.checked)">' +
+      d.label + '</label>';
+  }).join('');
+}
+function readMedFlagChips(containerId) {
+  var el = document.getElementById(containerId);
+  if (!el) return [];
+  return Array.prototype.map.call(el.querySelectorAll('input:checked'),
+                                  function(i){ return i.value; });
+}
+/* chips الحساسية (برتقالي) — نفس آلية chips التحذيرات، مرآة ×2 (patients ↔ patient-profile) */
+function renderAllergyFlagChips(containerId, selected) {
+  var el = document.getElementById(containerId);
+  if (!el) return;
+  var sel = Array.isArray(selected) ? selected : [];
+  el.innerHTML = ALLERGY_FLAGS_DEFS.map(function(d){
+    var on = sel.indexOf(d.key) >= 0;
+    return '<label class="mf-chip alg' + (on ? ' on' : '') + '">' +
+      '<input type="checkbox" value="' + d.key + '"' + (on ? ' checked' : '') +
+      ' style="appearance:auto;-webkit-appearance:auto;width:15px;height:15px;accent-color:var(--yellow);margin:0;"' +
+      ' onchange="this.parentElement.classList.toggle(\'on\', this.checked)">' +
+      d.label + '</label>';
+  }).join('');
+}
+/* توافق ما-قبل-M87: strip-and-retry على العمود المفقود + توست مرة/جلسة (#250)
+   (?!_other) إلزامي كي لا يبتلع هذا الفحص خطأ عمود M92 medical_flags_other */
+function isMissingMedFlagsCol(e) {
+  return !!(e && (e.code === '42703' || e.code === 'PGRST204') &&
+            /medical_flags(?!_other)/.test(e.message || ''));
+}
+var _mfMigrationWarned = false;
+function warnMedFlagsMigrationOnce() {
+  if (_mfMigrationWarned) return;
+  _mfMigrationWarned = true;
+  showToast('⚠️ يلزم تطبيق Migration 87 — حُفظ المريض بدون التحذيرات الطبية');
+}
+/* توافق ما-قبل-M92 (نمط #250): التحذير الحر */
+function isMissingMedOtherCol(e) {
+  return !!(e && (e.code === '42703' || e.code === 'PGRST204') &&
+            /medical_flags_other/.test(e.message || ''));
+}
+var _moMigrationWarned = false;
+function warnMedOtherMigrationOnce() {
+  if (_moMigrationWarned) return;
+  _moMigrationWarned = true;
+  showToast('⚠️ يلزم تطبيق Migration 92 — حُفظ المريض بدون التحذير الحر');
+}
+/* Backlog #4 — pre-Migration-89 graceful (نمط #250) */
+function isMissingSourceCol(e) {
+  return !!(e && (e.code === '42703' || e.code === 'PGRST204') &&
+            /referral_source/.test(e.message || ''));
+}
+var _rsMigrationWarned = false;
+function warnSourceMigrationOnce() {
+  if (_rsMigrationWarned) return;
+  _rsMigrationWarned = true;
+  showToast('⚠️ يلزم تطبيق Migration 89 — حُفظ المريض بدون المصدر');
+}
+let currentUser = null;
+// ledger-derived financials per patient_id (loaded fresh on every loadPatients).
+// We DO NOT trust the stored patients.payment string for display — it is only
+// refreshed when a profile page is opened, so it goes stale. Instead we compute
+// the real status here from ledger_sessions + ledger_payments + payment_splits,
+// using the exact same math as patient-profile.html → computeFinancials().
+let finMap = {};
+let lastVisitMap = {};   // P6 Recall: patient_id → newest completed-session date (YYYY-MM-DD)
+
+// ─── Utils ───
+function fmt(n){ return Number(n||0).toLocaleString('en-US'); }
+function formatDate(str) {   // v479: أرقاماً d/m/yyyy (كان «20 أيلول 2026») — المُنسّق الموحّد SyDT
+  if (!str) return '—';
+  return (window.SyDT && SyDT.numDate(str)) || String(str).slice(0, 10);
+}
+function isThisMonth(str) {
+  if (!str) return false;
+  const d = new Date(str), now = new Date();
+  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+}
+
+// ─── Supabase: Load Patients ───
+var PATIENT_FLAG_DEFS = null;   // M148: أعلام المريض الملوّنة (SyDentFlags — supabase-init.js)
+/* DeepCode #1 (v557): وعدٌ ⇒ {r}|{e} (لا رفضَ غير ملتقَط وهو ينتظر دوره) — ثم يُرمى خطؤه بموضعه الأصلي. */
+function _ptSettle(p) { return Promise.resolve(p).then(function (r) { return { r: r }; }, function (e) { return { e: e }; }); }
+function _ptTake(x) { if (x.e) throw x.e; return x.r; }
+/* DeepCode #1 (v557): دفاترُ الأرصدة الأربعة بنطاق الطبيب ومصفّحة (الأعمدةُ نفسُها حرفياً) — تُطلَق مع قائمة المرضى لا بعدها،
+   وتُزيل قصّاً صامتاً: `.in(كل المرضى)` كان يُقصّ عند 1000 صفّ ويبني عنوانَ GET بآلاف المعرّفات. الصفوفُ لغير مرضى
+   القائمة تُتخطّى بحلقات loadFinancials كما كانت. */
+function _ptFinPrefetch(uid) {
+  return Promise.all([
+    window.SyDentFetchAll(function(){ return window.sb.from('ledger_sessions').select('id,patient_id,cost,status,date,description,currency').eq('doctor_id', uid); }),
+    window.SyDentFetchAll(function(){ return window.sb.from('ledger_payments').select('patient_id,amount,currency').eq('doctor_id', uid); }),
+    window.SyDentFetchAll(function(){ return window.sb.from('payment_splits').select('patient_id,session_id,amount,is_unearned,currency').eq('doctor_id', uid); }),
+    window.SyDentFetchAll(function(){ return window.sb.from('account_adjustments').select('patient_id,kind,amount,currency').eq('doctor_id', uid); })
+  ]);
+}
+async function loadPatients() {
+  if (!currentUser) return;
+  const _finPre = _ptSettle(_ptFinPrefetch(currentUser.id));   /* v557: مع القائمة */
+  const _flagsP = _ptSettle(window.SyDentFlags ? window.SyDentFlags.load(currentUser.id) : null);   /* v557 */
+  const { data, error } = await window.SyDentFetchAll(function(){ return window.sb
+    .from('patients')
+    .select('*')
+    .eq('doctor_id', currentUser.id)
+    .order('created_at', { ascending: true }); });
+  if (error) { showToast('❌ خطأ في تحميل المرضى'); return; }
+  patients = data || [];
+  /* M148: تعريفات الأعلام الملوّنة — مخزَّنة بالوحدة المشتركة (نداءٌ واحد للجلسة) وغير حاجبة للفشل. */
+  try { if (window.SyDentFlags) PATIENT_FLAG_DEFS = _ptTake(await _flagsP); } catch (e) {}
+  await loadFinancials(_finPre.then(_ptTake));
+  render();
+}
+
+// ─── Supabase: Load ledger financials (batched) ───
+// 3 queries total regardless of patient count. RLS already scopes rows to the
+// current doctor; the .in() filter limits to the currently-loaded patients.
+async function loadFinancials(pre) {
+  // M125: العملة بُعد قسمة — دلوان (ل.س/$) لكل مريض بنفس الصيغ الحرفية
+  // السابقة داخل كل طبقة (شلال الاسترداد يأكل رصيد عملته حصراً). الحقول
+  // العلوية القديمة = طبقة المريض الوحيدة (حال كل عيادة أحادية) فتكافؤ
+  // الحارس F مع الصيغة القانونية محفوظ بالبناء؛ الثنائي يُقرأ من bags.
+  // lastVisitMap يبقى عابراً للعملات عمداً — الزيارة زيارة أياً كانت عملتها.
+  finMap = {};
+  lastVisitMap = {};
+  if (!patients.length) return;
+  const ids = patients.map(p => p.id);
+  const mkFinBag = () => ({ completedTotal:0, plannedTotal:0, paid:0, allocated:0, unearned:0, hasSplits:false, chargeReductions:0, refunds:0 });
+  ids.forEach(id => { finMap[id] = Object.assign(mkFinBag(), { bags: { SYP: mkFinBag(), USD: mkFinBag() }, dual: false, cur: 'SYP' }); });
+
+  let sRes, pRes, spRes, aRes;
+  try {
+    if (pre) [sRes, pRes, spRes, aRes] = await pre;   /* v557: الصفوفُ المبكرة (انظر _ptFinPrefetch) */
+    else [sRes, pRes, spRes, aRes] = await Promise.all([
+      window.sb.from('ledger_sessions').select('id,patient_id,cost,status,date,description,currency').in('patient_id', ids),
+      window.sb.from('ledger_payments').select('patient_id,amount,currency').in('patient_id', ids),
+      window.sb.from('payment_splits').select('patient_id,session_id,amount,is_unearned,currency').in('patient_id', ids),
+      window.sb.from('account_adjustments').select('patient_id,kind,amount,currency').in('patient_id', ids)
+    ]);
+  } catch (e) {
+    console.warn('loadFinancials fetch error:', e);
+    return; // finMap stays zeroed → payInfo falls back gracefully to "—"
+  }
+
+  const rc = r => (r && r.currency === 'USD') ? 'USD' : 'SYP';
+  // session_id → status, so a split can be classified by the status of its session.
+  const sessStatus = {};
+  if (!sRes.error) (sRes.data || []).forEach(s => {
+    const st = s.status || 'completed';
+    sessStatus[s.id] = st;
+    const b0 = finMap[s.patient_id]; if (!b0) return;
+    const b = b0.bags[rc(s)];
+    if (st === 'planned') b.plannedTotal   += Number(s.cost || 0);
+    else                  b.completedTotal += Number(s.cost || 0);
+    // P6 Recall: real last visit = newest COMPLETED treatment session per patient.
+    // Exclude no-show fee rows (status 'completed' but the patient did NOT attend).
+    if (st === 'completed' && s.date && s.description !== 'رسم عدم الحضور') {
+      const cur = lastVisitMap[s.patient_id];
+      if (!cur || String(s.date) > String(cur)) lastVisitMap[s.patient_id] = String(s.date);
+    }
+  });
+  if (!pRes.error) (pRes.data || []).forEach(p => {
+    const b0 = finMap[p.patient_id]; if (b0) b0.bags[rc(p)].paid += Number(p.amount || 0);
+  });
+  // Canonical rule (parity with patient-profile.html computeFinancials):
+  // a split is allocated revenue ONLY if is_unearned=false AND it sits on a
+  // COMPLETED session. Unearned, or sitting on a planned session → mobile credit.
+  if (spRes && !spRes.error) (spRes.data || []).forEach(sp => {
+    const b0 = finMap[sp.patient_id]; if (!b0) return;
+    const b = b0.bags[rc(sp)];
+    b.hasSplits = true;
+    const a = parseFloat(sp.amount) || 0;
+    const onCompleted = sp.session_id && sessStatus[sp.session_id] === 'completed';
+    if (sp.is_unearned || !onCompleted) b.unearned += a;
+    else                                b.allocated += a;
+  });
+  // account_adjustments (Migration 45) — discount/write_off reduce the charge;
+  // refund returns cash (eats credit first, excess re-opens owed). Graceful:
+  // if the table is missing, aRes.error is set and we simply skip.
+  if (aRes && !aRes.error) (aRes.data || []).forEach(a => {
+    const b0 = finMap[a.patient_id]; if (!b0) return;
+    const b = b0.bags[rc(a)];
+    const amt = parseFloat(a.amount) || 0; if (amt <= 0) return;
+    if (a.kind === 'refund')                                  b.refunds          += amt;
+    else if (a.kind === 'discount' || a.kind === 'write_off') b.chargeReductions += amt;
+  });
+
+  // Finalize لكل (مريض، عملة): no splits → allocated = paid (legacy). Balance on
+  // completed only, net of charge reductions; refunds of earned money re-open it.
+  const bagActiveFin = b => !!(b.completedTotal || b.plannedTotal || b.paid || b.allocated ||
+                               b.unearned || b.refunds || b.chargeReductions || b.hasSplits);
+  const bagMoneyFin = b => !!(b.completedTotal || b.paid || b.allocated ||
+                               b.unearned || b.refunds || b.chargeReductions || b.hasSplits);
+  ids.forEach(id => {
+    const b0 = finMap[id];
+    ['SYP','USD'].forEach(c => {
+      const b = b0.bags[c];
+      if (!b.hasSplits) b.allocated = b.paid;
+      const refundFromUnearned = Math.min(b.refunds, b.unearned);
+      const refundFromEarned   = b.refunds - refundFromUnearned;
+      b.unearned = b.unearned - refundFromUnearned;
+      b.trueBalance = (b.completedTotal - b.chargeReductions) - b.allocated + refundFromEarned;
+    });
+    const actS = bagActiveFin(b0.bags.SYP), actU = bagActiveFin(b0.bags.USD);
+    // v337: مرآة computeFinancials — المخطَّط وحده لا يصنع طبقةً ثانية.
+    const monS = bagMoneyFin(b0.bags.SYP), monU = bagMoneyFin(b0.bags.USD);
+    b0.dual = monS && monU;
+    b0.cur = (monS !== monU) ? (monU ? 'USD' : 'SYP')
+           : ((actU && !actS) ? 'USD' : 'SYP');
+    const src = b0.bags[b0.cur];
+    b0.completedTotal = src.completedTotal; b0.plannedTotal = src.plannedTotal;
+    b0.paid = src.paid; b0.allocated = src.allocated; b0.unearned = src.unearned;
+    b0.hasSplits = src.hasSplits; b0.chargeReductions = src.chargeReductions;
+    b0.refunds = src.refunds; b0.trueBalance = src.trueBalance;
+  });
+}
+
+// ─── Derive payment status from ledger (single source of truth) ───
+// Priority (epsilon guards against float drift):
+//   1. trueBalance > 0       → المريض مدين على علاج منجز  → متبقي   (أحمر)
+//   2. unearned   > 0        → دفعة مقدّمة / فائض           → دفع مقدم (أزرق)
+//   3. trueBalance < 0       → فائض قديم بلا splits         → دفع مقدم (أزرق)
+//   4. completedTotal > 0    → كل المنجز مدفوع              → مسدّد   (أخضر)
+//   5. لا علاج منجز ولا دفعات → بلا حركة                     → — (رمادي)
+function payInfoBag(b, EPS) {
+  // مصنّف طبقة واحدة — الدلالة الحرفية السابقة بلا أي تعديل على الأولويات.
+  const tb = b.trueBalance || 0, un = b.unearned || 0;
+  if (tb >  EPS) return { key:'due',     label:'متبقي',    cls:'red',  amount: tb };
+  if (un >  EPS) return { key:'advance', label:'دفع مقدم', cls:'blue', amount: un };
+  if (tb < -EPS) return { key:'advance', label:'دفع مقدم', cls:'blue', amount: Math.abs(tb) };
+  if (b.completedTotal > EPS) return { key:'paid', label:'مسدّد', cls:'green', amount: 0 };
+  return { key:'none', label:'—', cls:'gray', amount:0 };
+}
+function payInfo(p) {
+  const b = finMap[p.id];
+  if (!b) return { key:'none', label:'—', cls:'gray', amount:0, cur: 'SYP' };
+  const EPS = 0.5;
+  const EPS_USD = 0.005;   // v261: عتبة الدولار نصف سنت لا نصف دولار
+  // M125: مريض أحادي العملة → شارة واحدة بدلالة النسخة السابقة حرفياً.
+  if (!b.dual) {
+    const pi = payInfoBag(b.bags ? b.bags[b.cur] : b, (b.cur === 'USD') ? EPS_USD : EPS);
+    pi.cur = b.cur || 'SYP';
+    return pi;
+  }
+  // مريض بطبقتين: الشارة الأولى بأولوية الدين بأي عملة (فلتر «متبقي» يلتقط
+  // أي دين)، والثانية للطبقة الأخرى — العملتان موسومتان ولا تُجمعان أبداً.
+  const iS = payInfoBag(b.bags.SYP, EPS), iU = payInfoBag(b.bags.USD, EPS_USD);
+  iS.cur = 'SYP'; iU.cur = 'USD';
+  const rank = { due: 0, advance: 1, paid: 2, none: 3 };
+  const first  = (rank[iS.key] <= rank[iU.key]) ? iS : iU;
+  const second = (first === iS) ? iU : iS;
+  first.dual = true;
+  // v339: base = الكلمة بلا وسم — الجدول يستعملها حين يتبعها مبلغٌ موسوم (منعاً
+  // لـ«متبقي ل.س · 619,000 ل.س»)، والوسمُ على label يبقى للشارة بلا مبلغ
+  // («مسدّد $») ولتصدير Excel (المبلغ هناك رقمٌ عارٍ بلا عملة).
+  first.base = first.label;
+  first.label  = first.label  + ' ' + (first.cur  === 'USD' ? '$' : 'ل.س');
+  if (second.key !== 'none') {
+    second.base = second.label;
+    second.label = second.label + ' ' + (second.cur === 'USD' ? '$' : 'ل.س');
+    first.extra = second;
+    // v340: الطبقتان بالحالة نفسها ⇒ شارةٌ واحدة بكلمةٍ واحدة والعملتان وراءها
+    // («متبقي · 619,000 ل.س · 90 $»). extra يبقى لتصدير Excel بلا تغيير.
+    if (second.key === first.key) first.merged = true;
+  }
+  return first;
+}
+// v340: HTML شارة/شارتَي الدفع — مصدرٌ واحد للجدول (والحارس Q يقيّمه حيّاً).
+// النصوص ثابتة (حالات payInfo + وسوم عملة) والأرقام عبر fmt ⇒ لا نصّ حرّ.
+function payBadgeHtml(pi) {
+  const tag = c => (c === 'USD' ? '$' : 'ل.س');
+  const amt = x => (x.amount > 0 ? ' · ' + fmt(x.amount) + ' ' + tag(x.cur) : '');
+  if (pi.merged) {
+    // v341: الحالة نفسها ⇒ الكلمة مرةً واحدة، وكل عملة بشارتها (اللون نفسه).
+    // «مسدّد» بالطبقتين بلا مبالغ ⇒ شارة واحدة (لا شيء يُكتب بالثانية).
+    const word = pi.base || pi.label;
+    const head = '<span class="badge ' + pi.cls + '">' + word + amt(pi) + '</span>';
+    if (!(pi.extra.amount > 0)) return head;
+    return head + ' <span class="badge ' + pi.extra.cls + '">' + fmt(pi.extra.amount) + ' ' + tag(pi.extra.cur) + '</span>';
+  }
+  const one = x => '<span class="badge ' + x.cls + '">' + ((x.amount > 0 && x.base) ? x.base : x.label) + amt(x) + '</span>';
+  return one(pi) + (pi.extra ? ' ' + one(pi.extra) : '');
+}
+
+// ─── Stats ───
+function updateStats() {
+  document.getElementById('statTotal').textContent   = patients.length;
+  document.getElementById('statNew').textContent     = patients.filter(p => isThisMonth(p.created_at)).length;
+  // "مستحقات متبقية" → real sum of money owed across all patients (ل.س),
+  // computed live from the ledger (not a count of a stale status string).
+  // M125: المجموع لكل عملة على حدة — العيادة الأحادية ترى رقمها المجرّد كما كان.
+  const pendBag = { SYP: 0, USD: 0 };
+  patients.forEach(p => {
+    const b = finMap[p.id]; if (!b) return;
+    const bags = b.bags || { SYP: b };
+    ['SYP','USD'].forEach(c => {
+      const x = bags[c]; if (!x) return;
+      const tb = x.trueBalance || 0;
+      if (tb > 0.5) pendBag[c] += tb;
+    });
+  });
+  document.getElementById('statPending').textContent =
+    (pendBag.SYP > 0 && pendBag.USD > 0) ? (fmt(pendBag.SYP) + ' ل.س + ' + fmt(pendBag.USD) + ' $')
+    : (pendBag.USD > 0) ? fmt(pendBag.USD)
+    : fmt(pendBag.SYP);
+  document.getElementById('statActive').textContent  = patients.filter(p => p.status === 'تحت العلاج').length;
+}
+
+// ─── Filter ───
+function setFilter(f, btn) {
+  filter = f; page = 1;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+// ─── Search ───
+document.getElementById('searchInput').addEventListener('input', () => { page = 1; syncSearchClear(); render(); });
+document.getElementById('searchInput').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); clearSearch(); } });
+document.getElementById('searchInput').addEventListener('search', () => { syncSearchClear(); page = 1; render(); });   // native ✕ on some engines
+
+function getFiltered() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  return patients.filter(p => {
+    const matchQ = !q ||
+      p.name.toLowerCase().includes(q) ||
+      (p.phone || '').includes(q) ||
+      (p.local_id || '').toLowerCase().includes(q);
+    const matchF =
+      filter === 'all'     ? true :
+      filter === 'active'  ? p.status === 'تحت العلاج' :
+      filter === 'pending' ? payInfo(p).key === 'due' :
+      filter === 'new'     ? isThisMonth(p.created_at) : true;
+    return matchQ && matchF;
+  });
+}
+
+// ─── Render ───
+/* Demo patient card: dismissal = localStorage flag ('deletion' as promised on the card). */
+function obDemoDismiss() {
+  try { localStorage.setItem('sydent.demoPatient.hidden', '1'); } catch(e){}
+  var el = document.getElementById('obDemoCard');
+  if (el) el.style.display = 'none';
+  if (typeof showToast === 'function') showToast('تم إخفاء البطاقة التجريبية');
+}
+function render() {
+  const filtered = getFiltered();
+  const total    = filtered.length;
+  const per      = _pageSizeOrAll(total);
+  const pages    = Math.max(1, Math.ceil(total / per));
+  page = Math.min(page, pages);
+  const slice    = filtered.slice((page - 1) * per, page * per);
+
+  document.getElementById('countBadge').textContent = total + ' مريض';
+  const tbody = document.getElementById('tableBody');
+  const empty = document.getElementById('emptyState');
+  // Portal cleanup: dots-menus moved to <body> on open belong to buttons
+  // about to be destroyed by the re-render below — remove them (no leaks).
+  document.querySelectorAll('body > .dots-menu').forEach(m => m.remove());
+
+  if (slice.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    // Phase 7.6G: distinguish "first-time tenant (no patients at all)"
+    // from "search returned nothing". The first case gets a friendly
+    // CTA; the second gets the legacy "try a different search" message.
+    var firstTimeEl = document.getElementById('obEmptyFirstTime');
+    var noResultsEl = document.getElementById('obEmptyNoResults');
+    if (firstTimeEl && noResultsEl) {
+      var isTrulyEmpty = (patients.length === 0);
+      firstTimeEl.style.display = isTrulyEmpty ? 'block' : 'none';
+      noResultsEl.style.display = isTrulyEmpty ? 'none'  : 'block';
+      // Demo patient card: only for a truly-empty (new) tenant, and only until dismissed.
+      var demoCard = document.getElementById('obDemoCard');
+      if (demoCard) {
+        var demoHidden = false;
+        try { demoHidden = localStorage.getItem('sydent.demoPatient.hidden') === '1'; } catch(e){}
+        demoCard.style.display = (isTrulyEmpty && !demoHidden) ? 'block' : 'none';
+      }
+    }
+  } else {
+    empty.style.display = 'none';
+    const seqMap = {};
+    patients.forEach((p, idx) => { seqMap[p.id] = idx + 1; });
+
+    tbody.innerHTML = slice.map(p => {
+      const rowCls = p.status === 'تحت العلاج' ? 'row-active'
+                   : p.status === 'مكتمل'      ? 'row-done'
+                   : 'row-new';
+      const pi = payInfo(p);
+      const mfL = warnParts(p);   /* M87+M92: الأعلام + النص الحر (يمر بـprmEsc أدناه) */
+      const agL = allergyParts(p);   /* شارة الحساسية (برتقالي) — منسجمة مع شارة التحذير */
+      /* مثلّث تحذير واحد موحّد: أي علَم (طبي و/أو حساسية) → أيقونة واحدة + tooltip مدموج */
+      const flagArr = [];
+      if (mfL.length) flagArr.push(mfL.join('، '));
+      if (agL.length) flagArr.push('حساسية: ' + agL.join('، '));
+      const flagTip = flagArr.join(' — ');
+      const flagBadge = flagTip ? `<span class="med-flag-badge" title="${prmEsc(flagTip)}">⚠️</span>` : '';
+      const relBadge = (window.SyDentReliability && prmReliab[p.id]) ? window.SyDentReliability.badgeHtml(prmReliab[p.id], true) : '';   /* v497 */
+      /* M148: الأعلام الإدارية الملوّنة تحت الاسم — التسمية تُهرَّب داخل SyDentFlags.chipsHtml والنغمة من قائمة مغلقة */
+      const ptFlags = (window.SyDentFlags && PATIENT_FLAG_DEFS) ? window.SyDentFlags.chipsHtml(p.flags, PATIENT_FLAG_DEFS) : '';
+      return `
+      <tr class="${rowCls}" onclick="openProfile('${p.id}')" onkeydown="if(event.key==='Enter'&&event.target===this)openProfile('${p.id}')" tabindex="0" style="cursor:pointer;" data-test="patient-row" data-patient-id="${p.id}">
+        <td>
+          <div class="patient-cell">
+            <div class="seq-badge">${seqMap[p.id]}</div>
+            <div>
+              <div class="patient-name">${prmEsc(p.name)}${flagBadge}${relBadge/* xss-ok: SyDentReliability.badgeHtml أرقامٌ وعنوانٌ مهرَّب */}</div>
+              <div class="patient-id" data-test="patient-local-id">${prmEsc(p.local_id || '')}</div>
+              ${ptFlags ? '<div class="pt-flags-row">' + ptFlags + '</div>' : ''/* xss-ok: ناتج SyDentFlags.chipsHtml — التسمية مُهرَّبة بالمصدر والنغمة من قائمة مغلقة */}
+            </div>
+          </div>
+        </td>
+        <td class="text-muted"><bdi dir="ltr">${prmEsc(p.phone || '—')}</bdi></td>
+        <td>
+          ${payBadgeHtml(pi)/* xss-ok: حالات payInfo ثابتة + وسوم عملة + fmt */}
+        </td>
+        <td class="text-muted">${formatDate(p.last_visit)}</td>
+        <td>
+          <span class="badge ${p.status === 'تحت العلاج' ? 'blue' : p.status === 'جديد' ? 'yellow' : 'green'}">${prmEsc(p.status)}</span>
+        </td>
+        <td data-sub-write>
+          <div class="action-btns sy-acts" onclick="event.stopPropagation()">
+            <button class="sy-act" onclick="event.stopPropagation();location.href='patient-profile.html?id=${p.id}&appt=1'" data-doctor-inactive-block data-sub-write>📅 موعد جديد</button>
+            <button class="sy-act sy-act-primary" onclick="event.stopPropagation();location.href='patient-profile.html?id=${p.id}&pay=1'" data-doctor-inactive-block data-sub-write>💰 تسجيل دفعة</button>
+            <button class="sy-act sy-act-ico sy-act-more" onclick="toggleDotsMenu(this)" title="المزيد" aria-label="المزيد" data-test="patient-menu" data-sub-write>⋮</button>
+            <div class="dots-menu" data-sub-write>
+              <button onclick="deletePatient('${p.id}')" data-test="patient-delete" data-role-block="doctor secretary">🗑️ حذف المريض</button>
+            </div>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('pageInfo').textContent =
+    total === 0 ? '' : `عرض ${Math.min((page-1)*per+1, total)}–${Math.min(page*per, total)} من ${total}`;
+  // v278: page-size selector state (the <select> is static markup; keep it in sync)
+  var psEl = document.getElementById('pageSize');
+  if (psEl) psEl.value = String(PER_PAGE);
+  var psWrap = document.getElementById('pageSizeWrap');
+  if (psWrap) psWrap.style.display = patients.length > 10 ? '' : 'none';
+
+  // v276: windowed pager. At 7 per page a 200-patient clinic used to get
+  // 29 number buttons in one row (1,000 patients → 143). Now: ‹ 1 … 5 6 7 … 29 ›
+  // — first/last always, the current page ±1, gaps collapsed, arrows at the ends.
+  const pb = document.getElementById('pageBtns');
+  pb.innerHTML = '';
+  pageWindow(page, pages).forEach(function(it){
+    if (it === 'gap') {
+      const g = document.createElement('span'); g.className = 'page-gap'; g.textContent = '…'; pb.appendChild(g); return;
+    }
+    const b = document.createElement('button');
+    b.type = 'button';
+    if (it === 'prev' || it === 'next') {
+      b.className = 'page-btn page-nav';
+      // Owner report (v276 live): ‹ › are Bidi-mirrored glyphs — inside dir="rtl"
+      // the browser flips them, so the arrows pointed away from their pages.
+      // SVG chevrons are geometry, not text: no mirroring. In RTL page 1 sits
+      // on the right, so «back» points right and «forward» points left.
+      b.innerHTML = it === 'prev'
+        ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>'
+        : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
+      b.setAttribute('aria-label', it === 'prev' ? 'الصفحة السابقة' : 'الصفحة التالية');
+      b.title = it === 'prev' ? 'الصفحة السابقة' : 'الصفحة التالية';
+      b.disabled = it === 'prev' ? page <= 1 : page >= pages;
+      b.onclick = () => { page = it === 'prev' ? page - 1 : page + 1; render(); };
+    } else {
+      b.className = 'page-btn' + (it === page ? ' active' : '');
+      b.textContent = it;
+      if (it === page) b.setAttribute('aria-current', 'page');
+      b.onclick = () => { page = it; render(); };
+    }
+    pb.appendChild(b);
+  });
+  if (pages <= 1) pb.innerHTML = '';   // one page → no pager at all
+  updateStats();
+  updateFilterCounts();
+  // Phase 4: re-apply role guards (delete-patient buttons are dynamically generated)
+  if (window.SyDentLock) window.SyDentLock.applyRoleGuards();
+}
+
+// v276: which pager items to draw. Returns ['prev', 1, 'gap', 4,5,6, 'gap', 29, 'next']
+// (numbers = page buttons). Pure — provable without a DOM.
+function pageWindow(cur, total) {
+  if (total <= 1) return [];
+  var set = {};
+  [1, total, cur - 1, cur, cur + 1].forEach(function(n){ if (n >= 1 && n <= total) set[n] = true; });
+  if (cur <= 3) [2, 3, 4].forEach(function(n){ if (n <= total) set[n] = true; });
+  if (cur >= total - 2) [total - 1, total - 2, total - 3].forEach(function(n){ if (n >= 1) set[n] = true; });
+  var nums = Object.keys(set).map(Number).sort(function(a, b){ return a - b; });
+  var out = ['prev'];
+  nums.forEach(function(n, i){
+    if (i && n - nums[i - 1] > 1) out.push(n - nums[i - 1] === 2 ? nums[i - 1] + 1 : 'gap');
+    out.push(n);
+  });
+  out.push('next');
+  return out;
+}
+
+// v276: counts on the filter tabs — computed against the current search text
+// (matchQ only), so «متبقي دفع 3» means three of the matching patients owe.
+function updateFilterCounts() {
+  var q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+  var base = patients.filter(function(p){
+    return !q || p.name.toLowerCase().includes(q) || (p.phone || '').includes(q) || (p.local_id || '').toLowerCase().includes(q);
+  });
+  var n = { all: base.length, active: 0, pending: 0, 'new': 0 };
+  base.forEach(function(p){
+    if (p.status === 'تحت العلاج') n.active++;
+    if (payInfo(p).key === 'due') n.pending++;
+    if (isThisMonth(p.created_at)) n['new']++;
+  });
+  document.querySelectorAll('.filter-n[data-filter-n]').forEach(function(el){
+    var k = el.getAttribute('data-filter-n');
+    el.textContent = (patients.length ? String(n[k] || 0) : '');
+  });
+}
+
+// v276: search clear (✕ button / Esc) + show the ✕ only while there is text.
+function clearSearch() {
+  var inp = document.getElementById('searchInput');
+  if (!inp) return;
+  inp.value = ''; page = 1; syncSearchClear(); render();
+  try { inp.focus(); } catch (_) {}
+}
+function syncSearchClear() {
+  var inp = document.getElementById('searchInput'), wrap = inp && inp.closest('.search-wrap');
+  if (wrap) wrap.classList.toggle('has-q', !!(inp.value || '').trim());
+}
+
+// ─── Modal ───
+var _refPickAdd = null;   // M164 — ref-pick.js
+function openModal() {
+  editingId = null;
+  document.getElementById('modalTitle').textContent = 'إضافة مريض جديد';
+  document.getElementById('saveBtn').textContent    = 'حفظ المريض';
+  document.getElementById('patientForm').reset();
+  renderMedFlagChips('fMedFlags', []);          /* M87 */
+  renderAllergyFlagChips('fAllergyFlags', []);  /* فصل الحساسية */
+  /* M164: «مين حوّل المريض؟» تحت «كيف سمع عنّا؟» — يُركَّب مرةً واحدة ويُصفَّر مع كل فتح */
+  if (!_refPickAdd && window.SyRefPick) _refPickAdd = window.SyRefPick.mount('fSource', { ownerId: function(){ return currentUser.id; }, selfId: function(){ return null; } });
+  if (_refPickAdd) _refPickAdd.reset();
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+/* v441: handleOverlayClick حُذف — كان يغلق نموذج المريض بنقرةٍ خارجية
+   ويمحو ما كُتب. الإغلاق بـ✕ أو «إلغاء» أو Escape (عُدّة النوافذ). */
+
+async function submitPatient(e) {
+  e.preventDefault();
+  // Phase 4.1: defense-in-depth — block if locked doctor is inactive
+  if (window.SyDentLock && window.SyDentLock.isDoctorAccountInactive && window.SyDentLock.isDoctorAccountInactive()) {
+    showToast('🔒 حسابك غير نشط — لا يمكن تسجيل بيانات جديدة');
+    return;
+  }
+  const name      = document.getElementById('fName').value.trim();
+  const phone     = (window.SyDentPhone ? window.SyDentPhone.tidy(document.getElementById('fPhone').value) : document.getElementById('fPhone').value.trim());   /* v559 (#13) */
+  const dob       = document.getElementById('fDob').value || null;
+  const _famWith  = (!editingId && document.getElementById('fFamLink') && document.getElementById('fFamLink').checked) ? document.getElementById('fFamLink').value : null;   /* v559 (#13) */
+  const gender    = document.getElementById('fGender').value;
+  const allergies = document.getElementById('fAllergies').value.trim();
+  const notes     = document.getElementById('fNotes').value.trim();
+  const medFlags  = readMedFlagChips('fMedFlags').concat(readMedFlagChips('fAllergyFlags'));   /* M87 + فصل الحساسية: التخزين موحّد */
+  const medOther  = document.getElementById('fMedOther').value.trim() || null;   /* M92 */
+  const refSource = (document.getElementById('fSource') || {}).value || null;   /* Backlog #4 */
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';
+
+  if (editingId) {
+    var origPat = patients.find(function(p){ return p.id === editingId; });
+    var updPayload = { name, phone, dob, gender, allergies, notes, medical_flags: medFlags, medical_flags_other: medOther, referral_source: refSource };
+    let { error } = await window.sb
+      .from('patients')
+      .update(updPayload)
+      .eq('id', editingId)
+      .eq('doctor_id', currentUser.id);
+    if (error && isMissingMedOtherCol(error)) {   /* pre-M92 graceful — قبل فحص M87 (الريجكس الأضيق أولاً) */
+      warnMedOtherMigrationOnce();
+      delete updPayload.medical_flags_other;
+      ({ error } = await window.sb.from('patients').update(updPayload)
+        .eq('id', editingId).eq('doctor_id', currentUser.id));
+    }
+    if (error && isMissingMedFlagsCol(error)) {   /* pre-M87 graceful */
+      warnMedFlagsMigrationOnce();
+      delete updPayload.medical_flags;
+      ({ error } = await window.sb.from('patients').update(updPayload)
+        .eq('id', editingId).eq('doctor_id', currentUser.id));
+    }
+    if (error && isMissingSourceCol(error)) {   /* pre-M89 graceful (Backlog #4) */
+      warnSourceMigrationOnce();
+      delete updPayload.referral_source;
+      ({ error } = await window.sb.from('patients').update(updPayload)
+        .eq('id', editingId).eq('doctor_id', currentUser.id));
+    }
+    if (error) { showToast('❌ خطأ في التعديل'); }
+    else {
+      // Phase 5: audit log
+      if (window.logAudit) {
+        window.logAudit('patient.edit', {
+          entityId: editingId,
+          patientId: editingId,
+          patientName: name,
+          description: 'تعديل بيانات المريض: ' + name,
+          oldValue: origPat ? { name: origPat.name, phone: origPat.phone, allergies: origPat.allergies } : null,
+          newValue: { name: name, phone: phone, allergies: allergies }
+        });
+      }
+      showToast('✅ تم تعديل بيانات المريض'); closeModal(); await loadPatients();
+    }
+  } else {
+    // Phase D: enforce plan patient quota. Client-side check is for a friendly
+    // message + instant feedback; the DB trigger (Migration 36) is the hard,
+    // un-bypassable gate. Fail-open on any error (don't block on a glitch).
+    try {
+      if (window.SyDentPlan) {
+        await window.SyDentPlan.load();
+        var patLimit = window.SyDentPlan.limit('patients');
+        if (patLimit != null) {
+          var pc = await window.sb.from('patients')
+            .select('id', { count:'exact', head:true })
+            .eq('doctor_id', currentUser.id);
+          var pUsed = (pc && typeof pc.count === 'number') ? pc.count : 0;
+          if (pUsed >= patLimit) {
+            showToast('🔒 بلغت حد خطتك (' + patLimit + ' مريض). للمزيد رقِّ خطتك.');
+            btn.disabled = false; btn.textContent = 'حفظ المريض';
+            return;
+          }
+        }
+      }
+    } catch(limErr) { console.warn('[patients] limit check skipped:', limErr); }
+
+    // Migration 86: atomic per-tenant seq (never reused). Fallback = legacy maxSeq (pre-86 behavior).
+    let local_id;
+    try {
+      const { data: seqEnd, error: seqErr } = await window.sb.rpc('next_patient_seq', { n: 1 });
+      if (seqErr || !seqEnd) throw (seqErr || new Error('no seq'));
+      local_id = 'P' + String(seqEnd).padStart(3, '0');
+    } catch (seqEx) {
+      console.warn('[patients] next_patient_seq fallback:', seqEx);
+      const maxSeq = patients.reduce((mx, p) => {
+        const n = parseInt((p.local_id || 'P000').slice(1));
+        return isNaN(n) ? mx : Math.max(mx, n);
+      }, 0);
+      local_id = 'P' + String(maxSeq + 1).padStart(3, '0');
+    }
+    const today = prmYmdLocal();
+
+    var insPayload = {
+      doctor_id: currentUser.id,
+      local_id, name, phone, dob, gender,
+      payment: 'متبقي', status: 'جديد',
+      allergies, notes, last_visit: today,
+      medical_flags: medFlags,
+      medical_flags_other: medOther,
+      referral_source: refSource
+    };
+    /* M164: مين حوّله — القيمتان حسب المصدر (غيرُ «صديق/طبيب محوِّل» ⇒ فارغتان) */
+    if (_refPickAdd) Object.assign(insPayload, _refPickAdd.value());
+    let { data: newPat, error } = await window.sb.from('patients')
+      .insert(insPayload).select().single();
+    if (error && isMissingMedOtherCol(error)) {   /* pre-M92 graceful — قبل فحص M87، الرفض يقع قبل الإدراج فلا صف مكرر */
+      warnMedOtherMigrationOnce();
+      delete insPayload.medical_flags_other;
+      ({ data: newPat, error } = await window.sb.from('patients')
+        .insert(insPayload).select().single());
+    }
+    if (error && isMissingMedFlagsCol(error)) {   /* pre-M87 graceful — الرفض يقع قبل الإدراج فلا صف مكرر */
+      warnMedFlagsMigrationOnce();
+      delete insPayload.medical_flags;
+      ({ data: newPat, error } = await window.sb.from('patients')
+        .insert(insPayload).select().single());
+    }
+    if (error && isMissingSourceCol(error)) {   /* pre-M89 graceful (Backlog #4) — نفس ضمانة عدم التكرار */
+      warnSourceMigrationOnce();
+      delete insPayload.referral_source;
+      ({ data: newPat, error } = await window.sb.from('patients')
+        .insert(insPayload).select().single());
+    }
+    if (error) { showToast(/referrer_not_owned|referrer_self/.test(error.message || '') ? '⚠️ المُعرِّف يجب أن يكون من مرضاك' : '❌ خطأ في الإضافة'); }
+    else {
+      // Phase 5: audit log
+      if (window.logAudit && newPat) {
+        window.logAudit('patient.create', {
+          entityId: newPat.id,
+          patientId: newPat.id,
+          patientName: name,
+          description: 'إضافة مريض جديد: ' + name + ' (' + local_id + ')',
+          newValue: { name: name, local_id: local_id, phone: phone }
+        });
+      }
+      if (_famWith && newPat) { try { await prmLinkFamily(newPat.id, _famWith); } catch (eFam) { console.warn('family link:', eFam); } }   /* v559 (#13) */
+      showToast('✅ تمت إضافة المريض بنجاح'); closeModal(); await loadPatients();
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = editingId ? 'حفظ التعديلات' : 'حفظ المريض';
+}
+
+/* DeepCode #13 (v559): تلميحاتُ الهاتف والتكرار — **لا تمنع الحفظ أبداً**.
+   (١) رقمٌ لا يشبه هاتفاً (سورياً أو دولياً بـ+) ⇒ تنبيهٌ خفيف. (٢) الرقمُ نفسُه عند مريضٍ آخر ⇒ معلومة «طبيعي لأفراد العائلة»
+   + (للإضافة فقط) خانةُ «اربطه بعائلة …» تُطبَّق بعد الحفظ. (٣) الاسمُ نفسُه (+ تاريخُ الميلاد إن وُجد بالطرفين) ⇒ تحذيرُ
+   «قد يكون المريضَ نفسَه» — نمط Open Dental (الاسم + الميلاد، لا الهاتف). */
+function _prmNameKey(n) { return String(n || '').replace(/[\u064B-\u0652\u0640]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/\s+/g, ' ').trim(); }
+function prmPhoneHint() {
+  var box = document.getElementById('fPhoneHint');
+  if (!box) return;
+  var P = window.SyDentPhone, raw = (document.getElementById('fPhone') || {}).value || '';
+  var t = P ? P.tidy(raw) : raw.trim();
+  var name = _prmNameKey((document.getElementById('fName') || {}).value), dob = (document.getElementById('fDob') || {}).value || '';
+  var lines = [];
+  if (t && P && !P.isPlausible(t)) lines.push('<div class="pt-hint-warn">⚠️ الرقم يبدو ناقصاً أو بصيغةٍ غير معروفة — للأرقام غير السورية ابدأ بـ+رمز الدولة. (يُحفظ كما هو إن أردت)</div>');
+  var same = t ? patients.filter(function (p) { return p.id !== editingId && P && P.tidy(p.phone) === t; }) : [];
+  if (same.length) {
+    var names = same.slice(0, 3).map(function (p) { return prmEsc(p.name || '—'); }).join('، ') + (same.length > 3 ? '…' : '');
+    var h = '<div class="pt-hint-info">📞 هذا الرقم مسجَّل أيضاً عند: ' + names + ' — طبيعيٌّ لأفراد العائلة.</div>';
+    if (!editingId) h += '<label class="pt-hint-fam"><input type="checkbox" id="fFamLink" value="' + prmEsc(same[0].id) + '"> اربطه بعائلة ' + prmEsc(same[0].name || '') + '</label>';
+    lines.push(h);
+  }
+  if (name) {
+    var twin = patients.filter(function (p) { return p.id !== editingId && _prmNameKey(p.name) === name && (!dob || !p.dob || String(p.dob).slice(0, 10) === dob); });
+    if (twin.length) lines.push('<div class="pt-hint-warn">⚠️ يوجد مريضٌ بالاسم نفسه' + (dob && twin[0].dob ? ' وتاريخ الميلاد نفسه' : '') + (twin[0].local_id ? ' (' + prmEsc(twin[0].local_id) + ')' : '') + ' — تأكّد أنه ليس المريضَ نفسَه قبل الحفظ.</div>');
+  }
+  var keep = document.getElementById('fFamLink'), wasChecked = !!(keep && keep.checked);
+  box.innerHTML = lines.join('');   /* xss-ok: كلُّ اسمٍ ومعرّف مهرَّب بـprmEsc */
+  box.hidden = !lines.length;
+  if (wasChecked && document.getElementById('fFamLink')) document.getElementById('fFamLink').checked = true;
+}
+/* ربطُ مريضٍ جديد بعائلة مريضٍ موجود — نفسُ قواعد ربط العائلة ببطاقة المريض (pp-modules.js): للآخر عائلة ⇒ ينضمّ إليها؛
+   لا عائلة ⇒ معرّفٌ جديد للاثنين. */
+async function prmLinkFamily(newId, otherId) {
+  var other = patients.find(function (p) { return p.id === otherId; });
+  if (!other) return;
+  var fid = other.family_id || ((window.crypto && crypto.randomUUID) ? crypto.randomUUID() : null);
+  if (!fid) return;
+  var r = await window.sb.from('patients').update({ family_id: fid }).eq('doctor_id', currentUser.id).in('id', other.family_id ? [newId] : [newId, otherId]);
+  if (r && r.error) throw r.error;
+}
+
+function openProfile(id) {
+  location.href = 'patient-profile.html?id=' + id;
+}
+
+function toggleDotsMenu(btn) {
+  // Portal pattern: tbody tr:hover applies transform:translateX(-3px), and a
+  // transformed ancestor becomes the containing block for position:fixed —
+  // coords go wrong while hovered and flicker when hover toggles. Moving the
+  // menu to <body> on first open makes fixed truly viewport-relative and
+  // hovering the menu no longer hovers the row (no transform toggling).
+  let menu = btn._dotsMenu;
+  if (!menu) {
+    menu = btn.nextElementSibling;
+    if (!menu || !menu.classList.contains('dots-menu')) return;
+    btn._dotsMenu = menu;
+    document.body.appendChild(menu);
+  }
+  const isOpen = menu.classList.contains('open');
+  document.querySelectorAll('.dots-menu.open').forEach(m => m.classList.remove('open'));
+  if (!isOpen) {
+    menu.classList.add('open');
+    const r = btn.getBoundingClientRect();
+    const mw = menu.offsetWidth || 120;
+    const mh = menu.offsetHeight || 44;
+    let left = r.right - mw; // RTL: align menu's right edge to the button
+    left = Math.max(8, Math.min(left, window.innerWidth - mw - 8));
+    let top = r.bottom + 4;
+    if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 4); // flip up near bottom edge
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+  }
+}
+document.addEventListener('click', function() {
+  document.querySelectorAll('.dots-menu.open').forEach(m => m.classList.remove('open'));
+});
+// Fixed menus don't follow the page on scroll — close them instead.
+window.addEventListener('scroll', function() {
+  document.querySelectorAll('.dots-menu.open').forEach(m => m.classList.remove('open'));
+}, true);
+
+async function deletePatient(id) {
+  // Phase 4: Owner-only action (defense-in-depth — button also hidden via data-role-block)
+  if (window.SyDentLock && !window.SyDentLock.isOwner()) {
+    showToast('🔒 حذف المريض متاح للمالك فقط');
+    return;
+  }
+  var origPat = patients.find(function(p){ return p.id === id; });
+  if (_deletingIds[id]) return;   // v276: second tap while the first is in flight
+  if (!await SyDialog.confirm({ message: 'هل أنت متأكد من حذف هذا المريض؟ سيتم حذف جميع بياناته.', danger: true })) return;
+  // v276: the row dims and stops taking clicks until the server answers; the
+  // open ⋮ menu (portalled to <body>) closes so it can't fire again.
+  _deletingIds[id] = true;
+  var rowEl = document.querySelector('tr[data-patient-id="' + id + '"]');
+  if (rowEl) rowEl.classList.add('row-busy');
+  document.querySelectorAll('body > .dots-menu.open').forEach(function(m){ m.classList.remove('open'); });
+  const { error } = await window.sb
+    .from('patients')
+    .delete()
+    .eq('id', id)
+    .eq('doctor_id', currentUser.id);
+  if (error) {
+    delete _deletingIds[id];
+    if (rowEl) rowEl.classList.remove('row-busy');
+    showToast('❌ خطأ في الحذف');
+    return;
+  }
+  delete _deletingIds[id];
+  // Phase 5: audit log.
+  // patientId MUST be null here: audit_log.patient_id has an FK to patients(id),
+  // and the row was just deleted — a non-null ref would 409 (23503) and silently
+  // lose the deletion audit entry. The uuid is preserved in oldValue instead.
+  if (window.logAudit && origPat) {
+    window.logAudit('patient.delete', {
+      entityId: id,
+      patientId: null,
+      patientName: origPat.name,
+      description: 'حذف المريض: ' + origPat.name + ' (' + (origPat.local_id || '') + ')',
+      oldValue: { id: id, name: origPat.name, local_id: origPat.local_id, phone: origPat.phone }
+    });
+  }
+  showToast('🗑️ تم حذف المريض');
+  await loadPatients();
+}
+
+// ─── Toast ───
+
+/* ============================================================
+   Phase 9.2 — Export patient list to CSV (Excel-ready)
+   Client-side: builds an RFC-4180 CSV with UTF-8 BOM so Arabic
+   renders correctly in Excel. Exports the full patient list.
+   ============================================================ */
+function _csvCell(v){
+  if (v === null || v === undefined) return '';
+  var s = String(v);
+  // RFC 4180: wrap in quotes + double any internal quote when it contains , " or newline
+  if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+function _csvAge(dob){
+  if (!dob) return '';
+  var b = new Date(dob); if (isNaN(b)) return '';
+  var t = new Date(), a = t.getFullYear() - b.getFullYear();
+  var m = t.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && t.getDate() < b.getDate())) a--;
+  return a >= 0 ? a : '';
+}
+function _csvGender(g){ return ({ male:'ذكر', female:'أنثى' })[g] || (g || ''); }
+
+async function exportPatientsCsv(){
+  if (!patients || !patients.length){ showToast('لا يوجد مرضى للتصدير'); return; }
+  // v276: the xlsx library loads on first use (seconds on a weak link) and the
+  // button used to sit silent until the toast. Busy label + no double export.
+  var _xBtn = document.querySelector('button[onclick="exportPatientsCsv()"]');
+  if (_xBtn && _xBtn.disabled) return;
+  var _xOld = _xBtn ? _xBtn.textContent : '';
+  if (_xBtn) { _xBtn.disabled = true; _xBtn.textContent = 'جارٍ التصدير…'; }
+  try { await _exportPatientsBody(); }
+  finally { if (_xBtn) { _xBtn.disabled = false; _xBtn.textContent = _xOld; } }
+}
+async function _exportPatientsBody(){
+  var headers = ['رقم المريض','الاسم','الهاتف','العمر','الجنس','آخر زيارة','الرصيد','الحالة','تاريخ التسجيل'];
+  var dataRows = patients.map(function(p){
+    var pi = payInfo(p);
+    var balCell = pi.label + (pi.amount > 0 ? ' (' + Math.round(pi.amount) + ')' : '');
+    if (pi.extra) balCell += ' / ' + pi.extra.label + (pi.extra.amount > 0 ? ' (' + Math.round(pi.extra.amount) + ')' : '');
+    return [ p.local_id, p.name, p.phone, _csvAge(p.dob), _csvGender(p.gender),
+             p.last_visit, balCell, p.status, p.created_at ? String(p.created_at).slice(0,10) : '' ];
+  });
+  var stamp = new Date().toISOString().slice(0,10);
+  // الأساسي: xlsx حقيقي — يفتح بأعمدة صحيحة بأي برنامج/لغة نظام (نفس منطق قالب الاستيراد)
+  try {
+    var X = await window.SyDentXlsx.load();
+    var ws = X.utils.aoa_to_sheet([headers].concat(dataRows));
+    ws['!cols'] = [{wch:10},{wch:22},{wch:16},{wch:7},{wch:8},{wch:12},{wch:18},{wch:12},{wch:12}];
+    var wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, ws, 'المرضى');
+    wb.Workbook = { Views: [{ RTL: true }] };
+    X.writeFile(wb, 'مرضى-' + stamp + '.xlsx');
+    showToast('تم تصدير ' + patients.length + ' مريض');
+    return;
+  } catch(xe){ console.warn('[export] xlsx failed, CSV fallback:', xe); }
+  // احتياط بلا إنترنت: CSV (مع sep=, لفتح صحيح بـExcel/WPS)
+  var lines = [ 'sep=,', headers.map(_csvCell).join(',') ];
+  dataRows.forEach(function(r){ lines.push(r.map(_csvCell).join(',')); });
+  var csv = '\uFEFF' + lines.join('\r\n');   // BOM → Excel reads UTF-8 Arabic
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var url  = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'مرضى-' + stamp + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+  showToast('تم تصدير ' + patients.length + ' مريض');
+}
+
+/* ============================================================
+   استيراد مرضى من CSV (Onboarding — P1)
+   معزول عن المالية. يطابق نمط INSERT اليدوي حرفياً (Rule #62):
+   local_id يُولَّد تسلسلياً (لا يُستورَد). حدّ الخطة مُطبَّق.
+   المعاينة عبر prmEsc (Rule #220). بلا مكتبة خارجية (KISS).
+   ============================================================ */
+var _impRows = [];   // الصفوف الصالحة الجاهزة للإدراج (بعد التحقق)
+var _impDups = [];   // الصفوف المكرَّرة (اسم+هاتف يطابق مريضاً موجوداً أو صفاً سابقاً بالملف) — تُتخطّى افتراضياً
+
+/* أعمدة القالب المولَّد فقط — مقصورة على الأساسيات كي لا يرتبك الطبيب الجديد بحقولٍ
+   لها خيارات محدّدة داخل البرنامج (الحالة/الحساسيات/المصدر). المحلِّل يقرأ العناوين
+   من ملف المستخدم لا من هنا، فملفات القالب القديم بتلك الأعمدة تبقى تُستورَد كما هي. */
+var IMPORT_HEADERS = ['الاسم','الهاتف','تاريخ الميلاد','الجنس','ملاحظات','المتبقي على المريض','تاريخ الذمة'];
+var _impGenders  = { 'ذكر':1, 'أنثى':1 };
+var _impStatuses = { 'تحت العلاج':1, 'مكتمل':1, 'جديد':1 };
+
+function openImportModal(){
+  _impRows = []; _impDups = [];
+  var f = document.getElementById('importFile'); if (f) f.value = '';
+  document.getElementById('importSummary').innerHTML = '';
+  document.getElementById('importPreview').innerHTML = '';
+  document.getElementById('importConfirmBtn').disabled = true;
+  document.getElementById('importModal').classList.add('open');
+}
+function closeImportModal(){
+  document.getElementById('importModal').classList.remove('open');
+}
+
+// قالب فارغ بالأعمدة الصحيحة + BOM ليقرأه Excel عربي صح
+
+async function downloadImportTemplate(){
+  // القالب الأساسي = xlsx حقيقي: يفتح بأعمدة صحيحة بأي برنامج/لغة نظام (يحل مشكلة فاصل ; الأوروبي نهائياً)
+  try {
+    var X = await window.SyDentXlsx.load();
+    var aoa = [ IMPORT_HEADERS.slice(),
+                ['أحمد محمود','0911111111','1990-05-20','ذكر','مريض تجريبي — احذف هذا السطر','150000','2025-12-01'] ];
+    var ws = X.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{wch:22},{wch:16},{wch:14},{wch:8},{wch:34},{wch:18},{wch:14}];
+    var wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, ws, 'المرضى');
+    wb.Workbook = { Views: [{ RTL: true }] };
+    X.writeFile(wb, 'قالب-استيراد-المرضى.xlsx');
+    return;
+  } catch(xe){ console.warn('[import] xlsx template failed, CSV fallback:', xe); }
+  // احتياط بلا إنترنت: قالب CSV (مع sep=, لـExcel/WPS)
+  var csv = '\uFEFF' + 'sep=,\r\n' + IMPORT_HEADERS.map(_csvCell).join(',') + '\r\n'
+          + [_csvCell('أحمد محمود'), _csvCell('0911111111'), _csvCell('1990-05-20'),
+             _csvCell('ذكر'), _csvCell('مريض تجريبي — احذف هذا السطر'), _csvCell('150000'), _csvCell('2025-12-01')].join(',') + '\r\n';
+  var blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'قالب-استيراد-المرضى.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+}
+
+// parser صغير متوافق مع RFC 4180 (معكوس _csvCell): يحترم "" والفواصل وأسطر داخل الاقتباس + CRLF/LF/CR + BOM
+// delim اختياري (افتراضي ,) — يسمح بقراءة ملفات ; (Excel/WPS بلغات أوروبية) أو tab
+function parseCsvText(text, delim){
+  delim = delim || ',';
+  if (text && text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // نزع BOM
+  var rows = [], row = [], cell = '', i = 0, inQ = false, n = text.length;
+  while (i < n){
+    var c = text[i];
+    if (inQ){
+      if (c === '"'){
+        if (text[i+1] === '"'){ cell += '"'; i += 2; continue; }
+        inQ = false; i++; continue;
+      }
+      cell += c; i++; continue;
+    }
+    if (c === '"'){ inQ = true; i++; continue; }
+    if (c === delim){ row.push(cell); cell = ''; i++; continue; }
+    if (c === '\r'){ if (text[i+1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; i++; continue; }
+    if (c === '\n'){ row.push(cell); rows.push(row); row = []; cell = ''; i++; continue; }
+    cell += c; i++;
+  }
+  // آخر خلية/صف لو ما انتهى الملف بسطر جديد
+  if (cell !== '' || row.length){ row.push(cell); rows.push(row); }
+  // تجاهل الصفوف الفارغة تماماً
+  return rows.filter(function(r){ return r.some(function(x){ return String(x).trim() !== ''; }); });
+}
+
+function handleImportFile(ev){
+  var file = ev.target.files && ev.target.files[0];
+  _impRows = []; _impDups = [];
+  document.getElementById('importConfirmBtn').disabled = true;
+  document.getElementById('importPreview').innerHTML = '';
+  if (!file){ document.getElementById('importSummary').innerHTML = ''; return; }
+  var isXlsx = /\.(xlsx|xls)$/i.test(file.name || '');
+  var reader = new FileReader();
+  reader.onload = function(){
+    if (isXlsx){
+      window.SyDentXlsx.load().then(function(X){
+        try {
+          var wb = X.read(reader.result, { type:'array', cellDates:true });
+          var ws = wb.Sheets[wb.SheetNames[0]];
+          var rows = X.utils.sheet_to_json(ws, { header:1, raw:true, defval:'' })
+                      .map(function(r){ return r.map(function(c){
+                        if (c instanceof Date && !isNaN(c)){ // خلية تاريخ Excel → ISO حتمي (بلا غموض m/d)
+                          return c.getFullYear() + '-' + ('0' + (c.getMonth()+1)).slice(-2) + '-' + ('0' + c.getDate()).slice(-2);
+                        }
+                        return c == null ? '' : String(c);
+                      }); });
+          _processImportRows(rows);
+        } catch(xe){
+          console.error('[import] xlsx parse error:', xe);
+          document.getElementById('importSummary').innerHTML = '<span style="color:var(--red);">تعذّر قراءة ملف Excel. تأكّد أنه ملف xlsx سليم.</span>';
+        }
+      }).catch(function(le){
+        console.error('[import] xlsx lib load error:', le);
+        document.getElementById('importSummary').innerHTML = '<span style="color:var(--red);">تعذّر تحميل قارئ Excel (تحقّق من الإنترنت) — أو احفظ الملف بصيغة CSV وارفعه.</span>';
+      });
+      return;
+    }
+    try { _processImportText(_decodeCsvBuffer(reader.result)); }
+    catch(e){ console.error('[import] parse error:', e); document.getElementById('importSummary').innerHTML = '<span style="color:var(--red);">تعذّر قراءة الملف. تأكّد أنه CSV صالح.</span>'; }
+  };
+  reader.onerror = function(){ document.getElementById('importSummary').innerHTML = '<span style="color:var(--red);">تعذّر قراءة الملف.</span>'; };
+  reader.readAsArrayBuffer(file);
+}
+
+// كشف ترميز ملف CSV: UTF-8 (مع/بلا BOM) وإلا Windows-1256 (تصدير Excel عربي على ويندوز).
+// Excel على ويندوز عربي يحفظ CSV بـ Windows-1256 لا UTF-8 → بدون الكشف تنكسر الأسماء العربية.
+function _decodeCsvBuffer(buf){
+  var bytes = new Uint8Array(buf);
+  // BOM صريح → UTF-8 مؤكّد
+  if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF){
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+  // UTF-8 صارم؛ لو رمى فالبايتات غالباً Windows-1256
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+  catch(e){
+    try { return new TextDecoder('windows-1256').decode(bytes); }
+    catch(e2){ return new TextDecoder('utf-8').decode(bytes); }   // احتياط أخير
+  }
+}
+
+// ─── كشف التكرار: تطبيع للمقارنة فقط (لا يغيّر البيانات المخزَّنة) ───
+// الاسم: توحيد الهمزات أ/إ/آ→ا · ة→ه · ى→ي · حذف التطويل · ضغط الفراغات · حالة أحرف موحّدة
+function _impNormName(s){
+  return String(s || '')
+    .replace(/[\u0623\u0625\u0622]/g, '\u0627')
+    .replace(/\u0629/g, '\u0647')
+    .replace(/\u0649/g, '\u064A')
+    .replace(/\u0640/g, '')
+    .replace(/\s+/g, ' ')
+    .trim().toLowerCase();
+}
+// الهاتف: أرقام فقط + توحيد 00/963/0 البادئة → نواة الرقم (0934… = +963934… = نفس الشخص)
+function _impNormPhone(s){
+  var p = String(s || '').replace(/\D/g, '');
+  if (p.indexOf('00') === 0) p = p.substring(2);
+  if (p.indexOf('963') === 0) p = p.substring(3);
+  if (p.indexOf('0') === 0) p = p.substring(1);
+  return p;
+}
+function _impDupKey(name, phone){ return _impNormName(name) + '|' + _impNormPhone(phone); }
+
+function _processImportText(text){
+  // (١) سطر sep=X من Excel/القالب → فاصل صريح، يُحذف قبل القراءة
+  if (text && text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  var sepM = /^sep=(.)[ \t]*(\r\n|\n|\r)/i.exec(text);
+  var delim = ',';
+  if (sepM){ delim = sepM[1]; text = text.slice(sepM[0].length); }
+  else {
+    // (٢) كشف تلقائي: عدّ , و ; و tab خارج الاقتباس بأول سطر — Excel/WPS الأوروبي يحفظ بـ ;
+    var fl = (text.split(/\r\n|\n|\r/)[0] || ''), cnt = { ',':0, ';':0, '\t':0 }, q = false;
+    for (var ci = 0; ci < fl.length; ci++){
+      var ch = fl[ci];
+      if (ch === '"') q = !q;
+      else if (!q && cnt[ch] != null) cnt[ch]++;
+    }
+    if (cnt[';'] > cnt[','] && cnt[';'] >= cnt['\t']) delim = ';';
+    else if (cnt['\t'] > cnt[','] && cnt['\t'] > cnt[';']) delim = '\t';
+  }
+  var rows = parseCsvText(text, delim);
+  // (٣) إنقاذ: ملف حُفظ كخانة واحدة مقتبسة لكل صف (فتح خاطئ بـWPS/Excel ثم حفظ) → إعادة فصل داخلي
+  if (rows.length && rows[0].length === 1 && /[,;]/.test(String(rows[0][0]))){
+    var h0 = String(rows[0][0]);
+    var inner = (h0.split(';').length > h0.split(',').length) ? ';' : ',';
+    rows = rows.map(function(rr){ return rr.length === 1 ? String(rr[0]).split(inner) : rr; });
+  }
+  _processImportRows(rows);
+}
+
+// جوهر التحقق المشترك بين مسار CSV ومسار Excel (xlsx): تطابق أعمدة + تحقق لكل صف + كشف تكرار
+function _processImportRows(rows){
+  rows = (rows || []).filter(function(r){ return (r || []).some(function(x){ return String(x == null ? '' : x).trim() !== ''; }); });
+  if (rows.length < 2){
+    document.getElementById('importSummary').innerHTML = '<span style="color:var(--red);">الملف فارغ أو بلا بيانات (صف عناوين + صف واحد على الأقل).</span>';
+    return;
+  }
+  // تطابق الأعمدة من صف العناوين
+  var header = rows[0].map(function(h){ return String(h).trim(); });
+  function idxOf(name){ return header.indexOf(name); }
+  var iName = idxOf('الاسم'), iPhone = idxOf('الهاتف');
+  if (iName === -1 || iPhone === -1){
+    document.getElementById('importSummary').innerHTML = '<span style="color:var(--red);">صف العناوين ناقص. يجب أن يحتوي على «الاسم» و«الهاتف». نزّل القالب واستخدمه.</span>';
+    return;
+  }
+  var iDob = idxOf('تاريخ الميلاد'), iGender = idxOf('الجنس'),
+      iStatus = idxOf('الحالة'), iAllergy = idxOf('الحساسيات'), iNotes = idxOf('ملاحظات'),
+      iSource = idxOf('المصدر'),   /* Backlog #4 — اختياري */
+      iBal = idxOf('المتبقي على المريض'), iObDate = idxOf('تاريخ الذمة');  /* ذمة سابقة — اختياري */
+
+  // كشف التكرار: مفتاح = اسم مطبّع + هاتف مطبّع (الهاتف وحده لا يكفي — العائلات تتشارك رقماً واحداً)
+  var existingKeys = {};
+  for (var xp = 0; xp < patients.length; xp++){
+    var ep = patients[xp];
+    if (ep && ep.name && ep.phone) existingKeys[_impDupKey(ep.name, ep.phone)] = ep.local_id || ep.name;
+  }
+  var seenKeys = {};
+
+  var valid = [], invalid = [], dups = [];
+  for (var r = 1; r < rows.length; r++){
+    var cols = rows[r];
+    function g(ix){ return ix > -1 && cols[ix] != null ? String(cols[ix]).trim() : ''; }
+    var name = g(iName), phone = window.SyDentPhone ? window.SyDentPhone.tidy(g(iPhone)) : g(iPhone);   /* v559 (#13) */
+    if (!name || !phone){ invalid.push({ line:r+1, name:name, phone:phone, reason: !name ? 'اسم مفقود' : 'هاتف مفقود' }); continue; }
+    var dob = g(iDob), dm;
+    if (dob){
+      if ((dm = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(dob))) dob = dm[1] + '-' + ('0'+dm[2]).slice(-2) + '-' + ('0'+dm[3]).slice(-2);
+      else if ((dm = /^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})$/.exec(dob))) dob = dm[3] + '-' + ('0'+dm[2]).slice(-2) + '-' + ('0'+dm[1]).slice(-2); // DD/MM/YYYY (المعيار المحلي)
+      else if ((dm = /^(\d{4})[.\/](\d{1,2})[.\/](\d{1,2})$/.exec(dob))) dob = dm[1] + '-' + ('0'+dm[2]).slice(-2) + '-' + ('0'+dm[3]).slice(-2);
+      else dob = '';   // صيغة غير مفهومة → فارغ
+    }
+    var gender = g(iGender); if (!_impGenders[gender]) gender = '';
+    var status = g(iStatus); if (!_impStatuses[status]) status = 'جديد';
+    /* Backlog #4: المصدر — يقبل التسمية العربية أو المفتاح؛ غير معروف → فارغ */
+    var srcRaw = g(iSource), srcKey = '';
+    for (var si = 0; si < REFERRAL_SOURCE_DEFS.length; si++)
+      if (REFERRAL_SOURCE_DEFS[si].label === srcRaw || REFERRAL_SOURCE_DEFS[si].key === srcRaw) { srcKey = REFERRAL_SOURCE_DEFS[si].key; break; }
+    /* ذمة سابقة (اختياري): مبلغ بأرقام لاتينية/هندية مع فواصل آلاف — غير المفهوم/السالب = صفر */
+    var balRaw = g(iBal), obAmount = 0;
+    if (balRaw){
+      var balNorm = balRaw.replace(/[٠-٩]/g, function(ch){ return String('٠١٢٣٤٥٦٧٨٩'.indexOf(ch)); })
+                          .replace(/[,٬\s]/g, '').replace('٫', '.');
+      var balNum = parseFloat(balNorm);
+      if (isFinite(balNum) && balNum > 0) obAmount = balNum;
+    }
+    var obDate = g(iObDate), om;
+    if (obDate){   /* نفس تطبيع تاريخ الميلاد حرفياً */
+      if ((om = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(obDate))) obDate = om[1] + '-' + ('0'+om[2]).slice(-2) + '-' + ('0'+om[3]).slice(-2);
+      else if ((om = /^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})$/.exec(obDate))) obDate = om[3] + '-' + ('0'+om[2]).slice(-2) + '-' + ('0'+om[1]).slice(-2);
+      else if ((om = /^(\d{4})[.\/](\d{1,2})[.\/](\d{1,2})$/.exec(obDate))) obDate = om[1] + '-' + ('0'+om[2]).slice(-2) + '-' + ('0'+om[3]).slice(-2);
+      else obDate = '';
+    }
+    if (obDate && obDate >= prmYmdLocal(new Date())) obDate = '';   /* تاريخ الذمة يجب أن يكون بالماضي — وإلا الافتراضي */
+    var row = { name:name, phone:phone, dob:dob, gender:gender, status:status, allergies:g(iAllergy), notes:g(iNotes), source:srcKey, obAmount:obAmount, obDate:obDate };
+    var key = _impDupKey(name, phone);
+    if (existingKeys[key]){ dups.push({ line:r+1, row:row, match:'مسجَّل مسبقاً (' + existingKeys[key] + ')' }); continue; }
+    if (seenKeys[key]){ dups.push({ line:r+1, row:row, match:'مكرَّر داخل الملف (سطر ' + seenKeys[key] + ')' }); continue; }
+    seenKeys[key] = r + 1;
+    valid.push(row);
+  }
+  _impRows = valid;
+  _impDups = dups;
+  _renderImportPreview(valid, invalid, dups);
+}
+
+function _renderImportPreview(valid, invalid, dups){
+  dups = dups || [];
+  var sum = document.getElementById('importSummary');
+  var obCount = valid.filter(function(v){ return v.obAmount > 0; }).length;
+  sum.innerHTML = '<b style="color:var(--green);">' + valid.length + '</b> صف صالح'
+    + (obCount ? ' · <b style="color:var(--green);">' + obCount + '</b> بذمة سابقة ستُسجَّل تلقائياً' : '')
+    + (dups.length ? ' · <b style="color:var(--yellow,#d4a72c);">' + dups.length + '</b> مكرَّر (سيُتخطّى)' : '')
+    + (invalid.length ? ' · <b style="color:var(--red);">' + invalid.length + '</b> صف مرفوض (سيُتخطّى)' : '');
+  var html = '';
+  if (valid.length){
+    html += '<table style="width:100%;border-collapse:collapse;font-size:12px;">'
+         +  '<thead><tr style="color:var(--text2,#8da0bd);text-align:right;">'
+         +  '<th style="padding:6px 8px;">الاسم</th><th style="padding:6px 8px;">الهاتف</th>'
+         +  '<th style="padding:6px 8px;">الميلاد</th><th style="padding:6px 8px;">الجنس</th><th style="padding:6px 8px;">الحالة</th></tr></thead><tbody>';
+    var cap = Math.min(valid.length, 50);
+    for (var i = 0; i < cap; i++){
+      var v = valid[i];
+      html += '<tr style="border-top:1px solid var(--border,#1e3556);">'
+           +  '<td style="padding:6px 8px;">' + prmEsc(v.name) + '</td>'
+           +  '<td style="padding:6px 8px;">' + prmEsc(v.phone) + '</td>'
+           +  '<td style="padding:6px 8px;">' + prmEsc(v.dob || '—') + '</td>'
+           +  '<td style="padding:6px 8px;">' + prmEsc(v.gender || '—') + '</td>'
+           +  '<td style="padding:6px 8px;">' + prmEsc(v.status) + '</td></tr>';
+    }
+    html += '</tbody></table>';
+    if (valid.length > cap) html += '<div style="color:var(--text2,#8da0bd);font-size:12px;padding:6px 8px;">…و' + (valid.length - cap) + ' صفاً آخر</div>';
+  }
+  if (dups.length){
+    html += '<div style="margin-top:10px;color:var(--yellow,#d4a72c);font-size:12px;">مكرَّر — سيُتخطّى افتراضياً:</div>';
+    for (var d = 0; d < Math.min(dups.length, 20); d++){
+      var dd = dups[d];
+      html += '<div style="color:var(--text2,#8da0bd);font-size:12px;padding:2px 8px;">سطر ' + dd.line + ': ' + prmEsc(dd.row.name) + ' — ' + prmEsc(dd.match) + '</div>';
+    }
+    if (dups.length > 20) html += '<div style="color:var(--text2,#8da0bd);font-size:12px;padding:2px 8px;">…و' + (dups.length - 20) + ' مكرَّراً آخر</div>';
+    html += '<label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--text,#e1f4ee);cursor:pointer;padding:2px 8px;">'
+         +  '<input type="checkbox" id="importDupsChk" style="width:17px;height:17px;flex:0 0 auto;padding:0;margin:0;-webkit-appearance:auto;appearance:auto;accent-color:var(--green);cursor:pointer;"> استيراد المكرَّرات أيضاً (سيُنشأ لكل منها مريض جديد)</label>';
+  }
+  if (invalid.length){
+    html += '<div style="margin-top:10px;color:var(--red);font-size:12px;">مرفوض:</div>';
+    for (var j = 0; j < Math.min(invalid.length, 20); j++){
+      var e = invalid[j];
+      html += '<div style="color:var(--text2,#8da0bd);font-size:12px;padding:2px 8px;">سطر ' + e.line + ': ' + prmEsc(e.reason) + (e.name ? ' (' + prmEsc(e.name) + ')' : '') + '</div>';
+    }
+  }
+  document.getElementById('importPreview').innerHTML = html;
+  document.getElementById('importConfirmBtn').disabled = (valid.length === 0 && dups.length === 0);
+}
+
+async function runPatientImport(){
+  var _dupsChk = document.getElementById('importDupsChk');
+  var _rows = _impRows.slice();
+  if (_dupsChk && _dupsChk.checked) _rows = _rows.concat(_impDups.map(function(d){ return d.row; }));
+  if (!_rows.length){ showToast('لا يوجد صفوف صالحة للاستيراد (المكرَّرات مُتخطّاة — فعّل خيار استيرادها لو أردتها)'); return; }
+  var btn = document.getElementById('importConfirmBtn');
+  btn.disabled = true; var oldTxt = btn.textContent; btn.textContent = 'جارٍ الاستيراد…';
+
+  // حدّ الخطة — رفض الدفعة كاملة لو تجاوزت (لا استيراد جزئي صامت)
+  try {
+    if (window.SyDentPlan) {
+      await window.SyDentPlan.load();
+      var patLimit = window.SyDentPlan.limit('patients');
+      if (patLimit != null) {
+        var pc = await window.sb.from('patients')
+          .select('id', { count:'exact', head:true })
+          .eq('doctor_id', currentUser.id);
+        var pUsed = (pc && typeof pc.count === 'number') ? pc.count : 0;
+        if (pUsed + _rows.length > patLimit) {
+          showToast('🔒 الاستيراد (' + _rows.length + ') يتجاوز حدّ خطتك (' + patLimit + ' مريض، المستخدَم ' + pUsed + '). رقِّ خطتك أو قلّل الصفوف.');
+          btn.disabled = false; btn.textContent = oldTxt; return;
+        }
+      }
+    }
+  } catch(limErr) { console.warn('[import] limit check skipped:', limErr); }
+
+  // توليد local_id تسلسلياً — Migration 86: تخصيص دفعة ذرّي لا يُعاد استخدامه (Rule #62)؛ fallback = maxSeq القديم
+  var maxSeq = 0;
+  try {
+    var seqRes = await window.sb.rpc('next_patient_seq', { n: _rows.length });
+    if (seqRes.error || !seqRes.data) throw (seqRes.error || new Error('no seq'));
+    maxSeq = seqRes.data - _rows.length; // first allocated = maxSeq + 1 (payload below unchanged)
+  } catch (seqEx) {
+    console.warn('[import] next_patient_seq fallback:', seqEx);
+    maxSeq = patients.reduce(function(mx, p){
+      var num = parseInt((p.local_id || 'P000').slice(1));
+      return isNaN(num) ? mx : Math.max(mx, num);
+    }, 0);
+  }
+  var today = prmYmdLocal();
+
+  var payload = _rows.map(function(v, k){
+    return {
+      doctor_id: currentUser.id,
+      local_id: 'P' + String(maxSeq + 1 + k).padStart(3, '0'),
+      name: v.name, phone: v.phone,
+      dob: v.dob || null, gender: v.gender,
+      payment: 'متبقي', status: v.status,
+      allergies: v.allergies, notes: v.notes,
+      last_visit: today,
+      referral_source: v.source || null   /* Backlog #4 */
+    };
+  });
+
+  var res = await window.sb.from('patients').insert(payload).select();
+  if (res.error && isMissingSourceCol(res.error)) {   /* pre-M89 graceful — شطب العمود من كل الصفوف وإعادة المحاولة */
+    warnSourceMigrationOnce();
+    payload.forEach(function(pr){ delete pr.referral_source; });
+    res = await window.sb.from('patients').insert(payload).select();
+  }
+  if (res.error) {
+    console.error('[import] insert error:', res.error);
+    showToast('❌ فشل الاستيراد. لم تُضَف أي بيانات.');
+    btn.disabled = false; btn.textContent = oldTxt; return;
+  }
+  var added = (res.data && res.data.length) ? res.data.length : payload.length;
+
+  /* ── ذمة سابقة من القالب: لكل صف بمتبقٍ موجب، جلسة مكتملة مؤرَّخة بالماضي
+     («رصيد سابق (قبل SyDent)» — النمط القانوني ذاته لزر بطاقة المريض): محرك
+     التوزيع القائم يغطّيها بالدفعات تلقائياً والقاعدة الموحّدة تعرض «متبقي».
+     الربط بـlocal_id (فريد لكل صف بالدفعة) لا بترتيب الرد. provider_id=null
+     عمداً: دينٌ سابق لاستخدام SyDent فنسبتُه لطبيبٍ بعينه ادّعاء — يظهر
+     «غير محدد» بتقارير الأطباء للفترة القديمة فقط. فشل هذه الخطوة غير قاتل:
+     المرضى استوردوا فعلاً، والطبيب يكمل يدوياً من زر «＋ ذمة سابقة». ── */
+  var obSeeded = 0, obFailed = 0;
+  try {
+    var byLocalId = {};
+    (res.data || []).forEach(function(pr){ if (pr && pr.local_id) byLocalId[pr.local_id] = pr.id; });
+    var yest = new Date(); yest.setDate(yest.getDate() - 1);
+    var obDefaultDate = prmYmdLocal(yest);
+    var obPayload = [];
+    _rows.forEach(function(v, k){
+      if (!(v.obAmount > 0)) return;
+      var pid = byLocalId[payload[k].local_id];
+      if (!pid) return;
+      obPayload.push({
+        doctor_id: currentUser.id, patient_id: pid,
+        type: 'رصيد سابق (قبل SyDent)',
+        description: 'ذمة سابقة من قبل استخدام SyDent (استيراد Excel)',
+        cost: v.obAmount, date: v.obDate || obDefaultDate, notes: '',
+        /* v252: عملة العيادة صراحةً — قالبُ الاستيراد بلا عمود عملة فالنيّة هي عملة
+           العيادة، وهي ما كان التريغر يشتقّه (صفر تغيير سلوكي)؛ لكن الاشتقاق شبكةُ
+           أمان لا بديلٌ عن نيّةٍ مقروءة (v180)، ومرآةُ زرّ «＋ ذمة سابقة» ببطاقة المريض. */
+        currency: (function(){ try { return window.SyDentCurrency.code() === 'USD' ? 'USD' : 'SYP'; } catch (e) { return 'SYP'; } })(),
+        status: 'completed', provider_id: null, appointment_id: null
+      });
+    });
+    if (obPayload.length){
+      var obRes = await window.sb.from('ledger_sessions').insert(obPayload).select('id');
+      if (obRes.error){ obFailed = obPayload.length; console.error('[import] OB sessions insert error:', obRes.error); }
+      else obSeeded = (obRes.data && obRes.data.length) || obPayload.length;
+    }
+  } catch(obEx){ obFailed = obFailed || 1; console.error('[import] OB sessions failed:', obEx); }
+
+  if (window.logAudit) {
+    window.logAudit('patient.import', {
+      description: 'استيراد ' + added + ' مريض من CSV' + (obSeeded ? ' + ' + obSeeded + ' ذمة سابقة' : ''),
+      newValue: { count: added, opening_balances: obSeeded }
+    });
+  }
+  showToast('✅ تم استيراد ' + added + ' مريض بنجاح' + (obSeeded ? ' + تسجيل ' + obSeeded + ' ذمة سابقة' : ''));
+  if (obFailed) showToast('⚠️ تعذّر تسجيل ' + obFailed + ' ذمة سابقة — أضفها يدوياً من زر «＋ ذمة سابقة» ببطاقة المريض');
+  closeImportModal();
+  await loadPatients();
+}
+
+// ─── Init ───
+(async function init() {
+  await new Promise(r => setTimeout(r, 80));
+  const { data } = await window.sb.auth.getUser();
+  if (!data || !data.user) { window.location.href = 'auth.html'; return; }
+  currentUser = data.user;
+  /* DeepCode #1 (v557): بياناتُ المتابعة (PRM) ومؤشّرُ الالتزام مستقلّان عن القائمة ولا يرسمها أيٌّ منهما —
+     يُطلقان معها، ويُطبَّقان بالترتيب نفسه بعدها (المتابعة ثم الالتزام ثم إعادةُ الرسم إن وُجد ما يُعرض). */
+  const _prmP = (async function () { try { await loadPrmMeta(); } catch(e) { /* PRM is non-critical */ } })();
+  const _relP = _ptSettle(window.SyDentReliability ? window.SyDentReliability.load(currentUser.id) : null);
+  await loadPatients();
+  await _prmP;
+  /* v497: مؤشّرُ الالتزام — استعلامٌ واحد لنافذة 12 شهراً، ثم إعادةُ رسمٍ إن وُجد ما يُعرض */
+  try {
+    if (window.SyDentReliability) {
+      prmReliab = _ptTake(await _relP);
+      if (Object.keys(prmReliab).length) render();
+    }
+  } catch (eRel) { prmReliab = {}; }
+  // Apply URL filter param (deep-link from dashboard, e.g. ?filter=pending)
+  applyUrlFilter();
+  applyUrlQuery();
+  applyUrlOpen();
+})();
+
+// Reads ?filter=<key> from the URL and activates the matching filter button.
+// Allowed keys mirror setFilter(): all, active, pending, new.
+function applyUrlFilter() {
+  try {
+    var params = new URLSearchParams(window.location.search || '');
+    var f = (params.get('filter') || '').toLowerCase();
+    if (!f) return;
+    var allowed = { all: 1, active: 1, pending: 1, 'new': 1 };
+    if (!allowed[f]) return;
+    var btn = document.querySelector('.filter-btn[onclick*="\'' + f + '\'"]');
+    if (btn) setFilter(f, btn);
+  } catch(e) { /* malformed URL: ignore */ }
+}
+
+// بند #10 (تسليم محروس): ?open=recall من شريط السؤال بالداشبورد — يفتح
+// مودال المتابعة على تبويب الاستدعاء الدوري. يُستدعى بعد loadPrmMeta حصراً
+// كي لا تُرسم قوائم فارغة قبل اكتمال بيانات الاستدعاء.
+async function applyUrlOpen() {
+  try {
+    var params = new URLSearchParams(window.location.search || '');
+    var o = (params.get('open') || '').toLowerCase();
+    // M141-ب: وضعُ القراءة — الروابط العميقة لا تفتح نوافذ الكتابة/المتابعة
+    // (أزرارُها مخفية، والرابط لا يلتفّ عليها). fail-open عند تعذّر القراءة.
+    if (o && window.SyDentSub) {
+      var _sub = await window.SyDentSub.load();
+      if (_sub && _sub.level !== 'full') return;
+    }
+    if (o === 'recall') openPrmModal();
+    // v275: «＋ مريض جديد» on the dashboard (and onboarding step 2) land here
+    // with ?open=new → the add-patient modal opens by itself (one tap saved).
+    // Same inactive-doctor guard as submitPatient — a deep link must not
+    // bypass the button-level block.
+    else if (o === 'new') {
+      if (window.SyDentLock && window.SyDentLock.isDoctorAccountInactive && window.SyDentLock.isDoctorAccountInactive()) return;
+      openModal();
+      try { history.replaceState({}, '', location.pathname); } catch (_) {}   // refresh must not re-open it
+    }
+  } catch(e) { /* malformed URL: ignore */ }
+}
+
+// v275: ?q=<text> from the dashboard header search — pre-fill the search box
+// and render the matches (same input event the box itself fires).
+function applyUrlQuery() {
+  try {
+    var params = new URLSearchParams(window.location.search || '');
+    var q = (params.get('q') || '').trim();
+    if (!q) return;
+    var inp = document.getElementById('searchInput');
+    if (!inp) return;
+    inp.value = q.slice(0, 120);
+    inp.dispatchEvent(new Event('input'));   // renders + syncs the ✕
+    try { inp.focus(); } catch (_) {}
+  } catch(e) { /* malformed URL: ignore */ }
+}
+
+window.onPTRRefresh = function() { loadPatients(); };
+
+initSidebar('patients');
+
+// زر hamburger للـ topbar
+document.addEventListener('DOMContentLoaded', function() {
+  var btn = document.createElement('button');
+  btn.className = 'sb-hamburger';
+  btn.id = 'sbHamburgerBtn';
+  btn.setAttribute('aria-label', 'القائمة');
+  btn.innerHTML = '<span></span><span></span><span></span>';
+  btn.onclick = function() { window.sbToggle(); };
+  window._sbBtn = btn;
+  var topbar = document.querySelector('.topbar');
+  if (topbar) topbar.insertBefore(btn, topbar.firstChild);
+});
+
+/* ============================================================
+   PRM — الاستدعاء الدوري + أعياد الميلاد (P6)
+   patients.html. يعتمد: patients, lastVisitMap (من loadFinancials),
+   currentUser, showToast, formatDate. واتساب عبر wa.me click-to-chat
+   (يعمل بسوريا — deep link لا الـCloud API المحجوب). معزول عن المالية.
+   ============================================================ */
+var PRM_RECALL_MONTHS = 6;     // يُحمّل من clinic_settings.recall_interval_months
+var PRM_COOLDOWN_DAYS = 30;    // لا تُعِد استدعاء من استُدعي خلال هذه المدة
+var PRM_CLINIC_NAME   = '';
+var PRM_CLINIC_PHONE  = '';
+var PRM_BOOKING_ENABLED = false;  // clinic_settings.booking_enabled — gates {booking_link}
+var PRM_AI_ON = false;            // بند #4-أ: opt-in العيادة (ai_features_enabled) + بوابة الخطة — يُظهر زر الصياغة الذكية
+var PRM_RECALL_TPL    = '';    // من clinic_settings.whatsapp_recall_template
+var PRM_BDAY_TPL      = '';    // من clinic_settings.whatsapp_birthday_template
+var PRM_INST_TPL      = '';    // من clinic_settings.whatsapp_installment_template (Backlog #3)
+var PRM_PLANS         = [];    // خطط الأقساط النشطة للمالك (Migration 88)
+var PRM_PLAN_PAYS     = {};    // patient_id → [دفعات] لاشتقاق استحقاق الأقساط
+var prmDueWatches = {};        // A: مراقبات أسنان مستحقة { patient_id: [{tooth_num, treatment_key, review_at}] } — من teeth_status.review_at (M74)
+var prmSoonWatches = {};       // A2: مراقبات قادمة أو بلا موعد — عرض معلوماتي فقط (تُنقل للاستدعاء عند الاستحقاق)
+var prmPostRecallWatch = {};   // A6: { patient_id: { 'tooth|surface': 1 } } — مراقبات لُمست (أُنشئت/عُدّلت) بعد آخر «تم»
+                               //     تُستثنى من التهدئة: «تم» يغطي فقط ما كان قائماً لحظة الاستدعاء (من teeth_status_history — M76)
+var DEFAULT_RECALL_TPL = 'مرحباً {patient_first_name}،\nنذكّرك بموعد المراجعة الدورية في {clinic_name} للاطمئنان على صحة أسنانك. يسعدنا تحديد موعد مناسب لك في أقرب وقت. 🦷\n\n📅 احجز موعدك مباشرة من هنا: {booking_link}';
+var DEFAULT_BDAY_TPL   = 'كل عام وأنت بخير {patient_first_name}! 🎉\nعائلة {clinic_name} تتمنى لك عيد ميلاد سعيداً وابتسامة مشرقة دائماً. 🎂🦷';
+var prmRecentRecalls  = {};    // patient_id → آخر recalled_at (ms)
+var prmReliab = {};   /* v497: مؤشّر التزام المريض — patient_id ⇒ stats (pt-reliability.js) */
+var prmUpcomingApptPatients = {};  // patient_id → true (عنده موعد قادم محجوز → يُستثنى من الاستدعاء)
+var prmActiveTab      = 'recall';
+
+function prmEsc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// تطبيع هاتف لصيغة wa.me — راجع كتلة 4-COPY MIRROR داخل الدالة.
+function prmNormalizePhone(raw){
+  // ── 4-COPY MIRROR ── identical logic lives in: appointments.html normalizePhone ·
+  // book.html normalizePhone · patients.html prmNormalizePhone · patient-profile.html ppNormalizePhone.
+  // Any semantic change MUST be applied to ALL FOUR copies (FIFO-mirror pattern).
+  // Accepted: Syrian mobile 09XXXXXXXX (10) · Syrian landline 0XX… (9-10 digits) ·
+  // 9-digit mobile without the leading 0 · any international form (+CC… / 00CC… / CC…).
+  // 0-leading with 11+ digits = FOREIGN local format (TR 05…, EG 01…, EU 0…): we cannot
+  // guess the country → return null; callers show the "add country code" hint instead
+  // of silently messaging a wrong Syrian number.
+  if (!raw) return null;
+  var p = String(raw).replace(/\D/g, '');
+  if (!p) return null;
+  if (p.indexOf('00') === 0) p = p.substring(2);
+  if (p.indexOf('0') === 0) {
+    if (p.length === 9 || p.length === 10) p = '963' + p.substring(1);
+    else return null; // foreign local — needs country code
+  } else if (p.indexOf('963') !== 0 && p.length === 9) {
+    p = '963' + p;
+  }
+  if (p.length < 10 || p.length > 15) return null;
+  return p;
+}
+
+async function loadPrmMeta(){
+  if (!currentUser) return;
+  /* ── v_perf (تسريع قسم المتابعة): المسارات المستقلة (إعدادات العيادة
+     وبوابات الخطة · سجل الاستدعاءات · المواعيد القادمة · المراقبات · خطط
+     الأقساط) كانت متسلسلة وصارت دفعة Promise.all واحدة — كل مهمة بجسدها
+     الأصلي حرفياً ومعالجة أخطائها كما كانت (كلها graceful أصلاً). كتلة A6
+     وحدها نُقلت بعد الدفعة لأنها تعتمد نتيجتَي (2) و(4) معاً — نفس منطقها
+     حرفياً، وعند فشل (4) تكون الدلاء فارغة فتخرج A6 صفراً كما كان. ── */
+  await Promise.all([
+    (async function(){
+  // 1) إعداد فترة الاستدعاء + اسم العيادة (graceful لو العمود/الجدول مفقود)
+  try {
+    var cs = await window.sb.from('clinic_settings')
+      .select('*').eq('owner_id', currentUser.id).maybeSingle();
+    if (cs && cs.data) {
+      var m = parseInt(cs.data.recall_interval_months, 10);
+      if (!isNaN(m) && m > 0) PRM_RECALL_MONTHS = m;
+      PRM_CLINIC_NAME  = cs.data.clinic_name  || '';
+      PRM_CLINIC_PHONE = cs.data.clinic_phone || '';
+      PRM_RECALL_TPL   = cs.data.whatsapp_recall_template   || '';
+      PRM_BDAY_TPL     = cs.data.whatsapp_birthday_template || '';
+      PRM_INST_TPL     = cs.data.whatsapp_installment_template || '';
+      PRM_BOOKING_ENABLED = !!cs.data.booking_enabled;
+      PRM_AI_ON = !!cs.data.ai_features_enabled;   /* بند #4-أ: opt-in العيادة (الخصوصية غير قابلة للتجاوز) */
+    }
+  } catch (e) { /* graceful */ }
+  // Migration 83: plan gate — hide {booking_link} when the clinic's plan
+  // disables the booking module (the public RPC blocks it server-side too).
+  try {
+    if (PRM_BOOKING_ENABLED && window.SyDentPlan) {
+      await window.SyDentPlan.load();
+      PRM_BOOKING_ENABLED = window.SyDentPlan.can('booking');
+    }
+  } catch (e) { /* fail-open */ }
+  // بند #4-أ: بوابة خطة الـAI — نفس نمط Migration 83 (fail-open كالسيرفر؛
+  // ai-assist يفرضها سيرفر-سايد على كل حال، وهذه للإظهار فقط)
+  try {
+    if (PRM_AI_ON && window.SyDentPlan) {
+      await window.SyDentPlan.load();
+      if (window.SyDentPlan.can('ai_features') === false) PRM_AI_ON = false;
+    }
+  } catch (e) { /* fail-open */ }
+    })(),
+    (async function(){
+  // 2) سجل الاستدعاءات الأخيرة (للتهدئة) — آخر ~120 يوم
+  try {
+    var since = new Date(Date.now() - 120*86400000).toISOString();
+    var rr = await window.sb.from('patient_recalls')
+      .select('patient_id, recalled_at').eq('owner_id', currentUser.id)
+      .gte('recalled_at', since);
+    prmRecentRecalls = {};
+    if (rr && !rr.error && rr.data) rr.data.forEach(function(r){
+      var t = new Date(r.recalled_at).getTime();
+      if (!prmRecentRecalls[r.patient_id] || t > prmRecentRecalls[r.patient_id]) prmRecentRecalls[r.patient_id] = t;
+    });
+  } catch (e) { /* graceful (جدول مفقود قبل Migration 56) */ }
+    })(),
+    (async function(){
+  // 3) مرضى عندهم موعد قادم محجوز (نشِط) — لاستثنائهم من قائمة الاستدعاء (RLS يحصر بصاحب العيادة)
+  try {
+    var todayStr = prmYmdLocal();
+    var ap = await window.SyDentFetchAll(function(){ return window.sb.from('appointments')
+      .select('patient_id')
+      .eq('doctor_id', currentUser.id)
+      .gte('date', todayStr)
+      .not('status', 'in', '(cancelled,broken,no_show,completed)'); });
+    prmUpcomingApptPatients = {};
+    if (ap && !ap.error && ap.data) ap.data.forEach(function(r){
+      if (r.patient_id) prmUpcomingApptPatients[r.patient_id] = true;
+    });
+  } catch (e) { /* graceful */ }
+  /* v504 — قائمة «غابوا»: آخرُ موعدٍ منتهٍ للمريض خلال PRM_NOSHOW_DAYS كان غياباً (no_show/broken)
+     أو إلغاءً بلا موعدٍ آخر بنفس اليوم (إعادةُ جدولةٍ لا غياب). استعلامٌ واحد بنطاق الطبيب. */
+  try {
+    var _nsFrom = new Date(); _nsFrom.setDate(_nsFrom.getDate() - PRM_NOSHOW_DAYS);
+    var fin = await window.sb.from('appointments')
+      .select('id, patient_id, date, time, status, is_planned')
+      .eq('doctor_id', currentUser.id)
+      .gte('date', prmYmdLocal(_nsFrom)).lte('date', prmYmdLocal())
+      .in('status', ['completed', 'no_show', 'broken', 'cancelled']);
+    prmNoShowLast = (fin && !fin.error) ? prmNoShowCompute(fin.data || []) : {};
+  } catch (e2) { prmNoShowLast = {}; }
+    })(),
+    (async function(){
+  // 4) A: كل صفوف المراقبة (status='condition') — تُقسم محلياً: مستحقّة (review_at <= اليوم)
+  //    للاستدعاء الفعلي، وقادمة/بلا موعد (A2) للعرض المعلوماتي. graceful قبل M74.
+  try {
+    var _wToday = prmYmdLocal();
+    var tw = await window.SyDentFetchAll(function(){ return window.sb.from('teeth_status')
+      .select('patient_id, tooth_num, surface, treatment_key, review_at')
+      .eq('doctor_id', currentUser.id)
+      .eq('status', 'condition'); });
+    var _wRows = (tw && !tw.error && tw.data) ? tw.data : [];
+    // A5: حافة القلع — سن وُسم للمراقبة ثم قُلع يجب ألّا يُستدعى (تكافؤ مع تخطّي
+    // isExtracted ببانر ملف المريض). جلب كسول: فقط عند وجود مراقبات، ومقصور على
+    // مرضاها. أي فشل ⇒ تدهور رشيق لعدم الفلترة (سلوك ما قبل A5).
+    var _exMap = null;
+    if (_wRows.length) {
+      try {
+        var _exKeys = { extracted: 1 };
+        var _tx = await window.sb.from('treatments')
+          .select('treatment_key')
+          .eq('doctor_id', currentUser.id)
+          .eq('target_part', 'extraction');
+        if (_tx && !_tx.error && _tx.data) _tx.data.forEach(function(t){ if (t.treatment_key) _exKeys[t.treatment_key] = 1; });
+        var _pids = [], _seenP = {};
+        _wRows.forEach(function(r){ if (!_seenP[r.patient_id]) { _seenP[r.patient_id] = 1; _pids.push(r.patient_id); } });
+        var _ex = await window.sb.from('teeth_status')
+          .select('patient_id, tooth_num, treatment_key')
+          .eq('doctor_id', currentUser.id)
+          .in('patient_id', _pids)
+          .in('treatment_key', Object.keys(_exKeys));
+        if (_ex && !_ex.error && _ex.data) {
+          _exMap = {};
+          _ex.data.forEach(function(r){
+            (_exMap[r.patient_id] = _exMap[r.patient_id] || {})[String(r.tooth_num)] = 1;
+          });
+        }
+      } catch (e2) { _exMap = null; /* graceful */ }
+    }
+    prmDueWatches = {}; prmSoonWatches = {}; prmPostRecallWatch = {};
+    prmFilterExtractedWatches(_wRows, _exMap).forEach(function(r){
+      var bucket = (r.review_at && String(r.review_at) <= _wToday) ? prmDueWatches : prmSoonWatches;
+      if (!bucket[r.patient_id]) bucket[r.patient_id] = [];
+      bucket[r.patient_id].push(r);
+    });
+  } catch (e) { prmDueWatches = {}; prmSoonWatches = {}; prmPostRecallWatch = {}; /* graceful (عمود مفقود قبل Migration 74) */ }
+    })(),
+    prmLoadPlans()   // (5) Backlog #3 — graceful قبل Migration 88
+  ]);
+  // A6 (نُقلت من داخل (4) — تعتمد prmRecentRecalls + الدلاء معاً):
+  try {
+    // A6: مراقبات لُمست بعد آخر «تم» — تُستثنى من التهدئة (التهدئة تغطي فقط ما كان قائماً
+    //     لحظة الاستدعاء). المصدر: teeth_status_history (M76، trigger على كل كتابة) —
+    //     صف condition بعد recalled_at = معلومة جديدة يجب أن تظهر بالمتابعة والشارة فوراً.
+    //     أي فشل ⇒ تدهور رشيق للسلوك القديم (تهدئة على مستوى المريض كامل).
+    try {
+      var _cdMs = (PRM_COOLDOWN_DAYS || 30) * 86400000, _nowMs = Date.now();
+      var _actPids = [], _minMs = null;
+      Object.keys(prmRecentRecalls || {}).forEach(function(pid){
+        var t = prmRecentRecalls[pid];
+        if (!t || (_nowMs - t) >= _cdMs) return;                       // لا تهدئة نشطة
+        if (!prmDueWatches[pid] && !prmSoonWatches[pid]) return;       // لا مراقبات أصلاً
+        _actPids.push(pid);
+        if (_minMs === null || t < _minMs) _minMs = t;
+      });
+      if (_actPids.length) {
+        var _hq = await window.sb.from('teeth_status_history')
+          .select('patient_id, tooth_num, surface, changed_at')
+          .eq('doctor_id', currentUser.id)
+          .eq('status', 'condition')
+          .neq('op', 'D')
+          .in('patient_id', _actPids)
+          .gt('changed_at', new Date(_minMs).toISOString());
+        if (_hq && !_hq.error && _hq.data) _hq.data.forEach(function(h){
+          var rt = prmRecentRecalls[h.patient_id];
+          if (!rt) return;
+          var cm = new Date(h.changed_at).getTime();
+          if (!(cm > rt)) return;                                      // لُمست قبل استدعاء هذا المريض
+          (prmPostRecallWatch[h.patient_id] = prmPostRecallWatch[h.patient_id] || {})
+            [String(h.tooth_num) + '|' + String(h.surface || '')] = 1;
+        });
+      }
+    } catch (eH) { prmPostRecallWatch = {}; /* graceful (جدول مفقود قبل Migration 76) */ }
+  } catch (eA6) { prmPostRecallWatch = {}; /* graceful */ }
+  updatePrmBadge();
+}
+
+// A5: فلترة صفوف المراقبة لأسنان قُلعت لاحقاً — نقية وقابلة للاختبار بمعزل.
+// exMap = { patient_id: { tooth_num: 1 } } أو null (⇒ بلا فلترة، تدهور رشيق).
+function prmFilterExtractedWatches(rows, exMap) {
+  if (!exMap) return rows || [];
+  return (rows || []).filter(function(r){
+    var m = exMap[r.patient_id];
+    return !(m && m[String(r.tooth_num)]);
+  });
+}
+
+// ── MIRROR PAIR ── prmYmdLocal (هنا) ↔ ppYmdLocal (patient-profile.html) — جسمان متطابقان بايت-بايت
+function prmYmdLocal(d){
+  // v99: تاريخ محلي yyyy-mm-dd — لا toISOString (انزياح يوم كامل بين 00:00–03:00 بتوقيت دمشق)
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function prmThresholdDate(){
+  var d = new Date(); d.setHours(0,0,0,0);
+  d.setMonth(d.getMonth() - (PRM_RECALL_MONTHS || 6));
+  return prmYmdLocal(d);
+}
+
+// A4: كم صفاً محجوباً فقط لأن صاحبه عنده موعد قادم محجوز — يُعرض بالحالة الفارغة كي تشرح نفسها
+function prmApptExcludedCount(){
+  var th = prmThresholdDate();
+  var n = 0;
+  Object.keys(prmUpcomingApptPatients || {}).forEach(function(pid){
+    if (!_prmFind(pid)) return;
+    var lv = lastVisitMap[pid];
+    if ((lv && String(lv) <= th) || (prmDueWatches || {})[pid] || (prmSoonWatches || {})[pid]) n++;
+  });
+  return n;
+}
+/* ── v504: «غابوا ولم يعيدوا الحجز» (Open Dental «Unscheduled List» · Dentrix «Broken/No-Show») ──
+   prmNoShowLast: patient_id ⇒ {id, date, status} آخرُ موعدٍ منتهٍ إن كان فشلاً. */
+var PRM_NOSHOW_DAYS = 90;
+var prmNoShowLast = {};
+var DEFAULT_NOSHOW_TPL = 'مرحباً {patient_first_name} 🌿\nلاحظنا أن موعدك يوم {last_date} لم يتم، ونودّ الاطمئنان عليك.\nيسعدنا تحديد موعدٍ جديد يناسبك — تواصل معنا أو احجز مباشرة:\n{booking_link}\n{clinic_name}';
+/* دالةٌ محضة (يثبتها prove-noshow-list.js): صفوفٌ منتهية ⇒ خريطةُ آخر فشلٍ لكل مريض */
+function prmNoShowCompute(rows){
+  var byPt = {};
+  (rows || []).forEach(function(a){
+    if (!a || !a.patient_id || !a.date || a.is_planned) return;
+    (byPt[a.patient_id] = byPt[a.patient_id] || []).push(a);
+  });
+  var out = {};
+  Object.keys(byPt).forEach(function(pid){
+    var list = byPt[pid].slice().sort(function(a,b){ return (b.date + (b.time||'')).localeCompare(a.date + (a.time||'')); });
+    var last = list[0];
+    if (last.status === 'no_show' || last.status === 'broken') { out[pid] = { id: last.id, date: last.date, status: last.status }; return; }
+    if (last.status === 'cancelled') {
+      var rebooked = list.some(function(b){ return b !== last && b.date === last.date && b.status !== 'cancelled'; });
+      if (!rebooked) out[pid] = { id: last.id, date: last.date, status: 'cancelled' };
+    }
+  });
+  return out;
+}
+function prmNoShowList(){
+  var cooldownMs = (PRM_COOLDOWN_DAYS || 30) * 86400000, now = Date.now(), out = [];
+  Object.keys(prmNoShowLast || {}).forEach(function(pid){
+    var p = _prmFind(pid); if (!p) return;
+    if (prmUpcomingApptPatients[pid]) return;                    /* عاد وحجز ⇒ خارج القائمة */
+    var rr = prmRecentRecalls[pid]; if (rr && (now - rr) < cooldownMs) return;   /* تواصلنا مؤخراً */
+    out.push({ p: p, last: prmNoShowLast[pid] });
+  });
+  out.sort(function(a,b){ return String(b.last.date).localeCompare(String(a.last.date)); });   /* الأحدث أولاً */
+  return out;
+}
+function prmNoShowMsg(p){
+  var last = prmNoShowLast[p.id] || {};
+  var msg = prmApplyPlaceholders(prmStripBookingIfDisabled(DEFAULT_NOSHOW_TPL), prmMsgData(p));
+  return msg.split('{last_date}').join(last.date ? prmFmtNum(last.date) : '');
+}
+function renderPrmNoShow(){
+  var el = document.getElementById('prmNoShowView');
+  if (!el) return;
+  var list = prmNoShowList();
+  var cnt = document.getElementById('prmNoShowCount'); if (cnt) cnt.textContent = list.length;
+  if (!list.length) {
+    el.innerHTML = '<div style="text-align:center;padding:36px 16px;color:var(--text2,#8da0bd);">'
+      + '<div style="font-size:38px;">✅</div>'
+      + '<div style="margin-top:8px;font-size:14px;">لا مرضى غابوا عن آخر موعدٍ لهم (آخر ' + PRM_NOSHOW_DAYS + ' يوماً) بلا موعدٍ جديد.</div></div>';
+    return;
+  }
+  el.innerHTML = SySlots.finalize('<div style="font-size:12px;color:var(--text2,#8da0bd);padding:0 2px 10px;">آخرُ موعدٍ لهم كان غياباً أو إلغاءً بلا بديل، ولم يحجزوا بعده (آخر ' + PRM_NOSHOW_DAYS + ' يوماً)</div>'
+    + list.map(function(r){
+      var p = r.p, phone = p.phone || '';
+      var why = r.last.status === 'cancelled' ? 'ألغى' : 'لم يحضر';
+      var sub = '<b style="color:var(--red-ink);">' + why + '</b> يوم ' + prmEsc(prmFmtNum(r.last.date));
+      var waBtn = phone ? '<button class="sy-act" data-slot="1" onclick="prmDoWaNoShow(\'' + p.id + '\')">واتساب</button>' : '';
+      var copyBtn = phone ? '' : '<button class="sy-act" data-slot="2" onclick="prmDoCopyNoShow(\'' + p.id + '\')">نسخ</button>';
+      var doneBtn = '<button class="sy-act sy-act-primary" data-slot="3" onclick="prmMarkRecalled(\'' + p.id + '\')" title="يُخفيه ' + (PRM_COOLDOWN_DAYS||30) + ' يوماً ويُسجَّل كتواصل">تم التواصل</button>';
+      return prmRowHtml(p.name || '', phone, sub, waBtn + copyBtn + doneBtn, '__SY_SLOTS__');
+    }).join(''), { 1: '90px', 2: '80px', 3: '96px' });
+}
+function prmDoWaNoShow(id){ var p=_prmFind(id); if(p) prmWa(p.phone, prmNoShowMsg(p)); }
+function prmDoCopyNoShow(id){ var p=_prmFind(id); if(p) prmCopyText(prmNoShowMsg(p)); }
+
+function prmRecallList(){
+  var th = prmThresholdDate();
+  var cooldownMs = (PRM_COOLDOWN_DAYS || 30) * 86400000;
+  var now = Date.now();
+  var out = [];
+  (patients || []).forEach(function(p){
+    var lv = lastVisitMap[p.id];
+    if (!lv) return;                 // لا جلسة مكتملة سابقة → ليس هدف استدعاء (مريض جديد)
+    if (String(lv) > th) return;     // زار خلال الفترة
+    var rr = prmRecentRecalls[p.id];
+    if (rr && (now - rr) < cooldownMs) return;  // استُدعي حديثاً
+    if (prmUpcomingApptPatients[p.id]) return;  // عنده موعد قادم محجوز → لا داعي للاستدعاء
+    out.push({ p: p, lastVisit: lv });
+  });
+  // A6: هل هذه المراقبة لُمست (أُنشئت/عُدّلت) بعد آخر «تم»؟ إن نعم فهي معلومة جديدة
+  //     لا تغطيها التهدئة ويجب أن تظهر رغم كون المريض ضمن فترة التهدئة.
+  function _prmWatchExempt(pid, w){
+    var ex = prmPostRecallWatch[pid];
+    return !!(ex && ex[String(w.tooth_num) + '|' + String(w.surface || '')]);
+  }
+  // A: دمج المرضى أصحاب المراقبات المستحقة — نفس قواعد التهدئة واستثناء الموعد القادم.
+  //    A6: التهدئة صارت على مستوى المراقبة لا المريض — «تم» يخفي فقط ما كان قائماً لحظته.
+  Object.keys(prmDueWatches || {}).forEach(function(pid){
+    var wsD = prmDueWatches[pid] || [];
+    var rr2 = prmRecentRecalls[pid];
+    if (rr2 && (now - rr2) < cooldownMs) {
+      wsD = wsD.filter(function(w){ return _prmWatchExempt(pid, w); });
+      if (!wsD.length) return;   // كل المستحقات كانت مغطاة بآخر «تم»
+    }
+    var existing = null;
+    for (var i = 0; i < out.length; i++) { if (out[i].p.id === pid) { existing = out[i]; break; } }
+    if (existing) { existing.watch = wsD; return; }
+    var p = _prmFind(pid); if (!p) return;
+    if (prmUpcomingApptPatients[pid]) return;
+    out.push({ p: p, lastVisit: lastVisitMap[pid] || '', watch: wsD });
+  });
+  // A2: دمج أصحاب المراقبات القادمة/بلا موعد — صفوف كاملة بنفس الأساس (واتساب/نسخ/تم)
+  //     وبنفس قواعد التهدئة واستثناء الموعد المحجوز. من عنده صف موجود تُدمج عليه بلا تكرار.
+  var soonOut = [];
+  Object.keys(prmSoonWatches || {}).forEach(function(pid){
+    var wsRaw = prmSoonWatches[pid] || [];
+    var rr3 = prmRecentRecalls[pid];
+    if (rr3 && (now - rr3) < cooldownMs) {
+      wsRaw = wsRaw.filter(function(w){ return _prmWatchExempt(pid, w); });   // A6
+      if (!wsRaw.length) return;   // كل القادمة كانت مغطاة بآخر «تم»
+    }
+    var ws = wsRaw.slice().sort(function(a,b){
+      return String(a.review_at || '9999-99') < String(b.review_at || '9999-99') ? -1 : 1;
+    });
+    var existing = null;
+    for (var j = 0; j < out.length; j++) { if (out[j].p.id === pid) { existing = out[j]; break; } }
+    if (existing) { existing.soon = ws; return; }
+    var p2 = _prmFind(pid); if (!p2) return;
+    if (prmUpcomingApptPatients[pid]) return;
+    soonOut.push({ p: p2, lastVisit: lastVisitMap[pid] || '', soon: ws, soonOnly: true,
+                   _k: String((ws[0] && ws[0].review_at) || '9999-99') });
+  });
+  out.sort(function(a,b){ return String(a.lastVisit).localeCompare(String(b.lastVisit)); }); // الأقدم أولاً
+  soonOut.sort(function(a,b){ return a._k < b._k ? -1 : 1; });                               // الأقرب استحقاقاً أولاً
+  return out.concat(soonOut);
+}
+
+function prmDaysUntilBirthday(dob){
+  if (!dob) return null;
+  var d = new Date(dob); if (isNaN(d.getTime())) return null;
+  var now = new Date(); now.setHours(0,0,0,0);
+  var bd = new Date(now.getFullYear(), d.getMonth(), d.getDate()); bd.setHours(0,0,0,0);
+  if (bd.getTime() < now.getTime()) bd = new Date(now.getFullYear()+1, d.getMonth(), d.getDate());
+  return Math.round((bd.getTime() - now.getTime()) / 86400000);
+}
+
+function prmBirthdayList(){
+  var out = [];
+  (patients || []).forEach(function(p){
+    var dleft = prmDaysUntilBirthday(p.dob);
+    if (dleft === null || dleft < 0 || dleft > 7) return;
+    out.push({ p: p, daysLeft: dleft });
+  });
+  out.sort(function(a,b){ return a.daysLeft - b.daysLeft; });
+  return out;
+}
+
+function updatePrmBadge(){
+  var badge = document.getElementById('prmBadge');
+  if (!badge) return;
+  var recalls = prmRecallList().length;
+  var bdayToday = prmBirthdayList().filter(function(x){ return x.daysLeft === 0; }).length;
+  var noShow = prmNoShowList().length;   /* v504: غابوا ولم يعيدوا الحجز */
+  var instDue = prmInstList().length;   // Backlog #3: أقساط مستحقة اليوم/متأخرة
+  var total = recalls + bdayToday + instDue + noShow;   // الـbadge = إجراءات اليوم (استدعاءات متأخرة + أعياد اليوم + أقساط مستحقة)
+  if (total > 0) { badge.textContent = total; badge.style.display = ''; }
+  else badge.style.display = 'none';
+}
+
+function prmApplyPlaceholders(tpl, data){
+  var out = tpl || '';
+  Object.keys(data).forEach(function(k){
+    out = out.split('{' + k + '}').join(data[k] == null ? '' : String(data[k]));
+  });
+  return out;
+}
+/* ═══ القائمة البيضاء للعناصر النائبة + حلّ مخرَج الـAI ═══
+   مرآة دلالية لـppWaVarData/ppWaResolve بـpp-wa.js. المُرسَل للنموذج أسماء
+   حقول فقط (صفر قيم) والحلّ كله client-side ⇒ صفر-PII محفوظة، والرسالة
+   المولَّدة تحمل رابط الحجز تماماً كما يحمله القالب الثابت.
+   حقلا اسم المريض مستثنيان: عقد التحية هو {الاسم} حصراً. */
+function prmWaAllowList(d){
+  var NAME_KEYS = { patient_name: 1, patient_first_name: 1 };
+  return Object.keys(d || {})
+    .filter(function(k){ return !NAME_KEYS[k]; })
+    .filter(function(k){ return d[k] !== '' && d[k] != null; })
+    .map(function(k){ return '{' + k + '}'; });
+}
+function prmAiAllowList(p, extra){
+  var d = prmMsgData(p);
+  Object.keys(extra || {}).forEach(function(k){ d[k] = extra[k]; });
+  return prmWaAllowList(d);
+}
+/* {الاسم} أولاً (عقد بند #4-أ الحرفي) ثم بقية العناصر. أي عنصر اخترعه
+   النموذج خارج القائمة يبقى حرفياً — مرئي للطبيب قبل الإرسال، لا يُبتلع. */
+function prmAiResolve(text, p, extra){
+  var d = prmMsgData(p);
+  Object.keys(extra || {}).forEach(function(k){ d[k] = extra[k]; });
+  var out = String(text || '').split('{الاسم}').join(p.name || '');
+  return prmApplyPlaceholders(prmStripBookingIfDisabled(out), d);
+}
+function prmAiLeftovers(text){
+  return String(text || '').match(/\{[a-z_\u0600-\u06FF]{2,40}\}/g) || [];
+}
+
+/* M130.4 — تجريدُ اسم مريض الحالة من متن القالب قبل تخزينه، وردُّه إلى العنصر
+   النائب {الاسم} الذي يُحلّ لمريض الحالة لحظةَ التطبيق (نمط #372 معكوساً، وهو
+   الثابت الذي طبّقته v133 على قوالب الإحالة والمخبر وأعفت منه الرسالةَ الحرة
+   بحكمٍ تبيّن خطؤه: مخرجُ النموذج ينزل بالحقل **محلولاً**، فحفظُه خام يخبز اسم
+   المريض داخل قالبٍ يُعاد استعماله — فيصل مريضاً آخر تحيةٌ باسم غيره).
+   **دالة نقيّة**: متنٌ واسمٌ داخلان، متنٌ خارج — صفر globals وصفر DOM، فهي
+   مرآةٌ بايت-بايت بين pp-wa.js و patients.html محروسة بـcheck-mirrors (القسم J).
+   الاسمُ الفارغ يُرجع المتنَ كما هو بايتياً فلا يستبدل شيئاً بلا سبب. */
+function waTplAbstractName(body, patientName) {
+  var b = String(body == null ? '' : body);
+  var n = String(patientName == null ? '' : patientName).trim();
+  if (!n) return b;
+  return b.split(n).join('{الاسم}');
+}
+
+/* بناء خيارات قائمة القوالب — دالة نقيّة (قائمة + هارب داخلان، HTML خارج)
+   مرآة **بايت-بايت** بين pp-wa.js و patients.html، محروسة بـcheck-mirrors
+   (القسم J). الهارب يُمرَّر كبارامتر لأن كل صفحة تسمّي هاربها بشكل مختلف
+   (escapeHtml ↔ prmEsc) — وهذا ما يبقي الجسم متطابقاً حرفياً. */
+function waTplOptionsHtml(list, esc){
+  var opts = '<option value="">— اختر قالباً —</option>';
+  (list || []).forEach(function(t){
+    opts += '<option value="' + t.id + '">' + esc(t.name) + '</option>';
+  });
+  return opts;
+}
+
+/* ═══ M109: مكتبة قوالب الرسائل — نسخة قائمة المتابعة ═══
+   مرآة سلوكية لطبقة waTpl* بـpp-wa.js: نفس الجدول ونفس العقود (القالب يُحفظ
+   بنصّه الخام ويُحلّ لحظة التطبيق) فالقوالب مشتركة بين السطحين للطبيب نفسه.
+   waTplOptionsHtml محروسة بايت-بايت بـcheck-mirrors (القسم J). */
+var PRM_WA_TEMPLATES = null;   // null = لم تُجلب بعد؛ [] = جُلبت (وقد تكون فارغة)
+
+function _prmTplIsMissingTableErr(e){
+  return !!(e && (e.code === '42P01' || e.code === 'PGRST205' ||
+    String(e.message || '').indexOf('wa_message_templates') !== -1));
+}
+async function prmTplLoad(){
+  if (PRM_WA_TEMPLATES !== null) return PRM_WA_TEMPLATES;
+  try {
+    /* M130.1: النطاق حصراً — M120 أضاف عمود kind وفلتَره سطحُ بطاقة المريض
+       (pp-wa.js) ولم يفلتره هذا السطح الموازي. النتيجة لم تكن فوضى قائمةٍ فقط:
+       قوالبُ الإحالة والمنشور الصحّي تُخزَّن JSON (v:2)، وتطبيقُ أحدها هنا كان
+       يسكب النصّ الخام بصندوق رسالةِ مريض. النطاقُ يُسمّى صراحةً بكل استعلام. */
+    var res = await window.sb.from('wa_message_templates')
+      .select('id, name, body, created_at')
+      .eq('owner_id', currentUser.id)
+      .eq('kind', 'wa_free')
+      .order('created_at', { ascending: false });
+    if (res.error) return null;      /* pre-M109: الصف يبقى مخفياً بصمت (#264) */
+    PRM_WA_TEMPLATES = res.data || [];
+    return PRM_WA_TEMPLATES;
+  } catch (e) { return null; }
+}
+function prmTplApply(tid){
+  if (!tid || !_prmAiCur || !_prmAiCur.patient) return;
+  var tpl = (PRM_WA_TEMPLATES || []).find(function(t){ return t.id === tid; });
+  var ta = document.getElementById('prmAiText');
+  if (!tpl || !ta) return;
+  /* استبدال كامل — القالب رسالة كاملة لا مقطع (تكافؤ حرفي مع waTplApply) */
+  ta.value = prmAiResolve(tpl.body || '', _prmAiCur.patient, _prmAiCur.extra);
+  prmMsgCountSync();   /* v442 */
+  showToast('✅ طُبّق القالب — راجعه قبل الإرسال');
+}
+async function prmTplSaveCurrent(){
+  var ta = document.getElementById('prmAiText');
+  var body = (ta && !ta.disabled) ? (ta.value || '').trim() : '';
+  if (!body) { showToast('⚠️ اكتب نص الرسالة أولاً ثم احفظها كقالب', true); return; }
+  /* شبكة أمان (نمط v134): رقمُ سنٍّ صريح لا عنصرَ نائبَ له بهذا السطح، فيبقى
+     حرفياً داخل القالب — يُعلَن قبل التخزين بدل تسريب سنّ حالةٍ أخرى بصمت. */
+  if (/(?:السن|الأسنان)\s*:?\s*\d{1,2}/.test(body)) {
+    if (!await SyDialog.confirm({ message: '⚠️ النص يتضمن رقم سن صريح سيُحفظ كما هو داخل القالب.\n\nاسم المريض يُستبدل تلقائياً، أما رقم السن فيبقى حرفياً.\n\nمتابعة الحفظ رغم ذلك؟', danger: false })) return;
+  }
+  var name = await SyDialog.prompt({ title: 'اسم القالب', message: 'اكتب اسماً للقالب' });
+  if (name === null) return;
+  name = (name || '').trim();
+  if (!name) { showToast('⚠️ الاسم مطلوب', true); return; }
+  body = waTplAbstractName(body, (_prmAiCur && _prmAiCur.patient) ? _prmAiCur.patient.name : '');
+  var res = await window.sb.from('wa_message_templates')
+    .insert({ owner_id: currentUser.id, name: name, body: body, kind: 'wa_free' })
+    .select().single();
+  if (res.error) {
+    if (_prmTplIsMissingTableErr(res.error)) showToast('⚠️ يلزم تطبيق Migration 109 لتفعيل قوالب الرسائل', true);
+    else showToast('⚠️ ' + res.error.message, true);
+    return;
+  }
+  PRM_WA_TEMPLATES = [res.data].concat(PRM_WA_TEMPLATES || []);   /* الأحدث أولاً — يطابق order() */
+  prmTplRefreshSelect(res.data.id);
+  showToast('✅ حُفظ القالب «' + name + '»');
+}
+async function prmTplDeleteSelected(){
+  var sel = document.getElementById('prmTplPick');
+  var tid = sel && sel.value;
+  if (!tid) { showToast('⚠️ اختر قالباً من القائمة أولاً', true); return; }
+  var tpl = (PRM_WA_TEMPLATES || []).find(function(t){ return t.id === tid; });
+  if (!await SyDialog.confirm({ message: 'حذف القالب «' + ((tpl && tpl.name) || '') + '»؟ (لا يؤثر على أي رسالة أُرسلت سابقاً)', danger: true })) return;
+  var res = await window.sb.from('wa_message_templates')
+    .delete().eq('id', tid).eq('owner_id', currentUser.id).eq('kind', 'wa_free');
+  if (res.error) { showToast('⚠️ ' + res.error.message, true); return; }
+  PRM_WA_TEMPLATES = (PRM_WA_TEMPLATES || []).filter(function(t){ return t.id !== tid; });
+  prmTplRefreshSelect('');
+  showToast('🗑 حُذف القالب');
+}
+function prmTplRefreshSelect(selectId){
+  var sel = document.getElementById('prmTplPick');
+  if (!sel) return;
+  sel.innerHTML = waTplOptionsHtml(PRM_WA_TEMPLATES, prmEsc);
+  sel.value = selectId || '';
+}
+
+function prmMsgData(p){
+  var full = (p.name || '').trim();
+  return {
+    patient_name: full || 'المريض',
+    patient_first_name: (full.split(' ')[0]) || full || 'حضرتك',
+    clinic_name: PRM_CLINIC_NAME || 'عيادتنا',
+    clinic_phone: PRM_CLINIC_PHONE || '',
+    booking_link: prmBookingLink()
+  };
+}
+// Self-booking URL for {booking_link} — empty when online booking is disabled.
+function prmBookingLink(){
+  if (!PRM_BOOKING_ENABLED || !currentUser) return '';
+  var base = (location.origin && /^https?:/.test(location.origin)) ? location.origin : 'https://sydent.app';
+  return base + '/book.html?c=' + currentUser.id;
+}
+// Drop any line containing {booking_link} when booking is off (avoids an orphan label).
+function prmStripBookingIfDisabled(tpl){
+  if (PRM_BOOKING_ENABLED) return tpl || '';
+  return (tpl || '').split('\n').filter(function(l){ return l.indexOf('{booking_link}') === -1; })
+                    .join('\n').replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
+}
+// A3: تاريخ المراجعة بصيغة رقمية d/m/yyyy — يُبنى من نص ISO مباشرة (بلا Date/توقيت)
+function prmFmtNum(iso){
+  if (!iso) return '—';
+  var p = String(iso).slice(0, 10).split('-');
+  if (p.length !== 3) return String(iso);
+  return (+p[2]) + '/' + (+p[1]) + '/' + p[0];
+}
+// A3: أسنان المراقبات بلا تكرار — الجدول يخزّن صفاً لكل سطح فالسن الواحد قد يتكرر؛ نوحّده ونرتّبه تصاعدياً
+function prmWatchTeeth(ws){
+  var seen = {}, teeth = [];
+  (ws || []).forEach(function(w){
+    var t = String(w.tooth_num);
+    if (!seen[t]) { seen[t] = 1; teeth.push(t); }
+  });
+  teeth.sort(function(a, b){ return (+a) - (+b); });
+  if (!teeth.length) return '';
+  return (teeth.length === 1 ? 'سن ' : 'الأسنان ') + teeth.join('، ');
+}
+// A3: تجميع صفوف المراقبة حسب تاريخ المراجعة → [{date, teethTxt}] بترتيب الأقرب أولاً (بلا موعد آخراً)
+function prmWatchByDate(ws){
+  var by = {}, keys = [];
+  (ws || []).forEach(function(w){
+    var k = w.review_at ? String(w.review_at) : '';
+    if (!by[k]) { by[k] = []; keys.push(k); }
+    by[k].push(w);
+  });
+  keys.sort(function(a, b){ return (a || '9999-99-99') < (b || '9999-99-99') ? -1 : 1; });
+  return keys.map(function(k){ return { date: k || null, teethTxt: prmWatchTeeth(by[k]) }; });
+}
+function prmRecallMsg(p){
+  var tpl = (PRM_RECALL_TPL && PRM_RECALL_TPL.trim()) ? PRM_RECALL_TPL : DEFAULT_RECALL_TPL;
+  var msg = prmApplyPlaceholders(prmStripBookingIfDisabled(tpl), prmMsgData(p));
+  // A2: ذيل المراقبات — أسنان مستحقّة وقادمة إن وُجدت (إضافة بعد قالب العيادة، لا تعديل عليه)
+  var extra = [];
+  var _dueTxt = prmWatchTeeth(prmDueWatches[p.id]);
+  if (_dueTxt) extra.push('⏰ مراجعة مستحقّة: ' + _dueTxt);
+  prmWatchByDate(prmSoonWatches[p.id]).forEach(function(g){
+    extra.push('🗓️ مراجعة قادمة: ' + g.teethTxt + (g.date ? ' — بتاريخ ' + prmFmtNum(g.date) : ''));
+  });
+  if (extra.length) msg += '\n' + extra.join('\n');
+  return msg;
+}
+function prmBdayMsg(p){
+  var tpl = (PRM_BDAY_TPL && PRM_BDAY_TPL.trim()) ? PRM_BDAY_TPL : DEFAULT_BDAY_TPL;
+  return prmApplyPlaceholders(prmStripBookingIfDisabled(tpl), prmMsgData(p));
+}
+
+/* ═══ Backlog #3: الأقساط المستحقة (Migration 88) — طبقة عرض/تذكير، صفر كتابة مالية ═══
+   MIRRORS: prmPlanAddPeriod/prmPlanCalc ↔ patient-profile ppPlanAddPeriod/ppPlanCalc
+   (سلوكياً عبر check-mirrors.js) · DEFAULT_INST_TPL ↔ settings DEFAULT_INSTALLMENT_TEMPLATE
+   ↔ patient-profile PP_DEFAULT_INST_TPL (بايت-بايت). */
+var DEFAULT_INST_TPL = 'مرحباً {patient_first_name}،\nنذكّرك بأن قسطك البالغ {installment_amount} {currency} مستحق بتاريخ {due_date} في {clinic_name}. 💰\nشكراً لالتزامك 🙏';
+
+// ── MIRROR PAIR ── prmPlanAddPeriod (هنا) ↔ ppPlanAddPeriod (patient-profile.html) — سلوكياً عبر check-mirrors.js
+function prmPlanAddPeriod(startYmd, freq, k){
+  var p = String(startYmd).slice(0,10).split('-');
+  var y = +p[0], m = +p[1], d = +p[2];
+  if (freq === 'weekly' || freq === 'biweekly') {
+    var dt = new Date(Date.UTC(y, m - 1, d + (freq === 'weekly' ? 7 : 14) * k));
+    return dt.toISOString().slice(0,10);
+  }
+  // monthly — end-of-month clamp (31 كانون الثاني + شهر → 28/29 شباط)
+  var mm = (m - 1) + k;
+  var yy = y + Math.floor(mm / 12);
+  mm = ((mm % 12) + 12) % 12;
+  var last = new Date(Date.UTC(yy, mm + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(yy, mm, Math.min(d, last))).toISOString().slice(0,10);
+}
+
+// ── MIRROR PAIR ── prmPlanCalc (هنا) ↔ ppPlanCalc (patient-profile.html) — سلوكياً عبر check-mirrors.js
+/* وسمُ عملة الخطة — نظير ppPlanCurLbl (pp-plan.js): الوسم يتبع عملةَ الخطة التي
+   يقسم بها prmPlanCalc لا عملةَ العيادة. NULL (ما قبل M125) = SYP. */
+function prmPlanCurLbl(pl) {
+  var c = (pl && pl.currency === 'USD') ? 'USD' : 'SYP';
+  try { return window.SyDentCurrency.labelOf(c); } catch (e) { return (c === 'USD') ? '$' : 'ل.س'; }
+}
+function prmPlanCalc(plan, pays, todayYmd){
+  var total = Number(plan.total || 0);
+  var inst  = Number(plan.installment_amount || 0);
+  /* قاعدة #481: الخطة كتلةٌ واحدة بعملةٍ واحدة (M125)، فدفعةٌ بعملةٍ أخرى
+   * لا تغطّي منها شيئاً — جمعُها كان يقفز بالاستحقاق ويعلن الخطة مغطّاة زوراً.
+   * الطيّ مكرَّرٌ حرفياً بالنسختين عمداً: المرآة تبقى مكتفيةً ذاتياً. */
+  var planCur = (plan && plan.currency === 'USD') ? 'USD' : 'SYP';
+  var covered = 0;
+  (pays || []).forEach(function(p){
+    if (((p && p.currency === 'USD') ? 'USD' : 'SYP') !== planCur) return;
+    var d = String(p.date || String(p.created_at || '').slice(0,10)).slice(0,10);
+    if (plan.start_date && d < String(plan.start_date).slice(0,10)) return;
+    covered += Number(p.amount || 0);
+  });
+  if (covered > total) covered = total;
+  var k = inst > 0 ? Math.floor(covered / inst) : 0;
+  var count = inst > 0 ? Math.ceil(total / inst) : 0;
+  var done = covered >= total - 0.5;
+  var nextDue = done ? null : prmPlanAddPeriod(String(plan.start_date || todayYmd), plan.frequency || 'monthly', k);
+  var overdueDays = 0;
+  if (nextDue && todayYmd && nextDue < todayYmd) {
+    var a = String(nextDue).split('-'), b = String(todayYmd).split('-');
+    overdueDays = Math.round((Date.UTC(+b[0], +b[1]-1, +b[2]) - Date.UTC(+a[0], +a[1]-1, +a[2])) / 86400000);
+  }
+  return { covered: covered, k: k, count: count, done: done, nextDue: nextDue,
+           overdueDays: overdueDays, remaining: Math.max(0, total - covered) };
+}
+
+async function prmLoadPlans(){
+  PRM_PLANS = []; PRM_PLAN_PAYS = {};
+  if (!currentUser) return;
+  try {
+    var r = await window.sb.from('payment_plans').select('*')
+      .eq('doctor_id', currentUser.id).eq('status', 'active');
+    if (r.error || !r.data || !r.data.length) return;   // graceful (جدول مفقود قبل Migration 88)
+    PRM_PLANS = r.data;
+    var pids = PRM_PLANS.map(function(x){ return x.patient_id; });
+    var pr = await window.sb.from('ledger_payments')
+      .select('patient_id, amount, currency, date, created_at')
+      .eq('doctor_id', currentUser.id)
+      .in('patient_id', pids);
+    if (pr && !pr.error && pr.data) pr.data.forEach(function(pay){
+      (PRM_PLAN_PAYS[pay.patient_id] = PRM_PLAN_PAYS[pay.patient_id] || []).push(pay);
+    });
+  } catch (e) { PRM_PLANS = []; PRM_PLAN_PAYS = {}; /* graceful */ }
+}
+
+/* الأقساط المستحقة الآن: خطط نشطة غير مغطاة، استحقاقها <= اليوم — الأكثر تأخراً أولاً */
+function prmInstList(){
+  var today = prmYmdLocal();
+  var out = [];
+  (PRM_PLANS || []).forEach(function(pl){
+    var c = prmPlanCalc(pl, PRM_PLAN_PAYS[pl.patient_id], today);
+    if (c.done || !c.nextDue || c.nextDue > today) return;
+    out.push({ plan: pl, calc: c });
+  });
+  out.sort(function(a, b){ return b.calc.overdueDays - a.calc.overdueDays; });
+  return out;
+}
+
+function prmInstMsgData(p, pl, c){
+  var data = prmMsgData(p);
+  data.installment_amount = Number(pl.installment_amount || 0).toLocaleString('en-US');
+  data.currency = prmPlanCurLbl(pl);   /* {currency} — وحدةُ الخطة لا العيادة */
+  data.due_date = prmFmtNum(c.nextDue);
+  data.remaining_total = Number(c.remaining || 0).toLocaleString('en-US');
+  return data;
+}
+function prmInstMsg(p, pl, c){
+  var tpl = (PRM_INST_TPL && PRM_INST_TPL.trim()) ? PRM_INST_TPL : DEFAULT_INST_TPL;
+  /* قالبٌ مخصص بعملةٍ محفورة لا تطابق عملة الخطة وبلا {currency}: يُعلَن لا يُعاد كتابته (v186). */
+  var _plLbl = prmPlanCurLbl(pl);
+  if (tpl.indexOf('{currency}') === -1
+      && ((_plLbl !== 'ل.س' && tpl.indexOf('ل.س') !== -1) || (_plLbl !== '$' && tpl.indexOf('$') !== -1))) {
+    showToast('⚠️ قالب تذكير القسط يحمل عملة ثابتة لا تطابق عملة الخطة — أضف {currency} للقالب من الإعدادات');
+  }
+  return prmApplyPlaceholders(prmStripBookingIfDisabled(tpl), prmInstMsgData(p, pl, c));
+}
+/* واتساب = إرسال مباشر بالقالب — **متطابق مع تبويبَي الاستدعاء والميلاد**
+   (prmDoWaRecall / prmDoWaBday). التوحيد قرار مقصود: مسار الإرسال اليومي
+   يبقى نقرة واحدة بالتبويبات الثلاثة، والمعاينة تُتاح عبر «🤖 صياغة ذكية». */
+function prmDoWaInst(planId){
+  var row = prmInstList().find(function(x){ return x.plan.id === planId; });
+  if (!row) return;
+  var p = (patients || []).find(function(x){ return x.id === row.plan.patient_id; });
+  if (!p) return;
+  prmWa(p.phone, prmInstMsg(p, row.plan, row.calc));
+}
+
+/* ✏️ محرّر تذكير القسط — نظير prmComposeRecall بالاستدعاء حرفياً: يفتح المحرّر
+   معبّأً بالرسالة الافتراضية ومعه القوالب، ولا يولّد شيئاً من تلقائه (M130.3).
+   الصياغة الذكية زرٌّ داخله: نيّتها **مشتقّة من السطح** (PRM_INST_INTENT) فلا
+   يحتاج الطبيب كتابة شيء، والسياق المغلق installment_due يمنع النموذج من
+   اختراع إطار تسويقي. 🔒 عرض/تذكير فقط — صفر كتابة مالية (#260). */
+/* M130.3: قصدُ القسط الافتراضي — ثابتٌ واحد يقرؤه المسارُ التلقائي وزرُّ
+   «صِغ» بقصدٍ فارغ معاً، فلا تنحرف صياغةُ سطحٍ عن الآخر. */
+var PRM_INST_INTENT = 'تذكير المريض بقسطه المستحق بلطف مع شكره على التزامه';
+async function prmComposeInst(planId){
+  var row = prmInstList().find(function(x){ return x.plan.id === planId; });
+  if (!row) return;
+  var p = (patients || []).find(function(x){ return x.id === row.plan.patient_id; });
+  if (!p || !p.phone) return;
+  var extra = prmInstMsgData(p, row.plan, row.calc);   /* نفس مصدر القالب — صفر اشتقاق مكرَّر */
+  /* الزر يتكيّف بدل أن يختفي: بلا اشتراك AI يفتح المعاينة **معبّأة بالقالب**
+     فتبقى مكتبة القوالب والتعديل قبل الإرسال متاحتين — القوالب ميزة مستقلة
+     عن الـAI، وإخفاء المدخل كان سيقطع الوصول إليها كلياً. */
+  /* M130.3: المحرّر يُفتح **معبّأً بالرسالة الافتراضية دائماً وبلا نداء AI**.
+     كان يُقصف نداءٌ من السقف الشهري بمجرّد فتح الشاشة — حتى لو كان المطلوب
+     تطبيقَ قالبٍ أو تصحيحَ كلمة. الـAI صار زرّاً داخل المحرّر يُضغط عند الحاجة. */
+  prmAiOpenPreview('💰 تذكير بالقسط — راجعه وعدّله قبل الإرسال',
+                   prmInstMsg(p, row.plan, row.calc), true);
+  _prmAiCur = { phone: p.phone, patient: p, extra: extra, aiContext: 'installment_due' };
+}
+
+/* نواة التوليد المشتركة — يستهلكها زرّ الصف (توليد فوري بنيّة مشتقّة)
+   وحقلُ النيّة داخل المعاينة (إعادة صياغة بكلمات الطبيب). مسار واحد ⇒
+   يستحيل أن ينحرف السلوكان. */
+async function prmAiRun(intent, isAuto){
+  var btn = document.getElementById('prmAiIntentBtn');
+  var old = btn ? btn.textContent : '';
+  if (btn && !isAuto) { btn.disabled = true; btn.textContent = '🤖 جارٍ الصياغة…'; }
+  if (!_prmAiCur || !_prmAiCur.patient) return;
+  var p = _prmAiCur.patient, extra = _prmAiCur.extra || {};
+  try {
+    var resp = await window.sb.functions.invoke('ai-assist', {
+      body: { feature: 'whatsapp_draft',
+              input: { intent: intent, clinic_name: PRM_CLINIC_NAME,
+                       context: _prmAiCur.aiContext || '',
+                       placeholders: prmAiAllowList(p, extra) } }
+    });
+    if (resp && resp.error) {
+      /* الكود الحقيقي من الخادم (نمط prmAiRunRecall حرفياً) بدل '' — كان
+         quota_exceeded/ai_not_enabled كلاهما يصلان «حاول مجدداً» المضلّلة. */
+      var _code = '';
+      try {
+        if (resp.error.context && typeof resp.error.context.json === 'function') {
+          var _j = await resp.error.context.json();
+          _code = (_j && _j.error) ? String(_j.error) : '';
+        }
+      } catch (_e) {}
+      if (isAuto) prmAiClose(); showToast(prmAiErrText(_code), true); return;
+    }
+    var text = (resp && resp.data && resp.data.text) ? String(resp.data.text).trim() : '';
+    if (!text) { if (isAuto) prmAiClose(); showToast(prmAiErrText('ai_empty_response'), true); return; }
+    var ta = document.getElementById('prmAiText');
+    if (!ta) return;                               /* أُغلقت المعاينة أثناء التوليد */
+    ta.value = prmAiResolve(text, p, extra);
+    ta.disabled = false;
+    prmMsgCountSync();   /* v442 */
+    var bSend = document.getElementById('prmAiSendBtn');
+    if (bSend) bSend.disabled = false;
+    var left = prmAiLeftovers(ta.value);
+    if (left.length) showToast('⚠️ عناصر غير مدعومة بقيت كما هي: ' + left.join(' '), true);
+    else if (!isAuto) showToast('🤖 تم — راجع الرسالة وعدّلها قبل الإرسال');
+  } catch (e) {
+    if (isAuto) prmAiClose();
+    showToast('تعذّر الاتصال بالمساعد — تحقّق من الإنترنت', true);
+  } finally {
+    if (btn && !isAuto) { btn.disabled = false; btn.textContent = old || '🤖 صِغ'; }
+  }
+}
+
+/* الصياغة الذكية من داخل المعاينة — بكلمات الطبيب فوق نفس النواة. */
+async function prmAiRedraft(){
+  var inp = document.getElementById('prmAiIntent');
+  if (!inp || !_prmAiCur || !_prmAiCur.patient) return;
+  var intent = (inp.value || '').trim();
+  /* M130.3: القصدُ الفارغ ليس خطأً بل طلبُ «الصياغة الافتراضية لهذا السطح» —
+     فيبقى التوليدُ الذي كان يقع تلقائياً متاحاً بنقرةٍ واحدة، ويصير قصفُ النداء
+     قراراً صريحاً بدل أثرٍ جانبيّ لفتح شاشة. */
+  if (!intent) {
+    if (_prmAiCur.aiContext === 'installment_due') { await prmAiRun(PRM_INST_INTENT, false); return; }
+    await prmAiRunRecall();
+    return;
+  }
+  await prmAiRun(intent, false);
+}
+function prmDoCopyInst(planId){
+  var row = prmInstList().find(function(x){ return x.plan.id === planId; });
+  if (!row) return;
+  var p = (patients || []).find(function(x){ return x.id === row.plan.patient_id; });
+  if (!p) return;
+  prmCopyText(prmInstMsg(p, row.plan, row.calc));
+}
+
+function renderPrmInst(){
+  var el = document.getElementById('prmInstView');
+  if (!el) return;
+  var list = prmInstList();
+  var cnt = document.getElementById('prmInstCount');
+  if (cnt) cnt.textContent = list.length;
+  if (!list.length) {
+    el.innerHTML = '<div style="text-align:center;padding:36px 16px;color:var(--text2,#8da0bd);">'
+      + '<div style="font-size:38px;">💰</div>'
+      + '<div style="margin-top:8px;font-size:14px;">لا أقساط مستحقة حالياً. الخطط تُنشأ من بطاقة المريض ← المدفوعات.</div></div>';
+    return;
+  }
+  el.innerHTML = SySlots.finalize(list.map(function(r){
+    var pl = r.plan, c = r.calc;
+    var p = (patients || []).find(function(x){ return x.id === pl.patient_id; }) || {};
+    var late = c.overdueDays > 0 ? ' — <b style="color:var(--red);">متأخر ' + c.overdueDays + ' يوم</b>' : ' — <b style="color:var(--green);">مستحق اليوم</b>';
+    var sub = '💰 قسط ' + prmEsc(Number(pl.installment_amount||0).toLocaleString('en-US')) + ' ' + prmPlanCurLbl(pl)
+      + (pl.title ? ' (' + prmEsc(pl.title) + ')' : '')
+      + ' — استحقاق ' + prmFmtNum(c.nextDue) + late
+      + '<br><span style="opacity:.8;">مدفوع ' + c.k + '/' + c.count + ' قسط · المتبقي ' + prmEsc(Number(c.remaining||0).toLocaleString('en-US')) + ' ' + prmPlanCurLbl(pl) + '</span>';
+    var phone = p.phone || '';
+    var waBtn = phone
+      ? '<button class="sy-act" data-slot="1" onclick="prmDoWaInst(\'' + pl.id + '\')">📱 واتساب</button>'
+      : '';
+    /* نظير صفّ الاستدعاء حرفياً: نفس الشرط ونفس الستايل ونفس الموضع بعد واتساب
+       — فالتبويبان يبدوان ويتصرّفان سواء (M130.3). */
+    var editBtnI = phone
+      ? '<button class="sy-act" data-slot="2" onclick="prmComposeInst(\'' + pl.id + '\')" title="تحرير الرسالة · القوالب المحفوظة · النسخ · الصياغة الذكية">✏️ تحرير</button>'
+      : '';
+    var copyBtnI = phone ? ''
+      : '<button class="sy-act" data-slot="2" onclick="prmDoCopyInst(\'' + pl.id + '\')">📋 نسخ</button>';
+    var actions = waBtn + editBtnI + copyBtnI
+      + '<button class="sy-act" data-slot="3" onclick="location.href=\'patient-profile.html?id=' + pl.patient_id + '\'">📂 فتح البطاقة</button>';
+    return prmRowHtml(p.name || '—', phone, sub, actions, '__SY_SLOTS__');
+  }).join(''), { 1: '90px', 2: '80px', 3: '112px' });   // v484: تُطوى الخاناتُ غير المستعملة
+}
+/* ═══ end Backlog #3 (installments PRM) ═══ */
+
+function prmWa(phone, msg){
+  var n = prmNormalizePhone(phone);
+  if (!n) { showToast('⚠️ رقم غير صالح — للأرقام غير السورية أضف رمز الدولة (مثال +90…)'); return; }
+  var url = 'https://wa.me/' + n + '?text=' + encodeURIComponent(msg);
+  window.open(url, '_blank');
+}
+async function prmCopyText(text){
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    }
+    showToast('تم نسخ الرسالة ✓');
+  } catch (e) { showToast('⚠️ تعذّر النسخ'); }
+}
+
+function prmRowHtml(name, phone, sub, actionsHtml, slots){   // v482: slots = عروضُ الخانات الثابتة (.sy-slots) ليصطفّ كلُّ زرٍّ بعموده
+  var phoneTxt = phone ? prmEsc(phone) : '<span style="color:var(--text2,#8da0bd);">بلا رقم</span>';
+  return '<div style="border:1px solid var(--border,#1e3556);border-radius:10px;padding:11px 13px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">'
+    + '<div style="flex:1;min-width:150px;">'
+      + '<div style="font-weight:700;color:var(--text,#e8eefc);">' + prmEsc(name) + '</div>'
+      + '<div style="font-size:12px;color:var(--text2,#8da0bd);margin-top:3px;">' + phoneTxt + (sub ? (' · ' + sub) : '') + '</div>'
+    + '</div>'
+    + '<div class="prm-acts sy-acts' + (slots ? ' sy-slots" style="--sy-slots:' + slots : '') + '">' + actionsHtml + '</div>'
+  + '</div>';
+}
+
+function renderPrmRecall(){
+  var el = document.getElementById('prmRecallView');
+  if (!el) return;
+  var list = prmRecallList();
+  document.getElementById('prmRecallCount').textContent = list.length;
+  var dueN = 0, soonN = 0, _soonDivDone = false;
+  list.forEach(function(r){ if (r.soonOnly) soonN++; else dueN++; });
+  if (!list.length) {
+    var _exN = prmApptExcludedCount();
+    var _exLine = !_exN ? '' :
+      '<div style="margin-top:10px;font-size:12.5px;color:var(--text2,#8da0bd);">🔎 '
+      + (_exN === 1 ? 'مريض واحد لديه مراقبات أو استدعاء لكنه مستثنى' : _exN + ' مرضى لديهم مراقبات أو استدعاء لكنهم مستثنون')
+      + ' — <b style="color:var(--green,#2ee89e);">عنده موعد قادم محجوز ✓</b></div>';
+    el.innerHTML = '<div style="text-align:center;padding:36px 16px;color:var(--text2,#8da0bd);">'
+      + '<div style="font-size:38px;">🔁</div>'
+      + '<div style="margin-top:8px;font-size:14px;">لا مرضى متأخّرين عن المراجعة (أكثر من ' + (PRM_RECALL_MONTHS||6) + ' أشهر) ولا مراقبات.</div>'
+      + _exLine + '</div>';
+    return;
+  }
+  el.innerHTML = SySlots.finalize('<div style="font-size:12px;color:var(--text2,#8da0bd);padding:0 2px 10px;">مرضى لم يزوروا منذ أكثر من ' + (PRM_RECALL_MONTHS||6) + ' أشهر، ومراقبات أسنان — <b style="color:var(--text,#e8eefc);">' + dueN + '</b> للاستدعاء' + (soonN ? ' · <b style="color:var(--text,#e8eefc);">' + soonN + '</b> مراقبة قادمة' : '') + '. <span style="opacity:.75;">(يُستثنى من عنده موعد قادم محجوز)</span></div>'
+    + list.map(function(r){
+      var p = r.p;
+      var sub = r.lastVisit ? ('آخر زيارة: ' + prmEsc(formatDate(r.lastVisit))) : 'لا زيارات مكتملة بعد';
+      if (r.soon && r.soon.length) {
+        var _st = prmWatchByDate(r.soon).map(function(g){
+          return prmEsc(g.teethTxt) + ' (' + prmEsc(g.date ? prmFmtNum(g.date) : 'بلا موعد') + ')';
+        }).join(' · ');
+        sub = '🔎 <b style="color:var(--text2,#8da0bd);">مراقبة قادمة:</b> ' + _st + ' — ' + sub;
+      }
+      if (r.watch && r.watch.length) {
+        var _wt = prmEsc(prmWatchTeeth(r.watch));
+        sub = '🦷 <b style="color:var(--yellow);">مراقبة مستحقّة:</b> ' + _wt + ' — ' + sub;
+      }
+      var phone = p.phone || '';
+      var waBtn = phone
+        ? '<button class="sy-act" data-slot="1" onclick="prmDoWaRecall(\'' + p.id + '\')">📱 واتساب</button>'
+        : '';
+      /* M130.3: مدخلُ المحرّر — يحمل القوالب والتحرير والنسخ والصياغة الذكية معاً
+         (نمط الردود الجاهزة: القالب يُنتقى **من داخل المحرّر** ويُشخصَن ثم يُرسَل).
+         وواتساب يبقى إرسالاً مباشراً بصفر نقرة إضافية (عقد v68) لأن قائمة
+         الاستدعاء أداةُ دفعات: مودالٌ إلزاميّ على كل صفّ يقتل غرضها. */
+      var editBtn = phone
+        ? '<button class="sy-act" data-slot="2" onclick="prmComposeRecall(\'' + p.id + '\')" title="تحرير الرسالة · القوالب المحفوظة · النسخ · الصياغة الذكية">✏️ تحرير</button>'
+        : '';
+      /* بلا هاتف لا يُفتح محرّرٌ زرُّ إرساله معطّل — يبقى النسخ كما كان تماماً. */
+      var copyBtn = phone ? ''
+        : '<button class="sy-act" data-slot="2" onclick="prmDoCopyRecall(\'' + p.id + '\')">📋 نسخ</button>';
+      var actions = waBtn + editBtn + copyBtn
+        + '<button class="sy-act sy-act-primary" data-slot="3" onclick="prmMarkRecalled(\'' + p.id + '\')" title="إخفاؤه من القائمة لمدة ' + (PRM_COOLDOWN_DAYS||30) + ' يوم">✅ تم</button>';
+      var _div = '';
+      if (r.soonOnly && !_soonDivDone) {
+        _soonDivDone = true;
+        _div = '<div style="margin:12px 0 8px;font-size:12px;color:var(--text2,#8da0bd);">🔎 <b style="color:var(--text,#e8eefc);">مراقبات قادمة</b> <span style="opacity:.75;">— تُنقل للاستدعاء تلقائياً عند استحقاقها</span></div>';
+      }
+      return _div + prmRowHtml(p.name || '—', phone, sub, actions, '__SY_SLOTS__');
+    }).join(''), { 1: '90px', 2: '80px', 3: '66px' });   // v484
+}
+
+function renderPrmBday(){
+  var el = document.getElementById('prmBdayView');
+  if (!el) return;
+  var list = prmBirthdayList();
+  document.getElementById('prmBdayCount').textContent = list.length;
+  if (!list.length) {
+    el.innerHTML = '<div style="text-align:center;padding:36px 16px;color:var(--text2,#8da0bd);">'
+      + '<div style="font-size:38px;">🎂</div>'
+      + '<div style="margin-top:8px;font-size:14px;">لا أعياد ميلاد خلال الأيام السبعة القادمة.</div></div>';
+    return;
+  }
+  el.innerHTML = SySlots.finalize(list.map(function(r){
+    var p = r.p;
+    var when = r.daysLeft === 0 ? '🎉 اليوم' : (r.daysLeft === 1 ? 'غداً' : ('بعد ' + r.daysLeft + ' أيام'));
+    var sub = 'عيد الميلاد: ' + when;
+    var phone = p.phone || '';
+    var waBtn = phone
+      ? '<button class="sy-act" data-slot="1" onclick="prmDoWaBday(\'' + p.id + '\')">📱 واتساب</button>'
+      : '';
+    var actions = waBtn
+      + '<button class="sy-act" data-slot="2" onclick="prmDoCopyBday(\'' + p.id + '\')">📋 نسخ</button>';
+    return prmRowHtml(p.name || '—', phone, sub, actions, '__SY_SLOTS__');
+  }).join(''), { 1: '90px', 2: '76px' });   // v484
+}
+
+function _prmFind(id){ for (var i=0;i<(patients||[]).length;i++) if (patients[i].id === id) return patients[i]; return null; }
+
+function prmDoWaRecall(id){ var p=_prmFind(id); if(p) prmWa(p.phone, prmRecallMsg(p)); }
+function prmDoCopyRecall(id){ var p=_prmFind(id); if(p) prmCopyText(prmRecallMsg(p)); }
+function prmDoWaBday(id){ var p=_prmFind(id); if(p) prmWa(p.phone, prmBdayMsg(p)); }
+function prmDoCopyBday(id){ var p=_prmFind(id); if(p) prmCopyText(prmBdayMsg(p)); }
+
+async function prmMarkRecalled(id){
+  var p = _prmFind(id); if (!p) return;
+  prmRecentRecalls[id] = Date.now();   // إخفاء فوري متفائل
+  delete prmPostRecallWatch[id];       // A6: «تم» الجديد يغطي كل المراقبات الحالية — استثناءات الاستدعاء السابق تسقط
+  renderPrmRecall(); renderPrmNoShow(); updatePrmBadge();   /* v504 */
+  try {
+    var ins = await window.sb.from('patient_recalls')
+      .insert({ owner_id: currentUser.id, patient_id: id, channel: 'whatsapp' });
+    if (ins.error) throw ins.error;
+    showToast('تم تسجيل الاستدعاء ✓');
+  } catch (e) {
+    console.warn('prmMarkRecalled:', e);
+    showToast('⚠️ تعذّر تسجيل الاستدعاء (سيظهر مجدداً لاحقاً)');
+  }
+}
+
+/* ═══ بند #4-أ: الصياغة الذكية للاستدعاء (ai-assist · followup_message) ═══
+   طبقة نصّ فوق PRM القائم: الفرز يبقى deterministic كما هو، والـAI للصياغة فقط.
+   حمولة صفر-PII: أشهر الانقطاع + نصوص المراقبات + اسم العيادة — اسم المريض
+   لا يغادر المتصفح ({الاسم} يُستبدل client-side بعد التوليد). إنسان بالحلقة:
+   معاينة قابلة للتعديل ثم إرسال عبر prmWa القائم — صفر إرسال تلقائي،
+   صفر كتابة مالية، والقالب الثابت يبقى المسار الافتراضي بلا أي تغيير. */
+var _prmAiCur = null;   /* {phone} — هدف الإرسال الحالي لمودال المعاينة */
+function prmAiErrText(code){
+  var map = {
+    ai_not_enabled: 'فعّل مساعد الذكاء الاصطناعي من الإعدادات أولاً',
+    ai_plan_not_included: 'مساعد الذكاء الاصطناعي غير متاح في خطتك الحالية',
+    ai_override_off: 'مساعد الذكاء الاصطناعي موقوف لهذا الحساب من إدارة المنصة',
+    account_not_active: 'الحساب غير مفعّل حالياً — تواصل مع إدارة المنصة',
+    subscription_inactive: 'انتهى اشتراك العيادة — جدّد الاشتراك لاستخدام مساعد الذكاء الاصطناعي',
+    not_platform_admin: 'هذه الميزة مخصّصة لإدارة المنصة فقط',
+    quota_exceeded: 'بلغت الحد الشهري لمساعد الذكاء الاصطناعي — يتجدّد مطلع الشهر',
+    rate_limited: 'طلبات متتالية سريعة — انتظر دقيقة ثم حاول مجدداً',
+    ai_key_missing: 'المساعد غير مهيّأ بعد (مفتاح الخدمة مفقود)',
+    ai_upstream_error: 'تعذّر إنشاء الرسالة — تحقّق من رصيد خدمة الذكاء الاصطناعي',
+    ai_empty_response: 'لم تصل رسالة — حاول مجدداً',
+    empty_input: 'لا سياق كافٍ لهذا المريض (لا انقطاع ولا مراقبات)'
+  };
+  return map[code] || 'تعذّر إنشاء الرسالة — حاول مجدداً';
+}
+function prmAiMonthsAway(pid){
+  var lv = lastVisitMap[pid];
+  if (!lv) return '';
+  var ms = Date.now() - new Date(String(lv) + 'T00:00:00').getTime();
+  if (!(ms > 0)) return '';
+  return String(Math.max(1, Math.round(ms / 2629800000)));   /* متوسط الشهر */
+}
+function prmAiPendingItems(pid){
+  var parts = [];
+  var dueTxt = prmWatchTeeth(prmDueWatches[pid]);
+  if (dueTxt) parts.push('أسنان وضعها الطبيب تحت المراقبة وحان موعد الاطمئنان عليها: ' + dueTxt);
+  prmWatchByDate(prmSoonWatches[pid]).forEach(function(g){
+    parts.push('أسنان تحت المراقبة يقترب موعد الاطمئنان عليها: ' + g.teethTxt + (g.date ? ' (الموعد المحدد لها: ' + g.date + ')' : ''));
+  });
+  return parts.join(' · ');
+}
+function prmAiCloseDom(){
+  var ov = document.getElementById('prmAiOverlay');
+  if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+}
+function prmAiClose(){
+  prmAiCloseDom();
+  _prmAiCur = null;
+}
+/* مودال المعاينة العام — يخدم مسارين:
+   (أ) الاستدعاء: يُفتح **معبّأً** بقالب الاستدعاء عبر prmComposeRecall — والصياغة
+       الذكية زرٌّ داخله لا شرطٌ لفتحه (M130.3).
+   (ب) الأقساط: يُفتح **معبّأً** برسالة القالب وجاهزاً للإرسال فوراً، مع صف
+       صياغة ذكية اختياري — فتتطابق تجربته مع بطاقة المريض بلا مودال ثالث.
+   البارامترات كلها اختيارية ⇒ أي منادٍ لا يمرّر شيئاً يحصل على السلوك القديم. */
+function prmAiOpenPreview(title, initialText, aiOn){
+  prmAiCloseDom();   /* تنظيف DOM فقط — لا يمسّ _prmAiCur (كان يصفّره فيبطل زر الإرسال) */
+  /* v442: أُعيد بناؤه بطقم محرّر الرسالة المعياري (SYDENT COMPOSER KIT بـtheme.css)
+     — نفسُ شكل «الرسالة الحرة» ببطاقة المريض حرفياً: بطاقةُ المساعد الذكي فوق
+     (بعنوان «ماذا تريد أن تقول؟» وزرٍّ كامل العرض)، ثم قسمُ «نص الرسالة» بعدّاد
+     أحرفٍ وصفِّ قوالبَ مدمجٍ فوق النص وتلميحِ مراجعةٍ تحته، والأفعالُ بالذيل. */
+  var ov = document.createElement('div');
+  ov.id = 'prmAiOverlay'; ov.dir = 'rtl';
+  ov.className = 'modal-overlay sy-m sy-m-md open';   /* بلا إغلاقٍ بنقرةٍ خارجية (v441) */
+  var shell = document.createElement('div');
+  shell.className = 'modal-box';
+
+  var head = document.createElement('div');
+  head.className = 'modal-head';
+  var h = document.createElement('h3');
+  h.textContent = title || '💬 رسالة للمريض — راجعها وعدّلها قبل الإرسال';
+  var hx = document.createElement('button');
+  hx.type = 'button'; hx.className = 'modal-close'; hx.textContent = '✕';
+  hx.setAttribute('aria-label', 'إغلاق');
+  hx.onclick = prmAiClose;
+  head.appendChild(h); head.appendChild(hx);
+  shell.appendChild(head);
+
+  var box = document.createElement('div');
+  box.className = 'modal-body';
+
+  /* سطرُ المريض/الهاتف — نفسُ .wa-info-row بالرسالة الحرة */
+  var who = (_prmAiCur && _prmAiCur.patient) ? _prmAiCur.patient : null;
+  if (who) {
+    var info = document.createElement('div');
+    info.className = 'wa-info-row';
+    var l1 = document.createElement('span'); l1.className = 'wa-info-label'; l1.textContent = 'المريض:';
+    var v1 = document.createElement('strong'); v1.textContent = who.name || '—';
+    var sp = document.createElement('span'); sp.style.marginRight = 'auto';
+    var l2 = document.createElement('span'); l2.className = 'wa-info-label'; l2.textContent = 'الهاتف:';
+    var v2 = document.createElement('strong'); v2.textContent = who.phone || '—';
+    info.appendChild(l1); info.appendChild(v1); info.appendChild(sp); info.appendChild(l2); info.appendChild(v2);
+    box.appendChild(info);
+  }
+
+  /* بطاقةُ المساعد الذكي — ببوابة العيادة + الخطة؛ عند التعطيل لا تُبنى أصلاً
+     (لا عنوان ولا تلميح ولا فراغ)، والقوالبُ تبقى لأنها ميزةٌ مستقلّة. */
+  if (aiOn && PRM_AI_ON) {
+    var card = document.createElement('div');
+    card.className = 'wa-ai-card';
+    var cHead = document.createElement('div');
+    cHead.className = 'wa-ai-head';
+    var ico = document.createElement('span'); ico.className = 'wa-ai-ico'; ico.textContent = '🤖'; ico.setAttribute('aria-hidden', 'true');
+    var cTtl = document.createElement('span'); cTtl.textContent = 'المساعد الذكي';
+    var cSub = document.createElement('small'); cSub.textContent = 'اكتب فكرتك بكلمات قليلة وهو يصيغ الرسالة';
+    cHead.appendChild(ico); cHead.appendChild(cTtl); cHead.appendChild(cSub);
+    var aiLbl = document.createElement('label');
+    aiLbl.className = 'wa-sec-label'; aiLbl.setAttribute('for', 'prmAiIntent');
+    aiLbl.textContent = 'ماذا تريد أن تقول؟';
+    var aiIn = document.createElement('textarea');
+    aiIn.id = 'prmAiIntent'; aiIn.className = 'wa-field'; aiIn.rows = 2;
+    aiIn.placeholder = 'اتركه فارغاً للصياغة الافتراضية، أو مثال: تذكير ودّي مع شكر على الالتزام';
+    aiIn.addEventListener('keydown', function(e){ if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); prmAiRedraft(); } });
+    var aiBtn = document.createElement('button');
+    aiBtn.id = 'prmAiIntentBtn'; aiBtn.type = 'button'; aiBtn.className = 'wa-ai-btn';
+    aiBtn.textContent = '🤖 صِغ الرسالة بالذكاء الاصطناعي';
+    aiBtn.onclick = prmAiRedraft;
+    card.appendChild(cHead); card.appendChild(aiLbl); card.appendChild(aiIn); card.appendChild(aiBtn);
+    box.appendChild(card);
+  }
+
+  /* قسمُ نص الرسالة: عنوان + عدّاد، صفُّ القوالب فوق النص، النص، تلميحُ المراجعة */
+  var sec = document.createElement('div');
+  sec.className = 'wa-msg-sec';
+  var mHead = document.createElement('div');
+  mHead.className = 'wa-msg-head';
+  var mLbl = document.createElement('label');
+  mLbl.className = 'wa-sec-label'; mLbl.setAttribute('for', 'prmAiText'); mLbl.textContent = 'نص الرسالة';
+  var cnt = document.createElement('span');
+  cnt.id = 'prmMsgCount'; cnt.className = 'wa-count'; cnt.textContent = '0 حرف';
+  mHead.appendChild(mLbl); mHead.appendChild(cnt);
+  sec.appendChild(mHead);
+
+  if (aiOn) {
+    var tplWrap = document.createElement('div');
+    tplWrap.id = 'prmTplRow'; tplWrap.className = 'wa-tpl-row';
+    tplWrap.style.display = 'none';          /* يظهر بعد تأكيد توفّر الجدول (#264) */
+    var tplSel = document.createElement('select');
+    tplSel.id = 'prmTplPick'; tplSel.className = 'wa-field';
+    tplSel.setAttribute('aria-label', 'قوالبي المحفوظة');
+    tplSel.onchange = function(){ prmTplApply(this.value); };
+    var tplSave = document.createElement('button');
+    tplSave.type = 'button'; tplSave.className = 'wa-icon-btn'; tplSave.textContent = '💾';
+    tplSave.title = 'حفظ نص الرسالة الحالي كقالب'; tplSave.setAttribute('aria-label', 'حفظ كقالب');
+    tplSave.onclick = prmTplSaveCurrent;
+    var tplDel = document.createElement('button');
+    tplDel.type = 'button'; tplDel.className = 'wa-icon-btn wa-icon-danger'; tplDel.textContent = '🗑';
+    tplDel.title = 'حذف القالب المختار'; tplDel.setAttribute('aria-label', 'حذف القالب');
+    tplDel.onclick = prmTplDeleteSelected;
+    tplWrap.appendChild(tplSel); tplWrap.appendChild(tplSave); tplWrap.appendChild(tplDel);
+    sec.appendChild(tplWrap);
+    prmTplLoad().then(function(list){
+      if (list === null) return;                    /* pre-M109 ⇒ الصف يبقى مخفياً */
+      var w = document.getElementById('prmTplRow');
+      if (!w) return;                               /* أُغلقت المعاينة أثناء الجلب */
+      w.style.display = '';                         /* الجدول متاح ⇒ أظهر حتى بصفر قوالب */
+      prmTplRefreshSelect('');
+    });
+  }
+
+  var ta = document.createElement('textarea');
+  ta.id = 'prmAiText'; ta.className = 'wa-modal-message';
+  var prefilled = (initialText != null && initialText !== '');
+  ta.disabled = !prefilled;                      /* معبّأ ⇒ قابل للتعديل فوراً */
+  ta.value = prefilled ? initialText : '🤖 جارٍ الصياغة…';
+  sec.appendChild(ta);
+  var hint = document.createElement('div');
+  hint.className = 'wa-hint';
+  hint.textContent = 'راجع النص وعدّله قبل الإرسال — يُفتح في WhatsApp ولا يُرسل تلقائياً.';
+  sec.appendChild(hint);
+  box.appendChild(sec);
+
+  /* الذيل: إلغاء · نسخ · إرسال — نفسُ ترتيب الرسالة الحرة */
+  var row = document.createElement('div');
+  row.className = 'modal-foot';
+  var bClose = document.createElement('button');
+  bClose.type = 'button'; bClose.className = 'btn-cancel'; bClose.textContent = 'إغلاق';
+  bClose.onclick = prmAiClose;
+  var bCopy = document.createElement('button');
+  bCopy.type = 'button'; bCopy.className = 'btn-cancel'; bCopy.textContent = '📋 نسخ النص';
+  bCopy.onclick = function(){ var t = document.getElementById('prmAiText'); if (t && !t.disabled) prmCopyText(t.value.trim()); };
+  var bSend = document.createElement('button');
+  bSend.id = 'prmAiSendBtn'; bSend.type = 'button'; bSend.className = 'wa-send-btn'; bSend.disabled = !prefilled;
+  bSend.innerHTML = '<span>📱</span> <span>فتح WhatsApp وإرسال</span>';
+  bSend.onclick = prmAiSend;
+  row.appendChild(bClose); row.appendChild(bCopy); row.appendChild(bSend);
+
+  shell.appendChild(box); shell.appendChild(row);
+  ov.appendChild(shell);
+  document.body.appendChild(ov);
+  prmMsgCountSync();
+  if (window.SyModal) window.SyModal.scan();
+}
+
+/* v442: عدّادُ أحرف نص الرسالة — مرآةُ ppWaCountSync بمودال الرسالة الحرة:
+   مستمعُ input واحدٌ يُربط عند البناء، ويُستدعى بعد كل تعبئةٍ برمجية (فتحٌ/قالبٌ/ذكاء)
+   لأن ضبط .value لا يُطلق input. */
+function prmMsgCountSync() {
+  var ta = document.getElementById('prmAiText');
+  var c = document.getElementById('prmMsgCount');
+  if (!ta || !c) return;
+  if (!ta._prmCountBound) { ta._prmCountBound = true; ta.addEventListener('input', prmMsgCountSync); }
+  c.textContent = (ta.disabled ? 0 : (ta.value || '').length) + ' حرف';
+}
+/* M130.3 — فتحُ محرّر الاستدعاء: الرسالة الافتراضية جاهزة والقوالب حاضرة
+   و**صفر نداء AI**. كان الوصول إلى المحرّر يمرّ حصراً عبر توليدٍ ذكيّ، فمن أراد
+   قالباً أو تصحيحَ كلمة كان يدفع نداءً من سقفه الشهري ثمناً لفتح الشاشة —
+   والصياغةُ الذكية صارت زرّاً داخل المحرّر بيد الطبيب لا شرطاً لدخوله. */
+function prmComposeRecall(id){
+  var p = _prmFind(id);
+  if (!p || !p.phone) return;
+  prmAiOpenPreview('💬 استدعاء للمراجعة — راجعه وعدّله قبل الإرسال', prmRecallMsg(p), true);
+  _prmAiCur = { phone: p.phone, patient: p, extra: {} };
+}
+/* M130.3 — الصياغةُ الافتراضية للاستدعاء (feature: followup_message) بعد أن
+   انفصلت عن الفتح: تُنادى من زرّ «صِغ» بقصدٍ فارغ والمحرّرُ مفتوحٌ سلفاً.
+   وخلافاً للسابق، الفشلُ **لا يُغلق المحرّر**: الرسالة الافتراضية لا تزال فيه
+   صالحةً للإرسال، وإغلاقُ الشاشة كان يُذهب عملَ الطبيب عقوبةً على عطلِ شبكة. */
+async function prmAiRunRecall(){
+  if (!_prmAiCur || !_prmAiCur.patient) return;
+  var p = _prmAiCur.patient, id = p.id;
+  var monthsAway = prmAiMonthsAway(id);
+  var pendingItems = prmAiPendingItems(id);
+  if (!monthsAway && !pendingItems) { showToast(prmAiErrText('empty_input'), true); return; }
+  var btn = document.getElementById('prmAiIntentBtn');
+  var old = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '🤖 جارٍ الصياغة…'; }
+  try {
+    var resp = await window.sb.functions.invoke('ai-assist', {
+      body: { feature: 'followup_message',
+              input: { months_away: monthsAway, pending_items: pendingItems, clinic_name: PRM_CLINIC_NAME,
+                       placeholders: prmAiAllowList(p) } }
+    });
+    var code = '';
+    try {
+      if (resp && resp.error && resp.error.context && typeof resp.error.context.json === 'function') {
+        var j = await resp.error.context.json();
+        code = (j && j.error) ? String(j.error) : '';
+      }
+    } catch (_e) {}
+    if (resp && resp.error) { showToast(prmAiErrText(code), true); return; }
+    var text = (resp && resp.data && resp.data.text) ? String(resp.data.text).trim() : '';
+    if (!text) { showToast(prmAiErrText('ai_empty_response'), true); return; }
+    text = prmAiResolve(text, p);   /* {الاسم} ثم بقية العناصر — رابط الحجز يصل كالقالب الثابت */
+    var ta = document.getElementById('prmAiText');
+    var bSend = document.getElementById('prmAiSendBtn');
+    if (!ta) return;                                   /* المستخدم أغلق المعاينة أثناء التوليد */
+    ta.value = text; ta.disabled = false;
+    prmMsgCountSync();   /* v442 */
+    if (bSend) bSend.disabled = false;
+    var left = prmAiLeftovers(text);
+    if (left.length) showToast('⚠️ عناصر غير مدعومة بقيت كما هي: ' + left.join(' '), true);
+    else showToast('🤖 تم — راجع الرسالة وعدّلها قبل الإرسال');
+  } catch (e) {
+    showToast('تعذّر الاتصال بالمساعد — تحقّق من الإنترنت', true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = old || '🤖 صِغ الرسالة بالذكاء الاصطناعي'; }
+  }
+}
+function prmAiSend(){
+  var ta = document.getElementById('prmAiText');
+  var msg = ta ? ta.value.trim() : '';
+  if (!msg || !_prmAiCur || !_prmAiCur.phone) return;
+  prmWa(_prmAiCur.phone, msg);
+  prmAiClose();
+}
+
+function prmSwitchTab(which){
+  prmActiveTab = which;
+  var views = { recall:'prmRecallView', bday:'prmBdayView', inst:'prmInstView', noshow:'prmNoShowView' };   /* v504 */
+  var tabs  = { recall:'prmTabRecall',  bday:'prmTabBday',  inst:'prmTabInst',  noshow:'prmTabNoShow'  };
+  Object.keys(views).forEach(function(k){
+    var v = document.getElementById(views[k]);
+    if (v) v.style.display = (k === which) ? '' : 'none';
+    var t = document.getElementById(tabs[k]);
+    if (t) {
+      t.style.background = (k === which) ? 'var(--green)' : 'transparent';
+      t.style.color      = (k === which) ? 'var(--on-accent)' : 'var(--text2,#8da0bd)';
+    }
+  });
+}
+
+/* ═══ Backlog #4: توزيع المصادر — عدّ + نسبة لكل مصدر من `patients` المحمّلة ═══ */
+function srcDistribution(list){
+  var counts = {}, unknown = 0, total = 0;
+  (list || []).forEach(function(p){
+    total++;
+    var lbl = refSourceLabel(p.referral_source);
+    if (lbl) counts[lbl] = (counts[lbl] || 0) + 1;
+    else unknown++;
+  });
+  var rows = REFERRAL_SOURCE_DEFS
+    .map(function(d){ return { label: d.label, n: counts[d.label] || 0 }; })
+    .filter(function(r){ return r.n > 0; })
+    .sort(function(a, b){ return b.n - a.n; });
+  return { rows: rows, unknown: unknown, total: total };
+}
+function renderSrcModal(){
+  var el = document.getElementById('srcModalBody');
+  if (!el) return;
+  var d = srcDistribution(patients);
+  if (!d.total) {
+    el.innerHTML = '<div style="text-align:center;padding:30px 16px;color:var(--text2,#8da0bd);">لا مرضى بعد.</div>';
+    return;
+  }
+  if (!d.rows.length) {
+    el.innerHTML = '<div style="text-align:center;padding:30px 16px;color:var(--text2,#8da0bd);">'
+      + '<div style="font-size:36px;">📊</div>'
+      + '<div style="margin-top:8px;font-size:14px;">لم يُسجَّل مصدر لأي مريض بعد.<br>اختر «كيف سمع عنّا؟» عند إضافة المرضى الجدد لتتكوّن الصورة.</div></div>';
+    return;
+  }
+  var known = d.total - d.unknown;
+  var html = '<div style="font-size:12.5px;color:var(--text2,#8da0bd);margin-bottom:12px;">'
+    + 'المصدر مسجَّل لـ<b style="color:var(--text,#e8eefc);">' + known + '</b> من أصل ' + d.total + ' مريض — النِّسَب أدناه على المسجَّل فقط.</div>';
+  d.rows.forEach(function(r){
+    var pct = known > 0 ? Math.round(r.n * 100 / known) : 0;
+    html += '<div style="margin-bottom:10px;">'
+      + '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">'
+      + '<span style="font-weight:700;color:var(--text,#e8eefc);">' + r.label + '</span>'
+      + '<span style="color:var(--text2,#8da0bd);">' + r.n + ' (' + pct + '%)</span></div>'
+      + '<div style="background:var(--bg3,#0e2038);border-radius:6px;height:9px;overflow:hidden;">'
+      + '<div style="width:' + pct + '%;height:100%;background:var(--green,#22c55e);"></div></div></div>';
+  });
+  if (d.unknown > 0) {
+    html += '<div style="font-size:12px;color:var(--text2,#8da0bd);margin-top:12px;border-top:1px solid var(--border,#1e3556);padding-top:8px;">غير محدد: ' + d.unknown + ' مريض</div>';
+  }
+  el.innerHTML = html;
+}
+function openSrcModal(){
+  renderSrcModal();
+  document.getElementById('srcModal').classList.add('open');
+}
+function closeSrcModal(){
+  document.getElementById('srcModal').classList.remove('open');
+}
+
+function openPrmModal(){
+  renderPrmRecall();
+  renderPrmBday();
+  renderPrmInst();
+  renderPrmNoShow();   /* v504 */
+  prmSwitchTab('recall');
+  document.getElementById('prmModal').classList.add('open');
+}
+function prmClose(){
+  document.getElementById('prmModal').classList.remove('open');
+}
+</script>
+</body>
+</html>
+

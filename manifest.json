@@ -1,0 +1,44 @@
+{
+  "name": "SyDent — نظام إدارة العيادة",
+  "short_name": "SyDent",
+  "description": "نظام إدارة عيادات الأسنان",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/",
+  "related_applications": [
+    { "platform": "webapp", "url": "https://sydent.app/manifest.json", "id": "https://sydent.app/" }
+  ],
+  "prefer_related_applications": false,
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f7fa",
+  "theme_color": "#0d8577",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "favicon.svg?v=4",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

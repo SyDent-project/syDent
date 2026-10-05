@@ -1,0 +1,1371 @@
+/* ============================================================================
+   SyDent Theme System — Phase Theme v1 (27 May 2026)
+   ----------------------------------------------------------------------------
+   Light mode is the DEFAULT (matches user preference: "خلي ال لايت مود هو الاساسي").
+   Dark mode = the existing platform look, preserved exactly (--bg:#0a1628 etc.).
+
+   Loaded AFTER each page's existing inline <style>, so cascade order is:
+     1. inline :root           → page sets its own dark variables
+     2. theme.css :root        → overrides to Light defaults
+     3. theme.css [data-theme="dark"] → restores Dark when toggled
+
+   No inline color literals are touched in Phase 1; aliases cover both naming
+   conventions found in the codebase (standard --bg/--text and index.html's
+   --bg-primary/--text-primary).
+   ============================================================================ */
+
+/* ── Redesign v1 (12 Jun 2026): typeface ── */
+/* SyDent — خطّ الواجهة مستضافٌ ذاتياً (v493): IBM Plex Sans Arabic · OFL (fonts/LICENSE) ·
+   @fontsource 5.3.0 · عربي + لاتيني × 400/500/600/700. لا اعتماد على Google Fonts:
+   شبكاتٌ بطيئة أو خدماتُ Google محجوبة (سوريا) كانت تُسقط الواجهة على خطٍّ بديل أعرض
+   فتُقصّ التسميات؛ والـPWA الآن يكاش الخط من نفس الأصل فيعمل بلا اتصال من أول زيارة. */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2) format('woff2');
+  unicode-range: U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EC2-10EC4,U+10EFC-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(/fonts/ibm-plex-sans-arabic-arabic-500-normal.woff2) format('woff2');
+  unicode-range: U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EC2-10EC4,U+10EFC-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(/fonts/ibm-plex-sans-arabic-latin-500-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2) format('woff2');
+  unicode-range: U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EC2-10EC4,U+10EFC-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2) format('woff2');
+  unicode-range: U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EC2-10EC4,U+10EFC-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+
+/* ---------- LIGHT MODE (default — Clinical cool, SyDent Redesign v1) ------ */
+:root,
+:root[data-theme="light"] {
+  --bg:        #e9eef5;
+  --bg2:       #ffffff;
+  --bg3:       #dfe7f0;
+  --bg4:       #f7fafc;
+
+  --text:      #102a43;
+  --text2:     #5a7184;
+  --text3:     #64748b;   /* was #8fa6b8 (2.35:1 fail) → 4.76:1 on cards */
+
+  --border:    #c9d5e1;   /* v282: was #d8e1eb (1.2:1 on white — grid lines and card edges vanished); now ~1.5:1, Google Calendar's grid line weight */
+  --border2:   #b3c3d3;   /* v282: was #cbd8e3 */
+
+  --green:     #0d8577;
+  --green2:    #0a6b60;
+  --green-dim: rgba(13,133,119,0.10);
+
+  /* v347 status palette: the three warm tokens are TEXT colours with hues
+     spread 354° / 21° / 46° (was 0° / 21° / 26° — "yellow" #b45309 was a
+     dark orange, indistinguishable from --orange). Each ≥4.9:1 on white and
+     on --bg3. Meaning in light mode is carried by the -bg/-fill surfaces
+     below (real pink / peach / yellow), not by darkening text toward ink. */
+  --red:       #b91c2c;
+  --red-dim:   rgba(220,38,38,0.10);
+
+  --yellow:    #7a5d00;
+  --yellow-dim:rgba(234,179,8,0.16);
+
+  --blue:      #2563eb;
+  --orange:    #a3400a;
+  --purple:    #7c3aed;
+  --amber:     #7a5d00;   /* v347: alias of --yellow (was a third warm shade) */
+  --cyan:      #0e7490;
+  --wa:        #128c3e;
+  --on-accent: #ffffff;   /* text on --green surfaces (Phase1 contrast) */
+
+  /* v347 status surfaces — badge chip (-bg), chip edge (-bd), strong cell
+     fill (-fill), solid fill carrying text/count (-solid + --on-*-solid). */
+  /* v349: stronger light chips — the v347 pastels sat at 1.1–1.2:1 against the
+     white card and the yellow edge at 1.5:1, so chips dissolved (owner: "dark
+     is clearer"). Edges now ≈3:1 (UI-component minimum); chip text uses -ink. */
+  --red-bg:     #fecaca;  --red-bd:     #ef4444;  --red-fill:    #fca5a5;  --red-ink:    #991b1b;
+  --orange-bg:  #fed7aa;  --orange-bd:  #f97316;  --orange-fill: #fed7aa;  --orange-ink: #9a3412;
+  --yellow-bg:  #fef08a;  --yellow-bd:  #ca8a04;  --yellow-fill: #fef08a;  --yellow-ink: #6b5100;
+  --red-solid:    #dc2626;  --on-red-solid:    #ffffff;
+  --orange-solid: #c2410c;  --on-orange-solid: #ffffff;   /* v378: white label 5.18:1 (was #ea580c 3.56) */
+  --yellow-solid: #eab308;  --on-yellow-solid: #3b2a00;
+  --blue-fg:  #1e40af;  --blue-bg:  #bfdbfe;               --blue-bd:  #3b82f6;
+  --green-fg: #075a50;  --green-bg: rgba(13,133,119,0.18); --green-bd: rgba(13,133,119,0.75);   /* tints of the unchanged brand green */
+  --purple-fg: #5b21b6; --purple-bg: #e9d5ff;              --purple-bd: #a855f7;
+  --cyan-fg:   #155e75; --cyan-bg:   #cffafe;              --cyan-bd:   #06b6d4;
+  --gray-fg:   #475569; --gray-bg:   #e2e8f0;              --gray-bd:   #94a3b8;
+  --lime-fg:   #3f6212; --lime-bg:   #ecfccb;              --lime-bd:   #65a30d;   /* v366: tooth / region chips */
+  /* large surfaces (banners, warning rows, prompts): a softer wash than chips */
+  --red-soft: #fef2f2;  --orange-soft: #fff7ed;  --yellow-soft: #fefce8;  --blue-soft: #eff6ff;
+  --purple-soft: #faf5ff;  --cyan-soft: #ecfeff;  --green-soft: rgba(13,133,119,0.06);
+
+  --bg-primary:    var(--bg);
+  --bg-secondary:  var(--bg2);
+  --bg-card:       var(--bg2);
+  --accent:        var(--green);
+  --accent2:       var(--green2);
+  --text-primary:  var(--text);
+  --text-secondary:var(--text2);
+  --text-muted:    var(--text3);
+
+  --shadow-card:   0 1px 2px rgba(16,42,67,0.06), 0 1px 3px rgba(16,42,67,0.05);
+  --shadow-modal:  0 20px 50px rgba(16,42,67,0.18);
+}
+
+/* ---------- DARK MODE (existing platform look, preserved) ------------------ */
+:root[data-theme="dark"] {
+  /* Standard naming */
+  --bg:        #0a1628;
+  --bg2:       #0f2038;
+  --bg3:       #132840;
+  --bg4:       #0d1e33;
+
+  --text:      #e1f4ee;
+  --text2:     #8a9ab5;
+  --text3:     #5a7090;
+
+  --border:    rgba(46,232,158,0.15);
+  --border2:   rgba(46,232,158,0.28);
+
+  --green:     #2ee89e;
+  --green2:    #26d48e;
+  --green-dim: rgba(46,232,158,0.10);
+
+  /* v347: calmer warm tokens (saturation 90–100% read as neon on navy).
+     Brand green untouched. */
+  --red:       #f28b82;
+  --red-dim:   rgba(242,139,130,0.12);
+
+  --yellow:    #fdd663;
+  --yellow-dim:rgba(253,214,99,0.12);
+
+  --blue:      #63b3ed;
+  --orange:    #fcad70;
+  --purple:    #a78bfa;
+  --amber:     #fdd663;   /* v347: alias of --yellow */
+  --cyan:      #4dd0e1;
+  --wa:        #25d366;
+  --on-accent: #0a1628;   /* text on --green surfaces (Phase1 contrast) */
+
+  --red-bg:     rgba(229,83,75,0.16);    --red-bd:     rgba(242,139,130,0.45);  --red-fill:    rgba(229,83,75,0.36);   /* surfaces use a deeper red than the pastel text: pastel-on-navy tints were too close to the yellow ones */
+  --orange-bg:  rgba(252,173,112,0.14);  --orange-bd:  rgba(252,173,112,0.40);  --orange-fill: rgba(252,173,112,0.30);
+  --yellow-bg:  rgba(253,214,99,0.12);   --yellow-bd:  rgba(253,214,99,0.38);   --yellow-fill: rgba(253,214,99,0.30);
+  --red-ink: var(--red);  --orange-ink: var(--orange);  --yellow-ink: var(--yellow);   /* dark: the text tokens already read on the tints */
+  --red-solid:    #c9403a;  --on-red-solid:    #ffffff;
+  --orange-solid: #fcad70;  --on-orange-solid: #2a1400;
+  --yellow-solid: #fdd663;  --on-yellow-solid: #2a1f00;
+  --blue-fg:  #63b3ed;  --blue-bg:  rgba(99,179,237,0.14);  --blue-bd:  rgba(99,179,237,0.38);
+  --green-fg: #2ee89e;  --green-bg: rgba(46,232,158,0.12);  --green-bd: rgba(46,232,158,0.35);
+  --purple-fg: #a78bfa; --purple-bg: rgba(167,139,250,0.14); --purple-bd: rgba(167,139,250,0.40);
+  --cyan-fg:   #4dd0e1; --cyan-bg:   rgba(77,208,225,0.12);  --cyan-bd:   rgba(77,208,225,0.38);
+  --gray-fg:   #aab6c9; --gray-bg:   rgba(170,182,201,0.12); --gray-bd:   rgba(170,182,201,0.35);
+  --lime-fg:   #bef264; --lime-bg:   rgba(190,242,100,0.12); --lime-bd:   rgba(190,242,100,0.40);
+  --red-soft: var(--red-bg);  --orange-soft: var(--orange-bg);  --yellow-soft: var(--yellow-bg);  --blue-soft: var(--blue-bg);
+  --purple-soft: var(--purple-bg);  --cyan-soft: var(--cyan-bg);  --green-soft: var(--green-bg);
+
+  /* index.html alias naming */
+  --bg-primary:    var(--bg);
+  --bg-secondary:  var(--bg2);
+  --bg-card:       var(--bg3);
+  --accent:        var(--green);
+  --accent2:       #1ac5a8;
+  --text-primary:  var(--text);
+  --text-secondary:#8ab9a5;
+  --text-muted:    #607b8d;
+
+  /* Shadow stronger on dark */
+  --shadow-card:   0 4px 12px rgba(0,0,0,0.25);
+  --shadow-modal:  0 20px 60px rgba(0,0,0,0.4);
+}
+
+/* ---------- TOGGLE SWITCH (iOS-style) -------------------------------------- */
+.sydent-theme-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 56px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  flex-shrink: 0;
+  vertical-align: middle;
+  -webkit-tap-highlight-color: transparent;
+}
+.sydent-theme-toggle:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+.sydent-theme-toggle .stt-knob {
+  position: absolute;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transform: translateY(-50%);
+  transition: right 0.22s cubic-bezier(0.4, 0, 0.2, 1), background 0.22s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 1;
+}
+/* RTL: in light mode knob sits on the right (sun side); in dark on the left */
+:root[data-theme="light"] .sydent-theme-toggle .stt-knob { right: 2px; }
+:root[data-theme="dark"]  .sydent-theme-toggle .stt-knob { right: calc(100% - 26px); }
+:root[data-theme="dark"]  .sydent-theme-toggle           { background: #1e3556; }
+
+.sydent-theme-toggle .stt-icon-sun,
+.sydent-theme-toggle .stt-icon-moon {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  opacity: 0.55;
+  transition: opacity 0.2s ease;
+}
+.sydent-theme-toggle .stt-icon-sun  { right: 7px;  color: #f59e0b; }
+.sydent-theme-toggle .stt-icon-moon { left:  7px;  color: #818cf8; }
+:root[data-theme="light"] .sydent-theme-toggle .stt-icon-sun  { opacity: 1; }
+:root[data-theme="dark"]  .sydent-theme-toggle .stt-icon-moon { opacity: 1; }
+
+/* Label variant — pairs the toggle with a text label */
+.sydent-theme-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+  color: var(--text2);
+  font-weight: 600;
+}
+
+/* Sidebar variant — appears above the logout item in sidebar.js */
+.sb-theme-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  margin: 0 12px 6px;
+  border-radius: 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 600;
+}
+.sb-theme-row .sb-theme-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Prevent FOUC: smooth theme swap when toggling AFTER initial paint */
+:root[data-theme-ready] body {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ============================================================================
+   Page-specific LIGHT MODE overrides
+   ----------------------------------------------------------------------------
+   These rules patch elements that hard-code colors via rgba(10,22,40,...) or
+   similar dark literals that don't pick up CSS variables. Scoped to
+   [data-theme="light"] so dark mode stays untouched.
+   ============================================================================ */
+
+/* ---- landing.html navbar (rgba(10,22,40,0.85) hard-coded) ---------------- */
+:root[data-theme="light"] nav {
+  background: rgba(255,255,255,0.92);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+:root[data-theme="light"] .nav-logo-text .name { color: var(--green); }
+:root[data-theme="light"] .nav-logo-text .sub  { color: var(--text2); }
+:root[data-theme="light"] .nav-logo-icon svg   { stroke: var(--green); }
+:root[data-theme="light"] .btn-outline {
+  background: #ffffff;
+  border-color: rgba(28,25,23,0.18);
+  color: var(--text);
+}
+:root[data-theme="light"] .btn-outline:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+:root[data-theme="light"] .btn-primary {
+  background: var(--green);
+  color: #ffffff;
+}
+:root[data-theme="light"] .btn-primary:hover {
+  background: var(--green2);
+}
+
+/* ---- landing.html hero badges + headings -------------------------------- */
+:root[data-theme="light"] .hero-badge {
+  background: rgba(22,160,133,0.08);
+  border: 1px solid rgba(22,160,133,0.25);
+  color: var(--green2);
+}
+:root[data-theme="light"] .hero-bg,
+:root[data-theme="light"] .hero-grid {
+  /* dim the green ambient glow on white bg */
+  opacity: 0.5;
+}
+
+/* ---- admin.html header (rgba(10,22,40,0.9) hard-coded) ------------------ */
+:root[data-theme="light"] header {
+  background: rgba(255,255,255,0.95);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+:root[data-theme="light"] .header-logo .name { color: var(--green); }
+:root[data-theme="light"] .header-logo .badge {
+  background: var(--green-dim);
+  border: 1px solid rgba(22,160,133,0.25);
+  color: var(--green2);
+}
+:root[data-theme="light"] .btn-logout {
+  background: #ffffff;
+  border: 1px solid rgba(28,25,23,0.15);
+  color: var(--text2);
+}
+:root[data-theme="light"] .btn-logout:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* ---- admin.html login screen radial glow (rgba(46,232,158,0.06)) ------- */
+:root[data-theme="light"] #loginScreen {
+  background: radial-gradient(ellipse 600px 400px at 50% 40%, rgba(22,160,133,0.05) 0%, transparent 70%);
+}
+:root[data-theme="light"] .login-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-modal);
+}
+
+/* ---- sb-badge text on green (must stay readable in both modes) --------- */
+:root[data-theme="light"] .sb-badge { color: #ffffff; }
+:root[data-theme="dark"]  .sb-badge { color: #0a1628; }
+
+/* ---- Toggle switch: light-mode track tint ------------------------------- */
+:root[data-theme="light"] .sydent-theme-toggle {
+  background: rgba(28,25,23,0.08);
+  border-color: rgba(28,25,23,0.15);
+}
+:root[data-theme="light"] .sb-theme-row {
+  background: var(--bg);
+}
+
+/* ========================================================================== */
+/*  Tier A — Auth flow pages (Stage 2A)                                       */
+/*  Applies to: auth.html, pending.html, reset-password.html                  */
+/* ========================================================================== */
+
+/* Hard-coded body gradient (#0a1628 → #0f2038) in all three Tier A pages.
+   ملاحظة: المحدّد عام (body) فينطبق على كل الأسطول وليس Tier A وحدها —
+   ولذلك يقرأ من var(--bg) بدل تدرّج أبيض محفور كان يدوس خلفية الصفحة
+   بكل صفحات المستأجر ويذيّب البطاقات البيضا فيها. */
+:root[data-theme="light"] body {
+  background: var(--bg);
+}
+
+/* Card containers — dark navy box-shadow looks like a halo on white bg */
+:root[data-theme="light"] .auth-card,
+:root[data-theme="light"] .modal-card,
+:root[data-theme="light"] .pending-card {
+  box-shadow: 0 20px 60px rgba(28,25,23,0.08);
+  border-color: var(--border);
+}
+
+/* Primary CTA text on green — in dark, color:var(--bg) = #0a1628 (dark on green ✓);
+   in light, var(--bg) = #fafaf7 which has poor contrast on #16a085. Force white. */
+:root[data-theme="light"] .btn-submit,
+:root[data-theme="light"] .btn-primary,
+:root[data-theme="light"] .tab.active,
+:root[data-theme="light"] .btn-add,
+:root[data-theme="light"] .btn-save,
+:root[data-theme="light"] .btn.primary,
+:root[data-theme="light"] .btn-save-support,
+:root[data-theme="light"] .evf-btn-primary,
+:root[data-theme="light"] .chip.active,
+:root[data-theme="light"] .method-chip.active,
+:root[data-theme="light"] .main-tab.active .count-badge,
+:root[data-theme="light"] .k3-view-toggle button.active,
+:root[data-theme="light"] .cal-cell.today .cal-date,
+:root[data-theme="light"] .tx-tab-active,
+:root[data-theme="light"] .ob-item.done .ob-check,
+:root[data-theme="light"] .ob-clinic-prompt-actions button.primary,
+:root[data-theme="light"] .planned-toggle input[type=checkbox]:checked::after,
+:root[data-theme="light"] .planned-toggle-pp input[type=checkbox]:checked::after,
+:root[data-theme="light"] .dcm-chk.dcm-chk-checked::after {
+  color: var(--on-accent);
+}
+
+/* Spinner inside green button — border-top-color was hard-coded #0a1628 (dark) */
+:root[data-theme="light"] .spinner {
+  border-color: rgba(255,255,255,0.4);
+  border-top-color: #ffffff;
+}
+
+/* Password visibility toggle — hard-coded color #8a9ab5 + hover rgba(255,255,255) */
+:root[data-theme="light"] .pwd-toggle {
+  color: var(--text2);
+}
+:root[data-theme="light"] .pwd-toggle:hover {
+  background: rgba(28,25,23,0.05);
+  color: var(--text);
+}
+
+/* auth.html .ptr-bar (pull-to-refresh) — injected inline by JS with
+   hard-coded background:#0a1628 + color:#2ee89e. Override defensively with
+   !important since the inline style block is generated at runtime. */
+:root[data-theme="light"] .ptr-bar {
+  background: #ffffff !important;
+  color: var(--green) !important;
+  border-bottom-color: rgba(22,160,133,0.2) !important;
+}
+:root[data-theme="light"] .ptr-ring {
+  border-color: rgba(22,160,133,0.25) !important;
+  border-top-color: var(--green) !important;
+}
+
+/* ========================================================================== */
+/*  Tier B — Tenant primary pages (Stage 2B)                                  */
+/*  Applies to: patients.html, appointments.html, patient-profile.html        */
+/* ========================================================================== */
+
+/* Generic hover backgrounds — many tenant pages use rgba(255,255,255,0.04-0.06)
+   which is invisible on white. Replace with a subtle dark tint. */
+:root[data-theme="light"] tr:hover,
+:root[data-theme="light"] .row:hover,
+:root[data-theme="light"] .item:hover,
+:root[data-theme="light"] .list-item:hover,
+:root[data-theme="light"] .patient-row:hover,
+:root[data-theme="light"] .appt-row:hover {
+  background: rgba(28,25,23,0.04);
+}
+
+/* Empty-state / muted text — hard-coded #8da0bd renders poorly on light bg */
+:root[data-theme="light"] .empty,
+:root[data-theme="light"] .empty-state,
+:root[data-theme="light"] .muted,
+:root[data-theme="light"] .muted-text,
+:root[data-theme="light"] .placeholder-text {
+  color: var(--text2);
+}
+
+/* Search inputs + filter chips — common Tier B pattern (was bg3 on dark) */
+:root[data-theme="light"] .search-input,
+:root[data-theme="light"] .filter-chip,
+:root[data-theme="light"] input[type="search"] {
+  background: var(--bg3);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+/* ========================================================================== */
+/*  Dashboard cards (index.html) — Light Mode polish                          */
+/*  ----------------------------------------------------------------------    */
+/*  index.html uses `border-bottom: rgba(255,255,255,0.05)` for row           */
+/*  separators across "آخر المرضى" (patient-item), "مواعيد اليوم"             */
+/*  (appt-item), "ملخص مالي" (finance-row), and "طلبات المخابر" (lab-item).   */
+/*  On the dark background these read as subtle hairlines. On the light       */
+/*  background they're white-on-white = invisible → rows look stacked         */
+/*  and unstructured. Same story for the small inline `dash-time-stamp`       */
+/*  chips and the `progress-bar` track.                                       */
+/*                                                                            */
+/*  Fix: replace the white-tinted dividers/backgrounds with warm-tinted       */
+/*  equivalents (var(--border), var(--bg3)) scoped to data-theme="light".     */
+/*  Dark mode is untouched. Inspired by Stripe/Linear list density.           */
+/* ========================================================================== */
+
+/* ---- Row separators (invisible on white → warm hairline) ----------------- */
+:root[data-theme="light"] .patient-item,
+:root[data-theme="light"] .appt-item,
+:root[data-theme="light"] .finance-row,
+:root[data-theme="light"] .lab-item {
+  border-bottom: 1px solid var(--border);
+}
+:root[data-theme="light"] .patient-item:last-child,
+:root[data-theme="light"] .appt-item:last-child,
+:root[data-theme="light"] .finance-row:last-child,
+:root[data-theme="light"] .lab-item:last-child {
+  border-bottom: none;
+}
+
+/* ---- Patient row spacing + hover (cards in "آخر المرضى") ----------------- */
+/* In dark, hover nudges the row right by 8px. On white that loses the row.  */
+/* Switch to a subtle background tint with rounded corners — cleaner read.   */
+:root[data-theme="light"] .patient-item {
+  padding: 12px 8px;
+  border-radius: 8px;
+  margin: 0 -8px;
+  transition: background 0.15s ease;
+}
+:root[data-theme="light"] .patient-item:hover {
+  padding: 12px 8px;          /* override the dark-mode padding-right shift */
+  background: var(--bg3);
+}
+
+/* ---- Appointment row spacing (cards in "مواعيد اليوم") ------------------- */
+:root[data-theme="light"] .appt-item {
+  padding: 12px 8px;
+  border-radius: 8px;
+  margin: 0 -8px;
+}
+
+/* ---- Inline timestamps chips (e.g. "19:33 ✓ 19:33 R 19:33 D") ----------- */
+/* Hard-coded background: rgba(255,255,255,0.04) → invisible on white.       */
+:root[data-theme="light"] .dash-time-stamp {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+}
+
+/* ---- Progress bar track (rgba(255,255,255,0.08) → invisible on white) --- */
+:root[data-theme="light"] .progress-bar {
+  background: rgba(28,25,23,0.08);
+}
+
+/* ---- Patient status pills: now `tone tone-*` on the dashboard (v350) — patch retired (v368) ---- */
+
+/* ---- finance-row label tone (var(--text-muted) is fine, no change) ----- */
+/* (nothing extra needed — the alias points at --text3 in light mode)       */
+
+/* ========================================================================== */
+/*  Card elevation — Light Mode global polish                                 */
+/*  ----------------------------------------------------------------------    */
+/*  After darkening --bg to #f1f1ec, white cards already stand out by tone.   */
+/*  Adding a subtle shadow gives them the "lifted surface" feel users        */
+/*  expect from light-mode dashboards (Stripe/Notion/Linear pattern).        */
+/*                                                                            */
+/*  Targets the canonical card classes used across all 19 pages.             */
+/*  Dark mode untouched (rule is scoped to data-theme="light").              */
+/* ========================================================================== */
+:root[data-theme="light"] .card,
+:root[data-theme="light"] .stat-card,
+:root[data-theme="light"] .emp-card,
+:root[data-theme="light"] .treat-card,
+:root[data-theme="light"] .doc-card,
+:root[data-theme="light"] .prov-card,
+:root[data-theme="light"] .rpt-card,
+:root[data-theme="light"] .chart-card,
+:root[data-theme="light"] .health-card,
+:root[data-theme="light"] .maint-card,
+:root[data-theme="light"] .hcard,
+:root[data-theme="light"] .feature-card,
+:root[data-theme="light"] .modal-box,
+:root[data-theme="light"] .modal-card {
+  box-shadow: var(--shadow-card);
+}
+
+/* Admin customer cards (.req-card) get a STRONGER elevation than the generic
+   --shadow-card so they clearly pop off the white page: a slightly darker
+   surface + firmer border + a deeper, wider shadow. Light mode only. */
+:root[data-theme="light"] .req-card {
+  background: #f2f1ea;
+  border-color: rgba(28,25,23,0.13);
+  box-shadow: 0 2px 4px rgba(28,25,23,0.05), 0 8px 22px rgba(28,25,23,0.09);
+}
+
+/* Hover lift — only for cards that already have a hover transform.           */
+/* These selectors slightly deepen the shadow on hover (no transform added).  */
+:root[data-theme="light"] .stat-card:hover,
+:root[data-theme="light"] .emp-card:hover,
+:root[data-theme="light"] .treat-card:hover,
+:root[data-theme="light"] .doc-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* ========================================================================== */
+/*  Modals — keep pure white in Light Mode                                    */
+/*  ----------------------------------------------------------------------    */
+/*  When --bg2 became off-white (#f8f7f2) for card surfaces, modals that      */
+/*  share var(--bg2) inherited that tint. On top of a dark backdrop overlay  */
+/*  (rgba(0,0,0,0.5)), off-white reads as "dimmed" — modals should feel       */
+/*  bright/focused. Force them back to pure white in light mode.              */
+/* ========================================================================== */
+:root[data-theme="light"] .modal-box,
+:root[data-theme="light"] .modal-card,
+:root[data-theme="light"] .auth-card,
+:root[data-theme="light"] .pending-card {
+  background: #ffffff;
+}
+
+/* ========================================================================== */
+/*  patient-profile.html — Timeline (السجل الكامل) Light Mode fixes           */
+/*  ----------------------------------------------------------------------    */
+/*  The timeline uses heavy rgba(0,0,0,0.15-0.25) backgrounds that read       */
+/*  fine on dark navy but render as gray blocks on white. Same with the      */
+/*  rgba(255,255,255,...) hover/icon fills that vanish on white.              */
+/*  All overrides scoped to data-theme="light" — dark mode untouched.        */
+/* ========================================================================== */
+
+/* Timeline event rows (the main cards in the screenshot) */
+:root[data-theme="light"] .tl-row {
+  background: var(--bg2);
+}
+:root[data-theme="light"] .tl-row:hover {
+  background: var(--bg3);
+}
+:root[data-theme="light"] .tl-row-icon {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+}
+:root[data-theme="light"] .tl-row-notes {
+  background: var(--bg4);
+  border-right-color: var(--border);
+}
+
+/* Timeline filters container + chips */
+:root[data-theme="light"] .tl-filters {
+  background: var(--bg2);
+}
+:root[data-theme="light"] .tl-chip {
+  background: var(--bg2);
+}
+:root[data-theme="light"] .tl-chip:hover {
+  background: var(--bg3);
+  color: var(--text);
+}
+
+/* Timeline search input + date select — were rgba(0,0,0,0.25) = too dark */
+:root[data-theme="light"] .tl-search-input,
+:root[data-theme="light"] .tl-date-select {
+  background: #ffffff;
+}
+
+/* Data table headers (used elsewhere on patient-profile) */
+:root[data-theme="light"] .data-table th {
+  background: var(--bg2);
+}
+
+/* =====================================================================
+ * v60 — iOS Safari input-focus zoom prevention (universal, all pages)
+ * iOS auto-zooms the viewport when a focused field has font-size < 16px,
+ * forcing the user to manually pinch back out — worst on form modals.
+ * Setting form controls to exactly 16px (the iOS threshold) kills the
+ * zoom. Scoped to ≤768px so desktop typography is completely untouched;
+ * only affects font-size, never padding/layout. checkbox/radio/range/file
+ * are excluded (font-size is irrelevant for them).
+ * ===================================================================== */
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* =====================================================================
+ * v61 — LIGHT-MODE BADGE LEGIBILITY (color-mix adaptive badges)
+ * ---------------------------------------------------------------------
+ * The original badge palette is a DARK-mode palette: a vivid neon hue
+ * used as TEXT on a ~13% tint of the same hue. On the dark page bg this
+ * reads great; on the white light-mode bg the vivid text (esp. yellow /
+ * sky / green) collapses to near-zero contrast.
+ *
+ * `.cbadge` is a single adaptive mechanism: the element passes its accent
+ * colour inline via the `--bc` custom property; the colours are then
+ * derived with color-mix(). One rule covers BOTH fixed-semantic badges
+ * (paid/pending/planned/done…) and data-driven ones (treatment / provider
+ * / category colours chosen by the user). It is theme-reactive — toggling
+ * the theme restyles every badge instantly, no re-render needed.
+ *
+ *   Dark  : vivid hue on a faint tint  (matches the original look)
+ *   Light : same hue DARKENED toward ink for legible contrast on white
+ * ===================================================================== */
+.cbadge {
+  background: color-mix(in srgb, var(--bc) 13%, transparent);
+  color: var(--bc);
+  border: 1px solid color-mix(in srgb, var(--bc) 33%, transparent);
+}
+:root[data-theme="light"] .cbadge {
+  /* v283: re-measured against the default catalog + theme tokens + pure white
+     as the worst case. 68% hue left pastel badges at 1.9:1; text 35% hue /
+     65% ink, chip 22%, edge 50% → ≥4.7:1 for every hue (the hue lives in
+     the chip and the edge, the text is tinted ink — same as v281 chips). */
+  background: color-mix(in srgb, var(--bc) 22%, #ffffff);
+  color: color-mix(in srgb, var(--bc) 35%, #102a43);
+  border: 1px solid color-mix(in srgb, var(--bc) 60%, #102a43);   /* v351: edge mixes toward ink (was 75% toward white — 18 of the 41 live catalog/chair/doctor colours had edges <2:1, pastel #b5e0ff 1.06:1; now min 2.5:1); text/chip unchanged */
+}
+
+/* ---- v348 status tones ------------------------------------------------ *
+ * Semantic badges (attendance stamps, stage buttons, warning / allergy /
+ * waitlist chips) take `tone tone-<x>` instead of `--bc:var(--x)`. In light
+ * mode the `.cbadge` formula darkens the hue toward ink, which turned yellow,
+ * orange and red into the same brown; a tone carries an explicit chip, edge
+ * and text colour per theme instead. Data-driven colours (treatments,
+ * providers, chairs) stay on `.cbadge`/`--bc`. `.tone.tone` (0,4,0) beats
+ * the page rules and the light `.cbadge` rule (0,2,1). */
+.tone-red    { --bc: var(--red);    --tone-fg: var(--red-ink);    --tone-bg: var(--red-bg);    --tone-bd: var(--red-bd); }
+.tone-orange { --bc: var(--orange); --tone-fg: var(--orange-ink); --tone-bg: var(--orange-bg); --tone-bd: var(--orange-bd); }
+.tone-yellow { --bc: var(--yellow); --tone-fg: var(--yellow-ink); --tone-bg: var(--yellow-bg); --tone-bd: var(--yellow-bd); }
+.tone-blue   { --bc: var(--blue);   --tone-fg: var(--blue-fg);  --tone-bg: var(--blue-bg);   --tone-bd: var(--blue-bd); }
+.tone-green  { --bc: var(--green);  --tone-fg: var(--green-fg); --tone-bg: var(--green-bg);  --tone-bd: var(--green-bd); }
+.tone-purple { --bc: var(--purple); --tone-fg: var(--purple-fg); --tone-bg: var(--purple-bg); --tone-bd: var(--purple-bd); }
+.tone-cyan   { --bc: var(--cyan);   --tone-fg: var(--cyan-fg);   --tone-bg: var(--cyan-bg);   --tone-bd: var(--cyan-bd); }
+.tone-gray   { --bc: var(--text3);  --tone-fg: var(--gray-fg);   --tone-bg: var(--gray-bg);   --tone-bd: var(--gray-bd); }
+.tone-lime   { --bc: var(--lime-fg); --tone-fg: var(--lime-fg);  --tone-bg: var(--lime-bg);   --tone-bd: var(--lime-bd); }   /* tooth / region — owner: "السن والحالة نفس اللون" */
+/* The unified light-mode colour system (v350) — every page follows it:
+ *   1. meaning (status / warning / stage)  → `tone tone-<red|orange|yellow|green|blue|purple|cyan|gray>`;
+ *      tooth / region chips → `tone-lime`
+ *   2. data colour (treatment/doctor/chair/category) → `.cbadge` + `--bc`
+ *   3. coloured table cells → `--<x>-fill`
+ *   4. counters with white text → `--<x>-solid` + `--on-<x>-solid`
+ *   5. coloured numbers / icons → theme tokens only (never a dark-palette hex/rgba)
+ *   6. large surfaces (banner / warning row / prompt) → `--<x>-soft` + `--<x>-bd` + `--<x>-ink`
+ * scripts/check-colors.js ratchets the hardcoded dark-palette count per file. */
+:root[data-theme] .tone.tone { background: var(--tone-bg); color: var(--tone-fg); border-color: var(--tone-bd); }
+:root[data-theme] .time-track-stamp.tone,
+:root[data-theme] .dash-time-stamp.tone { box-shadow: inset 0 0 0 1px var(--tone-bd); }
+:root[data-theme] .tone.tone:hover { filter: brightness(0.96); }
+
+/* ---- Static badge classes that hardcode dark-palette text colours ---- *
+ * These live in page-level <style> blocks (loaded before theme.css) with
+ * literal hex, so they can't pick up the adaptive --x vars on their own.
+ * Light mode re-points their TEXT colour to the tuned light palette; the
+ * subtle tint background is fine in both modes. Dark mode is untouched. */
+/* v351: .badge.<colour> (patients.html) now carries the unified tone tokens itself */
+/* appointments.html appointment-status pills */
+/* v354: .status-scheduled / .status-broken now carry the unified tone tokens (appointments.css) */
+
+/* ========================================================================== */
+/*  Badge / pill legibility — Light Mode                                       */
+/*  ----------------------------------------------------------------------     */
+/*  Role/status pills tint their background with rgba() of the DARK-mode       */
+/*  (bright) accent channels at low alpha. On white those tints nearly vanish, */
+/*  so the pill reads as floating text with no container. In light mode we     */
+/*  re-tint with the tuned dark-accent channels at a firmer alpha + a defined  */
+/*  hairline border, so each pill reads as a real labelled chip. Text colour   */
+/*  already adapts via var(--accent). Scoped to data-theme="light" only —      */
+/*  dark mode untouched. (Targets the people/treatment pages.)                 */
+/* ========================================================================== */
+/* employees.html role / PIN pills: the page carries the unified tone tokens (v369) */
+/* doctors.html / treatments.html badges: the pages now carry the unified tone tokens (v368) */
+
+
+/* ════════ Redesign v1 additions (12 Jun 2026) ════════ */
+:root, :root[data-theme="light"] { --green-rgb: 13,133,119; }
+/* v279: rgb companions for the semantic colors — pages build their tints as
+   rgba(var(--x-rgb), .12) instead of hardcoding a dark-palette hex, so every
+   badge/dot resolves per theme. Values mirror --blue/--red/… of each theme. */
+/* v347: light --yellow-rgb is the yellow HUE (tints must read yellow), not the
+   darkened text colour; red/orange keep the saturated hue for the same reason. */
+:root, :root[data-theme="light"] { --blue-rgb: 37,99,235; --red-rgb: 220,38,38; --yellow-rgb: 234,179,8; --purple-rgb: 124,58,237; --orange-rgb: 234,88,12; --wa-rgb: 18,140,62; --cyan-rgb: 14,116,144; }
+:root[data-theme="dark"]        { --blue-rgb: 99,179,237; --red-rgb: 229,83,75; --yellow-rgb: 253,214,99; --purple-rgb: 167,139,250; --orange-rgb: 252,173,112; --wa-rgb: 37,211,102; --cyan-rgb: 77,208,225; }
+:root[data-theme="dark"]         { --green-rgb: 46,232,158; }
+
+/* Universal typeface — overrides 147 inline 'Cairo' declarations. */
+html, body, body * {
+  font-family: 'IBM Plex Sans Arabic', 'Cairo', system-ui, -apple-system, sans-serif !important;
+  font-synthesis-weight: none; /* weights 800/900 render as true 700 — no blurry faux-bold Arabic */
+}
+pre, code, kbd, samp { font-family: ui-monospace, 'SF Mono', Consolas, monospace !important; }
+
+/* ════════ Date/time picker icon + native popup match theme (30 Jun 2026) ════════ */
+/* color-scheme drives the browser's calendar-picker-indicator + native popup. */
+:root[data-theme="dark"]  input[type="date"],
+:root[data-theme="dark"]  input[type="datetime-local"],
+:root[data-theme="dark"]  input[type="time"]  { color-scheme: dark; }
+:root[data-theme="light"] input[type="date"],
+:root[data-theme="light"] input[type="datetime-local"],
+:root[data-theme="light"] input[type="time"]  { color-scheme: light; }
+
+/* ════════ v525: حقولُ التاريخ/الوقت داخل النوافذ لا تمطّ النافذة على iOS (#675) ════════
+   WebKit على iOS يعطي حقلَ التاريخ عرضاً ذاتياً أدنى يتجاهل width:100% — فحين امتلأ حقلُ الاستحقاق
+   تلقائياً (v524) صار مودالُ طلب المخبر يتحرّك أفقياً (صورة المالك). العلاجُ من الجذر بطبقتين:
+   (١) الحقلُ نفسه بلا مظهر النظام ويقبل الانكماش؛ (٢) خلايا .form-row قابلةٌ للانكماش بكل الصفحات
+   (1fr = minmax(auto,1fr) يأخذ أدنى محتوى الخلية). ارتفاعٌ أدنى كي لا ينطوي الحقلُ الفارغ. */
+.modal-overlay :is(input[type="date"], input[type="time"], input[type="datetime-local"]) {
+  -webkit-appearance: none; appearance: none; min-width: 0; max-width: 100%; min-height: 42px;
+}
+.modal-overlay :is(input[type="date"], input[type="time"], input[type="datetime-local"])::-webkit-date-and-time-value { text-align: start; }
+.form-row > * { min-width: 0; }
+
+/* ════════ Native <select> popup matches theme (12 Sep 2026) ════════ */
+/* Bug: in Dark, the OS-drawn <option> list kept a white background while the
+ * text inherited the dark-theme light color → options unreadable (only the
+ * hovered one showed). color-scheme makes Chromium draw the popup itself dark;
+ * the explicit option colors cover engines that ignore color-scheme for popups. */
+:root[data-theme="dark"]  select        { color-scheme: dark; }
+:root[data-theme="dark"]  select option { background: var(--bg2); color: var(--text); }
+:root[data-theme="light"] select        { color-scheme: light; }
+:root[data-theme="light"] select option { background: var(--bg2); color: var(--text); }
+
+/* ════════ Phase 3 — Global polish (2 Jul 2026) ════════ */
+
+/* Radius design tokens (new code should use these) */
+:root { --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-full: 999px; }
+
+/* Themed scrollbars — BOTH modes. Pages with element-scoped custom
+   scrollbar rules keep them (higher specificity); this covers the
+   remaining 14 pages + the document scrollbar itself. */
+* { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text3);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* Keyboard focus ring — buttons/links/selects. Text inputs keep their
+   existing page-level :focus border styling. */
+button:focus-visible, a:focus-visible, select:focus-visible,
+[role="button"]:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+/* Respect the reduced-motion system preference. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ════════ Skeleton loaders (Phase 4, 2 Jul 2026) ════════ */
+.sy-skel{position:relative;overflow:hidden;background:var(--bg3);border-radius:var(--r-md);}
+.sy-skel::after{content:'';position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.45),transparent);
+  animation:sy-shimmer 1.4s ease-in-out infinite;}
+:root[data-theme="dark"] .sy-skel::after{
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.07),transparent);}
+@keyframes sy-shimmer{100%{transform:translateX(100%);}}
+
+/* ════════ .ltr-val — عزل ثنائي الاتجاه لقيمة لاتينية/رقمية (4 آب 2026) ════════
+   تنفيذُ #430 كأداة مشتركة: كانت معرَّفة بـadmin.css وحدها، ونُقلت إلى هنا حين
+   احتاجها المستأجر (قسم «معلومات الدخول») — تعريفٌ وحيد بدل نسختين تنحرفان.
+   العلّة: قيمة تبدأ برقم (بريدٌ مُصنَّع `0945553528@sydent.com`) تُرسَم مقلوبةً
+   داخل فقرة RTL لأن `@` محايدٌ بين EN وL فيرث اتجاه الفقرة. isolate يمنع تسرّب
+   اتجاه القيمة إلى ما حولها، وdirection:ltr يحسمها صراحةً بدل الاتّكال على
+   استدلال «أول محرف قويّ» — والأرقام ليست محرفاً قوياً فالاستدلال وحده يفشل
+   في الحالة المطلوبة بالذات.
+   لا تُستعمل على قيمة قد تكون عربية، ولا على قيمة يحوّلها المُصيِّر إلى عنصر
+   تفاعلي (رابط · هاتف · بريد) إلا إذا ثبت انقلابُها — شرط #430(د): محارف العزل
+   تكسر مُكتشِفات الأنماط التي تشترط حدّاً في بداية المطابقة. */
+.ltr-val{unicode-bidi:isolate;direction:ltr;}
+
+/* ════════ M141 — بوابةُ الاشتراك (SyDentSub بـsupabase-init.js) ════════
+   .sd-sub-block: طبقةُ الحجب (تجربةٌ منتهية · أو دورٌ غير المالك بوضع القراءة) —
+   تُضاف فوق الصفحة لا مكانها (ثابتةٌ تملأ الشاشة — body مرن بأغلب الصفحات، وتحت نافذة
+   تبديل المستخدم 9999 والتوست 99999)، وكلُّ ما عداها يُخفى عدا هذين.
+   .sd-ro-bar: شريطُ «للقراءة فقط» (أصفر) أو «فترة سماح» (برتقالي) بأعلى المحتوى. */
+body.sd-sub-blocked > :not(.sd-sub-block):not(#sdLockModal):not(#syToast){display:none !important;}
+body.sd-sub-blocked{padding:0 !important;margin:0;}
+.sd-sub-block{position:fixed;inset:0;z-index:9000;overflow-y:auto;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);padding:24px;font-family:'Cairo',sans-serif;text-align:center;}
+.sd-sub-block-icon{font-size:60px;line-height:1;margin-bottom:16px;}
+.sd-sub-block-title{font-size:22px;font-weight:800;color:var(--text);margin-bottom:10px;}
+.sd-sub-block-text{font-size:14px;color:var(--text2);margin-bottom:28px;max-width:340px;line-height:1.7;}
+.sd-sub-block-btn{display:inline-block;padding:14px 28px;background:var(--green);border:0;border-radius:12px;color:var(--on-accent);font-family:inherit;font-size:15px;font-weight:800;text-decoration:none;cursor:pointer;margin-bottom:12px;}
+.sd-sub-block-out{padding:10px 20px;background:transparent;border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-family:inherit;font-size:13px;cursor:pointer;margin-top:8px;}
+.sd-ro-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px 12px;margin:0 0 14px;padding:10px 14px;border-radius:10px;border:1px solid var(--yellow-bd);background:var(--yellow-soft);color:var(--yellow-ink);font-size:13px;font-weight:700;line-height:1.7;text-align:center;overflow-wrap:anywhere;}
+.sd-ro-bar.grace{border-color:var(--orange-bd);background:var(--orange-soft);color:var(--orange-ink);}
+.sd-ro-bar a{color:inherit;font-weight:800;text-decoration:underline;white-space:nowrap;}
+/* M141-ب — وضعُ القراءة: كلُّ عنصر كتابةٍ موسومٍ بـdata-sub-write يختفي (والجديدُ المرسوم
+   لاحقاً بالـJS يختفي تلقائياً لأن القاعدة سمةٌ لا فئةٌ تُضاف). الرسائلُ الداخلية
+   (إرسال/تأكيد) كتابةٌ كلُّها ⇒ زرُّها يختفي بالقراءة وبالحجب. data-sub-level على
+   <html> يضبطه SyDentSub. */
+html[data-sub-level="read"] [data-sub-write]{display:none !important;}
+html[data-sub-level="read"] #syMsgFab,html[data-sub-level="read"] #syMsgPanel,
+html[data-sub-level="none"] #syMsgFab,html[data-sub-level="none"] #syMsgPanel{display:none !important;}
+/* منتقي الوقت المجمَّد بنافذة «تفاصيل الموعد» يبدو معطّلاً كبقية الحقول */
+.tpw[data-sub-ro] .tpw-field{opacity:.6;cursor:default;}
+
+/* ═══ SYDENT MODAL KIT (v409) — النظام الموحّد للنوافذ ═══════════════════════
+   اختياري بالكامل: لا يعمل إلا على .modal-overlay تحمل الفئة sy-m — فإضافته
+   هنا صفرُ تغييرٍ بصري حتى تُرحَّل الصفحة (صفحةً صفحة بمراجعة المالك).
+   theme.css تُحمَّل بعد ستايل الصفحة والمُحدِّدات هنا (0,3,0)+ فتغلب التعريف
+   المحلي القديم تلقائياً لحظة إضافة sy-m، ثم يُحذف المحلي بنفس الجولة.
+   يغطي عائلات التسمية الثلاث القائمة بلا إعادة تسمية:
+     الصندوق:  .modal-box | .modal | .modal-card
+     الرأس:    .modal-head | .modal-header
+     الذيل:    .modal-foot | .modal-footer | .modal-actions
+   الأحجام (على الـoverlay): sy-m-sm 380 · (افتراضي) 480 · sy-m-md 560 · sy-m-lg 720 · sy-m-xl 960
+   السلوك (Escape · قفل التمرير · التركيز · aria) بموديول SYDENT_MODAL_KIT في sidebar.js. */
+:root { --sy-m-scrim: rgba(0,0,0,.62); --sy-m-scrim-stack: rgba(0,0,0,.42); --sy-m-shadow: 0 18px 50px rgba(0,0,0,.35); }
+:root[data-theme="dark"] { --sy-m-scrim: rgba(0,0,0,.72); --sy-m-shadow: 0 18px 50px rgba(0,0,0,.6); }
+body.sy-modal-lock { overflow: hidden; }
+/* v524: الزرّ العائم (الرسائل · #syFabDock) كان يغطّي أزرار أسفل النافذة على الجوال (صورة المالك —
+   «تأكيد الإعادة»). يختفي طالما نافذةٌ مفتوحة بأيّ صيغة، ويعود بإغلاقها. */
+body.sy-modal-lock #syFabDock,
+body:has(.modal-overlay.open) #syFabDock,
+body:has(.modal-overlay.show) #syFabDock { display: none !important; }
+.modal-overlay.sy-m {
+  display: none; position: fixed; inset: 0; z-index: 1000;
+  background: var(--sy-m-scrim); align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.sy-m.open, .modal-overlay.sy-m.show { display: flex; }
+.modal-overlay.sy-m > :is(.modal-box, .modal, .modal-card) {
+  display: flex; flex-direction: column;
+  width: 100%; max-width: 480px; max-height: calc(100dvh - 40px);
+  background: var(--bg2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--sy-m-shadow);
+  padding: 0; margin: 0; overflow: hidden; outline: none;
+  animation: syModalIn .2s ease;
+}
+@keyframes syModalIn { from { opacity: 0; transform: translateY(14px); } }
+.modal-overlay.sy-m.sy-m-sm > :is(.modal-box, .modal, .modal-card) { max-width: 380px; }
+.modal-overlay.sy-m.sy-m-md > :is(.modal-box, .modal, .modal-card) { max-width: 560px; }
+.modal-overlay.sy-m.sy-m-lg > :is(.modal-box, .modal, .modal-card) { max-width: 720px; }
+.modal-overlay.sy-m.sy-m-xl > :is(.modal-box, .modal, .modal-card) { max-width: 960px; }
+/* نموذجٌ يلفّ الجسم والذيل يبقى ضمن سلسلة الـflex */
+.modal-overlay.sy-m > :is(.modal-box, .modal, .modal-card) > form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; margin: 0; }
+.modal-overlay.sy-m :is(.modal-head, .modal-header) {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 16px 20px; margin: 0; border-bottom: 1px solid var(--border); background: transparent;
+}
+.modal-overlay.sy-m :is(.modal-head, .modal-header) :is(h2, h3, .modal-title) { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.5; color: var(--text); }
+.modal-overlay.sy-m .modal-close {
+  flex: 0 0 auto; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: none; border-radius: var(--r-md, 10px); color: var(--text2);
+  font-size: 18px; line-height: 1; cursor: pointer; transition: background .15s, color .15s;
+}
+.modal-overlay.sy-m .modal-close:hover { background: var(--bg3); color: var(--text); }
+.modal-overlay.sy-m .modal-body { flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; padding: 20px; overscroll-behavior: contain; }
+/* v447: حقولٌ بـwidth:100% وحشوةٍ داخل صندوقٍ content-box كانت تتجاوز عرضَ
+   النافذة (صفحاتُ الأطباء/الموظفين/العلاجات) — المراجعةُ الحيّة قاستها. */
+.modal-overlay.sy-m .modal-body :is(input, select, textarea) { box-sizing: border-box; max-width: 100%; }
+.modal-overlay.sy-m :is(.modal-foot, .modal-footer, .modal-actions) {
+  flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px;
+  padding: 14px 20px; margin: 0; border-top: 1px solid var(--border); background: transparent;
+}
+/* v449: أزرارُ الذيل لا تتمدّد على الشاشة الواسعة — قواعدُ الصفحات القديمة
+   (`.btn-primary{flex:1}` وأمثالُها) كانت تُطيل زرَّ الحفظ وحدَه فيختلّ التوازن
+   (بلاغُ المالك بصورة نافذة المصروف). الموبايل يبقى ممتدّاً بالقاعدة أدناه. */
+.modal-overlay.sy-m :is(.modal-foot, .modal-footer, .modal-actions) > :is(button, a) { flex: 0 0 auto; width: auto; }
+/* التراكب: نافذة نشطة واحدة دائماً — ما تحتها يتراجع ويتعطّل (نمط بطاقة المريض معمَّماً) */
+.modal-overlay.sy-m:is(.open, .show) ~ .modal-overlay.sy-m:is(.open, .show) { background: var(--sy-m-scrim-stack); }
+.modal-overlay.sy-m:is(.open, .show):has(~ .modal-overlay.sy-m:is(.open, .show)) > :is(.modal-box, .modal, .modal-card) {
+  transform: scale(.96); filter: brightness(.55) saturate(.8); pointer-events: none; transition: transform .18s ease, filter .18s ease;
+}
+/* الموبايل: ورقة سفلية بعرض الشاشة — الذيل ثابت والجسم وحده يتمرّر */
+@media (max-width: 560px) {
+  .modal-overlay.sy-m { padding: 0; align-items: flex-end; }
+  .modal-overlay.sy-m > :is(.modal-box, .modal, .modal-card),
+  .modal-overlay.sy-m:is(.sy-m-sm, .sy-m-md, .sy-m-lg, .sy-m-xl) > :is(.modal-box, .modal, .modal-card) {
+    max-width: 100%; max-height: 94dvh; border-radius: 18px 18px 0 0; border-bottom: none;
+  }
+  .modal-overlay.sy-m :is(.modal-head, .modal-header) { padding: 14px 16px; }
+  .modal-overlay.sy-m .modal-body { padding: 16px; }
+  .modal-overlay.sy-m :is(.modal-foot, .modal-footer, .modal-actions) { padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .modal-overlay.sy-m :is(.modal-foot, .modal-footer, .modal-actions) > :is(button, a) { flex: 1 1 auto; justify-content: center; min-height: 44px; }
+  /* v445: أيُّ زرٍّ داخل النافذة على الشاشة الضيقة هدفُ لمسٍ مقبول (≥36px).
+     مراجعةُ الجولة وجدت أزراراً بـ29–31px (دواء آخر · قالب جديد · اقتراح ملاحظة). */
+  .modal-overlay.sy-m .modal-body button { min-height: 36px; }
+}
+/* ═══ SYDENT DIALOG (v456) — شكلُ حوار التأكيد/الإدخال/الإعلام ═══
+   يرث إطارَه من العُدّة؛ هنا محتواه وأزراره فقط. */
+.sy-dialog .sy-dialog-msg { font-size: 13.5px; line-height: 1.8; color: var(--text); white-space: normal; }
+.sy-dialog .sy-dialog-input {
+  width: 100%; margin-top: 12px; box-sizing: border-box;
+  background: var(--bg3); color: var(--text); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; font-family: inherit; font-size: 14px; outline: none;
+}
+.sy-dialog .sy-dialog-input:focus { border-color: var(--green); }
+.sy-dialog .btn-sy-cancel, .sy-dialog .btn-sy-ok {
+  padding: 9px 20px; border-radius: 10px; font-family: inherit;
+  font-size: 13.5px; font-weight: 700; cursor: pointer; min-height: 38px;
+}
+.sy-dialog .btn-sy-cancel { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+.sy-dialog .btn-sy-cancel:hover { border-color: var(--text2); color: var(--text); }
+.sy-dialog .btn-sy-ok { background: var(--green); color: var(--on-accent); border: none; }
+.sy-dialog .btn-sy-ok:hover { opacity: .9; }
+.sy-dialog .btn-sy-ok.danger { background: var(--red); color: #fff; }
+@media (max-width: 560px) { .sy-dialog .sy-dialog-input { font-size: 16px; } }
+/* ═══ /SYDENT DIALOG ═══ */
+/* ═══ LAB REDO (v523 · M160 · lab-redo.js) — حوارُ الإعادة وسطرُ الدورات بالسطحين ═══ */
+.lrd-dialog .lrd-lbl { display: block; margin: 14px 0 6px; font-size: 12.5px; font-weight: 700; color: var(--text2); }
+.lrd-dialog .lrd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lrd-dialog .lrd-chip {
+  display: inline-flex; align-items: center; min-height: 34px; padding: 6px 12px; border-radius: 999px;
+  background: var(--bg3); color: var(--text2); border: 1px solid var(--border);
+  font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; width: auto;
+}
+.lrd-dialog .lrd-chip:hover { border-color: var(--text2); color: var(--text); }
+.lrd-dialog .lrd-chip.on { background: rgba(var(--orange-rgb), 0.15); color: var(--orange); border-color: var(--orange); }
+.lrd-dialog .lrd-chip:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.lrd-dialog textarea.lrd-note { resize: vertical; min-height: 58px; margin-top: 10px; }
+.lrd-dialog .lrd-due { margin-top: 0; }
+/* v524: iOS يعطي حقل التاريخ عرضاً ذاتياً يتجاوز الصندوق (صورة المالك) — نمطُ #675 بإعدادات الحجز */
+.lrd-dialog input[type="date"].lrd-due { -webkit-appearance: none; appearance: none; display: block; width: 100%; min-width: 0; max-width: 100%; min-height: 44px; text-align: start; }
+.lrd-dialog input[type="date"].lrd-due::-webkit-date-and-time-value { text-align: start; }
+/* DeepCode #19 (v560): حقلُ التاريخ الموحّد (نصّي) يرث مقاسَ حقل «موعد التسليم» نفسه */
+.lrd-dialog .sy-df > input.sy-df-in.lrd-due { display: block; width: 100%; min-width: 0; max-width: 100%; min-height: 44px; }
+.lrd-dialog .lrd-hint { margin-top: 8px; font-size: 11.5px; color: var(--text3); }
+.lrd-dialog .lrd-err { margin-top: 10px; font-size: 12.5px; font-weight: 700; color: var(--red); }
+.lrd-line { margin-top: 3px; font-size: 11.5px; font-weight: 600; line-height: 1.6; color: var(--orange); white-space: normal; }
+/* ═══ /LAB REDO ═══ */
+/* ═══ LAB DUE (v524 · lab-due.js) — سطرُ مصدر الاستحقاق وتنبيهُ تجاوز موعد التركيب ═══ */
+.ldu-hint { margin-top: 4px; font-size: 11.5px; line-height: 1.6; color: var(--text2); }
+.ldu-hint:empty { display: none; }
+.ldu-hint .ldu-warn { color: var(--orange); font-weight: 700; }
+.ldu-hint .ldu-setup { color: var(--text2); }
+.ldu-hint .ldu-setup a { color: var(--green); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+/* ═══ /LAB DUE ═══ */
+/* ═══ LAB SLIP (v528 · lab-slip.js) — ورقةُ طلب المخبر المطبوعة ═══
+   الجذرُ مخفيٌّ على الشاشة؛ عند الطباعة يبقى وحده (نمطُ #printRoot بالبطاقة). ألوانٌ ثابتة للورق لا متغيّرات الثيم. */
+#lslPrintRoot { display: none; }
+@media print {
+  body.lsl-printing > *:not(#lslPrintRoot) { display: none !important; }
+  /* v528: جسمُ الصفحة يحمل إزاحةَ القائمة الجانبية وعرضَ التطبيق — تُلغى كي لا تُقصّ الورقة (مقيسةٌ بـPDF A4) */
+  html:has(body.lsl-printing), body.lsl-printing { background: #fff !important; margin: 0 !important; padding: 0 !important; width: auto !important; min-width: 0 !important; overflow: visible !important; display: block !important; }
+  #lslPrintRoot { display: block !important; position: static !important; margin: 0 !important; width: 100% !important; max-width: none !important; }
+  #lslPrintRoot * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @page { size: A4; margin: 12mm; }
+}
+.lsl-page { direction: rtl; font-family: 'IBM Plex Sans Arabic', Cairo, Tahoma, sans-serif; color: #111; background: #fff; max-width: 780px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 8px 4px; font-size: 13.5px; }
+.lsl-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 3px solid #0d8577; padding-bottom: 12px; }
+.lsl-clinic { font-size: 22px; font-weight: 800; }
+.lsl-dr { font-size: 14px; color: #333; margin-top: 3px; }
+.lsl-muted { font-size: 12px; color: #666; margin-top: 2px; }
+.lsl-headside { text-align: left; font-size: 13px; color: #444; line-height: 1.7; }
+.lsl-title { font-size: 26px; font-weight: 800; color: #0d8577; margin: 12px 0 10px; }
+.lsl-no { font-size: 14px; color: #555; font-weight: 700; letter-spacing: .5px; }
+.lsl-boxes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.lsl-box { border: 1px solid #d0d0d0; border-radius: 10px; padding: 10px 12px; background: #f7f7f7; }
+.lsl-k { font-size: 11.5px; color: #666; font-weight: 700; margin-bottom: 3px; }
+.lsl-v { font-size: 16px; font-weight: 800; }
+.lsl-grid { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+.lsl-grid th, .lsl-grid td { border: 1px solid #d0d0d0; padding: 8px 10px; text-align: right; vertical-align: top; }
+.lsl-grid th { background: #eef6f4; color: #0b5d53; width: 18%; font-weight: 700; white-space: nowrap; }
+.lsl-due { font-size: 16px; font-weight: 800; color: #b3261e; }
+.lsl-chart { border-collapse: collapse; margin: 4px auto 14px; direction: ltr; width: auto; table-layout: fixed; }
+.lsl-chart td.lsl-t { width: 28px; height: 26px; padding: 0; line-height: 26px; box-sizing: border-box; border: 1px solid #c8c8c8; text-align: center; font-size: 11.5px; color: #777; }
+.lsl-chart td.lsl-t.on { background: #0d8577; color: #fff; font-weight: 800; border-color: #0d8577; }
+.lsl-chart td.lsl-t.mid { border-right: 3px solid #555; }
+.lsl-chart tr:first-child td { border-bottom: 3px solid #555; }
+.lsl-notes { border-right: 3px solid #0d8577; padding: 4px 12px 4px 0; margin-bottom: 12px; }
+.lsl-pre { white-space: pre-wrap; line-height: 1.8; }
+.lsl-redo { border: 1.5px solid #c2410c; background: #fff4ec; color: #9a3412; border-radius: 10px; padding: 9px 12px; margin-bottom: 12px; }
+.lsl-sign { display: flex; justify-content: space-between; gap: 16px; margin-top: 40px; font-size: 13px; color: #444; }
+/* زرُّ الطباعة بمودال طلب المخبر (السطحان) */
+.lsl-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg2); color: var(--text); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.lsl-btn:hover { border-color: var(--green); color: var(--green); }
+/* ═══ /LAB SLIP ═══ */
+/* ═══ LAB FILES (v535 · lab-files.js · M162) — مرفقاتُ طلب المخبر ═══ */
+.lfs-box .lfs-opt { font-weight: 500; color: var(--text3); font-size: 11px; }
+.lfs-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.lfs-item { position: relative; }
+.lfs-thumb { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 72px; height: 72px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); background: var(--bg3); color: var(--text2); font-size: 22px; text-decoration: none; }
+.lfs-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lfs-thumb.lfs-doc span { font-size: 9.5px; max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lfs-staged .lfs-thumb { border-style: dashed; opacity: .85; }
+.lfs-x { position: absolute; top: -6px; inset-inline-end: -6px; width: 22px; height: 22px; min-height: 22px !important; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--bg2); color: var(--red); font-size: 11px; line-height: 1; cursor: pointer; }
+.lfs-box .lfs-add { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 72px; height: 72px; border-radius: 10px; border: 1.5px dashed var(--border); color: var(--green); font-size: 22px; font-weight: 700; cursor: pointer; margin: 0; }
+.lfs-box .lfs-add span { font-size: 11px; }
+.lfs-box .lfs-add:hover { border-color: var(--green); }
+.lfs-hint { margin-top: 6px; font-size: 11.5px; color: var(--text3); }
+.lfs-badge { display: inline-block; font-size: 11px; font-weight: 700; color: var(--text2); white-space: nowrap; }
+/* ═══ /LAB FILES ═══ */
+
+/* ═══ /SYDENT MODAL KIT ═══ */
+
+/* ═══ أعلام المريض الملوّنة (M148 · v414) — مشتركة: بطاقة المريض · قائمة المرضى · الإعدادات ═══
+   اللون من نغمات الحالات القائمة (.tone-*) حصراً. */
+.pt-flag{display:inline-block;padding:1px 9px;border-radius:10px;font-size:11.5px;font-weight:700;white-space:nowrap;line-height:1.7;font-family:inherit;}
+.pt-flag.pt-flag-sm{font-size:10.5px;padding:0 7px;margin-inline-start:4px;vertical-align:middle;}
+.pt-flags-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px;}
+.h-flags{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;}
+.h-flags:empty{display:none;}
+button.pt-flag-pick{cursor:pointer;opacity:.55;border-style:dashed;}
+button.pt-flag-pick.on{opacity:1;border-style:solid;}
+.pt-flag-btn{background:transparent;border:1px dashed var(--border);color:var(--text2);border-radius:10px;padding:1px 9px;font-size:11.5px;font-weight:700;font-family:inherit;cursor:pointer;line-height:1.7;}
+.pt-flag-btn:hover{border-color:var(--green);color:var(--green);}
+.pt-flag-link{font-size:11.5px;color:var(--text2);text-decoration:underline;}
+@media print{.pt-flag-btn,.pt-flag-link{display:none !important;}}
+.pfd-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+.pfd-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+.pfd-row .pfd-prev{min-width:96px;text-align:center;}
+.pfd-row input{flex:1;min-width:150px;}
+.pfd-row select{width:auto;min-width:110px;}
+.pfd-del{background:transparent;border:1px solid var(--red-bd,var(--border));color:var(--red);border-radius:8px;min-width:36px;height:36px;cursor:pointer;font-family:inherit;}
+
+.wa-modal-message {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 14px;
+  color: var(--text);
+  font-family: 'Cairo', sans-serif; font-size: 13.5px;
+  outline: none; transition: border-color .2s;
+  width: 100%;
+  min-height: 170px;
+  resize: vertical;
+  line-height: 1.7;
+}
+.wa-modal-message:focus { border-color: var(--green); }
+
+.wa-info-row {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.wa-info-row strong { color: var(--green); }
+.wa-info-row .wa-info-label { color: var(--text2); font-size: 12px; }
+
+.wa-warn-row {
+  background: var(--yellow-soft);
+  border: 1px solid var(--yellow-bd);
+  color: var(--yellow-ink);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.wa-send-btn {
+  background: #25D366;
+  color: #fff;
+  padding: 9px 18px;
+  border-radius: 10px;
+  border: none;
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px; font-weight: 700;
+  cursor: pointer;
+  transition: opacity .2s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.wa-send-btn:hover { opacity: .9; }
+.wa-send-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ═══ SYDENT COMPOSER KIT (v442) — طقم محرّر الرسالة، معيارٌ واحد للمنصة ═══
+   وُلد بمودال «الرسالة الحرة» ببطاقة المريض (v408) وصار هنا مرجعاً لكل محرّر
+   رسالةٍ بالمنصة: النصُّ هو البطل، والمساعدُ الذكي بطاقةٌ فوقه، والقوالبُ صفٌّ
+   مدمجٌ فوق النص، وعدّادُ الأحرف وتلميحُ المراجعة تحته.
+   البنية المعيارية:
+     .wa-info-row        — سطر المريض/الهاتف
+     .wa-ai-card         — بطاقة المساعد (تُبنى فقط ببوابة العيادة+الخطة)
+       .wa-ai-head · .wa-sec-label · .wa-field · .wa-ai-q · .wa-ai-btn
+     .wa-msg-sec         — قسم النص: .wa-msg-head (label + .wa-count) ·
+                            .wa-tpl-row (select + .wa-icon-btn ×2) ·
+                            .wa-modal-message · .wa-hint
+   يُستهلك من: patient-profile (الرسالة الحرة) · patients (متابعة المرضى). ═══ */
+.wa-sec-label { display:block; font-size:13px; font-weight:700; color:var(--text2); margin:0 0 6px; }
+.wa-hint { font-size:11.5px; color:var(--text3); line-height:1.6; margin-top:6px; }
+.wa-field {
+  width:100%; min-width:0; background:var(--bg2); color:var(--text);
+  border:1px solid var(--border); border-radius:10px; padding:10px 12px;
+  font-family:inherit; font-size:13.5px; line-height:1.6; outline:none; transition:border-color .2s;
+}
+textarea.wa-field { resize:vertical; }
+.wa-field:focus { border-color:var(--green); }
+
+.wa-ai-card {
+  border:1px solid var(--purple-bd); background:var(--purple-soft);
+  border-radius:12px; padding:12px; margin-bottom:14px;
+}
+.wa-ai-card .wa-field:focus { border-color:var(--purple); }
+.wa-ai-head { display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 8px; margin-bottom:10px; font-size:13.5px; font-weight:700; color:var(--purple-fg); }
+.wa-ai-head small { font-size:11.5px; font-weight:400; color:var(--text2); }
+.wa-ai-q { margin-top:10px; }
+.wa-ai-q summary {
+  cursor:pointer; list-style:none; display:inline-flex; align-items:center; gap:6px;
+  font-size:12.5px; font-weight:700; color:var(--purple-fg); padding:4px 0; user-select:none;
+}
+.wa-ai-q summary::-webkit-details-marker { display:none; }
+.wa-ai-q summary::before { content:'+'; display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border:1px solid var(--purple-bd); border-radius:6px; font-size:13px; line-height:1; }
+.wa-ai-q[open] summary::before { content:'−'; }
+.wa-ai-q summary small { font-weight:400; color:var(--text2); }
+.wa-ai-q textarea { margin-top:8px; }
+.wa-ai-btn {
+  width:100%; margin-top:12px; padding:11px 12px; border:none; border-radius:10px;
+  background:var(--purple); color:var(--on-accent);
+  font-family:inherit; font-size:13.5px; font-weight:700; cursor:pointer; transition:opacity .2s;
+}
+.wa-ai-btn:hover { opacity:.9; }
+.wa-ai-btn:disabled { opacity:.55; cursor:wait; }
+
+.wa-msg-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.wa-count { font-size:11.5px; color:var(--text3); font-variant-numeric:tabular-nums; margin-bottom:6px; }
+.wa-tpl-row { display:flex; gap:8px; align-items:stretch; margin-bottom:8px; }
+.wa-tpl-row select { flex:1 1 auto; }
+.wa-icon-btn {
+  flex:0 0 44px; min-height:44px; display:inline-flex; align-items:center; justify-content:center;
+  background:var(--bg2); color:var(--text); border:1px solid var(--border); border-radius:10px;
+  font-size:15px; cursor:pointer; transition:border-color .2s;
+}
+.wa-icon-btn:hover { border-color:var(--green); }
+.wa-icon-btn.wa-icon-danger:hover { border-color:var(--red); }
+@media (max-width:560px) {
+  .modal-overlay .modal-foot, .modal-overlay .modal-footer { flex-wrap:wrap; }
+  .modal-overlay .wa-send-btn { flex:1 1 100%; justify-content:center; order:-1; padding:12px 18px; }
+  .modal-overlay .modal-foot .btn, .modal-overlay .modal-foot .btn-cancel-m,
+  .modal-overlay .modal-footer .btn, .modal-overlay .modal-footer .btn-cancel { flex:1 1 0; }
+  .wa-field, .wa-modal-message { font-size:16px; }   /* يمنع تكبير iOS عند التركيز */
+}
+
+/* ═══ /SYDENT COMPOSER KIT ═══ */
+
+/* ═══ SYDENT ROW-ACTIONS KIT (v469) — أزرارُ الصفوف الجانبية، معيارٌ واحد للمنصة ═══
+   المرجع (قرار المالك 21 أيلول 2026): أزرارُ «طلبات الحجز» بصفحة المواعيد
+   (✅ تأكيد · ✏️ تعديل · ✖ رفض · 📱) — القيمُ أدناه مقيسةٌ منها بالمتصفح حرفياً.
+     .sy-acts        الحاوية: سطرٌ واحد وفجوة 6px؛ بالموبايل (≤820px) سطرٌ كامل العرض يلتفّ.
+                     قواعدُها بـ:where() (صفر خصوصية) كي تبقى قواعدُ الصفحة للتخطيط والإخفاء هي الحاكمة.
+     .sy-act         زرٌّ بأيقونة + كلمة: 32px (الموبايل 40px ويتمدّد)، إطارٌ رفيع، نصُّ var(--text).
+     .sy-act-primary الفعلُ الأساسيّ المُتقدِّم بالصف (تأكيد · تسجيل دفعة · إكمال · الخطوةُ التالية بالمخبر ·
+                     جدولة الآن · تم) — أخضرُ بنغمة الثيم. واحدٌ بالصف على الأكثر. (v472، طلب المالك: «لازم تميّز»)
+     .sy-act-warn    إعادةُ عمل (إعادة المخبر) — برتقاليٌّ بنغمة الثيم.
+     .sy-act-danger  حذف · رفض · إلغاء — نصٌّ أحمر، والتمريرُ يلوّن الإطار والخلفية.
+     .sy-act-ico     أيقونةٌ وحدها 32×32 (الموبايل 44×40) — لأداةٍ ثانوية بآخر الصف فقط، بـtitle وaria-label.
+     .sy-act-more    مع -ico لزرّ قائمة «المزيد» ⋮ (حرفٌ لا إيموجي ⇒ 18px عريض).
+     .sy-slots       (v482) مع الحاوية بجدولٍ أزرارُ صفوفه متغيّرة: كلُّ زرٍّ بخانةٍ ثابتة data-slot="1..4"
+                     فتصطفّ الأعمدةُ عبر الصفوف (الحذفُ فوق الحذف والتعديلُ فوق التعديل)، وزرٌّ غابت جارتُه
+                     التاليةُ يمتدّ فوقها بـdata-span="2" (المالك: «الإعادة عوّضها بعرض زر الحالة»). عروضُ
+                     الخانات --sy-slots: [s1] …px [s2] …px … تعرّفها الصفحةُ على الحاوية. بالهاتف يُطفأ (سطرٌ كامل).
+     .sy-acts-grp    (v486) مجموعةُ أزرارٍ داخل الحاوية تلتفّ كتلةً واحدة (لا ينفصل «حذف» عن «إيقاف» على سطرين)،
+     .sy-acts-sep    وبين المجموعات فاصلٌ صغير (بطاقات الأدمن: الخطة · المراسلات · الملف والنشاط · الإيقاف والحذف) —
+                     خطٌّ رأسيٌّ رفيع بالكمبيوتر، وبالهاتف كلُّ مجموعةٍ سطرٌ كاملٌ بنفسها.
+     .sy-acts-grid   مع الحاوية حين تكون لوحةَ أزرارٍ بشبكة داخل بطاقة (بطاقات العلاجات): الأزرار تملأ خلاياها
+                     بحشوة 6px — أعمدةُ الشبكة قرارُ الصفحة (repeat(N, minmax(0,1fr))).
+   الترتيبُ داخل الصف: الفعلُ الأساسي ← تعديل ← بقيةُ الأفعال ← الأحمر ← الأيقونات.
+   الألوانُ ثلاثةٌ بمعنى ثابت (أخضر يتقدّم · برتقالي يُعيد · أحمر يحذف) وكلُّ ما عداها محايد.
+   لا style مضمَّن على الزر ولا قاعدةَ محليةً تعيد تعريفه.
+   الحارسان: scripts/check-row-actions.js (نصّي) · scripts/dom-smoke/row-actions (قياسٌ بالمتصفح). ═══ */
+:where(.sy-acts) { display: inline-flex; align-items: center; gap: 6px; flex-wrap: nowrap; vertical-align: middle; }
+:root[data-theme] .sy-act {
+  box-sizing: border-box; height: 32px; min-width: 32px; margin: 0; padding: 0 12px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px; flex: 0 0 auto;
+  border: 1px solid var(--border); border-radius: 8px; background: transparent; box-shadow: none;
+  color: var(--text); font-size: 12.5px; font-weight: 700; line-height: normal;
+  white-space: nowrap; text-decoration: none; cursor: pointer; opacity: 1;
+  transition: border-color .2s, color .2s, transform .1s;
+}
+:root[data-theme="light"] .sy-act { background: var(--bg3); border-color: var(--border2); }
+:root[data-theme] .sy-act:hover:not(:disabled) { border-color: var(--green); color: var(--green); }
+:root[data-theme] .sy-act.sy-act-danger { color: var(--red-ink); }
+:root[data-theme] .sy-act.sy-act-danger:hover:not(:disabled) { border-color: var(--red-bd); background: var(--red-bg); color: var(--red-ink); }
+:root[data-theme] .sy-act.sy-act-primary { background: var(--green-bg); border-color: var(--green-bd); color: var(--green-fg); }
+:root[data-theme] .sy-act.sy-act-primary:hover:not(:disabled) { border-color: var(--green); color: var(--green-fg); }
+/* v479 (لقطة المالك بالفاتح: «تسجيل دفعة» لم يُقرأ أخضرَ — الصبغةُ 18% بنصٍّ فيروزيٍّ داكن تبدو رمادية):
+   بالفاتح الفعلُ الأساسي أخضرُ مُصمَت كأزرار المنصة الأساسية (.btn-primary) بنصٍّ أبيض (4.53:1)؛
+   الداكنُ يبقى صبغةً بنصٍّ أخضر ساطع (يُقرأ أخضرَ بوضوح). */
+:root[data-theme="light"] .sy-act.sy-act-primary { background: var(--green); border-color: var(--green); color: #ffffff; }
+:root[data-theme="light"] .sy-act.sy-act-primary:hover:not(:disabled) { background: var(--green2); border-color: var(--green2); color: #ffffff; }
+:root[data-theme] .sy-act.sy-act-warn { background: var(--orange-bg); border-color: var(--orange-bd); color: var(--orange-ink); }
+:root[data-theme] .sy-act.sy-act-warn:hover:not(:disabled) { border-color: var(--orange); color: var(--orange-ink); }
+:root[data-theme] .sy-act:active:not(:disabled) { transform: scale(.96); }
+:root[data-theme] .sy-act.sy-act-ico { width: 32px; padding: 0; font-size: 14px; font-weight: 400; color: var(--text2); }
+/* ⋮ حرفٌ لا إيموجي — رفيعٌ باهتٌ على 14px، فيُكبَّر ليُقرأ كأيقونة «المزيد» (نفسُ مقاس الزرّ) */
+:root[data-theme] .sy-act.sy-act-ico.sy-act-more { font-size: 18px; font-weight: 700; }
+:root[data-theme] .sy-act:disabled { opacity: .4; cursor: not-allowed; }
+:root[data-theme] .sy-acts-grid > .sy-act { width: 100%; min-width: 0; padding: 0 6px; }
+@media (min-width: 821px) {
+  :root[data-theme] .sy-acts.sy-slots { display: inline-grid; grid-template-columns: var(--sy-slots); column-gap: 6px; align-items: center; vertical-align: middle; }
+  :root[data-theme] .sy-slots > [data-slot] { width: 100%; box-sizing: border-box; }
+  :root[data-theme] .sy-slots > [data-slot="1"] { grid-column: s1; grid-row: 1; }
+  :root[data-theme] .sy-slots > [data-slot="2"] { grid-column: s2; grid-row: 1; }
+  :root[data-theme] .sy-slots > [data-slot="3"] { grid-column: s3; grid-row: 1; }
+  :root[data-theme] .sy-slots > [data-slot="4"] { grid-column: s4; grid-row: 1; }
+  :root[data-theme] .sy-slots > [data-span="2"] { grid-column-end: span 2; }
+}
+:root[data-theme] .sy-acts > .sy-acts-grp { display: inline-flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+:root[data-theme] .sy-acts > .sy-acts-sep { flex: 0 0 1px; align-self: center; height: 20px; margin: 0 5px; background: var(--border2, var(--border)); }
+@media (max-width: 820px) {
+  :root[data-theme] .sy-acts > .sy-acts-grp { flex: 1 1 100%; flex-wrap: wrap; }
+  :root[data-theme] .sy-acts > .sy-acts-sep { flex: 0 0 100%; height: 0; margin: 0; background: none; }
+}
+/* v484: خانةُ أزرار الصفّ بالجدول تلتصق بنهاية الصفّ (يساراً بالعربية) بكل الجداول — كانت بعضُ الجداول
+   (الروشتات · المخزون) تلصقها يساراً وبعضُها (المدفوعات · المخابر) يتركها وسط خانةٍ عريضة. */
+:root[data-theme] td:has(> .sy-acts) { text-align: end; }
+@media (max-width: 820px) {
+  :where(.sy-acts) { flex-wrap: wrap; gap: 8px; width: 100%; }
+  :root[data-theme] .sy-act { height: 40px; font-size: 13px; flex: 1 1 auto; }
+  :root[data-theme] .sy-act.sy-act-ico { width: 44px; flex: 0 0 auto; }
+}
+/* ═══ /SYDENT ROW-ACTIONS KIT ═══ */
+
+/* ═══ SyDT (v477) — خانةُ «التاريخ وتحته الوقت» الموحّدة (supabase-init.js: SyDT.cell) ═══ */
+.dt-cell { display: inline-flex; flex-direction: column; gap: 1px; line-height: 1.35; vertical-align: middle; }
+.dt-cell .dt-time { font-size: 11.5px; color: var(--text2); font-weight: 600; }
+
+/* ═══ SYDENT SCHEDULE-BLOCKS MODAL KIT (v501 — نافذةُ «حجز وقت» المحقونة من appt-blocks.js، مشتركة بين المواعيد والإعدادات) ═══ */
+#schedBlockModal .sbk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 560px) { #schedBlockModal .sbk-grid { grid-template-columns: 1fr; } }
+#schedBlockModal .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+#schedBlockModal .form-group > label { font-size: 12.5px; font-weight: 700; color: var(--text2); }
+#schedBlockModal .sbk-hint { color: var(--text2); font-weight: 400; }
+/* الصفحاتُ تُسطّح كلَّ input (width:100% · appearance:none) — فمربّعاتُ الاختيار هنا صريحة (لُوحظ حياً: شريطٌ رمادي بلا مربّع) */
+#schedBlockModal .sbk-check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; color: var(--text); }
+#schedBlockModal .sbk-check input[type="checkbox"] { width: 20px; height: 20px; flex: 0 0 20px; padding: 0; margin: 0; border-radius: 6px; -webkit-appearance: checkbox; appearance: checkbox; accent-color: var(--green); }
+#schedBlockModal .sbk-weekdays { display: flex; flex-wrap: wrap; gap: 6px; }
+#schedBlockModal .sbk-weekdays label { position: relative; display: inline-flex; align-items: center; font-size: 12.5px; font-weight: 700; border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; cursor: pointer; user-select: none; background: var(--bg3); color: var(--text); }
+#schedBlockModal .sbk-weekdays label input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; opacity: 0; cursor: pointer; }   /* الشريحةُ كلُّها زر */
+#schedBlockModal .sbk-weekdays label:has(input:checked) { border-color: var(--green); background: var(--green-bg); color: var(--green-fg); }
+#schedBlockModal .sbk-err { color: var(--red-ink); font-size: 12.5px; font-weight: 700; margin-top: 4px; }
+#schedBlockModal .sbk-list-hd { margin: 16px 0 8px; font-weight: 800; font-size: 13px; color: var(--text2); }
+#schedBlockModal .sbk-empty { text-align: center; padding: 14px; color: var(--text2); font-size: 13px; }
+#schedBlockModal .sbk-row { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+#schedBlockModal .sbk-row.sbk-row-editing { border-color: var(--green); }
+#schedBlockModal .sbk-row-main { flex: 1; min-width: 160px; }
+#schedBlockModal .sbk-row-title { font-weight: 800; }
+#schedBlockModal .sbk-row-meta { font-size: 12.5px; color: var(--text2); margin-top: 3px; }
+#schedBlockModal .sbk-soft-tag { font-size: 11px; color: var(--yellow-ink); font-weight: 700; }

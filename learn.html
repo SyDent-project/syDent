@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SyDent">
+<meta name="theme-color" content="#0d8577">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=4">
+<link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<title>SyDent — مركز التعلّم</title>
+<!-- Theme system: MUST load before inline <style>
+/* ── Modal ── v453: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
+   (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
+ to apply data-theme synchronously and prevent FOUC. -->
+<script src="theme.js?v=20261002d"></script>
+<style>
+:root {
+  --bg:        #0a1628;
+  --bg2:       #0f2038;
+  --bg3:       #132840;
+  --border:    rgba(var(--green-rgb),0.15);
+  --green:     var(--green);
+  --green-dim: rgba(var(--green-rgb),0.12);
+  --red:       #ef5350;
+  --yellow:    #f5c842;
+  --blue:      #63b3ed;
+  --orange:    #ffa726;
+  --gray:      #a3a3a3;
+  --text:      #e1f4ee;
+  --text2:     #8a9ab5;
+  --radius:    12px;
+  --sidebar:   240px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Cairo', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  overflow-x: hidden;
+}
+
+.main {
+  flex: 1;
+  margin-right: var(--sb-width, 240px);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-width: 0;
+}
+
+.topbar {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 28px;
+  display: flex; align-items: center; gap: 16px;
+  position: sticky; top: 0; z-index: 50;
+}
+.topbar-title { font-size: 20px; font-weight: 700; flex: 1; }
+.topbar-title span { color: var(--green); }
+
+.content { padding: 28px; flex: 1; }
+
+.intro {
+  color: var(--text2);
+  font-size: 14px;
+  line-height: 1.8;
+  max-width: 760px;
+  margin-bottom: 22px;
+}
+
+/* Category tabs */
+.tabs {
+  display: flex; gap: 6px; margin-bottom: 22px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.tab {
+  padding: 11px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text2);
+  font-family: 'Cairo', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--green); border-bottom-color: var(--green); }
+/* Light-mode fix: theme.css forces .tab.active → white (var(--on-accent)) for filled-style
+   tabs; ours are underline-style on a transparent bg, so white text vanishes on the light
+   background. Higher specificity (0,5,0) beats theme.css's (0,4,0) regardless of load order. */
+:root[data-theme="light"] .tabs .tab.active { color: var(--green); }
+
+/* Video grid + cards */
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.video-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  display: flex; flex-direction: column;
+  transition: transform .15s, border-color .2s;
+}
+.video-card:hover { transform: translateY(-2px); border-color: var(--green); }
+/* v305: keyboard + press feedback */
+.video-card:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.video-card:active { transform: scale(.98); }
+button:active:not(:disabled) { transform: scale(.97); }
+.vc-thumb {
+  aspect-ratio: 16 / 9;
+  background: var(--bg3);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.vc-play { width: 46px; height: 46px; color: var(--green); }
+.vc-dur {
+  position: absolute; bottom: 8px; inset-inline-start: 8px;
+  background: rgba(0,0,0,0.72); color: #fff;
+  font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 6px;
+}
+.vc-body { padding: 14px; }
+.vc-cat { font-size: 11px; color: var(--green); font-weight: 600; margin-bottom: 5px; }
+.vc-title { font-size: 15px; font-weight: 700; line-height: 1.4; }
+.vc-desc { font-size: 12px; color: var(--text2); margin-top: 6px; line-height: 1.6; }
+
+/* Empty state */
+.empty { text-align: center; padding: 64px 20px; color: var(--text2); }
+.empty-icon svg { width: 54px; height: 54px; color: var(--text2); opacity: .7; }
+.empty-title { font-size: 17px; font-weight: 700; color: var(--text); margin: 14px 0 8px; }
+.empty-sub { font-size: 13px; line-height: 1.7; max-width: 440px; margin: 0 auto; }
+
+/* Player modal */
+.modal-overlay.show { display: flex; }
+.player-box {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  width: min(880px, 100%);
+  overflow: hidden;
+}
+.player-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.player-title { flex: 1; font-size: 15px; font-weight: 700; }
+.player-close {
+  background: transparent; border: none;
+  color: var(--text2); font-size: 22px; line-height: 1;
+  cursor: pointer; padding: 0 4px;
+}
+.player-close:hover { color: var(--text); }
+.player-media { aspect-ratio: 16 / 9; background: #000; }
+.player-media iframe, .player-media video { width: 100%; height: 100%; border: none; display: block; }
+</style>
+</head>
+<body>
+
+<div class="main" id="sbMainContent">
+  <div class="topbar">
+    <div class="topbar-title">مركز التعلّم <span>/ دليل الاستخدام</span></div>
+  </div>
+  <div class="content">
+    <p class="intro">شروحات فيديو قصيرة لكل جزء من SyDent — إدارة المواعيد، مخطط الأسنان، الفوترة والمحاسبة، المخزون والتقارير. اختر القسم من الأعلى وشغّل الفيديو الذي تريده.</p>
+    <div class="tabs" id="catTabs"></div>
+    <div id="videoArea"></div>
+  </div>
+</div>
+
+<!-- Player modal -->
+<div class="modal-overlay sy-m sy-m-lg" id="playerModal" onclick="if(event.target===this)closePlayer()">
+  <div class="modal-box player-box">
+    <div class="modal-head player-head">
+      <h3 class="player-title" id="playerTitle"></h3>
+      <button class="modal-close player-close" onclick="closePlayer()" aria-label="إغلاق">✕</button>
+    </div>
+    <div class="modal-body player-media" id="playerMedia"></div>
+  </div>
+</div>
+
+<link rel="stylesheet" href="theme.css?v=20261002d">
+<script src="/vendor/supabase-2.110.8.min.js"></script>
+<script src="supabase-init.js?v=20261002d"></script>
+<script src="sy-modal.js?v=20261002d"></script>
+<script src="sidebar.js?v=20261002d"></script>
+<script>
+/* ===== مركز التعلّم (Learn Center) =====
+   Source-agnostic video library. Each entry:
+     { id, category, title, desc, type: 'youtube' | 'video', url, duration }
+       - type 'youtube' → url is an EMBED url, e.g. https://www.youtube.com/embed/VIDEO_ID
+       - type 'video'   → url is a direct file, e.g. R2: https://media.sydent.app/clip.mp4
+   Add a training video = append one object to VIDEOS below. No DB, no migration.
+   category must match one of CATEGORIES keys (other than 'all'). */
+var VIDEOS = [
+  // أمثلة معلّقة — احذف التعليق واملأ الرابط عند تجهيز الفيديو:
+  // { id:'appt-add',     category:'appointments', title:'إضافة موعد جديد',        desc:'كيف تحجز موعداً وتربطه بمريض.',       type:'youtube', url:'https://www.youtube.com/embed/XXXXXXXX', duration:'3:10' },
+  // { id:'chart-basics', category:'patients',     title:'مخطط الأسنان — الأساسيات', desc:'تسجيل المعالجات على كل سن.',           type:'video',   url:'https://media.sydent.app/chart-basics.mp4', duration:'5:40' },
+];
+
+var CATEGORIES = [
+  { key: 'all',             label: 'الكل' },
+  { key: 'getting-started', label: 'البداية' },
+  { key: 'appointments',    label: 'المواعيد' },
+  { key: 'patients',        label: 'المرضى ومخطط الأسنان' },
+  { key: 'billing',         label: 'الفوترة والمحاسبة' },
+  { key: 'inventory',       label: 'المخزون' },
+  { key: 'reports',         label: 'التقارير' }
+];
+
+var activeCat = 'all';
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function catLabel(key) {
+  for (var i = 0; i < CATEGORIES.length; i++) { if (CATEGORIES[i].key === key) return CATEGORIES[i].label; }
+  return key;
+}
+
+function countFor(key) {
+  if (key === 'all') return VIDEOS.length;
+  var n = 0;
+  for (var i = 0; i < VIDEOS.length; i++) { if (VIDEOS[i].category === key) n++; }
+  return n;
+}
+
+function renderTabs() {
+  var el = document.getElementById('catTabs');
+  var html = '';
+  for (var i = 0; i < CATEGORIES.length; i++) {
+    var c = CATEGORIES[i];
+    var n = countFor(c.key);
+    var suffix = n > 0 ? ' (' + n + ')' : '';
+    var active = c.key === activeCat ? ' active' : '';
+    html += '<button class="tab' + active + '" role="tab" aria-selected="' + (active ? 'true' : 'false') + '" onclick="setCat(\'' + c.key + '\')">' + escapeHtml(c.label) + suffix + '</button>';
+  }
+  el.innerHTML = html;
+}
+
+function setCat(k) { activeCat = k; renderTabs(); renderVideos(); }
+
+function videoById(id) {
+  for (var i = 0; i < VIDEOS.length; i++) { if (VIDEOS[i].id === id) return VIDEOS[i]; }
+  return null;
+}
+
+function cardHtml(v) {
+  var dur = v.duration ? '<span class="vc-dur">' + escapeHtml(v.duration) + '</span>' : '';
+  var desc = v.desc ? '<div class="vc-desc">' + escapeHtml(v.desc) + '</div>' : '';
+  return '<div class="video-card" role="button" tabindex="0" onclick="openPlayer(\'' + escapeHtml(v.id) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openPlayer(\'' + escapeHtml(v.id) + '\');}">'
+    +   '<div class="vc-thumb">'
+    +     '<svg class="vc-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>'
+    +     dur
+    +   '</div>'
+    +   '<div class="vc-body">'
+    +     '<div class="vc-cat">' + escapeHtml(catLabel(v.category)) + '</div>'
+    +     '<div class="vc-title">' + escapeHtml(v.title) + '</div>'
+    +     desc
+    +   '</div>'
+    + '</div>';
+}
+
+function renderVideos() {
+  var area = document.getElementById('videoArea');
+  var list = [];
+  for (var i = 0; i < VIDEOS.length; i++) { if (activeCat === 'all' || VIDEOS[i].category === activeCat) list.push(VIDEOS[i]); }
+
+  if (!list.length) {
+    area.innerHTML = '<div class="empty">'
+      +   '<div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></svg></div>'
+      +   '<div class="empty-title">الفيديوهات قيد التحضير</div>'
+      +   '<div class="empty-sub">نعمل على تجهيز شروحات فيديو لكل قسم من SyDent. ستظهر هنا فور جاهزيتها.</div>'
+      + '</div>';
+    return;
+  }
+
+  var cards = '';
+  for (var j = 0; j < list.length; j++) { cards += cardHtml(list[j]); }
+  area.innerHTML = '<div class="video-grid">' + cards + '</div>';
+}
+
+function openPlayer(id) {
+  var v = videoById(id);
+  if (!v) return;
+  document.getElementById('playerTitle').textContent = v.title || '';
+  var media = document.getElementById('playerMedia');
+  if (v.type === 'youtube') {
+    media.innerHTML = '<iframe src="' + escapeHtml(v.url) + '" title="' + escapeHtml(v.title || 'فيديو تعليمي') + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+  } else {
+    media.innerHTML = '<video src="' + escapeHtml(v.url) + '" controls autoplay playsinline></video>';
+  }
+  document.getElementById('playerModal').classList.add('show');
+}
+
+function closePlayer() {
+  document.getElementById('playerModal').classList.remove('show');
+  document.getElementById('playerMedia').innerHTML = ''; // stop playback
+}
+
+/* v453: Escape صار من عُدّة النوافذ (تغلق الأعلى فقط عبر زرّ ✕ نفسه). */
+
+/* Mobile hamburger — canonical pattern (CSS lives in sidebar.js; invokes window.sbToggle). */
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof initSidebar === 'function') initSidebar('learn');
+  renderTabs();
+  renderVideos();
+  var btn = document.createElement('button');
+  btn.className = 'sb-hamburger';
+  btn.id = 'sbHamburgerBtn';
+  btn.setAttribute('aria-label', 'القائمة');
+  btn.innerHTML = '<span></span><span></span><span></span>';
+  btn.onclick = function() { window.sbToggle(); };
+  window._sbBtn = btn;
+  var topbar = document.querySelector('.topbar');
+  if (topbar) topbar.insertBefore(btn, topbar.firstChild);
+});
+</script>
+
+</body>
+</html>

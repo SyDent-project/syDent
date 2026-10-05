@@ -1,0 +1,2511 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SyDent">
+<meta name="theme-color" content="#0d8577">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=4">
+<link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<title>SyDent — نظام إدارة عيادة الأسنان</title>
+
+<!-- Phase X10: SEO + Open Graph + Twitter Card. landing.html is the
+     marketing-only public face; its canonical URL is sydent.app/landing.html
+     while the apex (sydent.app/) hosts the authenticated dashboard. -->
+<link rel="canonical" href="https://sydent.app/landing.html">
+<meta name="description" content="SyDent — منصة سحابية احترافية لإدارة عيادات الأسنان. مواعيد ذكية، مخطط أسنان FDI، فواتير، WhatsApp، تقارير، RTL عربي. تجربة مجانية 30 يوم.">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://sydent.app/landing.html">
+<meta property="og:title" content="SyDent — نظام إدارة عيادة الأسنان">
+<meta property="og:description" content="منصة سحابية احترافية لإدارة عيادات الأسنان. تجربة مجانية 30 يوم — بدون بطاقة ائتمان.">
+<meta property="og:image" content="https://sydent.app/favicon.svg">
+<meta property="og:locale" content="ar_SY">
+<meta property="og:site_name" content="SyDent">
+
+<meta name="twitter:card" content="summary">
+<meta name="twitter:url" content="https://sydent.app/landing.html">
+<meta name="twitter:title" content="SyDent — نظام إدارة عيادة الأسنان">
+<meta name="twitter:description" content="منصة سحابية احترافية لإدارة عيادات الأسنان. تجربة مجانية 30 يوم.">
+<meta name="twitter:image" content="https://sydent.app/favicon.svg">
+
+<!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
+<script src="theme.js?v=20261002d"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a1628;--bg2:#0f2038;--bg3:#132840;--bg4:#0d1e33;
+  --border:rgba(var(--green-rgb),0.15);--border2:rgba(var(--green-rgb),0.25);
+  --green:var(--green);--green2:var(--green2);--green-dim:rgba(var(--green-rgb),0.1);
+  --text:#e1f4ee;--text2:#8a9ab5;--text3:#5a7090;
+  --on-green:#062018; /* نص فوق أسطح خضراء صلبة (النمط الداكن: خلفية خضراء ساطعة) */
+}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Cairo',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* ========= NAVBAR ========= */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  padding:0 24px;
+  height:64px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(10,22,40,0.85);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+}
+.nav-logo{
+  display:flex;align-items:center;gap:10px;
+  text-decoration:none;
+}
+.nav-logo-icon{
+  width:40px;height:40px;
+  display:flex;align-items:center;justify-content:center;
+}
+.nav-logo-icon svg{width:36px;height:40px;}
+.nav-logo-text .name{
+  font-size:18px;font-weight:800;color:var(--green);
+  line-height:1.1;
+}
+.nav-logo-text .sub{
+  font-size:10px;color:var(--text2);line-height:1;
+}
+.nav-actions{display:flex;gap:10px;align-items:center;}
+.btn-outline{
+  padding:8px 18px;
+  background:transparent;
+  border:1.5px solid var(--border2);
+  border-radius:8px;color:var(--text);
+  font-family:'Cairo',sans-serif;font-size:13px;font-weight:600;
+  cursor:pointer;transition:all .2s;text-decoration:none;
+  white-space:nowrap;
+}
+.btn-outline:hover{border-color:var(--green);color:var(--green);}
+.btn-primary{
+  padding:8px 18px;
+  background:var(--green);
+  border:none;border-radius:8px;
+  color:var(--bg);
+  font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;
+  cursor:pointer;transition:all .2s;text-decoration:none;
+  white-space:nowrap;
+}
+.btn-primary:hover{background:var(--green2);transform:translateY(-1px);}
+
+/* ========= HERO ========= */
+.hero{
+  min-height:100vh;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:100px 24px 60px;
+  position:relative;
+  overflow:hidden;
+  text-align:center;
+}
+.hero-bg{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 700px 500px at 50% 30%, rgba(var(--green-rgb),0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 300px at 80% 80%, rgba(var(--green-rgb),0.04) 0%, transparent 60%);
+  pointer-events:none;
+}
+.hero-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(var(--green-rgb),0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--green-rgb),0.04) 1px, transparent 1px);
+  background-size:60px 60px;
+  pointer-events:none;
+  mask-image:radial-gradient(ellipse 80% 80% at 50% 50%, black 0%, transparent 100%);
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 14px;
+  background:var(--green-dim);
+  border:1px solid var(--border2);
+  border-radius:20px;
+  font-size:12px;font-weight:600;color:var(--green);
+  margin-bottom:24px;
+  animation:fadeUp .5s ease both;
+}
+.hero h1{
+  font-size:clamp(28px,6vw,56px);
+  font-weight:900;line-height:1.15;
+  color:var(--text);
+  max-width:700px;
+  margin:0 auto 16px;
+  animation:fadeUp .5s .1s ease both;
+}
+.hero h1 span{color:var(--green);}
+.hero p{
+  font-size:clamp(14px,2vw,17px);
+  color:var(--text2);
+  max-width:500px;
+  margin:0 auto 36px;
+  line-height:1.7;
+  animation:fadeUp .5s .2s ease both;
+}
+.hero-btns{
+  display:flex;gap:12px;justify-content:center;flex-wrap:wrap;
+  animation:fadeUp .5s .3s ease both;
+  margin-bottom:60px;
+}
+.btn-hero{
+  padding:14px 28px;
+  background:var(--green);
+  border:none;border-radius:10px;
+  color:var(--bg);
+  font-family:'Cairo',sans-serif;font-size:15px;font-weight:800;
+  cursor:pointer;transition:all .25s;text-decoration:none;
+}
+.btn-hero:hover{background:var(--green2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(var(--green-rgb),0.25);}
+.btn-hero-outline{
+  padding:14px 28px;
+  background:transparent;
+  border:1.5px solid var(--border2);
+  border-radius:10px;color:var(--text);
+  font-family:'Cairo',sans-serif;font-size:15px;font-weight:600;
+  cursor:pointer;transition:all .25s;text-decoration:none;
+}
+.btn-hero-outline:hover{border-color:var(--green);color:var(--green);}
+
+/* Dashboard Mock */
+.dashboard-mock{
+  width:100%;max-width:820px;
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 40px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(var(--green-rgb),0.08);
+  animation:fadeUp .6s .4s ease both;
+}
+.mock-topbar{
+  background:var(--bg3);
+  padding:12px 16px;
+  display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--border);
+}
+.mock-dot{width:10px;height:10px;border-radius:50%;}
+.mock-dot.r{background:#ef5350;}
+.mock-dot.y{background:#ffa726;}
+.mock-dot.g{background:var(--green);}
+.mock-topbar-title{
+  flex:1;text-align:center;
+  font-size:12px;color:var(--text2);font-weight:600;
+}
+.mock-body{
+  display:grid;grid-template-columns:200px 1fr;
+  min-height:320px;
+}
+.mock-sidebar{
+  background:var(--bg3);
+  border-left:1px solid var(--border);
+  padding:16px 0;
+}
+.mock-sidebar-logo{
+  padding:0 16px 16px;
+  display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--border);
+  margin-bottom:12px;
+}
+.mock-logo-icon{
+  width:28px;height:28px;
+  background:var(--green-dim);
+  border:1px solid var(--border2);
+  border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+}
+.mock-logo-icon svg{width:16px;height:16px;}
+.mock-logo-text{font-size:13px;font-weight:800;color:var(--green);}
+:root[data-theme="light"] .sd-sy{background:linear-gradient(135deg,#3d8577 0%,#2f7d52 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#368a64;}
+:root[data-theme="light"] .sd-dent{color:#16362c;}
+:root[data-theme="dark"] .sd-sy{background:linear-gradient(135deg,#4fb89f 0%,#3ec77a 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#46b88c;}
+:root[data-theme="dark"] .sd-dent{color:#e8f6f0;}
+.mock-nav-section{
+  padding:8px 16px 3px;
+  font-size:8.5px;font-weight:700;
+  color:var(--text3);letter-spacing:1px;
+}
+.mock-nav-item{
+  padding:4px 16px;
+  display:flex;align-items:center;gap:8px;
+  font-size:10.5px;color:var(--text2);
+  cursor:pointer;
+}
+.mock-nav-item.active{
+  background:rgba(var(--green-rgb),0.08);
+  color:var(--green);
+  border-right:2px solid var(--green);
+}
+.mock-nav-item .icon{width:18px;height:14px;display:flex;align-items:center;justify-content:center;color:inherit;flex-shrink:0;}
+.mock-nav-item .icon svg{width:14px;height:14px;}
+.mock-content{padding:16px;}
+.mock-stats{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:8px;margin-bottom:10px;
+}
+.mock-stat{
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:10px;
+}
+/* KPI look — mirrors index.html .kpi-top/.kpi-ic (prototype v7) */
+.mock-kpi-top{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.mock-kpi-ic{width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.mock-kpi-ic svg{width:12px;height:12px;}
+.mock-kpi-ic.t{background:var(--green-dim);color:var(--green);}
+.mock-kpi-ic.o{background:rgba(37,99,235,.12);color:var(--blue,#63b3ed);}
+.mock-kpi-ic.i{background:rgba(14,116,144,.14);color:var(--cyan,#4dd0e1);}
+.mock-kpi-ic.w{background:var(--yellow-bg);color:var(--yellow-ink);}   /* v377: mirrors the dashboard KPI icon */
+.mock-stat-label{font-size:9.5px;color:var(--text3);font-weight:700;}
+.mock-stat-val{font-size:19px;font-weight:900;color:var(--text);line-height:1.1;font-variant-numeric:tabular-nums;}
+.mock-stat-val small{font-size:9px;font-weight:600;color:var(--text3);}
+.mock-stat-sub{font-size:9px;color:var(--text3);margin-top:4px;}
+.mock-stat-sub.up{color:var(--green);font-weight:700;}
+.mock-stat-sub.down{color:#ef9a9a;font-weight:700;}
+/* نبض اليوم — mirrors index.html day-pulse card (dp-track + dp-legend) */
+.mock-dp{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px;}
+.mock-dp-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.mock-dp-title{font-size:10px;font-weight:700;color:var(--text2);}
+.mock-dp-meta{font-size:9px;color:var(--text3);}
+.mock-dp-track{display:flex;gap:3px;height:10px;}
+.mock-dp-track i{flex:1;border-radius:3px;}
+.mock-dp-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:7px;font-size:8.5px;color:var(--text3);}
+.mock-dp-legend i{display:inline-block;width:7px;height:7px;border-radius:2px;margin-left:3px;vertical-align:middle;}
+/* Content cards + two-column grid — mirror index.html .card / .dash-grid */
+.mock-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
+.mock-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.mock-card-title{font-size:10.5px;font-weight:700;color:var(--text);display:flex;align-items:center;}
+.mock-card-action{font-size:9px;color:var(--green);font-weight:600;}
+.mock-count-badge{background:var(--green-dim);color:var(--green);font-size:8.5px;font-weight:700;padding:1px 7px;border-radius:10px;margin-right:5px;}
+.mock-card-hint{font-size:8.5px;color:var(--text3);margin-bottom:7px;}
+.mock-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;align-items:stretch;}
+.mock-grid .mock-col{display:flex;flex-direction:column;gap:10px;}
+.mock-grid .mock-col > .mock-card:last-child{flex:1;}
+/* Quick-template chips — mirror index.html #quickTplChips (amber outline pills) */
+.mock-chips{display:flex;flex-wrap:wrap;gap:6px;}
+.mock-chip{font-size:9.5px;font-weight:700;padding:4px 11px;border-radius:14px;border-width:1.5px;border-style:solid;white-space:nowrap;}   /* colour = .cbadge + --bc, exactly like the app's quick-template chips (each takes its treatment's hue) */
+/* List rows inside cards — clean separator style */
+.mock-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);}
+.mock-row:last-child{border-bottom:none;padding-bottom:2px;}
+.mock-row-name{font-size:10.5px;color:var(--text);font-weight:600;}
+.mock-row-sub{font-size:9px;color:var(--text3);margin-top:1px;}
+.mock-appt-badge{
+  font-size:9px;padding:2px 7px;border-radius:4px;font-weight:700;
+}
+/* v377: status chips mirror the app's unified tones (theme.css) */
+.mock-appt-badge.done{background:var(--gray-bg);color:var(--gray-fg);}
+.mock-appt-badge.live{background:var(--green-bg);color:var(--green-fg);}
+.mock-appt-badge.conf{background:var(--blue-bg);color:var(--blue-fg);}
+.mock-appt-badge.pending{background:var(--yellow-bg);color:var(--yellow-ink);}
+
+/* ===== Patient-file mock — floats over the dashboard mock =====
+   The odontogram inside it is a REAL screenshot of the app's chart panel
+   (patient-profile.html chart-card, rendered by the live engine with the
+   standard treatment palette, captured at 2× as landing-chart.webp). */
+.hero-mocks{
+  position:relative;width:100%;max-width:820px;margin:0 auto;
+  display:flex;justify-content:center;
+}
+.pt-mock{
+  position:absolute;left:-110px;top:196px;width:520px;z-index:3;
+  transform:rotate(-1.6deg);
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 30px 70px rgba(0,0,0,0.55), 0 0 0 1px rgba(var(--green-rgb),0.10);
+  animation:fadeUp .6s .5s ease both;
+  text-align:right;
+}
+.pt-content{padding:8px;}
+.pt-shot{display:block;width:100%;height:auto;border-radius:10px;}
+/* one screenshot per theme — the card follows the page's light/dark toggle */
+.pt-shot-dark{display:none;}
+:root[data-theme="dark"] .pt-shot-dark{display:block;}
+:root[data-theme="dark"] .pt-shot-light{display:none;}
+@media (max-width:1180px){
+  .pt-mock{left:-60px;width:480px;}
+}
+@media (max-width:1040px){
+  .hero-mocks{display:block;}
+  .pt-mock{position:static;width:100%;transform:none;margin-top:18px;}
+  .pt-content{padding:10px;}
+}
+@media (prefers-reduced-motion: reduce){
+  .pt-mock{transform:none;}
+}
+
+/* ========= FEATURES ========= */
+.section{padding:80px 24px;}
+.section-label{
+  text-align:center;
+  font-size:12px;font-weight:700;color:var(--green);
+  letter-spacing:2px;text-transform:uppercase;
+  margin-bottom:12px;
+}
+.section-title{
+  text-align:center;
+  font-size:clamp(22px,4vw,36px);
+  font-weight:800;color:var(--text);
+  margin-bottom:12px;
+}
+.section-sub{
+  text-align:center;
+  font-size:15px;color:var(--text2);
+  max-width:500px;margin:0 auto 48px;
+  line-height:1.7;
+}
+.features-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:20px;
+  max-width:900px;margin:0 auto;
+}
+.feature-card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:28px 24px;
+  transition:all .25s;
+}
+.feature-card:hover{
+  border-color:var(--border2);
+  transform:translateY(-3px);
+  box-shadow:0 12px 32px rgba(0,0,0,0.3);
+}
+.feature-icon{
+  width:48px;height:48px;
+  background:var(--green-dim);
+  border:1.5px solid var(--border2);
+  border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;
+  margin-bottom:16px;
+}
+.feature-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;}
+.feature-desc{font-size:13px;color:var(--text2);line-height:1.7;}
+.feature-card-ai{
+  grid-column:1/-1;
+  background:linear-gradient(135deg,var(--green-dim),var(--bg2));
+  border-color:var(--border2);
+}
+.feature-card-ai .feature-icon{
+  background:var(--bg2);
+}
+
+/* ========= STEPS ========= */
+.steps-section{
+  padding:80px 24px;
+  background:var(--bg4);
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+}
+.steps-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:32px;
+  max-width:800px;margin:0 auto;
+  position:relative;
+}
+.step{text-align:center;}
+.step-num{
+  width:52px;height:52px;
+  background:var(--green);
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;font-weight:900;color:var(--bg);
+  margin:0 auto 16px;
+  box-shadow:0 4px 16px rgba(var(--green-rgb),0.3);
+}
+.step-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;}
+.step-desc{font-size:13px;color:var(--text2);line-height:1.7;}
+
+/* ========= PRICING SECTION (Phase X2.1) ========= */
+.pricing-section{
+  padding:80px 24px;
+  background:var(--bg);
+}
+.pricing-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:20px;
+  max-width:1100px;margin:0 auto;
+}
+/* Phase X13 + Migration 104: monthly/quarterly/yearly toggle on the public pricing page */
+.pricing-cycle-toggle{display:inline-flex;gap:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(var(--green-rgb),0.18);border-radius:999px;padding:5px;margin:0 auto 26px;max-width:100%;flex-wrap:wrap;justify-content:center;}
+.pricing-cycle-opt{border:none;background:transparent;color:#8a9ab5;font-family:'Cairo',sans-serif;font-size:14px;font-weight:800;padding:9px 22px;border-radius:999px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:8px;}
+.pricing-cycle-opt.active{background:var(--green);color:var(--on-green);}
+.pricing-cycle-save{font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;background:rgba(var(--green-rgb),0.18);color:var(--green);}
+.pricing-cycle-opt.active .pricing-cycle-save{background:rgba(6,32,24,0.18);color:var(--on-green);}
+/* النمط الفاتح: ‎--green‎ تغمق إلى ‎#0d8577‎ فيفقد النص الغامق كل تباينه فوقها —
+   نفس معالجة subscription.html: نص أبيض + خلفية بادج أفتح كي يبقى مقروءاً. */
+:root[data-theme="light"]{--on-green:#ffffff;}
+:root[data-theme="light"] .pricing-cycle-opt.active .pricing-cycle-save{background:var(--green-bg);color:var(--green-fg);}
+/* Migration 105: second pill row (currency) under the cycle row */
+.pricing-curr-toggle{margin-top:-16px;}
+/* Migration 104: three cadence pills (+ savings badges) exceed a narrow phone at
+   the desktop padding — tighten. Placed AFTER the base rules on purpose: a media
+   query carries no extra specificity, so an earlier position would lose. */
+@media (max-width:520px){
+  .pricing-cycle-opt{padding:9px 12px;font-size:13px;gap:5px;}
+  .pricing-cycle-save{font-size:10px;padding:2px 6px;}
+}
+.pricing-card-save{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;background:rgba(var(--green-rgb),0.15);color:var(--green);margin-inline-start:6px;}
+.pricing-card{
+  position:relative;
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:32px 24px;
+  display:flex;flex-direction:column;
+  transition:transform .2s,border-color .2s,box-shadow .2s;
+}
+.pricing-card:hover{
+  transform:translateY(-4px);
+  border-color:var(--border2);
+  box-shadow:0 12px 32px rgba(0,0,0,0.25);
+}
+.pricing-card.featured{
+  border-color:var(--green);
+  box-shadow:0 0 0 1px var(--green) inset;
+}
+.pricing-card-featured-badge{
+  position:absolute;top:-12px;left:50%;transform:translateX(-50%);
+  background:var(--green);color:var(--bg);
+  padding:4px 14px;border-radius:999px;
+  font-size:11px;font-weight:800;letter-spacing:0.5px;
+  white-space:nowrap;
+}
+.pricing-card-name{
+  font-size:18px;font-weight:800;color:var(--green);margin-bottom:4px;
+}
+.pricing-card-tagline{
+  font-size:12px;color:var(--text2);margin-bottom:18px;line-height:1.5;
+}
+.pricing-card-price-row{
+  display:flex;align-items:baseline;gap:8px;margin-bottom:4px;
+  flex-wrap:wrap;
+}
+.pricing-card-price{
+  font-size:32px;font-weight:800;color:var(--text);line-height:1;
+}
+.pricing-card-currency{
+  font-size:14px;color:var(--text2);font-weight:700;
+}
+.pricing-card-period{
+  font-size:13px;color:var(--text2);margin-bottom:20px;
+}
+.pricing-card-limits{
+  display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;
+}
+.pricing-card-limit{
+  background:var(--bg3);padding:5px 10px;border-radius:6px;
+  border:1px solid var(--border);
+  font-size:11px;color:var(--text2);
+}
+.pricing-features{list-style:none;padding:0;margin:0 0 24px 0;flex:1;}
+.pricing-feature{
+  display:flex;align-items:flex-start;gap:10px;
+  font-size:13px;color:var(--text);margin-bottom:10px;line-height:1.5;
+}
+.pricing-feature::before{
+  content:'✓';color:var(--green);font-weight:800;flex-shrink:0;font-size:14px;
+}
+.pricing-savings-badge{
+  display:inline-block;
+  background:rgba(var(--green-rgb),0.15);
+  color:var(--green);
+  border:1px solid var(--border2);
+  padding:3px 8px;border-radius:5px;
+  font-size:10px;font-weight:800;margin-right:6px;
+}
+.pricing-cta{
+  display:block;text-align:center;text-decoration:none;
+  padding:12px 18px;
+  background:var(--green);color:var(--bg);
+  border-radius:10px;
+  font-family:'Cairo',sans-serif;font-size:14px;font-weight:800;
+  transition:all .2s;
+}
+.pricing-cta:hover{background:var(--green2);transform:translateY(-1px);}
+.pricing-cta-outline{
+  background:transparent;color:var(--green);
+  border:1.5px solid var(--border2);
+}
+.pricing-cta-outline:hover{
+  border-color:var(--green);
+  background:var(--green-dim);
+  transform:translateY(-1px);
+}
+.pricing-loading{
+  text-align:center;font-size:14px;color:var(--text2);
+  padding:40px 0;
+}
+.pricing-error{
+  max-width:600px;margin:0 auto;
+  text-align:center;font-size:13px;color:var(--text2);
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;padding:24px;line-height:1.7;
+}
+
+/* ========= FORM SECTION ========= */
+.form-section{
+  padding:80px 24px;
+  display:flex;flex-direction:column;align-items:center;
+}
+.form-card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:40px 36px;
+  width:100%;max-width:480px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3);
+}
+.form-card-title{
+  font-size:22px;font-weight:800;color:var(--text);
+  margin-bottom:6px;text-align:center;
+}
+.form-card-sub{
+  font-size:13px;color:var(--text2);
+  margin-bottom:28px;text-align:center;line-height:1.6;
+}
+.form-group{margin-bottom:16px;}
+.form-group label{
+  display:block;font-size:12px;color:var(--text2);
+  font-weight:600;margin-bottom:6px;
+}
+.form-group input, .form-group select, .form-group textarea{
+  width:100%;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:12px 14px;
+  color:var(--text);
+  font-family:'Cairo',sans-serif;font-size:14px;
+  outline:none;transition:border-color .2s;
+  direction:rtl;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus{
+  border-color:var(--green);
+}
+.form-group input::placeholder, .form-group textarea::placeholder{color:var(--text3);}
+.form-group textarea{resize:vertical;min-height:80px;}
+.form-group select{cursor:pointer;}
+.form-group select option{background:var(--bg3);}
+.btn-form{
+  width:100%;padding:14px;
+  background:var(--green);border:none;
+  border-radius:10px;color:var(--bg);
+  font-family:'Cairo',sans-serif;font-size:15px;font-weight:800;
+  cursor:pointer;transition:all .2s;margin-top:4px;
+}
+.btn-form:hover{background:var(--green2);}
+.form-success{
+  display:none;
+  text-align:center;
+  padding:20px;
+}
+.form-success .success-icon{font-size:48px;margin-bottom:12px;}
+.form-success p{font-size:15px;color:var(--text);font-weight:600;}
+.form-success span{font-size:13px;color:var(--text2);}
+.msg-box{
+  display:none;
+  padding:10px 14px;
+  border-radius:8px;
+  font-size:12px;
+  margin-bottom:14px;
+}
+.msg-box.show{display:block;}
+.msg-box.error{background:var(--red-soft);border:1px solid var(--red-bd);color:var(--red-ink);}
+.msg-box.success{background:rgba(var(--green-rgb),0.1);border:1px solid var(--border2);color:var(--green);}
+
+/* ========= FOOTER ========= */
+footer{
+  padding:28px 24px;
+  border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:12px;
+}
+.footer-logo{display:flex;align-items:center;gap:8px;text-decoration:none;}
+.footer-logo-icon{
+  width:32px;height:32px;
+  background:var(--green-dim);
+  border:1px solid var(--border2);
+  border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+}
+.footer-logo-icon svg{width:18px;height:18px;}
+.footer-logo-text{font-size:14px;font-weight:800;color:var(--green);}
+.footer-copy{font-size:12px;color:var(--text3);}
+.footer-link{
+  font-size:12px;color:var(--text2);
+  text-decoration:none;transition:color .2s;
+}
+.footer-link:hover{color:var(--green);}
+
+/* ========= DIVIDER ========= */
+/* ── قسم «نظرة عامة»: لوحة واحدة بأربع مساحات (ov-*) ──────────────
+   لغة بصرية مقصودة الاختلاف عن .feature-card أدناه: إطار واحد يضمّ
+   الأربعة بخطوط شعرية بدل أربع بطاقات مستقلة، وبلا مربّع أيقونة
+   وبلا رفع عند المرور (كلاهما توقيع بطاقات المميزات). */
+.ov-wrap{max-width:920px;margin:0 auto;}
+.ov-panel{
+  border:1px solid var(--border);
+  border-radius:18px;
+  overflow:hidden;
+  background:var(--border);          /* يظهر كخطوط شعرية 1px بين الخلايا */
+  box-shadow:0 18px 44px rgba(0,0,0,0.08);
+}
+[data-theme="dark"] .ov-panel{box-shadow:0 22px 56px rgba(0,0,0,0.35);}
+.ov-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:1px;
+  background:var(--border);
+}
+.ov-cell{
+  background:var(--bg2);
+  padding:30px 22px;
+  text-align:center;
+  transition:background .3s ease;
+}
+.ov-cell:hover{background:var(--green-dim);}
+.ov-emoji{display:block;font-size:26px;line-height:1;margin-bottom:14px;}
+.ov-name{font-size:15px;font-weight:800;color:var(--text);letter-spacing:.2px;margin-bottom:8px;}
+.ov-desc{font-size:13.5px;color:var(--text2);line-height:1.85;}
+.ov-foot{
+  position:relative;
+  margin-top:1px;                    /* الخط الشعري الفاصل عن الشبكة */
+  background:var(--bg2);
+  padding:22px 26px;
+  text-align:center;
+  font-size:15px;line-height:1.95;
+  color:var(--text2);
+}
+.ov-foot::before{
+  content:'';
+  position:absolute;top:0;right:0;left:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--green),transparent);
+  opacity:.5;
+}
+.ov-foot b{color:var(--green);font-weight:800;}
+@media(min-width:560px){ .ov-grid{grid-template-columns:1fr 1fr;} }
+@media(min-width:900px){ .ov-grid{grid-template-columns:repeat(4,1fr);} }
+@media(prefers-reduced-motion:reduce){ .ov-cell{transition:none;} }
+
+.divider{
+  height:1px;
+  background:linear-gradient(90deg, transparent, var(--border2), transparent);
+  max-width:900px;margin:0 auto;
+}
+
+/* ========= ANIMATIONS ========= */
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(20px);}
+  to{opacity:1;transform:translateY(0);}
+}
+
+/* ========= RESPONSIVE ========= */
+@media(max-width:768px){
+  .mock-body{grid-template-columns:1fr;}
+  .mock-sidebar{display:none;}
+  .mock-stats{grid-template-columns:repeat(2,1fr);}
+  .mock-grid{grid-template-columns:1fr;}
+  .nav-actions .btn-outline{display:none;}
+  footer{justify-content:center;text-align:center;}
+}
+@media(min-width:1200px){
+  .features-grid{grid-template-columns:repeat(3,1fr);}
+  .steps-grid{grid-template-columns:repeat(3,1fr);}
+  .pricing-grid{grid-template-columns:repeat(3,1fr);}
+  nav{padding:0 60px;}
+  .section{padding:100px 60px;}
+  .steps-section{padding:100px 60px;}
+  .pricing-section{padding:100px 60px;}
+}
+/* 8-هـ: الأسئلة الشائعة */
+.faq-list{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:12px;}
+.faq-item{background:var(--bg2);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:border-color .25s;}
+.faq-item[open]{border-color:var(--border2);}
+.faq-item summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;font-weight:700;font-size:15px;}
+.faq-item summary::-webkit-details-marker{display:none;}
+.faq-item summary::after{content:'+';font-size:20px;font-weight:400;color:var(--green);flex-shrink:0;transition:transform .2s;}
+.faq-item[open] summary::after{transform:rotate(45deg);}
+.faq-body{padding:0 22px 18px;color:var(--text2);font-size:14px;line-height:1.9;}
+/* 8-هـ: شريط CTA الختامي */
+.cta-band{max-width:900px;margin:0 auto;text-align:center;background:linear-gradient(135deg,var(--bg2),var(--bg3));border:1px solid var(--border2);border-radius:20px;padding:52px 32px;}
+.cta-band h2{font-size:clamp(22px,4vw,30px);margin:0 0 10px;}
+.cta-band p{color:var(--text2);margin:0 0 26px;font-size:15px;}
+</style>
+<!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
+<link rel="stylesheet" href="theme.css?v=20261002d">
+<script src="/vendor/supabase-2.110.8.min.js"></script>
+<script src="supabase-init.js?v=20261002d"></script>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+  <a href="landing.html" class="nav-logo">
+    <div class="nav-logo-icon">
+      <svg viewBox="0 0 1279 1400" fill="none" stroke="currentColor" style="color:var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0.000000,1400.000000) scale(0.100000,-0.100000)"
+fill="#1ed99a" stroke="none">
+<path d="M8460 13985 c-102 -19 -306 -72 -389 -101 -91 -32 -282 -119 -368
+-167 -34 -20 -72 -39 -85 -43 -12 -4 -34 -15 -48 -24 -41 -29 -104 -32 -153
+-6 -23 12 -78 32 -122 45 -44 13 -100 30 -125 38 -106 34 -186 44 -395 45
+-177 1 -228 -2 -328 -21 -199 -36 -368 -91 -427 -136 -8 -6 -31 -18 -50 -25
+-19 -7 -51 -25 -70 -40 -20 -15 -59 -39 -88 -54 -29 -14 -52 -30 -52 -35 0 -4
+-26 -24 -57 -44 -55 -33 -190 -159 -241 -223 -144 -181 -200 -285 -251 -461
+-47 -163 -67 -272 -76 -402 -8 -119 -19 -141 -136 -261 -51 -52 -113 -122
+-139 -155 -45 -58 -120 -171 -120 -180 0 -3 -13 -26 -29 -52 -59 -98 -109
+-234 -125 -343 -41 -277 -42 -373 -6 -670 15 -131 94 -365 151 -450 9 -14 43
+-68 75 -120 32 -52 63 -100 69 -106 5 -7 33 -38 60 -69 28 -32 57 -63 65 -70
+8 -8 67 -62 130 -122 227 -215 471 -365 655 -404 22 -4 72 -16 110 -25 57 -13
+152 -18 510 -24 466 -7 493 -10 538 -56 12 -13 32 -33 45 -46 12 -13 22 -29
+22 -36 0 -7 9 -33 20 -58 20 -43 21 -65 23 -797 2 -845 7 -793 -73 -869 -21
+-21 -42 -43 -47 -50 -4 -8 -41 -43 -82 -78 -40 -36 -169 -159 -286 -275 -117
+-115 -241 -238 -276 -271 -35 -34 -89 -88 -120 -120 -31 -33 -117 -118 -192
+-190 -74 -73 -144 -147 -154 -165 -17 -32 -18 -81 -21 -889 -1 -545 -6 -874
+-13 -907 -8 -41 -19 -59 -50 -87 -21 -20 -40 -37 -42 -37 -1 -1 -66 -4 -143
+-8 -79 -4 -148 -12 -155 -18 -8 -6 -42 -23 -76 -37 -45 -19 -77 -41 -110 -78
+-27 -29 -62 -66 -78 -83 -77 -76 -145 -166 -201 -266 -6 -10 -18 -27 -26 -36
+-8 -10 -27 -43 -41 -73 -14 -30 -38 -75 -53 -100 -43 -73 -94 -176 -94 -191 0
+-8 -12 -34 -26 -59 -15 -25 -48 -110 -74 -190 -64 -193 -98 -290 -114 -320 -8
+-14 -19 -43 -26 -65 -7 -22 -23 -63 -36 -91 -12 -29 -26 -69 -30 -90 -7 -38
+-111 -321 -133 -362 -5 -10 -19 -48 -30 -83 -77 -247 -91 -296 -91 -317 0 -14
+-14 -77 -31 -141 -16 -64 -35 -134 -40 -156 -18 -70 -79 -223 -95 -236 -29
+-24 -50 22 -58 124 -3 50 -6 1065 -6 2256 0 1191 -4 2183 -9 2203 -5 20 -19
+51 -32 68 -33 43 -188 205 -343 358 -294 290 -360 358 -371 387 -7 17 -10 48
+-7 70 12 82 4 289 -13 353 -39 150 -132 288 -250 368 -40 27 -54 32 -160 59
+-108 28 -191 27 -321 -3 -73 -16 -104 -30 -155 -65 -57 -40 -159 -136 -159
+-150 0 -3 -18 -35 -40 -71 -57 -94 -73 -171 -67 -330 l5 -130 53 -105 c42 -83
+66 -118 113 -161 63 -59 141 -114 178 -126 121 -39 302 -54 371 -30 62 21 145
+23 182 4 52 -27 250 -219 483 -468 62 -65 143 -177 153 -211 13 -41 20 -2938
+10 -4064 -6 -686 -7 -743 -24 -768 -9 -15 -24 -27 -33 -27 -48 0 -173 148
+-246 293 -17 34 -38 73 -47 87 -10 14 -30 59 -46 100 -16 41 -35 84 -41 95
+-42 68 -198 523 -260 755 -8 30 -32 120 -54 200 -22 80 -42 163 -46 185 -3 22
+-14 74 -25 115 -19 77 -46 231 -75 425 -9 61 -22 146 -30 190 -7 44 -20 166
+-28 270 -9 105 -24 236 -35 292 -22 115 -21 108 -55 365 -14 103 -30 196 -35
+206 -6 10 -15 68 -21 127 -6 60 -13 112 -16 116 -5 8 -27 112 -49 234 -54 290
+-179 737 -250 891 -13 28 -29 71 -35 95 -6 24 -22 60 -34 79 -26 41 -41 73
+-91 195 -20 50 -49 115 -65 145 -15 30 -40 82 -55 115 -15 33 -34 74 -42 90
+-9 17 -47 90 -84 164 -38 73 -73 139 -78 145 -5 6 -13 25 -16 41 -4 17 -16 44
+-25 60 -35 59 -64 111 -77 140 -14 29 -22 45 -43 83 -8 15 -36 74 -122 262
+-16 36 -33 72 -38 80 -32 55 -100 200 -106 225 -4 17 -12 37 -18 45 -18 22
+-33 57 -61 139 -13 40 -29 79 -34 85 -6 6 -22 45 -37 86 -14 41 -34 89 -44
+105 -24 40 -50 134 -50 179 0 28 6 39 27 53 25 17 85 18 993 18 839 0 968 -2
+991 -15 27 -15 295 -264 333 -310 12 -13 93 -95 181 -181 88 -87 165 -162 170
+-168 6 -7 102 -105 215 -219 114 -114 224 -229 245 -256 38 -47 40 -52 39
+-120 0 -39 -8 -95 -17 -125 -21 -66 -22 -143 -3 -202 7 -24 22 -71 32 -104 28
+-94 116 -210 205 -274 30 -21 87 -53 128 -71 64 -28 88 -32 186 -37 133 -7
+206 8 325 68 118 58 185 127 250 253 l54 106 0 152 c0 134 -3 161 -23 216 -54
+149 -140 245 -320 357 -69 43 -120 50 -340 42 -120 -5 -187 -3 -213 5 -31 9
+-96 69 -321 296 -155 157 -304 309 -332 339 -27 30 -115 119 -195 198 -80 79
+-174 179 -209 222 -61 74 -146 147 -215 185 -29 16 -116 17 -1146 18 -1056 0
+-1117 1 -1155 19 -22 10 -45 24 -51 32 -26 32 -63 203 -84 389 -6 52 -18 138
+-28 190 -24 136 -25 629 0 710 9 30 21 96 28 145 17 132 25 162 86 355 56 177
+105 288 190 435 26 44 56 98 67 120 11 22 56 85 100 140 92 114 96 118 118
+131 9 5 34 29 54 54 52 63 160 155 225 192 30 18 69 41 86 53 16 11 75 42 130
+69 54 27 106 53 114 57 45 25 102 48 131 54 19 4 54 16 79 28 25 11 90 28 145
+38 55 11 118 24 140 30 22 6 146 13 275 16 187 4 257 1 345 -12 61 -9 135 -20
+165 -25 30 -4 68 -13 83 -19 16 -6 41 -11 56 -11 16 0 44 -7 64 -15 19 -8 77
+-24 127 -35 50 -11 108 -27 128 -36 20 -9 62 -22 92 -30 30 -8 83 -26 118 -39
+34 -14 69 -25 78 -25 9 0 52 -16 95 -35 118 -52 129 -49 178 45 13 25 30 52
+37 61 8 8 14 18 14 21 0 8 67 118 83 137 8 9 22 30 30 47 9 17 32 50 51 73 20
+24 36 51 36 62 0 22 -56 89 -75 89 -7 0 -30 12 -51 26 -21 15 -82 45 -134 66
+-52 22 -122 51 -155 65 -95 40 -125 50 -210 69 -44 9 -92 23 -106 30 -31 16
+-202 54 -239 54 -14 0 -36 6 -50 13 -88 46 -290 62 -760 61 -312 0 -401 -4
+-470 -17 -47 -9 -101 -19 -120 -23 -19 -3 -57 -14 -85 -24 -27 -9 -84 -25
+-125 -35 -41 -10 -82 -23 -90 -30 -8 -7 -46 -22 -85 -35 -38 -12 -84 -30 -101
+-41 -17 -10 -38 -19 -46 -19 -9 0 -21 -7 -28 -15 -7 -8 -19 -15 -26 -15 -7 0
+-47 -21 -89 -47 -41 -27 -83 -52 -93 -58 -61 -35 -102 -63 -133 -91 -20 -18
+-61 -47 -91 -66 -29 -19 -122 -104 -205 -189 -200 -202 -195 -197 -234 -252
+-19 -27 -46 -65 -62 -85 -54 -72 -96 -138 -114 -177 -10 -22 -42 -79 -71 -126
+-28 -48 -52 -90 -52 -93 0 -4 -14 -35 -31 -69 -47 -94 -107 -258 -144 -392
+-18 -66 -42 -154 -53 -195 -12 -41 -28 -118 -36 -170 -8 -52 -24 -147 -35
+-210 -26 -152 -36 -478 -22 -715 14 -223 88 -664 139 -825 12 -36 26 -90 32
+-120 7 -30 20 -80 30 -110 34 -106 40 -127 40 -140 0 -8 15 -53 34 -100 18
+-47 43 -112 56 -145 26 -71 84 -213 110 -270 39 -85 59 -133 90 -209 17 -44
+45 -107 62 -140 16 -34 39 -86 50 -116 12 -30 32 -71 45 -90 12 -19 23 -40 23
+-48 0 -7 11 -29 24 -50 23 -37 96 -187 96 -198 0 -3 38 -83 84 -177 46 -95 87
+-183 91 -197 12 -43 144 -306 160 -320 8 -7 15 -19 15 -26 0 -13 100 -231 121
+-264 5 -8 12 -22 16 -30 3 -8 14 -33 23 -55 10 -22 21 -51 25 -65 4 -14 17
+-43 30 -65 13 -22 29 -60 36 -85 7 -25 22 -61 34 -80 12 -19 29 -60 39 -90 10
+-30 28 -75 41 -100 12 -25 26 -61 30 -80 3 -19 22 -81 41 -138 19 -56 34 -110
+34 -120 0 -10 13 -61 30 -113 34 -110 65 -261 85 -421 26 -208 36 -271 45
+-289 6 -9 17 -86 25 -171 9 -84 22 -187 31 -228 8 -41 21 -136 29 -210 8 -74
+22 -168 30 -209 8 -40 15 -86 15 -103 0 -16 4 -38 10 -48 5 -10 14 -71 20
+-136 6 -66 15 -141 21 -169 6 -27 14 -72 19 -100 4 -27 20 -108 34 -179 15
+-71 29 -156 33 -190 3 -33 14 -78 25 -99 10 -21 28 -84 39 -140 11 -56 33
+-138 49 -182 15 -44 35 -114 45 -155 9 -41 26 -95 37 -120 11 -25 31 -83 44
+-130 13 -47 32 -105 41 -130 27 -78 84 -224 99 -257 8 -17 14 -35 14 -40 0 -4
+12 -30 25 -58 14 -27 25 -56 25 -63 0 -12 26 -64 89 -178 16 -29 47 -76 69
+-105 22 -30 48 -70 57 -89 10 -19 33 -56 51 -81 19 -26 34 -50 34 -54 0 -4 11
+-20 25 -37 14 -16 25 -36 25 -43 0 -8 9 -19 21 -25 11 -6 28 -24 37 -39 48
+-78 305 -321 339 -321 6 0 16 -7 23 -15 14 -17 139 -77 224 -108 51 -19 82
+-22 196 -22 l135 0 79 38 c43 20 83 37 88 37 19 0 132 87 196 150 134 133 284
+447 373 780 11 41 24 79 30 84 5 6 9 18 9 28 0 10 9 46 19 80 11 35 29 115 40
+178 12 63 26 135 32 160 6 25 14 63 20 85 17 73 87 297 184 585 53 156 105
+318 116 360 11 41 24 84 29 95 6 11 21 56 34 100 13 44 40 121 59 170 19 50
+50 131 69 180 29 81 75 175 179 374 40 75 111 157 177 203 l47 33 200 -3 c250
+-4 304 -16 410 -93 46 -33 171 -162 221 -227 53 -69 180 -263 211 -322 18 -36
+37 -72 42 -80 5 -8 19 -35 31 -60 12 -25 40 -81 62 -125 46 -90 105 -235 150
+-370 17 -49 36 -106 43 -125 14 -39 76 -237 99 -315 8 -27 18 -72 22 -100 3
+-27 19 -81 34 -120 31 -79 55 -160 65 -220 4 -22 13 -54 21 -71 14 -28 61
+-193 99 -344 8 -30 23 -86 34 -125 11 -38 34 -118 50 -176 17 -59 37 -122 45
+-140 8 -19 26 -65 41 -104 102 -266 290 -463 528 -552 157 -59 308 -62 430 -9
+32 14 63 26 70 26 40 0 195 93 287 171 86 74 96 84 159 159 34 41 72 86 84
+100 12 14 26 32 32 41 5 9 27 41 48 72 20 31 37 60 37 65 0 5 9 20 19 34 38
+47 206 376 237 463 9 28 20 55 24 60 3 6 19 42 34 80 15 39 38 95 51 125 13
+30 28 75 35 100 11 44 35 124 85 288 14 46 25 92 25 102 0 18 35 145 59 215 6
+17 18 70 26 118 9 49 23 108 32 130 8 23 24 94 34 157 11 63 26 149 33 190 19
+102 57 341 66 415 14 103 29 197 45 275 9 41 24 131 35 200 10 69 24 148 30
+175 6 28 18 91 27 140 9 50 29 137 45 195 17 58 36 139 44 180 7 41 25 102 38
+135 14 33 35 103 46 155 30 138 153 496 217 630 31 63 68 144 83 180 40 95
+114 241 175 350 41 73 54 105 54 138 1 30 -4 44 -15 49 -14 5 -436 -22 -510
+-33 -17 -2 -38 -12 -46 -22 -18 -20 -101 -160 -153 -257 -21 -38 -41 -74 -45
+-80 -25 -32 -226 -450 -236 -491 -4 -16 -20 -54 -35 -84 -15 -30 -33 -75 -40
+-100 -7 -25 -17 -51 -22 -58 -14 -18 -55 -135 -77 -219 -10 -39 -30 -95 -44
+-123 -14 -28 -26 -62 -26 -75 0 -24 -34 -145 -50 -180 -5 -11 -17 -67 -25
+-125 -19 -132 -40 -247 -59 -330 -9 -36 -16 -85 -16 -110 0 -25 -6 -81 -14
+-125 -8 -44 -22 -127 -32 -185 -9 -58 -25 -149 -35 -204 -11 -54 -19 -115 -19
+-135 0 -32 -6 -68 -39 -264 -6 -32 -15 -73 -20 -90 -6 -18 -20 -90 -31 -160
+-11 -71 -27 -138 -35 -150 -7 -12 -16 -40 -20 -62 -10 -64 -35 -165 -56 -225
+-10 -30 -30 -95 -43 -145 -28 -102 -80 -255 -100 -300 -32 -67 -56 -128 -56
+-142 0 -8 -32 -78 -72 -156 -39 -78 -85 -168 -100 -200 -16 -31 -33 -57 -38
+-57 -5 0 -17 -15 -26 -33 -9 -17 -39 -62 -67 -98 -82 -111 -140 -125 -165 -41
+-9 30 -12 481 -12 1826 l0 1787 26 52 c23 47 125 156 179 193 26 17 59 18 246
+9 146 -7 160 -6 220 14 35 12 83 32 105 44 23 12 58 30 77 40 30 16 104 88
+156 152 18 23 49 104 72 192 15 56 18 92 14 165 -13 205 -45 286 -158 398
+-104 104 -212 160 -329 170 -99 9 -245 -4 -291 -25 -178 -86 -274 -175 -338
+-315 -32 -72 -37 -93 -43 -196 -4 -73 -2 -151 5 -213 18 -142 8 -165 -136
+-306 -90 -88 -119 -124 -146 -180 l-34 -70 -6 -1555 c-7 -1616 -10 -1720 -49
+-1720 -7 0 -20 34 -79 208 -6 17 -16 47 -22 65 -6 17 -14 50 -19 72 -4 22 -19
+69 -35 105 -15 36 -31 81 -35 100 -5 19 -17 64 -28 100 -11 36 -32 106 -47
+155 -15 50 -56 178 -92 285 -35 107 -70 220 -78 250 -8 30 -28 84 -46 120 -17
+36 -37 79 -44 95 -7 17 -26 59 -43 95 -75 160 -92 205 -102 278 -9 57 -11 365
+-8 1108 4 919 7 1034 21 1079 18 56 55 102 105 131 17 10 32 21 32 25 0 9 113
+131 305 329 94 96 198 204 230 240 33 36 126 129 207 208 175 170 240 254 259
+332 9 41 13 203 14 656 l2 602 25 43 c23 43 25 44 73 43 51 0 101 -20 185 -72
+37 -23 53 -43 85 -108 36 -72 52 -121 102 -309 34 -128 101 -297 152 -383 17
+-29 31 -55 31 -59 0 -3 12 -20 28 -38 15 -17 56 -70 92 -115 94 -121 225 -247
+290 -280 30 -15 91 -47 136 -72 73 -40 122 -61 224 -97 208 -73 553 -111 745
+-82 150 23 376 84 475 129 196 87 257 129 400 272 105 106 128 137 166 219 8
+18 34 63 56 98 22 35 45 83 50 105 5 23 15 56 22 73 7 16 24 68 36 115 13 47
+33 101 45 120 24 38 99 110 115 110 5 0 27 15 47 34 21 18 46 35 55 37 21 5
+182 150 226 204 18 22 53 65 78 95 38 46 154 239 154 255 0 3 18 44 41 91 22
+48 49 123 60 167 11 45 25 89 30 100 34 62 58 548 37 723 -7 65 -13 90 -58
+244 -10 36 -25 91 -34 123 -9 32 -28 79 -42 105 -15 26 -30 59 -34 73 -4 14
+-34 65 -66 113 -33 49 -64 98 -71 109 -7 12 -23 35 -37 52 -14 16 -51 61 -82
+99 -40 48 -62 84 -71 119 -7 27 -11 53 -8 56 6 11 35 226 45 336 10 112 0 302
+-24 462 -18 116 -70 281 -126 392 -21 42 -41 86 -45 98 -3 13 -24 49 -46 80
+-22 32 -55 81 -73 109 -58 87 -218 262 -319 346 -40 35 -166 128 -172 128 -2
+0 -32 18 -66 40 -34 22 -68 40 -75 40 -7 0 -21 8 -31 19 -10 10 -34 22 -53 26
+-33 7 -93 31 -150 61 -35 17 -214 60 -335 78 -286 45 -297 48 -336 83 -24 22
+-62 83 -113 185 -43 84 -96 180 -119 213 -76 111 -397 410 -493 458 -18 9 -46
+29 -64 43 -28 24 -114 64 -230 108 -19 7 -60 25 -90 40 -30 15 -82 33 -115 41
+-33 7 -88 20 -121 29 -179 45 -494 60 -644 31z m531 -440 c164 -28 242 -49
+280 -76 15 -10 48 -28 74 -39 76 -32 299 -186 345 -238 23 -26 59 -65 79 -87
+77 -84 146 -182 194 -275 24 -47 26 -58 16 -83 -17 -40 -92 -94 -157 -113 -30
+-9 -70 -27 -89 -39 -18 -13 -51 -29 -71 -36 -51 -16 -189 -95 -234 -133 -20
+-17 -58 -47 -85 -66 -26 -19 -57 -43 -68 -54 -11 -10 -36 -30 -55 -45 -171
+-129 -194 -244 -74 -368 40 -41 45 -43 99 -43 68 0 106 19 195 100 10 8 26 22
+37 31 12 10 25 23 29 31 40 64 453 278 594 308 25 5 70 16 100 24 130 35 467
+39 551 7 14 -5 63 -16 109 -26 47 -9 121 -33 165 -52 154 -70 280 -135 294
+-154 7 -10 19 -19 25 -19 42 0 296 -288 357 -405 20 -38 46 -88 58 -110 39
+-75 93 -228 113 -319 17 -79 19 -118 15 -296 -4 -136 -10 -225 -20 -265 -17
+-66 -108 -278 -131 -304 -7 -9 -17 -30 -21 -48 -3 -17 -13 -37 -21 -44 -8 -6
+-14 -17 -14 -24 0 -8 -12 -23 -26 -34 -14 -11 -38 -37 -53 -58 -60 -83 -243
+-247 -296 -266 -37 -14 -165 -44 -280 -67 -138 -27 -168 -65 -161 -199 5 -101
+18 -123 99 -164 l57 -29 93 12 c209 27 192 23 332 91 147 71 225 130 378 283
+l145 146 48 0 c44 0 51 -4 94 -48 80 -83 153 -208 181 -311 10 -36 28 -97 41
+-136 19 -63 22 -93 22 -290 1 -174 -3 -241 -18 -320 -10 -55 -22 -105 -26
+-110 -5 -6 -20 -49 -33 -96 -21 -70 -55 -143 -105 -225 -41 -68 -98 -137 -184
+-225 -89 -91 -115 -111 -189 -147 -95 -46 -160 -62 -254 -62 -105 0 -143 20
+-259 134 -57 55 -119 126 -138 156 -19 30 -54 74 -76 96 -23 23 -42 47 -42 52
+0 6 -17 29 -37 50 -21 21 -46 50 -56 64 -10 14 -48 41 -84 59 -65 33 -68 34
+-252 42 -102 4 -203 12 -223 18 -75 20 -72 -1 -78 589 -5 547 -7 569 -48 585
+-9 3 -216 5 -462 5 -616 0 -611 1 -699 -160 -22 -41 -49 -91 -60 -111 -11 -19
+-33 -50 -49 -67 -17 -18 -44 -56 -62 -85 -32 -54 -86 -134 -118 -177 -26 -35
+-189 -280 -217 -329 -54 -91 -164 -236 -199 -262 -38 -29 -114 -36 -169 -16
+-23 9 -82 25 -132 37 -49 11 -112 31 -140 44 -27 13 -80 36 -118 51 -37 15
+-70 31 -73 36 -3 5 -29 25 -57 44 -66 43 -81 57 -142 130 -102 122 -136 192
+-155 327 -24 163 16 257 148 347 66 46 122 52 521 57 205 3 383 9 396 14 14 5
+25 20 29 40 3 18 6 208 6 422 0 438 6 491 62 545 l29 28 292 3 c160 2 306 1
+323 -3 45 -8 99 -54 143 -122 81 -125 197 -210 338 -249 48 -13 88 -16 185
+-12 148 6 165 12 313 115 89 62 185 170 185 208 0 9 12 51 26 93 25 72 26 83
+20 201 -5 90 -12 136 -27 167 -10 24 -19 49 -19 57 0 29 -107 158 -172 207
+-36 27 -73 50 -80 50 -8 0 -19 5 -25 11 -17 17 -151 49 -233 55 -84 7 -208
+-18 -290 -57 -57 -27 -193 -164 -249 -251 -38 -60 -50 -70 -100 -90 -55 -22
+-67 -22 -521 -25 -289 -3 -478 -8 -498 -14 -21 -7 -37 -21 -44 -37 -7 -17 -12
+-177 -15 -427 -4 -482 -6 -496 -43 -538 l-28 -32 -309 -5 c-249 -4 -313 -8
+-334 -20 -15 -8 -44 -25 -65 -37 -49 -27 -180 -144 -219 -197 -16 -22 -46 -62
+-65 -89 -61 -87 -60 -87 -408 -87 -399 0 -408 4 -355 140 15 40 42 89 59 109
+18 20 39 52 48 71 9 19 29 55 46 80 16 25 47 75 70 112 22 36 55 86 73 110 18
+24 48 70 66 103 19 33 44 71 56 85 12 14 48 71 80 128 76 135 97 157 165 170
+30 6 179 13 330 16 l275 6 22 27 c20 25 23 39 23 128 0 85 -4 106 -23 140 -13
+23 -33 42 -47 46 -14 4 -205 7 -424 8 l-400 1 -39 -27 c-39 -27 -92 -98 -136
+-183 -13 -25 -36 -61 -51 -80 -15 -19 -35 -50 -44 -67 -9 -18 -21 -33 -26 -33
+-5 0 -14 -17 -20 -39 -5 -21 -17 -44 -25 -51 -8 -7 -15 -17 -15 -23 0 -5 -16
+-34 -35 -63 -20 -29 -49 -81 -65 -116 -57 -120 -150 -269 -227 -361 -13 -16
+-23 -34 -23 -40 0 -7 -9 -23 -20 -37 -11 -14 -20 -30 -20 -36 0 -23 -84 -140
+-119 -168 -32 -25 -42 -27 -90 -23 -32 4 -67 15 -90 30 -20 13 -58 37 -86 52
+-108 62 -216 147 -279 223 -164 195 -189 228 -236 324 -27 55 -50 108 -50 117
+0 9 -7 27 -16 40 -54 77 -74 489 -33 674 11 50 27 102 35 114 7 12 14 29 14
+37 0 18 68 154 81 162 5 3 24 29 43 58 18 29 69 89 112 133 66 66 99 90 195
+141 64 34 125 62 136 62 10 0 23 4 29 9 13 12 101 38 154 45 94 13 303 16 380
+7 49 -7 104 -22 146 -41 37 -16 72 -30 79 -30 6 0 20 -9 30 -20 10 -11 24 -20
+31 -20 26 0 103 -61 264 -211 86 -79 139 -104 204 -97 140 16 195 128 137 279
+-38 100 -245 286 -423 380 -189 100 -267 127 -469 160 l-184 30 -122 -15 c-68
+-9 -150 -16 -183 -16 -51 0 -62 3 -75 23 -14 21 -13 31 6 106 21 84 98 263
+118 276 6 3 23 29 36 56 14 27 29 49 33 49 5 0 37 28 73 63 35 35 84 77 109
+94 25 17 58 45 74 62 16 17 45 36 65 42 20 6 67 27 104 45 37 19 91 39 120 45
+29 6 61 14 72 18 63 26 228 51 337 51 117 0 278 -25 349 -54 19 -7 59 -19 89
+-26 30 -7 69 -23 85 -35 17 -12 46 -28 67 -35 91 -33 306 -230 393 -360 24
+-36 49 -87 56 -115 6 -27 15 -55 20 -60 18 -24 53 -127 71 -210 14 -67 21
+-156 28 -350 10 -321 12 -327 101 -373 84 -43 157 -41 221 4 36 25 44 37 49
+74 4 25 13 59 20 75 8 19 14 108 17 250 4 198 2 232 -18 340 -26 137 -110 405
+-140 442 -11 14 -20 31 -20 38 0 7 -17 37 -37 66 -20 30 -51 77 -67 105 -17
+28 -44 70 -60 93 -73 104 -7 179 225 257 71 24 153 47 182 53 28 5 63 14 77
+20 14 5 106 10 206 10 148 1 206 -3 325 -24z m980 -2339 c58 -33 101 -111 107
+-197 6 -88 -4 -125 -50 -175 -32 -35 -54 -48 -108 -64 -64 -19 -69 -19 -116
+-3 -83 28 -113 51 -143 112 -40 79 -45 112 -27 173 29 99 59 128 186 181 29
+12 105 -2 151 -27z m-120 -1716 c10 -6 27 -23 37 -37 16 -25 17 -70 17 -571
+l0 -544 22 -18 c23 -18 57 -21 529 -34 131 -4 146 -6 200 -33 41 -20 84 -55
+141 -113 84 -88 123 -133 139 -161 14 -27 84 -108 143 -168 84 -85 154 -128
+240 -147 92 -21 126 -49 118 -97 -8 -48 -64 -190 -84 -213 -10 -10 -31 -38
+-47 -62 -29 -42 -171 -170 -231 -207 -18 -11 -52 -33 -76 -50 -54 -36 -217
+-92 -324 -111 -44 -8 -132 -14 -195 -14 -117 0 -314 23 -334 39 -6 4 -32 11
+-59 14 -26 4 -64 16 -85 26 -20 11 -63 31 -95 45 -105 45 -380 297 -402 366
+-4 14 -11 30 -16 36 -5 6 -27 47 -49 91 -37 75 -71 171 -135 378 -16 50 -40
+115 -55 145 -15 30 -30 68 -34 84 -14 57 -177 239 -259 290 -125 76 -147 100
+-147 161 0 34 9 53 45 101 24 32 45 63 45 68 0 5 11 24 25 42 42 55 136 197
+156 236 10 21 33 51 49 68 17 17 30 38 30 46 0 9 11 29 24 45 14 16 43 62 65
+102 22 41 56 91 76 111 19 21 35 41 35 46 0 14 45 41 83 51 43 11 383 2 408
+-11z m-2194 -1090 c57 -27 107 -50 110 -50 4 0 14 -6 22 -13 9 -8 44 -19 77
+-25 34 -5 80 -22 103 -36 22 -14 47 -26 54 -26 25 0 65 -49 72 -88 3 -20 9
+-312 12 -649 l5 -612 -25 -53 c-17 -37 -64 -94 -156 -188 -72 -74 -137 -142
+-144 -150 -8 -8 -57 -53 -110 -99 -54 -46 -97 -88 -97 -92 0 -4 -122 -131
+-271 -281 -320 -321 -344 -349 -359 -421 -7 -37 -8 -244 -3 -702 8 -760 8
+-760 -2 -848 -6 -51 -12 -70 -27 -78 -30 -16 -52 -3 -144 82 -47 43 -89 79
+-94 79 -5 0 -24 13 -42 28 -39 34 -126 84 -293 167 -103 52 -122 65 -137 96
+-15 32 -17 116 -23 820 -4 539 -3 793 4 811 14 38 178 225 202 231 10 3 22 13
+25 24 4 10 19 30 33 44 14 14 65 65 113 115 47 49 139 139 203 199 64 61 142
+137 173 170 31 33 135 138 231 233 160 160 197 202 233 264 10 18 14 138 18
+518 6 510 8 538 47 568 32 23 84 13 190 -38z m-4945 -1210 c72 -44 91 -68 108
+-145 21 -93 -34 -202 -118 -235 -18 -7 -64 -13 -102 -12 -82 0 -136 25 -184
+85 -27 33 -31 48 -34 111 -5 93 12 135 70 173 24 15 45 30 48 34 15 18 51 28
+94 29 41 0 63 -8 118 -40z m2123 -21 c59 -22 101 -66 131 -138 28 -68 -22
+-192 -93 -230 -15 -7 -56 -17 -92 -22 -89 -11 -152 9 -204 65 -45 48 -52 71
+-51 151 0 67 29 136 65 156 78 41 165 48 244 18z m4221 -1592 c87 -44 126
+-132 105 -239 -11 -63 -46 -113 -99 -143 -61 -34 -101 -40 -164 -21 -78 22
+-118 54 -151 116 -25 49 -27 62 -23 120 4 46 13 77 34 110 54 88 186 114 298
+57z"/>
+<path d="M3200 10710 c-47 -9 -97 -30 -142 -62 -14 -10 -33 -18 -41 -18 -30 0
+-172 -186 -183 -240 -3 -14 -11 -43 -19 -65 -41 -123 -43 -293 -4 -408 26 -77
+121 -221 164 -250 18 -12 52 -36 76 -52 119 -82 311 -122 434 -89 88 24 139
+27 181 14 27 -9 106 -82 304 -279 147 -146 371 -367 496 -490 126 -123 301
+-295 389 -382 88 -88 165 -159 172 -159 7 0 16 -6 20 -13 4 -6 28 -26 52 -42
+l44 -30 346 -5 c376 -5 376 -6 411 -63 19 -30 20 -53 20 -372 0 -252 3 -344
+12 -353 7 -7 26 -12 43 -12 26 0 45 14 108 79 42 43 98 96 124 117 57 45 70
+61 84 93 6 14 10 179 9 418 0 334 -2 398 -15 423 -33 64 -19 62 -531 66 -457
+3 -466 4 -510 26 -48 24 -195 156 -320 287 -114 120 -190 196 -274 277 -41 39
+-143 140 -227 225 -83 85 -213 215 -288 289 -75 74 -150 154 -167 177 -27 37
+-29 46 -24 90 29 212 13 356 -52 490 -38 77 -147 207 -185 219 -12 4 -41 20
+-64 36 -24 16 -62 36 -85 44 -51 18 -290 28 -358 14z m265 -379 c66 -26 72
+-31 102 -87 51 -92 42 -191 -23 -270 -50 -62 -90 -77 -192 -72 -69 4 -87 8
+-101 24 -9 11 -29 28 -44 38 -34 21 -77 114 -77 165 0 83 89 192 176 216 69
+19 81 18 159 -14z"/>
+</g></svg>
+    </div>
+    <div class="nav-logo-text">
+      <div class="name"><span class="sd-sy">Sy</span><span class="sd-dent">Dent</span></div>
+      <div class="sub">إدارة عيادة الأسنان</div>
+    </div>
+  </a>
+  <div class="nav-actions">
+    <span id="themeToggleMount" class="nav-theme-mount" aria-label="تبديل الوضع"></span>
+    <a href="#pricing" class="btn-outline nav-pricing-link">الأسعار</a>
+    <a href="auth.html" class="btn-outline">تسجيل الدخول</a>
+    <a href="auth.html?tab=register" class="btn-primary">جرّب مجاناً</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-badge">مخصّص للسوق السوري</div>
+  <h1>إدارة عيادتك<br><span>بكل سهولة</span></h1>
+  <p>نظام متكامل لإدارة مرضاك، مواعيدك، وجلساتك — من أي جهاز، في أي وقت.</p>
+  <div class="hero-btns">
+    <a href="auth.html?tab=register" class="btn-hero">أرسل طلب التجربة المجانية ←</a>
+    <a href="auth.html" class="btn-hero-outline">تسجيل الدخول</a>
+  </div>
+
+  <div class="hero-mocks">
+  <!-- Dashboard Mock -->
+  <div class="dashboard-mock">
+    <div class="mock-topbar">
+      <div class="mock-dot r"></div>
+      <div class="mock-dot y"></div>
+      <div class="mock-dot g"></div>
+      <div class="mock-topbar-title">SyDent — لوحة التحكم</div>
+    </div>
+    <div class="mock-body">
+      <div class="mock-sidebar">
+        <div class="mock-sidebar-logo">
+          <div class="mock-logo-icon">
+            <svg viewBox="0 0 1279 1400" fill="none" stroke="currentColor" style="color:var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0.000000,1400.000000) scale(0.100000,-0.100000)"
+fill="#1ed99a" stroke="none">
+<path d="M8460 13985 c-102 -19 -306 -72 -389 -101 -91 -32 -282 -119 -368
+-167 -34 -20 -72 -39 -85 -43 -12 -4 -34 -15 -48 -24 -41 -29 -104 -32 -153
+-6 -23 12 -78 32 -122 45 -44 13 -100 30 -125 38 -106 34 -186 44 -395 45
+-177 1 -228 -2 -328 -21 -199 -36 -368 -91 -427 -136 -8 -6 -31 -18 -50 -25
+-19 -7 -51 -25 -70 -40 -20 -15 -59 -39 -88 -54 -29 -14 -52 -30 -52 -35 0 -4
+-26 -24 -57 -44 -55 -33 -190 -159 -241 -223 -144 -181 -200 -285 -251 -461
+-47 -163 -67 -272 -76 -402 -8 -119 -19 -141 -136 -261 -51 -52 -113 -122
+-139 -155 -45 -58 -120 -171 -120 -180 0 -3 -13 -26 -29 -52 -59 -98 -109
+-234 -125 -343 -41 -277 -42 -373 -6 -670 15 -131 94 -365 151 -450 9 -14 43
+-68 75 -120 32 -52 63 -100 69 -106 5 -7 33 -38 60 -69 28 -32 57 -63 65 -70
+8 -8 67 -62 130 -122 227 -215 471 -365 655 -404 22 -4 72 -16 110 -25 57 -13
+152 -18 510 -24 466 -7 493 -10 538 -56 12 -13 32 -33 45 -46 12 -13 22 -29
+22 -36 0 -7 9 -33 20 -58 20 -43 21 -65 23 -797 2 -845 7 -793 -73 -869 -21
+-21 -42 -43 -47 -50 -4 -8 -41 -43 -82 -78 -40 -36 -169 -159 -286 -275 -117
+-115 -241 -238 -276 -271 -35 -34 -89 -88 -120 -120 -31 -33 -117 -118 -192
+-190 -74 -73 -144 -147 -154 -165 -17 -32 -18 -81 -21 -889 -1 -545 -6 -874
+-13 -907 -8 -41 -19 -59 -50 -87 -21 -20 -40 -37 -42 -37 -1 -1 -66 -4 -143
+-8 -79 -4 -148 -12 -155 -18 -8 -6 -42 -23 -76 -37 -45 -19 -77 -41 -110 -78
+-27 -29 -62 -66 -78 -83 -77 -76 -145 -166 -201 -266 -6 -10 -18 -27 -26 -36
+-8 -10 -27 -43 -41 -73 -14 -30 -38 -75 -53 -100 -43 -73 -94 -176 -94 -191 0
+-8 -12 -34 -26 -59 -15 -25 -48 -110 -74 -190 -64 -193 -98 -290 -114 -320 -8
+-14 -19 -43 -26 -65 -7 -22 -23 -63 -36 -91 -12 -29 -26 -69 -30 -90 -7 -38
+-111 -321 -133 -362 -5 -10 -19 -48 -30 -83 -77 -247 -91 -296 -91 -317 0 -14
+-14 -77 -31 -141 -16 -64 -35 -134 -40 -156 -18 -70 -79 -223 -95 -236 -29
+-24 -50 22 -58 124 -3 50 -6 1065 -6 2256 0 1191 -4 2183 -9 2203 -5 20 -19
+51 -32 68 -33 43 -188 205 -343 358 -294 290 -360 358 -371 387 -7 17 -10 48
+-7 70 12 82 4 289 -13 353 -39 150 -132 288 -250 368 -40 27 -54 32 -160 59
+-108 28 -191 27 -321 -3 -73 -16 -104 -30 -155 -65 -57 -40 -159 -136 -159
+-150 0 -3 -18 -35 -40 -71 -57 -94 -73 -171 -67 -330 l5 -130 53 -105 c42 -83
+66 -118 113 -161 63 -59 141 -114 178 -126 121 -39 302 -54 371 -30 62 21 145
+23 182 4 52 -27 250 -219 483 -468 62 -65 143 -177 153 -211 13 -41 20 -2938
+10 -4064 -6 -686 -7 -743 -24 -768 -9 -15 -24 -27 -33 -27 -48 0 -173 148
+-246 293 -17 34 -38 73 -47 87 -10 14 -30 59 -46 100 -16 41 -35 84 -41 95
+-42 68 -198 523 -260 755 -8 30 -32 120 -54 200 -22 80 -42 163 -46 185 -3 22
+-14 74 -25 115 -19 77 -46 231 -75 425 -9 61 -22 146 -30 190 -7 44 -20 166
+-28 270 -9 105 -24 236 -35 292 -22 115 -21 108 -55 365 -14 103 -30 196 -35
+206 -6 10 -15 68 -21 127 -6 60 -13 112 -16 116 -5 8 -27 112 -49 234 -54 290
+-179 737 -250 891 -13 28 -29 71 -35 95 -6 24 -22 60 -34 79 -26 41 -41 73
+-91 195 -20 50 -49 115 -65 145 -15 30 -40 82 -55 115 -15 33 -34 74 -42 90
+-9 17 -47 90 -84 164 -38 73 -73 139 -78 145 -5 6 -13 25 -16 41 -4 17 -16 44
+-25 60 -35 59 -64 111 -77 140 -14 29 -22 45 -43 83 -8 15 -36 74 -122 262
+-16 36 -33 72 -38 80 -32 55 -100 200 -106 225 -4 17 -12 37 -18 45 -18 22
+-33 57 -61 139 -13 40 -29 79 -34 85 -6 6 -22 45 -37 86 -14 41 -34 89 -44
+105 -24 40 -50 134 -50 179 0 28 6 39 27 53 25 17 85 18 993 18 839 0 968 -2
+991 -15 27 -15 295 -264 333 -310 12 -13 93 -95 181 -181 88 -87 165 -162 170
+-168 6 -7 102 -105 215 -219 114 -114 224 -229 245 -256 38 -47 40 -52 39
+-120 0 -39 -8 -95 -17 -125 -21 -66 -22 -143 -3 -202 7 -24 22 -71 32 -104 28
+-94 116 -210 205 -274 30 -21 87 -53 128 -71 64 -28 88 -32 186 -37 133 -7
+206 8 325 68 118 58 185 127 250 253 l54 106 0 152 c0 134 -3 161 -23 216 -54
+149 -140 245 -320 357 -69 43 -120 50 -340 42 -120 -5 -187 -3 -213 5 -31 9
+-96 69 -321 296 -155 157 -304 309 -332 339 -27 30 -115 119 -195 198 -80 79
+-174 179 -209 222 -61 74 -146 147 -215 185 -29 16 -116 17 -1146 18 -1056 0
+-1117 1 -1155 19 -22 10 -45 24 -51 32 -26 32 -63 203 -84 389 -6 52 -18 138
+-28 190 -24 136 -25 629 0 710 9 30 21 96 28 145 17 132 25 162 86 355 56 177
+105 288 190 435 26 44 56 98 67 120 11 22 56 85 100 140 92 114 96 118 118
+131 9 5 34 29 54 54 52 63 160 155 225 192 30 18 69 41 86 53 16 11 75 42 130
+69 54 27 106 53 114 57 45 25 102 48 131 54 19 4 54 16 79 28 25 11 90 28 145
+38 55 11 118 24 140 30 22 6 146 13 275 16 187 4 257 1 345 -12 61 -9 135 -20
+165 -25 30 -4 68 -13 83 -19 16 -6 41 -11 56 -11 16 0 44 -7 64 -15 19 -8 77
+-24 127 -35 50 -11 108 -27 128 -36 20 -9 62 -22 92 -30 30 -8 83 -26 118 -39
+34 -14 69 -25 78 -25 9 0 52 -16 95 -35 118 -52 129 -49 178 45 13 25 30 52
+37 61 8 8 14 18 14 21 0 8 67 118 83 137 8 9 22 30 30 47 9 17 32 50 51 73 20
+24 36 51 36 62 0 22 -56 89 -75 89 -7 0 -30 12 -51 26 -21 15 -82 45 -134 66
+-52 22 -122 51 -155 65 -95 40 -125 50 -210 69 -44 9 -92 23 -106 30 -31 16
+-202 54 -239 54 -14 0 -36 6 -50 13 -88 46 -290 62 -760 61 -312 0 -401 -4
+-470 -17 -47 -9 -101 -19 -120 -23 -19 -3 -57 -14 -85 -24 -27 -9 -84 -25
+-125 -35 -41 -10 -82 -23 -90 -30 -8 -7 -46 -22 -85 -35 -38 -12 -84 -30 -101
+-41 -17 -10 -38 -19 -46 -19 -9 0 -21 -7 -28 -15 -7 -8 -19 -15 -26 -15 -7 0
+-47 -21 -89 -47 -41 -27 -83 -52 -93 -58 -61 -35 -102 -63 -133 -91 -20 -18
+-61 -47 -91 -66 -29 -19 -122 -104 -205 -189 -200 -202 -195 -197 -234 -252
+-19 -27 -46 -65 -62 -85 -54 -72 -96 -138 -114 -177 -10 -22 -42 -79 -71 -126
+-28 -48 -52 -90 -52 -93 0 -4 -14 -35 -31 -69 -47 -94 -107 -258 -144 -392
+-18 -66 -42 -154 -53 -195 -12 -41 -28 -118 -36 -170 -8 -52 -24 -147 -35
+-210 -26 -152 -36 -478 -22 -715 14 -223 88 -664 139 -825 12 -36 26 -90 32
+-120 7 -30 20 -80 30 -110 34 -106 40 -127 40 -140 0 -8 15 -53 34 -100 18
+-47 43 -112 56 -145 26 -71 84 -213 110 -270 39 -85 59 -133 90 -209 17 -44
+45 -107 62 -140 16 -34 39 -86 50 -116 12 -30 32 -71 45 -90 12 -19 23 -40 23
+-48 0 -7 11 -29 24 -50 23 -37 96 -187 96 -198 0 -3 38 -83 84 -177 46 -95 87
+-183 91 -197 12 -43 144 -306 160 -320 8 -7 15 -19 15 -26 0 -13 100 -231 121
+-264 5 -8 12 -22 16 -30 3 -8 14 -33 23 -55 10 -22 21 -51 25 -65 4 -14 17
+-43 30 -65 13 -22 29 -60 36 -85 7 -25 22 -61 34 -80 12 -19 29 -60 39 -90 10
+-30 28 -75 41 -100 12 -25 26 -61 30 -80 3 -19 22 -81 41 -138 19 -56 34 -110
+34 -120 0 -10 13 -61 30 -113 34 -110 65 -261 85 -421 26 -208 36 -271 45
+-289 6 -9 17 -86 25 -171 9 -84 22 -187 31 -228 8 -41 21 -136 29 -210 8 -74
+22 -168 30 -209 8 -40 15 -86 15 -103 0 -16 4 -38 10 -48 5 -10 14 -71 20
+-136 6 -66 15 -141 21 -169 6 -27 14 -72 19 -100 4 -27 20 -108 34 -179 15
+-71 29 -156 33 -190 3 -33 14 -78 25 -99 10 -21 28 -84 39 -140 11 -56 33
+-138 49 -182 15 -44 35 -114 45 -155 9 -41 26 -95 37 -120 11 -25 31 -83 44
+-130 13 -47 32 -105 41 -130 27 -78 84 -224 99 -257 8 -17 14 -35 14 -40 0 -4
+12 -30 25 -58 14 -27 25 -56 25 -63 0 -12 26 -64 89 -178 16 -29 47 -76 69
+-105 22 -30 48 -70 57 -89 10 -19 33 -56 51 -81 19 -26 34 -50 34 -54 0 -4 11
+-20 25 -37 14 -16 25 -36 25 -43 0 -8 9 -19 21 -25 11 -6 28 -24 37 -39 48
+-78 305 -321 339 -321 6 0 16 -7 23 -15 14 -17 139 -77 224 -108 51 -19 82
+-22 196 -22 l135 0 79 38 c43 20 83 37 88 37 19 0 132 87 196 150 134 133 284
+447 373 780 11 41 24 79 30 84 5 6 9 18 9 28 0 10 9 46 19 80 11 35 29 115 40
+178 12 63 26 135 32 160 6 25 14 63 20 85 17 73 87 297 184 585 53 156 105
+318 116 360 11 41 24 84 29 95 6 11 21 56 34 100 13 44 40 121 59 170 19 50
+50 131 69 180 29 81 75 175 179 374 40 75 111 157 177 203 l47 33 200 -3 c250
+-4 304 -16 410 -93 46 -33 171 -162 221 -227 53 -69 180 -263 211 -322 18 -36
+37 -72 42 -80 5 -8 19 -35 31 -60 12 -25 40 -81 62 -125 46 -90 105 -235 150
+-370 17 -49 36 -106 43 -125 14 -39 76 -237 99 -315 8 -27 18 -72 22 -100 3
+-27 19 -81 34 -120 31 -79 55 -160 65 -220 4 -22 13 -54 21 -71 14 -28 61
+-193 99 -344 8 -30 23 -86 34 -125 11 -38 34 -118 50 -176 17 -59 37 -122 45
+-140 8 -19 26 -65 41 -104 102 -266 290 -463 528 -552 157 -59 308 -62 430 -9
+32 14 63 26 70 26 40 0 195 93 287 171 86 74 96 84 159 159 34 41 72 86 84
+100 12 14 26 32 32 41 5 9 27 41 48 72 20 31 37 60 37 65 0 5 9 20 19 34 38
+47 206 376 237 463 9 28 20 55 24 60 3 6 19 42 34 80 15 39 38 95 51 125 13
+30 28 75 35 100 11 44 35 124 85 288 14 46 25 92 25 102 0 18 35 145 59 215 6
+17 18 70 26 118 9 49 23 108 32 130 8 23 24 94 34 157 11 63 26 149 33 190 19
+102 57 341 66 415 14 103 29 197 45 275 9 41 24 131 35 200 10 69 24 148 30
+175 6 28 18 91 27 140 9 50 29 137 45 195 17 58 36 139 44 180 7 41 25 102 38
+135 14 33 35 103 46 155 30 138 153 496 217 630 31 63 68 144 83 180 40 95
+114 241 175 350 41 73 54 105 54 138 1 30 -4 44 -15 49 -14 5 -436 -22 -510
+-33 -17 -2 -38 -12 -46 -22 -18 -20 -101 -160 -153 -257 -21 -38 -41 -74 -45
+-80 -25 -32 -226 -450 -236 -491 -4 -16 -20 -54 -35 -84 -15 -30 -33 -75 -40
+-100 -7 -25 -17 -51 -22 -58 -14 -18 -55 -135 -77 -219 -10 -39 -30 -95 -44
+-123 -14 -28 -26 -62 -26 -75 0 -24 -34 -145 -50 -180 -5 -11 -17 -67 -25
+-125 -19 -132 -40 -247 -59 -330 -9 -36 -16 -85 -16 -110 0 -25 -6 -81 -14
+-125 -8 -44 -22 -127 -32 -185 -9 -58 -25 -149 -35 -204 -11 -54 -19 -115 -19
+-135 0 -32 -6 -68 -39 -264 -6 -32 -15 -73 -20 -90 -6 -18 -20 -90 -31 -160
+-11 -71 -27 -138 -35 -150 -7 -12 -16 -40 -20 -62 -10 -64 -35 -165 -56 -225
+-10 -30 -30 -95 -43 -145 -28 -102 -80 -255 -100 -300 -32 -67 -56 -128 -56
+-142 0 -8 -32 -78 -72 -156 -39 -78 -85 -168 -100 -200 -16 -31 -33 -57 -38
+-57 -5 0 -17 -15 -26 -33 -9 -17 -39 -62 -67 -98 -82 -111 -140 -125 -165 -41
+-9 30 -12 481 -12 1826 l0 1787 26 52 c23 47 125 156 179 193 26 17 59 18 246
+9 146 -7 160 -6 220 14 35 12 83 32 105 44 23 12 58 30 77 40 30 16 104 88
+156 152 18 23 49 104 72 192 15 56 18 92 14 165 -13 205 -45 286 -158 398
+-104 104 -212 160 -329 170 -99 9 -245 -4 -291 -25 -178 -86 -274 -175 -338
+-315 -32 -72 -37 -93 -43 -196 -4 -73 -2 -151 5 -213 18 -142 8 -165 -136
+-306 -90 -88 -119 -124 -146 -180 l-34 -70 -6 -1555 c-7 -1616 -10 -1720 -49
+-1720 -7 0 -20 34 -79 208 -6 17 -16 47 -22 65 -6 17 -14 50 -19 72 -4 22 -19
+69 -35 105 -15 36 -31 81 -35 100 -5 19 -17 64 -28 100 -11 36 -32 106 -47
+155 -15 50 -56 178 -92 285 -35 107 -70 220 -78 250 -8 30 -28 84 -46 120 -17
+36 -37 79 -44 95 -7 17 -26 59 -43 95 -75 160 -92 205 -102 278 -9 57 -11 365
+-8 1108 4 919 7 1034 21 1079 18 56 55 102 105 131 17 10 32 21 32 25 0 9 113
+131 305 329 94 96 198 204 230 240 33 36 126 129 207 208 175 170 240 254 259
+332 9 41 13 203 14 656 l2 602 25 43 c23 43 25 44 73 43 51 0 101 -20 185 -72
+37 -23 53 -43 85 -108 36 -72 52 -121 102 -309 34 -128 101 -297 152 -383 17
+-29 31 -55 31 -59 0 -3 12 -20 28 -38 15 -17 56 -70 92 -115 94 -121 225 -247
+290 -280 30 -15 91 -47 136 -72 73 -40 122 -61 224 -97 208 -73 553 -111 745
+-82 150 23 376 84 475 129 196 87 257 129 400 272 105 106 128 137 166 219 8
+18 34 63 56 98 22 35 45 83 50 105 5 23 15 56 22 73 7 16 24 68 36 115 13 47
+33 101 45 120 24 38 99 110 115 110 5 0 27 15 47 34 21 18 46 35 55 37 21 5
+182 150 226 204 18 22 53 65 78 95 38 46 154 239 154 255 0 3 18 44 41 91 22
+48 49 123 60 167 11 45 25 89 30 100 34 62 58 548 37 723 -7 65 -13 90 -58
+244 -10 36 -25 91 -34 123 -9 32 -28 79 -42 105 -15 26 -30 59 -34 73 -4 14
+-34 65 -66 113 -33 49 -64 98 -71 109 -7 12 -23 35 -37 52 -14 16 -51 61 -82
+99 -40 48 -62 84 -71 119 -7 27 -11 53 -8 56 6 11 35 226 45 336 10 112 0 302
+-24 462 -18 116 -70 281 -126 392 -21 42 -41 86 -45 98 -3 13 -24 49 -46 80
+-22 32 -55 81 -73 109 -58 87 -218 262 -319 346 -40 35 -166 128 -172 128 -2
+0 -32 18 -66 40 -34 22 -68 40 -75 40 -7 0 -21 8 -31 19 -10 10 -34 22 -53 26
+-33 7 -93 31 -150 61 -35 17 -214 60 -335 78 -286 45 -297 48 -336 83 -24 22
+-62 83 -113 185 -43 84 -96 180 -119 213 -76 111 -397 410 -493 458 -18 9 -46
+29 -64 43 -28 24 -114 64 -230 108 -19 7 -60 25 -90 40 -30 15 -82 33 -115 41
+-33 7 -88 20 -121 29 -179 45 -494 60 -644 31z m531 -440 c164 -28 242 -49
+280 -76 15 -10 48 -28 74 -39 76 -32 299 -186 345 -238 23 -26 59 -65 79 -87
+77 -84 146 -182 194 -275 24 -47 26 -58 16 -83 -17 -40 -92 -94 -157 -113 -30
+-9 -70 -27 -89 -39 -18 -13 -51 -29 -71 -36 -51 -16 -189 -95 -234 -133 -20
+-17 -58 -47 -85 -66 -26 -19 -57 -43 -68 -54 -11 -10 -36 -30 -55 -45 -171
+-129 -194 -244 -74 -368 40 -41 45 -43 99 -43 68 0 106 19 195 100 10 8 26 22
+37 31 12 10 25 23 29 31 40 64 453 278 594 308 25 5 70 16 100 24 130 35 467
+39 551 7 14 -5 63 -16 109 -26 47 -9 121 -33 165 -52 154 -70 280 -135 294
+-154 7 -10 19 -19 25 -19 42 0 296 -288 357 -405 20 -38 46 -88 58 -110 39
+-75 93 -228 113 -319 17 -79 19 -118 15 -296 -4 -136 -10 -225 -20 -265 -17
+-66 -108 -278 -131 -304 -7 -9 -17 -30 -21 -48 -3 -17 -13 -37 -21 -44 -8 -6
+-14 -17 -14 -24 0 -8 -12 -23 -26 -34 -14 -11 -38 -37 -53 -58 -60 -83 -243
+-247 -296 -266 -37 -14 -165 -44 -280 -67 -138 -27 -168 -65 -161 -199 5 -101
+18 -123 99 -164 l57 -29 93 12 c209 27 192 23 332 91 147 71 225 130 378 283
+l145 146 48 0 c44 0 51 -4 94 -48 80 -83 153 -208 181 -311 10 -36 28 -97 41
+-136 19 -63 22 -93 22 -290 1 -174 -3 -241 -18 -320 -10 -55 -22 -105 -26
+-110 -5 -6 -20 -49 -33 -96 -21 -70 -55 -143 -105 -225 -41 -68 -98 -137 -184
+-225 -89 -91 -115 -111 -189 -147 -95 -46 -160 -62 -254 -62 -105 0 -143 20
+-259 134 -57 55 -119 126 -138 156 -19 30 -54 74 -76 96 -23 23 -42 47 -42 52
+0 6 -17 29 -37 50 -21 21 -46 50 -56 64 -10 14 -48 41 -84 59 -65 33 -68 34
+-252 42 -102 4 -203 12 -223 18 -75 20 -72 -1 -78 589 -5 547 -7 569 -48 585
+-9 3 -216 5 -462 5 -616 0 -611 1 -699 -160 -22 -41 -49 -91 -60 -111 -11 -19
+-33 -50 -49 -67 -17 -18 -44 -56 -62 -85 -32 -54 -86 -134 -118 -177 -26 -35
+-189 -280 -217 -329 -54 -91 -164 -236 -199 -262 -38 -29 -114 -36 -169 -16
+-23 9 -82 25 -132 37 -49 11 -112 31 -140 44 -27 13 -80 36 -118 51 -37 15
+-70 31 -73 36 -3 5 -29 25 -57 44 -66 43 -81 57 -142 130 -102 122 -136 192
+-155 327 -24 163 16 257 148 347 66 46 122 52 521 57 205 3 383 9 396 14 14 5
+25 20 29 40 3 18 6 208 6 422 0 438 6 491 62 545 l29 28 292 3 c160 2 306 1
+323 -3 45 -8 99 -54 143 -122 81 -125 197 -210 338 -249 48 -13 88 -16 185
+-12 148 6 165 12 313 115 89 62 185 170 185 208 0 9 12 51 26 93 25 72 26 83
+20 201 -5 90 -12 136 -27 167 -10 24 -19 49 -19 57 0 29 -107 158 -172 207
+-36 27 -73 50 -80 50 -8 0 -19 5 -25 11 -17 17 -151 49 -233 55 -84 7 -208
+-18 -290 -57 -57 -27 -193 -164 -249 -251 -38 -60 -50 -70 -100 -90 -55 -22
+-67 -22 -521 -25 -289 -3 -478 -8 -498 -14 -21 -7 -37 -21 -44 -37 -7 -17 -12
+-177 -15 -427 -4 -482 -6 -496 -43 -538 l-28 -32 -309 -5 c-249 -4 -313 -8
+-334 -20 -15 -8 -44 -25 -65 -37 -49 -27 -180 -144 -219 -197 -16 -22 -46 -62
+-65 -89 -61 -87 -60 -87 -408 -87 -399 0 -408 4 -355 140 15 40 42 89 59 109
+18 20 39 52 48 71 9 19 29 55 46 80 16 25 47 75 70 112 22 36 55 86 73 110 18
+24 48 70 66 103 19 33 44 71 56 85 12 14 48 71 80 128 76 135 97 157 165 170
+30 6 179 13 330 16 l275 6 22 27 c20 25 23 39 23 128 0 85 -4 106 -23 140 -13
+23 -33 42 -47 46 -14 4 -205 7 -424 8 l-400 1 -39 -27 c-39 -27 -92 -98 -136
+-183 -13 -25 -36 -61 -51 -80 -15 -19 -35 -50 -44 -67 -9 -18 -21 -33 -26 -33
+-5 0 -14 -17 -20 -39 -5 -21 -17 -44 -25 -51 -8 -7 -15 -17 -15 -23 0 -5 -16
+-34 -35 -63 -20 -29 -49 -81 -65 -116 -57 -120 -150 -269 -227 -361 -13 -16
+-23 -34 -23 -40 0 -7 -9 -23 -20 -37 -11 -14 -20 -30 -20 -36 0 -23 -84 -140
+-119 -168 -32 -25 -42 -27 -90 -23 -32 4 -67 15 -90 30 -20 13 -58 37 -86 52
+-108 62 -216 147 -279 223 -164 195 -189 228 -236 324 -27 55 -50 108 -50 117
+0 9 -7 27 -16 40 -54 77 -74 489 -33 674 11 50 27 102 35 114 7 12 14 29 14
+37 0 18 68 154 81 162 5 3 24 29 43 58 18 29 69 89 112 133 66 66 99 90 195
+141 64 34 125 62 136 62 10 0 23 4 29 9 13 12 101 38 154 45 94 13 303 16 380
+7 49 -7 104 -22 146 -41 37 -16 72 -30 79 -30 6 0 20 -9 30 -20 10 -11 24 -20
+31 -20 26 0 103 -61 264 -211 86 -79 139 -104 204 -97 140 16 195 128 137 279
+-38 100 -245 286 -423 380 -189 100 -267 127 -469 160 l-184 30 -122 -15 c-68
+-9 -150 -16 -183 -16 -51 0 -62 3 -75 23 -14 21 -13 31 6 106 21 84 98 263
+118 276 6 3 23 29 36 56 14 27 29 49 33 49 5 0 37 28 73 63 35 35 84 77 109
+94 25 17 58 45 74 62 16 17 45 36 65 42 20 6 67 27 104 45 37 19 91 39 120 45
+29 6 61 14 72 18 63 26 228 51 337 51 117 0 278 -25 349 -54 19 -7 59 -19 89
+-26 30 -7 69 -23 85 -35 17 -12 46 -28 67 -35 91 -33 306 -230 393 -360 24
+-36 49 -87 56 -115 6 -27 15 -55 20 -60 18 -24 53 -127 71 -210 14 -67 21
+-156 28 -350 10 -321 12 -327 101 -373 84 -43 157 -41 221 4 36 25 44 37 49
+74 4 25 13 59 20 75 8 19 14 108 17 250 4 198 2 232 -18 340 -26 137 -110 405
+-140 442 -11 14 -20 31 -20 38 0 7 -17 37 -37 66 -20 30 -51 77 -67 105 -17
+28 -44 70 -60 93 -73 104 -7 179 225 257 71 24 153 47 182 53 28 5 63 14 77
+20 14 5 106 10 206 10 148 1 206 -3 325 -24z m980 -2339 c58 -33 101 -111 107
+-197 6 -88 -4 -125 -50 -175 -32 -35 -54 -48 -108 -64 -64 -19 -69 -19 -116
+-3 -83 28 -113 51 -143 112 -40 79 -45 112 -27 173 29 99 59 128 186 181 29
+12 105 -2 151 -27z m-120 -1716 c10 -6 27 -23 37 -37 16 -25 17 -70 17 -571
+l0 -544 22 -18 c23 -18 57 -21 529 -34 131 -4 146 -6 200 -33 41 -20 84 -55
+141 -113 84 -88 123 -133 139 -161 14 -27 84 -108 143 -168 84 -85 154 -128
+240 -147 92 -21 126 -49 118 -97 -8 -48 -64 -190 -84 -213 -10 -10 -31 -38
+-47 -62 -29 -42 -171 -170 -231 -207 -18 -11 -52 -33 -76 -50 -54 -36 -217
+-92 -324 -111 -44 -8 -132 -14 -195 -14 -117 0 -314 23 -334 39 -6 4 -32 11
+-59 14 -26 4 -64 16 -85 26 -20 11 -63 31 -95 45 -105 45 -380 297 -402 366
+-4 14 -11 30 -16 36 -5 6 -27 47 -49 91 -37 75 -71 171 -135 378 -16 50 -40
+115 -55 145 -15 30 -30 68 -34 84 -14 57 -177 239 -259 290 -125 76 -147 100
+-147 161 0 34 9 53 45 101 24 32 45 63 45 68 0 5 11 24 25 42 42 55 136 197
+156 236 10 21 33 51 49 68 17 17 30 38 30 46 0 9 11 29 24 45 14 16 43 62 65
+102 22 41 56 91 76 111 19 21 35 41 35 46 0 14 45 41 83 51 43 11 383 2 408
+-11z m-2194 -1090 c57 -27 107 -50 110 -50 4 0 14 -6 22 -13 9 -8 44 -19 77
+-25 34 -5 80 -22 103 -36 22 -14 47 -26 54 -26 25 0 65 -49 72 -88 3 -20 9
+-312 12 -649 l5 -612 -25 -53 c-17 -37 -64 -94 -156 -188 -72 -74 -137 -142
+-144 -150 -8 -8 -57 -53 -110 -99 -54 -46 -97 -88 -97 -92 0 -4 -122 -131
+-271 -281 -320 -321 -344 -349 -359 -421 -7 -37 -8 -244 -3 -702 8 -760 8
+-760 -2 -848 -6 -51 -12 -70 -27 -78 -30 -16 -52 -3 -144 82 -47 43 -89 79
+-94 79 -5 0 -24 13 -42 28 -39 34 -126 84 -293 167 -103 52 -122 65 -137 96
+-15 32 -17 116 -23 820 -4 539 -3 793 4 811 14 38 178 225 202 231 10 3 22 13
+25 24 4 10 19 30 33 44 14 14 65 65 113 115 47 49 139 139 203 199 64 61 142
+137 173 170 31 33 135 138 231 233 160 160 197 202 233 264 10 18 14 138 18
+518 6 510 8 538 47 568 32 23 84 13 190 -38z m-4945 -1210 c72 -44 91 -68 108
+-145 21 -93 -34 -202 -118 -235 -18 -7 -64 -13 -102 -12 -82 0 -136 25 -184
+85 -27 33 -31 48 -34 111 -5 93 12 135 70 173 24 15 45 30 48 34 15 18 51 28
+94 29 41 0 63 -8 118 -40z m2123 -21 c59 -22 101 -66 131 -138 28 -68 -22
+-192 -93 -230 -15 -7 -56 -17 -92 -22 -89 -11 -152 9 -204 65 -45 48 -52 71
+-51 151 0 67 29 136 65 156 78 41 165 48 244 18z m4221 -1592 c87 -44 126
+-132 105 -239 -11 -63 -46 -113 -99 -143 -61 -34 -101 -40 -164 -21 -78 22
+-118 54 -151 116 -25 49 -27 62 -23 120 4 46 13 77 34 110 54 88 186 114 298
+57z"/>
+<path d="M3200 10710 c-47 -9 -97 -30 -142 -62 -14 -10 -33 -18 -41 -18 -30 0
+-172 -186 -183 -240 -3 -14 -11 -43 -19 -65 -41 -123 -43 -293 -4 -408 26 -77
+121 -221 164 -250 18 -12 52 -36 76 -52 119 -82 311 -122 434 -89 88 24 139
+27 181 14 27 -9 106 -82 304 -279 147 -146 371 -367 496 -490 126 -123 301
+-295 389 -382 88 -88 165 -159 172 -159 7 0 16 -6 20 -13 4 -6 28 -26 52 -42
+l44 -30 346 -5 c376 -5 376 -6 411 -63 19 -30 20 -53 20 -372 0 -252 3 -344
+12 -353 7 -7 26 -12 43 -12 26 0 45 14 108 79 42 43 98 96 124 117 57 45 70
+61 84 93 6 14 10 179 9 418 0 334 -2 398 -15 423 -33 64 -19 62 -531 66 -457
+3 -466 4 -510 26 -48 24 -195 156 -320 287 -114 120 -190 196 -274 277 -41 39
+-143 140 -227 225 -83 85 -213 215 -288 289 -75 74 -150 154 -167 177 -27 37
+-29 46 -24 90 29 212 13 356 -52 490 -38 77 -147 207 -185 219 -12 4 -41 20
+-64 36 -24 16 -62 36 -85 44 -51 18 -290 28 -358 14z m265 -379 c66 -26 72
+-31 102 -87 51 -92 42 -191 -23 -270 -50 -62 -90 -77 -192 -72 -69 4 -87 8
+-101 24 -9 11 -29 28 -44 38 -34 21 -77 114 -77 165 0 83 89 192 176 216 69
+19 81 18 159 -14z"/>
+</g></svg>
+          </div>
+          <span class="mock-logo-text"><span class="sd-sy">Sy</span><span class="sd-dent">Dent</span></span>
+        </div>
+        <div class="mock-nav-section">الرئيسية</div>
+        <div class="mock-nav-item active"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span> لوحة التحكم</div>
+        <div class="mock-nav-item"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg></span> المرضى</div>
+        <div class="mock-nav-item"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg></span> المواعيد</div>
+        <div class="mock-nav-section">الإدارة</div>
+        <div class="mock-nav-item"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 2 4 4"/><path d="m17 7 3-3"/><path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"/><path d="m9 11 4 4"/><path d="m5 19-3 3"/><path d="m14 4 6 6"/></svg></span> قائمة العلاجات</div>
+        <div class="mock-nav-item"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></svg></span> أطباء العيادة</div>
+        <div class="mock-nav-item"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 10h2"/><path d="M16 14h2"/><path d="M6.17 15a3 3 0 0 1 5.66 0"/><circle cx="9" cy="11" r="2"/><rect x="2" y="5" width="20" height="14" rx="2"/></svg></span> الموظفون</div>
+        <div class="mock-nav-item"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg></span> الرواتب والدفعات</div>
+        <div class="mock-nav-item"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V7"/><path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8"/><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"/></svg></span> المصاريف</div>
+        <div class="mock-nav-item"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/><path d="m7.5 4.27 9 5.15"/></svg></span> المخزون</div>
+        <div class="mock-nav-item"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2"/><path d="M6.453 15h11.094"/><path d="M8.5 2h7"/></svg></span> المخابر</div>
+        <div class="mock-nav-section">تحليل</div>
+        <div class="mock-nav-item"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg></span> المحاسبة</div>
+        <div class="mock-nav-item"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span> التقارير</div>
+        <div class="mock-nav-item"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></span> سجل النشاطات</div>
+        <div class="mock-nav-section">النظام</div>
+        <div class="mock-nav-item"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3 8 9l4 13 4-13-2.5-6"/><path d="M17 3a2 2 0 0 1 1.6.8l3 4a2 2 0 0 1 .013 2.382l-7.99 10.986a2 2 0 0 1-3.247 0l-7.99-10.986A2 2 0 0 1 2.4 7.8l2.998-3.997A2 2 0 0 1 7 3z"/><path d="M2 9h20"/></svg></span> الاشتراك</div>
+        <div class="mock-nav-item"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg></span> الإعدادات</div>
+        <div class="mock-nav-item"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg></span> تسجيل خروج</div>
+      </div>
+      <div class="mock-content">
+        <div class="mock-stats">
+          <!-- KPI order + labels + icons mirror index.html (prototype v7):
+               مواعيد اليوم · إيراد اليوم · إجمالي المرضى · مستحقات -->
+          <div class="mock-stat">
+            <div class="mock-kpi-top">
+              <div class="mock-kpi-ic t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></div>
+              <div class="mock-stat-label">مواعيد اليوم</div>
+            </div>
+            <div class="mock-stat-val">7</div>
+            <div class="mock-stat-sub up">3 قادمة</div>
+          </div>
+          <div class="mock-stat">
+            <div class="mock-kpi-top">
+              <div class="mock-kpi-ic o"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/></svg></div>
+              <div class="mock-stat-label">إيراد اليوم</div>
+            </div>
+            <div class="mock-stat-val">450<small>k</small></div>
+            <div class="mock-stat-sub">ل.س</div>
+          </div>
+          <div class="mock-stat">
+            <div class="mock-kpi-top">
+              <div class="mock-kpi-ic i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.9-3.6 3.7-5.3 7-5.3s6.1 1.7 7 5.3"/><path d="M19 3v4M17 5h4"/></svg></div>
+              <div class="mock-stat-label">إجمالي المرضى</div>
+            </div>
+            <div class="mock-stat-val">248</div>
+            <div class="mock-stat-sub up">+12 هذا الشهر</div>
+          </div>
+          <div class="mock-stat">
+            <div class="mock-kpi-top">
+              <div class="mock-kpi-ic w"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+              <div class="mock-stat-label">مستحقات</div>
+            </div>
+            <div class="mock-stat-val">85<small>k</small></div>
+            <div class="mock-stat-sub down">5 مرضى</div>
+          </div>
+        </div>
+        <!-- نبض اليوم — mirrors the real dashboard's day-pulse card -->
+        <div class="mock-dp">
+          <div class="mock-dp-head">
+            <div class="mock-dp-title">نبض اليوم</div>
+            <div class="mock-dp-meta">7 مواعيد</div>
+          </div>
+          <div class="mock-dp-track">
+            <i style="background:var(--gray-fg)"></i>
+            <i style="background:var(--gray-fg)"></i>
+            <i style="background:var(--gray-fg)"></i>
+            <i style="background:var(--green);box-shadow:0 0 0 2px rgba(var(--green-rgb),.25)"></i>
+            <i style="background:var(--blue)"></i>
+            <i style="background:var(--yellow-solid)"></i>
+            <i style="background:var(--yellow-solid)"></i>
+          </div>
+          <div class="mock-dp-legend">
+            <span><i style="background:var(--gray-fg)"></i>مكتمل</span>
+            <span><i style="background:var(--green)"></i>جاري الآن</span>
+            <span><i style="background:var(--blue)"></i>مؤكد</span>
+            <span><i style="background:var(--yellow-solid)"></i>بانتظار</span>
+          </div>
+        </div>
+        <!-- موعد سريع — mirrors the real quick-template chips card -->
+        <div class="mock-card" style="margin-bottom:0;">
+          <div class="mock-card-head">
+            <div class="mock-card-title">موعد سريع</div>
+            <div class="mock-card-action">إدارة القوالب ←</div>
+          </div>
+          <div class="mock-card-hint">اضغط قالباً لفتح موعد جديد بكل الحقول جاهزة — فقط اكتب اسم المريض.</div>
+          <div class="mock-chips">
+            <span class="mock-chip cbadge" style="--bc:var(--blue)">⚡ حشوة · 30د</span>
+            <span class="mock-chip cbadge" style="--bc:var(--orange)">⚡ تاج · 45د</span>
+            <span class="mock-chip cbadge" style="--bc:var(--cyan)">⚡ تنظيف · 20د</span>
+            <span class="mock-chip cbadge" style="--bc:var(--purple)">⚡ زراعة · 60د</span>
+          </div>
+        </div>
+        <!-- Two-column layout — mirrors the real dash-grid -->
+        <div class="mock-grid">
+          <div class="mock-col">
+            <div class="mock-card">
+              <div class="mock-card-head">
+                <div class="mock-card-title">مواعيد اليوم <span class="mock-count-badge">7</span></div>
+                <div class="mock-card-action">عرض الكل ←</div>
+              </div>
+              <div class="mock-row">
+                <div>
+                  <div class="mock-row-name">أحمد محمد علي</div>
+                  <div class="mock-row-sub">09:00 — حشو عصبي</div>
+                </div>
+                <span class="mock-appt-badge done">مكتمل</span>
+              </div>
+              <div class="mock-row">
+                <div>
+                  <div class="mock-row-name">سارة الأحمد</div>
+                  <div class="mock-row-sub">10:30 — تنظيف</div>
+                </div>
+                <span class="mock-appt-badge live">جاري الآن</span>
+              </div>
+              <div class="mock-row">
+                <div>
+                  <div class="mock-row-name">محمود خالد</div>
+                  <div class="mock-row-sub">12:00 — خلع</div>
+                </div>
+                <span class="mock-appt-badge conf">مؤكد</span>
+              </div>
+            </div>
+          </div>
+          <div class="mock-col">
+            <div class="mock-card">
+              <div class="mock-card-head">
+                <div class="mock-card-title">في غرفة الانتظار <span class="mock-count-badge">2</span></div>
+                <div class="mock-card-action">إدارة المواعيد ←</div>
+              </div>
+              <div class="mock-row">
+                <div>
+                  <div class="mock-row-name">ليلى حسن</div>
+                  <div class="mock-row-sub">وصلت 10:15</div>
+                </div>
+              </div>
+              <div class="mock-row">
+                <div>
+                  <div class="mock-row-name">عمر السيد</div>
+                  <div class="mock-row-sub">وصل 10:40</div>
+                </div>
+              </div>
+            </div>
+            <div class="mock-card">
+              <div class="mock-card-head">
+                <div class="mock-card-title">طلبات المخابر</div>
+                <div class="mock-card-action">عرض الكل ←</div>
+              </div>
+              <div class="mock-row">
+                <div>
+                  <div class="mock-row-name">تاج زركون — سن 16</div>
+                  <div class="mock-row-sub">مخبر الشام</div>
+                </div>
+                <span class="mock-appt-badge pending">قيد التنفيذ</span>
+              </div>
+              <div class="mock-row">
+                <div>
+                  <div class="mock-row-name">جسر معدني</div>
+                  <div class="mock-row-sub">مخبر النور</div>
+                </div>
+                <span class="mock-appt-badge live">جاهز</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Patient-file mock (chart card). Static SVG generated from the live
+       pp-dental.js engine — same anatomy + same treatment colors the tenant sees. -->
+  <div class="pt-mock">
+    <div class="mock-topbar">
+      <div class="mock-dot r"></div>
+      <div class="mock-dot y"></div>
+      <div class="mock-dot g"></div>
+      <div class="mock-topbar-title">SyDent — ملف المريض</div>
+    </div>
+    <div class="pt-content">
+      <img class="pt-shot pt-shot-light" src="landing-chart.webp" width="1180" height="785" alt="مخطط الأسنان في SyDent — لقطة من التطبيق: المنظر الدهليزي والإطباقي مع العلاجات المسجَّلة" loading="lazy" decoding="async">
+      <img class="pt-shot pt-shot-dark" src="landing-chart-dark.webp" width="1180" height="785" alt="" aria-hidden="true" loading="lazy" decoding="async">
+    </div>
+  </div>
+  </div>
+</section>
+
+<!-- OVERVIEW — لوحة واحدة بأربع مساحات (مقدّمة موجزة قبل تفصيل المميزات) -->
+<section class="section">
+  <div class="section-label">نظرة عامة</div>
+  <h2 class="section-title">إدارة متكاملة… بخطوات بسيطة</h2>
+  <p class="section-sub">يواجه طبيب الأسنان يومياً تفاصيل لا تنتهي؛ يتولّاها SyDent نيابةً عنه.</p>
+  <div class="ov-wrap">
+    <div class="ov-panel">
+      <div class="ov-grid">
+        <div class="ov-cell">
+          <span class="ov-emoji">🦷</span>
+          <div class="ov-name">المرضى</div>
+          <div class="ov-desc">جلسات ودفعات ومواعيد<br>ضمن ملف واحد منظّم</div>
+        </div>
+        <div class="ov-cell">
+          <span class="ov-emoji">🔬</span>
+          <div class="ov-name">المخابر</div>
+          <div class="ov-desc">أعمال وفواتير<br>تُتابَع أولاً بأول</div>
+        </div>
+        <div class="ov-cell">
+          <span class="ov-emoji">💰</span>
+          <div class="ov-name">مصاريف العيادة</div>
+          <div class="ov-desc">مسجَّلة ومصنَّفة<br>بدقّة</div>
+        </div>
+        <div class="ov-cell">
+          <span class="ov-emoji">👥</span>
+          <div class="ov-name">الموظفون</div>
+          <div class="ov-desc">رواتب ومستحقات<br>تُحتسب تلقائياً</div>
+        </div>
+      </div>
+      <div class="ov-foot">
+        تتحكّم بذلك كلّه ببساطة عبر <b>SyDent</b>، وبمساعدة الذكاء الاصطناعي أصبح العمل أكثر احترافية.
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FEATURES -->
+<section class="section">
+  <div class="section-label">المميزات</div>
+  <h2 class="section-title">كل ما تحتاجه في مكان واحد</h2>
+  <p class="section-sub">صُمّم خصيصاً لعيادات الأسنان في السوق السوري</p>
+  <div class="features-grid">
+    <div class="feature-card feature-card-ai">
+      <div class="feature-icon">🤖</div>
+      <div class="feature-title">مدعوم بالذكاء الاصطناعي في كل خطوة</div>
+      <div class="feature-desc">يتقن العربية ويعمل داخل المنصة: يلخّص ملف المريض قبل الجلوس على الكرسي، ويشرح خطة العلاج بلغة المريض، ويصيغ رسائل الاستدعاء والتعليمات، ويلخّص حسابات عيادتك — وميزات أخرى تكتشفها مع أول أسبوع استخدام. كل مخرجاته قابلة للتعديل، واسم المريض لا يغادر متصفّحك، والقرار النهائي لك.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💰</div>
+      <div class="feature-title">محاسبة عيادة احترافية</div>
+      <div class="feature-desc">يفصل الإنتاج عن التحصيل عن صافي الربح كما يفعل المحاسب المحترف: ذمم كل مريض، مستحقات كل طبيب، المصاريف وتكاليف المخبر، والدفعة المقدّمة تبقى أمانة حتى يكتمل العلاج. وإن كنت تعمل بالليرة والدولار، فلكل عملة حسابها المستقلّ بلا خلط. كل ليرة لها مصدر ومسار — بلا Excel جانبي.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🦷</div>
+      <div class="feature-title">إدارة المرضى</div>
+      <div class="feature-desc">سجلات كاملة لكل مريض — مخطط أسنان تفاعلي، مخطط لثة، خطة علاج مرحلية، وتاريخ علاجي موثّق. عندك مرضاك على ملف Excel؟ ارفعه بضغطة — وصدِّرهم بضغطة متى شئت. بياناتك تبقى ملكك.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📅</div>
+      <div class="feature-title">تقويم المواعيد</div>
+      <div class="feature-desc">عرض يومي وأسبوعي وشهري مع إشعارات تلقائية. المريض طلب التأجيل؟ اسحب موعده إلى وقته الجديد — بلا إعادة إدخال ولا نوافذ، والتغيير يُسجَّل تلقائياً.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🌐</div>
+      <div class="feature-title">بوابة حجز إلكترونية</div>
+      <div class="feature-desc">رابط خاص بعيادتك يحجز منه مرضاك بأنفسهم — وتصلك الطلبات مرتّبة لتأكيدها بنقرة واحدة.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💬</div>
+      <div class="feature-title">تذكيرات واتساب</div>
+      <div class="feature-desc">تذكير بالمواعيد، استدعاء للمراجعة الدورية، وتهنئة بأعياد الميلاد — بقوالب جاهزة قابلة للتخصيص.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🧪</div>
+      <div class="feature-title">مخبر ومخزون</div>
+      <div class="feature-desc">تتبّع طلبات المخبر وتكاليفها لكل طبيب، ومخزون بالمواد والدفعات مع تنبيهات النقص والانتهاء.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">☁️</div>
+      <div class="feature-title">سحابي بالكامل</div>
+      <div class="feature-desc">لا حاجة للتثبيت — افتحه من الهاتف أو الحاسوب في أي مكان وأي وقت.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <div class="feature-title">أمان وخصوصية</div>
+      <div class="feature-desc">كل طبيب يرى بيانات مرضاه فقط — عزل تام بين الحسابات.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <div class="feature-title">إحصائيات فورية</div>
+      <div class="feature-desc">لوحة تحكم ذكية تعطيك صورة واضحة عن أداء عيادتك يومياً وشهرياً.</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- STEPS -->
+<section class="steps-section">
+  <div class="section-label">البدء</div>
+  <h2 class="section-title">ابدأ في 3 خطوات</h2>
+  <p class="section-sub">لا تحتاج إلى خبرة تقنية — النظام بسيط وسهل</p>
+  <div class="steps-grid">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-title">سجّل حسابك</div>
+      <div class="step-desc">سجّل ببياناتك وكلمة مرورك — يكفي رقم هاتف أو بريد إلكتروني.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-title">أضف مرضاك</div>
+      <div class="step-desc">سجّل بياناتك ومرضاك بدقائق — واجهة بسيطة بالعربية.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-title">ابدأ الإدارة</div>
+      <div class="step-desc">جدوّل المواعيد، سجّل الجلسات، وتابع المدفوعات من أي جهاز.</div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING (Phase X2.1) -->
+<section class="pricing-section" id="pricing">
+  <div class="section-label">الأسعار</div>
+  <h2 class="section-title">خطط مرنة تناسب عيادتك</h2>
+  <p class="section-sub">ابدأ مجاناً ثم اختر ما يناسبك. لا التزامات، لا رسوم خفية.</p>
+  <div id="pricingCycleToggle" style="text-align:center;"></div>
+  <div id="pricingGrid" class="pricing-grid">
+    <div class="pricing-loading">⏳ جارٍ تحميل الخطط...</div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FAQ (8-هـ) -->
+<section class="section" id="faq">
+  <div class="section-label">أسئلة شائعة</div>
+  <h2 class="section-title">كل ما تريد معرفته</h2>
+  <p class="section-sub">وإن كان لديك سؤال آخر، تواصل معنا وسنجيبك بسرعة</p>
+  <div class="faq-list">
+    <details class="faq-item">
+      <summary>هل بياناتي وبيانات مرضاي آمنة؟</summary>
+      <div class="faq-body">نعم. كل عيادة معزولة تماماً عن غيرها على مستوى قاعدة البيانات — لا يمكن لأي حساب الاطلاع على بيانات حساب آخر. البيانات مستضافة على بنية سحابية عالمية مع نسخ احتياطي يومي تلقائي.</div>
+    </details>
+    <details class="faq-item">
+      <summary>هل أحتاج تثبيت برنامج أو خبرة تقنية؟</summary>
+      <div class="faq-body">لا شيء إطلاقاً. SyDent يعمل من المتصفح على أي جهاز — هاتف، جهاز لوحي، أو حاسوب — بلا أي تثبيت أو خبرة تقنية. وإن أحببت، ثبّته بضغطة واحدة كتطبيق على جهازك. سجّل حسابك وابدأ خلال دقائق، والواجهة عربية بالكامل ومصمّمة لتكون بديهية.</div>
+    </details>
+    <details class="faq-item">
+      <summary>هل يعمل SyDent عند انقطاع الإنترنت؟</summary>
+      <div class="faq-body">نعم — صُمّم SyDent خصيصاً ليتحمّل انقطاعات الإنترنت والكهرباء المتكرّرة. عند انقطاع الاتصال يتابع النظام عمله بشكل طبيعي: تتصفح ملفات مرضاك، وتدير مواعيدك، وتسجّل دفعات المرضى — كل ذلك بلا اتصال. وفور عودة الإنترنت، يتزامن كل شيء تلقائياً دون أن تفقد أي معلومة أو تحتاج لإعادة إدخالها.</div>
+    </details>
+    <details class="faq-item">
+      <summary>كيف تعمل بوابة الحجز الإلكترونية؟</summary>
+      <div class="faq-body">لكل عيادة رابط حجز خاص تشاركه مع مرضاك (واتساب، إنستغرام، بطاقة العيادة…). المريض يختار اليوم والوقت المناسبين، ويصلك الطلب داخل النظام لتأكيده أو تعديله بنقرة واحدة.</div>
+    </details>
+    <details class="faq-item">
+      <summary>هل يمكن لأكثر من طبيب العمل على نفس الحساب؟</summary>
+      <div class="faq-body">نعم — أضف أطباءك وموظفيك ضمن حساب العيادة، وخصّص المواعيد والجلسات لكل طبيب، واحصل على تقارير مستحقات منفصلة لكل واحد منهم.</div>
+    </details>
+    <details class="faq-item">
+      <summary>هل هناك تجربة مجانية؟ وماذا بعد انتهائها؟</summary>
+      <div class="faq-body">نعم، تجربة مجانية كاملة الميزات وبلا بطاقة ائتمان. وبعدها القرار لك وحدك: تكمل بالخطة التي تناسب حجم عيادتك، أو تتوقّف بلا أي التزام. وبياناتك تبقى بياناتك — تُصدِّر قائمة مرضاك إلى Excel بضغطة، وبقية بياناتك متاحة لك عند الطلب.</div>
+    </details>
+    <details class="faq-item">
+      <summary>ماذا يحدث لبياناتي إذا أوقفت الاشتراك؟</summary>
+      <div class="faq-body">بياناتك تبقى محفوظة ولا تُحذف تلقائياً — بمجرد تجديد الاشتراك تعود إلى عيادتك كما تركتها. وإذا رغبت بحذف حسابك نهائياً، الخيار متاح لك من الإعدادات في أي وقت.</div>
+    </details>
+  </div>
+</section>
+
+<!-- CTA (8-هـ) -->
+<section class="section">
+  <div class="cta-band">
+    <h2>جاهز لتنظيم عيادتك؟</h2>
+    <p>انضم إلى أطباء الأسنان الذين بدؤوا يديرون عياداتهم بذكاء — التجربة مجانية ولا تحتاج إلى بطاقة ائتمان.</p>
+    <div class="hero-btns" style="margin:0;justify-content:center;">
+      <a href="auth.html?tab=register" class="btn-hero">أرسل طلب التجربة المجانية ←</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <a href="landing.html" class="footer-logo">
+    <div class="footer-logo-icon">
+      <svg viewBox="0 0 1279 1400" fill="none" stroke="currentColor" style="color:var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0.000000,1400.000000) scale(0.100000,-0.100000)"
+fill="#1ed99a" stroke="none">
+<path d="M8460 13985 c-102 -19 -306 -72 -389 -101 -91 -32 -282 -119 -368
+-167 -34 -20 -72 -39 -85 -43 -12 -4 -34 -15 -48 -24 -41 -29 -104 -32 -153
+-6 -23 12 -78 32 -122 45 -44 13 -100 30 -125 38 -106 34 -186 44 -395 45
+-177 1 -228 -2 -328 -21 -199 -36 -368 -91 -427 -136 -8 -6 -31 -18 -50 -25
+-19 -7 -51 -25 -70 -40 -20 -15 -59 -39 -88 -54 -29 -14 -52 -30 -52 -35 0 -4
+-26 -24 -57 -44 -55 -33 -190 -159 -241 -223 -144 -181 -200 -285 -251 -461
+-47 -163 -67 -272 -76 -402 -8 -119 -19 -141 -136 -261 -51 -52 -113 -122
+-139 -155 -45 -58 -120 -171 -120 -180 0 -3 -13 -26 -29 -52 -59 -98 -109
+-234 -125 -343 -41 -277 -42 -373 -6 -670 15 -131 94 -365 151 -450 9 -14 43
+-68 75 -120 32 -52 63 -100 69 -106 5 -7 33 -38 60 -69 28 -32 57 -63 65 -70
+8 -8 67 -62 130 -122 227 -215 471 -365 655 -404 22 -4 72 -16 110 -25 57 -13
+152 -18 510 -24 466 -7 493 -10 538 -56 12 -13 32 -33 45 -46 12 -13 22 -29
+22 -36 0 -7 9 -33 20 -58 20 -43 21 -65 23 -797 2 -845 7 -793 -73 -869 -21
+-21 -42 -43 -47 -50 -4 -8 -41 -43 -82 -78 -40 -36 -169 -159 -286 -275 -117
+-115 -241 -238 -276 -271 -35 -34 -89 -88 -120 -120 -31 -33 -117 -118 -192
+-190 -74 -73 -144 -147 -154 -165 -17 -32 -18 -81 -21 -889 -1 -545 -6 -874
+-13 -907 -8 -41 -19 -59 -50 -87 -21 -20 -40 -37 -42 -37 -1 -1 -66 -4 -143
+-8 -79 -4 -148 -12 -155 -18 -8 -6 -42 -23 -76 -37 -45 -19 -77 -41 -110 -78
+-27 -29 -62 -66 -78 -83 -77 -76 -145 -166 -201 -266 -6 -10 -18 -27 -26 -36
+-8 -10 -27 -43 -41 -73 -14 -30 -38 -75 -53 -100 -43 -73 -94 -176 -94 -191 0
+-8 -12 -34 -26 -59 -15 -25 -48 -110 -74 -190 -64 -193 -98 -290 -114 -320 -8
+-14 -19 -43 -26 -65 -7 -22 -23 -63 -36 -91 -12 -29 -26 -69 -30 -90 -7 -38
+-111 -321 -133 -362 -5 -10 -19 -48 -30 -83 -77 -247 -91 -296 -91 -317 0 -14
+-14 -77 -31 -141 -16 -64 -35 -134 -40 -156 -18 -70 -79 -223 -95 -236 -29
+-24 -50 22 -58 124 -3 50 -6 1065 -6 2256 0 1191 -4 2183 -9 2203 -5 20 -19
+51 -32 68 -33 43 -188 205 -343 358 -294 290 -360 358 -371 387 -7 17 -10 48
+-7 70 12 82 4 289 -13 353 -39 150 -132 288 -250 368 -40 27 -54 32 -160 59
+-108 28 -191 27 -321 -3 -73 -16 -104 -30 -155 -65 -57 -40 -159 -136 -159
+-150 0 -3 -18 -35 -40 -71 -57 -94 -73 -171 -67 -330 l5 -130 53 -105 c42 -83
+66 -118 113 -161 63 -59 141 -114 178 -126 121 -39 302 -54 371 -30 62 21 145
+23 182 4 52 -27 250 -219 483 -468 62 -65 143 -177 153 -211 13 -41 20 -2938
+10 -4064 -6 -686 -7 -743 -24 -768 -9 -15 -24 -27 -33 -27 -48 0 -173 148
+-246 293 -17 34 -38 73 -47 87 -10 14 -30 59 -46 100 -16 41 -35 84 -41 95
+-42 68 -198 523 -260 755 -8 30 -32 120 -54 200 -22 80 -42 163 -46 185 -3 22
+-14 74 -25 115 -19 77 -46 231 -75 425 -9 61 -22 146 -30 190 -7 44 -20 166
+-28 270 -9 105 -24 236 -35 292 -22 115 -21 108 -55 365 -14 103 -30 196 -35
+206 -6 10 -15 68 -21 127 -6 60 -13 112 -16 116 -5 8 -27 112 -49 234 -54 290
+-179 737 -250 891 -13 28 -29 71 -35 95 -6 24 -22 60 -34 79 -26 41 -41 73
+-91 195 -20 50 -49 115 -65 145 -15 30 -40 82 -55 115 -15 33 -34 74 -42 90
+-9 17 -47 90 -84 164 -38 73 -73 139 -78 145 -5 6 -13 25 -16 41 -4 17 -16 44
+-25 60 -35 59 -64 111 -77 140 -14 29 -22 45 -43 83 -8 15 -36 74 -122 262
+-16 36 -33 72 -38 80 -32 55 -100 200 -106 225 -4 17 -12 37 -18 45 -18 22
+-33 57 -61 139 -13 40 -29 79 -34 85 -6 6 -22 45 -37 86 -14 41 -34 89 -44
+105 -24 40 -50 134 -50 179 0 28 6 39 27 53 25 17 85 18 993 18 839 0 968 -2
+991 -15 27 -15 295 -264 333 -310 12 -13 93 -95 181 -181 88 -87 165 -162 170
+-168 6 -7 102 -105 215 -219 114 -114 224 -229 245 -256 38 -47 40 -52 39
+-120 0 -39 -8 -95 -17 -125 -21 -66 -22 -143 -3 -202 7 -24 22 -71 32 -104 28
+-94 116 -210 205 -274 30 -21 87 -53 128 -71 64 -28 88 -32 186 -37 133 -7
+206 8 325 68 118 58 185 127 250 253 l54 106 0 152 c0 134 -3 161 -23 216 -54
+149 -140 245 -320 357 -69 43 -120 50 -340 42 -120 -5 -187 -3 -213 5 -31 9
+-96 69 -321 296 -155 157 -304 309 -332 339 -27 30 -115 119 -195 198 -80 79
+-174 179 -209 222 -61 74 -146 147 -215 185 -29 16 -116 17 -1146 18 -1056 0
+-1117 1 -1155 19 -22 10 -45 24 -51 32 -26 32 -63 203 -84 389 -6 52 -18 138
+-28 190 -24 136 -25 629 0 710 9 30 21 96 28 145 17 132 25 162 86 355 56 177
+105 288 190 435 26 44 56 98 67 120 11 22 56 85 100 140 92 114 96 118 118
+131 9 5 34 29 54 54 52 63 160 155 225 192 30 18 69 41 86 53 16 11 75 42 130
+69 54 27 106 53 114 57 45 25 102 48 131 54 19 4 54 16 79 28 25 11 90 28 145
+38 55 11 118 24 140 30 22 6 146 13 275 16 187 4 257 1 345 -12 61 -9 135 -20
+165 -25 30 -4 68 -13 83 -19 16 -6 41 -11 56 -11 16 0 44 -7 64 -15 19 -8 77
+-24 127 -35 50 -11 108 -27 128 -36 20 -9 62 -22 92 -30 30 -8 83 -26 118 -39
+34 -14 69 -25 78 -25 9 0 52 -16 95 -35 118 -52 129 -49 178 45 13 25 30 52
+37 61 8 8 14 18 14 21 0 8 67 118 83 137 8 9 22 30 30 47 9 17 32 50 51 73 20
+24 36 51 36 62 0 22 -56 89 -75 89 -7 0 -30 12 -51 26 -21 15 -82 45 -134 66
+-52 22 -122 51 -155 65 -95 40 -125 50 -210 69 -44 9 -92 23 -106 30 -31 16
+-202 54 -239 54 -14 0 -36 6 -50 13 -88 46 -290 62 -760 61 -312 0 -401 -4
+-470 -17 -47 -9 -101 -19 -120 -23 -19 -3 -57 -14 -85 -24 -27 -9 -84 -25
+-125 -35 -41 -10 -82 -23 -90 -30 -8 -7 -46 -22 -85 -35 -38 -12 -84 -30 -101
+-41 -17 -10 -38 -19 -46 -19 -9 0 -21 -7 -28 -15 -7 -8 -19 -15 -26 -15 -7 0
+-47 -21 -89 -47 -41 -27 -83 -52 -93 -58 -61 -35 -102 -63 -133 -91 -20 -18
+-61 -47 -91 -66 -29 -19 -122 -104 -205 -189 -200 -202 -195 -197 -234 -252
+-19 -27 -46 -65 -62 -85 -54 -72 -96 -138 -114 -177 -10 -22 -42 -79 -71 -126
+-28 -48 -52 -90 -52 -93 0 -4 -14 -35 -31 -69 -47 -94 -107 -258 -144 -392
+-18 -66 -42 -154 -53 -195 -12 -41 -28 -118 -36 -170 -8 -52 -24 -147 -35
+-210 -26 -152 -36 -478 -22 -715 14 -223 88 -664 139 -825 12 -36 26 -90 32
+-120 7 -30 20 -80 30 -110 34 -106 40 -127 40 -140 0 -8 15 -53 34 -100 18
+-47 43 -112 56 -145 26 -71 84 -213 110 -270 39 -85 59 -133 90 -209 17 -44
+45 -107 62 -140 16 -34 39 -86 50 -116 12 -30 32 -71 45 -90 12 -19 23 -40 23
+-48 0 -7 11 -29 24 -50 23 -37 96 -187 96 -198 0 -3 38 -83 84 -177 46 -95 87
+-183 91 -197 12 -43 144 -306 160 -320 8 -7 15 -19 15 -26 0 -13 100 -231 121
+-264 5 -8 12 -22 16 -30 3 -8 14 -33 23 -55 10 -22 21 -51 25 -65 4 -14 17
+-43 30 -65 13 -22 29 -60 36 -85 7 -25 22 -61 34 -80 12 -19 29 -60 39 -90 10
+-30 28 -75 41 -100 12 -25 26 -61 30 -80 3 -19 22 -81 41 -138 19 -56 34 -110
+34 -120 0 -10 13 -61 30 -113 34 -110 65 -261 85 -421 26 -208 36 -271 45
+-289 6 -9 17 -86 25 -171 9 -84 22 -187 31 -228 8 -41 21 -136 29 -210 8 -74
+22 -168 30 -209 8 -40 15 -86 15 -103 0 -16 4 -38 10 -48 5 -10 14 -71 20
+-136 6 -66 15 -141 21 -169 6 -27 14 -72 19 -100 4 -27 20 -108 34 -179 15
+-71 29 -156 33 -190 3 -33 14 -78 25 -99 10 -21 28 -84 39 -140 11 -56 33
+-138 49 -182 15 -44 35 -114 45 -155 9 -41 26 -95 37 -120 11 -25 31 -83 44
+-130 13 -47 32 -105 41 -130 27 -78 84 -224 99 -257 8 -17 14 -35 14 -40 0 -4
+12 -30 25 -58 14 -27 25 -56 25 -63 0 -12 26 -64 89 -178 16 -29 47 -76 69
+-105 22 -30 48 -70 57 -89 10 -19 33 -56 51 -81 19 -26 34 -50 34 -54 0 -4 11
+-20 25 -37 14 -16 25 -36 25 -43 0 -8 9 -19 21 -25 11 -6 28 -24 37 -39 48
+-78 305 -321 339 -321 6 0 16 -7 23 -15 14 -17 139 -77 224 -108 51 -19 82
+-22 196 -22 l135 0 79 38 c43 20 83 37 88 37 19 0 132 87 196 150 134 133 284
+447 373 780 11 41 24 79 30 84 5 6 9 18 9 28 0 10 9 46 19 80 11 35 29 115 40
+178 12 63 26 135 32 160 6 25 14 63 20 85 17 73 87 297 184 585 53 156 105
+318 116 360 11 41 24 84 29 95 6 11 21 56 34 100 13 44 40 121 59 170 19 50
+50 131 69 180 29 81 75 175 179 374 40 75 111 157 177 203 l47 33 200 -3 c250
+-4 304 -16 410 -93 46 -33 171 -162 221 -227 53 -69 180 -263 211 -322 18 -36
+37 -72 42 -80 5 -8 19 -35 31 -60 12 -25 40 -81 62 -125 46 -90 105 -235 150
+-370 17 -49 36 -106 43 -125 14 -39 76 -237 99 -315 8 -27 18 -72 22 -100 3
+-27 19 -81 34 -120 31 -79 55 -160 65 -220 4 -22 13 -54 21 -71 14 -28 61
+-193 99 -344 8 -30 23 -86 34 -125 11 -38 34 -118 50 -176 17 -59 37 -122 45
+-140 8 -19 26 -65 41 -104 102 -266 290 -463 528 -552 157 -59 308 -62 430 -9
+32 14 63 26 70 26 40 0 195 93 287 171 86 74 96 84 159 159 34 41 72 86 84
+100 12 14 26 32 32 41 5 9 27 41 48 72 20 31 37 60 37 65 0 5 9 20 19 34 38
+47 206 376 237 463 9 28 20 55 24 60 3 6 19 42 34 80 15 39 38 95 51 125 13
+30 28 75 35 100 11 44 35 124 85 288 14 46 25 92 25 102 0 18 35 145 59 215 6
+17 18 70 26 118 9 49 23 108 32 130 8 23 24 94 34 157 11 63 26 149 33 190 19
+102 57 341 66 415 14 103 29 197 45 275 9 41 24 131 35 200 10 69 24 148 30
+175 6 28 18 91 27 140 9 50 29 137 45 195 17 58 36 139 44 180 7 41 25 102 38
+135 14 33 35 103 46 155 30 138 153 496 217 630 31 63 68 144 83 180 40 95
+114 241 175 350 41 73 54 105 54 138 1 30 -4 44 -15 49 -14 5 -436 -22 -510
+-33 -17 -2 -38 -12 -46 -22 -18 -20 -101 -160 -153 -257 -21 -38 -41 -74 -45
+-80 -25 -32 -226 -450 -236 -491 -4 -16 -20 -54 -35 -84 -15 -30 -33 -75 -40
+-100 -7 -25 -17 -51 -22 -58 -14 -18 -55 -135 -77 -219 -10 -39 -30 -95 -44
+-123 -14 -28 -26 -62 -26 -75 0 -24 -34 -145 -50 -180 -5 -11 -17 -67 -25
+-125 -19 -132 -40 -247 -59 -330 -9 -36 -16 -85 -16 -110 0 -25 -6 -81 -14
+-125 -8 -44 -22 -127 -32 -185 -9 -58 -25 -149 -35 -204 -11 -54 -19 -115 -19
+-135 0 -32 -6 -68 -39 -264 -6 -32 -15 -73 -20 -90 -6 -18 -20 -90 -31 -160
+-11 -71 -27 -138 -35 -150 -7 -12 -16 -40 -20 -62 -10 -64 -35 -165 -56 -225
+-10 -30 -30 -95 -43 -145 -28 -102 -80 -255 -100 -300 -32 -67 -56 -128 -56
+-142 0 -8 -32 -78 -72 -156 -39 -78 -85 -168 -100 -200 -16 -31 -33 -57 -38
+-57 -5 0 -17 -15 -26 -33 -9 -17 -39 -62 -67 -98 -82 -111 -140 -125 -165 -41
+-9 30 -12 481 -12 1826 l0 1787 26 52 c23 47 125 156 179 193 26 17 59 18 246
+9 146 -7 160 -6 220 14 35 12 83 32 105 44 23 12 58 30 77 40 30 16 104 88
+156 152 18 23 49 104 72 192 15 56 18 92 14 165 -13 205 -45 286 -158 398
+-104 104 -212 160 -329 170 -99 9 -245 -4 -291 -25 -178 -86 -274 -175 -338
+-315 -32 -72 -37 -93 -43 -196 -4 -73 -2 -151 5 -213 18 -142 8 -165 -136
+-306 -90 -88 -119 -124 -146 -180 l-34 -70 -6 -1555 c-7 -1616 -10 -1720 -49
+-1720 -7 0 -20 34 -79 208 -6 17 -16 47 -22 65 -6 17 -14 50 -19 72 -4 22 -19
+69 -35 105 -15 36 -31 81 -35 100 -5 19 -17 64 -28 100 -11 36 -32 106 -47
+155 -15 50 -56 178 -92 285 -35 107 -70 220 -78 250 -8 30 -28 84 -46 120 -17
+36 -37 79 -44 95 -7 17 -26 59 -43 95 -75 160 -92 205 -102 278 -9 57 -11 365
+-8 1108 4 919 7 1034 21 1079 18 56 55 102 105 131 17 10 32 21 32 25 0 9 113
+131 305 329 94 96 198 204 230 240 33 36 126 129 207 208 175 170 240 254 259
+332 9 41 13 203 14 656 l2 602 25 43 c23 43 25 44 73 43 51 0 101 -20 185 -72
+37 -23 53 -43 85 -108 36 -72 52 -121 102 -309 34 -128 101 -297 152 -383 17
+-29 31 -55 31 -59 0 -3 12 -20 28 -38 15 -17 56 -70 92 -115 94 -121 225 -247
+290 -280 30 -15 91 -47 136 -72 73 -40 122 -61 224 -97 208 -73 553 -111 745
+-82 150 23 376 84 475 129 196 87 257 129 400 272 105 106 128 137 166 219 8
+18 34 63 56 98 22 35 45 83 50 105 5 23 15 56 22 73 7 16 24 68 36 115 13 47
+33 101 45 120 24 38 99 110 115 110 5 0 27 15 47 34 21 18 46 35 55 37 21 5
+182 150 226 204 18 22 53 65 78 95 38 46 154 239 154 255 0 3 18 44 41 91 22
+48 49 123 60 167 11 45 25 89 30 100 34 62 58 548 37 723 -7 65 -13 90 -58
+244 -10 36 -25 91 -34 123 -9 32 -28 79 -42 105 -15 26 -30 59 -34 73 -4 14
+-34 65 -66 113 -33 49 -64 98 -71 109 -7 12 -23 35 -37 52 -14 16 -51 61 -82
+99 -40 48 -62 84 -71 119 -7 27 -11 53 -8 56 6 11 35 226 45 336 10 112 0 302
+-24 462 -18 116 -70 281 -126 392 -21 42 -41 86 -45 98 -3 13 -24 49 -46 80
+-22 32 -55 81 -73 109 -58 87 -218 262 -319 346 -40 35 -166 128 -172 128 -2
+0 -32 18 -66 40 -34 22 -68 40 -75 40 -7 0 -21 8 -31 19 -10 10 -34 22 -53 26
+-33 7 -93 31 -150 61 -35 17 -214 60 -335 78 -286 45 -297 48 -336 83 -24 22
+-62 83 -113 185 -43 84 -96 180 -119 213 -76 111 -397 410 -493 458 -18 9 -46
+29 -64 43 -28 24 -114 64 -230 108 -19 7 -60 25 -90 40 -30 15 -82 33 -115 41
+-33 7 -88 20 -121 29 -179 45 -494 60 -644 31z m531 -440 c164 -28 242 -49
+280 -76 15 -10 48 -28 74 -39 76 -32 299 -186 345 -238 23 -26 59 -65 79 -87
+77 -84 146 -182 194 -275 24 -47 26 -58 16 -83 -17 -40 -92 -94 -157 -113 -30
+-9 -70 -27 -89 -39 -18 -13 -51 -29 -71 -36 -51 -16 -189 -95 -234 -133 -20
+-17 -58 -47 -85 -66 -26 -19 -57 -43 -68 -54 -11 -10 -36 -30 -55 -45 -171
+-129 -194 -244 -74 -368 40 -41 45 -43 99 -43 68 0 106 19 195 100 10 8 26 22
+37 31 12 10 25 23 29 31 40 64 453 278 594 308 25 5 70 16 100 24 130 35 467
+39 551 7 14 -5 63 -16 109 -26 47 -9 121 -33 165 -52 154 -70 280 -135 294
+-154 7 -10 19 -19 25 -19 42 0 296 -288 357 -405 20 -38 46 -88 58 -110 39
+-75 93 -228 113 -319 17 -79 19 -118 15 -296 -4 -136 -10 -225 -20 -265 -17
+-66 -108 -278 -131 -304 -7 -9 -17 -30 -21 -48 -3 -17 -13 -37 -21 -44 -8 -6
+-14 -17 -14 -24 0 -8 -12 -23 -26 -34 -14 -11 -38 -37 -53 -58 -60 -83 -243
+-247 -296 -266 -37 -14 -165 -44 -280 -67 -138 -27 -168 -65 -161 -199 5 -101
+18 -123 99 -164 l57 -29 93 12 c209 27 192 23 332 91 147 71 225 130 378 283
+l145 146 48 0 c44 0 51 -4 94 -48 80 -83 153 -208 181 -311 10 -36 28 -97 41
+-136 19 -63 22 -93 22 -290 1 -174 -3 -241 -18 -320 -10 -55 -22 -105 -26
+-110 -5 -6 -20 -49 -33 -96 -21 -70 -55 -143 -105 -225 -41 -68 -98 -137 -184
+-225 -89 -91 -115 -111 -189 -147 -95 -46 -160 -62 -254 -62 -105 0 -143 20
+-259 134 -57 55 -119 126 -138 156 -19 30 -54 74 -76 96 -23 23 -42 47 -42 52
+0 6 -17 29 -37 50 -21 21 -46 50 -56 64 -10 14 -48 41 -84 59 -65 33 -68 34
+-252 42 -102 4 -203 12 -223 18 -75 20 -72 -1 -78 589 -5 547 -7 569 -48 585
+-9 3 -216 5 -462 5 -616 0 -611 1 -699 -160 -22 -41 -49 -91 -60 -111 -11 -19
+-33 -50 -49 -67 -17 -18 -44 -56 -62 -85 -32 -54 -86 -134 -118 -177 -26 -35
+-189 -280 -217 -329 -54 -91 -164 -236 -199 -262 -38 -29 -114 -36 -169 -16
+-23 9 -82 25 -132 37 -49 11 -112 31 -140 44 -27 13 -80 36 -118 51 -37 15
+-70 31 -73 36 -3 5 -29 25 -57 44 -66 43 -81 57 -142 130 -102 122 -136 192
+-155 327 -24 163 16 257 148 347 66 46 122 52 521 57 205 3 383 9 396 14 14 5
+25 20 29 40 3 18 6 208 6 422 0 438 6 491 62 545 l29 28 292 3 c160 2 306 1
+323 -3 45 -8 99 -54 143 -122 81 -125 197 -210 338 -249 48 -13 88 -16 185
+-12 148 6 165 12 313 115 89 62 185 170 185 208 0 9 12 51 26 93 25 72 26 83
+20 201 -5 90 -12 136 -27 167 -10 24 -19 49 -19 57 0 29 -107 158 -172 207
+-36 27 -73 50 -80 50 -8 0 -19 5 -25 11 -17 17 -151 49 -233 55 -84 7 -208
+-18 -290 -57 -57 -27 -193 -164 -249 -251 -38 -60 -50 -70 -100 -90 -55 -22
+-67 -22 -521 -25 -289 -3 -478 -8 -498 -14 -21 -7 -37 -21 -44 -37 -7 -17 -12
+-177 -15 -427 -4 -482 -6 -496 -43 -538 l-28 -32 -309 -5 c-249 -4 -313 -8
+-334 -20 -15 -8 -44 -25 -65 -37 -49 -27 -180 -144 -219 -197 -16 -22 -46 -62
+-65 -89 -61 -87 -60 -87 -408 -87 -399 0 -408 4 -355 140 15 40 42 89 59 109
+18 20 39 52 48 71 9 19 29 55 46 80 16 25 47 75 70 112 22 36 55 86 73 110 18
+24 48 70 66 103 19 33 44 71 56 85 12 14 48 71 80 128 76 135 97 157 165 170
+30 6 179 13 330 16 l275 6 22 27 c20 25 23 39 23 128 0 85 -4 106 -23 140 -13
+23 -33 42 -47 46 -14 4 -205 7 -424 8 l-400 1 -39 -27 c-39 -27 -92 -98 -136
+-183 -13 -25 -36 -61 -51 -80 -15 -19 -35 -50 -44 -67 -9 -18 -21 -33 -26 -33
+-5 0 -14 -17 -20 -39 -5 -21 -17 -44 -25 -51 -8 -7 -15 -17 -15 -23 0 -5 -16
+-34 -35 -63 -20 -29 -49 -81 -65 -116 -57 -120 -150 -269 -227 -361 -13 -16
+-23 -34 -23 -40 0 -7 -9 -23 -20 -37 -11 -14 -20 -30 -20 -36 0 -23 -84 -140
+-119 -168 -32 -25 -42 -27 -90 -23 -32 4 -67 15 -90 30 -20 13 -58 37 -86 52
+-108 62 -216 147 -279 223 -164 195 -189 228 -236 324 -27 55 -50 108 -50 117
+0 9 -7 27 -16 40 -54 77 -74 489 -33 674 11 50 27 102 35 114 7 12 14 29 14
+37 0 18 68 154 81 162 5 3 24 29 43 58 18 29 69 89 112 133 66 66 99 90 195
+141 64 34 125 62 136 62 10 0 23 4 29 9 13 12 101 38 154 45 94 13 303 16 380
+7 49 -7 104 -22 146 -41 37 -16 72 -30 79 -30 6 0 20 -9 30 -20 10 -11 24 -20
+31 -20 26 0 103 -61 264 -211 86 -79 139 -104 204 -97 140 16 195 128 137 279
+-38 100 -245 286 -423 380 -189 100 -267 127 -469 160 l-184 30 -122 -15 c-68
+-9 -150 -16 -183 -16 -51 0 -62 3 -75 23 -14 21 -13 31 6 106 21 84 98 263
+118 276 6 3 23 29 36 56 14 27 29 49 33 49 5 0 37 28 73 63 35 35 84 77 109
+94 25 17 58 45 74 62 16 17 45 36 65 42 20 6 67 27 104 45 37 19 91 39 120 45
+29 6 61 14 72 18 63 26 228 51 337 51 117 0 278 -25 349 -54 19 -7 59 -19 89
+-26 30 -7 69 -23 85 -35 17 -12 46 -28 67 -35 91 -33 306 -230 393 -360 24
+-36 49 -87 56 -115 6 -27 15 -55 20 -60 18 -24 53 -127 71 -210 14 -67 21
+-156 28 -350 10 -321 12 -327 101 -373 84 -43 157 -41 221 4 36 25 44 37 49
+74 4 25 13 59 20 75 8 19 14 108 17 250 4 198 2 232 -18 340 -26 137 -110 405
+-140 442 -11 14 -20 31 -20 38 0 7 -17 37 -37 66 -20 30 -51 77 -67 105 -17
+28 -44 70 -60 93 -73 104 -7 179 225 257 71 24 153 47 182 53 28 5 63 14 77
+20 14 5 106 10 206 10 148 1 206 -3 325 -24z m980 -2339 c58 -33 101 -111 107
+-197 6 -88 -4 -125 -50 -175 -32 -35 -54 -48 -108 -64 -64 -19 -69 -19 -116
+-3 -83 28 -113 51 -143 112 -40 79 -45 112 -27 173 29 99 59 128 186 181 29
+12 105 -2 151 -27z m-120 -1716 c10 -6 27 -23 37 -37 16 -25 17 -70 17 -571
+l0 -544 22 -18 c23 -18 57 -21 529 -34 131 -4 146 -6 200 -33 41 -20 84 -55
+141 -113 84 -88 123 -133 139 -161 14 -27 84 -108 143 -168 84 -85 154 -128
+240 -147 92 -21 126 -49 118 -97 -8 -48 -64 -190 -84 -213 -10 -10 -31 -38
+-47 -62 -29 -42 -171 -170 -231 -207 -18 -11 -52 -33 -76 -50 -54 -36 -217
+-92 -324 -111 -44 -8 -132 -14 -195 -14 -117 0 -314 23 -334 39 -6 4 -32 11
+-59 14 -26 4 -64 16 -85 26 -20 11 -63 31 -95 45 -105 45 -380 297 -402 366
+-4 14 -11 30 -16 36 -5 6 -27 47 -49 91 -37 75 -71 171 -135 378 -16 50 -40
+115 -55 145 -15 30 -30 68 -34 84 -14 57 -177 239 -259 290 -125 76 -147 100
+-147 161 0 34 9 53 45 101 24 32 45 63 45 68 0 5 11 24 25 42 42 55 136 197
+156 236 10 21 33 51 49 68 17 17 30 38 30 46 0 9 11 29 24 45 14 16 43 62 65
+102 22 41 56 91 76 111 19 21 35 41 35 46 0 14 45 41 83 51 43 11 383 2 408
+-11z m-2194 -1090 c57 -27 107 -50 110 -50 4 0 14 -6 22 -13 9 -8 44 -19 77
+-25 34 -5 80 -22 103 -36 22 -14 47 -26 54 -26 25 0 65 -49 72 -88 3 -20 9
+-312 12 -649 l5 -612 -25 -53 c-17 -37 -64 -94 -156 -188 -72 -74 -137 -142
+-144 -150 -8 -8 -57 -53 -110 -99 -54 -46 -97 -88 -97 -92 0 -4 -122 -131
+-271 -281 -320 -321 -344 -349 -359 -421 -7 -37 -8 -244 -3 -702 8 -760 8
+-760 -2 -848 -6 -51 -12 -70 -27 -78 -30 -16 -52 -3 -144 82 -47 43 -89 79
+-94 79 -5 0 -24 13 -42 28 -39 34 -126 84 -293 167 -103 52 -122 65 -137 96
+-15 32 -17 116 -23 820 -4 539 -3 793 4 811 14 38 178 225 202 231 10 3 22 13
+25 24 4 10 19 30 33 44 14 14 65 65 113 115 47 49 139 139 203 199 64 61 142
+137 173 170 31 33 135 138 231 233 160 160 197 202 233 264 10 18 14 138 18
+518 6 510 8 538 47 568 32 23 84 13 190 -38z m-4945 -1210 c72 -44 91 -68 108
+-145 21 -93 -34 -202 -118 -235 -18 -7 -64 -13 -102 -12 -82 0 -136 25 -184
+85 -27 33 -31 48 -34 111 -5 93 12 135 70 173 24 15 45 30 48 34 15 18 51 28
+94 29 41 0 63 -8 118 -40z m2123 -21 c59 -22 101 -66 131 -138 28 -68 -22
+-192 -93 -230 -15 -7 -56 -17 -92 -22 -89 -11 -152 9 -204 65 -45 48 -52 71
+-51 151 0 67 29 136 65 156 78 41 165 48 244 18z m4221 -1592 c87 -44 126
+-132 105 -239 -11 -63 -46 -113 -99 -143 -61 -34 -101 -40 -164 -21 -78 22
+-118 54 -151 116 -25 49 -27 62 -23 120 4 46 13 77 34 110 54 88 186 114 298
+57z"/>
+<path d="M3200 10710 c-47 -9 -97 -30 -142 -62 -14 -10 -33 -18 -41 -18 -30 0
+-172 -186 -183 -240 -3 -14 -11 -43 -19 -65 -41 -123 -43 -293 -4 -408 26 -77
+121 -221 164 -250 18 -12 52 -36 76 -52 119 -82 311 -122 434 -89 88 24 139
+27 181 14 27 -9 106 -82 304 -279 147 -146 371 -367 496 -490 126 -123 301
+-295 389 -382 88 -88 165 -159 172 -159 7 0 16 -6 20 -13 4 -6 28 -26 52 -42
+l44 -30 346 -5 c376 -5 376 -6 411 -63 19 -30 20 -53 20 -372 0 -252 3 -344
+12 -353 7 -7 26 -12 43 -12 26 0 45 14 108 79 42 43 98 96 124 117 57 45 70
+61 84 93 6 14 10 179 9 418 0 334 -2 398 -15 423 -33 64 -19 62 -531 66 -457
+3 -466 4 -510 26 -48 24 -195 156 -320 287 -114 120 -190 196 -274 277 -41 39
+-143 140 -227 225 -83 85 -213 215 -288 289 -75 74 -150 154 -167 177 -27 37
+-29 46 -24 90 29 212 13 356 -52 490 -38 77 -147 207 -185 219 -12 4 -41 20
+-64 36 -24 16 -62 36 -85 44 -51 18 -290 28 -358 14z m265 -379 c66 -26 72
+-31 102 -87 51 -92 42 -191 -23 -270 -50 -62 -90 -77 -192 -72 -69 4 -87 8
+-101 24 -9 11 -29 28 -44 38 -34 21 -77 114 -77 165 0 83 89 192 176 216 69
+19 81 18 159 -14z"/>
+</g></svg>
+    </div>
+    <span class="footer-logo-text"><span class="sd-sy">Sy</span><span class="sd-dent">Dent</span></span>
+  </a>
+  <span class="footer-copy">© 2026 SyDent — جميع الحقوق محفوظة</span>
+  <a href="privacy.html" class="footer-link">الخصوصية والشروط</a>
+  <span id="ftSupportWrap" style="position:relative" hidden>
+    <a id="ftSupportBtn" class="footer-link" href="#" role="button" aria-haspopup="true" aria-expanded="false">الدعم</a>
+    <div id="ftSupportPop" hidden>
+      <a id="ftSupportEmail" class="ft-sup-row" target="_blank" rel="noopener"></a>
+      <a id="ftSupportWa" class="ft-sup-row" target="_blank" rel="noopener"></a>
+    </div>
+  </span>
+  <a href="auth.html" class="footer-link">تسجيل الدخول</a>
+</footer>
+
+<style>
+#ftSupportPop{
+  position:absolute;bottom:calc(100% + 10px);inset-inline-start:50%;
+  transform:translateX(50%);min-width:210px;padding:10px;
+  background:var(--bg2);border:1px solid var(--border2);
+  border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.35);
+  display:flex;flex-direction:column;gap:6px;z-index:50;
+}
+#ftSupportPop[hidden]{display:none;}
+.ft-sup-row{
+  display:block;font-size:13px;font-weight:700;color:var(--text2);
+  text-decoration:none;padding:7px 10px;border-radius:8px;
+  direction:ltr;text-align:center;transition:color .2s,background .2s;
+}
+.ft-sup-row:hover{color:var(--green);background:rgba(var(--green-rgb),0.08);}
+</style>
+
+<script>
+// Public support contact (Migration 84) — anon read of the two whitelisted
+// platform_settings keys. One "الدعم" button → small popover showing the
+// email + WhatsApp number only. Fail-open: any error → stays hidden (#240).
+(function(){
+  function bindToggle(){
+    var btn = document.getElementById('ftSupportBtn');
+    var pop = document.getElementById('ftSupportPop');
+    if (!btn || !pop) return;
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      pop.hidden = !pop.hidden;
+      btn.setAttribute('aria-expanded', pop.hidden ? 'false' : 'true');
+    });
+    document.addEventListener('click', function(e){
+      if (pop.hidden) return;
+      var wrap = document.getElementById('ftSupportWrap');
+      if (wrap && !wrap.contains(e.target)) {
+        pop.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && !pop.hidden) {
+        pop.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+  async function loadSupportContact(){
+    var tries = 0;
+    while (!window.sb && tries < 30) {
+      await new Promise(function(r){ setTimeout(r, 100); });
+      tries++;
+    }
+    if (!window.sb) { console.warn('supportContact: sb unavailable'); return; }
+    try {
+      var res = await window.sb.from('platform_settings')
+        .select('key, value')
+        .in('key', ['support_email', 'support_phone']);
+      if (res.error) { console.warn('supportContact query error:', res.error); return; }
+      var map = {};
+      (res.data || []).forEach(function(r){ map[r.key] = (r.value || '').trim(); });
+      var any = false;
+      var em = document.getElementById('ftSupportEmail');
+      if (em && map.support_email) {
+        em.href = 'mailto:' + map.support_email;
+        em.textContent = map.support_email;
+        any = true;
+      } else if (em) { em.hidden = true; }
+      var wa = document.getElementById('ftSupportWa');
+      // Mirrors normalize_phone semantics (#167): strip 00, then trunk 0 → 963.
+      var digits = (map.support_phone || '').replace(/[^0-9]/g, '');
+      if (digits.indexOf('00') === 0) digits = digits.slice(2);
+      if (digits.charAt(0) === '0') digits = '963' + digits.slice(1);
+      if (wa && digits) {
+        wa.href = 'https://wa.me/' + digits;
+        wa.textContent = '+' + digits;
+        any = true;
+      } else if (wa) { wa.hidden = true; }
+      if (any) {
+        var wrap = document.getElementById('ftSupportWrap');
+        if (wrap) wrap.hidden = false;
+        bindToggle();
+      }
+    } catch(e) { console.warn('supportContact exception:', e); }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadSupportContact);
+  } else {
+    loadSupportContact();
+  }
+})();
+</script>
+
+<script>
+// Phase 7.6F (Phase 7.6F: Unified Signup Flow): the in-page request form was
+// removed. All trial signup goes through auth.html (single source of truth).
+// The trader self-creates an auth.users row with their own password, then
+// admin reviews & accepts via admin.html. This eliminates:
+//   • The orphan trial_requests rows (no user_id) that the old landing flow created
+//   • The hardcoded password='0000' security flaw in admin.html accept()
+//   • The dual-form maintenance burden (landing form + auth.html register)
+// Landing.html is now pure marketing; the "جرّب مجاناً" CTA links to
+// auth.html?tab=register which auto-opens the registration tab.
+</script>
+
+<script>
+// ============================================================================
+// Phase X2.1 — Pricing section loader
+// ============================================================================
+// Reads subscription_plans live from Supabase and renders 3 pricing cards
+// (one per active plan). is_active=false plans are silently hidden — admin
+// can hide a plan from the public site by toggling the switch in
+// admin.html → ⚙️ إعدادات الخطط without touching code.
+//
+// Pricing cards render live from subscription_plans (single source of truth);
+// the auto-computed yearly savings badge was removed per owner request.
+//
+// Failure modes:
+//   • Supabase library missing            → fallback hardcoded card set
+//   • Query error / network failure       → error panel with retry hint
+//   • No active plans (all toggled off)   → friendly "no plans available" message
+//
+// CTA for every card points to auth.html?tab=register&plan=<code> so admin
+// can later use the ?plan= hint to pre-select an interest in the
+// onboarding flow (future Phase 7.6G).
+// ============================================================================
+(function(){
+  function escHtml(s){
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function fmtPrice(n){
+    if (n == null || isNaN(Number(n))) return '0';
+    try { return Number(n).toLocaleString('en-US'); }
+    catch(e) { return String(n); }
+  }
+  function renderError(msg){
+    var grid = document.getElementById('pricingGrid');
+    if (!grid) return;
+    grid.innerHTML = '<div class="pricing-error">' +
+      '⚠️ تعذّر تحميل الأسعار حالياً.' +
+      '<br>' + (msg ? escHtml(msg) : 'يرجى المحاولة لاحقاً.') +
+      '<br><br>للاستفسار: <a href="auth.html?tab=register" style="color:var(--green);text-decoration:underline;">سجّل اهتمامك</a> وسنتواصل معك.' +
+      '</div>';
+  }
+  function renderEmpty(){
+    var grid = document.getElementById('pricingGrid');
+    if (!grid) return;
+    grid.innerHTML = '<div class="pricing-error">' +
+      'لا توجد خطط متاحة حالياً.' +
+      '<br><br><a href="auth.html?tab=register" style="color:var(--green);text-decoration:underline;">تواصل معنا</a> لمعرفة المزيد.' +
+      '</div>';
+  }
+  // ---- Phase X13: billing-cycle state + helpers (public pricing) ----
+  var PRICING_PLANS = [];
+  var PRICING_CYCLE = 'yearly';
+  // Migration 104: three cadences, ordered by commitment length.
+  var CYCLE_ORDER = ['monthly', 'quarterly', 'yearly'];
+  function normCycle(c){
+    return c === 'yearly' ? 'yearly' : c === 'quarterly' ? 'quarterly' : 'monthly';
+  }
+  function cycleLabelAr(c){
+    var n = normCycle(c);
+    return n === 'yearly' ? 'سنوي' : n === 'quarterly' ? 'ربع سنوي' : 'شهري';
+  }
+  function cycleMonths(c){
+    var n = normCycle(c);
+    return n === 'yearly' ? 12 : n === 'quarterly' ? 3 : 1;
+  }
+  function cycleUnitAr(c){
+    var n = normCycle(c);
+    return n === 'yearly' ? 'سنة' : n === 'quarterly' ? '3 أشهر' : 'شهر';
+  }
+  // ── Migration 105: currency dimension (mirror admin/subscription contract) ──
+  var CURRENCY_ORDER = ['SYP', 'USD'];
+  var PRICING_CURR = 'SYP'; // default SYP — owner decision (local market first)
+  function normCurrency(c){ return (c === 'USD') ? 'USD' : 'SYP'; }
+  function currencyLabelAr(c){ return normCurrency(c) === 'USD' ? '$' : 'ل.س'; }
+  function planPriceForCycle(p, cycle, curr){
+    if (!p) return null; cycle = normCycle(cycle); curr = normCurrency(curr);
+    var d;
+    if (curr === 'USD') {
+      d = (cycle === 'yearly') ? p.price_yearly_usd
+        : (cycle === 'quarterly') ? p.price_quarterly_usd
+        : p.price_monthly_usd;
+    } else {
+      d = (cycle === 'yearly') ? p.price_yearly
+        : (cycle === 'quarterly') ? p.price_quarterly
+        : p.price_monthly;
+    }
+    var val = null;
+    if (d != null && !isNaN(Number(d))) {
+      val = Number(d);
+    } else if (curr === 'SYP' && p.price != null && !isNaN(Number(p.price))) {
+      // Legacy fallback: SYP + monthly/yearly only (pre-split price was SYP).
+      var dur = Number(p.duration_days);
+      var native = (isFinite(dur) && dur >= 182) ? 'yearly' : 'monthly';
+      if (native === cycle) val = Number(p.price);
+    }
+    // ── Migration 105-fix: ZERO IS NOT AN OFFER ────────────────────────────────
+    // The whole dynamic chain (currency toggle → cycle toggle → cards → buttons
+    // → modal guards → transitions) hangs off this single predicate. NULL always
+    // meant "this (cycle × currency) point is not offered"; 0 must mean exactly
+    // the same, otherwise one stale zero keeps a whole currency alive and renders
+    // "0 ل.س / شهر". Three sources produce that zero: a dedicated column left at
+    // 0, the invisible legacy `price` column (auto-synced to 0 when all SYP
+    // prices are cleared), and a plan created with price:0. One guard at the
+    // single return point neutralizes all three.
+    // The trial tier is unaffected: every caller either renders it through its
+    // own "مجاناً" branch, excludes it, or coerces null→0.
+    return (val != null && isFinite(val) && val > 0) ? val : null;
+  }
+  function cycleSavingsPct(p, cycle, curr){
+    if (!p) return 0;
+    var n = cycleMonths(cycle);
+    if (n <= 1) return 0;
+    curr = normCurrency(curr);
+    // Strictly in-currency comparison — never divide across currencies.
+    var pm = Number(planPriceForCycle(p, 'monthly', curr));
+    var pc = Number(planPriceForCycle(p, cycle, curr));
+    if (!isFinite(pm) || !isFinite(pc) || pm <= 0 || pc <= 0) return 0;
+    var full = pm * n; if (pc >= full) return 0;
+    var pct = Math.round((1 - pc / full) * 100);
+    return (pct > 0 && pct < 100) ? pct : 0;
+  }
+  function annualSavingsPct(p){ return cycleSavingsPct(p, 'yearly'); }
+  // Cycle-aware subtitle with fallback to the base one (Migrations 83/104).
+  function planSubtitleForCycle(p, cycle){
+    if (!p) return '';
+    var n = normCycle(cycle);
+    var pick = (n === 'yearly') ? p.subtitle_yearly
+             : (n === 'quarterly') ? p.subtitle_quarterly
+             : null;
+    return (pick && String(pick).trim()) ? pick : (p.subtitle || '');
+  }
+  window.setPricingCycle = function(cycle){
+    PRICING_CYCLE = normCycle(cycle);
+    renderPricingToggle();
+    renderPricingCards();
+  };
+  // Migration 104: N-way cadence switch (was a hardcoded monthly/yearly pair).
+  // A cadence shows up only when at least one active paid tier prices it; each
+  // button carries its own best savings badge; fewer than two cadences hides
+  // the control and snaps PRICING_CYCLE to the only one on offer.
+  // Migration 105: currencies actually on offer (≥1 active paid tier prices
+  // ≥1 cycle in that currency) — same availability contract as cadences.
+  function availableCurrencies(){
+    return CURRENCY_ORDER.filter(function(cu){
+      return PRICING_PLANS.some(function(p){
+        if (!p || p.is_active === false || p.code === 'trial') return false;
+        return CYCLE_ORDER.some(function(cyc){ return planPriceForCycle(p, cyc, cu) != null; });
+      });
+    });
+  }
+  window.setPricingCurrency = function(curr){
+    PRICING_CURR = normCurrency(curr);
+    renderPricingToggle();
+    renderPricingCards();
+  };
+  function renderPricingToggle(){
+    var el = document.getElementById('pricingCycleToggle');
+    if (!el) return;
+    // Currency first — cadence availability is derived WITHIN the selected one.
+    var currAvail = availableCurrencies();
+    if (currAvail.length === 0) { el.innerHTML = ''; el.style.display = 'none'; return; }
+    if (currAvail.indexOf(normCurrency(PRICING_CURR)) === -1) PRICING_CURR = currAvail[0];
+    var curr = normCurrency(PRICING_CURR);
+
+    var avail = [], best = {};
+    CYCLE_ORDER.forEach(function(cyc){
+      var any = false, b = 0;
+      PRICING_PLANS.forEach(function(p){
+        if (!p || p.is_active === false || p.code === 'trial') return;
+        if (planPriceForCycle(p, cyc, curr) == null) return;
+        any = true;
+        var s = cycleSavingsPct(p, cyc, curr); if (s > b) best[cyc] = b = s;
+      });
+      if (any) avail.push(cyc);
+    });
+    if (avail.length === 1) PRICING_CYCLE = avail[0];
+    if (avail.length && avail.indexOf(normCycle(PRICING_CYCLE)) === -1) PRICING_CYCLE = avail[avail.length - 1];
+
+    var cycleHtml = (avail.length < 2) ? '' :
+      '<div class="pricing-cycle-toggle">' +
+        avail.map(function(cyc){
+          var sv = best[cyc] || 0;
+          var badge = sv > 0 ? ' <span class="pricing-cycle-save">وفّر ~' + sv + '%</span>' : '';
+          return '<button type="button" class="pricing-cycle-opt' + (normCycle(PRICING_CYCLE) === cyc ? ' active' : '') +
+                 '" onclick="window.setPricingCycle(\'' + cyc + '\')">' + cycleLabelAr(cyc) + badge + '</button>';
+        }).join('') +
+      '</div>';
+    var currHtml = (currAvail.length < 2) ? '' :
+      '<div class="pricing-cycle-toggle pricing-curr-toggle">' +
+        currAvail.map(function(cu){
+          return '<button type="button" class="pricing-cycle-opt' + (curr === cu ? ' active' : '') +
+                 '" onclick="window.setPricingCurrency(\'' + cu + '\')">' +
+                 (cu === 'USD' ? 'دولار $' : 'ليرة ل.س') + '</button>';
+        }).join('') +
+      '</div>';
+
+    if (!cycleHtml && !currHtml) { el.innerHTML = ''; el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.innerHTML = cycleHtml + (cycleHtml && currHtml ? '<br>' : '') + currHtml;
+  }
+  function renderPlans(plans){
+    PRICING_PLANS = (plans || []).slice();
+    if (!PRICING_PLANS.length) { renderEmpty(); return; }
+    renderPricingToggle();
+    renderPricingCards();
+  }
+  // ── Feature list model (JSONB, no migration) ──────────────────────────────
+  // An item is EITHER a plain string (visible — the legacy shape every existing
+  // row uses) OR { t: 'text', h: true } for a feature the operator has hidden
+  // without deleting it. Order in the array is the display order. Both readers
+  // below are a byte-identical MIRROR across admin.html / subscription.html /
+  // landing.html and are enforced by scripts/check-mirrors.js (Rule #211) — any
+  // semantic change must be applied to all three copies.
+  function planFeatureItems(raw) {
+    var arr = Array.isArray(raw) ? raw : [];
+    var out = [];
+    for (var i = 0; i < arr.length; i++) {
+      var f = arr[i];
+      if (f && typeof f === 'object' && !Array.isArray(f)) {
+        out.push({ text: String(f.t == null ? '' : f.t), hidden: (f.h === true) });
+      } else {
+        out.push({ text: String(f == null ? '' : f), hidden: false });
+      }
+    }
+    return out;
+  }
+
+  function planVisibleFeatures(raw) {
+    var items = planFeatureItems(raw);
+    var out = [];
+    for (var i = 0; i < items.length; i++) {
+      if (!items[i].hidden && items[i].text.trim() !== '') out.push(items[i].text);
+    }
+    return out;
+  }
+
+  function renderPricingCards(){
+    var grid = document.getElementById('pricingGrid');
+    if (!grid) return;
+    var cycle = normCycle(PRICING_CYCLE);
+    var vcurr = normCurrency(PRICING_CURR); // Migration 105
+    // Sort by sort_order ascending, then by code as tie-breaker.
+    var plans = PRICING_PLANS.slice().sort(function(a,b){
+      var sa = a.sort_order == null ? 999 : Number(a.sort_order);
+      var sb = b.sort_order == null ? 999 : Number(b.sort_order);
+      if (sa !== sb) return sa - sb;
+      return String(a.code || '').localeCompare(String(b.code || ''));
+    });
+    var html = '';
+    plans.forEach(function(p){
+      if (p.is_active === false) return; // skip inactive — admin hid it
+      var name = escHtml(p.display_name || p.code || '—');
+      var iconStr = (p.icon && String(p.icon).trim()) ? (escHtml(p.icon) + ' ') : '';
+      var curr = escHtml(currencyLabelAr(vcurr)); // Migration 105: unit follows the toggle
+      // Migrations 83/104: cycle-aware subtitle — the selected cadence prefers its
+      // own subtitle column, falling back to the base subtitle when NULL/blank.
+      var subRaw = planSubtitleForCycle(p, cycle);
+      var subtitle = (subRaw && String(subRaw).trim()) ? escHtml(subRaw) : '';
+
+      // ---- price row + period (cycle-aware) ----
+      var priceRowHtml, periodHtml;
+      if (p.code === 'trial') {
+        priceRowHtml = '<div class="pricing-card-price-row"><span class="pricing-card-price">مجاناً</span></div>';
+        var durT = (p.duration_days == null ? '—' : Number(p.duration_days));
+        periodHtml = '<div class="pricing-card-period">' +
+          ((p.price_period_label && String(p.price_period_label).trim()) ? escHtml(p.price_period_label) : ('لمدة ' + durT + ' يوم')) + '</div>';
+      } else {
+        var cp = planPriceForCycle(p, cycle, vcurr);
+        if (cp == null) {
+          priceRowHtml = '<div class="pricing-card-price-row"><span class="pricing-card-price" style="font-size:22px;">—</span></div>';
+          periodHtml = '<div class="pricing-card-period">غير متاح (' + cycleLabelAr(cycle) + ' · ' + escHtml(currencyLabelAr(vcurr)) + ')</div>';
+        } else if (cycleMonths(cycle) > 1) {
+          // Multi-month cadence (quarterly / yearly): period price + savings
+          // badge + per-month equivalent, so the visitor never does the math.
+          var sv = cycleSavingsPct(p, cycle, vcurr);
+          var svBadge = sv > 0 ? '<span class="pricing-card-save">وفّر ~' + sv + '%</span>' : '';
+          var perMo = (vcurr === 'USD') ? Math.round(cp / cycleMonths(cycle) * 100) / 100
+                                        : Math.round(cp / cycleMonths(cycle));
+          priceRowHtml = '<div class="pricing-card-price-row"><span class="pricing-card-price">' + fmtPrice(cp) + '</span><span class="pricing-card-currency">' + curr + ' / ' + escHtml(cycleUnitAr(cycle)) + '</span>' + svBadge + '</div>';
+          periodHtml = '<div class="pricing-card-period">≈ ' + fmtPrice(perMo) + ' ' + curr + ' / شهر</div>';
+        } else {
+          priceRowHtml = '<div class="pricing-card-price-row"><span class="pricing-card-price">' + fmtPrice(cp) + '</span><span class="pricing-card-currency">' + curr + ' / شهر</span></div>';
+          periodHtml = '<div class="pricing-card-period">يُدفع شهرياً</div>';
+        }
+      }
+
+      // Limits chips — from the enforced max_employees / max_patients.
+      var limits = '';
+      if (p.max_employees != null && !isNaN(Number(p.max_employees))) {
+        limits += '<span class="pricing-card-limit">👥 ' + (Number(p.max_employees) === 0 ? 'بلا موظفين إضافيين' : 'حتى ' + Number(p.max_employees) + ' موظف') + '</span>';
+      } else {
+        limits += '<span class="pricing-card-limit">👥 موظفون بلا حدود</span>';
+      }
+      if (p.max_patients != null && !isNaN(Number(p.max_patients))) {
+        limits += '<span class="pricing-card-limit">🦷 حتى ' + Number(p.max_patients) + ' مريض</span>';
+      } else {
+        limits += '<span class="pricing-card-limit">🦷 مرضى بلا حدود</span>';
+      }
+      // Features.
+      var feats = planVisibleFeatures(p.features);
+      var featsHtml = '';
+      feats.forEach(function(f){
+        featsHtml += '<li class="pricing-feature">' + escHtml(String(f)) + '</li>';
+      });
+      // CTA: trial uses primary green, paid plans use outline (paid signup
+      // still routes through trial — admin converts after acceptance).
+      var ctaClass = (p.code === 'trial') ? 'pricing-cta' : 'pricing-cta pricing-cta-outline';
+      var ctaLabel = (p.code === 'trial') ? 'ابدأ تجربتك المجانية ←' : 'سجّل اهتمامك ←';
+      var ctaHref = 'auth.html?tab=register&plan=' + encodeURIComponent(p.code);
+      var isFeatured = (p.is_featured === true);
+      var featuredBadge = isFeatured
+        ? '<div class="pricing-card-featured-badge">' + (escHtml(p.featured_label || '') || 'الأكثر شعبية') + '</div>'
+        : '';
+      html +=
+        '<div class="pricing-card' + (isFeatured ? ' featured' : '') + '">' +
+          featuredBadge +
+          '<div class="pricing-card-name">' + iconStr + name + '</div>' +
+          (subtitle ? '<div class="pricing-card-tagline">' + subtitle + '</div>' : '') +
+          priceRowHtml +
+          periodHtml +
+          '<div class="pricing-card-limits">' + limits + '</div>' +
+          '<ul class="pricing-features">' + featsHtml + '</ul>' +
+          '<a href="' + ctaHref + '" class="' + ctaClass + '">' + ctaLabel + '</a>' +
+        '</div>';
+    });
+    if (!html) { renderEmpty(); return; }
+    grid.innerHTML = html;
+  }
+  async function loadPricing(){
+    // Wait briefly for supabase-init.js to set window.sb.
+    var tries = 0;
+    while (!window.sb && tries < 30) {
+      await new Promise(function(r){ setTimeout(r, 100); });
+      tries++;
+    }
+    if (!window.sb) {
+      renderError('فشل تحميل مكتبة الاتصال.');
+      return;
+    }
+    try {
+      var res = await window.sb.from('subscription_plans')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (res.error) {
+        console.warn('loadPricing query error:', res.error);
+        renderError(res.error.message || '');
+        return;
+      }
+      renderPlans(res.data || []);
+    } catch(e) {
+      console.warn('loadPricing exception:', e);
+      renderError(e && e.message ? e.message : String(e));
+    }
+  }
+  // Kick off after DOM ready (the section element must exist before we render).
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadPricing);
+  } else {
+    loadPricing();
+  }
+})();
+</script>
+
+<script>
+// Pull-to-refresh
+(function(){
+  if(!('ontouchstart' in window)) return;
+  var s=document.createElement('style');
+  s.textContent='.ptr-bar{width:100%;overflow:hidden;height:0;display:flex;align-items:center;justify-content:center;gap:8px;background:#0a1628;font-size:13px;font-weight:700;color:var(--green);font-family:"Cairo",sans-serif;transition:height .25s ease;border-bottom:1px solid transparent;position:fixed;top:0;left:0;right:0;z-index:999;}.ptr-bar.show{height:44px;border-bottom-color:rgba(var(--green-rgb),0.2);}.ptr-ring{width:15px;height:15px;border:2px solid rgba(var(--green-rgb),0.25);border-top-color:var(--green);border-radius:50%;flex-shrink:0;}.ptr-bar.spin .ptr-ring{animation:ptrSpin .65s linear infinite;}@keyframes ptrSpin{to{transform:rotate(360deg);}}';
+  document.head.appendChild(s);
+  var bar=document.createElement('div');
+  bar.id='ptrBar';bar.className='ptr-bar';
+  bar.innerHTML='<div class="ptr-ring" id="ptrRing"></div><span id="ptrLabel">↓ اسحب للتحديث</span>';
+  document.body.insertBefore(bar,document.body.firstChild);
+  var THRESHOLD=65,MAX=95,sy=0,cy=0,active=false;
+  function b(){return document.getElementById('ptrBar');}
+  function r(){return document.getElementById('ptrRing');}
+  function l(){return document.getElementById('ptrLabel');}
+  function setState(st,pull){
+    var bv=b(),rv=r(),lv=l();if(!bv)return;
+    if(st==='hide'){bv.className='ptr-bar';}
+    else if(st==='pull'){bv.className='ptr-bar show';rv.style.animation='none';rv.style.transform='rotate('+Math.round((pull/THRESHOLD)*270)+'deg)';lv.textContent=pull>=THRESHOLD?'↑ أفلت للتحديث':'↓ اسحب للتحديث';}
+    else if(st==='spin'){bv.className='ptr-bar show spin';rv.style.transform='';rv.style.animation='';lv.textContent='جارٍ التحديث…';}
+    else if(st==='done'){bv.className='ptr-bar show';rv.style.animation='none';lv.textContent='✓ تم التحديث';}
+  }
+  document.addEventListener('touchstart',function(e){if(window.scrollY>0)return;sy=cy=e.touches[0].clientY;active=true;},{passive:true});
+  document.addEventListener('touchmove',function(e){if(!active)return;if(window.scrollY>0){active=false;setState('hide');return;}cy=e.touches[0].clientY;var pull=Math.min(Math.max(0,cy-sy)*0.55,MAX);if(pull>4)setState('pull',pull);else setState('hide');},{passive:true});
+  document.addEventListener('touchend',function(){if(!active)return;active=false;var pull=Math.min(Math.max(0,cy-sy)*0.55,MAX);if(pull>=THRESHOLD){setState('spin');setTimeout(function(){window.location.reload();},800);}else{setState('hide');}cy=0;});
+})();
+</script>
+
+<script>
+/* Mount theme toggle into navbar. Runs after DOMContentLoaded for safety. */
+(function(){
+  function mount(){
+    if (window.SyDentTheme && typeof window.SyDentTheme.mount === 'function') {
+      window.SyDentTheme.mount('#themeToggleMount');
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', mount, { once: true });
+  } else { mount(); }
+})();
+</script>
+
+</body>
+</html>

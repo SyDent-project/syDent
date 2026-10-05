@@ -1,0 +1,148 @@
+# ════════════════════════════════════════════════════════════════════════
+# SyDent — ci-guards.yml  ·  بوابة الجودة (الحُرّاس + E2E على كل push إلى main)
+# ════════════════════════════════════════════════════════════════════════
+# الغاية
+#   يشغّل scripts/validate.sh (الحُرّاس السبعة عشر: JS · DIV · CDN · أسرار ·
+#   مرايا · حارس PWA · المنطق الحرج/FIFO · XSS · SW · الكتالوج · data-test ·
+#   بوابة الخطط · النطاقات · البطاقة التجريبية · نطاق القوالب ·
+#   وسم العملة بالكتابة · الجمع القرائي عابر العملات) تلقائياً على GitHub،
+#   فما عاد وصولُ
+#   كودٍ سليم للإنتاج يعتمد على تذكّر المطوّر تشغيلَ الحُرّاس محلياً.
+#
+# ليش مهم
+#   Cloudflare Pages يَنشُر تلقائياً من main. commit واحد فيه غلط FIFO/مالي بلا
+#   تشغيل الحُرّاس محلياً كان ينزل مباشرةً لعيادات تتعامل بفلوس. هذا الـ job
+#   يجعل الفشل مرئياً فوراً على كل push و PR (job: guards)، ويمنع النشر فعلياً
+#   عبر ترقية فرع release فقط عند الخضار (job: promote — الخطوة 1.2 أدناه).
+#   Cloudflare Pages يُضبط ليراقب release بدل main.
+#
+# متطلبات التشغيل
+#   • Node 22  → setup-node. الحُرّاس تستعمل fs/path/vm (built-in) فقط،
+#                باستثناء حارس النطاقات (check-scopes.js) الذي يحتاج محلّلاً
+#                نحوياً حقيقياً — acorn، تبعية تطويرٍ وحيدة تُثبَّت بـ--no-save
+#                ولا تصل المتصفّح أبداً (Cloudflare يخدم ملفات ثابتة فقط).
+#                أُضيفت 5 آب 2026 بعد أن وصل باغُ «متغيّر خارج النطاق» إلى
+#                المستخدم مرّتين: node --check يمرّره لأنه سليمٌ نحوياً،
+#                والحُرّاس النصّية ترى النصّ لا النطاق.
+#   • python3  → مثبّت مسبقاً على ubuntu-latest (يلزم check-divs.py).
+#   • git      → checkout. الحُرّاس تحتاج git rev-parse + git ls-files فقط،
+#                وكلاهما يعمل مع نسخة ضحلة (depth:1 الافتراضي) — لا حاجة
+#                لكامل التاريخ (scan-secrets --all يمشي على git ls-files لا الـ diff).
+# ════════════════════════════════════════════════════════════════════════
+name: ci-guards
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+# الافتراضي: قراءة فقط. job الحُرّاس لا يكتب شيئاً؛ job الترقية (promote)
+# يرفعها إلى contents: write عنده حصراً (الخطوة 1.2 — بوابة النشر عبر release).
+permissions:
+  contents: read
+
+# لو انهال دفعُ عدّة commits بسرعة، يكفي فحص الأحدث — نُلغي القديم توفيراً.
+concurrency:
+  group: ci-guards-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guards:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (نسخة ضحلة — depth:1 الافتراضي يكفي الحُرّاس)
+        uses: actions/checkout@v5
+
+      - name: Setup Node 22 (الحُرّاس built-in — عدا محلّل النطاقات)
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      # التبعية الوحيدة بالمشروع كلّه: محلّلٌ نحويّ لحارس النطاقات.
+      # --no-save فلا package.json ولا lockfile ولا تلوّث للمستودع، وacorn
+      # أداةُ بناءٍ صرفة لا تصل المتصفّح (Cloudflare يخدم ملفات ثابتة فقط).
+      # عند تعذّر التثبيت يتخطّى الحارسُ نفسه بوضوح (⏭️) ولا يُسقِط البوابة.
+      - name: تثبيت acorn (حارس النطاقات)
+        run: npm install acorn --no-save --no-audit --no-fund
+
+      - name: نسخة الأدوات (توثيق تشخيصي عند الفشل)
+        run: node --version && python3 --version && node -e "require('acorn');console.log('acorn ✓')"
+
+      - name: تشغيل حُرّاس الجودة (validate.sh)
+        run: bash scripts/validate.sh
+
+  # ══════════════════════════════════════════════════════════════════════
+  # e2e — اختبارات Playwright ضد مستأجر الاختبار (جلسة ب٣ — المرحلة ١)
+  # ══════════════════════════════════════════════════════════════════════
+  # ⛔ بوابة نافذة (المرحلة ٢، قُلبت 26 تموز 2026): promote أدناه صار
+  # يشترط نجاح هذا الـ job ⇒ فشل E2E **يمنع** ترقية release، فلا يصل الكود
+  # إلى sydent.app. الأدلة قبل القلب: خمس تشغيلات خضر متتالية بسياق البوابة
+  # (#69→#73) واشتراك مستأجر الاختبار Max/سنوي بـ364 يوماً متبقياً.
+  #
+  # صمّام الطوارئ: لو حجب فشلٌ **غير متعلّق بالكود** (تعثّر Supabase مثلاً)
+  # نشرةً عاجلة، ينشر المالك يدوياً بأمر واحد: `git push origin main:release`.
+  # البوابة تحجب المسار الآلي لا صلاحية المالك على الفرع.
+  #
+  # لماذا push فقط (لا PR): أسرار المستودع غير متاحة لتشغيلات الـ PR من
+  # forks، فتشغيله هناك = فشل كاذب حتمي يلوّث الملخص.
+  #
+  # concurrency: مجموعة e2e-tenant **مشتركة مع e2e-smoke.yml** — المستأجر
+  # واحد («عيادة E2E الآلية»)، فأي تشغيلتين تتسلسلان ولا تتصادمان أبداً.
+  # cancel-in-progress: false عمداً: قطع تشغيلة وسط عملها يمنع كنسها الذاتي
+  # (sweep('after'))؛ وحتى لو حدث انقطاع خارجي، sweep('before') بالتشغيلة
+  # التالية يكنس بقايا البادئة E2E- بالتصميم.
+  #
+  # الخطوات نفسها تعيش في .github/actions/e2e-run (مصدر الحقيقة الوحيد
+  # المشترك مع e2e-smoke) — لا مرآة خطوات هنا لتصدأ.
+  # ══════════════════════════════════════════════════════════════════════
+  e2e:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: e2e-tenant
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: "تشغيل E2E (المصدر الوحيد: .github/actions/e2e-run)"
+        uses: ./.github/actions/e2e-run
+        with:
+          e2e-email: ${{ secrets.E2E_EMAIL }}
+          e2e-supabase-secret-key: ${{ secrets.E2E_SUPABASE_SECRET_KEY }}
+
+  # ══════════════════════════════════════════════════════════════════════
+  # promote — بوابة النشر (الخطوة 1.2)
+  # ══════════════════════════════════════════════════════════════════════
+  # يرقّي فرع release إلى main، لكن فقط:
+  #   • بعد نجاح job الحُرّاس **و**job الاختبارات معاً — لو فشل أيٌّ منهما
+  #     يُتخطّى هذا الـ job فلا يتحرّك release، وبالتالي Cloudflare لا ينشر
+  #     شيئاً. (E2E أُضيف شرطاً في 26 تموز 2026 — المرحلة ٢ من ب٣.)
+  #     ملاحظة دلالية: شرط `if` لـ e2e مطابق لشرط promote حرفياً، فلا يقع
+  #     تخطٍّ غير مقصود — على PR يُتخطّى الاثنان معاً، وعلى push إلى main
+  #     يعملان معاً.
+  #   • على push إلى main فقط (ليس PR).
+  # Cloudflare Pages يُضبط ليراقب فرع release (بدل main). فيصبح شرط النشر
+  # على sydent.app = «مرّ من الحُرّاس». أي commit مكسور يقف هنا ولا يصل الإنتاج.
+  #
+  # لماذا fast-forward فقط: git push origin main:release يفشل إن لم يكن ff،
+  # ولا نستخدم --force أبداً. release لا يتحرّك إلا عبر هذا الـ job (دائماً
+  # مجموعة فرعية من تاريخ main) فالـ ff مضمون؛ أي فشل = إشارة تستحق الفحص.
+  # ملاحظة: دفع GITHUB_TOKEN إلى release لا يُطلق تشغيلاً جديداً (لا حلقة)،
+  # وci-guards أصلاً لا يُطلق على push إلى release.
+  promote:
+    needs: [guards, e2e]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # لازم للدفع إلى فرع release (override للـ read أعلاه)
+    steps:
+      - name: Checkout main (تاريخ كامل — دفع ff نظيف إلى release)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: ترقية release ← main (fast-forward فقط؛ يفشل لو ليس ff — بلا force)
+        run: git push origin main:release

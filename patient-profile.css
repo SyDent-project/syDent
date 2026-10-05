@@ -1,0 +1,1180 @@
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a1628;--bg2:#0f2038;--bg3:#132840;
+  --border:rgba(var(--green-rgb),0.15);
+  --green:var(--green);--red:#ef5350;--yellow:#f5c842;
+  --blue:#63b3ed;--purple:#a78bfa;
+  --text:#e1f4ee;--text2:#8a9ab5;--radius:12px;
+}
+body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* ── Topbar ── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px;background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:20;gap:12px;
+}
+.back-btn{
+  display:flex;align-items:center;gap:6px;
+  background:transparent;border:1px solid var(--border);
+  color:var(--text2);padding:8px 16px;border-radius:10px;
+  font-family:'Cairo',sans-serif;font-size:13px;
+  cursor:pointer;text-decoration:none;transition:all .2s;
+}
+.back-btn:hover{border-color:var(--green);color:var(--green);}
+.topbar-actions{display:flex;gap:8px;}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 18px;border-radius:10px;
+  font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;border:none;transition:all .2s;
+}
+.btn-primary{background:var(--green);color:var(--bg);}
+.btn-primary:hover{background:var(--green2);}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2);}
+.btn-outline:hover{border-color:var(--green);color:var(--green);}
+.btn-sm{padding:7px 14px;font-size:12px;}
+
+/* ── Layout ── */
+.page{padding:24px 28px;max-width:1200px;margin:0 auto;}
+
+/* ── Header Card ── */
+.hcard{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--radius);padding:24px 28px;
+  margin-bottom:22px;
+  display:flex;align-items:center;gap:24px;
+}
+.avatar-xl{
+  width:72px;height:72px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;font-weight:800;color:#fff;flex-shrink:0;
+}
+.h-info{flex:1;min-width:0;}
+.h-name{font-size:24px;font-weight:800;margin-bottom:5px;}
+.avatar-seq{font-size:22px!important;letter-spacing:-1px;}
+.h-sub{font-size:13px;color:var(--text2);display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+/* M87: التحذيرات الطبية */
+.med-flag-tag{
+  display:inline-flex;align-items:center;gap:4px;
+  background:var(--red-bg);color:var(--red-ink);
+  border:1px solid var(--red-bd);
+  border-radius:20px;padding:2px 10px;font-size:12px;font-weight:800;
+}
+.med-flags-chips { display:flex; flex-wrap:wrap; gap:8px; }
+.mf-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 11px;
+  border:1px solid var(--border); border-radius:20px; font-size:12.5px; font-weight:700;
+  cursor:pointer; user-select:none; color:var(--text2); background:var(--bg2); width:auto; }
+.mf-chip.on { color:var(--red-ink); border-color:var(--red-bd); background:var(--red-bg); }
+.mf-chip.alg.on { color:var(--yellow-ink); border-color:var(--yellow-bd); background:var(--yellow-bg); }
+.allergy-tag{
+  display:inline-flex;align-items:center;gap:4px;
+  background:var(--yellow-bg);color:var(--yellow-ink);
+  border:1px solid var(--yellow-bd);
+  border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700;
+}
+/* DeepCode #2 (v550): شريطُ التنبيه الطبي الثابت — شريطٌ كامل العرض يلصق تحت الشريط العلوي اللاصق
+   (--pp-tb-h يُقاس حيّاً). سطرٌ واحد مقصوص على الشاشات الضيقة، والنقرُ يفتحه كاملاً. */
+.pp-med-alert{position:sticky;top:var(--pp-tb-h,66px);z-index:19;display:flex;flex-wrap:nowrap;align-items:center;gap:8px;min-width:0;
+  background:linear-gradient(var(--red-bg),var(--red-bg)),var(--bg);   /* معتمٌ فوق --bg: --red-bg شفّافٌ بالداكن فكان المحتوى يظهر من تحته */
+  border-bottom:1px solid var(--red-bd);padding:7px 28px;cursor:pointer;}
+.pp-med-alert[hidden]{display:none;}
+.pma-seg{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px;font-weight:800;line-height:1.6;}
+.pma-warn{flex:0 1 auto;color:var(--red-ink);}
+.pma-alg{flex:0 1 auto;color:var(--yellow-ink);background:var(--yellow-bg);border:1px solid var(--yellow-bd);border-radius:20px;padding:1px 10px;}
+.pp-med-alert.open{flex-wrap:wrap;}
+.pp-med-alert.open .pma-seg{white-space:normal;overflow:visible;}
+/* الموبايل: أزرارُ الشريط العلوي تلتفّ لثلاثة صفوف (~250px) — لصقُها كان يأكل ثلثَ الشاشة.
+   يتمرّر الشريطُ العلوي مع الصفحة، ويبقى التنبيهُ الطبي وحده لاصقاً بأعلى الشاشة. */
+@media(max-width:820px){
+  .topbar{position:static;}
+  .pp-med-alert{top:0;padding:7px 16px;}
+}
+/* DeepCode #16 (v550): هيكلُ التحميل — لا تُعرض قيمةٌ قبل وصولها (لا «0» ولا «—» ولا «لا يوجد» مؤقتة) */
+.pp-loading .h-name,.pp-loading .stat-val,.pp-loading #tab-file .ival{
+  color:transparent !important;background:var(--bg3);border-radius:6px;animation:ppSkel 1.2s ease-in-out infinite;}
+.pp-loading .h-name{display:inline-block;min-width:180px;}
+.pp-loading #tab-file .ival{display:inline-block;min-width:90px;}
+.pp-loading .stat-box .stat-val{background:var(--border2);}
+.pp-loading #iPhoneWarn{display:none !important;}
+.pp-loading #tab-file .ival.pp-msg{color:var(--yellow-ink) !important;background:none;animation:none;}   /* v567: رسالةُ التأخر تُقرأ فوق الهيكل */
+@keyframes ppSkel{50%{opacity:.45;}}
+.stats-row{display:flex;gap:16px;margin-right:auto;}
+.stat-box{background:var(--bg3);border-radius:10px;padding:14px 22px;text-align:center;min-width:120px;}
+.stat-val{font-size:20px;font-weight:800;margin-bottom:3px;}
+.stat-val.green{color:var(--green);}
+.stat-val.red{color:var(--red);}
+.stat-val.yellow{color:var(--yellow);}
+.stat-val.blue{color:var(--blue);}
+.stat-lbl{font-size:11px;color:var(--text2);}
+
+/* ── Tabs ── */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:22px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:5px;max-width:100%;}
+.tabs::-webkit-scrollbar{display:none;width:0;height:0;}
+.tab{padding:9px 15px;border:none;border-radius:10px;font-family:'Cairo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;background:transparent;color:var(--text2);transition:all .2s;white-space:nowrap;flex-shrink:0;}
+.tab.active{background:var(--green);color:var(--bg);}
+.panel{display:none;}
+.panel.active{display:block;}
+
+/* ── Two Column ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
+/* بطاقة «آخر الجلسات» تملأ ارتفاع بطاقة «معلومات المريض» المجاورة بدل الفراغ السفلي:
+   grid stretch يعطي البطاقتين نفس الارتفاع، والقائمة flex:1 + سكرول داخلي.
+   min-height:0 مقصود — حاوية السكرول لا تساهم بالارتفاع الجوهري فلا تدفع صف الشبكة للتمدد. */
+#recentSessCard{display:flex;flex-direction:column;}
+#recentSessCard>.card-head{flex:none;}
+#recentSessCard #recentSessionsList{flex:1 1 0;min-height:0;overflow-x:hidden;overflow-y:auto;}
+/* لا سكرول عرضي: عناصر الـflex داخل الصف min-width الافتراضي auto فلا تتقلّص دون
+   عرض محتواها، والوصف الطويل (السطوح/الجذور) كان يمدّ العرض. min-width:0 يسمح
+   للنص باللف سطرين بدل أن يدفع البطاقة؛ overflow-x:hidden حارس أخير. */
+#recentSessCard #recentSessionsList .irow>div,
+#recentSessCard #recentSessionsList .irow>div>span{min-width:0;}
+
+/* ── Card ── */
+/* No overflow:hidden — would clip hover-tooltips on the last row of a table.
+   border-radius on the .card alone is enough to round corners; the only
+   element that could overflow visually is .card-head's background, which
+   is contained by its own bounds (it doesn't extend past the card). */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-card);}
+/* بطاقات بارزة (ظل theme-aware عبر --shadow-card) + فواصل رأسية واضحة بين بطاقات تبويبي الملف والحسابات — الأصل .card بلا margin-bottom فكانت تلتصق فوق بعض */
+#familyCard,#plannedApptsCard,#implantsCard,#adjustmentsCard,#paymentPlanCard{margin-bottom:20px;}
+/* بطاقة التسويات تلي شريط الأرصدة مباشرة، وبطاقة كشف المدفوعات فوقها بلا هوية
+   وبلا margin — فكانت تلتصق بها بلا فاصل فتُقرأ امتداداً للكشف لا قسماً مستقلاً. */
+#adjustmentsCard{margin-top:20px;}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);background:rgba(var(--green-rgb),0.03);border-top-left-radius:var(--radius);border-top-right-radius:var(--radius);}
+.card-title{font-size:14px;font-weight:700;color:var(--green);}
+.irow{display:flex;justify-content:space-between;align-items:center;padding:11px 20px;border-bottom:1px solid var(--border);font-size:13px;}
+.irow:last-child{border-bottom:none;}
+.ikey{color:var(--text2);}
+.ival{font-weight:600;}
+
+/* ── Tooth Chart ── */
+.chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:20px;overflow:visible;box-shadow:var(--shadow-card);}
+.chart-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.chart-card-title{font-size:14px;font-weight:700;color:var(--green);}
+
+.jaw-wrap{overflow-x:auto;overflow-y:visible;padding:24px 0;margin:-8px 0;scrollbar-width:none;-ms-overflow-style:none;}/* 24px paint room: hover scale(1.12) + badges at ±7px no longer clip (overflow-x forces computed overflow-y:auto); -8px margin keeps net layout identical to the old 16px */
+.jaw-wrap::-webkit-scrollbar{display:none;width:0;height:0;}
+/* v392: light theme — the arches sit on a slightly darker panel (theme --bg3) so the ivory crowns read against it, as they do on the dark theme. Dark keeps the card background. */
+:root[data-theme="light"] .jaw-wrap{background:var(--bg3);border-radius:14px;padding:24px 12px;}
+/* v286: on light the enamel (#faf4e2/#e8d5b0) sat on a near-white card (1.02:1) — the teeth
+   dissolved. A cool slate behind the jaws separates the warm enamel by hue and by
+   luminance (1.5:1 vs the highlight); tooth numbers go to full text colour on it. */
+/* v287 (competitor review: Dentrix/Curve/Dentally/CareStack): light charts sit on white —
+   the tooth carries its own separation (shadow + outline), the background stays quiet.
+   The v286 slate background was the wrong lever and is gone. */
+:root[data-theme="light"] .tooth-shape{filter:drop-shadow(0 1.5px 2.5px rgba(16,42,67,.34)) drop-shadow(0 0 1px rgba(16,42,67,.22));}
+:root[data-theme="light"] .tooth-cell:hover .tooth-shape{filter:drop-shadow(0 0 4px var(--green));}
+/* default enamel outline (#b8956a is the '' stroke in rebuildToothMaps) one step darker on white */
+:root[data-theme="light"] .tooth-shape [stroke="#b8956a"]{stroke:#8f7350;}
+:root[data-theme="light"] .tooth-num{color:var(--text);}
+:root[data-theme="light"] .leg{color:var(--text);}
+/* On mouse/trackpad devices (NOT touch — pointer:fine + hover:hover excludes
+   phones/tablets, so mobile's hidden-scrollbar swipe behavior is untouched),
+   reveal a slim scrollbar ONLY when the chart actually overflows. This makes
+   the existing .jaw-wrap horizontal scroll (already there for tooth 18/48 on
+   narrow laptop viewports) discoverable for mouse users, without touching
+   cellWidth/buildTooth geometry or mobile behavior at all. */
+@media (hover:hover) and (pointer:fine){
+  .jaw-wrap{scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
+  .jaw-wrap::-webkit-scrollbar{display:block;width:auto;height:7px;}
+  .jaw-wrap::-webkit-scrollbar-track{background:transparent;}
+  .jaw-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
+  .jaw-wrap::-webkit-scrollbar-thumb:hover{background:var(--text2);}
+}
+/* ── Primary / mixed dentition ── */
+.jaw-wrap[data-dent="primary"] .jaw-row{gap:11px;}
+.jaw-wrap[data-dent="mixed"] .jaw-row{gap:7px;}
+.jaw-wrap[data-dent="mixed"] .tooth-num{cursor:pointer;text-decoration:underline dotted rgba(148,163,184,.55);text-underline-offset:2px;}
+.jaw-wrap[data-dent="mixed"] [data-tooth-cell]:hover .tooth-num,.jaw-wrap[data-dent="mixed"] [data-occ-cell]:hover .tooth-num{color:var(--green);text-decoration-color:var(--green);}
+.mix-hint{display:none;max-width:560px;margin:8px auto 0;text-align:center;font-size:12px;line-height:1.6;color:var(--text2);background:rgba(var(--green-rgb),.06);border:1px solid rgba(var(--green-rgb),.22);border-radius:10px;padding:8px 12px;}
+.mix-hint b{color:var(--green);}
+.chart-hint{font-size:12px;color:var(--text2);}
+.jaw-row{display:flex;justify-content:center;gap:4px;align-items:flex-end;width:max-content;margin:0 auto;min-width:100%;padding:0 12px;}
+.midline{width:2px;background:linear-gradient(to bottom,transparent,var(--border) 15%,var(--border) 85%,transparent);margin:0 6px;align-self:stretch;border-radius:2px;}
+.tooth-cell{display:flex;flex-direction:column;align-items:center;gap:1px;transition:transform .15s;position:relative;}
+.tooth-cell:hover{transform:scale(1.12);z-index:5;}
+.tooth-shape{
+  display:block;
+  overflow:visible;   /* allow the ortho archwire to overshoot into the gaps and connect */
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.15));
+  transition:filter .15s;
+}
+.ortho-banner{display:none;flex-wrap:wrap;gap:6px;justify-content:center;margin:0 auto 8px;width:max-content;max-width:100%;}
+.ortho-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;border:1px solid;border-radius:8px;padding:3px 10px;white-space:nowrap;}
+.tooth-cell:hover .tooth-shape{filter:drop-shadow(0 0 4px var(--green));}
+.tooth-shape .crown-surface,
+.tooth-shape .root-part{
+  cursor:pointer;
+  transition:stroke-width .12s, fill .15s, fill-opacity .15s;
+}
+.tooth-shape .crown-surface{stroke:transparent;stroke-width:0;}
+.tooth-shape .crown-surface:hover{stroke:var(--green);stroke-width:1.5;fill-opacity:0.35 !important;}
+.tooth-shape .root-part:hover{stroke:var(--green) !important;stroke-width:2 !important;}
+.tooth-shape .tooth-detail{pointer-events:none;}
+.tooth-shape .gum-line{pointer-events:none;}
+/* .tooth-tip is now just a hidden CONTENT SOURCE inside each cell. It is rendered
+   on screen via the #chartTip portal (below), appended to <body>, so it is never
+   clipped by the chart's horizontal scroll container (.jaw-wrap overflow-x:auto,
+   which forces overflow-y to auto and clips an absolutely-positioned tooltip). */
+.tooth-tip{ display:none; }
+.chart-tip{
+  position:fixed;z-index:99999;
+  background:#0a1628;color:#fff;padding:6px 10px;border-radius:8px;
+  font-size:11px;white-space:nowrap;pointer-events:none;
+  border:1px solid var(--green);box-shadow:0 6px 18px rgba(0,0,0,.45);
+  display:none;
+}
+.chart-tip::after{
+  content:'';position:absolute;left:var(--tip-arrow,50%);transform:translateX(-50%);
+  border:5px solid transparent;
+}
+.chart-tip.tip-above::after{top:100%;border-top-color:var(--green);}
+.chart-tip.tip-below::after{bottom:100%;border-bottom-color:var(--green);}
+.extract-slot:hover{background:rgba(var(--red-rgb),0.10)!important;border-color:rgba(var(--red-rgb),0.65)!important;}
+.extract-slot:hover .extract-plus{transform:scale(1.4);color:var(--red);}
+.bridge-bar{transition:opacity .15s;}
+.tip-row{display:flex;align-items:center;gap:6px;padding:2px 0;}
+.tip-row b{color:var(--green);font-weight:700;}
+.tip-dot{width:8px;height:8px;border-radius:2px;display:inline-block;}
+.tooth-num{font-size:10px;color:var(--text2);text-align:center;line-height:1.6;min-width:28px;font-weight:600;}
+/* Dedupe: in the combined ("all") view, the buccal cell already carries the tooth
+   number, so hide the occlusal copy. In "occ"-only view the attribute changes and
+   these re-appear. */
+.jaw-wrap[data-occview="all"] .row-occ .tooth-num{display:none;}
+/* Horizontal divider between the upper (maxillary) and lower (mandibular) arches.
+   Drawn as a top border on the FIRST LOWER row — NOT an absolutely-positioned
+   line on the empty .jaw-gap. The old line was only as wide as the viewport and
+   stayed put while the teeth scrolled horizontally on mobile, so it showed on one
+   side only. A border on the row spans exactly the teeth width and scrolls with
+   them. No text label. Per view: all/occ -> lowerOcc, buccal -> lowerJaw. */
+.jaw-gap{height:15px;margin:0;}
+#lowerOcc{border-top:1.5px solid var(--border2);padding-top:15px;}
+.jaw-wrap[data-occview="buc"] #lowerOcc{border-top-width:0;padding-top:0;}
+.jaw-wrap[data-occview="buc"] #lowerJaw{border-top:1.5px solid var(--border2);padding-top:15px;}
+.occ-cell{display:flex;flex-direction:column;align-items:center;gap:1px;position:relative;transition:transform .15s;}
+.occ-cell:hover{transform:scale(1.12);z-index:5;}
+.occ-cell:hover .tooth-shape{filter:drop-shadow(0 0 4px var(--green));}
+.hide-row{display:none!important;}
+.seg{display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.seg button{background:transparent;color:var(--text2);border:0;padding:6px 13px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;}
+.seg button.active{background:var(--green);color:#04222e;}
+.chart-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;justify-content:center;}
+.leg{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);}
+.leg-dot{width:12px;height:12px;border-radius:3px;}
+
+/* ── Table ── */
+.data-table{width:100%;border-collapse:collapse;}
+.data-table th{padding:11px 16px;font-size:12px;color:var(--text2);font-weight:600;text-align:right;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.12);white-space:nowrap;}
+.data-table td{padding:13px 16px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle;}   /* v286: was green@5% — invisible on both themes */
+.data-table tr:last-child td{border-bottom:none;}
+.data-table tr:hover td{background:rgba(var(--green-rgb),0.06);}
+/* v286 (owner, light screenshots): row rhythm on the light theme */
+:root[data-theme="light"] .data-table tbody tr:nth-child(even) td{background:color-mix(in srgb, var(--text) 3%, transparent);}
+:root[data-theme="light"] .data-table tr:hover td{background:rgba(var(--green-rgb),0.09);}
+:root[data-theme="light"] .data-table th{background:var(--bg3);border-bottom:1px solid var(--border2);}
+.tag{display:inline-block;padding:2px 9px;border:1px solid transparent;border-radius:20px;font-size:11px;font-weight:700;}
+.tag-blue{background:var(--blue-bg);color:var(--blue-fg);border-color:var(--blue-bd);}
+.tag-green{background:var(--green-bg);color:var(--green-fg);border-color:var(--green-bd);}
+.amount-red{color:var(--red);font-weight:700;}
+.amount-green{color:var(--green);font-weight:700;}
+/* طبقتا العملة تحت بعضهما لا بصفّ واحد: بطاقات الطبقتين كانت أشقّاء مسطّحين
+   داخل فلكس واحد فتسيل أرقام الليرة والدولار بخطّ واحد. كل طبقة صارت شبكة
+   مستقلة، وauto-fit تُعطي الطبقتين نفس عدد الأعمدة ونفس اللفّ حتماً لأن عدد
+   خاناتهما متساوٍ بالبناء (اتحاد الخانات بمولّد الـHTML) وعرضهما واحد — فالمحاذاة
+   محفوظة على الجوال كذلك بلا media query. الطبقة الواحدة: غلاف واحد ممتدّ بعرض
+   الشريط فلا يظهر أي فاصل ولا تتغيّر قراءتها. */
+.balance-summary{background:var(--bg3);border-top:1px solid var(--border);padding:16px 20px;display:flex;flex-direction:column;align-items:stretch;gap:0;}
+.bs-layer{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));align-items:center;gap:12px;}
+.bs-layer + .bs-layer{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+.bs-item{text-align:center;}
+.bs-val{font-size:17px;font-weight:800;}
+.bs-lbl{font-size:11px;color:var(--text2);margin-top:2px;}
+.empty{text-align:center;padding:48px 20px;color:var(--text2);font-size:13px;}
+.empty-icon{font-size:40px;margin-bottom:10px;}
+/* v471: أزرارُ صفوف الجلسات · المدفوعات · التسويات · المخابر · الروشتات · التعليمات · القوالب ·
+   خطط الأقساط على طقم أزرار الصفوف (theme.css) — قواعدُ أزرارها المحلية حُذفت بعد نقل قيمها. */
+/* M127-fix: زرّ تفريغ تاريخ الإرسال + سطرُ تعريف المسودّة. */
+.lab-clear-date{background:transparent;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:13px;line-height:1;padding:0 9px;height:38px;border-radius:8px;transition:all .15s;flex:0 0 auto;}
+.lab-clear-date:hover{color:var(--red);border-color:var(--red);background:rgba(var(--red-rgb),.1);}
+.lab-date-hint{font-size:11px;color:var(--text2);margin-top:4px;line-height:1.5;}
+
+/* ── Bug #3: Payment Split Editor (manual allocation override) ── */
+.split-editor-list{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;padding-left:4px;scrollbar-width:thin;}
+.split-editor-list::-webkit-scrollbar{width:6px;}
+.split-editor-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.split-row{display:grid;grid-template-columns:1fr 130px;gap:10px;align-items:center;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;transition:border-color .15s;}
+.split-row:hover{border-color:var(--green);}
+.split-row.is-full{opacity:.65;}
+.split-info{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.split-title{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.split-meta{font-size:11px;color:var(--text2);}
+.split-meta .remain{color:var(--yellow);font-weight:700;}
+.split-meta .paid-full{color:var(--green);font-weight:700;}
+.split-amount-input{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text);font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;text-align:left;direction:ltr;outline:none;transition:border-color .15s;width:100%;}
+.split-amount-input:focus{border-color:var(--green);}
+.split-amount-input.over{border-color:var(--red);color:var(--red);}
+.split-summary{margin-top:14px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;gap:6px;font-size:13px;}
+.split-summary-row{display:flex;justify-content:space-between;align-items:center;}
+.split-summary-row .lbl{color:var(--text2);font-weight:600;}
+.split-summary-row .val{font-weight:700;}
+.split-summary-row .val.green{color:var(--green);}
+.split-summary-row .val.blue{color:var(--blue);}
+.split-summary-row .val.red{color:var(--red);}
+.split-summary-row .val.muted{color:var(--text2);}
+.split-warn{margin-top:8px;padding:9px 12px;background:var(--red-soft);border:1px solid var(--red-bd);border-radius:8px;color:var(--red-ink);font-size:12px;display:none;}
+.split-warn.show{display:block;}
+.btn-revert-fifo{padding:8px 14px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:600;cursor:pointer;margin-right:auto;}
+.btn-revert-fifo:hover{background:rgba(var(--yellow-rgb),.1);border-color:var(--yellow);color:var(--yellow);}
+.manual-badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;background:var(--blue-bg);color:var(--blue-fg);border:1px solid var(--blue-bd);margin-right:4px;}
+
+/* ── Modal ──
+   v443: التعريف المحلي حُذف — الصفحة انتقلت لعُدّة SyDent الموحّدة
+   (SYDENT MODAL KIT بـtheme.css بالفئة sy-m + الأحجام، والسلوك بـsidebar.js:
+   Escape · قفل التمرير · role/aria · حصر Tab · ورقة الموبايل · التكديس).
+   ما بقي هنا خاصٌّ بالصفحة: الحقول · .modal-foot أزرارها · بقية المكوّنات. */
+.no-scrollbar::-webkit-scrollbar{display:none;width:0;height:0;}
+.form-group{margin-bottom:15px;}
+.form-group label{display:block;font-size:12px;color:var(--text2);font-weight:600;margin-bottom:5px;}
+.form-group input,.form-group select,.form-group textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 13px;color:var(--text);font-family:'Cairo',sans-serif;font-size:14px;outline:none;transition:border-color .2s;direction:rtl;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--green);}
+.form-group textarea{resize:vertical;min-height:65px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.btn-cancel-m{padding:9px 22px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:600;cursor:pointer;}
+.btn-save-m{padding:9px 26px;background:var(--green);border:none;color:var(--bg);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s;}
+.btn-save-m:hover{background:var(--green2);}
+.tooth-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.tx-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.tx-tabs:empty{display:none;border:none;padding:0;margin:0;}
+.tx-tab{font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;white-space:nowrap;transition:all .12s;}
+.tx-tab:hover{border-color:var(--green);color:var(--text);}
+.tx-tab-active{background:var(--green);color:#0a1628;border-color:var(--green);}
+/* v491: إجراءاتُ السن بصفٍّ مستقلٍّ تحت شبكة العلاجات — الإزالةُ لا تختلط بخيارات العلاج */
+.tx-special-row{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin-top:6px;padding-top:10px;border-top:1px dashed var(--border);}
+.tx-special-row .topt{flex:1 1 180px;}
+.tx-special-lbl{flex-basis:100%;font-size:11.5px;font-weight:700;color:var(--text2);}
+/* v433: سطرُ المكتبة السريرية مستقلٌّ تحت شرائح التصنيفات — كسرُ سطرٍ داخل حاوية flex */
+.tx-tabs-break{flex-basis:100%;height:0;margin:0;}
+.tx-cond-lead{align-self:center;font-size:11.5px;font-weight:700;color:var(--text2);margin-top:8px;}
+.tx-tab-cond{margin-top:8px;border-style:dashed !important;border-color:var(--purple) !important;color:var(--purple) !important;background:rgba(var(--purple-rgb),0.07) !important;}
+.tx-tab-cond.tx-tab-active{background:var(--purple) !important;color:var(--on-accent) !important;border-style:solid !important;}
+/* v430: سطرُ تعريفٍ فوق شبكة «الحالات السريرية» — المكتبةُ المدمجة تُعرض بوضوحٍ منفصلةً عن علاجات العيادة */
+.tx-cond-hint{grid-column:1/-1;font-size:11.5px;color:var(--text2);background:rgba(var(--green-rgb),0.07);border:1px dashed var(--border);border-radius:8px;padding:7px 10px;margin-bottom:2px;line-height:1.5;}
+.status-picker{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.status-opt{display:flex;align-items:center;gap:8px;padding:10px 12px;border:2px solid var(--border);background:transparent;color:var(--text);font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;border-radius:10px;transition:all .15s;text-align:right;}
+.status-opt:hover{background:rgba(var(--green-rgb),.08);border-color:var(--green);}
+.status-opt.selected{background:rgba(var(--green-rgb),.12);border-color:var(--green);}
+.status-dot{display:inline-block;width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+/* Treatment status badges on chart */
+.tooth-status-badge{position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;border:2px solid var(--bg);z-index:5;box-shadow:0 0 0 1px rgba(0,0,0,0.25);pointer-events:none;}
+.tooth-photo-badge{position:absolute;top:-7px;left:-7px;height:19px;padding:0 5px;border-radius:10px;background:var(--green);color:#04130d;border:2px solid var(--bg);z-index:6;box-shadow:0 0 0 1px rgba(0,0,0,0.25);font-size:10px;font-weight:800;display:flex;align-items:center;gap:1px;cursor:pointer;line-height:1;white-space:nowrap;font-family:'Cairo',sans-serif;}
+.tooth-photo-badge:hover{filter:brightness(1.12);}
+.tooth-lab-badge{position:absolute;bottom:-7px;left:-7px;height:19px;padding:0 5px;border-radius:10px;background:var(--blue);color:var(--on-accent);border:2px solid var(--bg);z-index:6;box-shadow:0 0 0 1px rgba(0,0,0,0.25);font-size:10px;font-weight:800;display:flex;align-items:center;gap:1px;cursor:pointer;line-height:1;white-space:nowrap;font-family:'Cairo',sans-serif;}
+.tooth-lab-badge:hover{filter:brightness(1.12);}
+.status-planned{background:#ef4444;}
+.status-completed{background:#3b82f6;}
+.status-existing_current{background:#10b981;opacity:.85;}  /* EC — done in our clinic */
+.status-existing_other{background:#9ca3af;opacity:.65;}    /* EO — done elsewhere */
+/* ج: chips إنهاء المراقبة داخل بانر المراقبات — رقم السن + ✕ (نقرة = إنهاء المراقبة للسن) */
+#watchDueBanner .wend-chip{display:inline-flex;align-items:center;gap:3px;padding:0 6px;margin:0 1px;border:1px solid rgba(107,114,128,.55);border-radius:999px;cursor:pointer;line-height:1.5;background:transparent;color:inherit;}
+#watchDueBanner .wend-chip:hover{border-color:var(--red,#ef4444);color:var(--red,#ef4444);}
+#watchDueBanner .wend-x{font-size:9px;opacity:.7;}
+.status-existing{background:#9ca3af;opacity:.7;}           /* legacy fallback (pre-migration) */
+.status-referred{background:#f59e0b;}
+.status-condition{background:#6b7280;opacity:.70;}         /* Cn — clinical watch only, no charge */
+/* ── B: Initial-exam stamp mode ─────────────────────────────────────────── */
+.exam-bar{display:none;position:sticky;top:8px;z-index:40;margin:0 2px 10px;padding:10px 12px;border:1.5px solid var(--green);border-radius:12px;background:var(--bg2);box-shadow:0 4px 18px rgba(0,0,0,.18);}
+body.exam-on .exam-bar{display:block;}
+.exam-bar-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+.exam-bar-title{font-weight:800;color:var(--green);font-size:13.5px;}
+.exam-count{font-size:12px;color:var(--text2);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:3px 10px;}
+.exam-bar-head .spacer{flex:1;}
+.exam-btn{padding:5px 12px;border-radius:8px;font-size:12px;font-weight:700;font-family:'Cairo',sans-serif;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);}
+.exam-btn.exit{border-color:var(--red);color:var(--red);}
+.exam-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+.exam-chip{padding:5px 11px;border-radius:8px;font-size:12px;font-weight:700;font-family:'Cairo',sans-serif;cursor:pointer;border:1.5px solid var(--border);background:transparent;color:var(--text2);}
+.exam-chip.selected{border-color:var(--green);color:var(--green);background:color-mix(in srgb, var(--green) 12%, transparent);}
+.exam-palette{display:flex;gap:6px;overflow-x:auto;padding:3px 0 4px;-webkit-overflow-scrolling:touch;}
+.exam-tx{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;font-size:12px;font-weight:700;font-family:'Cairo',sans-serif;cursor:pointer;border:1.5px solid var(--border);background:transparent;color:var(--text);white-space:nowrap;}
+.exam-tx .lbl{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;border-radius:6px;font-size:11px;padding:0 4px;}
+.exam-tx.selected{outline:2px solid var(--green);outline-offset:1px;}
+/* v433: صفُّ المكتبة السريرية بالفحص الأولي — مفصولٌ بصرياً عن علاجات العيادة */
+.exam-cond-row{display:flex;align-items:center;gap:8px;margin-top:6px;padding-top:7px;border-top:1px dashed var(--border);}
+.exam-cond-lbl{flex:0 0 auto;font-size:11.5px;font-weight:700;color:var(--purple);}
+.exam-cond-row .exam-palette{flex:1 1 auto;margin:0;}
+.exam-tx-cond{border-style:dashed !important;}
+.exam-tx-cond.selected{outline-color:var(--purple) !important;border-style:solid !important;}
+.exam-cond-note{font-size:11.5px;color:var(--text2);background:rgba(var(--purple-rgb),0.07);border:1px dashed var(--border);border-radius:8px;padding:6px 9px;margin-bottom:8px;}
+@media(max-width:560px){.exam-cond-row{flex-wrap:wrap;}.exam-cond-lbl{flex-basis:100%;}}
+body.exam-on .jaw-wrap .crown-surface, body.exam-on .jaw-wrap .root-part{cursor:crosshair;}
+/* ── M86: multi-select batch mode (reuses exam-bar-head/count/btn/palette/tx skins) ── */
+.batch-bar{display:none;position:sticky;top:8px;z-index:40;margin:0 2px 10px;padding:10px 12px;border:1.5px solid var(--purple);border-radius:12px;background:var(--bg2);box-shadow:0 4px 18px rgba(0,0,0,.18);}
+body.batch-on .batch-bar{display:block;}
+.batch-bar-title{font-weight:800;color:var(--purple);font-size:13.5px;}
+body.batch-on .jaw-wrap .crown-surface, body.batch-on .jaw-wrap .root-part{cursor:pointer;}
+.tooth-cell.batch-sel{outline:2.5px solid var(--purple);outline-offset:2px;border-radius:10px;background:color-mix(in srgb, var(--purple) 10%, transparent);}
+/* إبراز الموضع المنقور نفسه (سطح/جذر) بوضع الدفعة — تلوين مباشر متل دمغة الفحص الأولي */
+.tooth-shape .crown-surface.batch-pos-sel{fill:#6366f1 !important;fill-opacity:0.5 !important;stroke:#4338ca !important;stroke-width:1.5 !important;}
+.tooth-shape .root-part.batch-pos-sel{fill:#6366f1 !important;fill-opacity:0.55 !important;stroke:#4338ca !important;stroke-width:1.5 !important;}
+/* Batch apply-modal: financial statuses only — the non-billable multi-stamp is exam mode's job.
+   While batch-on, toothModal can ONLY open via batchOpenApplyModal (the funnel intercepts all
+   chart clicks), so this scoping never leaks into the normal modal. */
+body.batch-on #toothStatusPicker .status-opt:not([data-status="completed"]):not([data-status="planned"]){display:none;}
+/* ── E: read-only historical chart view ── */
+.hist-bar{display:none;position:sticky;top:8px;z-index:40;margin:0 2px 10px;padding:10px 12px;border:1.5px solid var(--yellow);border-radius:12px;background:var(--bg2);box-shadow:0 4px 18px rgba(0,0,0,.18);}
+body.hist-on .hist-bar{display:block;}
+.hist-bar-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.hist-bar-title{font-weight:800;color:var(--yellow);font-size:13.5px;}
+.hist-btn{padding:5px 12px;border-radius:8px;font-size:12.5px;font-weight:700;font-family:'Cairo',sans-serif;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text);}
+.hist-btn:disabled{opacity:.35;cursor:not-allowed;}
+.hist-btn.exit{border-color:var(--red);color:var(--red);}
+.hist-note{font-size:11.5px;color:var(--text2);margin-top:6px;line-height:1.6;}
+#histDate{padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);font-family:'Cairo',sans-serif;font-size:13px;}
+/* ── ✏️ v342: مسودة الشرح (طبقة رسم مؤقتة فوق المخطط) ── */
+.draft-bar{display:none;position:sticky;top:8px;z-index:40;margin:0 2px 10px;padding:10px 12px;border:1.5px solid var(--blue);border-radius:12px;background:var(--bg2);box-shadow:0 4px 18px rgba(0,0,0,.18);}
+body.draft-on .draft-bar{display:block;}
+.draft-bar-title{font-weight:800;color:var(--blue);font-size:13.5px;}
+.draft-bar .exam-btn{min-height:32px;}
+.draft-bar .exam-btn:disabled{opacity:.4;cursor:not-allowed;}
+.draft-bar .exam-btn.draft-save{border-color:var(--green);color:var(--green);}
+.draft-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.draft-swatches{display:flex;gap:7px;flex-wrap:wrap;}
+.draft-sw{width:30px;height:30px;border-radius:50%;border:2px solid var(--border2);cursor:pointer;padding:0;box-shadow:inset 0 0 0 2px var(--bg2);flex-shrink:0;}
+.draft-sw-ink{background:#111827;}
+:root[data-theme="dark"] .draft-sw-ink{background:#f1f5f9;}
+.draft-sw.selected{border-color:var(--text);box-shadow:inset 0 0 0 2px var(--bg2),0 0 0 3px color-mix(in srgb,var(--blue) 45%,transparent);}
+.draft-sep{width:1px;align-self:stretch;min-height:26px;background:var(--border);margin:0 2px;}
+.draft-tool{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;min-height:34px;border-radius:8px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1.5px solid var(--border);background:transparent;color:var(--text2);}
+.draft-tool.selected{border-color:var(--blue);color:var(--blue);background:color-mix(in srgb,var(--blue) 12%,transparent);}
+.draft-line{display:inline-block;width:18px;border-radius:4px;background:currentColor;}
+.draft-line.thin{height:2px;}
+.draft-line.thick{height:6px;}
+.draft-size{display:none;align-items:center;gap:6px;font-size:12px;color:var(--text2);font-weight:700;}
+.draft-bar.eraser-on .draft-size{display:inline-flex;}
+.draft-size input{width:110px;accent-color:var(--blue);padding:0;min-height:0;border:0;background:transparent;}
+.draft-size-dot{display:inline-block;border-radius:50%;border:1.5px dashed var(--text2);flex-shrink:0;}
+.draft-hint{display:none;margin-top:6px;font-size:11.5px;color:var(--text2);}
+@media (max-width:600px) and (orientation:portrait){ .draft-hint{display:block;} }
+/* شاشات ضيّقة/قصيرة: شريطٌ أرشق كي يبقى المخطط ظاهراً تحته أثناء الرسم */
+@media (max-width:600px), (max-height:520px){
+  .draft-bar{padding:7px 9px;}
+  .draft-bar .exam-bar-head{gap:6px;margin-bottom:6px;}
+  .draft-bar .exam-btn{min-height:30px;padding:4px 9px;}
+  .draft-bar-title{font-size:12.5px;}
+  .draft-tools{gap:6px;}
+  .draft-sw{width:27px;height:27px;}
+  .draft-tool{min-height:30px;padding:4px 9px;}
+}
+@media (max-height:520px){
+  .draft-bar{top:4px;}
+  .draft-bar-title{display:none;}
+}
+body.draft-on .chart-card{position:relative;}
+/* التصغير على body لا على #jawWrap: نسخة الطباعة (printChart) تستنسخ #jawWrap بسماته فلا تحمل التصغير */
+body.draft-on #jawWrap{zoom:var(--draft-z,1);overflow-x:hidden;}
+body.draft-on .jaw-wrap .tooth-cell,body.draft-on .jaw-wrap .occ-cell{transform:none !important;transition:none;}
+body.draft-on #dentSeg,body.draft-on #occViewSeg,body.draft-on #dentSegShow{pointer-events:none;opacity:.45;}
+.draft-canvas{display:none;position:absolute;z-index:30;touch-action:none;cursor:crosshair;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+body.draft-on .draft-canvas{display:block;}
+.draft-canvas.eraser{cursor:none;}
+.draft-cursor{display:none;position:absolute;z-index:31;pointer-events:none;border-radius:50%;border:1.5px solid var(--text);box-shadow:0 0 0 1px var(--bg2);transform:translate(-50%,-50%);}
+/* ── D: periodontal charting ── */
+.perio-scroll{overflow-x:auto;margin:10px 0;border:1px solid var(--border);border-radius:12px;}
+.perio-grid{border-collapse:collapse;min-width:980px;width:100%;}
+.perio-grid th,.perio-grid td{border:1px solid var(--border);padding:3px 4px;text-align:center;font-size:11.5px;white-space:nowrap;}
+.perio-grid th{background:rgba(0,0,0,.12);font-weight:800;color:var(--text);}
+.perio-grid .pg-ex{opacity:.25;}
+.perio-lbl{white-space:nowrap;font-weight:700;color:var(--text2);font-size:11px;background:rgba(0,0,0,.08);padding:3px 8px !important;}
+.pd-in{width:24px;height:24px;text-align:center;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);font-size:12px;font-weight:700;padding:0;font-family:'Cairo',sans-serif;}
+.pd-in:disabled{opacity:.2;}
+.pd-in.pd-warn{background:var(--yellow-fill);border-color:var(--yellow-solid);}   /* v347: real yellow vs red (was brown vs pink in light) */
+.pd-in.pd-danger{background:var(--red-fill);border-color:var(--red);}
+/* ── Perio v2 (M93): recession inputs, derived CAL cells, molar furcation ── */
+.pd-in.rec{background:rgba(var(--blue-rgb),.10);border-color:rgba(var(--blue-rgb),.40);}
+/* v286: light-theme perio grid — inputs read as inputs, headers as headers */
+:root[data-theme="light"] .perio-grid th,:root[data-theme="light"] .perio-grid td{border-color:var(--border2);}
+:root[data-theme="light"] .perio-grid th{background:var(--bg3);}
+:root[data-theme="light"] .pd-in:not(.pd-warn):not(.pd-danger):not(.rec){background:#ffffff;border-color:var(--border2);}   /* :not() keeps warn/danger/rec tints (higher-specificity rule) */
+:root[data-theme="light"] .pd-in:disabled{opacity:.12;}
+:root[data-theme="light"] .perio-grid tr.row-cal td{background:color-mix(in srgb, var(--text) 5%, transparent);}
+:root[data-theme="light"] .perio-grid tr.pg-sep th,:root[data-theme="light"] .perio-grid tr.pg-sep td{border-top-color:rgba(var(--green-rgb),.45);}
+:root[data-theme="light"] .bop-dot:not(.on){border-color:var(--border2);background:#ffffff;}
+/* v345: فاتح — خطوط الفصل أوضح (طلب المالك بصورتين). مقيسٌ على الأبيض: الخلايا والإطار
+   #94a3b8 (2.6:1 — كانت 1.8) · حواف الإدخال ودوائر النزف #7d8fa6 (3.3:1 ≥ حدّ عناصر الواجهة)
+   · الفواصل البنيوية #64748b (4.8:1) · خط المنتصف مزدوج #475569 (7.6:1) · فاصل الأقسام أخضر
+   كامل (4.5:1). خط المنتصف كان يضيع هنا: قاعدةُ الحدود العامة أعلاه (0,3,1) تغلب
+   .pg-mid (0,2,1) فتلوّنه بلون الخلايا — القاعدة أدناه (0,4,1) تعيده. الداكن بلا أي تغيير. */
+:root[data-theme="light"] .perio-scroll{border-color:#94a3b8;}
+:root[data-theme="light"] .perio-grid th,:root[data-theme="light"] .perio-grid td{border-color:#94a3b8;}
+:root[data-theme="light"] .perio-grid tr:first-child th{border-bottom:2px solid #64748b;}
+:root[data-theme="light"] .perio-grid .perio-lbl{border-left:2px solid #64748b;}
+:root[data-theme="light"] .perio-grid th.pg-mid,:root[data-theme="light"] .perio-grid td.pg-mid{border-right:3px double #475569;}
+:root[data-theme="light"] .perio-grid tr.pg-sep th,:root[data-theme="light"] .perio-grid tr.pg-sep td{border-top:2.5px solid var(--green);}
+:root[data-theme="light"] .pd-in:not(.pd-warn):not(.pd-danger):not(.rec){border-color:#7d8fa6;}
+:root[data-theme="light"] .bop-dot:not(.on){border-color:#7d8fa6;}
+/* v346: فاتح — سكرول مخطط اللثة الأفقي أخضر كالداكن (طلب المالك). المتغيّر العام --border2
+   رماديٌّ بالفاتح وأخضرُ بالداكن، فالشريط كان باهتاً هنا فقط. كروم ≥121 وفايرفوكس يقرآن
+   scrollbar-color (القياسي يُسقط ::-webkit-scrollbar حين يُضبط)، وسفاري يقرأ ::-webkit-*.
+   التحويم على الجدول يُغمّق الشريط. الداكن بلا تغيير. */
+:root[data-theme="light"] .perio-scroll{scrollbar-color:rgba(var(--green-rgb),.55) transparent;}
+:root[data-theme="light"] .perio-scroll:hover{scrollbar-color:var(--green) transparent;}
+:root[data-theme="light"] .perio-scroll::-webkit-scrollbar-thumb{background:rgba(var(--green-rgb),.55);}
+:root[data-theme="light"] .perio-scroll::-webkit-scrollbar-thumb:hover{background:var(--green);}
+.pd-in.furc{border-color:rgba(var(--purple-rgb),.45);}
+.perio-lbl.lbl-rec{color:var(--blue);}
+.perio-lbl.lbl-cal{color:var(--purple);}
+.perio-grid tr.row-cal td{background:rgba(0,0,0,.06);}
+.cal-cell{display:inline-block;min-width:20px;padding:1px 2px;font-size:11.5px;font-weight:800;color:var(--text2);border-radius:5px;}
+.cal-cell.cal-warn{background:var(--yellow-fill);color:var(--text);}
+.cal-cell.cal-danger{background:var(--red-fill);color:var(--text);}
+.furc-na{color:var(--text2);opacity:.35;font-weight:700;}
+.perio-grid tr.pg-sep th,.perio-grid tr.pg-sep td{border-top:2.5px solid rgba(var(--green-rgb),.30);}
+/* ── Family linking v1 (M94): free household grouping — navigation only, finances stay individual ── */
+.fam-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border:1px solid var(--border);border-radius:18px;background:var(--bg2);color:var(--text);font-size:12.5px;font-weight:700;cursor:pointer;text-decoration:none;font-family:'Cairo',sans-serif;}
+.fam-chip:hover{border-color:var(--green);color:var(--green);}
+.fam-chip.me{border-color:rgba(var(--green-rgb),.55);background:rgba(var(--green-rgb),.10);color:var(--green);cursor:default;}
+.fam-seq{font-size:10.5px;font-weight:800;color:var(--text2);background:rgba(0,0,0,.12);border-radius:6px;padding:1px 6px;}
+/* ── Clinical note templates (M95): compact picker row in the session modal ── */
+.sn-tpl-row .btn{padding:6px 10px;font-size:14px;line-height:1;}
+.sn-tpl-save{opacity:.45;transition:opacity .15s,border-color .15s,box-shadow .15s,color .15s;}
+.sn-tpl-save.lit{opacity:1;border-color:var(--green);color:var(--green);box-shadow:0 0 0 2px rgba(var(--green-rgb),.22);}
+#aiSuggestRow,#aiSuggestRow2{display:none;margin-top:6px;}
+.ai-hint{font-size:11px;color:var(--text2);margin-bottom:6px;line-height:1.6;}
+body.ai-on #aiSuggestRow,body.ai-on #aiSuggestRow2{display:block;}
+/* v444: بطاقةُ المساعد بمودال التعليمات — الطقمُ من theme.css، والبوابةُ هنا:
+   مخفيةٌ تماماً بلا مساحةٍ محجوزة حتى يُضاف body.ai-on. */
+#postOpAiRow,#postOpTplAiRow{display:none;}
+body.ai-on #postOpAiRow,body.ai-on #postOpTplAiRow{display:block;}
+#aiHubBtn{display:none;}
+body.ai-on #aiHubBtn{display:inline-block;}
+.pd-in.cmp-worse{outline:2px solid var(--red);outline-offset:-1px;}
+.pd-in.cmp-better{outline:2px solid var(--green);outline-offset:-1px;}
+.bop-dot{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--border);display:inline-block;cursor:pointer;vertical-align:middle;background:transparent;padding:0;margin:1px;}
+.bop-dot.on{background:var(--red);border-color:var(--red);}
+.bop-dot.dis{opacity:.15;cursor:default;pointer-events:none;}
+.bop-dot.cmp-worse{box-shadow:0 0 0 2px var(--bg3),0 0 0 4px var(--red);}
+.bop-dot.cmp-better{box-shadow:0 0 0 2px var(--bg3),0 0 0 4px var(--green);}
+.perio-grid th.pg-mid,.perio-grid td.pg-mid{border-right:3px double var(--text2);}
+.perio-stats{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px;font-size:12.5px;font-weight:700;}
+.perio-stats span{padding:4px 12px;border:1px solid var(--border);border-radius:999px;background:var(--bg3);color:var(--text);}
+.perio-legend{font-size:11px;color:var(--text2);margin-top:6px;line-height:1.8;}
+.topt{padding:14px 12px;border-radius:10px;border:2px solid var(--border);background:transparent;color:var(--text);font-family:'Cairo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-align:center;transition:all .2s;}
+.topt:hover{background:rgba(var(--green-rgb),.08);}
+
+/* ── Lab Orders ── */
+.lab-badge{display:inline-block;background:var(--red-solid);color:var(--on-red-solid);font-size:10px;font-weight:800;border-radius:10px;padding:1px 7px;min-width:18px;text-align:center;margin-right:4px;vertical-align:middle;}
+.tab .lab-badge{margin-right:6px;}
+.lab-pill{display:inline-block;padding:2px 9px;border:1px solid transparent;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
+.lab-icon-btn{background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:14px;padding:4px 6px;border-radius:6px;transition:all .15s;margin-left:4px;}
+.lab-icon-btn:hover{color:var(--blue);background:rgba(var(--blue-rgb),.1);}
+.lab-action-btn{padding:5px 10px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text2);font-family:'Cairo',sans-serif;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;margin-left:3px;}
+.lab-action-btn:hover{border-color:var(--green);color:var(--green);}
+.btn-lab{padding:9px 18px;background:transparent;border:1px solid var(--blue);color:var(--blue);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;}
+.btn-lab:hover{background:var(--blue-soft);}
+
+/* ─── Gap 7: Planned Appointments (in patient profile) ─── */
+.planned-pp-row{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--blue-soft);border:1px solid rgba(var(--blue-rgb),0.18);border-right:3px solid var(--blue);border-radius:10px;margin-bottom:8px;transition:all .2s;}
+.planned-pp-row:hover{background:rgba(var(--blue-rgb),0.10);}
+.planned-pp-icon{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--blue-bg);font-size:16px;flex-shrink:0;}
+.planned-pp-info{flex:1;min-width:0;}
+.planned-pp-title{font-size:13px;font-weight:700;color:var(--text);}
+.planned-pp-reason{font-size:11px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.planned-pp-actions{display:flex;gap:6px;flex-shrink:0;}   /* v473: الأزرار على طقم أزرار الصفوف */
+
+/* Toggle inside the appointment modal — same visual language as appointments.html */
+.planned-toggle-pp{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:12px;background:var(--blue-soft);border:1px solid var(--blue-bd);border-radius:10px;cursor:pointer;transition:all .15s;}
+.planned-toggle-pp:hover{background:rgba(var(--blue-rgb),0.12);border-color:var(--blue);}
+/* Custom checkbox — see appointments.html for full rationale. accent-color is
+   unreliable on dark themes / Safari; we paint our own ✓ for reliable visual
+   feedback when checked. */
+.planned-toggle-pp input[type=checkbox]{
+  -webkit-appearance:none;-moz-appearance:none;appearance:none;
+  width:20px;height:20px;border:2px solid var(--blue);border-radius:5px;
+  background:transparent;cursor:pointer;position:relative;flex-shrink:0;margin:0;transition:all .15s;
+}
+.planned-toggle-pp input[type=checkbox]:hover{background:rgba(var(--blue-rgb),0.12);}
+.planned-toggle-pp input[type=checkbox]:checked{background:var(--blue);border-color:var(--blue);}
+.planned-toggle-pp input[type=checkbox]:checked::after{
+  content:'✓';position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);
+  color:#0a1628;font-size:14px;font-weight:900;line-height:1;
+}
+.planned-toggle-pp .ptpp-text{flex:1;}
+.planned-toggle-pp .ptpp-title{font-size:12px;font-weight:700;color:var(--blue);}
+.planned-toggle-pp .ptpp-hint{font-size:10px;color:var(--text2);margin-top:1px;}
+.planned-note-pp{padding:8px 11px;background:var(--blue-soft);border:1px dashed var(--blue-bd);border-radius:8px;font-size:11px;color:var(--text2);margin-bottom:12px;}
+
+
+/* ── Responsive ── */
+@media(max-width:900px){
+  .page{padding:16px;}
+  .topbar{padding:12px 16px;}
+  .hcard{flex-wrap:wrap;gap:16px;padding:18px;}
+  .stats-row{width:100%;justify-content:space-around;}
+  .stat-box{min-width:90px;padding:10px 14px;}
+  .two-col{grid-template-columns:1fr;}
+  /* عمود واحد: لا بطاقة مجاورة تحدّ الارتفاع — إلغاء السكرول وإلا انهارت القائمة لارتفاع شبه صفري. */
+  #recentSessCard{display:block;}
+  #recentSessCard #recentSessionsList{overflow-y:visible;}
+  .tabs .tab{padding:9px 18px;font-size:13px;}
+}
+@media(max-width:820px){
+  /* Topbar: stack actions onto a new row so back-btn + 4 action buttons
+     don't overflow the right edge on phones (caught in user screenshot). */
+  .topbar{flex-wrap:wrap;}
+  .topbar-actions{width:100%;flex-wrap:wrap;gap:6px;}
+  .topbar-actions .btn{flex:1 1 auto;min-width:0;padding:8px 10px;font-size:12px;justify-content:center;}
+}
+@media(max-width:600px){
+  .hcard{flex-direction:column;text-align:center;}
+  .h-sub{justify-content:center;}
+  .h-flags{justify-content:center;}
+  .stats-row{flex-wrap:wrap;gap:10px;}
+  .stat-box{min-width:0;flex:1 1 calc(33.33% - 8px);padding:10px 8px;}
+  .stat-val{font-size:18px;}
+  .form-row{grid-template-columns:1fr;}
+  .data-table:not(.sess-table):not(.m-cards) th:nth-child(3),.data-table:not(.sess-table):not(.m-cards) td:nth-child(3){display:none;}   /* v353: جدول الجلسات بطاقاتٌ تعرض كل خاناتها · v471: وبطاقاتُ .m-cards تُخفي أعمدتها بـmc-hide — هذه القاعدة كانت تُخفي عنوانَ بطاقة المخبر (نوع العمل وسطره) على الهاتف */
+  /* v288 (owner phone screenshot): the tables were wider than the card and spilled past its
+     edge — invisible while row backgrounds were transparent, obvious once v286 gave rows
+     borders/zebra. Contain the overflow inside the host (horizontal scroll within the card)
+     and tighten cells so most rows fit without scrolling at all. */
+  #sessionsContent,#paymentsContent,#adjustmentsContent{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;}
+  .data-table{min-width:100%;}
+  .data-table th{padding:9px 8px;font-size:11.5px;}
+  .data-table td{padding:10px 8px;font-size:12.5px;}
+  .data-table td:last-child,.data-table th:last-child{padding-inline-start:4px;}
+  /* Modal: give back the lost width on small screens & let h3 ellipsize
+     so the close (×) button stays accessible and the box doesn't
+     stretch past the viewport. */
+  .modal-overlay{padding:10px;}
+  .modal-head{padding:14px 16px;gap:10px;}
+  .modal-head h3{font-size:14px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .modal-body{padding:16px;}
+  .modal-foot{padding:12px 14px;gap:6px;flex-wrap:wrap;}
+  .modal-foot .btn-save-m,.modal-foot .btn-cancel-m,.modal-foot .btn-lab{flex:1 1 auto;padding:9px 12px;font-size:12px;}
+  /* Tighten the 3-col treatment picker grid so each card stays readable */
+  .tooth-opts{grid-template-columns:repeat(2,1fr);gap:8px;}
+  /* Status picker stays 2-col but reduce padding */
+  .status-opt{padding:9px 10px;font-size:12px;}
+  /* Tabs: keep horizontal scroll but reduce padding to fit more on screen */
+  .tabs .tab{padding:8px 14px;font-size:12px;}
+}
+/* ── v328 (صورة المالك: «طلبات المخابر عم تتحرك» على الموبايل) ──
+   جداولُ البطاقة العريضة كانت أعرض من البطاقة (المخابر 659px ضمن 334px) داخل غلاف
+   تمريرٍ مخفيّ الشريط، فينزلق الصفُّ بأول لمسة والأزرارُ خارج الشاشة. تحت 600px يصير
+   كلُّ صفٍّ من جدول .m-cards بطاقةً بشبكة: العنوان يمين · الحالة/المبلغ يسار · أسطرٌ كاملة
+   · الأزرار بسطرها ملفوفة. الـDOM نفسُه (صفٌّ واحد وأزرارٌ واحدة) — الديسكتوب بلا تغيير. */
+.mc-only{display:none;}
+/* المضيف حاويةُ استعلام (container query): جدولُ المخابر يحتاج ~875px فيصير بطاقاتٍ متى ضاق
+   مضيفُه عنها — الموبايل والآيباد واللابتوب الصغير مع السايد بار. الجداولُ الثلاثة الأخرى
+   تتّسع على التابلت، فمضيفُها لا يصير حاويةً إلا تحت 600px ⇒ كتلةُ قواعدٍ واحدة للحالتين. */
+#labOrdersContent{container:mc / inline-size;}
+@media(max-width:600px){ #rxList,#postopList,#paymentsContent,#adjustmentsContent{container:mc / inline-size;} }   /* v471: المدفوعات والتسويات بطاقاتٌ أيضاً */   /* v353: #sessionsContent صار حاويةً دائمة (أدناه) */
+@container mc (max-width:880px){
+  .data-table.m-cards,.data-table.m-cards tbody{display:block;width:100%;min-width:0;}
+  .data-table.m-cards thead{display:none;}
+  .data-table.m-cards tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;row-gap:6px;align-items:start;padding:12px 14px;border-bottom:1px solid var(--border);}
+  .data-table.m-cards tbody tr:last-child{border-bottom:none;}
+  .data-table.m-cards tbody td{display:block;padding:0;border:none;background:none !important;white-space:normal;min-width:0;}
+  .data-table.m-cards tbody tr:hover{background:rgba(var(--green-rgb),0.06);}
+  :root[data-theme="light"] .data-table.m-cards tbody tr:nth-child(even){background:color-mix(in srgb, var(--text) 3%, transparent);}
+  .data-table.m-cards td.mc-hide,.data-table.m-cards td.mc-empty{display:none;}
+  .data-table.m-cards td.mc-title{grid-column:1;grid-row:1 / span 2;font-weight:700;line-height:1.8;overflow-wrap:anywhere;}
+  .data-table.m-cards td.mc-title.mc-wide{grid-column:1 / -1;}
+  .data-table.m-cards td.mc-side{grid-column:2;grid-row:1;justify-self:end;text-align:left !important;white-space:nowrap;}
+  .data-table.m-cards td.mc-side2{grid-column:2;grid-row:2;justify-self:end;text-align:left !important;white-space:nowrap;}
+  .data-table.m-cards td.mc-date{font-size:11.5px;color:var(--text2);}
+  .data-table.m-cards td.mc-full{grid-column:1 / -1;font-size:12.5px;line-height:1.8;overflow-wrap:anywhere;}
+  .data-table.m-cards td.mc-full[data-label]::before{content:attr(data-label) ': ';color:var(--text3);font-weight:600;}
+  .data-table.m-cards td.mc-actions{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;align-items:center;white-space:normal !important;padding-top:10px;margin-top:4px;border-top:1px dashed var(--border);}
+  .data-table.m-cards .mc-only{display:block;}
+  .data-table.m-cards .mc-meta{margin-top:3px;font-size:12px;font-weight:400;color:var(--text2);line-height:1.9;}
+}
+/* ── v353: جدول الجلسات بأعمدة (طلب المالك) ──
+   التاريخ · العلاج · السن · الحالة · الطبيب · الدفع · التفاصيل · التكلفة · الأزرار.
+   المضيفُ حاويةٌ دائمة: تحت 980px (موبايل/تابلت/لابتوب ضيّق مع السايد بار) يصير كلُّ صفٍّ
+   بطاقةً مرنة — العلاج والتكلفة سطراً · الشارات وتاريخها سطراً · التفاصيل · الأزرار. */
+#sessionsContent{container:mc / inline-size;}
+.sess-table th,.sess-table td{padding:10px 8px;}
+.sess-table td.sc-date{white-space:nowrap;color:var(--text2);line-height:1.5;}
+.sess-table td.sc-details{min-width:150px;}
+.sess-type{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;}
+.sess-chip{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;border-width:1px;border-style:solid;}
+.sess-dash{color:var(--text3);}
+.sess-desc{color:var(--text2);}
+.sess-note{color:var(--text3);font-size:11.5px;margin-top:2px;}
+.sess-links{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
+.sess-phase{display:flex;gap:2px;margin-top:4px;}
+/* v421 · أُعيد تصميمه v422: تبويب المراسلات — بطاقاتٌ مضغوطة تُفرد بالنقر */
+.msg-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 12px;}
+.msg-chips:empty{display:none;}
+.msg-chip{background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:16px;padding:4px 12px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;}
+.msg-chip.on{border-color:var(--green);color:var(--green);background:color-mix(in srgb,var(--green) 8%,transparent);}
+.msg-card{border:1px solid var(--border);border-radius:12px;margin-bottom:8px;background:var(--bg2);overflow:hidden;}
+.msg-card.open{border-color:var(--green);}
+.msg-top{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;background:transparent;border:0;font-family:inherit;text-align:start;cursor:pointer;color:inherit;}
+.msg-top:hover{background:var(--bg3);}
+.msg-ico{flex:0 0 auto;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:9px;font-size:15px;border-width:1px;border-style:solid;}
+.msg-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.msg-line1{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;font-size:13px;color:var(--text);}
+.msg-when{font-size:11.5px;font-weight:700;color:var(--text3);}
+.msg-line2{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.msg-caret{flex:0 0 auto;color:var(--text3);font-size:12px;}
+.msg-full{padding:0 12px 12px;}
+.msg-body{white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.85;color:var(--text);background:var(--bg3);border-radius:10px;padding:12px 14px;max-height:340px;overflow:auto;}
+.msg-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;font-size:11.5px;color:var(--text3);}
+.msg-ch{display:inline-flex;align-items:center;gap:5px;color:var(--text2);font-weight:700;}
+.msg-ch::before{content:'';width:7px;height:7px;flex:0 0 auto;border-radius:50%;background:var(--green);}
+.msg-dot{color:var(--text3);}
+@media (max-width:560px){ .msg-top{padding:9px 10px;gap:8px;} .msg-ico{width:28px;height:28px;font-size:14px;} .msg-full{padding:0 10px 10px;} }
+@media print{ #tab-msgs{display:none !important;} }
+/* v419: منتقي مكتبة التعليمات الجاهزة — صفٌّ مميَّز أعلى مودال التعليمات */
+.po-lib-label{display:flex;align-items:center;gap:6px;color:var(--green);font-weight:800;}
+.po-lib-count{font-size:11.5px;font-weight:700;color:var(--text2);}
+.po-lib-pick{width:100%;padding:10px;border:1.5px solid var(--green);border-radius:8px;background:var(--bg2);color:var(--text);font-family:Cairo,sans-serif;font-size:14px;}
+.po-lib-hint{font-size:11.5px;color:var(--text2);margin-top:4px;}
+/* v410: زيارات الخطة — شريطٌ فوق جدول الجلسات (pp-plan.js · planVisitsBarHtml) */
+.plan-visits{margin:0 0 10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg3);}
+.plan-visits .pv-head{font-weight:800;font-size:13px;margin-bottom:8px;}
+.plan-visits .pv-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;}
+.plan-visits .pv-list:empty{display:none;}
+.plan-visits .pv-card{display:flex;flex-direction:column;gap:4px;min-width:0;padding:8px 10px;border:1px solid var(--border);border-inline-start:4px solid var(--green);border-radius:8px;background:var(--bg2,transparent);}
+.plan-visits .pv-card.pv-unsched{border-inline-start-color:var(--yellow);}
+.plan-visits .pv-card.pv-late{border-inline-start-color:var(--red);}
+.plan-visits .pv-title{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-size:13px;}
+.plan-visits .pv-when{font-size:12px;color:var(--text2);}
+.plan-visits .pv-late .pv-when{color:var(--red);}
+.plan-visits .pv-warn{font-size:11.5px;color:var(--yellow);font-weight:700;}
+.plan-visits .pv-items{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.plan-visits .pv-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:2px;}
+.plan-visits .pv-total{flex:1 0 auto;font-size:12px;font-weight:700;}   /* v473: لا يُعصَر لثلاثة أسطر — الأزرارُ تنزل تحته حين تضيق البطاقة */
+.plan-visits .btn-sm{padding:3px 10px;font-size:11.5px;}
+.plan-visits .pv-un-head{margin:10px 0 6px;font-size:12.5px;font-weight:800;color:var(--text2);}
+.plan-visits .pv-list:empty + .pv-un-head{margin-top:0;}
+.plan-visits .pv-tag{display:inline-block;margin-inline-start:6px;padding:1px 8px;border-radius:10px;border:1px solid var(--border);font-size:11px;font-weight:700;}
+.plan-visits .pv-card.pv-free{border-inline-start-color:var(--border);border-style:dashed;}
+.plan-visits .pv-un{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;font-size:12.5px;}
+.plan-visits .pv-list:empty + .pv-un{margin-top:0;}
+.plan-visits .pv-un-lbl{font-weight:700;color:var(--text2);}
+.plan-visits .pv-un-chip{display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px;padding:4px 8px;border:1px dashed var(--border);border-radius:8px;}
+.plan-visits .pv-link{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--bg2,transparent);font-size:12.5px;}
+.plan-visits .pv-note{margin-top:6px;font-size:11px;color:var(--text2);}
+.plan-visits .pv-list:empty + .pv-note{margin-top:0;font-size:12px;}
+.sess-cost{text-align:left;font-weight:700;white-space:nowrap;}
+/* v425 (M150): شارةُ عدد الوحدات بجانب الإجمالي */
+.unit-chip{display:inline-block;margin-inline-start:6px;padding:0 6px;border:1px solid var(--border);border-radius:8px;font-size:11px;font-weight:700;color:var(--text2);vertical-align:middle;}
+/* v427: صفُّ التكلفة/الوحدات — مبدّلُ العملة يُحقن **داخل** مجموعة التكلفة فوق حقلها
+   (cur-pick بـsupabase-init.js) فيهبط حقلُ التكلفة سطراً ويعلو حقلُ الوحدات: الحلّ
+   محاذاةُ قاعِدَتي المجموعتين (flex-end) لا حشوٌ بمقدارٍ مقدَّر. العمودُ الثاني ضيّق
+   (عددٌ من رقمين) والصفُّ ينهار عمودياً على الشاشات الضيقة كبقية .form-row. */
+.tu-row{display:flex;align-items:flex-end;gap:12px;}
+.tu-row > .form-group{display:flex;flex-direction:column;margin-bottom:15px;min-width:0;}
+.tu-row > .form-group:first-child{flex:1 1 auto;}
+.tu-row > .form-group > input{margin-top:auto;}
+.tu-row .tu-cell{flex:0 0 116px;}
+.tu-hint{margin:-9px 0 14px;font-size:11.5px;font-weight:700;color:var(--text2);}
+@media (max-width:560px){ .tu-row{flex-direction:column;align-items:stretch;gap:0;} .tu-row .tu-cell{flex:1 1 auto;} }
+.sess-actions{white-space:nowrap;}
+@container mc (max-width:980px){
+  .sess-table,.sess-table tbody{display:block;width:100%;min-width:0;}
+  .sess-table thead{display:none;}
+  .sess-table tbody tr{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:12px 14px;border-bottom:1px solid var(--border);}
+  .sess-table tbody tr:last-child{border-bottom:none;}
+  .sess-table tbody tr:hover{background:rgba(var(--green-rgb),0.06);}
+  :root[data-theme="light"] .sess-table tbody tr:nth-child(even){background:color-mix(in srgb, var(--text) 3%, transparent);}
+  .sess-table tbody td{display:block;padding:0;border:none;background:none !important;min-width:0;}
+  .sess-table tbody tr::before,.sess-table tbody tr::after{content:"";flex-basis:100%;height:0;}   /* سطرا فصل: بعد العلاج/التكلفة وبعد الشارات */
+  .sess-table tbody tr::before{order:3;}
+  .sess-table tbody tr::after{order:6;}
+  .sess-table td.sc-type{order:1;flex:1 1 auto;}
+  .sess-table td.sc-cost{order:2;margin-inline-start:auto;}
+  .sess-table td.sc-chip{order:4;}
+  .sess-table td.sc-date{order:5;margin-inline-start:auto;font-size:11.5px;}
+  .sess-table td.sc-details{order:7;flex:1 1 60%;min-width:0;font-size:12.5px;line-height:1.8;overflow-wrap:anywhere;}
+  .sess-table td.sc-actions{order:8;flex:0 0 auto;margin-inline-start:auto;align-self:flex-end;}
+  .sess-table td.sc-empty{display:none;}
+  .sess-table .sess-phase{display:inline-flex;margin:0 4px;vertical-align:middle;}
+}
+@media(max-width:600px){
+  /* مخطط الأسنان: أزرارُ الأوضاع والشرائح تبقى ضمن عرض البطاقة (كانت تمدّ الصفحةَ كلَّها أفقياً). */
+  .chart-card > .seg,.chart-card > .chart-modes,#dentHint{max-width:100%;}
+  .chart-card > .seg{flex-wrap:wrap;justify-content:center;}
+  /* رؤوسُ البطاقات تلتفّ بدل أن تضغط العنوان (الملفات: العنوان + قائمتان). */
+  .card-head{flex-wrap:wrap;row-gap:8px;column-gap:8px;}
+  /* سجلُّ النشاطات: التاريخ فوق الوصف بدل عمودٍ ثابت 110px. */
+  .pp-audit-row{flex-direction:column;gap:3px !important;}
+  .pp-audit-date{min-width:0 !important;align-self:flex-start;}
+}
+@media(max-width:420px){
+  /* Very narrow phones (iPhone SE / 12 mini width): tighten the stat
+     numbers further so e.g. "1,800,000 ل.س" doesn't clip inside its
+     stat-box. Reducing font + nowrap is safer than letting it overflow. */
+  .stat-val{font-size:15px;}
+  .stat-box{padding:9px 6px;}
+  .stat-lbl{font-size:10px;}
+  .page{padding:12px;}
+  .hcard{padding:16px 14px;gap:12px;}
+  .h-name{font-size:20px;}
+}
+
+/* ─── WhatsApp Reminder (patient profile) ─── */
+.btn-whatsapp {
+  background: #25D366;
+  color: #fff;
+  border: none;
+}
+.btn-whatsapp:hover { background: #1fb858; }
+.btn-whatsapp:disabled { opacity: .55; cursor: not-allowed; }
+
+/* WhatsApp Hub (مراسلة) — option list */
+.wa-hub-list { display:flex; flex-direction:column; gap:8px; }
+.wa-hub-item {
+  display:flex; align-items:center; gap:11px;
+  width:100%; text-align:right;
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:11px; padding:12px 14px; cursor:pointer;
+  font-family:'Cairo', sans-serif; color:var(--text);
+  transition:border-color .15s, background .15s;
+}
+.wa-hub-item:hover { border-color:var(--green); }
+.wa-hub-hot { border-color:rgba(37,211,102,0.5); background:rgba(37,211,102,0.07); }
+.wa-hub-ic { font-size:20px; flex:0 0 auto; }
+.wa-hub-txt { display:flex; flex-direction:column; gap:2px; flex:1 1 auto; min-width:0; }
+.wa-hub-title { font-size:14px; font-weight:700; }
+.wa-hub-sub { font-size:11.5px; color:var(--text2); }
+.wa-hub-arrow { color:var(--text2); font-size:18px; flex:0 0 auto; }
+.wa-hub-pick { cursor:default; flex-wrap:wrap; }
+.wa-hub-select {
+  margin-top:6px; width:100%; padding:7px 9px;
+  border:1px solid var(--border); border-radius:8px;
+  background:var(--bg2); color:var(--text);
+  font-family:'Cairo', sans-serif; font-size:12.5px;
+}
+.wa-hub-send { flex:0 0 auto; padding:8px 14px; font-size:12.5px; }
+
+/* ── v442: طقم محرّر الرسالة (.wa-ai-card · .wa-field · .wa-msg-* · .wa-tpl-row …)
+   انتقل إلى theme.css ليكون **معياراً واحداً لكل صفحات المنصة** — مودال الرسالة
+   الحرة هنا هو المرجع، وباقي المحرّرات (متابعة المرضى…) تُبنى بنفس الطقم. ── */
+
+/* ── Phase 2B-A: Patient Timeline (unified Progress Notes) ── */
+.tl-filters{
+  display:flex; flex-direction:column; gap:10px;
+  background:rgba(0,0,0,0.15);
+  border:1px solid var(--border);
+  border-radius:11px;
+  padding:12px 14px;
+  margin-bottom:14px;
+}
+.tl-filters-row{
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+}
+.tl-filter-label{
+  font-size:11px; color:var(--text2); font-weight:600;
+  margin-left:6px; white-space:nowrap;
+}
+.tl-chip{
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 10px;
+  font-size:11px; font-weight:700;
+  border-radius:14px;
+  background:rgba(255,255,255,0.04);
+  color:var(--text2);
+  border:1px solid var(--border);
+  cursor:pointer;
+  transition:all .15s;
+  user-select:none;
+}
+.tl-chip:hover{ background:rgba(255,255,255,0.07); color:var(--text); }
+.tl-chip.active{
+  background:rgba(var(--green-rgb),0.15);
+  color:var(--green);
+  border-color:rgba(var(--green-rgb),0.4);
+}
+.tl-search-input{
+  flex:1; min-width:180px;
+  padding:7px 12px;
+  font-size:12px; font-family:inherit;
+  background:rgba(0,0,0,0.25);
+  border:1px solid var(--border);
+  border-radius:8px;
+  color:var(--text);
+  outline:none;
+}
+.tl-search-input:focus{ border-color:var(--green); }
+.tl-date-select{
+  padding:6px 10px;
+  font-size:11px; font-weight:600; font-family:inherit;
+  background:rgba(0,0,0,0.25);
+  border:1px solid var(--border);
+  border-radius:8px;
+  color:var(--text);
+  cursor:pointer;
+  outline:none;
+}
+.tl-date-select:focus{ border-color:var(--green); }
+
+.tl-list{ display:flex; flex-direction:column; gap:8px; }
+.tl-empty{
+  text-align:center; padding:60px 20px;
+  color:var(--text2); font-size:13px;
+}
+.tl-empty-icon{ font-size:44px; margin-bottom:12px; opacity:.6; }
+
+.tl-row{
+  display:flex; gap:12px;
+  padding:11px 13px;
+  background:rgba(0,0,0,0.18);
+  border:1px solid var(--border);
+  border-right:3px solid var(--blue);
+  border-radius:10px;
+  transition:background .15s;
+}
+.tl-row:hover{ background:rgba(255,255,255,0.025); }
+.tl-row-icon{
+  flex-shrink:0;
+  width:36px; height:36px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px;
+  background:rgba(255,255,255,0.04);
+  border-radius:50%;
+}
+.tl-row-body{ flex:1; min-width:0; }
+.tl-row-head{
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+  margin-bottom:4px;
+}
+.tl-row-title{
+  font-weight:700; font-size:13px; color:var(--text);
+}
+.tl-row-time{
+  font-size:10px; color:var(--text2);
+  margin-right:auto;
+  white-space:nowrap;
+}
+.tl-row-meta{
+  font-size:11px; color:var(--text2);
+  display:flex; flex-wrap:wrap; gap:10px;
+  margin-top:3px;
+}
+.tl-row-meta b{ color:var(--text); font-weight:600; }
+.tl-row-notes{
+  margin-top:6px;
+  font-size:11px; color:var(--text2);
+  font-style:italic;
+  padding:5px 8px;
+  background:rgba(0,0,0,0.18);
+  border-radius:6px;
+  border-right:2px solid rgba(255,255,255,0.06);
+  white-space:pre-wrap; word-wrap:break-word;
+}
+.tl-badge{
+  display:inline-block;
+  font-size:9px; font-weight:700;
+  padding:1px 6px;
+  border-radius:8px;
+  border:1px solid;
+  white-space:nowrap;
+}
+.tl-row.tl-session  { border-right-color:var(--green); }
+.tl-row.tl-payment  { border-right-color:var(--yellow); }
+.tl-row.tl-appt     { border-right-color:var(--blue); }
+.tl-row.tl-lab      { border-right-color:var(--purple); }
+.tl-row.tl-unearned { border-right-color:var(--cyan); }
+.tl-row.tl-reminder { border-right-color:var(--orange); }
+
+.tl-pagination{
+  display:flex; justify-content:center; padding:12px;
+}
+.tl-load-more{
+  padding:8px 18px;
+  font-size:12px; font-weight:600; font-family:inherit;
+  background:rgba(var(--green-rgb),0.1);
+  color:var(--green);
+  border:1px solid rgba(var(--green-rgb),0.3);
+  border-radius:10px;
+  cursor:pointer;
+  transition:background .15s;
+}
+.tl-load-more:hover{ background:rgba(var(--green-rgb),0.18); }
+.tl-count{
+  text-align:center;
+  font-size:11px; color:var(--text2);
+  padding:6px;
+}
+/* ── Print (Phase 9.1) ── */
+#printRoot { display: none; }
+@media print {
+  body.printing > *:not(#printRoot) { display: none !important; }
+  #printRoot { display: block !important; }
+  /* Chart print (paper = white): force dark text, drop interactive badges +
+     hidden tooltip sources + horizontal scroll, shrink to fit A4 portrait.
+     zoom is Chromium-only — acceptable (clinic environment is Chrome). */
+  #printRoot .jaw-wrap{overflow:visible !important;padding:26px 0 6px !important;}
+  #printRoot .cp-jaw{zoom:0.68;}
+  #printRoot .tooth-num{color:#111 !important;}
+  #printRoot .leg{color:#222 !important;}
+  #printRoot .leg-sep{background:#bbb !important;}
+  #printRoot .midline{background:#c8c8c8 !important;}
+  #printRoot .tooth-tip{display:none !important;}
+  #printRoot .tooth-photo-badge,#printRoot .tooth-lab-badge{display:none !important;}
+  #printRoot *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  @page { margin: 14mm; }
+}
+
+/* v266: مدخل «جلسة جديدة» — شبكة FDI مصغّرة (تحترم dentitionMode) */
+.nse-grid{direction:rtl;display:flex;flex-direction:column;gap:10px;margin-bottom:12px;}
+.nse-row{display:grid;grid-template-columns:repeat(8,1fr) 10px repeat(8,1fr);gap:4px;align-items:stretch;}
+.nse-row.nse-primary{grid-template-columns:repeat(5,1fr) 10px repeat(5,1fr);}
+.nse-mid{width:2px;justify-self:center;border-radius:2px;background:var(--border2,var(--border));}
+.nse-t{padding:8px 0;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;}
+.nse-t:hover{border-color:var(--green);background:rgba(var(--green-rgb),.12);}
+.nse-t.nse-x{color:var(--text2);text-decoration:line-through;opacity:.7;}
+.nse-t.nse-i{border-color:var(--purple);color:var(--purple);}
+.nse-t.nse-tx{font-weight:800;}
+.nse-t.nse-p{border-style:dashed;}
+.nse-legend{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--text2);margin:-4px 0 10px;}
+.nse-legend span{display:inline-flex;align-items:center;gap:5px;}
+.nse-legend i{display:inline-block;width:14px;height:10px;border-radius:3px;border:1px solid var(--border);}
+.nse-legend i.tx{border-color:var(--green);box-shadow:inset 0 -3px 0 var(--green);}
+.nse-legend i.p{border-style:dashed;border-color:var(--green);}
+.nse-legend i.x{position:relative;opacity:.7;}
+.nse-legend i.x::after{content:'';position:absolute;left:2px;right:2px;top:4px;height:1px;background:var(--text2);}
+.nse-legend i.im{border-color:var(--purple);}
+.nse-alt{display:grid;grid-template-columns:1fr;gap:8px;}
+.nse-alt .topt{padding:10px 12px;font-size:13px;}
+
+/* ═══ v336 — تبويب المواعيد ═══
+   (والتبويبات صارت 11: حشوةُ .tab الأفقية 20→15px فيبقى الشريط سطراً واحداً من 1440px كما كان بعشرة.)
+   توكناتُ الثيم فقط؛ ألوانُ البيانات (علاج/طبيب) عبر --bc. النصُّ البرتقالي
+   بالفاتح يُمزج بالحبر (#ea580c وحده 3.6:1 على الأبيض). */
+#tab-appts, .appt-ctx-note { --appt-warn: var(--orange); }
+:root[data-theme="light"] #tab-appts,
+:root[data-theme="light"] .appt-ctx-note { --appt-warn: color-mix(in srgb, var(--orange) 60%, #102a43); }
+
+.lab-badge.appts-badge{background:var(--green);color:var(--on-accent);}
+.tab.active .lab-badge.appts-badge{background:var(--on-accent);color:var(--green);}
+
+.appts-next{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;padding:14px 16px;margin-bottom:10px;border-radius:12px;background:rgba(var(--blue-rgb),.07);border:1px solid rgba(var(--blue-rgb),.22);border-inline-start:4px solid var(--blue);}
+.appts-next-empty{background:var(--bg3);border-color:var(--border);border-inline-start-color:var(--text3);}
+.appts-next-body{flex:1 1 240px;min-width:0;}
+.appts-next-k{font-size:12px;color:var(--text2);font-weight:600;}
+.appts-next-k b{color:var(--blue);font-weight:800;}
+.appts-next-empty .appts-next-k{font-size:14px;color:var(--text);font-weight:800;}
+.appts-next-date{font-size:19px;font-weight:800;color:var(--text);line-height:1.6;}
+.appts-next-sub{font-size:12.5px;color:var(--text2);line-height:1.8;overflow-wrap:anywhere;}
+.appts-next-actions{display:flex;gap:6px;flex-wrap:wrap;}
+
+.appts-alert{font-size:12.5px;line-height:1.8;padding:8px 12px;border-radius:10px;margin-bottom:8px;font-weight:600;}
+.appts-alert-red{background:var(--red-soft);border:1px solid var(--red-bd);color:var(--red-ink);}
+.appts-alert-orange{background:var(--orange-soft);border:1px solid var(--orange-bd);color:var(--orange-ink);}
+
+.appts-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0 12px;}
+.appts-chip{font-family:inherit;}
+.appts-chip b{font-weight:800;margin-inline-start:2px;}
+.appts-chip:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
+.appts-rate{font-size:11.5px;color:var(--text2);margin-inline-start:auto;white-space:nowrap;}
+.appts-rate b{color:var(--text);font-weight:800;}
+
+.appt-sec + .appt-sec{margin-top:18px;}
+.appt-sec-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;margin:0 2px 8px;}
+.appt-sec-title{font-size:13px;font-weight:800;color:var(--text);}
+.appt-sec-hint{font-size:11px;color:var(--text2);}
+
+.appt-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:start;padding:10px 12px;margin-bottom:8px;border:1px solid var(--border);border-inline-start:3px solid var(--bc);border-radius:10px;background:color-mix(in srgb, var(--bc) 3%, transparent);}
+.appt-click{cursor:pointer;transition:background .15s;}
+.appt-click:hover{background:color-mix(in srgb, var(--bc) 8%, transparent);}
+.appt-click:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
+.appt-b-cancelled{opacity:.85;}
+
+.appt-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:66px;padding:6px 4px;border-radius:9px;background:color-mix(in srgb, var(--bc) 12%, transparent);color:var(--text);line-height:1.25;text-align:center;}
+.appt-tile-dow{font-size:10.5px;color:var(--text2);font-weight:700;}
+.appt-tile-day{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;}
+.appt-tile-mon{font-size:10.5px;color:var(--text2);white-space:nowrap;}
+.appt-tile-planned .appt-tile-day{font-size:18px;}
+
+.appt-body{min-width:0;}
+.appt-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;}
+.appt-type,.appt-status{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11.5px;font-weight:700;}
+.appt-type,.appt-sess{max-width:100%;overflow-wrap:anywhere;}
+.appt-time{font-size:13px;font-weight:800;color:var(--text);}
+.appt-rel{font-size:11.5px;color:var(--text2);}
+.appt-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin-top:4px;font-size:12px;color:var(--text2);line-height:1.8;overflow-wrap:anywhere;}
+.appt-k{font-weight:700;}
+.appt-meta span{display:inline-flex;align-items:center;gap:5px;}
+.appt-prov{color:var(--text);font-weight:600;}
+.appt-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bc);}
+.appt-stamp{white-space:nowrap;}
+.appt-sep{display:inline-block;width:3px;height:3px;border-radius:50%;background:var(--text3);}
+.appt-sess{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:9px;background:var(--bg3);color:var(--text);font-size:11.5px;}
+.appt-sess-done{color:var(--green);font-weight:800;}
+.appt-sess-planned{color:var(--yellow);font-weight:700;font-size:10.5px;}
+.appt-sess-more{color:var(--text2);}
+.appt-ok{color:var(--green);font-weight:700;}
+.appt-warn{color:var(--appt-warn);font-weight:700;}
+.appt-muted{color:var(--text3);}
+.appt-line.appt-notes{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--text);}
+
+.appt-actions{display:flex;flex-direction:column;gap:6px;align-items:stretch;}
+.appt-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s;}
+.appt-btn:hover{border-color:var(--green);}
+.appt-btn:active{transform:scale(.97);}
+.appt-btn:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
+.appt-btn:disabled{opacity:.6;cursor:wait;}
+.appt-btn-stage{background:color-mix(in srgb, var(--bc) 14%, transparent);border-color:color-mix(in srgb, var(--bc) 55%, transparent);color:var(--bc);font-weight:800;}
+.appt-btn-stage:hover{border-color:var(--bc);background:color-mix(in srgb, var(--bc) 22%, transparent);}
+:root[data-theme="light"] .appt-btn-stage{color:color-mix(in srgb, var(--bc) 45%, #102a43);}
+/* v473: أزرارُ تبويب المواعيد على طقم أزرار الصفوف؛ يبقى زرُّ المرحلة (وصل/جلس/خرج) بنغمته —
+   استثناءٌ مُعلَن كزرّ الوقت بصفحة المواعيد — ويأخذ ارتفاعَ الطقم داخل صفّ الأزرار. */
+.sy-acts > .appt-btn-stage{box-sizing:border-box;height:32px;display:inline-flex;align-items:center;justify-content:center;}
+.appt-more{display:block;width:100%;padding:9px;margin-top:4px;border:1px dashed var(--border2);border-radius:10px;background:transparent;color:var(--text2);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;}
+.appt-more:hover{color:var(--text);border-color:var(--green);}
+.appt-more:active{transform:scale(.99);}
+.appt-empty-hint{font-size:12px;margin-top:6px;}
+
+.appt-ctx-note{font-size:12.5px;line-height:1.8;padding:8px 12px;margin-bottom:12px;border-radius:10px;background:rgba(var(--blue-rgb),.07);border:1px solid rgba(var(--blue-rgb),.25);color:var(--text);}
+.appt-ctx-note.appt-ctx-red{background:rgba(var(--red-rgb),.07);border-color:rgba(var(--red-rgb),.30);}
+
+@media(max-width:600px){
+  .appt-row{grid-template-columns:auto minmax(0,1fr);gap:10px;padding:10px;}
+  .appt-tile{min-width:56px;}
+  .appt-tile-day{font-size:19px;}
+  .appts-next{padding:12px;}
+  .appts-next-date{font-size:17px;}
+  .appts-rate{margin-inline-start:0;width:100%;white-space:normal;}
+}
+@media print{ #tab-appts{display:none !important;} }
+
+/* ═══ M141-ب — وضعُ القراءة ببطاقة المريض ═══
+   أزرارُ الكتابة تُخفى بأسماء معالجاتها (onclick) وأفعالِ تبويب المواعيد (data-appt-act)
+   ومنطقةِ رفع الملفات — السجلُّ الكامل (كتابة · حراسة · قراءة · خامل) يحرسه check-mirrors V11:
+   كلُّ معالجٍ بالصفحة ووحداتها مصنَّف، وهذا السطر يطابق قائمة الكتابة حرفياً.
+   السنُّ ونقطةُ النزف وشريحةُ المراقبة وسجلُّ الزرعة تبقى ظاهرة (بيانات) ويحرسها أولُ سطرٍ بدوالها. */
+html[data-sub-level="read"] :is([onclick*="openApptModal("],[onclick*="openNewSessionEntry("],[onclick*="openModal('aiHubModal')"],[onclick*="openWaHub("],[onclick*="openPayModal("],[onclick*="openEditModal("],[onclick*="unlinkFromFamily("],[onclick*="openFamilyLinkModal("],[onclick*="openPlannedApptModal("],[onclick*="toggleBatchMode("],[onclick*="toggleExamMode("],[onclick*="toggleDraftMode("],[onclick*="examUndo("],[onclick*="batchApply("],[onclick*="draftUndo("],[onclick*="draftClearAll("],[onclick*="draftSave("],[onclick*="draftSetWidth("],[onclick*="draftSetEraser("],[onclick*="perioDeleteExam("],[onclick*="perioNewExam("],[onclick*="perioSave("],[onclick*="perioCreateExam("],[onclick*="openObModal("],[onclick*="openAdjustmentModal("],[onclick*="openPlanModal("],[onclick*="openLabOrderModal("],[onclick*="openRxModal("],[onclick*="openPostOpModal("],[onclick*="savePayment("],[onclick*="saveOpeningBalance("],[onclick*="saveAdjustment("],[onclick*="nseRegional("],[onclick*="nseFree("],[onclick*="sessProvMoveToggle("],[onclick*="sessProvTakeAppt("],[onclick*="sessPickStatus("],[onclick*="snTplSaveCurrent("],[onclick*="snTplDeleteSelected("],[onclick*="aiSuggestSessionNote("],[onclick*="saveSession("],[onclick*="aiPatientSummary("],[onclick*="aiReferralOpen("],[onclick*="aiExplainPlan("],[onclick*="aiSeqSuggest("],[onclick*="aiPlanWaSend("],[onclick*="refTplSaveCurrent("],[onclick*="refTplDeleteSelected("],[onclick*="aiReferralGenerate("],[onclick*="onAddPlannedClickPP("],[onclick*="saveAppt("],[onclick*="saveEditedPatient("],[onclick*="confirmRegionalAreaPick("],[onclick*="completeToothPlannedFromModal("],[onclick*="pickStatus("],[onclick*="pickReviewMonths("],[onclick*="aiSuggestToothNote("],[onclick*="saveToothAndOpenLab("],[onclick*="saveRegionalAndOpenLab("],[onclick*="saveBatchAndOpenLab("],[onclick*="saveToothTreatment("],[onclick*="openImplantTemplatesModal("],[onclick*="saveImplantLog("],[onclick*="openImplantTemplateEdit("],[onclick*="saveImplantTemplate("],[onclick*="labTplSaveCurrent("],[onclick*="labTplDeleteSelected("],[onclick*="ppOpenLabModal("],[onclick*="labClearDateSent("],[onclick*="labAiDraftOrder("],[onclick*="labAiSaveAndSend("],[onclick*="saveLabOrder("],[onclick*="ppSaveLab("],[onclick*="revertToFifo("],[onclick*="saveManualSplits("],[onclick*="ppSendWaReminder("],[onclick*="waTplSaveCurrent("],[onclick*="waTplDeleteSelected("],[onclick*="ppWaAiDraft("],[onclick*="ppWaComposeSend("],[onclick*="savePaymentPlan("],[onclick*="openRxTemplatesModal("],[onclick*="rxAddItemRow("],[onclick*="savePrescription("],[onclick*="openPostOpTemplatesModal("],[onclick*="ppPostOpAiSuggest("],[onclick*="savePostOpNote("],[onclick*="openPostOpTemplateEdit("],[onclick*="savePostOpTemplate("],[onclick*="confirmMaterialDeduction("],[onclick*="setSessionPhase("],[onclick*="setSessionOption("],[onclick*="adoptPlanOption("],[onclick*="openAltBridgePicker("],[onclick*="aiPlanOptPick("],[onclick*="completeSessionFromProfile("],[onclick*="ppSessionOpenLab("],[onclick*="delSession("],[onclick*="openSplitEditor("],[onclick*="delPayment("],[onclick*="delAdjustment("],[onclick*="advanceLabOrder("],[onclick*="redoLabOrder("],[onclick*="editLabOrder("],[onclick*="delLabOrder("],[onclick*="deletePrescription("],[onclick*="rxEditTemplate("],[onclick*="deleteRxTemplate("],[onclick*="deletePostOpNote("],[onclick*="deletePostOpTemplate("],[onclick*="removeImplant("],[onclick*="undoExtraction("],[onclick*="clearToothStatus("],[onclick*="removeSpacerUnit("],[onclick*="removeSocket("],[onclick*="removeCondition("],[onclick*="deleteImplantLog("],[onclick*="linkToFamily("],[onclick*="deleteImplantTemplate("],[onclick*="batchSetStatus("],[onclick*="batchPickTx("],[onclick*="examSetStatus("],[onclick*="examSetMonths("],[onclick*="examPick("],[onclick*="planWa("],[onclick*="planSetStatus("],[onclick*="removePendingPP("],[onclick*="unlinkSessionFromApptPP("],[onclick*="quickSchedulePlannedFromProfile("],[onclick*="editPlannedFromProfile("],[onclick*="deletePlannedFromProfile("],[onclick*="pfDeleteFile("],[onclick*="planNewVisit("],[onclick*="planLinkVisitPick("],[onclick*="planLinkVisit("],[onclick*="ppFlagsToggleEdit("],[onclick*="ppFlagToggle("],[data-appt-act="new"],[data-appt-act="remind"],[data-appt-act="rebook"],[data-appt-act="stage"],[data-appt-act="schedule"],[data-appt-act="editplanned"],[data-appt-act="delplanned"],#pfDropZone,#pfUploadCategory,#pfUploadTooth,.wend-x){display:none !important;}
+html[data-sub-level="read"] .wend-chip{cursor:default;}
+
+/* v471: الهاتف — أزرارُ صفّ الجلسة سطرٌ كاملُ العرض تحت البطاقة بفاصلٍ منقّط (معيارُ طلبات الحجز).
+   (جداولُ .m-cards تأخذ الفاصلَ داخل استعلام الحاوية أعلاه — متى صارت بطاقةً فقط.) */
+@media (max-width:820px){
+  .sess-table td.sc-actions{flex:1 1 100%;margin-inline-start:0;border-top:1px dashed var(--border);padding-top:10px;}
+}
+/* v473: الهاتف والتابلت (≤820، حدُّ الطقم) — أزرارُ بطاقات المواعيد والمواعيد المخطّطة سطرٌ كاملُ العرض تحتها. */
+@media (max-width:820px){
+  .appt-actions{grid-column:1 / -1;flex-direction:row;flex-wrap:wrap;}
+  .appts-next-actions{width:100%;}
+  .sy-acts > .appt-btn-stage{height:40px;flex:1 1 auto;}
+  .planned-pp-row{flex-wrap:wrap;}
+  .planned-pp-actions{flex:1 1 100%;border-top:1px dashed var(--border);padding-top:10px;}
+}
+
+/* DeepCode #20 (v562): نافذةُ علاج السن لا تغطّي السنَّ المختار — لوحةٌ بالنصف المقابل (حاسوب) · ورقةٌ أقصر (هاتف) */
+#toothModal.open.pp-dock { background: color-mix(in srgb, var(--bg) 35%, transparent); }
+@media (min-width: 561px) {
+  #toothModal.open.pp-dock-left  { justify-content: flex-end;   padding-inline: 24px; }
+  #toothModal.open.pp-dock-right { justify-content: flex-start; padding-inline: 24px; }
+  #toothModal.open.pp-dock > .modal-box { max-height: 90vh; box-shadow: var(--shadow-lg, 0 10px 40px color-mix(in srgb, var(--text) 25%, transparent)); }
+}
+@media (max-width: 560px) {
+  #toothModal.open.pp-dock > .modal-box { max-height: 60dvh; }
+  html.pp-dock-room #ppPage { padding-bottom: 62dvh; }
+}
+.pp-tooth-sel { filter: drop-shadow(0 0 3px var(--accent)) drop-shadow(0 0 7px var(--accent)); }

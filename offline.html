@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>لا يوجد اتصال — SyDent</title>
+<!-- صفحة سقوط offline ثابتة بالكامل: صفر JavaScript، صفر طلبات خارجية.
+     تُخدَم من precache الـService Worker عند التنقّل لصفحة غير مكاشة بلا إنترنت.
+     زر «إعادة المحاولة» = رابط للمسار الحالي نفسه (href="") — بلا سكربت. -->
+<style>
+  :root{
+    --bg:#f4f7fa; --card:#ffffff; --ink:#12263a; --muted:#5a7184;
+    --brand:#0f4c81; --line:#e3e9f0;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1a2b; --card:#152238; --ink:#e8eef5;
+      --muted:#9db2c4; --line:#24405e;
+    }
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--ink); min-height:100vh;
+    display:flex; align-items:center; justify-content:center; padding:24px;
+    font-family:'Cairo','IBM Plex Sans Arabic','Segoe UI',Tahoma,Arial,sans-serif;
+    text-align:center;
+  }
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:36px 28px; max-width:420px; width:100%;
+    box-shadow:0 8px 28px rgba(18,38,58,.08);
+  }
+  .icon{font-size:52px; line-height:1; margin-bottom:14px;}
+  h1{font-size:21px; font-weight:800; margin-bottom:10px;}
+  p{font-size:15px; color:var(--muted); line-height:1.8; margin-bottom:22px;}
+  .retry{
+    display:inline-block; background:var(--brand); color:#fff; text-decoration:none;
+    font-size:15px; font-weight:700; padding:11px 34px; border-radius:10px;
+  }
+  .brand{margin-top:20px; font-size:12.5px; color:var(--muted); letter-spacing:.3px;}
+  .cached{margin-top:22px; text-align:right; display:none;}
+  .cached-title{font-size:13px; font-weight:700; color:var(--muted); margin-bottom:8px;}
+  .cached-list{display:flex; flex-wrap:wrap; gap:8px;}
+  .cached-link{
+    display:inline-block; font-size:13px; font-weight:700; text-decoration:none;
+    color:var(--brand); background:transparent; border:1px solid var(--line);
+    padding:6px 12px; border-radius:8px;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📡</div>
+    <h1>لا يوجد اتصال بالإنترنت</h1>
+    <p>هذه الصفحة لم تُحفَظ للعمل بلا اتصال بعد.<br>الصفحات التي زرتها سابقاً تبقى متاحة، وسيعود كل شيء للعمل فور رجوع الاتصال.</p>
+    <a class="retry" href="">إعادة المحاولة</a>
+    <div class="cached" id="cachedWrap">
+      <div class="cached-title">متوفر بلا اتصال — الصفحات التي زرتها:</div>
+      <div class="cached-list" id="cachedList"></div>
+    </div>
+    <div class="brand">SyDent — نظام إدارة العيادة</div>
+  </div>
+<script>
+/* PWA Phase 3: اعرض الصفحات المكاشة كروابط — من كاش sydent-pages مباشرة */
+(function(){
+  'use strict';
+  var NAMES={index:'لوحة التحكم',patients:'المرضى',appointments:'المواعيد','patient-profile':'بطاقة مريض',accounting:'المحاسبة',treatments:'قائمة العلاجات',inventory:'المخزون',expenses:'المصاريف',labs:'المخابر',staff:'الموظفون',doctors:'أطباء العيادة',payroll:'الرواتب والدفعات',reports:'التقارير',activity:'سجل النشاطات',settings:'الإعدادات',subscription:'الاشتراك',learn:'التدريب',landing:'الصفحة الرئيسية'};
+  try{
+    if(!('caches' in window)) return;
+    caches.keys().then(function(keys){
+      var pk=keys.filter(function(k){return k.indexOf('sydent-pages-')===0;}).sort().pop();
+      if(!pk) return;
+      return caches.open(pk).then(function(c){return c.keys();}).then(function(reqs){
+        var list=document.getElementById('cachedList'), n=0, seen={};
+        (reqs||[]).forEach(function(r){
+          var p;
+          try{ p=new URL(r.url).pathname.replace(/^\//,'').replace(/\.html$/,'')||'index'; }catch(e){ return; }
+          if(p==='offline'||p==='auth'||p==='pending'||p==='reset-password'||seen[p]) return;
+          seen[p]=1;
+          var a=document.createElement('a');
+          a.href='/'+(p==='index'?'':p);
+          a.textContent=NAMES[p]||p;
+          a.className='cached-link';
+          list.appendChild(a); n++;
+        });
+        if(n) document.getElementById('cachedWrap').style.display='block';
+      });
+    }).catch(function(){});
+  }catch(e){}
+})();
+</script>
+</body>
+</html>
