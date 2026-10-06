@@ -856,6 +856,7 @@ async function doLogin(e) {
   }
   btn.disabled = true;
   btn.innerHTML = 'جارٍ التحقق<span class="spinner"></span>';
+  var signedIn = false;
   try {
     const { data, error } = await window.sb.auth.signInWithPassword({ email, password, options: { captchaToken: getTurnstileToken('login') } });
     if (error) throw error;
@@ -916,6 +917,7 @@ async function doLogin(e) {
       try { if (window.SyDentCurrency) await window.SyDentCurrency.load(data.user.id); } catch (e) {}
     }
 
+    signedIn = true;
     showMsg('✅ تم تسجيل الدخول، جارٍ التحويل...', 'success');
     var dest = isAdmin ? 'admin.html' : 'index.html';
     setTimeout(() => { window.location.href = dest; }, 600);
@@ -932,7 +934,9 @@ async function doLogin(e) {
     btn.textContent = 'دخول';
   } finally {
     // Turnstile tokens are single-use → refresh for any subsequent attempt.
-    try { resetTurnstile('login'); } catch(e){}
+    // Skipped on success: the page is redirecting, and a reset would make the
+    // widget visibly re-run its challenge during the redirect delay.
+    if (!signedIn) { try { resetTurnstile('login'); } catch(e){} }
   }
 }
 
