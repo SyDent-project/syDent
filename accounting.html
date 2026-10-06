@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <title>SyDent — المحاسبة</title>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261006a"></script>
+<script src="theme.js?v=20261006b"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -465,19 +465,19 @@ table.providers tr:hover td { background: var(--bg3); }
 html[data-sub-level="read"] :is([onclick*="digestGenerate("],[onclick*="setAccUnifyCur("],[onclick*="saveAccUsdRate("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261006a">
+<link rel="stylesheet" href="theme.css?v=20261006b">
 <!-- CRITICAL: Supabase CDN MUST load BEFORE supabase-init.js. The init
      script accesses window.supabase synchronously to expose sbGetUser and
      window.sb on the global. If the CDN loads later (e.g. at end of body),
      init() will throw "sbGetUser is not a function". This 3-line block
      matches the exact pattern used in expenses.html, payouts.html, etc. -->
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261006a"></script>
-<script src="sy-modal.js?v=20261006a"></script>
-<script src="sidebar.js?v=20261006a"></script>
-<script src="acc-aging.js?v=20261006a"></script>
-<script src="pay-methods.js?v=20261006a"></script>
-<script src="acc-daysheet.js?v=20261006a"></script>
+<script src="supabase-init.js?v=20261006b"></script>
+<script src="sy-modal.js?v=20261006b"></script>
+<script src="sidebar.js?v=20261006b"></script>
+<script src="acc-aging.js?v=20261006b"></script>
+<script src="pay-methods.js?v=20261006b"></script>
+<script src="acc-daysheet.js?v=20261006b"></script>
 </head>
 <body>
 
