@@ -1,4 +1,4 @@
--- 174 — Seed platform defaults on a fresh project
+-- bootstrap/03 — Seed platform defaults on a fresh project
 --
 -- db/schema.sql has no data, so the default rows that earlier migrations
 -- seeded are missing on a fresh project. This file re-seeds them:

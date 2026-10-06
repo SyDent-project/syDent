@@ -1,4 +1,4 @@
--- 173 — Auth signup triggers rebuild
+-- bootstrap/02 — Auth signup triggers rebuild
 --
 -- db/schema.sql only snapshots the public schema, so the triggers that live
 -- on auth.users were never captured. Without them a new signup gets no
