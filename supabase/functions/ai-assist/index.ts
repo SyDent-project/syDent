@@ -28,13 +28,17 @@
 //
 // SECRETS
 //   SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY  → auto-provided by Supabase.
-//   ANTHROPIC_API_KEY                          → set MANUALLY (Dashboard →
-//     Edge Functions → Secrets). Missing → 500 ai_key_missing.
+//   AI provider secrets → set MANUALLY (Dashboard → Edge Functions → Secrets).
+//     Cloudflare Workers AI (preferred when set):
+//       CF_ACCOUNT_ID + CF_AI_API_TOKEN (token: Workers AI Read + Edit)
+//       CF_AI_MODEL (optional, defaults to CF_DEFAULT_MODEL below)
+//     Anthropic (fallback): ANTHROPIC_API_KEY
+//     Neither configured → 500 ai_key_missing.
 //
 // DEPLOY (automated via CI — .github/workflows/edge-deploy.yml, same as admin-ops)
 //   Push to main touching supabase/functions/** auto-deploys via Supabase CLI
 //   with --no-verify-jwt (also pinned in supabase/config.toml). Secret
-//   ANTHROPIC_API_KEY lives in platform Edge Function secrets (untouched by CI).
+//   AI provider secrets live in platform Edge Function secrets (untouched by CI).
 //   Manual fallback: Actions → "Edge Functions Deploy" → Run workflow. Endpoint:
 //     https://<project-ref>.functions.supabase.co/ai-assist
 //   Called from the client via window.sb.functions.invoke('ai-assist', …)
@@ -51,7 +55,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ── Tunables (owner-editable) ───────────────────────────────────────────
-const AI_MODEL = "claude-haiku-4-5-20251001"; // cost-effective; → "claude-sonnet-5" for richer notes
+const AI_MODEL = "claude-haiku-4-5-20251001"; // Anthropic fallback; → "claude-sonnet-5" for richer notes
+// Cloudflare Workers AI default: multilingual, cheapest per token, fits the
+// free daily allocation. Override per project with the CF_AI_MODEL secret.
+const CF_DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash";
 const MAX_TOKENS = 700;                         // fallback ceiling
 /* سقف المخرجات لكل ميزة — شرح الخطة قد يحوي عدة بلوكات مراحل + بنود مشتركة
    + إجمالي + ملاحظات + خاتمة، والعربية كثيفة التوكينات (700 كانت تبتر الشرح
@@ -817,8 +824,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+  const CF_ACCOUNT_ID = Deno.env.get("CF_ACCOUNT_ID");
+  const CF_AI_API_TOKEN = Deno.env.get("CF_AI_API_TOKEN");
+  const useCloudflare = !!(CF_ACCOUNT_ID && CF_AI_API_TOKEN);
+  const modelName = useCloudflare ? (Deno.env.get("CF_AI_MODEL") || CF_DEFAULT_MODEL) : AI_MODEL;
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json(500, { error: "function_misconfigured" });
-  if (!ANTHROPIC_API_KEY) return json(500, { error: "ai_key_missing" });
+  if (!useCloudflare && !ANTHROPIC_API_KEY) return json(500, { error: "ai_key_missing" });
 
   // Privileged client (service role). Never persists a session.
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
@@ -1194,20 +1205,66 @@ Deno.serve(async (req: Request): Promise<Response> => {
     userContent = "سؤال الطبيب:\n" + question + "\n\nأخرج مفتاح الصنف وحده.";
   }
 
-  // ── 6) Call Anthropic (server-side · key never leaves here) ────────
+  // ── 6) Call the AI provider (server-side · key never leaves here) ──
   // سقف الميزة، ومحاولة ثانية بسقف مضاعف إن انقطع الناتج (stop_reason=max_tokens)
   // كي لا يصل المريض شرحٌ مبتور تسقط منه علاجات بصمت.
   let aiText = "";
   let usage = { input_tokens: 0, output_tokens: 0 };
   let tokenCap = (hasFeature(FEATURE_MAX_TOKENS, feature) ? FEATURE_MAX_TOKENS[feature] : 0) || MAX_TOKENS;
-  try {
+  if (useCloudflare) {
+    // Cloudflare Workers AI (REST). Chat models return an OpenAI-style
+    // { choices[], usage } inside { result }; older ones { result.response }.
+    try {
+      let data: any = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const r = await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${modelName}`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "authorization": `Bearer ${CF_AI_API_TOKEN}`,
+            },
+            body: JSON.stringify({
+              messages: [
+                { role: "system", content: SYSTEM_PROMPTS[feature] },
+                { role: "user", content: userContent },
+              ],
+              max_completion_tokens: tokenCap,
+            }),
+          },
+        );
+        if (!r.ok) {
+          const errTxt = await r.text().catch(() => "");
+          console.error("workers_ai_error", r.status, errTxt.slice(0, 300));
+          return json(502, { error: "ai_upstream_error" });
+        }
+        data = (await r.json())?.result;
+        if (data?.choices?.[0]?.finish_reason === "length" && attempt === 0) {
+          console.warn("ai_truncated_retry", feature, tokenCap);
+          tokenCap = tokenCap * 2;
+          continue;
+        }
+        break;
+      }
+      const choiceText = data?.choices?.[0]?.message?.content;
+      aiText = String((typeof choiceText === "string" ? choiceText : data?.response) || "").trim();
+      usage = {
+        input_tokens: data?.usage?.prompt_tokens ?? 0,
+        output_tokens: data?.usage?.completion_tokens ?? 0,
+      };
+    } catch (e) {
+      console.error("workers_ai_fetch_failed", String(e));
+      return json(502, { error: "ai_upstream_error" });
+    }
+  } else try {
     let r: Response | null = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       r = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-api-key": ANTHROPIC_API_KEY,
+          "x-api-key": ANTHROPIC_API_KEY!,
           "anthropic-version": ANTHROPIC_VERSION,
         },
         body: JSON.stringify({
@@ -1253,7 +1310,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     await admin.from("ai_usage_log").insert({
       owner_id: ownerId,
       feature,
-      model: AI_MODEL,
+      model: modelName,
       input_tokens: usage.input_tokens,
       output_tokens: usage.output_tokens,
     });

@@ -9,3 +9,5 @@
 | ربط Supabase ↔ Vercel | يدوي: بنحط المفاتيح المطلوبة بس بـ Vercel Environment Variables (بالمهمة 1.6)، بدون Vercel Marketplace integration | 2026-10-05 |
 | الكود | منكمّل على كود SyDent الموجود (HTML/CSS/JS + Supabase)، مش بناء من الصفر | 2026-10-05 |
 | الاستضافة | الواجهة على **Vercel**؛ **Cloudflare** للـ DNS والحماية والتخزين (R2). ملف `_headers` بيتحوّل لـ `vercel.json` | 2026-10-05 |
+| الذكاء الاصطناعي | مبدئياً **Cloudflare Workers AI** (حصة يومية مجانية، النموذج الافتراضي `@cf/zai-org/glm-4.7-flash`)، و Anthropic بيضل خيار احتياطي بالكود | 2026-10-06 |
+| مفتاح نشر الـ Edge Functions | `SUPABASE_ACCESS_TOKEN` بلا تاريخ انتهاء، محصور بـ `dental-dev` و `dental-prod` وبصلاحيتين (Project Settings: Read، Edge Functions: Read-write)، مع 2FA على GitHub و Supabase | 2026-10-06 |
