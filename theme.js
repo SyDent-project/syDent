@@ -72,7 +72,7 @@
     try {
       var meta = document.querySelector('meta[name="theme-color"]');
       if (meta) {
-        meta.setAttribute('content', mode === 'dark' ? '#0a6b60' : '#0d8577');
+        meta.setAttribute('content', mode === 'dark' ? '#161a30' : '#3f4fc4');
       }
     } catch (e) {}
   }

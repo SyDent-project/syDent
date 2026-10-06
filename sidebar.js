@@ -76,9 +76,9 @@ const css = `
   }
   .sb-logo-name { font-size: 18px; font-weight: 900; color: var(--text); font-family: 'Cairo', sans-serif; }
   .sb-logo-sub  { font-size: 10px; color: var(--text2); font-family: 'Cairo', sans-serif; }
-  :root[data-theme="light"] .sd-sy{background:linear-gradient(135deg,#3d8577 0%,#2f7d52 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#368a64;}
+  :root[data-theme="light"] .sd-sy{background:linear-gradient(135deg,#3f4fc4 0%,#5a46c8 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#368a64;}
   :root[data-theme="light"] .sd-dent{color:#16362c;}
-  :root[data-theme="dark"] .sd-sy{background:linear-gradient(135deg,#4fb89f 0%,#3ec77a 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#46b88c;}
+  :root[data-theme="dark"] .sd-sy{background:linear-gradient(135deg,#8b97ff 0%,#a99bff 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#46b88c;}
   :root[data-theme="dark"] .sd-dent{color:#e8f6f0;}
 
   .sb-nav { flex: 1; padding: 12px 0; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
@@ -334,7 +334,7 @@ function buildHTML(activeId) {
     <aside class="sb-sidebar" id="sbSidebar">
       <a href="index.html" class="sb-logo">
         <div class="sb-logo-icon"><svg viewBox="0 0 1279 1400" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:34px;height:34px"><g transform="translate(0.000000,1400.000000) scale(0.100000,-0.100000)"
-fill="#1ed99a" stroke="none">
+fill="#5b6af0" stroke="none">
 <path d="M8460 13985 c-102 -19 -306 -72 -389 -101 -91 -32 -282 -119 -368
 -167 -34 -20 -72 -39 -85 -43 -12 -4 -34 -15 -48 -24 -41 -29 -104 -32 -153
 -6 -23 12 -78 32 -122 45 -44 13 -100 30 -125 38 -106 34 -186 44 -395 45
@@ -886,7 +886,7 @@ function initSidebar(activeId) {
         // Update mobile status bar tint if a theme-color meta exists
         try {
           const meta = document.querySelector('meta[name="theme-color"]');
-          if (meta) meta.setAttribute('content', m === 'dark' ? '#0a6b60' : '#0d8577');
+          if (meta) meta.setAttribute('content', m === 'dark' ? '#161a30' : '#3f4fc4');
         } catch (e) {}
         // Notify other widgets (e.g. Chart.js) — same event name as theme.js
         try {
