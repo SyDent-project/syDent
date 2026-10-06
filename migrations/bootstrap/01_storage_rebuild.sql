@@ -1,4 +1,4 @@
--- 172 — Storage rebuild (buckets + storage.objects policies)
+-- bootstrap/01 — Storage rebuild (buckets + storage.objects policies)
 --
 -- db/schema.sql only snapshots the public schema, so the storage layer was
 -- never captured in the repo (P9 was applied DB-only). This file rebuilds it

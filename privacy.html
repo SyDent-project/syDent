@@ -2,7 +2,6 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0d8577">
 <link rel="icon" type="image/svg+xml" href="favicon.svg?v=4">
@@ -148,7 +147,7 @@ footer{
 
   <section id="pvContact" hidden>
     <h3>7. التواصل</h3>
-    <p>لأي استفسار حول الخصوصية أو الشروط: <span id="pvSupportEmailWrap"><a class="inlink" id="pvSupportEmail" href="mailto:drayhamghnaim@gmail.com">drayhamghnaim@gmail.com</a></span><span id="pvSupportWaWrap" hidden><span id="pvSupportSep"> · </span>واتساب: <a class="inlink" id="pvSupportWa" target="_blank" rel="noopener"></a></span></p>
+    <p>لأي استفسار حول الخصوصية أو الشروط: <span id="pvSupportEmailWrap"><a class="inlink" id="pvSupportEmail"></a></span><span id="pvSupportWaWrap" hidden><span id="pvSupportSep"> · </span>واتساب: <a class="inlink" id="pvSupportWa" target="_blank" rel="noopener"></a></span></p>
   </section>
 </main>
 
@@ -161,8 +160,8 @@ footer{
 // Two failure modes are deliberately NOT treated the same:
 //   • the row ARRIVED empty  → the platform owner cleared that channel in
 //     Section H, so the surface is removed. Admin intent is authoritative.
-//   • the row NEVER arrived (network / RLS / missing seed) → unknown, not
-//     cleared: the static fallback in the markup stands (fail-open, #240).
+//   • the row NEVER arrived (network / RLS / missing seed) → unknown. There
+//     is no static fallback address in the markup, so nothing is shown.
 // The whole clause ships [hidden] so nothing flashes before the answer is
 // known, and every path below un-hides exactly what it can justify.
 (function(){
@@ -186,11 +185,12 @@ footer{
       });
 
       // ---- email ----
-      var emailOn = true;                 // static fallback stands by default
+      var emailOn = false;                // no static fallback: only the admin-set address is shown
       var em = el('pvSupportEmail');
       var emWrap = el('pvSupportEmailWrap');
       if (seen.support_email) {
         if (map.support_email) {
+          emailOn = true;
           if (em) { em.href = 'mailto:' + map.support_email; em.textContent = map.support_email; }
         } else {
           emailOn = false;
@@ -220,7 +220,7 @@ footer{
     })
     .catch(function(e){
       console.warn('supportContact fetch:', e);
-      reveal(true, false);              // fail-open: static fallback stands
+      reveal(false, false);             // no static fallback to show
     });
 })();
 </script>
