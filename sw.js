@@ -23,7 +23,7 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 'use strict';
 
-var SW_VERSION  = 'v570';   /* v257: سجلّ الإصدارات انتقل إلى CHANGELOG.md (كان 430KB بهذا السطر). كل رفع نسخة يُسجَّل هناك — لا هنا. */
+var SW_VERSION  = 'v571';   /* v257: سجلّ الإصدارات انتقل إلى CHANGELOG.md (كان 430KB بهذا السطر). كل رفع نسخة يُسجَّل هناك — لا هنا. */
 var KILL_SWITCH = false;
 
 var PRECACHE = 'sydent-precache-' + SW_VERSION;
@@ -42,7 +42,7 @@ var VENDOR_WARM   = ['/vendor/supabase-2.110.8.min.js'];
    الأسماء ثابتة (عائلة-مجموعة-وزن) ⇒ المحتوى لا يتغيّر ⇒ SWR آمن. */
 ['arabic', 'latin'].forEach(function (sub) {
   ['400', '500', '600', '700'].forEach(function (w) {
-    VENDOR_WARM.push('/fonts/ibm-plex-sans-arabic-' + sub + '-' + w + '-normal.woff2');
+    VENDOR_WARM.push('/fonts/noto-kufi-arabic-' + sub + '-' + w + '-normal.woff2');
   });
 });
 /* صفحات جوهر العيادة: تُسخَّن حتمياً عند install (قشور بلا PHI — البيانات

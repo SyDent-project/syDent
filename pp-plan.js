@@ -588,7 +588,7 @@ function buildPlanHtml() {
   var pAge = (patient && patient.dob) ? calcAge(patient.dob) : '';
   var pGender = (patient && patient.gender) ? patient.gender : '';
 
-  var h = '<div dir="rtl" style="font-family:Cairo,\'IBM Plex Sans Arabic\',Tahoma,sans-serif;color:#111;background:#fff;max-width:820px;margin:0 auto;padding:6px 4px;">';
+  var h = '<div dir="rtl" style="font-family:Cairo,\'Noto Kufi Arabic\',Tahoma,sans-serif;color:#111;background:#fff;max-width:820px;margin:0 auto;padding:6px 4px;">';
   // Header — mirrors the prescription header
   h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid var(--green);padding-bottom:14px;margin-bottom:10px;">';
   h += '<div><div style="font-size:24px;font-weight:800;color:#111;">' + escapeHtml(c.clinic_name) + '</div>';
