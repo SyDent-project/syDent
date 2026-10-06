@@ -1231,6 +1231,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 { role: "user", content: userContent },
               ],
               max_completion_tokens: tokenCap,
+              // GLM / Qwen chat templates think before answering by default,
+              // which burns the whole token cap (and the free allocation) on
+              // hidden reasoning. These features need direct answers.
+              ...(/glm|qwen/i.test(modelName) ? { chat_template_kwargs: { enable_thinking: false } } : {}),
             }),
           },
         );
