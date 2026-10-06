@@ -4,7 +4,8 @@
 -- seeded are missing on a fresh project. This file re-seeds them:
 --   platform_settings keys (33, 42, 84, 105, 167) — support_email starts
 --   empty instead of the previous owner's address; set it from admin.html.
---   notification_templates defaults (28_2), verbatim.
+--   notification_templates defaults (28_2); the login_url hint points at
+--   sydent.app instead of the previous owner's GitHub Pages site.
 -- Idempotent (ON CONFLICT DO NOTHING): never overwrites admin edits.
 
 INSERT INTO public.platform_settings (key, value) VALUES
@@ -43,7 +44,7 @@ VALUES (
   E'شكراً لاختيارك SyDent!',
   '[
     {"key":"name","desc":"اسم الطبيب (بدون لقب — اللقب مُضمَّن في النص)"},
-    {"key":"login_url","desc":"رابط الموقع (افتراضياً https://ayhamghnaim.github.io/SyDent)"},
+    {"key":"login_url","desc":"رابط الموقع (افتراضياً https://sydent.app)"},
     {"key":"email","desc":"البريد المُسجَّل أو phone@sydent.com"}
   ]'::jsonb,
   10
