@@ -5,6 +5,7 @@
 > Supabase SQL Editor ولم تُلصق هنا. لمعرفة حالة RLS/السياسات الفعلية، شغّل
 > [`_rls_audit_unified.sql`](./_rls_audit_unified.sql) في الـ SQL Editor
 > (للقراءة فقط، آمن لإعادة التشغيل أي وقت).
+> للتشخيص الأعمق: [`_rls_audit_diagnostic.sql`](./_rls_audit_diagnostic.sql) (قراءة فقط كمان).
 
 ## طريقة العمل
 - الـ migrations تُطبَّق **يدوياً** في Supabase SQL Editor (لا تشغيل تلقائي عند الـ deploy).
