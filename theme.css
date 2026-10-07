@@ -15,72 +15,71 @@
    ============================================================================ */
 
 /* ── Redesign v1 (12 Jun 2026): typeface ── */
-/* SyDent — خطّ الواجهة مستضافٌ ذاتياً (v493): IBM Plex Sans Arabic · OFL (fonts/LICENSE) ·
-   @fontsource 5.3.0 · عربي + لاتيني × 400/500/600/700. لا اعتماد على Google Fonts:
-   شبكاتٌ بطيئة أو خدماتُ Google محجوبة (سوريا) كانت تُسقط الواجهة على خطٍّ بديل أعرض
-   فتُقصّ التسميات؛ والـPWA الآن يكاش الخط من نفس الأصل فيعمل بلا اتصال من أول زيارة. */
+/* SyDent — UI typeface, self-hosted: Noto Kufi Arabic · OFL (fonts/LICENSE-noto-kufi-arabic.txt) ·
+   @fontsource 5.3.0 · Arabic + Latin × 400/500/600/700. Self-hosted (no Google Fonts) so the
+   UI keeps its face on slow networks / where Google services are blocked, and the PWA caches it. */
 @font-face {
-  font-family: 'IBM Plex Sans Arabic';
+  font-family: 'Noto Kufi Arabic';
   font-style: normal;
   font-display: swap;
   font-weight: 400;
-  src: url(/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2) format('woff2');
+  src: url(/fonts/noto-kufi-arabic-arabic-400-normal.woff2) format('woff2');
   unicode-range: U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EC2-10EC4,U+10EFC-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1;
 }
 @font-face {
-  font-family: 'IBM Plex Sans Arabic';
+  font-family: 'Noto Kufi Arabic';
   font-style: normal;
   font-display: swap;
   font-weight: 400;
-  src: url(/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2) format('woff2');
+  src: url(/fonts/noto-kufi-arabic-latin-400-normal.woff2) format('woff2');
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
 @font-face {
-  font-family: 'IBM Plex Sans Arabic';
+  font-family: 'Noto Kufi Arabic';
   font-style: normal;
   font-display: swap;
   font-weight: 500;
-  src: url(/fonts/ibm-plex-sans-arabic-arabic-500-normal.woff2) format('woff2');
+  src: url(/fonts/noto-kufi-arabic-arabic-500-normal.woff2) format('woff2');
   unicode-range: U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EC2-10EC4,U+10EFC-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1;
 }
 @font-face {
-  font-family: 'IBM Plex Sans Arabic';
+  font-family: 'Noto Kufi Arabic';
   font-style: normal;
   font-display: swap;
   font-weight: 500;
-  src: url(/fonts/ibm-plex-sans-arabic-latin-500-normal.woff2) format('woff2');
+  src: url(/fonts/noto-kufi-arabic-latin-500-normal.woff2) format('woff2');
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
 @font-face {
-  font-family: 'IBM Plex Sans Arabic';
+  font-family: 'Noto Kufi Arabic';
   font-style: normal;
   font-display: swap;
   font-weight: 600;
-  src: url(/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2) format('woff2');
+  src: url(/fonts/noto-kufi-arabic-arabic-600-normal.woff2) format('woff2');
   unicode-range: U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EC2-10EC4,U+10EFC-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1;
 }
 @font-face {
-  font-family: 'IBM Plex Sans Arabic';
+  font-family: 'Noto Kufi Arabic';
   font-style: normal;
   font-display: swap;
   font-weight: 600;
-  src: url(/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2) format('woff2');
+  src: url(/fonts/noto-kufi-arabic-latin-600-normal.woff2) format('woff2');
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
 @font-face {
-  font-family: 'IBM Plex Sans Arabic';
+  font-family: 'Noto Kufi Arabic';
   font-style: normal;
   font-display: swap;
   font-weight: 700;
-  src: url(/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2) format('woff2');
+  src: url(/fonts/noto-kufi-arabic-arabic-700-normal.woff2) format('woff2');
   unicode-range: U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EC2-10EC4,U+10EFC-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1;
 }
 @font-face {
-  font-family: 'IBM Plex Sans Arabic';
+  font-family: 'Noto Kufi Arabic';
   font-style: normal;
   font-display: swap;
   font-weight: 700;
-  src: url(/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2) format('woff2');
+  src: url(/fonts/noto-kufi-arabic-latin-700-normal.woff2) format('woff2');
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
 
@@ -88,21 +87,24 @@
 /* ---------- LIGHT MODE (default — Clinical cool, SyDent Redesign v1) ------ */
 :root,
 :root[data-theme="light"] {
-  --bg:        #e9eef5;
+  --bg:        #eef0f7;
   --bg2:       #ffffff;
-  --bg3:       #dfe7f0;
-  --bg4:       #f7fafc;
+  --bg3:       #e4e7f2;
+  --bg4:       #f7f8fc;
 
-  --text:      #102a43;
-  --text2:     #5a7184;
-  --text3:     #64748b;   /* was #8fa6b8 (2.35:1 fail) → 4.76:1 on cards */
+  --text:      #171a33;
+  --text2:     #5d6382;
+  --text3:     #64698a;   /* ≥4.5:1 on cards */
 
-  --border:    #c9d5e1;   /* v282: was #d8e1eb (1.2:1 on white — grid lines and card edges vanished); now ~1.5:1, Google Calendar's grid line weight */
-  --border2:   #b3c3d3;   /* v282: was #cbd8e3 */
+  --border:    #d1d5e6;   /* v282: was #d8e1eb (1.2:1 on white — grid lines and card edges vanished); now ~1.5:1, Google Calendar's grid line weight */
+  --border2:   #b8bed6;   /* v282: was #cbd8e3 */
 
-  --green:     #0d8577;
-  --green2:    #0a6b60;
-  --green-dim: rgba(13,133,119,0.10);
+  /* C1 (Oct 2026): brand is clinical indigo. The --green* names are kept
+     (863 call sites) but now carry the brand colour. Semantic "success"
+     lives in --green-fg/-bg/-bd/-soft below and stays green. */
+  --green:     #3f4fc4;
+  --green2:    #2f3c9e;
+  --green-dim: rgba(63,79,196,0.10);
 
   /* v347 status palette: the three warm tokens are TEXT colours with hues
      spread 354° / 21° / 46° (was 0° / 21° / 26° — "yellow" #b45309 was a
@@ -153,28 +155,28 @@
   --text-secondary:var(--text2);
   --text-muted:    var(--text3);
 
-  --shadow-card:   0 1px 2px rgba(16,42,67,0.06), 0 1px 3px rgba(16,42,67,0.05);
-  --shadow-modal:  0 20px 50px rgba(16,42,67,0.18);
+  --shadow-card:   0 1px 2px rgba(23,26,51,0.06), 0 1px 3px rgba(23,26,51,0.05);
+  --shadow-modal:  0 20px 50px rgba(23,26,51,0.18);
 }
 
 /* ---------- DARK MODE (existing platform look, preserved) ------------------ */
 :root[data-theme="dark"] {
   /* Standard naming */
-  --bg:        #0a1628;
-  --bg2:       #0f2038;
-  --bg3:       #132840;
-  --bg4:       #0d1e33;
+  --bg:        #0e1020;
+  --bg2:       #161a30;
+  --bg3:       #1c2140;
+  --bg4:       #12152a;
 
-  --text:      #e1f4ee;
-  --text2:     #8a9ab5;
-  --text3:     #5a7090;
+  --text:      #e5e7f6;
+  --text2:     #959bbd;
+  --text3:     #6f76a0;
 
-  --border:    rgba(46,232,158,0.15);
-  --border2:   rgba(46,232,158,0.28);
+  --border:    rgba(139,151,255,0.16);
+  --border2:   rgba(139,151,255,0.30);
 
-  --green:     #2ee89e;
-  --green2:    #26d48e;
-  --green-dim: rgba(46,232,158,0.10);
+  --green:     #8b97ff;   /* C1: brand indigo (see light block) */
+  --green2:    #7a86f0;
+  --green-dim: rgba(139,151,255,0.12);
 
   /* v347: calmer warm tokens (saturation 90–100% read as neon on navy).
      Brand green untouched. */
@@ -190,7 +192,7 @@
   --amber:     #fdd663;   /* v347: alias of --yellow */
   --cyan:      #4dd0e1;
   --wa:        #25d366;
-  --on-accent: #0a1628;   /* text on --green surfaces (Phase1 contrast) */
+  --on-accent: #0e1020;   /* text on --green surfaces (Phase1 contrast) */
 
   --red-bg:     rgba(229,83,75,0.16);    --red-bd:     rgba(242,139,130,0.45);  --red-fill:    rgba(229,83,75,0.36);   /* surfaces use a deeper red than the pastel text: pastel-on-navy tints were too close to the yellow ones */
   --orange-bg:  rgba(252,173,112,0.14);  --orange-bd:  rgba(252,173,112,0.40);  --orange-fill: rgba(252,173,112,0.30);
@@ -200,7 +202,7 @@
   --orange-solid: #fcad70;  --on-orange-solid: #2a1400;
   --yellow-solid: #fdd663;  --on-yellow-solid: #2a1f00;
   --blue-fg:  #63b3ed;  --blue-bg:  rgba(99,179,237,0.14);  --blue-bd:  rgba(99,179,237,0.38);
-  --green-fg: #2ee89e;  --green-bg: rgba(46,232,158,0.12);  --green-bd: rgba(46,232,158,0.35);
+  --green-fg: #7ee2a0;  --green-bg: rgba(126,226,160,0.13);  --green-bd: rgba(126,226,160,0.38);   /* success */
   --purple-fg: #a78bfa; --purple-bg: rgba(167,139,250,0.14); --purple-bd: rgba(167,139,250,0.40);
   --cyan-fg:   #4dd0e1; --cyan-bg:   rgba(77,208,225,0.12);  --cyan-bd:   rgba(77,208,225,0.38);
   --gray-fg:   #aab6c9; --gray-bg:   rgba(170,182,201,0.12); --gray-bd:   rgba(170,182,201,0.35);
@@ -213,10 +215,10 @@
   --bg-secondary:  var(--bg2);
   --bg-card:       var(--bg3);
   --accent:        var(--green);
-  --accent2:       #1ac5a8;
+  --accent2:       var(--green2);
   --text-primary:  var(--text);
-  --text-secondary:#8ab9a5;
-  --text-muted:    #607b8d;
+  --text-secondary:var(--text2);
+  --text-muted:    var(--text3);
 
   /* Shadow stronger on dark */
   --shadow-card:   0 4px 12px rgba(0,0,0,0.25);
@@ -263,7 +265,7 @@
 /* RTL: in light mode knob sits on the right (sun side); in dark on the left */
 :root[data-theme="light"] .sydent-theme-toggle .stt-knob { right: 2px; }
 :root[data-theme="dark"]  .sydent-theme-toggle .stt-knob { right: calc(100% - 26px); }
-:root[data-theme="dark"]  .sydent-theme-toggle           { background: #1e3556; }
+:root[data-theme="dark"]  .sydent-theme-toggle           { background: #272c4a; }
 
 .sydent-theme-toggle .stt-icon-sun,
 .sydent-theme-toggle .stt-icon-moon {
@@ -798,7 +800,7 @@
 
 
 /* ════════ Redesign v1 additions (12 Jun 2026) ════════ */
-:root, :root[data-theme="light"] { --green-rgb: 13,133,119; }
+:root, :root[data-theme="light"] { --green-rgb: 63,79,196; }
 /* v279: rgb companions for the semantic colors — pages build their tints as
    rgba(var(--x-rgb), .12) instead of hardcoding a dark-palette hex, so every
    badge/dot resolves per theme. Values mirror --blue/--red/… of each theme. */
@@ -806,11 +808,11 @@
    darkened text colour; red/orange keep the saturated hue for the same reason. */
 :root, :root[data-theme="light"] { --blue-rgb: 37,99,235; --red-rgb: 220,38,38; --yellow-rgb: 234,179,8; --purple-rgb: 124,58,237; --orange-rgb: 234,88,12; --wa-rgb: 18,140,62; --cyan-rgb: 14,116,144; }
 :root[data-theme="dark"]        { --blue-rgb: 99,179,237; --red-rgb: 229,83,75; --yellow-rgb: 253,214,99; --purple-rgb: 167,139,250; --orange-rgb: 252,173,112; --wa-rgb: 37,211,102; --cyan-rgb: 77,208,225; }
-:root[data-theme="dark"]         { --green-rgb: 46,232,158; }
+:root[data-theme="dark"]         { --green-rgb: 139,151,255; }
 
 /* Universal typeface — overrides 147 inline 'Cairo' declarations. */
 html, body, body * {
-  font-family: 'IBM Plex Sans Arabic', 'Cairo', system-ui, -apple-system, sans-serif !important;
+  font-family: 'Noto Kufi Arabic', 'Cairo', system-ui, -apple-system, sans-serif !important;
   font-synthesis-weight: none; /* weights 800/900 render as true 700 — no blurry faux-bold Arabic */
 }
 pre, code, kbd, samp { font-family: ui-monospace, 'SF Mono', Consolas, monospace !important; }
@@ -1076,13 +1078,13 @@ body:has(.modal-overlay.show) #syFabDock { display: none !important; }
   #lslPrintRoot * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   @page { size: A4; margin: 12mm; }
 }
-.lsl-page { direction: rtl; font-family: 'IBM Plex Sans Arabic', Cairo, Tahoma, sans-serif; color: #111; background: #fff; max-width: 780px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 8px 4px; font-size: 13.5px; }
-.lsl-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 3px solid #0d8577; padding-bottom: 12px; }
+.lsl-page { direction: rtl; font-family: 'Noto Kufi Arabic', Cairo, Tahoma, sans-serif; color: #111; background: #fff; max-width: 780px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 8px 4px; font-size: 13.5px; }
+.lsl-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 3px solid #3f4fc4; padding-bottom: 12px; }
 .lsl-clinic { font-size: 22px; font-weight: 800; }
 .lsl-dr { font-size: 14px; color: #333; margin-top: 3px; }
 .lsl-muted { font-size: 12px; color: #666; margin-top: 2px; }
 .lsl-headside { text-align: left; font-size: 13px; color: #444; line-height: 1.7; }
-.lsl-title { font-size: 26px; font-weight: 800; color: #0d8577; margin: 12px 0 10px; }
+.lsl-title { font-size: 26px; font-weight: 800; color: #3f4fc4; margin: 12px 0 10px; }
 .lsl-no { font-size: 14px; color: #555; font-weight: 700; letter-spacing: .5px; }
 .lsl-boxes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
 .lsl-box { border: 1px solid #d0d0d0; border-radius: 10px; padding: 10px 12px; background: #f7f7f7; }
@@ -1094,10 +1096,10 @@ body:has(.modal-overlay.show) #syFabDock { display: none !important; }
 .lsl-due { font-size: 16px; font-weight: 800; color: #b3261e; }
 .lsl-chart { border-collapse: collapse; margin: 4px auto 14px; direction: ltr; width: auto; table-layout: fixed; }
 .lsl-chart td.lsl-t { width: 28px; height: 26px; padding: 0; line-height: 26px; box-sizing: border-box; border: 1px solid #c8c8c8; text-align: center; font-size: 11.5px; color: #777; }
-.lsl-chart td.lsl-t.on { background: #0d8577; color: #fff; font-weight: 800; border-color: #0d8577; }
+.lsl-chart td.lsl-t.on { background: #3f4fc4; color: #fff; font-weight: 800; border-color: #3f4fc4; }
 .lsl-chart td.lsl-t.mid { border-right: 3px solid #555; }
 .lsl-chart tr:first-child td { border-bottom: 3px solid #555; }
-.lsl-notes { border-right: 3px solid #0d8577; padding: 4px 12px 4px 0; margin-bottom: 12px; }
+.lsl-notes { border-right: 3px solid #3f4fc4; padding: 4px 12px 4px 0; margin-bottom: 12px; }
 .lsl-pre { white-space: pre-wrap; line-height: 1.8; }
 .lsl-redo { border: 1.5px solid #c2410c; background: #fff4ec; color: #9a3412; border-radius: 10px; padding: 9px 12px; margin-bottom: 12px; }
 .lsl-sign { display: flex; justify-content: space-between; gap: 16px; margin-top: 40px; font-size: 13px; color: #444; }

@@ -11,8 +11,8 @@
   "prefer_related_applications": false,
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f4f7fa",
-  "theme_color": "#0d8577",
+  "background_color": "#eef0f7",
+  "theme_color": "#3f4fc4",
   "lang": "ar",
   "dir": "rtl",
   "icons": [
