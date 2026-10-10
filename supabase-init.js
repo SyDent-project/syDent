@@ -1109,9 +1109,9 @@
         var h = a.getAttribute('href') || '';
         if (h !== 'subscription.html' && h !== '#') a.remove();
       });
-      Array.prototype.forEach.call(nav.querySelectorAll('.sb-section'), function (sec) {
-        var nx = sec.nextElementSibling;
-        if (!nx || (nx.classList && nx.classList.contains('sb-section'))) sec.remove();
+      // C1: الأقسام صارت كتل (.sb-group) — منشيل الكتلة يلي فضيت كلها.
+      Array.prototype.forEach.call(nav.querySelectorAll('.sb-group'), function (g) {
+        if (!g.querySelector('.sb-item')) g.remove();
       });
     }
 
