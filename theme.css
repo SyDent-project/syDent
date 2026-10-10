@@ -1371,3 +1371,30 @@ textarea.wa-field { resize:vertical; }
 #schedBlockModal .sbk-row-title { font-weight: 800; }
 #schedBlockModal .sbk-row-meta { font-size: 12.5px; color: var(--text2); margin-top: 3px; }
 #schedBlockModal .sbk-soft-tag { font-size: 11px; color: var(--yellow-ink); font-weight: 700; }
+
+/* ═══ C1 — الحركة (Motion) ═════════════════════════════════════════════════
+   طبقة حركة خفيفة وموحّدة لكل صفحات المستأجر. القواعد:
+   • دخول الصفحة شفافية بس على #sbMainContent (بلا transform، لأنو transform على
+     الأب بيخرّب position:fixed للنوافذ جوّاتو).
+   • البطاقات (.card · .stat-card · .kpi) بتطلع ورا بعض بفارق صغير.
+   • backwards بس: بعد ما تخلص الحركة ما بيضل أي transform على العنصر.
+   • prefers-reduced-motion أعلاه بيلغي كل هالشي تلقائياً. */
+:root { --sy-ease: cubic-bezier(.2,.8,.2,1); }
+@keyframes syPageIn { from { opacity: 0; } }
+@keyframes syRise   { from { opacity: 0; transform: translateY(12px); } }
+#sbMainContent { animation: syPageIn .4s ease backwards; }
+#sbMainContent :is(.card, .stat-card, .kpi) { animation: syRise .5s var(--sy-ease) backwards; }
+#sbMainContent :is(.card, .stat-card, .kpi):nth-child(2) { animation-delay: .05s; }
+#sbMainContent :is(.card, .stat-card, .kpi):nth-child(3) { animation-delay: .1s; }
+#sbMainContent :is(.card, .stat-card, .kpi):nth-child(4) { animation-delay: .15s; }
+#sbMainContent :is(.card, .stat-card, .kpi):nth-child(n+5) { animation-delay: .2s; }
+#sbMainContent :is(.stat-card, .kpi) {
+  transition: transform .25s var(--sy-ease), box-shadow .25s ease, border-color .25s ease;
+}
+#sbMainContent :is(.stat-card, .kpi):hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px -16px rgba(var(--green-rgb), .45);
+  border-color: rgba(var(--green-rgb), .35);
+}
+#sbMainContent tbody tr { transition: background-color .18s ease; }
+#sbMainContent .btn:not(:disabled):active { transform: scale(.97); }
