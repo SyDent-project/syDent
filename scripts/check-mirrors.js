@@ -2523,7 +2523,7 @@ try {
     const LISTENER_RE = /addEventListener\(\s*['"](click|dblclick|dragstart|drop|dragend|dragover|submit|change|input|pointerdown|pointerup|mousedown|touchstart|contextmenu|keydown|keyup)['"]|\.on(click|dblclick|change|input|submit|keydown)\s*=\s*(?!=)/g;
     const LISTENERS = {
       'index.html': 3, 'patients.html': 17   /* v442: عدّاد أحرف نص الرسالة (input) — قراءة بحتة · C2: إغلاق قائمة «أدوات» (عرضٌ فقط) */, 'appointments.html': 3   /* v439: مستمع إغلاق modalOverlay بنقرةٍ خارجية حُذف — كان يمحو نموذجاً معبّأً · v565: مستمعُ «+N» انتقل إلى SyDentBadgeCap بـtheme.js (قراءةٌ بحتة) */, 'appt-views.js': 7   /* v498: نقرُ فترةٍ محجوزة ⇒ openBlockModal (محروسة) */, 'appt-blocks.js': 0, 'appt-time.js': 0, 'appt-wa.js': 1   /* v443: عدّاد أحرف نص التذكير (input) — قراءة بحتة */,
-      'appt-booking.js': 0, 'appt-modal.js': 0, 'patient-profile.html': 10, 'pp-core.js': 0, 'pp-clinical.js': 0, 'pp-dental.js': 2,
+      'appt-booking.js': 0, 'appt-modal.js': 0, 'patient-profile.html': 11   /* C2: إغلاق قائمة «أدوات» (عرضٌ فقط) */, 'pp-core.js': 0, 'pp-clinical.js': 0, 'pp-dental.js': 2,
       'pp-modules.js': 5, 'pp-plan.js': 0, 'pp-timeline.js': 0, 'pp-appt.js': 3, 'pp-extras.js': 2, 'pp-wa.js': 1,   /* v408: عدّاد أحرف نص الرسالة (input) — قراءة بحتة */
       'treatments.html': 16, 'doctors.html': 1, 'employees.html': 5, 'payouts.html': 1, 'expenses.html': 4, 'inventory.html': 5   /* v569: نافذةُ «جهّز الطلبية» (نقرٌ + إدخال) — قراءة بحتة · v570: نافذةُ الجرد (نقرٌ + إدخال) — الاعتمادُ وحده كتابة وزرُّه مخفيٌّ بالقراءة ومحروس */,
       'labs.html': 4, 'accounting.html': 11   /* v546: تصديرُ Excel — قراءة بحتة */, 'provider-reports.html': 3   /* v539: نقرُ تبويب العلاجات (ترتيبٌ · تفاصيلُ جلسات) · v545: طباعةُ الملخّص ونسخُه — قراءة بحتة */, 'audit-log.html': 6, 'settings.html': 2, 'learn.html': 1
@@ -2536,7 +2536,7 @@ try {
     });
     const regFiles = new Set(Object.keys(RO_REG).concat(PP_FILES, Object.keys(RO_PAGES).filter(k => !/سجل/.test(k))));
     regFiles.forEach(f => { if (!(f in LISTENERS)) miss(f + ': ملفٌّ مراجَع بلا عدِّ مستمعات'); });
-    if (nListeners !== 113) miss('مجموع المستمعات المراجَعة ' + nListeners + ' (المسجَّل 113)');   /* C2: إغلاق قائمة «أدوات» بالمرضى */   /* v569: +2 نافذةُ الطلبية بالمخزون */   /* v565: مستمعُ شارات الموعد انتقل لـtheme.js المشترك */
+    if (nListeners !== 114) miss('مجموع المستمعات المراجَعة ' + nListeners + ' (المسجَّل 114)');   /* C2: إغلاق قائمة «أدوات» بالمرضى وملف المريض */   /* v569: +2 نافذةُ الطلبية بالمخزون */   /* v565: مستمعُ شارات الموعد انتقل لـtheme.js المشترك */
     const tr = extractFunction(read('treatments.html'), 'wireDragAndDrop');
     if (!/\|\| !!\(window\.SyDentSub && window\.SyDentSub\.isReadOnly\(\)\);/.test(tr)) miss('treatments.html: الترتيب بالسحب متاح بوضع القراءة');
     const em = extractFunction(read('employees.html'), 'wireDragAndDrop');
