@@ -27,7 +27,7 @@ function suite(F) {
   const S = F['sidebar.js'];
   ok(/\.from\('appointments'\)\.select\('id,status'\)/.test(S) && /const count = \(appts \|\| \[\]\)\.filter\(_live\)\.length;/.test(S) && /const _live = window\.SyDentApptLive \|\|/.test(S), '#11 sidebar badge counts with it');
   const X = F['index.html'];
-  ok(/const _liveToday = apptsToday\.filter\(window\.SyDentApptLive \|\|/.test(X) && /textContent = _liveToday\.length;/.test(X) && /'لديك ' \+ _liveToday\.length \+ ' موعد اليوم'/.test(X) && /const upcoming = _liveToday\.filter\(/.test(X)
+  ok(/const _liveToday = apptsToday\.filter\(window\.SyDentApptLive \|\|/.test(X) && /textContent = _liveToday\.length;/.test(X) && /'لديك اليوم ' \+ dashApptCount\(_liveToday\.length\)/.test(X) && /const upcoming = _liveToday\.filter\(/.test(X)
      && !/textContent = apptsToday\.length;/.test(X), '#11 dashboard KPI, header line and «remaining» count with it (the card list itself unchanged)');
   /* #3 */
   const A = F['accounting.html'];
