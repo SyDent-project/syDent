@@ -21,27 +21,27 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261011b"></script>
-<link rel="stylesheet" href="appointments.css?v=20261011b">
+<script src="theme.js?v=20261011d"></script>
+<link rel="stylesheet" href="appointments.css?v=20261011d">
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261011b">
+<link rel="stylesheet" href="theme.css?v=20261011d">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261011b"></script>
-<script src="sy-modal.js?v=20261011b"></script>
-<script src="appt-conflict.js?v=20261011b"></script>
-<script src="pt-reliability.js?v=20261011b"></script>
-<script src="sched-blocks.js?v=20261011b"></script>
-<script src="appt-blocks.js?v=20261011b"></script>
-<script src="appt-series.js?v=20261011b"></script>
-<script src="appt-family.js?v=20261011b"></script>
-<script src="sidebar.js?v=20261011b"></script>
-<script src="inv-consume.js?v=20261011b"></script>
-<script src="timepicker.js?v=20261011b"></script>
-<script src="appt-booking.js?v=20261011b"></script>
-<script src="appt-wa.js?v=20261011b"></script>
-<script src="appt-time.js?v=20261011b"></script>
-<script src="appt-views.js?v=20261011b"></script>
-<script src="appt-modal.js?v=20261011b"></script>
+<script src="supabase-init.js?v=20261011d"></script>
+<script src="sy-modal.js?v=20261011d"></script>
+<script src="appt-conflict.js?v=20261011d"></script>
+<script src="pt-reliability.js?v=20261011d"></script>
+<script src="sched-blocks.js?v=20261011d"></script>
+<script src="appt-blocks.js?v=20261011d"></script>
+<script src="appt-series.js?v=20261011d"></script>
+<script src="appt-family.js?v=20261011d"></script>
+<script src="sidebar.js?v=20261011d"></script>
+<script src="inv-consume.js?v=20261011d"></script>
+<script src="timepicker.js?v=20261011d"></script>
+<script src="appt-booking.js?v=20261011d"></script>
+<script src="appt-wa.js?v=20261011d"></script>
+<script src="appt-time.js?v=20261011d"></script>
+<script src="appt-views.js?v=20261011d"></script>
+<script src="appt-modal.js?v=20261011d"></script>
 </head>
 <body>
 <script>
@@ -59,15 +59,15 @@
 <div class="main" id="sbMainContent">
 
   <!-- Page header: what this page is + the actions you can take -->
-  <div class="topbar appt-head">
-    <div class="appt-head__text">
+  <div class="topbar sd-page-head">
+    <div class="sd-page-head__text">
       <h1 class="topbar-title">المواعيد</h1>
-      <p class="appt-head__sub">جدول مواعيد العيادة، والمواعيد التي لم يُحدَّد تاريخها بعد، وطلبات الحجز الواردة.</p>
+      <p class="sd-page-head__sub">جدول مواعيد العيادة، والمواعيد التي لم يُحدَّد تاريخها بعد، وطلبات الحجز الواردة.</p>
     </div>
-    <div class="appt-head__actions">
+    <div class="sd-page-head__actions">
       <button type="button" class="sd-btn sd-btn--secondary" onclick="openBlockModal()" title="إغلاق فترة من الجدول: استراحة أو إجازة أو اجتماع" data-sub-write data-doctor-inactive-block>إغلاق وقت</button>
       <button type="button" class="sd-btn sd-btn--secondary" onclick="openWaitlistModal()" title="مرضى يرغبون بموعد أبكر إن توفّر" data-sub-write>
-        قائمة الانتظار <span id="waitlistBadge" class="appt-count appt-count--wait" style="display:none;"></span>
+        قائمة الانتظار <span id="waitlistBadge" class="sd-count sd-count--wait" style="display:none;"></span>
       </button>
       <button type="button" class="sd-btn sd-btn--primary" onclick="openModal()" data-doctor-inactive-block data-sub-write>＋ موعد جديد</button>
     </div>
@@ -80,10 +80,10 @@
     <div class="sd-tabs appt-sections" role="tablist" aria-label="أقسام المواعيد">
       <button type="button" class="sd-tab main-tab active" id="mainTabSchedule" role="tab" aria-selected="true" onclick="setMainTab('schedule')">الجدول</button>
       <button type="button" class="sd-tab main-tab" id="mainTabPlanned" role="tab" aria-selected="false" onclick="setMainTab('planned')">
-        بلا تاريخ <span class="appt-count" id="plannedCountBadge">0</span>
+        بلا تاريخ <span class="sd-count" id="plannedCountBadge">0</span>
       </button>
       <button type="button" class="sd-tab main-tab" id="btnBooking" role="tab" aria-selected="false" onclick="setMainTab('booking')">
-        طلبات الحجز <span id="bookingBadge" class="appt-count appt-count--alert" style="display:none;"></span>
+        طلبات الحجز <span id="bookingBadge" class="sd-count sd-count--alert" style="display:none;"></span>
       </button>
       <button type="button" class="sd-tab main-tab" id="btnCalls" role="tab" aria-selected="false" onclick="setMainTab('calls')">التذكير بالمواعيد</button>
     </div>
@@ -187,8 +187,8 @@
     <form onsubmit="submitAppt(event)">
       <div class="modal-body">
 
-      <fieldset class="appt-fs">
-        <legend class="appt-fs__title">المريض</legend>
+      <fieldset class="sd-fs">
+        <legend class="sd-fs__title">المريض</legend>
         <div class="form-grid">
           <div class="form-group full" style="position:relative;">
             <label for="fPatient">اسم المريض *</label>
@@ -210,10 +210,10 @@
         </div>
       </fieldset>
 
-      <fieldset class="appt-fs">
-        <legend class="appt-fs__title">موعد الزيارة</legend>
+      <fieldset class="sd-fs">
+        <legend class="sd-fs__title">موعد الزيارة</legend>
         <!-- v335: قفلُ نقل الموعد المنتهي/الحاضر — يُملأ بـtextContent حصراً -->
-        <div class="form-group full appt-fs__note" id="apptLockNote" data-sub-write style="display:none;"></div>
+        <div class="form-group full appt-lock-note" id="apptLockNote" data-sub-write style="display:none;"></div>
         <!-- Gap 7: Planned-appointment toggle (shown only when creating, not when editing scheduled appts) -->
       <label class="planned-toggle" id="plannedToggleWrap" data-sub-write for="fIsPlanned" style="display:none;">
         <input type="checkbox" id="fIsPlanned" onchange="onPlannedToggle()">
@@ -263,13 +263,13 @@
         </div>
       </fieldset>
 
-      <fieldset class="appt-fs">
-        <legend class="appt-fs__title">العلاج والطبيب</legend>
+      <fieldset class="sd-fs">
+        <legend class="sd-fs__title">العلاج والطبيب</legend>
         <div class="form-grid">
           <!-- Gap 8: Template picker (hidden in edit mode) -->
           <div class="form-group full" id="apptTypePickerWrap" data-sub-write style="display:none;">
             <label for="fApptTypePicker">قالب جاهز (اختياري)</label>
-            <div class="appt-help">يملأ المدة ونوع العلاج تلقائياً.</div>
+            <div class="sd-help">يملأ المدة ونوع العلاج تلقائياً.</div>
             <!-- Phase 6 L: chips view (auto-shown for ≤ 6 templates). Falls back
                  to the <select> below when there are more than 6 templates. -->
             <div id="fApptTypeChips" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:6px;"></div>
@@ -300,8 +300,8 @@
         </div>
       </fieldset>
 
-      <fieldset class="appt-fs">
-        <legend class="appt-fs__title">خيارات وملاحظات</legend>
+      <fieldset class="sd-fs">
+        <legend class="sd-fs__title">خيارات وملاحظات</legend>
         <div class="form-grid">
           <!-- Backlog #5: ASAP/Waitlist flag — يشتغل للمجدول والمخطّط معاً -->
           <div class="form-group full">
@@ -313,7 +313,7 @@
           <!-- v505 (M157): التكرار — للموعد الجديد المجدوَل فقط؛ الأخوةُ صفوفٌ مستقلة تجمعها series_id -->
           <div class="form-group full" id="fRepeatGroup">
             <label for="fRepeat">تكرار الموعد</label>
-            <div class="appt-help">للمواعيد الدورية، مثل جلسات التقويم والمراجعات.</div>
+            <div class="sd-help">للمواعيد الدورية، مثل جلسات التقويم والمراجعات.</div>
             <div class="form-grid">
               <select id="fRepeat" onchange="apptRepeatHint()">
                 <option value="none">بلا تكرار</option>
@@ -334,7 +334,7 @@
           <!-- v506: حجزُ أفراد الأسرة متتابعين — يظهر فقط عند اختيار مريضٍ له أفرادُ أسرة (patients.family_id) وبموعدٍ جديد مجدوَل -->
           <div class="form-group full" id="fFamilyGroup" style="display:none;">
             <label>حجز أفراد الأسرة بعده</label>
-            <div class="appt-help">في اليوم نفسه ومع الطبيب والكرسي نفسيهما، كلٌّ منهم بعد الآخر بمقدار المدة.</div>
+            <div class="sd-help">في اليوم نفسه ومع الطبيب والكرسي نفسيهما، كلٌّ منهم بعد الآخر بمقدار المدة.</div>
             <div id="fFamilyChips" class="fam-chips"></div>
             <div id="fFamilyHint" style="display:none;font-size:12.5px;color:var(--text2);margin-top:4px;"></div>
           </div>
