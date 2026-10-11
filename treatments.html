@@ -276,15 +276,15 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
 <body>
 <div class="main" id="sbMainContent">
 
-<div class="topbar">
-  <div>
-    <div class="tb-title">قائمة العلاجات</div>
-    <div class="tb-sub">إدارة الأنواع والأسعار والألوان</div>
+<div class="topbar sd-page-head">
+  <div class="sd-page-head__text">
+    <h1 class="topbar-title">قائمة العلاجات</h1>
+    <p class="sd-page-head__sub">العلاجات التي تقدّمها العيادة بأسعارها وألوانها على مخطط الأسنان. تظهر هذه القائمة عند تسجيل أي جلسة.</p>
   </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;">
-    <button class="btn btn-outline" onclick="printLegend()" title="طباعة دليل العلاجات والألوان">طباعة الدليل</button>
-    <button class="btn btn-outline" onclick="resetToDefaults()">استعادة الافتراضي</button>
-    <button class="btn btn-primary" onclick="openAddModal()">＋ علاج جديد</button>
+  <div class="sd-page-head__actions">
+    <button type="button" class="sd-btn sd-btn--ghost" onclick="resetToDefaults()" title="إرجاع القائمة إلى العلاجات الافتراضية للنظام">استعادة الافتراضي</button>
+    <button type="button" class="sd-btn sd-btn--secondary" onclick="printLegend()" title="طباعة دليل العلاجات والألوان">طباعة الدليل</button>
+    <button type="button" class="sd-btn sd-btn--primary" onclick="openAddModal()">＋ علاج جديد</button>
   </div>
 </div>
 
@@ -745,6 +745,15 @@ function _chipHtml(dim, val, label, n, on, title) {
        + ' aria-pressed="' + (on ? 'true' : 'false') + '"' + (title ? ' title="' + escapeHtml(title) + '"' : '') + '>'
        + label + '<span class="chip-n">' + n + '</span></button>';
 }
+// Arabic number agreement for «علاج»: 1 علاج واحد · 2 علاجان · 3–10 علاجات · 11+ علاجاً
+function treatCountLabel(n) {
+  if (n === 0) return 'لا توجد علاجات';
+  if (n === 1) return 'علاج واحد';
+  if (n === 2) return 'علاجان';
+  var r = n % 100;
+  return n + (r >= 3 && r <= 10 ? ' علاجات' : ' علاجاً');
+}
+
 function renderFilterBar(shown) {
   var catEl = document.getElementById('catChips'), tgtEl = document.getElementById('filterChips'), flgEl = document.getElementById('flagChips');
   if (!catEl || !tgtEl || !flgEl) return;
@@ -782,7 +791,9 @@ function renderFilterBar(shown) {
   var filtering = isFilteringNow();
   var total = treatments.filter(function(t){ return t.is_active !== false; }).length;
   var cnt = document.getElementById('fltCount');
-  if (cnt) cnt.textContent = filtering ? ('يُعرض ' + shown + (activeFlags.inactive ? ' علاجاً معطّلاً' : ' من ' + total + ' علاجاً')) : (total + ' علاجاً');
+  if (cnt) cnt.textContent = filtering
+    ? (activeFlags.inactive ? ('المعطّلة: ' + treatCountLabel(shown)) : ('يُعرض ' + shown + ' من ' + treatCountLabel(total)))
+    : treatCountLabel(total);
   var rs = document.getElementById('fltReset'); if (rs) rs.style.display = filtering ? '' : 'none';
   var dh = document.getElementById('fltDragHint'); if (dh) dh.style.display = (filtering && shown > 1) ? '' : 'none';
 }
@@ -1576,7 +1587,7 @@ async function _resetToDefaults_inner() {
   if (r.error) { showToast('⚠️ ' + r.error.message); return; }
   if (!r.added) { showToast('✅ كل العلاجات الافتراضية والجاهزة موجودة مسبقاً'); return; }
   await loadTreatments();
-  showToast('↺ أُضيف ' + r.added + ' علاجاً');
+  showToast('↺ أُضيف ' + treatCountLabel(r.added));
 }
 
 // One-time auto-seed for a brand-new clinic: empty list AND never seeded (clinic_settings
