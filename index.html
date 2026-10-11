@@ -107,6 +107,13 @@
   .header-actions { display: flex; gap: 12px; align-items: center; }
   .header-title-row { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
   .header-title-row > div { min-width: 0; flex: 1; }
+  .header-title-row { align-items: flex-start; }
+  /* C2: section labels — the dashboard reads top to bottom: today, appointments
+     and patients, then what needs follow-up. Card order is unchanged. */
+  .dash-sec { margin: 28px 0 12px; font-size: 13px; font-weight: 700; color: var(--text-muted); letter-spacing: 0; display: flex; align-items: center; gap: 10px; }
+  .dash-sec::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .kpis + .dash-sec, .dash-sec + .card { margin-top: 0; }
+  .dash-sec + .dash-grid { margin-top: 0; padding-top: 0; border-top: 0; }   /* the section label replaces the old divider */
 
   .btn {
     padding: 10px 20px;
@@ -498,6 +505,9 @@
     .search-bar { width: 100%; }
     .dash-search { display: block; width: 100%; }   /* v300: the v275 <form> wrapper is inline-block — without this the search shrank on phones */
     .header-actions .btn { width: 100%; text-align: center; }
+    /* C2: search on its own row; «مريض جديد» and the role switch share the next one */
+    .header-actions { display: grid; grid-template-columns: 1fr auto; }
+    .header-actions .dash-search { grid-column: 1 / -1; }
     .stats-grid { grid-template-columns: repeat(2,1fr); gap: 10px; }
     .stat-card { padding: 14px 12px; }
     .stat-value { font-size: 22px; }
@@ -992,6 +1002,7 @@
     </div>
   </div>
 
+  <h2 class="dash-sec">اليوم في العيادة</h2>
   <div class="kpis">
     <a class="kpi" href="appointments.html">
       <div class="kpi-top">
@@ -1020,7 +1031,7 @@
     <a class="kpi" href="patients.html?filter=pending">
       <div class="kpi-top">
         <div class="kpi-ic w"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
-        <div class="kpi-label">مستحقات</div>
+        <div class="kpi-label">المستحقات على المرضى</div>
       </div>
       <div class="kpi-num" id="statPending">—</div>
       <div class="kpi-foot"><span class="kpi-delta down stat-link" id="statPendingCount"></span></div>
@@ -1171,6 +1182,7 @@
     <div id="quickTplChips" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
   </div>
 
+  <h2 class="dash-sec">المواعيد والمرضى</h2>
   <div class="dash-grid">
 
     <div class="col">
@@ -1253,6 +1265,7 @@
   </div>
 
   <!-- v529: التنبيهات ثم طلبات المخابر بعرض الصفحة تحت الشبكة (قرار المالك 29/9 — كما كانتا) -->
+  <h2 class="dash-sec">يحتاج إلى متابعة</h2>
   <div class="card" id="alCard" style="margin-top:20px;display:none;">
     <div class="card-header">
       <div class="card-title">تنبيهات تحتاج انتباهك</div>
@@ -1785,11 +1798,17 @@ async function loadDashboard() {
   /* DeepCode #11 (v558): «مواعيد اليوم» بالتعريف الموحّد (SyDentApptLive) — العددُ نفسُه بشارة القائمة الجانبية. */
   const _liveToday = apptsToday.filter(window.SyDentApptLive || function (a) { return a.status !== 'cancelled' && a.status !== 'broken' && a.status !== 'no_show'; });
   document.getElementById('statApptToday').textContent = _liveToday.length;
-  // Header subtitle — formal-Arabic appointment count (لديك … موعد اليوم).
+  // Header subtitle — formal-Arabic appointment count with number agreement.
+  function dashApptCount(n) {
+    if (n === 1) return 'موعد واحد';
+    if (n === 2) return 'موعدان';
+    var r = n % 100;
+    return n + (r >= 3 && r <= 10 ? ' مواعيد' : ' موعداً');
+  }
   var _dashApptLine = document.getElementById('dashApptLine');
   if (_dashApptLine) _dashApptLine.textContent = _liveToday.length
-    ? ('لديك ' + _liveToday.length + ' موعد اليوم')
-    : 'لا مواعيد اليوم';
+    ? ('لديك اليوم ' + dashApptCount(_liveToday.length))
+    : 'لا توجد مواعيد اليوم';
   const nowTime = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
   const upcoming = _liveToday.filter(a => (a.time||'') >= nowTime).length;
   document.getElementById('statApptUpcoming').textContent = upcoming ? upcoming + ' متبقية' : '';
