@@ -31,8 +31,8 @@ async function _saveAppt_inner() {
   var typeVal    = document.getElementById('aType').value;
   var _t         = getTreatment(typeVal);
   var type       = _t ? _t.name : (typeVal === '_other' ? 'أخرى' : typeVal);
-  var apptColor  = _t ? _t.fill   : '#0d8577';
-  var apptStroke = _t ? _t.stroke : '#1fba7e';
+  var apptColor  = _t ? _t.fill   : '#0284c7';
+  var apptStroke = _t ? _t.stroke : '#0ea5e9';
 
   // Gap 7: planned mode toggles whether date/time are required
   var chk = document.getElementById('aIsPlanned');

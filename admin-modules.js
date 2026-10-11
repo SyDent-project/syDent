@@ -616,7 +616,7 @@ function rptRenderMovementChart(d) {
     data: {
       labels: labels,
       datasets: [
-        { label: 'جديد',        data: newArr,   backgroundColor: 'rgba(13,133,119,0.78)', stack: 'mov' },
+        { label: 'جديد',        data: newArr,   backgroundColor: 'rgba(2,132,199,0.78)', stack: 'mov' },
         { label: 'إعادة تفعيل', data: reactArr, backgroundColor: 'rgba(56,189,248,0.78)', stack: 'mov' },
         { label: 'مفقود',       data: churnArr, backgroundColor: 'rgba(239,68,68,0.78)',  stack: 'mov' }
       ]
@@ -648,7 +648,7 @@ function rptRenderCashChart(d) {
   var sypArr = cs.map(function(o) { return o ? o.syp : 0; });
   var usdConv = cs.map(function(o) { return (o && rate > 0) ? Math.round(o.usd * rate) : 0; });
   var usdRaw  = cs.map(function(o) { return o ? o.usd : 0; });
-  var datasets = [{ label: 'ل.س مباشرة', data: sypArr, backgroundColor: 'rgba(13,133,119,0.78)', stack: 'cash' }];
+  var datasets = [{ label: 'ل.س مباشرة', data: sypArr, backgroundColor: 'rgba(2,132,199,0.78)', stack: 'cash' }];
   if (rate > 0) datasets.push({ label: '$ محوّلة (×' + rate + ')', data: usdConv, backgroundColor: 'rgba(250,204,21,0.78)', stack: 'cash' });
   var sub = document.getElementById('rptCashSubtitle');
   if (sub) {
@@ -681,7 +681,7 @@ function rptRenderCashChart(d) {
 }
 
 // Distribution helpers (plan-agnostic): order trial → paid plans by sort_order → permanent.
-var RPT_DIST_PALETTE = ['rgba(56,189,248,0.85)','rgba(13,133,119,0.85)','rgba(244,114,182,0.85)','rgba(250,204,21,0.85)','rgba(129,140,248,0.85)','rgba(248,113,113,0.85)'];
+var RPT_DIST_PALETTE = ['rgba(56,189,248,0.85)','rgba(30,64,175,0.85)','rgba(244,114,182,0.85)','rgba(250,204,21,0.85)','rgba(129,140,248,0.85)','rgba(248,113,113,0.85)'];
 function rptDistOrder(dist) {
   return Object.keys(dist || {}).sort(function(a, b){
     var rank = function(k){ return k === 'trial' ? -1 : k === 'permanent' ? 1e15 : srqPlanSort(k); };

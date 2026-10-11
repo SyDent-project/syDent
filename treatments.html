@@ -449,7 +449,7 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
              #fTreatmentColor preserves the get/set .value API used by the
              rest of the file — pickedFill/pickedStroke flow unchanged. -->
             <div class="tm-color">
-              <input type="hidden" id="fTreatmentColor" value="#0d8577">
+              <input type="hidden" id="fTreatmentColor" value="#0284c7">
               <button type="button" id="fTreatmentColorSwatch" class="tm-swatch" onclick="openTreatColorPicker()" aria-label="اختيار اللون" title="تغيير اللون">🎨</button>
               <div class="tooth-preview">
                 <div class="preview-tooth" id="previewTooth">ح</div>
@@ -599,11 +599,11 @@ function _sanHex(h) {
   if (window.SyDentColorPicker && typeof window.SyDentColorPicker.sanitizeHex === 'function') {
     return window.SyDentColorPicker.sanitizeHex(h);
   }
-  if (typeof h !== 'string' || !h) return '#0d8577';
+  if (typeof h !== 'string' || !h) return '#0284c7';
   var s = h.trim();
   if (s.charAt(0) !== '#') s = '#' + s;
   if (/^#[0-9A-Fa-f]{3}$/.test(s)) s = '#' + s[1]+s[1] + s[2]+s[2] + s[3]+s[3];
-  return /^#[0-9A-Fa-f]{6}$/.test(s) ? s.toLowerCase() : '#0d8577';
+  return /^#[0-9A-Fa-f]{6}$/.test(s) ? s.toLowerCase() : '#0284c7';
 }
 
 async function loadTreatments() {
@@ -950,7 +950,7 @@ function escapeHtml(s) {
 
 // ── Modal logic ──
 var editingId = null;
-var pickedFill = '#0d8577', pickedStroke = '#1fba7e';
+var pickedFill = '#0284c7', pickedStroke = '#0ea5e9';
 var pickedTarget = 'crown';
 
 // ── Smart lab default by category (Phase 3 Feature E) ──
@@ -1184,7 +1184,7 @@ function openAddModal() {
   userTouchedLabToggle = false;  // new treatment — allow smart category defaults
   userTouchedTarget = false;     // new treatment — allow smart target default
   userTouchedDentScope = false;  // M146
-  pickColor('#0d8577','#1fba7e');
+  pickColor('#0284c7','#0ea5e9');
   pickTarget('crown');
   setTargetLock(false);   // add = new treatment, target fully editable
   renderOverrideRows({});
@@ -1788,7 +1788,7 @@ function pickColor(fill, stroke) {
   // funnels through here so the four never drift apart.
   var safe = (window.SyDentColorPicker && window.SyDentColorPicker.sanitizeHex)
     ? window.SyDentColorPicker.sanitizeHex(fill)
-    : (/^#[0-9A-Fa-f]{6}$/.test(fill || '') ? fill : '#0d8577');
+    : (/^#[0-9A-Fa-f]{6}$/.test(fill || '') ? fill : '#0284c7');
   pickedFill = safe;
   // If a stroke is passed (editing an existing treatment with a stored
   // stroke from the legacy palette), preserve it for visual continuity.
@@ -1817,11 +1817,11 @@ function openTreatColorPicker() {
     // block, let the user type a hex value manually (extremely rare).
     /* v461: مسارُ احتياطٍ نادر — بحوار المنصة إن وُجد، وإلا نافذةُ المتصفّح كملاذٍ أخير. */
     if (window.SyDialog) {
-      SyDialog.prompt({ title: 'لون مخصّص', message: 'أدخل لون hex (مثال: #0d8577):', value: pickedFill })
+      SyDialog.prompt({ title: 'لون مخصّص', message: 'أدخل لون hex (مثال: #0284c7):', value: pickedFill })
         .then(function (t) { if (t) pickColor(t, _darkenHex(t, 30)); });
       return;
     }
-    var typed = window.prompt('أدخل لون hex (مثال: #0d8577):', pickedFill);
+    var typed = window.prompt('أدخل لون hex (مثال: #0284c7):', pickedFill);
     if (typed) {
       pickColor(typed, _darkenHex(typed, 30));
       updatePreview();
@@ -1947,7 +1947,7 @@ async function printLegend() {
   html += '<style>';
   html += '*{box-sizing:border-box;margin:0;padding:0;font-family:Cairo,sans-serif;}';
   html += 'body{padding:30px 20px;color:#1a1a1a;background:#fff;direction:rtl;}';
-  html += '.header{text-align:center;margin-bottom:24px;border-bottom:3px solid #0d8577;padding-bottom:14px;}';  /* الكشف على أبيض دائماً — بلا stylesheet يعرّف var(--green) */
+  html += '.header{text-align:center;margin-bottom:24px;border-bottom:3px solid #0284c7;padding-bottom:14px;}';  /* الكشف على أبيض دائماً — بلا stylesheet يعرّف var(--green) */
   html += '.header h1{font-size:26px;color:#1a1a1a;margin-bottom:4px;}';
   html += '.header .sub{font-size:13px;color:#666;}';
   html += '.cat-section{margin-bottom:22px;page-break-inside:avoid;}';
@@ -1956,11 +1956,11 @@ async function printLegend() {
   html += '.tab th,.tab td{padding:8px 10px;text-align:right;border-bottom:1px solid #e0e0e0;font-size:13px;}';
   html += '.tab th{background:#f5f5f5;font-weight:700;color:#1a1a1a;font-size:12px;text-transform:uppercase;}';
   html += '.color-dot{display:inline-block;width:18px;height:18px;border-radius:4px;vertical-align:middle;margin-left:8px;}';
-  html += '.price-col{text-align:left;font-weight:700;color:#1a7340;direction:ltr;}';
+  html += '.price-col{text-align:left;font-weight:700;color:#1e3a8a;direction:ltr;}';
   html += '.footer{margin-top:30px;text-align:center;font-size:11px;color:#888;border-top:1px solid #ccc;padding-top:10px;}';
   html += '@media print { body{padding:10px;} .no-print{display:none;} }';
   html += '.no-print{position:fixed;top:10px;left:10px;display:flex;gap:8px;}';
-  html += '.no-print button{padding:8px 16px;border:none;border-radius:6px;background:#0d8577;color:#fff;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;}';
+  html += '.no-print button{padding:8px 16px;border:none;border-radius:6px;background:#0284c7;color:#fff;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;}';
   html += '.no-print button.close-btn{background:#ddd;color:#333;}';
   html += '</style></head><body>';
   html += '<div class="no-print"><button onclick="window.print()">🖨️ طباعة</button><button class="close-btn" onclick="window.close()">إغلاق</button></div>';

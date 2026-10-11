@@ -101,7 +101,8 @@
 
   /* C1 (Oct 2026): brand is clinical indigo. The --green* names are kept
      (863 call sites) but now carry the brand colour. Semantic "success"
-     lives in --green-fg/-bg/-bd/-soft below and stays green. */
+     lives in --green-fg/-bg/-bd/-soft below and is sky blue: the owner
+     wants no green in the UI (WhatsApp keeps its own brand green). */
   --green:     #3f4fc4;
   --green2:    #2f3c9e;
   --green-dim: rgba(63,79,196,0.10);
@@ -137,14 +138,14 @@
   --orange-solid: #c2410c;  --on-orange-solid: #ffffff;   /* v378: white label 5.18:1 (was #ea580c 3.56) */
   --yellow-solid: #eab308;  --on-yellow-solid: #3b2a00;
   --blue-fg:  #1e40af;  --blue-bg:  #bfdbfe;               --blue-bd:  #3b82f6;
-  --green-fg: #075a50;  --green-bg: rgba(13,133,119,0.18); --green-bd: rgba(13,133,119,0.75);   /* tints of the unchanged brand green */
+  --green-fg: #0c4a6e;  --green-bg: rgba(2,132,199,0.15);  --green-bd: rgba(2,132,199,0.70);   /* success: sky blue (owner: no green in the UI) */
   --purple-fg: #5b21b6; --purple-bg: #e9d5ff;              --purple-bd: #a855f7;
   --cyan-fg:   #155e75; --cyan-bg:   #cffafe;              --cyan-bd:   #06b6d4;
   --gray-fg:   #475569; --gray-bg:   #e2e8f0;              --gray-bd:   #94a3b8;
-  --lime-fg:   #3f6212; --lime-bg:   #ecfccb;              --lime-bd:   #65a30d;   /* v366: tooth / region chips */
+  --lime-fg:   #3730a3; --lime-bg:   #e0e7ff;              --lime-bd:   #6366f1;   /* v366: tooth / region chips */
   /* large surfaces (banners, warning rows, prompts): a softer wash than chips */
   --red-soft: #fef2f2;  --orange-soft: #fff7ed;  --yellow-soft: #fefce8;  --blue-soft: #eff6ff;
-  --purple-soft: #faf5ff;  --cyan-soft: #ecfeff;  --green-soft: rgba(13,133,119,0.06);
+  --purple-soft: #faf5ff;  --cyan-soft: #ecfeff;  --green-soft: rgba(2,132,199,0.06);
 
   --bg-primary:    var(--bg);
   --bg-secondary:  var(--bg2);
@@ -202,11 +203,11 @@
   --orange-solid: #fcad70;  --on-orange-solid: #2a1400;
   --yellow-solid: #fdd663;  --on-yellow-solid: #2a1f00;
   --blue-fg:  #63b3ed;  --blue-bg:  rgba(99,179,237,0.14);  --blue-bd:  rgba(99,179,237,0.38);
-  --green-fg: #7ee2a0;  --green-bg: rgba(126,226,160,0.13);  --green-bd: rgba(126,226,160,0.38);   /* success */
+  --green-fg: #7dd3fc;  --green-bg: rgba(125,211,252,0.13);  --green-bd: rgba(125,211,252,0.38);   /* success: sky blue */
   --purple-fg: #a78bfa; --purple-bg: rgba(167,139,250,0.14); --purple-bd: rgba(167,139,250,0.40);
   --cyan-fg:   #4dd0e1; --cyan-bg:   rgba(77,208,225,0.12);  --cyan-bd:   rgba(77,208,225,0.38);
   --gray-fg:   #aab6c9; --gray-bg:   rgba(170,182,201,0.12); --gray-bd:   rgba(170,182,201,0.35);
-  --lime-fg:   #bef264; --lime-bg:   rgba(190,242,100,0.12); --lime-bd:   rgba(190,242,100,0.40);
+  --lime-fg:   #a5b4fc; --lime-bg:   rgba(165,180,252,0.12); --lime-bd:   rgba(165,180,252,0.40);
   --red-soft: var(--red-bg);  --orange-soft: var(--orange-bg);  --yellow-soft: var(--yellow-bg);  --blue-soft: var(--blue-bg);
   --purple-soft: var(--purple-bg);  --cyan-soft: var(--cyan-bg);  --green-soft: var(--green-bg);
 
@@ -1092,7 +1093,7 @@ body:has(.modal-overlay.show) #syFabDock { display: none !important; }
 .lsl-v { font-size: 16px; font-weight: 800; }
 .lsl-grid { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
 .lsl-grid th, .lsl-grid td { border: 1px solid #d0d0d0; padding: 8px 10px; text-align: right; vertical-align: top; }
-.lsl-grid th { background: #eef6f4; color: #0b5d53; width: 18%; font-weight: 700; white-space: nowrap; }
+.lsl-grid th { background: #eef2ff; color: #1e3a8a; width: 18%; font-weight: 700; white-space: nowrap; }
 .lsl-due { font-size: 16px; font-weight: 800; color: #b3261e; }
 .lsl-chart { border-collapse: collapse; margin: 4px auto 14px; direction: ltr; width: auto; table-layout: fixed; }
 .lsl-chart td.lsl-t { width: 28px; height: 26px; padding: 0; line-height: 26px; box-sizing: border-box; border: 1px solid #c8c8c8; text-align: center; font-size: 11.5px; color: #777; }

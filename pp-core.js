@@ -328,11 +328,11 @@ function _sanHex(h) {
   if (window.SyDentColorPicker && typeof window.SyDentColorPicker.sanitizeHex === 'function') {
     return window.SyDentColorPicker.sanitizeHex(h);
   }
-  if (typeof h !== 'string' || !h) return '#0d8577';
+  if (typeof h !== 'string' || !h) return '#0284c7';
   var s = h.trim();
   if (s.charAt(0) !== '#') s = '#' + s;
   if (/^#[0-9A-Fa-f]{3}$/.test(s)) s = '#' + s[1]+s[1] + s[2]+s[2] + s[3]+s[3];
-  return /^#[0-9A-Fa-f]{6}$/.test(s) ? s.toLowerCase() : '#0d8577';
+  return /^#[0-9A-Fa-f]{6}$/.test(s) ? s.toLowerCase() : '#0284c7';
 }
 var TREATMENTS = (JSON.parse(localStorage.getItem('sydent_treatments') || '[]') || []).map(function(t){
   // Sanitize cached colors too — an older cache may predate the choke-point fix.

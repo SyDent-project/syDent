@@ -30,7 +30,7 @@ const PAGES = {
   <div class="list-info"><div class="list-name">هند</div><div class="list-type">📅 الثلاثاء 28 تموز · 📞 0933223176</div></div>
   <div class="list-actions sy-acts" data-sub-write><button class="sy-act sy-act-primary" title="تأكيد كموعد">✅ تأكيد</button><button class="sy-act" title="تعديل الوقت ثم التأكيد">✏️ تعديل</button><button class="sy-act sy-act-danger" title="رفض الطلب">✖ رفض</button><a class="sy-act sy-act-ico" title="مراسلة واتساب" aria-label="مراسلة واتساب" href="#">📱</a></div>
 </div></div>
-<div class="list-group" data-slot-group data-row="list" data-mobile-hidden="1" data-slot-row><div class="list-item" style="--bc:#0d8577;" role="button" tabindex="0">
+<div class="list-group" data-slot-group data-row="list" data-mobile-hidden="1" data-slot-row><div class="list-item" style="--bc:#0284c7;" role="button" tabindex="0">
   <div class="list-time">09:00 AM</div><div class="list-avatar">ع</div>
   <div class="list-info"><div class="list-name">عبدو شحرور</div><div class="list-type">فحص — 30 دقيقة</div></div>
   <span class="list-badge status-confirmed">مؤكّد</span>
@@ -42,12 +42,12 @@ const PAGES = {
   <span class="list-badge status-completed">مكتمل</span>
   <div class="list-actions sy-acts sy-slots" style="--sy-slots:[s1] 84px [s2] 82px [s3] 80px" data-sub-write><button class="sy-act" data-slot="2">✏️ تعديل</button><button class="sy-act sy-act-danger" data-slot="3">🗑️ حذف</button></div>
 </div></div>
-<div class="list-group" data-row="calls" data-slot-row><div class="list-item show-acts" style="border-right:3px solid #0d8577;">
+<div class="list-group" data-row="calls" data-slot-row><div class="list-item show-acts" style="border-right:3px solid #0284c7;">
   <div class="list-time">11:00 AM</div><div class="list-avatar">ي</div>
   <div class="list-info"><div class="list-name">يحيى التر</div><div class="list-type">📞 0934012433 — قلع</div></div>
   <div class="list-actions sy-acts sy-slots" style="--sy-slots:[s1] 92px [s2] 76px [s3] 102px"><button class="sy-act" data-slot="1" title="تذكير واتساب">📱 واتساب</button><button class="sy-act" data-slot="2" title="نسخ رسالة التذكير">📋 نسخ</button><button class="sy-act sy-act-primary" data-slot="3" title="تم التأكيد">✅ تم التأكيد</button></div>
 </div></div>
-<div class="list-group" data-row="calls-nophone" data-slot-row><div class="list-item show-acts" style="border-right:3px solid #0d8577;">
+<div class="list-group" data-row="calls-nophone" data-slot-row><div class="list-item show-acts" style="border-right:3px solid #0284c7;">
   <div class="list-time">12:00 PM</div><div class="list-avatar">ل</div>
   <div class="list-info"><div class="list-name">ليلى</div><div class="list-type">لا رقم هاتف — فحص</div></div>
   <div class="list-actions sy-acts sy-slots" style="--sy-slots:[s1] 92px [s2] 76px [s3] 102px"><button class="sy-act" data-slot="1" title="لا رقم هاتف مسجّل" disabled>📱 واتساب</button><button class="sy-act" data-slot="2" title="نسخ رسالة التذكير">📋 نسخ</button></div>
@@ -100,11 +100,11 @@ const PAGES = {
     ],
     rows: `
 <div class="card" style="margin-bottom:14px;"><div id="sessionsContent"><table class="data-table sess-table"><thead><tr><th>التاريخ</th><th>العلاج</th><th>السن</th><th>الحالة</th><th>الدفع</th><th>التفاصيل</th><th>التكلفة</th><th></th></tr></thead><tbody>
-<tr data-test="pp-session-row" data-row="sessions" data-slot-row><td class="sc-date"><span class="dt-cell"><span class="ltr-val">31/7/2026</span><span class="dt-time ltr-val">10:21 PM</span></span></td><td class="sc-type"><span class="sess-type" style="background:#0d857722;color:#0d8577;">تلبيس (تاج)</span></td><td class="sc-chip"><span class="sess-chip">سن 36</span></td><td class="sc-chip"><span class="sess-chip tone tone-blue">مخطّط</span></td><td class="sc-chip"><span class="sess-chip tone tone-red">غير مدفوع</span></td><td class="sc-details"><div class="sess-desc">زركون — قياس بعد أسبوع</div></td><td class="sc-cost sess-cost" style="color:var(--red);">450,000 ل.س</td>
+<tr data-test="pp-session-row" data-row="sessions" data-slot-row><td class="sc-date"><span class="dt-cell"><span class="ltr-val">31/7/2026</span><span class="dt-time ltr-val">10:21 PM</span></span></td><td class="sc-type"><span class="sess-type" style="background:#0284c722;color:#0284c7;">تلبيس (تاج)</span></td><td class="sc-chip"><span class="sess-chip">سن 36</span></td><td class="sc-chip"><span class="sess-chip tone tone-blue">مخطّط</span></td><td class="sc-chip"><span class="sess-chip tone tone-red">غير مدفوع</span></td><td class="sc-details"><div class="sess-desc">زركون — قياس بعد أسبوع</div></td><td class="sc-cost sess-cost" style="color:var(--red);">450,000 ل.س</td>
 <td class="sc-actions sess-actions"><div class="sy-acts sy-slots" style="--sy-slots:[s1] 84px [s2] 78px [s3] 80px"><button class="sy-act sy-act-primary" data-slot="1" title="إكمال هذا العلاج">✅ إكمال</button><button class="sy-act" data-slot="2" title="إنشاء طلب مخبر">🥽 مخبر</button><button class="sy-act sy-act-danger" data-slot="3">🗑️ حذف</button></div></td></tr>
-<tr data-test="pp-session-row" data-row="sessions-nolab" data-slot-row><td class="sc-date">19/9/2026</td><td class="sc-type"><span class="sess-type" style="background:#0d857722;color:#0d8577;">حشوة</span></td><td class="sc-chip"><span class="sess-chip">سن 16</span></td><td class="sc-chip"><span class="sess-chip tone tone-blue">مخطّط</span></td><td class="sc-chip sc-empty">—</td><td class="sc-details sc-empty">—</td><td class="sc-cost sess-cost" style="color:var(--red);">30,000 ل.س</td>
+<tr data-test="pp-session-row" data-row="sessions-nolab" data-slot-row><td class="sc-date">19/9/2026</td><td class="sc-type"><span class="sess-type" style="background:#0284c722;color:#0284c7;">حشوة</span></td><td class="sc-chip"><span class="sess-chip">سن 16</span></td><td class="sc-chip"><span class="sess-chip tone tone-blue">مخطّط</span></td><td class="sc-chip sc-empty">—</td><td class="sc-details sc-empty">—</td><td class="sc-cost sess-cost" style="color:var(--red);">30,000 ل.س</td>
 <td class="sc-actions sess-actions"><div class="sy-acts sy-slots" style="--sy-slots:[s1] 84px [s2] 78px [s3] 80px"><button class="sy-act sy-act-primary" data-slot="1" data-span="2">✅ إكمال</button><button class="sy-act sy-act-danger" data-slot="3">🗑️ حذف</button></div></td></tr>
-<tr data-test="pp-session-row" data-row="sessions-done" data-slot-row><td class="sc-date">9/8/2026</td><td class="sc-type"><span class="sess-type" style="background:#0d857722;color:#0d8577;">حشوة</span></td><td class="sc-chip"><span class="sess-chip">سن 16</span></td><td class="sc-chip"><span class="sess-chip tone tone-blue">مخطّط</span></td><td class="sc-chip sc-empty">—</td><td class="sc-details sc-empty">—</td><td class="sc-cost sess-cost" style="color:var(--red);">30,000 ل.س</td>
+<tr data-test="pp-session-row" data-row="sessions-done" data-slot-row><td class="sc-date">9/8/2026</td><td class="sc-type"><span class="sess-type" style="background:#0284c722;color:#0284c7;">حشوة</span></td><td class="sc-chip"><span class="sess-chip">سن 16</span></td><td class="sc-chip"><span class="sess-chip tone tone-blue">مخطّط</span></td><td class="sc-chip sc-empty">—</td><td class="sc-details sc-empty">—</td><td class="sc-cost sess-cost" style="color:var(--red);">30,000 ل.س</td>
 <td class="sc-actions sess-actions"><div class="sy-acts sy-slots" style="--sy-slots:[s1] 84px [s2] 78px [s3] 80px"><button class="sy-act sy-act-danger" data-slot="3">🗑️ حذف</button></div></td></tr>
 </tbody></table></div></div>
 <div class="card" style="margin-bottom:14px;"><div id="paymentsContent"><table class="data-table m-cards"><thead><tr><th>التاريخ</th><th>طريقة الدفع</th><th>ملاحظات</th><th style="text-align:left;">المبلغ</th><th></th></tr></thead><tbody>
@@ -152,7 +152,7 @@ const PAGES = {
               "'<button class=\"sy-act' + (isInactive ? ' sy-act-primary' : ' sy-act-warn') + '\" onclick=\"toggleActive("],
     rows: `
 <div class="treat-grid">
-<div class="treat-card" data-row="treat-active"><div class="treat-color-bar" style="background:#0d8577;"></div><div class="treat-body"><div class="treat-head"><div class="treat-swatch" style="background:#0d857733;border:2px solid #0d8577;"></div><div class="treat-head-main"><div class="treat-name">تلبيس (تاج) زركون</div><div class="treat-tags"></div></div><span class="treat-fav-star on">★</span></div><div class="treat-price">450,000 <span class="currency">ل.س</span></div>
+<div class="treat-card" data-row="treat-active"><div class="treat-color-bar" style="background:#0284c7;"></div><div class="treat-body"><div class="treat-head"><div class="treat-swatch" style="background:#0284c733;border:2px solid #0284c7;"></div><div class="treat-head-main"><div class="treat-name">تلبيس (تاج) زركون</div><div class="treat-tags"></div></div><span class="treat-fav-star on">★</span></div><div class="treat-price">450,000 <span class="currency">ل.س</span></div>
 <div class="treat-actions sy-acts sy-acts-grid"><button class="sy-act" title="إزالة من المفضلة">⭐ مفضّل</button><button class="sy-act">✏️ تعديل</button><button class="sy-act" title="إنشاء نسخة">📋 نسخ</button><button class="sy-act" title="ربط مواد المخزون">🧰 المواد</button><button class="sy-act sy-act-warn" title="تعطيل العلاج">⏸️ تعطيل</button><button class="sy-act sy-act-danger">🗑️ حذف</button></div></div></div>
 <div class="treat-card" data-row="treat-inactive" style="opacity:.6;"><div class="treat-color-bar" style="background:#7c3aed;"></div><div class="treat-body"><div class="treat-head"><div class="treat-swatch" style="background:#7c3aed33;border:2px solid #7c3aed;"></div><div class="treat-head-main"><div class="treat-name">تبييض</div><div class="treat-tags"></div></div><span class="treat-fav-star">☆</span></div><div class="treat-price">150,000 <span class="currency">ل.س</span></div>
 <div class="treat-actions sy-acts sy-acts-grid"><button class="sy-act" title="إضافة للمفضلة">☆ مفضّل</button><button class="sy-act">✏️ تعديل</button><button class="sy-act">📋 نسخ</button><button class="sy-act">🧰 المواد</button><button class="sy-act sy-act-primary" title="تفعيل العلاج">▶️ تفعيل</button></div></div></div>
@@ -163,7 +163,7 @@ const PAGES = {
     anchors: ["'<div class=\"doc-actions sy-acts sy-acts-grid\">'", "'<div class=\"doc-grid\">'", "'<div class=\"doc-card\">'"],
     rows: `
 <div class="doc-grid">
-<div class="doc-card" data-row="doc-owner"><div class="doc-color-bar" style="background:#0d8577"></div><div class="doc-body"><div class="doc-head"><div class="doc-avatar" style="background:#0d8577">أغ</div><div style="flex:1;"><div class="doc-name">د. أيهم غنيم</div></div></div>
+<div class="doc-card" data-row="doc-owner"><div class="doc-color-bar" style="background:#0284c7"></div><div class="doc-body"><div class="doc-head"><div class="doc-avatar" style="background:#0284c7">أغ</div><div style="flex:1;"><div class="doc-name">د. أيهم غنيم</div></div></div>
 <div class="doc-actions sy-acts sy-acts-grid"><button class="sy-act sy-act-primary" title="هذا هو معالجك الافتراضي">⭐ المعالج الافتراضي</button></div></div></div>
 <div class="doc-card" data-row="doc-other"><div class="doc-color-bar" style="background:#2563eb"></div><div class="doc-body"><div class="doc-head"><div class="doc-avatar" style="background:#2563eb">مب</div><div style="flex:1;"><div class="doc-name">د. مجد بركة</div></div></div>
 <div class="doc-actions sy-acts sy-acts-grid"><button class="sy-act">✏️ تعديل</button><button class="sy-act" title="تعيين هذا الطبيب كمعالج افتراضي">☆ تعيين كمعالج افتراضي</button></div></div></div>
@@ -176,7 +176,7 @@ const PAGES = {
 <div class="emp-grid">
 <div class="emp-card" data-row="emp"><div class="emp-color-bar" style="background:#7c3aed;"></div><div class="emp-body"><div class="emp-head"><div class="emp-name">ريم — سكرتيرة</div></div><div class="emp-pin-status pin-set">✅ رقم السر محفوظ</div>
 <div class="emp-actions sy-acts"><button class="sy-act">✏️ تعديل</button><button class="sy-act sy-act-warn" title="منع جهاز هذا الموظف">🔒 تعطيل الحساب</button><button class="sy-act sy-act-danger">🗑️ حذف</button></div></div></div>
-<div class="emp-card inactive" data-row="emp-inactive"><div class="emp-color-bar" style="background:#0d8577;"></div><div class="emp-body"><div class="emp-head"><div class="emp-name">د. مجد — طبيب</div></div>
+<div class="emp-card inactive" data-row="emp-inactive"><div class="emp-color-bar" style="background:#0284c7;"></div><div class="emp-body"><div class="emp-head"><div class="emp-name">د. مجد — طبيب</div></div>
 <div class="emp-actions sy-acts"><button class="sy-act">✏️ تعديل</button><button class="sy-act sy-act-primary" title="إعادة تفعيل حساب هذا الموظف">✅ تفعيل الحساب</button><button class="sy-act sy-act-danger">🗑️ حذف</button></div></div></div>
 <div class="emp-card" data-row="emp-owner"><div class="emp-body"><div class="emp-head"><div class="emp-name">د. أيهم غنيم — المالك</div></div>
 <div class="emp-actions sy-acts"><button class="sy-act">🔐 تغيير رقم سرّي</button></div></div></div>
@@ -285,7 +285,7 @@ const PAGES = {
     anchors: ["+   '<div class=\"sy-acts\">'   /* v487: الكراسي/الغرف", "'<div class=\"sy-acts\">' + waBtn", "'<div class=\"sy-acts\"><button type=\"button\" class=\"sy-act sy-act-danger\" onclick=\"deleteImplantLog("],
     rows: `
 <div class="card" style="padding:14px;margin-bottom:14px;"><div data-row="operatory"><div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:12px;background:color-mix(in srgb, var(--text) 3%, transparent);border:1px solid var(--border);border-radius:10px;">
-<div style="width:14px;height:14px;border-radius:4px;background:#0d8577;"></div><div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;color:var(--text);">كرسي 1</div></div>
+<div style="width:14px;height:14px;border-radius:4px;background:#0284c7;"></div><div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;color:var(--text);">كرسي 1</div></div>
 <div class="sy-acts"><button type="button" class="sy-act">✏️ تعديل</button><button type="button" class="sy-act sy-act-danger">🗑️ حذف</button></div></div></div></div>
 <div class="card" style="padding:14px;margin-bottom:14px;"><div data-row="waitlist"><div style="border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
 <div style="flex:1;min-width:160px;"><div style="font-weight:700;">يحيى التر</div><div style="font-size:12.5px;color:var(--text2);margin-top:3px;">موعده الحالي: <b>21/9/2026 \u200E10:30 AM\u200E</b> · فحص</div></div>

@@ -1702,7 +1702,7 @@ function _renderLayerPR() {
 
     // F5 (قاعدة #195): اللون يُحقن بسمة style — يُقبل hex أو var(--*) حصراً وإلا الافتراضي.
     var color = /^#[0-9a-fA-F]{3,8}$/.test(d.color || '') || /^var\(--[a-zA-Z0-9-]+\)$/.test(d.color || '')
-      ? d.color : '#0d8577';
+      ? d.color : '#0284c7';
     var basisLabel = basis === 'production' ? 'الإنتاج' : (basis === 'net' ? 'الصافي' : 'التحصيل');
     var baseValue = getShareBase(stats);
 
@@ -1993,7 +1993,7 @@ function _printSlipCore(provId) {
 
   var html = ''
     + '<div style="font-family:Cairo,sans-serif;color:#000;direction:rtl;padding:20px;">'
-    + '<div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #0d8577;padding-bottom:14px;">'
+    + '<div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #0284c7;padding-bottom:14px;">'
       + '<div style="font-size:22px;font-weight:800;color:#0a1628;">SyDent — كشف إنتاج طبيب</div>'
       + '<div style="font-size:13px;color:#666;margin-top:4px;">' + escapeHtml(d.name) + (d.role ? ' — ' + escapeHtml(d.role) : '') + '</div>'
       + '<div style="font-size:11px;color:#888;margin-top:6px;">الفترة: ' + from + ' ← ' + to + '</div>'
@@ -2018,7 +2018,7 @@ function _printSlipCore(provId) {
       + '</div>'
     + '</div>'
 
-    + '<div style="background:#f0fdf4;border:2px solid #0d8577;padding:14px;border-radius:8px;margin-bottom:22px;">'
+    + '<div style="background:#f0fdf4;border:2px solid #0284c7;padding:14px;border-radius:8px;margin-bottom:22px;">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;">'
         + '<div>'
           + '<div style="font-size:12px;color:#666;">المستحق (' + sharePct + '% من ' + basisLabel + ')</div>'
@@ -2027,7 +2027,7 @@ function _printSlipCore(provId) {
         + '<div style="font-size:26px;font-weight:800;color:#0a1628;">' + fmtSY(payout) + '</div>'
       + '</div>'
       + (showLedger
-        ? '<div style="border-top:1px dashed #0d8577;margin-top:10px;padding-top:10px;display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between;font-size:13px;">'
+        ? '<div style="border-top:1px dashed #0284c7;margin-top:10px;padding-top:10px;display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between;font-size:13px;">'
           + ledgerLines
           + '<span style="font-weight:800;">' + closingSt.txt + (closingSt.cls === 'ok' ? '' : ': ' + fmtSY(closingSt.val)) + '</span>'
           + '</div>'
@@ -2219,7 +2219,7 @@ function printLedger() {
   try {
     var cs = balanceState(L.closing);
     html = '<div style="font-family:Cairo,sans-serif;color:#000;direction:rtl;padding:20px;">'
-      + '<div style="text-align:center;margin-bottom:18px;border-bottom:2px solid #0d8577;padding-bottom:12px;">'
+      + '<div style="text-align:center;margin-bottom:18px;border-bottom:2px solid #0284c7;padding-bottom:12px;">'
         + '<div style="font-size:22px;font-weight:800;color:#0a1628;">SyDent — كشف حساب طبيب</div>'
         + '<div style="font-size:13px;color:#666;margin-top:4px;">' + escapeHtml(providerTypePrefix(L.d.provider_type) + L.d.name) + (L.d.role ? ' — ' + escapeHtml(L.d.role) : '') + '</div>'
         + '<div style="font-size:11px;color:#888;margin-top:6px;">الفترة: ' + escapeHtml(L.from) + ' ← ' + escapeHtml(L.to) + ' · الأساس: ' + _ledgerBasisLabel(L.basis) + ' · النسبة ' + L.pct + '%</div>'
@@ -2236,7 +2236,7 @@ function printLedger() {
             .replace(/<div class="sub">/g, '<div style="font-size:9.5px;color:#666;">')
             .replace(/<tr class="(open|close)">/g, '<tr style="font-weight:800;background:#f0fdf4;">')
         + '</tbody></table>'
-      + '<div style="margin-top:14px;padding:10px;border:2px solid #0d8577;border-radius:8px;display:flex;justify-content:space-between;font-size:14px;font-weight:800;">'
+      + '<div style="margin-top:14px;padding:10px;border:2px solid #0284c7;border-radius:8px;display:flex;justify-content:space-between;font-size:14px;font-weight:800;">'
         + '<span>' + cs.txt + '</span><span>' + fmtSY(cs.val) + '</span></div>'
       + '<div style="margin-top:26px;font-size:11px;color:#888;text-align:center;border-top:1px solid #ccc;padding-top:10px;">SyDent — تم الإنشاء في ' + SyDT.numDate(new Date()) + ' ' + SyDT.time12(new Date()) + '</div>'
       + '</div>';

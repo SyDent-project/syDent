@@ -374,7 +374,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 .tooth-lab-badge:hover{filter:brightness(1.12);}
 .status-planned{background:#ef4444;}
 .status-completed{background:#3b82f6;}
-.status-existing_current{background:#10b981;opacity:.85;}  /* EC — done in our clinic */
+.status-existing_current{background:#0ea5e9;opacity:.85;}  /* EC — done in our clinic */
 .status-existing_other{background:#9ca3af;opacity:.65;}    /* EO — done elsewhere */
 /* ج: chips إنهاء المراقبة داخل بانر المراقبات — رقم السن + ✕ (نقرة = إنهاء المراقبة للسن) */
 #watchDueBanner .wend-chip{display:inline-flex;align-items:center;gap:3px;padding:0 6px;margin:0 1px;border:1px solid rgba(107,114,128,.55);border-radius:999px;cursor:pointer;line-height:1.5;background:transparent;color:inherit;}
