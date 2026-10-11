@@ -58,52 +58,53 @@
 
 <div class="main" id="sbMainContent">
 
-  <!-- Topbar -->
-  <div class="topbar">
-    <div class="topbar-title">إدارة <span>المواعيد</span></div>
-    <div class="view-toggle">
-      <button class="view-btn active" id="btnMonth" onclick="setView('month')">شهري</button>
-      <button class="view-btn" id="btnDay"   onclick="setView('day')">يومي</button>
-      <button class="view-btn" id="btnWeek"  onclick="setView('week')">أسبوعي</button>
-      <button class="view-btn" id="btnList"  onclick="setView('list')">قائمة</button>
-      <button class="view-btn" id="btnCalls" onclick="setView('calls')">اتصالات</button>
-      <button class="view-btn" id="btnBooking" onclick="setView('booking')">طلبات الحجز<span id="bookingBadge" style="display:none;background:var(--red-solid,#e85d5d);color:var(--on-red-solid,#fff);border-radius:10px;padding:0 7px;margin-inline-start:6px;font-size:0.72rem;font-weight:800;"></span></button>
+  <!-- Page header: what this page is + the actions you can take -->
+  <div class="topbar appt-head">
+    <div class="appt-head__text">
+      <h1 class="topbar-title">المواعيد</h1>
+      <p class="appt-head__sub">جدول مواعيد العيادة، والمواعيد التي لم يُحدَّد تاريخها بعد، وطلبات الحجز الواردة.</p>
     </div>
-    <button class="btn" onclick="openBlockModal()" title="حجز وقت: استراحة · إجازة · اجتماع · انقطاع" data-sub-write data-doctor-inactive-block
-            style="background:transparent;border:1px solid var(--border);color:var(--text2);">⛔ حجز وقت</button>
-    <button class="btn" onclick="openWaitlistModal()" title="قائمة الانتظار: مرضى يرغبون بموعد أبكر" data-sub-write
-            style="background:transparent;border:1px solid var(--border);color:var(--text2);">
-      ⚡ الانتظار <span id="waitlistBadge" style="display:none;background:var(--yellow-solid);color:var(--on-yellow-solid);border-radius:10px;padding:0 7px;margin-inline-start:5px;font-size:0.72rem;font-weight:800;"></span>
-    </button>
-    <button class="btn btn-primary" onclick="openModal()" data-doctor-inactive-block data-sub-write>＋ موعد جديد</button>
+    <div class="appt-head__actions">
+      <button type="button" class="sd-btn sd-btn--secondary" onclick="openBlockModal()" title="إغلاق فترة من الجدول: استراحة أو إجازة أو اجتماع" data-sub-write data-doctor-inactive-block>إغلاق وقت</button>
+      <button type="button" class="sd-btn sd-btn--secondary" onclick="openWaitlistModal()" title="مرضى يرغبون بموعد أبكر إن توفّر" data-sub-write>
+        قائمة الانتظار <span id="waitlistBadge" class="appt-count appt-count--wait" style="display:none;"></span>
+      </button>
+      <button type="button" class="sd-btn sd-btn--primary" onclick="openModal()" data-doctor-inactive-block data-sub-write>＋ موعد جديد</button>
+    </div>
   </div>
 
   <!-- Content -->
   <div class="content">
 
-    <!-- Gap 7: Main tabs (Schedule | Planned) -->
-    <div class="main-tabs">
-      <button class="main-tab active" id="mainTabSchedule" onclick="setMainTab('schedule')">
-        جدول المواعيد
+    <!-- Page sections: one row, one place to switch -->
+    <div class="sd-tabs appt-sections" role="tablist" aria-label="أقسام المواعيد">
+      <button type="button" class="sd-tab main-tab active" id="mainTabSchedule" role="tab" aria-selected="true" onclick="setMainTab('schedule')">الجدول</button>
+      <button type="button" class="sd-tab main-tab" id="mainTabPlanned" role="tab" aria-selected="false" onclick="setMainTab('planned')">
+        بلا تاريخ <span class="appt-count" id="plannedCountBadge">0</span>
       </button>
-      <button class="main-tab" id="mainTabPlanned" onclick="setMainTab('planned')">
-        مواعيد مخطّطة
-        <span class="count-badge" id="plannedCountBadge">0</span>
+      <button type="button" class="sd-tab main-tab" id="btnBooking" role="tab" aria-selected="false" onclick="setMainTab('booking')">
+        طلبات الحجز <span id="bookingBadge" class="appt-count appt-count--alert" style="display:none;"></span>
       </button>
+      <button type="button" class="sd-tab main-tab" id="btnCalls" role="tab" aria-selected="false" onclick="setMainTab('calls')">التذكير بالمواعيد</button>
     </div>
+    <p class="appt-section-hint" id="apptSectionHint"></p>
 
     <!-- ═══ Schedule view (date-based) ═══ -->
     <div id="scheduleView">
 
-    <!-- Calendar Nav -->
-    <div class="cal-header">
+    <!-- Calendar toolbar: the period on the right, how to display it on the left -->
+    <div class="cal-header" id="calToolbar">
       <div class="cal-nav">
-        <button class="cal-nav-btn" onclick="prevPeriod()">‹</button>
+        <button type="button" class="cal-nav-btn" onclick="prevPeriod()" aria-label="الفترة السابقة">‹</button>
         <div class="cal-month" id="calMonth">—</div>
-        <button class="cal-nav-btn" onclick="nextPeriod()">›</button>
+        <button type="button" class="cal-nav-btn" onclick="nextPeriod()" aria-label="الفترة التالية">›</button>
+        <button type="button" class="today-btn" onclick="goToday()">اليوم</button>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="today-btn" onclick="goToday()">اليوم</button>
+      <div class="view-toggle" role="group" aria-label="طريقة العرض">
+        <button type="button" class="view-btn" id="btnDay"   onclick="setView('day')">يوم</button>
+        <button type="button" class="view-btn" id="btnWeek"  onclick="setView('week')">أسبوع</button>
+        <button type="button" class="view-btn active" id="btnMonth" onclick="setView('month')">شهر</button>
+        <button type="button" class="view-btn" id="btnList"  onclick="setView('list')">القادمة</button>
       </div>
     </div>
 
@@ -186,139 +187,163 @@
     <form onsubmit="submitAppt(event)">
       <div class="modal-body">
 
-      <!-- Gap 7: Planned-appointment toggle (shown only when creating, not when editing scheduled appts) -->
+      <fieldset class="appt-fs">
+        <legend class="appt-fs__title">المريض</legend>
+        <div class="form-grid">
+          <div class="form-group full" style="position:relative;">
+            <label for="fPatient">اسم المريض *</label>
+            <input type="text" id="fPatient" placeholder="ابحث أو اكتب الاسم…" required
+                   autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                   oninput="onFPatientTyped()" onchange="onFPatientInput()"
+                   onfocus="fpSuggestRender()" onblur="fpSuggestBlur()" onkeydown="fpSuggestKey(event)">
+            <!-- اقتراحات مخصصة بدل <datalist> — سفاري iOS لا يعرض datalist
+                 (شريط QuickType يحتله AutoFill Contact). الضغط يكتب الاسم
+                 المسجّل حرفياً فيبقى ربط patient_id بمطابقة الاسم بلا تغيير. -->
+            <div id="fpSuggest" class="fp-suggest" style="display:none;" role="listbox"></div>
+            <!-- M87: تحذير طبي للمريض المحلول بالاسم المسجّل — يُملأ بـtextContent حصراً -->
+            <div id="fPatientMedHint" style="display:none;margin-top:6px;padding:6px 10px;border:1px solid var(--red-bd);border-radius:8px;background:var(--red-soft);color:var(--red-ink);font-size:12.5px;font-weight:700;"></div>
+            <!-- v497: مؤشّر التزام المريض (عدم حضور/إلغاء بآخر 12 شهراً) — يُملأ بـupdatePatientMedHint، textContent فقط -->
+            <div id="fPatientRelHint" class="rel-hint" style="display:none;margin-top:6px;padding:6px 10px;border:1px solid var(--yellow-bd);border-radius:8px;background:var(--yellow-bg);color:var(--yellow-ink);font-size:12.5px;font-weight:700;"></div>
+          </div>
+          <!-- P5+: booking-confirm patient resolution (match existing OR create new). Hidden by default; shown only during a booking-request confirmation. -->
+          <div class="form-group full" id="bookingResolveBox" data-sub-write style="display:none;"></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="appt-fs">
+        <legend class="appt-fs__title">موعد الزيارة</legend>
+        <!-- v335: قفلُ نقل الموعد المنتهي/الحاضر — يُملأ بـtextContent حصراً -->
+        <div class="form-group full appt-fs__note" id="apptLockNote" data-sub-write style="display:none;"></div>
+        <!-- Gap 7: Planned-appointment toggle (shown only when creating, not when editing scheduled appts) -->
       <label class="planned-toggle" id="plannedToggleWrap" data-sub-write for="fIsPlanned" style="display:none;">
         <input type="checkbox" id="fIsPlanned" onchange="onPlannedToggle()">
         <div class="pt-text">
-          <div class="pt-title">موعد مخطّط (بدون تاريخ محدّد)</div>
-          <div class="pt-hint">يُحفظ كموعد قادم بدون قفل تاريخ — تُجدوله لاحقاً عند تأكيد المريض.</div>
+          <div class="pt-title">موعد بلا تاريخ</div>
+          <div class="pt-hint">يُحفظ من دون تاريخ أو وقت، ويُحدَّدان لاحقاً عند تأكيد المريض.</div>
         </div>
       </label>
       <div class="planned-note" id="plannedNote" data-sub-write style="display:none;">
-        ⓘ هذا موعد مخطّط — لا حاجة لإدخال التاريخ والوقت الآن. اضغط على "📅 جدولة الآن" لاحقاً لتحديدهما.
+        هذا موعد بلا تاريخ، فلا حاجة إلى إدخال التاريخ والوقت الآن. حدّدهما لاحقاً بزر «جدولة الآن».
       </div>
 
-      <div class="form-grid">
-        <!-- Gap 8: Template picker (hidden in edit mode) -->
-        <div class="form-group full" id="apptTypePickerWrap" data-sub-write style="display:none;">
-          <label for="fApptTypePicker">قالب جاهز (اختياري) — لتعبئة المدة والعلاج تلقائياً</label>
-          <!-- Phase 6 L: chips view (auto-shown for ≤ 6 templates). Falls back
-               to the <select> below when there are more than 6 templates. -->
-          <div id="fApptTypeChips" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:6px;"></div>
-          <select id="fApptTypePicker" onchange="onApptTypePicked()">
-            <option value="">— بدون قالب —</option>
-          </select>
-        </div>
-        <div class="form-group full" style="position:relative;">
-          <label for="fPatient">اسم المريض *</label>
-          <input type="text" id="fPatient" placeholder="ابحث أو اكتب الاسم…" required
-                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-                 oninput="onFPatientTyped()" onchange="onFPatientInput()"
-                 onfocus="fpSuggestRender()" onblur="fpSuggestBlur()" onkeydown="fpSuggestKey(event)">
-          <!-- اقتراحات مخصصة بدل <datalist> — سفاري iOS لا يعرض datalist
-               (شريط QuickType يحتله AutoFill Contact). الضغط يكتب الاسم
-               المسجّل حرفياً فيبقى ربط patient_id بمطابقة الاسم بلا تغيير. -->
-          <div id="fpSuggest" class="fp-suggest" style="display:none;" role="listbox"></div>
-          <!-- M87: تحذير طبي للمريض المحلول بالاسم المسجّل — يُملأ بـtextContent حصراً -->
-          <div id="fPatientMedHint" style="display:none;margin-top:6px;padding:6px 10px;border:1px solid var(--red-bd);border-radius:8px;background:var(--red-soft);color:var(--red-ink);font-size:12.5px;font-weight:700;"></div>
-          <!-- v497: مؤشّر التزام المريض (عدم حضور/إلغاء بآخر 12 شهراً) — يُملأ بـupdatePatientMedHint، textContent فقط -->
-          <div id="fPatientRelHint" class="rel-hint" style="display:none;margin-top:6px;padding:6px 10px;border:1px solid var(--yellow-bd);border-radius:8px;background:var(--yellow-bg);color:var(--yellow-ink);font-size:12.5px;font-weight:700;"></div>
-        </div>
-        <!-- P5+: booking-confirm patient resolution (match existing OR create new). Hidden by default; shown only during a booking-request confirmation. -->
-        <div class="form-group full" id="bookingResolveBox" data-sub-write style="display:none;"></div>
-        <!-- v335: قفلُ نقل الموعد المنتهي/الحاضر — يُملأ بـtextContent حصراً -->
-        <div class="form-group full" id="apptLockNote" data-sub-write style="display:none;"></div>
-        <div class="form-group" id="fDateGroup">
-          <label for="fDate">التاريخ *</label>
-          <input type="date" id="fDate" onchange="apptRepeatHint()">
-        </div>
-        <div class="form-group" id="fTimeGroup">
-          <label for="fTime">الوقت *</label>
-          <input type="time" id="fTime" onchange="apptFamilyHint()">
-        </div>
-        <div class="form-group full" id="fReasonGroup" style="display:none;">
-          <label for="fReason">السبب / نوع العلاج المخطّط</label>
-          <input type="text" id="fReason" placeholder="مثال: تركيب تلبيستين على 16 و 26، أو متابعة علاج عصب…">
-        </div>
-        <div class="form-group">
-          <label for="fDuration">المدة (دقيقة)</label>
-          <select id="fDuration" onchange="apptFamilyHint()">
-            <option value="30">30 دقيقة</option>
-            <option value="45">45 دقيقة</option>
-            <option value="60" selected>ساعة</option>
-            <option value="90">ساعة ونصف</option>
-            <option value="120">ساعتان</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="fType">نوع العلاج</label>
-          <select id="fType" onchange="updateColorPreview()"></select>
-        </div>
-        <div class="form-group">
-          <label for="fStatus">الحالة</label>
-          <select id="fStatus">
-            <option value="confirmed">مؤكد</option>
-            <option value="scheduled">غير مؤكد</option>   <!-- v534: كان غائباً ⇒ حالة فارغة لموعد أسرة/سلسلة -->
-            <option value="pending">معلّق</option>
-            <option value="completed">مكتمل</option>
-            <option value="no_show">عدم حضور</option>
-            <option value="cancelled">ملغى</option>
-          </select>
-        </div>
-        <div class="form-group" id="fProviderGroup" style="display:none;">
-          <label for="fProvider">الطبيب</label>
-          <select id="fProvider" onchange="onApptProviderChange()"></select>
-        </div>
-        <!-- Phase 6 K (Migration 12): operatory picker. Hidden by default —
-             JS shows it only when at least one active operatory exists OR
-             we're editing an appointment that's already linked to one
-             (incl. an inactive operatory, so the user can clear/change).
-             K-bug-fix: onchange auto-syncs the provider picker to the
-             operatory's default_provider_id (Option B — always replace). -->
-        <div class="form-group" id="fOperatoryGroup" style="display:none;">
-          <label for="fOperatory">الغرفة</label>
-          <select id="fOperatory" onchange="onOperatoryChange()">
-            <option value="">— بدون تخصيص —</option>
-          </select>
-        </div>
-        <!-- Backlog #5: ASAP/Waitlist flag — يشتغل للمجدول والمخطّط معاً -->
-        <div class="form-group full">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-            <input type="checkbox" id="fAsap" style="width:auto;appearance:auto;">
-            <span>⚡ يرغب بموعد أبكر (قائمة الانتظار)</span>
-          </label>
-        </div>
-        <!-- v505 (M157): التكرار — للموعد الجديد المجدوَل فقط؛ الأخوةُ صفوفٌ مستقلة تجمعها series_id -->
-        <div class="form-group full" id="fRepeatGroup">
-          <label>🔁 تكرار الموعد <span style="color:var(--text2);font-weight:400;">(تقويم · مراجعات دورية)</span></label>
-          <div class="form-grid">
-            <select id="fRepeat" onchange="apptRepeatHint()">
-              <option value="none">بلا تكرار</option>
-              <option value="weekly">أسبوعياً</option>
-              <option value="biweekly">كل أسبوعين</option>
-              <option value="monthly">شهرياً (نفس اليوم)</option>
+        <div class="form-grid">
+          <div class="form-group" id="fDateGroup">
+            <label for="fDate">التاريخ *</label>
+            <input type="date" id="fDate" onchange="apptRepeatHint()">
+          </div>
+          <div class="form-group" id="fTimeGroup">
+            <label for="fTime">الوقت *</label>
+            <input type="time" id="fTime" onchange="apptFamilyHint()">
+          </div>
+          <div class="form-group full" id="fReasonGroup" style="display:none;">
+            <label for="fReason">السبب / نوع العلاج المخطّط</label>
+            <input type="text" id="fReason" placeholder="مثال: تركيب تلبيستين على 16 و 26، أو متابعة علاج عصب…">
+          </div>
+          <div class="form-group">
+            <label for="fDuration">المدة (دقيقة)</label>
+            <select id="fDuration" onchange="apptFamilyHint()">
+              <option value="30">30 دقيقة</option>
+              <option value="45">45 دقيقة</option>
+              <option value="60" selected>ساعة</option>
+              <option value="90">ساعة ونصف</option>
+              <option value="120">ساعتان</option>
             </select>
-            <input type="number" id="fRepeatCount" min="2" max="24" value="6" oninput="apptRepeatHint()" title="عدد المواعيد الكلي">
           </div>
-          <div id="fRepeatHint" style="display:none;font-size:12.5px;color:var(--text2);margin-top:4px;"></div>
-        </div>
-        <div class="form-group full" id="fSeriesGroup" style="display:none;">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-            <span id="fSeriesInfo" style="font-size:13px;font-weight:700;"></span>
-            <button type="button" class="btn" id="fSeriesCancelBtn" data-sub-write onclick="apptCancelSeriesRest()" style="background:transparent;border:1px solid var(--red-bd);color:var(--red-ink);">إلغاء بقية السلسلة</button>
+          <div class="form-group">
+            <label for="fStatus">الحالة</label>
+            <select id="fStatus">
+              <option value="confirmed">مؤكد</option>
+              <option value="scheduled">غير مؤكد</option>   <!-- v534: كان غائباً ⇒ حالة فارغة لموعد أسرة/سلسلة -->
+              <option value="pending">معلّق</option>
+              <option value="completed">مكتمل</option>
+              <option value="no_show">عدم حضور</option>
+              <option value="cancelled">ملغى</option>
+            </select>
           </div>
         </div>
-        <!-- v506: حجزُ أفراد الأسرة متتابعين — يظهر فقط عند اختيار مريضٍ له أفرادُ أسرة (patients.family_id) وبموعدٍ جديد مجدوَل -->
-        <div class="form-group full" id="fFamilyGroup" style="display:none;">
-          <label>👨‍👩‍👧 حجز أفراد الأسرة بعده متتابعين <span style="color:var(--text2);font-weight:400;">(نفس اليوم والطبيب والكرسي، كلٌّ بعد الآخر بمقدار المدّة)</span></label>
-          <div id="fFamilyChips" class="fam-chips"></div>
-          <div id="fFamilyHint" style="display:none;font-size:12.5px;color:var(--text2);margin-top:4px;"></div>
+      </fieldset>
+
+      <fieldset class="appt-fs">
+        <legend class="appt-fs__title">العلاج والطبيب</legend>
+        <div class="form-grid">
+          <!-- Gap 8: Template picker (hidden in edit mode) -->
+          <div class="form-group full" id="apptTypePickerWrap" data-sub-write style="display:none;">
+            <label for="fApptTypePicker">قالب جاهز (اختياري)</label>
+            <div class="appt-help">يملأ المدة ونوع العلاج تلقائياً.</div>
+            <!-- Phase 6 L: chips view (auto-shown for ≤ 6 templates). Falls back
+                 to the <select> below when there are more than 6 templates. -->
+            <div id="fApptTypeChips" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:6px;"></div>
+            <select id="fApptTypePicker" onchange="onApptTypePicked()">
+              <option value="">— بدون قالب —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="fType">نوع العلاج</label>
+            <select id="fType" onchange="updateColorPreview()"></select>
+          </div>
+          <div class="form-group" id="fProviderGroup" style="display:none;">
+            <label for="fProvider">الطبيب</label>
+            <select id="fProvider" onchange="onApptProviderChange()"></select>
+          </div>
+          <!-- Phase 6 K (Migration 12): operatory picker. Hidden by default —
+               JS shows it only when at least one active operatory exists OR
+               we're editing an appointment that's already linked to one
+               (incl. an inactive operatory, so the user can clear/change).
+               K-bug-fix: onchange auto-syncs the provider picker to the
+               operatory's default_provider_id (Option B — always replace). -->
+          <div class="form-group" id="fOperatoryGroup" style="display:none;">
+            <label for="fOperatory">الغرفة</label>
+            <select id="fOperatory" onchange="onOperatoryChange()">
+              <option value="">— بدون تخصيص —</option>
+            </select>
+          </div>
         </div>
-        <div class="form-group full">
-          <label for="fNotes">ملاحظات</label>
-          <textarea id="fNotes" placeholder="أي ملاحظات إضافية…"></textarea>
+      </fieldset>
+
+      <fieldset class="appt-fs">
+        <legend class="appt-fs__title">خيارات وملاحظات</legend>
+        <div class="form-grid">
+          <!-- Backlog #5: ASAP/Waitlist flag — يشتغل للمجدول والمخطّط معاً -->
+          <div class="form-group full">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="fAsap" style="width:auto;appearance:auto;">
+              <span>يرغب المريض بموعد أبكر إن توفّر (يُضاف إلى قائمة الانتظار)</span>
+            </label>
+          </div>
+          <!-- v505 (M157): التكرار — للموعد الجديد المجدوَل فقط؛ الأخوةُ صفوفٌ مستقلة تجمعها series_id -->
+          <div class="form-group full" id="fRepeatGroup">
+            <label for="fRepeat">تكرار الموعد</label>
+            <div class="appt-help">للمواعيد الدورية، مثل جلسات التقويم والمراجعات.</div>
+            <div class="form-grid">
+              <select id="fRepeat" onchange="apptRepeatHint()">
+                <option value="none">بلا تكرار</option>
+                <option value="weekly">أسبوعياً</option>
+                <option value="biweekly">كل أسبوعين</option>
+                <option value="monthly">شهرياً (نفس اليوم)</option>
+              </select>
+              <input type="number" id="fRepeatCount" min="2" max="24" value="6" oninput="apptRepeatHint()" title="عدد المواعيد الكلي" aria-label="عدد المواعيد الكلي">
+            </div>
+            <div id="fRepeatHint" style="display:none;font-size:12.5px;color:var(--text2);margin-top:4px;"></div>
+          </div>
+          <div class="form-group full" id="fSeriesGroup" style="display:none;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+              <span id="fSeriesInfo" style="font-size:13px;font-weight:700;"></span>
+              <button type="button" class="btn" id="fSeriesCancelBtn" data-sub-write onclick="apptCancelSeriesRest()" style="background:transparent;border:1px solid var(--red-bd);color:var(--red-ink);">إلغاء بقية السلسلة</button>
+            </div>
+          </div>
+          <!-- v506: حجزُ أفراد الأسرة متتابعين — يظهر فقط عند اختيار مريضٍ له أفرادُ أسرة (patients.family_id) وبموعدٍ جديد مجدوَل -->
+          <div class="form-group full" id="fFamilyGroup" style="display:none;">
+            <label>حجز أفراد الأسرة بعده</label>
+            <div class="appt-help">في اليوم نفسه ومع الطبيب والكرسي نفسيهما، كلٌّ منهم بعد الآخر بمقدار المدة.</div>
+            <div id="fFamilyChips" class="fam-chips"></div>
+            <div id="fFamilyHint" style="display:none;font-size:12.5px;color:var(--text2);margin-top:4px;"></div>
+          </div>
+          <div class="form-group full">
+            <label for="fNotes">ملاحظات (اختياري)</label>
+            <textarea id="fNotes" placeholder="أي ملاحظات إضافية…"></textarea>
+          </div>
         </div>
-      </div>
+      </fieldset>
 
       <!-- 🦷 Procedures section — Workflow B (Phase 8 follow-up).
            Three modes via setApptProcSectionModeA():
@@ -1150,8 +1175,8 @@ function setView(v) {
   document.getElementById('callsView').style.display = v==='calls' ? 'block' : 'none';
   document.getElementById('bookingView').style.display = v==='booking' ? 'block' : 'none';
   document.getElementById('weekView').style.display  = v==='week'  ? 'block' : 'none';
-  ['btnMonth','btnDay','btnWeek','btnList','btnCalls','btnBooking'].forEach(id => document.getElementById(id).classList.remove('active'));
-  document.getElementById('btn'+v.charAt(0).toUpperCase()+v.slice(1)).classList.add('active');
+  ['btnMonth','btnDay','btnWeek','btnList'].forEach(id => document.getElementById(id).classList.remove('active'));
+  if (APPT_CAL_VIEWS[v]) { lastCalView = v; document.getElementById('btn'+v.charAt(0).toUpperCase()+v.slice(1)).classList.add('active'); }
   // Month navigation moves currentDate only; day/week anchor on selectedDate.
   // Entering day/week from a month the anchor isn't in would jump back to the
   // old anchor (e.g. browse to تشرين الأول, tap أسبوعي → week of آب). Sync it.
@@ -1159,33 +1184,61 @@ function setView(v) {
       (selectedDate.getFullYear() !== currentDate.getFullYear() || selectedDate.getMonth() !== currentDate.getMonth())) {
     selectedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
   }
+  syncApptSections();
   render();
 }
 
-// ─── Gap 7: Main tab switching (Schedule vs Planned) ─────────────────────────
-// Two top-level views:
-//   'schedule' — calendar/list of date-bound appointments (the original page)
-//   'planned'  — bucket of planned-but-not-yet-scheduled appointments
-// View toggles (month/day/list) live inside 'schedule' only.
+// ─── Page sections ─────────────────────────────────────────────────────────
+// One row of tabs at the top of the page:
+//   'schedule' — the calendar (day / week / month / upcoming list)
+//   'planned'  — planned appointments that have no date yet (Gap 7)
+//   'booking'  — online booking requests (P5)
+//   'calls'    — upcoming appointments to remind or confirm
+// booking and calls render inside #scheduleView through setView(); the
+// calendar toolbar is hidden for them because they have no period to browse.
+var APPT_CAL_VIEWS = { day: 1, week: 1, month: 1, list: 1 };
+var lastCalView = 'month';
+var APPT_SECTION_HINTS = {
+  schedule: 'اختر طريقة العرض من اليسار، وتنقّل بين الفترات من اليمين. اضغط على أي موعد لفتحه.',
+  planned:  'مواعيد متّفق عليها مع المريض ولم يُحدَّد تاريخها بعد. اضغط «جدولة الآن» عند تأكيد الموعد.',
+  booking:  'طلبات حجز وصلت من صفحة الحجز الإلكتروني، وتنتظر التأكيد أو الرفض.',
+  calls:    'المواعيد القريبة التي يحين وقت تذكير أصحابها أو تأكيد حضورهم.'
+};
+function apptSection() {
+  if (mainTab === 'planned') return 'planned';
+  if (view === 'booking' || view === 'calls') return view;
+  return 'schedule';
+}
+function syncApptSections() {
+  var cur = apptSection();
+  var tabs = { schedule: 'mainTabSchedule', planned: 'mainTabPlanned', booking: 'btnBooking', calls: 'btnCalls' };
+  Object.keys(tabs).forEach(function (k) {
+    var el = document.getElementById(tabs[k]);
+    if (!el) return;
+    el.classList.toggle('active', k === cur);
+    el.setAttribute('aria-selected', k === cur ? 'true' : 'false');
+  });
+  var bar = document.getElementById('calToolbar');
+  if (bar) bar.style.display = cur === 'schedule' ? '' : 'none';
+  var hint = document.getElementById('apptSectionHint');
+  if (hint) hint.textContent = APPT_SECTION_HINTS[cur] || '';
+}
 function setMainTab(tab) {
-  mainTab = tab;
   var schedEl   = document.getElementById('scheduleView');
   var plannedEl = document.getElementById('plannedView');
-  var schedBtn  = document.getElementById('mainTabSchedule');
-  var planBtn   = document.getElementById('mainTabPlanned');
   if (tab === 'planned') {
+    mainTab = 'planned';
     if (schedEl)   schedEl.style.display   = 'none';
     if (plannedEl) plannedEl.style.display = 'block';
-    if (schedBtn)  schedBtn.classList.remove('active');
-    if (planBtn)   planBtn.classList.add('active');
+    syncApptSections();
     renderPlanned();
-  } else {
-    if (schedEl)   schedEl.style.display   = 'block';
-    if (plannedEl) plannedEl.style.display = 'none';
-    if (schedBtn)  schedBtn.classList.add('active');
-    if (planBtn)   planBtn.classList.remove('active');
-    render();
+    return;
   }
+  mainTab = 'schedule';
+  if (schedEl)   schedEl.style.display   = 'block';
+  if (plannedEl) plannedEl.style.display = 'none';
+  if (tab === 'booking' || tab === 'calls') setView(tab);
+  else setView(APPT_CAL_VIEWS[view] ? view : lastCalView);
 }
 
 // True when an appointment is "planned" (no date/time, awaiting scheduling).
@@ -1214,8 +1267,8 @@ function renderPlanned() {
     container.innerHTML =
       '<div class="planned-empty">'
       + '<div class="icon">📋</div>'
-      + '<div class="title">لا توجد مواعيد مخطّطة</div>'
-      + '<div class="hint" data-sub-write>أضف موعداً جديداً وفعّل "📋 موعد مخطّط" لتسجيله هنا حتى يحين وقت الجدولة.</div>'
+      + '<div class="title">لا توجد مواعيد بلا تاريخ</div>'
+      + '<div class="hint" data-sub-write>أضف موعداً جديداً واختر «موعد بلا تاريخ» ليظهر هنا إلى أن يُحدَّد تاريخه.</div>'
       + '</div>';
     return;
   }
@@ -1335,7 +1388,7 @@ function scheduleNowFromModal() {
   if (schedBtn) schedBtn.style.display = 'none';
   // Update modal title so user knows what's happening
   var title = document.getElementById('modalTitle');
-  if (title) title.textContent = 'جدولة موعد مخطّط';
+  if (title) title.textContent = 'تحديد تاريخ الموعد';
   var saveBtn = document.getElementById('saveBtn');
   if (saveBtn) saveBtn.textContent = 'جدولة الموعد';
   // Focus date input
@@ -2295,7 +2348,7 @@ async function editAppt(id) {
   selectedColor = a.color;
   // Gap 7: distinguish planned vs scheduled when editing
   var isPlanned = isPlannedAppt(a);
-  document.getElementById('modalTitle').textContent = isPlanned ? 'تعديل موعد مخطّط' : 'تعديل الموعد';
+  document.getElementById('modalTitle').textContent = isPlanned ? 'تعديل موعد بلا تاريخ' : 'تعديل الموعد';
   document.getElementById('saveBtn').textContent    = isPlanned ? 'حفظ التعديلات' : 'حفظ التعديلات';
   document.getElementById('fPatient').value  = a.patient_name || '';
   updatePatientMedHint(a.patient_id);     /* M87: الحلّ بالـID — اسم الموعد قد يخالف المسجَّل */
@@ -3554,9 +3607,9 @@ async function submitAppt(e) {
       } else if (pendingNoShowFee) {
         showToast('✅ تم الحفظ + تطبيق رسم عدم الحضور');
       } else if (prevWasPlanned && !isPlannedNow) {
-        showToast('✅ تم جدولة الموعد المخطّط');
+        showToast('✅ حُدِّد تاريخ الموعد');
       } else if (isPlannedNow) {
-        showToast('✅ تم حفظ الموعد المخطّط');
+        showToast('✅ حُفظ الموعد بلا تاريخ');
       } else {
         showToast('✅ تم تعديل الموعد');
       }
@@ -3715,7 +3768,7 @@ async function submitAppt(e) {
       } else if (pendingNoShowFee) {
         showToast('✅ تمت الإضافة + تطبيق رسم عدم الحضور');
       } else if (isPlannedNow) {
-        showToast('✅ تمت إضافة موعد مخطّط');
+        showToast('✅ أُضيف موعد بلا تاريخ');
       } else {
         showToast('✅ تمت إضافة الموعد');
       }

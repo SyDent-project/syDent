@@ -22,6 +22,7 @@ function applyNavMode() {
 
 function render() {
   updateWaitlistBadge();   /* Backlog #5 */
+  if (typeof syncApptSections === 'function') syncApptSections();
   applyNavMode();
   if (view==='month') renderMonth();
   else if (view==='day') {
@@ -158,13 +159,23 @@ function selectDay(ds) {
   setView('day');
 }
 
+// Arabic number agreement for «موعد»: 1 موعد واحد · 2 موعدان · 3–10 مواعيد · 11+ موعداً
+function apptCountLabel(n) {
+  if (n === 1) return 'موعد واحد';
+  if (n === 2) return 'موعدان';
+  var r = n % 100;
+  if (r >= 3 && r <= 10) return n + ' مواعيد';
+  return n + ' موعداً';
+}
+
 function renderDay() {
   const ds = dateStr(selectedDate);
   document.getElementById('calMonth').textContent = DAYS_AR[selectedDate.getDay()]+' '+selectedDate.getDate()+' '+MONTHS_AR[selectedDate.getMonth()]+' '+selectedDate.getFullYear();
-  document.getElementById('dayTitle').textContent = DAYS_AR[selectedDate.getDay()]+' '+selectedDate.getDate()+' '+MONTHS_AR[selectedDate.getMonth()];
   const dayEvts = apptsByDate(ds);
   var dayBlocks = blocksForDay(ds);   /* v498 */
-  document.getElementById('daySubtitle').textContent = dayEvts.length ? dayEvts.length+' موعد' : 'لا توجد مواعيد';
+  // C2: the toolbar already shows the date, so the day header states the count.
+  document.getElementById('dayTitle').textContent = dayEvts.length ? apptCountLabel(dayEvts.length) : 'لا توجد مواعيد في هذا اليوم';
+  document.getElementById('daySubtitle').textContent = '';
 
   // Sort appts by time
   var sorted = dayEvts.slice().sort(function(a,b){ return (a.time||'').localeCompare(b.time||''); });
@@ -1085,10 +1096,10 @@ function renderCalls() {
   var needCount = rows.filter(function(a){ return !isApptConfirmed(a); }).length;
   var html =
     '<div style="padding:10px 14px;margin-bottom:10px;background:var(--bg4,rgba(255,255,255,0.04));border-radius:10px;font-size:13px;color:var(--text2);">'
-    + '📞 قائمة الاتصالات — ' + (needCount > 0
-        ? ('<b style="color:var(--text)">' + needCount + '</b> موعد بحاجة تأكيد')
-        : 'كل المواعيد مؤكّدة ✅')
-    + ' <span style="opacity:0.7;">· خلال ' + Math.round(windowH) + ' ساعة</span>'
+    + (needCount > 0
+        ? ('<b style="color:var(--text)">' + apptCountLabel(needCount) + '</b> بحاجة إلى تأكيد')
+        : 'جميع المواعيد مؤكّدة ✅')
+    + ' <span style="opacity:0.7;">· خلال الـ' + Math.round(windowH) + ' ساعة القادمة</span>'
     + '</div>';
 
   // تجميع ديناميكي حسب اليوم — اليوم/غداً/بعد غد ثم التاريخ لباقي الأيام.

@@ -165,7 +165,7 @@ function warnTimeTrackingMigrationOnce() {
   );
   try {
     if (typeof showToast === 'function') {
-      showToast('يلزم ترقية قاعدة البيانات لميزة تتبع الوقت — راجع console', 'warning');
+      showToast('يلزم تحديث قاعدة البيانات لتفعيل تتبّع الوقت. تواصل مع الدعم الفني.', 'warning');
     } else {
       if (window.SyDialog) SyDialog.alert({ title: 'ترقية مطلوبة', message: 'يلزم ترقية قاعدة البيانات لتفعيل تتبع الوقت بالكامل.' });
     }

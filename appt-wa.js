@@ -189,7 +189,7 @@ function waitlistNudge(freedDate) {
   var n = waitlistCandidates().filter(function(a){
     return isPlannedAppt(a) || !freedDate || String(a.date || '') > String(freedDate);
   }).length;
-  if (n > 0) showToast('⚡ يوجد ' + n + ' بقائمة الانتظار قد يناسبهم هذا الموعد المتحرّر — افتحها من زر «⚡ الانتظار»');
+  if (n > 0) showToast('⚡ يوجد ' + n + ' بقائمة الانتظار قد يناسبهم هذا الموعد المتحرّر — افتحها من زر «قائمة الانتظار»');
 }
 function updateWaitlistBadge() {
   var b = document.getElementById('waitlistBadge');

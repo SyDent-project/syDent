@@ -2230,7 +2230,7 @@ try {
     ],
     'appointments.html': [
       'onclick="openModal()" data-doctor-inactive-block data-sub-write>＋ موعد جديد</button>',
-      'onclick="openWaitlistModal()" title="قائمة الانتظار: مرضى يرغبون بموعد أبكر" data-sub-write',
+      'onclick="openWaitlistModal()" title="مرضى يرغبون بموعد أبكر إن توفّر" data-sub-write',
       'id="plannedToggleWrap" data-sub-write', 'id="plannedNote" data-sub-write', 'id="apptLockNote" data-sub-write', 'id="apptTypePickerWrap" data-sub-write',
       'id="bookingResolveBox" data-sub-write', 'id="apptProcControls" data-sub-write', 'id="completeApptBtn" data-sub-write',
       'id="apptFileCategory" data-sub-write', 'id="apptFileDrop" data-sub-write', 'id="noShowFeeBtn" data-sub-write',
