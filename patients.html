@@ -542,7 +542,7 @@ textarea { resize: vertical; min-height: 80px; }
             <span>استيراد مرضى من Excel<span class="sd-menu__hint">إضافة مجموعة مرضى من ملف دفعة واحدة</span></span>
           </button>
           <button type="button" class="sd-menu__item" role="menuitem" onclick="exportPatientsCsv()">
-            <span>تصدير القائمة إلى Excel<span class="sd-menu__hint">نسخة من سجلّ المرضى في ملف</span></span>
+            <span>تصدير القائمة إلى Excel<span class="sd-menu__hint">القائمة الظاهرة حالياً، مع البحث والفلاتر إن وُجدت</span></span>
           </button>
           <button type="button" class="sd-menu__item" role="menuitem" onclick="openSrcModal()">
             <span>مصادر المرضى<span class="sd-menu__hint">كيف سمع المرضى عن العيادة</span></span>
@@ -2010,7 +2010,12 @@ async function exportPatientsCsv(){
 }
 async function _exportPatientsBody(){
   var headers = ['رقم المريض','الاسم','الهاتف','العمر','الجنس','آخر زيارة','الرصيد','الحالة','تاريخ التسجيل'];
-  var dataRows = patients.map(function(p){
+  /* C2: with a search, a quick chip or an advanced filter in use, export exactly
+     the list on screen (same order); otherwise every patient, as before. */
+  var narrowed = !!document.getElementById('searchInput').value.trim() || filter !== 'all' || ptAdvActive().length > 0 || !!ptAdv.sort;
+  var list = narrowed ? getFiltered() : patients;
+  if (!list.length) { showToast('لا يوجد مرضى ضمن الفلاتر الحالية للتصدير'); return; }
+  var dataRows = list.map(function(p){
     var pi = payInfo(p);
     var balCell = pi.label + (pi.amount > 0 ? ' (' + Math.round(pi.amount) + ')' : '');
     if (pi.extra) balCell += ' / ' + pi.extra.label + (pi.extra.amount > 0 ? ' (' + Math.round(pi.extra.amount) + ')' : '');
@@ -2026,8 +2031,8 @@ async function _exportPatientsBody(){
     var wb = X.utils.book_new();
     X.utils.book_append_sheet(wb, ws, 'المرضى');
     wb.Workbook = { Views: [{ RTL: true }] };
-    X.writeFile(wb, 'مرضى-' + stamp + '.xlsx');
-    showToast('تم تصدير ' + patients.length + ' مريض');
+    X.writeFile(wb, 'مرضى-' + (narrowed ? 'مفلترة-' : '') + stamp + '.xlsx');
+    showToast('تم تصدير ' + list.length + ' مريض' + (narrowed ? ' (حسب الفلاتر الحالية)' : ''));
     return;
   } catch(xe){ console.warn('[export] xlsx failed, CSV fallback:', xe); }
   // احتياط بلا إنترنت: CSV (مع sep=, لفتح صحيح بـExcel/WPS)
@@ -2038,10 +2043,10 @@ async function _exportPatientsBody(){
   var url  = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
-  a.download = 'مرضى-' + stamp + '.csv';
+  a.download = 'مرضى-' + (narrowed ? 'مفلترة-' : '') + stamp + '.csv';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
-  showToast('تم تصدير ' + patients.length + ' مريض');
+  showToast('تم تصدير ' + list.length + ' مريض' + (narrowed ? ' (حسب الفلاتر الحالية)' : ''));
 }
 
 /* ============================================================
