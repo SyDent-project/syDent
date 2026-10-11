@@ -96,10 +96,17 @@ body { min-height: 100vh; }
 /* ─── Summary cards ─── */
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));   /* C2: row 1 = revenue · production · collection, row 2 = expenses · net · margin */
   gap: 14px;
   margin-bottom: 22px;
 }
+.acc-sub { margin: 4px 0 0; font-size: 13px; color: var(--text2); line-height: 1.7; }
+.acc-bar-title { flex: 1 1 100%; font-size: 14px; font-weight: 700; color: var(--text); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.acc-bar-title span { font-size: 12px; font-weight: 400; color: var(--text2); }
+.acc-sec { margin: 4px 0 12px; font-size: 13px; font-weight: 700; color: var(--text2); display: flex; align-items: center; gap: 10px; }
+.acc-sec::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+@media (max-width: 900px) { .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .acc-sub { display: none; } }
 .card {
   background: var(--bg2);
   border: 1px solid var(--border);
@@ -486,6 +493,7 @@ html[data-sub-level="read"] :is([onclick*="digestGenerate("],[onclick*="setAccUn
   <div class="page-header">
     <div>
       <h1>المحاسبة</h1>
+      <p class="acc-sub">التقرير المالي للعيادة عن الفترة التي تختارها: الإيرادات، والإنتاج، والمصروفات، وصافي الربح. الصفحة للعرض فقط ولا تغيّر أي بيانات.</p>
     </div>
     <!-- v512: مرساةُ زرّ الدور (المالك 👑) — supabase-init يبحث عن .topbar ثم .header-actions؛ بغيابهما كان يطفو
          مثبَّتاً أعلى اليسار فوق العنوان بالهاتف (لقطة المالك). الصفحاتُ الأخرى تحمله بـ.topbar. -->
@@ -494,6 +502,7 @@ html[data-sub-level="read"] :is([onclick*="digestGenerate("],[onclick*="setAccUn
 
   <!-- Filter bar -->
   <div class="filter-bar">
+    <div class="acc-bar-title">فترة التقرير<span>يتغيّر الملخّص والجداول أدناه حسب هذه الفترة</span></div>
     <div class="field">
       <label for="fromDate">من تاريخ</label>
       <input type="date" id="fromDate">
@@ -2467,7 +2476,7 @@ function renderSummaryCards(s, t, netProfit, profitMargin, adj, netRevenue, netP
   var collectionRateStr = (cr === null) ? '—' : fmtPctCard(cr);   /* v558 (#3) */
   var revSub  = (adj.refundsTotal > 0 && netRevenue >= 0)
     ? 'صافي بعد الاسترداد: ' + fmtSY(netRevenue)
-    : 'مدفوعات مُخصّصة للإنتاج (cash basis)';
+    : 'مدفوعات مُخصّصة للإنتاج (على أساس التحصيل النقدي)';
   var prodSub = (adj.chargeReductions > 0 && netProduction >= 0)
     ? 'صافي بعد الخصم: ' + fmtSY(netProduction)
     : 'الجلسات المكتملة في الفترة';
@@ -2480,6 +2489,7 @@ function renderSummaryCards(s, t, netProfit, profitMargin, adj, netRevenue, netP
                 : (adj.refundsTotal > 0 ? 'الصافي ÷ صافي الإيراد' : 'الصافي ÷ الإيراد');
 
   return '' +
+    '<h2 class="acc-sec">ملخّص الفترة</h2>' +
     '<div class="summary-grid">' +
       // Revenue (cash collected, allocated) — gross; net shown in sub when refunds exist
       '<div class="card green">' +
