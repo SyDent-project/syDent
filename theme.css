@@ -1544,7 +1544,10 @@ select.sd-input {
 .sd-page-head__actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 @media (max-width: 820px) {
   .sd-page-head.topbar { position: static; }
-  .sd-page-head__actions { flex: 1 1 100%; }
+  /* Row 1: menu button · title · role switch (المالك) — Row 2: the actions */
+  .sd-page-head__text { flex: 1 1 0; }
+  .sd-page-head > .sd-lock-btn { padding: 6px 10px; }
+  .sd-page-head__actions { flex: 1 1 100%; order: 2; }
   .sd-page-head__actions > .sd-btn--primary { order: -1; flex: 1 1 100%; }
   .sd-page-head__actions > .sd-btn--secondary, .sd-page-head__actions > .sd-menu { flex: 1 1 0; }
   .sd-page-head__actions > .sd-menu > summary { width: 100%; }
