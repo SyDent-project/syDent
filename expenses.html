@@ -522,9 +522,14 @@ html[data-sub-level="read"] :is([onclick*="openExpenseModal("],[onclick*="openCa
 
 <div class="main" id="sbMainContent">
 
-  <div class="topbar">
-    <div class="topbar-title">المصاريف <span>/ المحاسبة</span></div>
-    <button class="btn-add" onclick="openExpenseModal()">+ مصروف جديد</button>
+  <div class="topbar sd-page-head">
+    <div class="sd-page-head__text">
+      <h1 class="topbar-title">المصاريف</h1>
+      <p class="sd-page-head__sub">مصاريف العيادة التشغيلية (إيجار، مواد، فواتير…) مصنّفة حسب النوع. الرواتب والدفعات للأطباء والموظفين تُسجَّل في صفحتها.</p>
+    </div>
+    <div class="sd-page-head__actions">
+      <button type="button" class="sd-btn sd-btn--primary" onclick="openExpenseModal()">＋ مصروف جديد</button>
+    </div>
   </div>
 
   <div class="content">
