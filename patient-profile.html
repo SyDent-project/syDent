@@ -465,7 +465,10 @@
   <div class="panel" id="tab-sessions">
     <div class="card">
       <div class="card-head">
-        <span class="card-title">سجل الجلسات والعلاجات</span>
+        <div class="pp-card-titles">
+          <span class="card-title">الجلسات والعلاجات</span>
+          <span class="pp-card-hint">كل علاج مخطّط أو منجز لهذا المريض. العلاج المنجز وحده يدخل في الحساب.</span>
+        </div>
         <button class="btn btn-primary btn-sm" onclick="openNewSessionEntry()" data-doctor-inactive-block>＋ إضافة جلسة</button>
       </div>
       <div id="sessionsContent"></div>
@@ -474,18 +477,35 @@
 
   <!-- Tab: المدفوعات -->
   <div class="panel" id="tab-payments">
+    <!-- C2: the account summary first — what was done, what was paid, what is still owed -->
+    <div class="card pp-acct-card">
+      <div class="card-head">
+        <div class="pp-card-titles">
+          <span class="card-title">ملخص الحساب</span>
+          <span class="pp-card-hint">ما أُنجز للمريض، وما دفعه، وما بقي عليه. العلاجات المخطّطة لا تدخل في الرصيد.</span>
+        </div>
+      </div>
+      <div class="balance-summary" id="balanceSummary"></div>
+    </div>
     <div class="card">
       <div class="card-head">
-        <span class="card-title">كشف المدفوعات</span>
-        <button class="btn btn-primary btn-sm" onclick="openPayModal()">＋ تسجيل دفعة</button>
-        <button class="btn btn-sm" onclick="openObModal()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);">＋ ذمة سابقة</button>
+        <div class="pp-card-titles">
+          <span class="card-title">الدفعات</span>
+          <span class="pp-card-hint">كل مبلغ دفعه المريض، وطريقة دفعه.</span>
+        </div>
+        <div class="pp-card-actions">
+          <button class="btn btn-sm" onclick="openObModal()" title="مبلغ كان مستحقاً على المريض قبل بدء استعمال النظام" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);">＋ ذمة سابقة</button>
+          <button class="btn btn-primary btn-sm" onclick="openPayModal()">＋ تسجيل دفعة</button>
+        </div>
       </div>
       <div id="paymentsContent"></div>
-      <div class="balance-summary" id="balanceSummary"></div>
     </div>
     <div class="card" id="adjustmentsCard">
       <div class="card-head">
-        <span class="card-title">التسويات</span>
+        <div class="pp-card-titles">
+          <span class="card-title">التسويات</span>
+          <span class="pp-card-hint">خصم من قيمة العلاج، أو إعدام دين لن يُحصَّل، أو ردّ مبلغ للمريض.</span>
+        </div>
         <button class="btn btn-sm" onclick="openAdjustmentModal()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);">＋ خصم / إعدام / استرداد</button>
       </div>
       <div id="adjustmentsContent"></div>
@@ -493,7 +513,10 @@
     <!-- Backlog #3: خطة الأقساط — طبقة جدولة/تذكير مشتقة بالكامل، صفر كتابة مالية -->
     <div class="card" id="paymentPlanCard">
       <div class="card-head">
-        <span class="card-title">💰 خطة الأقساط</span>
+        <div class="pp-card-titles">
+          <span class="card-title">خطة الأقساط</span>
+          <span class="pp-card-hint">تقسيم المبلغ المتبقي على دفعات بمواعيد محدّدة، للتذكير فقط ولا تغيّر الحساب.</span>
+        </div>
         <button class="btn btn-sm" id="planNewBtn" onclick="openPlanModal()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);">＋ خطة جديدة</button>
       </div>
       <div id="paymentPlanContent"></div>
