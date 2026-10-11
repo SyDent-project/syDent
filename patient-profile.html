@@ -20,30 +20,30 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261011f"></script>
+<script src="theme.js?v=20261011g"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261011f"></script>
-<script src="sy-modal.js?v=20261011f"></script>
-<script src="lab-redo.js?v=20261011f"></script>
-<script src="lab-due.js?v=20261011f"></script>
-<script src="lab-slip.js?v=20261011f"></script>
-<script src="lab-files.js?v=20261011f"></script>
-<script src="pay-methods.js?v=20261011f"></script>
-<script src="appt-conflict.js?v=20261011f"></script>
-<script src="sidebar.js?v=20261011f"></script>
-<script src="ref-pick.js?v=20261011f"></script>
-<script src="inv-consume.js?v=20261011f"></script>
-<script src="timepicker.js?v=20261011f"></script>
-<script src="pp-modules.js?v=20261011f"></script>
-<script src="pp-wa.js?v=20261011f"></script>
-<script src="pp-clinical.js?v=20261011f"></script>
-<script src="pp-dental.js?v=20261011f"></script>
-<script src="pp-plan.js?v=20261011f"></script>
-<script src="pp-timeline.js?v=20261011f"></script>
-<script src="pp-appt.js?v=20261011f"></script>
-<script src="pp-core.js?v=20261011f"></script>
-<script src="pp-extras.js?v=20261011f"></script>
-<link rel="stylesheet" href="patient-profile.css?v=20261011f">
+<script src="supabase-init.js?v=20261011g"></script>
+<script src="sy-modal.js?v=20261011g"></script>
+<script src="lab-redo.js?v=20261011g"></script>
+<script src="lab-due.js?v=20261011g"></script>
+<script src="lab-slip.js?v=20261011g"></script>
+<script src="lab-files.js?v=20261011g"></script>
+<script src="pay-methods.js?v=20261011g"></script>
+<script src="appt-conflict.js?v=20261011g"></script>
+<script src="sidebar.js?v=20261011g"></script>
+<script src="ref-pick.js?v=20261011g"></script>
+<script src="inv-consume.js?v=20261011g"></script>
+<script src="timepicker.js?v=20261011g"></script>
+<script src="pp-modules.js?v=20261011g"></script>
+<script src="pp-wa.js?v=20261011g"></script>
+<script src="pp-clinical.js?v=20261011g"></script>
+<script src="pp-dental.js?v=20261011g"></script>
+<script src="pp-plan.js?v=20261011g"></script>
+<script src="pp-timeline.js?v=20261011g"></script>
+<script src="pp-appt.js?v=20261011g"></script>
+<script src="pp-core.js?v=20261011g"></script>
+<script src="pp-extras.js?v=20261011g"></script>
+<link rel="stylesheet" href="patient-profile.css?v=20261011g">
 <style>
 /* v270: رأسُ البطاقة للمريض ثنائي العملة — سطرٌ لكل طبقة بوسمه ولونه (كانت الطبقة
    الثانية مخفيّةً بتلميحِ hover لا يراه أحد). صفحيٌّ عمداً لا في patient-profile.css. */
@@ -68,7 +68,7 @@
 :root[data-theme="light"] .perio-arch-title.perio-arch-lower{border-top:2px dashed #7d8fa6;}   /* v345: أوضح بالفاتح */
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261011f">
+<link rel="stylesheet" href="theme.css?v=20261011g">
 </head>
 <body>
 <script>
@@ -465,7 +465,10 @@
   <div class="panel" id="tab-sessions">
     <div class="card">
       <div class="card-head">
-        <span class="card-title">سجل الجلسات والعلاجات</span>
+        <div class="pp-card-titles">
+          <span class="card-title">الجلسات والعلاجات</span>
+          <span class="pp-card-hint">كل علاج مخطّط أو منجز لهذا المريض. العلاج المنجز وحده يدخل في الحساب.</span>
+        </div>
         <button class="btn btn-primary btn-sm" onclick="openNewSessionEntry()" data-doctor-inactive-block>＋ إضافة جلسة</button>
       </div>
       <div id="sessionsContent"></div>
@@ -474,18 +477,35 @@
 
   <!-- Tab: المدفوعات -->
   <div class="panel" id="tab-payments">
+    <!-- C2: the account summary first — what was done, what was paid, what is still owed -->
+    <div class="card pp-acct-card">
+      <div class="card-head">
+        <div class="pp-card-titles">
+          <span class="card-title">ملخص الحساب</span>
+          <span class="pp-card-hint">ما أُنجز للمريض، وما دفعه، وما بقي عليه. العلاجات المخطّطة لا تدخل في الرصيد.</span>
+        </div>
+      </div>
+      <div class="balance-summary" id="balanceSummary"></div>
+    </div>
     <div class="card">
       <div class="card-head">
-        <span class="card-title">كشف المدفوعات</span>
-        <button class="btn btn-primary btn-sm" onclick="openPayModal()">＋ تسجيل دفعة</button>
-        <button class="btn btn-sm" onclick="openObModal()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);">＋ ذمة سابقة</button>
+        <div class="pp-card-titles">
+          <span class="card-title">الدفعات</span>
+          <span class="pp-card-hint">كل مبلغ دفعه المريض، وطريقة دفعه.</span>
+        </div>
+        <div class="pp-card-actions">
+          <button class="btn btn-sm" onclick="openObModal()" title="مبلغ كان مستحقاً على المريض قبل بدء استعمال النظام" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);">＋ ذمة سابقة</button>
+          <button class="btn btn-primary btn-sm" onclick="openPayModal()">＋ تسجيل دفعة</button>
+        </div>
       </div>
       <div id="paymentsContent"></div>
-      <div class="balance-summary" id="balanceSummary"></div>
     </div>
     <div class="card" id="adjustmentsCard">
       <div class="card-head">
-        <span class="card-title">التسويات</span>
+        <div class="pp-card-titles">
+          <span class="card-title">التسويات</span>
+          <span class="pp-card-hint">خصم من قيمة العلاج، أو إعدام دين لن يُحصَّل، أو ردّ مبلغ للمريض.</span>
+        </div>
         <button class="btn btn-sm" onclick="openAdjustmentModal()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);">＋ خصم / إعدام / استرداد</button>
       </div>
       <div id="adjustmentsContent"></div>
@@ -493,7 +513,10 @@
     <!-- Backlog #3: خطة الأقساط — طبقة جدولة/تذكير مشتقة بالكامل، صفر كتابة مالية -->
     <div class="card" id="paymentPlanCard">
       <div class="card-head">
-        <span class="card-title">💰 خطة الأقساط</span>
+        <div class="pp-card-titles">
+          <span class="card-title">خطة الأقساط</span>
+          <span class="pp-card-hint">تقسيم المبلغ المتبقي على دفعات بمواعيد محدّدة، للتذكير فقط ولا تغيّر الحساب.</span>
+        </div>
         <button class="btn btn-sm" id="planNewBtn" onclick="openPlanModal()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);">＋ خطة جديدة</button>
       </div>
       <div id="paymentPlanContent"></div>
