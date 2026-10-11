@@ -125,6 +125,28 @@ body {
 .pt-toolbar .search-wrap { max-width: none; }
 .pt-toolbar .search-wrap input { min-height: 46px; font-size: 15px; background: var(--bg2); }
 .pt-toolbar .filters { margin-bottom: 0; }
+.pt-search-row { display: flex; gap: 8px; align-items: stretch; }
+.pt-search-row .search-wrap { flex: 1 1 auto; min-width: 0; }
+.pt-adv-toggle { min-height: 46px; }
+.pt-adv-toggle.is-open { border-color: var(--green); color: var(--green); }
+.pt-adv { padding: 16px; }
+.pt-adv__grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.pt-adv__range { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pt-adv .sd-check { font-size: 13px; }
+.pt-adv .sd-check input { -webkit-appearance: auto; appearance: auto; width: 16px; height: 16px; padding: 0; margin: 0; accent-color: var(--green); }
+.pt-adv__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.pt-adv__result { font-size: 13px; color: var(--text2); }
+.pt-adv-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pt-adv-chips[hidden], .pt-adv[hidden], .pt-adv .sd-field[hidden] { display: none; }
+.pt-adv-chip { border: 1px solid var(--blue-bd); background: var(--blue-soft); color: var(--blue-fg); border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: pre; }
+.pt-adv-chip:hover { filter: brightness(.97); }
+.pt-adv-chip--clear { background: transparent; border-color: var(--border); color: var(--text2); }
+@media (max-width: 560px) {
+  .pt-search-row { flex-wrap: wrap; }
+  .pt-adv-toggle { flex: 1 1 100%; min-height: 42px; }
+  .pt-adv__grid { grid-template-columns: 1fr 1fr; }
+  .pt-adv__grid > .sd-field:has(.pt-adv__range), .pt-adv__grid > .sd-field:has(.sd-check) { grid-column: 1 / -1; }
+}
 
 /* ─── Stats Strip ─── */
 .stats-strip {
@@ -568,11 +590,16 @@ textarea { resize: vertical; min-height: 80px; }
 
     <!-- Find a patient: search, then narrow the list -->
     <div class="pt-toolbar">
+      <div class="pt-search-row">
       <div class="search-wrap">
         <span class="search-icon">🔍</span>
         <input type="search" id="searchInput" placeholder="ابحث بالاسم أو الهاتف أو رقم المريض…" autocomplete="off" enterkeyhint="search" aria-label="بحث عن مريض">
         <!-- v276: explicit clear — Esc does the same. Hidden while the box is empty. -->
         <button type="button" class="search-clear" id="searchClear" onclick="clearSearch()" title="مسح البحث" aria-label="مسح البحث">✕</button>
+      </div>
+      <button type="button" class="sd-btn sd-btn--secondary pt-adv-toggle" id="ptAdvToggle" onclick="ptAdvToggle()" aria-expanded="false" aria-controls="ptAdvPanel">
+        تصفية متقدمة <span class="sd-count" id="ptAdvCount" style="display:none;">0</span>
+      </button>
       </div>
       <div class="filters" role="group" aria-label="تصفية المرضى">
         <button type="button" class="filter-btn active" onclick="setFilter('all', this)">الكل <span class="filter-n" data-filter-n="all"></span></button>
@@ -580,6 +607,56 @@ textarea { resize: vertical; min-height: 80px; }
         <button type="button" class="filter-btn" onclick="setFilter('pending', this)">عليهم مستحقات <span class="filter-n" data-filter-n="pending"></span></button>
         <button type="button" class="filter-btn" onclick="setFilter('new', this)">جدد هذا الشهر <span class="filter-n" data-filter-n="new"></span></button>
       </div>
+
+      <!-- Advanced filters: every field narrows the list further; all of them work together -->
+      <div class="sd-card pt-adv" id="ptAdvPanel" hidden>
+        <div class="pt-adv__grid">
+          <label class="sd-field"><span class="sd-label">حالة العلاج</span>
+            <select class="sd-input" data-adv="status" onchange="ptAdvSet(this)">
+              <option value="">الكل</option><option value="تحت العلاج">تحت العلاج</option><option value="مكتمل">مكتمل</option><option value="جديد">جديد</option>
+            </select></label>
+          <label class="sd-field"><span class="sd-label">الوضع المالي</span>
+            <select class="sd-input" data-adv="pay" onchange="ptAdvSet(this)">
+              <option value="">الكل</option><option value="due">عليهم مستحقات</option><option value="paid">مسدّد بالكامل</option><option value="advance">لهم دفعة مقدّمة</option><option value="none">بلا حركة مالية</option>
+            </select></label>
+          <label class="sd-field"><span class="sd-label">آخر زيارة</span>
+            <select class="sd-input" data-adv="visit" onchange="ptAdvSet(this)">
+              <option value="">الكل</option><option value="d30">خلال آخر 30 يوماً</option><option value="d90">خلال آخر 3 أشهر</option><option value="over180">منذ أكثر من 6 أشهر</option><option value="never">لم يزوروا بعد</option>
+            </select></label>
+          <label class="sd-field"><span class="sd-label">الجنس</span>
+            <select class="sd-input" data-adv="gender" onchange="ptAdvSet(this)">
+              <option value="">الكل</option><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option>
+            </select></label>
+          <div class="sd-field"><span class="sd-label">العمر (بالسنوات)</span>
+            <div class="pt-adv__range">
+              <input class="sd-input sd-input--num" type="number" min="0" max="120" inputmode="numeric" placeholder="من" aria-label="العمر من" data-adv="ageMin" oninput="ptAdvSet(this)">
+              <input class="sd-input sd-input--num" type="number" min="0" max="120" inputmode="numeric" placeholder="إلى" aria-label="العمر إلى" data-adv="ageMax" oninput="ptAdvSet(this)">
+            </div></div>
+          <div class="sd-field"><span class="sd-label">تاريخ التسجيل</span>
+            <div class="pt-adv__range">
+              <input class="sd-input" type="date" aria-label="مسجَّل من تاريخ" data-adv="regFrom" onchange="ptAdvSet(this)">
+              <input class="sd-input" type="date" aria-label="مسجَّل حتى تاريخ" data-adv="regTo" onchange="ptAdvSet(this)">
+            </div></div>
+          <label class="sd-field"><span class="sd-label">كيف سمع عن العيادة</span>
+            <select class="sd-input" data-adv="source" id="ptAdvSource" onchange="ptAdvSet(this)"><option value="">الكل</option></select></label>
+          <label class="sd-field" id="ptAdvFlagWrap"><span class="sd-label">علامة المريض</span>
+            <select class="sd-input" data-adv="flag" id="ptAdvFlag" onchange="ptAdvSet(this)"><option value="">الكل</option></select></label>
+          <div class="sd-field"><span class="sd-label">المعلومات الطبية</span>
+            <label class="sd-check"><input type="checkbox" data-adv="allergy" onchange="ptAdvSet(this)"> لديهم حساسية</label>
+            <label class="sd-check"><input type="checkbox" data-adv="warn" onchange="ptAdvSet(this)"> لديهم تحذير طبي</label>
+          </div>
+          <label class="sd-field"><span class="sd-label">ترتيب النتائج</span>
+            <select class="sd-input" data-adv="sort" onchange="ptAdvSet(this)">
+              <option value="">الأقدم تسجيلاً أولاً</option><option value="newest">الأحدث تسجيلاً أولاً</option><option value="name">الاسم أبجدياً</option><option value="visit">الأحدث زيارةً أولاً</option><option value="age">الأصغر سناً أولاً</option>
+            </select></label>
+        </div>
+        <div class="pt-adv__foot">
+          <span class="pt-adv__result" id="ptAdvResult" aria-live="polite"></span>
+          <button type="button" class="sd-btn sd-btn--ghost sd-btn--sm" onclick="ptAdvClear()">مسح كل الفلاتر</button>
+        </div>
+      </div>
+      <!-- The filters in use, each removable with one tap -->
+      <div class="pt-adv-chips" id="ptAdvChips" hidden></div>
     </div>
 
     <!-- Table -->
@@ -1226,7 +1303,7 @@ document.getElementById('searchInput').addEventListener('search', () => { syncSe
 
 function getFiltered() {
   const q = document.getElementById('searchInput').value.trim().toLowerCase();
-  return patients.filter(p => {
+  const list = patients.filter(p => {
     const matchQ = !q ||
       p.name.toLowerCase().includes(q) ||
       (p.phone || '').includes(q) ||
@@ -1236,8 +1313,171 @@ function getFiltered() {
       filter === 'active'  ? p.status === 'تحت العلاج' :
       filter === 'pending' ? payInfo(p).key === 'due' :
       filter === 'new'     ? isThisMonth(p.created_at) : true;
-    return matchQ && matchF;
+    return matchQ && matchF && ptAdvMatch(p);
   });
+  return ptAdvSort(list);
+}
+
+/* ─── C2: advanced filters ───────────────────────────────────────────────
+   Read-only narrowing of the loaded list (no queries). Every active field is
+   ANDed with the search box and the quick chips above. Money filters use
+   payInfo() as-is, so currencies are never mixed; there is no sort by amount
+   for the same reason. */
+var PT_ADV_EMPTY = { status: '', pay: '', visit: '', gender: '', ageMin: '', ageMax: '', regFrom: '', regTo: '', source: '', flag: '', allergy: false, warn: false, sort: '' };
+var ptAdv = Object.assign({}, PT_ADV_EMPTY);
+var PT_ADV_LABELS = {
+  pay:   { due: 'عليهم مستحقات', paid: 'مسدّد بالكامل', advance: 'لهم دفعة مقدّمة', none: 'بلا حركة مالية' },
+  visit: { d30: 'زاروا خلال 30 يوماً', d90: 'زاروا خلال 3 أشهر', over180: 'آخر زيارة قبل أكثر من 6 أشهر', never: 'لم يزوروا بعد' }
+};
+function ptAge(p) {
+  if (!p.dob) return null;
+  var d = new Date(String(p.dob).slice(0, 10) + 'T12:00:00'), now = new Date();
+  if (isNaN(d.getTime())) return null;
+  var a = now.getFullYear() - d.getFullYear();
+  if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) a--;
+  return a;
+}
+function ptDaysSince(ymd) {
+  var d = new Date(String(ymd).slice(0, 10) + 'T12:00:00'), t = new Date(prmYmdLocal() + 'T12:00:00');
+  return Math.round((t - d) / 864e5);
+}
+function ptAdvMatch(p) {
+  var f = ptAdv;
+  if (f.status && p.status !== f.status) return false;
+  if (f.gender && p.gender !== f.gender) return false;
+  if (f.pay) {
+    // payInfo ranks a debt in either currency first (due > advance > paid > none),
+    // so its key alone answers "which state is this patient in".
+    if (payInfo(p).key !== f.pay) return false;
+  }
+  if (f.visit) {
+    var lv = lastVisitMap[p.id];
+    if (f.visit === 'never') { if (lv) return false; }
+    else {
+      if (!lv) return false;
+      var days = ptDaysSince(lv);
+      if (f.visit === 'd30' && days > 30) return false;
+      if (f.visit === 'd90' && days > 90) return false;
+      if (f.visit === 'over180' && days <= 180) return false;
+    }
+  }
+  if (f.ageMin !== '' || f.ageMax !== '') {
+    var age = ptAge(p);
+    if (age === null) return false;
+    if (f.ageMin !== '' && age < Number(f.ageMin)) return false;
+    if (f.ageMax !== '' && age > Number(f.ageMax)) return false;
+  }
+  if (f.regFrom || f.regTo) {
+    if (!p.created_at) return false;
+    var reg = prmYmdLocal(new Date(p.created_at));
+    if (f.regFrom && reg < f.regFrom) return false;
+    if (f.regTo && reg > f.regTo) return false;
+  }
+  if (f.source && (p.referral_source || '') !== f.source) return false;
+  if (f.flag && !(Array.isArray(p.flags) && p.flags.indexOf(f.flag) >= 0)) return false;
+  if (f.allergy && !allergyParts(p).length) return false;
+  if (f.warn && !warnParts(p).length) return false;
+  return true;
+}
+function ptAdvSort(list) {
+  var k = ptAdv.sort;
+  if (!k) return list;
+  var out = list.slice();
+  if (k === 'newest') out.reverse();
+  else if (k === 'name') out.sort(function (a, b) { return String(a.name || '').localeCompare(String(b.name || ''), 'ar'); });
+  else if (k === 'visit') out.sort(function (a, b) { return String(lastVisitMap[b.id] || '').localeCompare(String(lastVisitMap[a.id] || '')); });
+  else if (k === 'age') out.sort(function (a, b) {
+    var x = ptAge(a), y = ptAge(b);
+    if (x === null) return y === null ? 0 : 1;
+    if (y === null) return -1;
+    return x - y;
+  });
+  return out;
+}
+function ptAdvActive() {
+  return Object.keys(PT_ADV_EMPTY).filter(function (k) { return k !== 'sort' && ptAdv[k] !== PT_ADV_EMPTY[k]; });
+}
+function ptAdvToggle(force) {
+  var panel = document.getElementById('ptAdvPanel'), btn = document.getElementById('ptAdvToggle');
+  var open = typeof force === 'boolean' ? force : panel.hidden;
+  panel.hidden = !open;
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  btn.classList.toggle('is-open', open);
+}
+function ptAdvSet(el) {
+  var k = el.getAttribute('data-adv');
+  ptAdv[k] = el.type === 'checkbox' ? el.checked : String(el.value || '').trim();
+  page = 1;
+  render();
+}
+function ptAdvSyncInputs() {
+  document.querySelectorAll('#ptAdvPanel [data-adv]').forEach(function (el) {
+    var k = el.getAttribute('data-adv');
+    if (el.type === 'checkbox') el.checked = !!ptAdv[k]; else el.value = ptAdv[k];
+  });
+}
+function ptAdvRemove(k) {
+  ptAdv[k] = PT_ADV_EMPTY[k];
+  if (k === 'ageMin' || k === 'ageMax') { ptAdv.ageMin = ''; ptAdv.ageMax = ''; }
+  if (k === 'regFrom' || k === 'regTo') { ptAdv.regFrom = ''; ptAdv.regTo = ''; }
+  ptAdvSyncInputs(); page = 1; render();
+}
+function ptAdvClear() {
+  ptAdv = Object.assign({}, PT_ADV_EMPTY);
+  ptAdvSyncInputs(); page = 1; render();
+}
+function ptAdvFillOptions() {
+  var src = document.getElementById('ptAdvSource');
+  if (src && src.options.length === 1) REFERRAL_SOURCE_DEFS.forEach(function (d) { src.add(new Option(d.label, d.key)); });
+  var fl = document.getElementById('ptAdvFlag'), wrap = document.getElementById('ptAdvFlagWrap');
+  if (fl && fl._defs !== PATIENT_FLAG_DEFS) {
+    fl._defs = PATIENT_FLAG_DEFS;
+    while (fl.options.length > 1) fl.remove(1);
+    (PATIENT_FLAG_DEFS || []).forEach(function (d) { fl.add(new Option(d.label, d.k)); });
+    if (wrap) wrap.hidden = !(PATIENT_FLAG_DEFS && PATIENT_FLAG_DEFS.length);
+  }
+}
+/* Summary under the panel + one removable chip per active filter (textContent only). */
+function ptAdvRenderState(total) {
+  ptAdvFillOptions();   // options follow the loaded sources/flags; cheap no-op once filled
+  var act = ptAdvActive();
+  var cnt = document.getElementById('ptAdvCount');
+  var n = act.filter(function (k) { return k !== 'ageMax' || ptAdv.ageMin === ''; })
+             .filter(function (k) { return k !== 'regTo' || !ptAdv.regFrom; }).length;
+  if (cnt) { cnt.textContent = n; cnt.style.display = n ? '' : 'none'; }
+  var res = document.getElementById('ptAdvResult');
+  if (res) res.textContent = 'النتائج: ' + total + ' من أصل ' + patients.length;
+  var box = document.getElementById('ptAdvChips');
+  if (!box) return;
+  box.textContent = '';
+  var chips = [];
+  function sel(k) { var o = document.querySelector('#ptAdvPanel [data-adv="' + k + '"]'); return o && o.selectedOptions && o.selectedOptions[0] ? o.selectedOptions[0].textContent : ptAdv[k]; }
+  if (ptAdv.status) chips.push(['status', 'الحالة: ' + ptAdv.status]);
+  if (ptAdv.pay) chips.push(['pay', PT_ADV_LABELS.pay[ptAdv.pay]]);
+  if (ptAdv.visit) chips.push(['visit', PT_ADV_LABELS.visit[ptAdv.visit]]);
+  if (ptAdv.gender) chips.push(['gender', ptAdv.gender]);
+  if (ptAdv.ageMin !== '' || ptAdv.ageMax !== '') chips.push(['ageMin', 'العمر: ' + (ptAdv.ageMin !== '' ? 'من ' + ptAdv.ageMin : '') + (ptAdv.ageMin !== '' && ptAdv.ageMax !== '' ? ' ' : '') + (ptAdv.ageMax !== '' ? 'إلى ' + ptAdv.ageMax : '')]);
+  if (ptAdv.regFrom || ptAdv.regTo) chips.push(['regFrom', 'التسجيل: ' + (ptAdv.regFrom ? 'من ' + ptAdv.regFrom : '') + (ptAdv.regFrom && ptAdv.regTo ? ' ' : '') + (ptAdv.regTo ? 'حتى ' + ptAdv.regTo : '')]);
+  if (ptAdv.source) chips.push(['source', 'المصدر: ' + sel('source')]);
+  if (ptAdv.flag) chips.push(['flag', 'العلامة: ' + sel('flag')]);
+  if (ptAdv.allergy) chips.push(['allergy', 'لديهم حساسية']);
+  if (ptAdv.warn) chips.push(['warn', 'لديهم تحذير طبي']);
+  chips.forEach(function (c) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'pt-adv-chip';
+    b.title = 'إزالة هذا الفلتر';
+    b.textContent = c[1] + '  ✕';
+    b.onclick = function () { ptAdvRemove(c[0]); };
+    box.appendChild(b);
+  });
+  if (chips.length > 1) {
+    var all = document.createElement('button');
+    all.type = 'button'; all.className = 'pt-adv-chip pt-adv-chip--clear';
+    all.textContent = 'مسح الكل';
+    all.onclick = ptAdvClear;
+    box.appendChild(all);
+  }
+  box.hidden = !chips.length;
 }
 
 // ─── Render ───
@@ -1257,6 +1497,7 @@ function render() {
   const slice    = filtered.slice((page - 1) * per, page * per);
 
   document.getElementById('countBadge').textContent = total + ' مريض';
+  ptAdvRenderState(total);
   const tbody = document.getElementById('tableBody');
   const empty = document.getElementById('emptyState');
   // Portal cleanup: dots-menus moved to <body> on open belong to buttons
