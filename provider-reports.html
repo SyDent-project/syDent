@@ -433,12 +433,12 @@ html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutMo
 <body>
 <div class="main" id="sbMainContent">
 
-<div class="topbar">
-  <div>
-    <div class="tb-title">التقارير</div>
-    <div class="tb-sub" id="rptSub">إنتاج وتحصيلات ومستحقات كل طبيب في العيادة</div>
+<div class="topbar sd-page-head">
+  <div class="sd-page-head__text">
+    <h1 class="topbar-title">التقارير</h1>
+    <p class="sd-page-head__sub tb-sub" id="rptSub">إنتاج وتحصيلات ومستحقات كل طبيب في العيادة</p>
   </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+  <div class="sd-page-head__actions">
     <button class="btn btn-outline btn-sm" id="exportXlsxBtn" onclick="exportExcel()" title="تصدير التبويب الحالي للفترة الحالية إلى ملف Excel">⬇️ تصدير Excel</button>
     <button class="btn btn-outline btn-sm" onclick="refresh()">تحديث</button>
   </div>

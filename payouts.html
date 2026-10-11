@@ -415,13 +415,14 @@ html[data-sub-level="read"] :is([onclick*="openModal("],[onclick*="deleteCurrent
 <div class="main" id="sbMainContent">
 
   <!-- Top bar -->
-  <div class="topbar">
-    <div class="topbar-title">
-      💳 <span>الرواتب والدفعات</span>
+  <div class="topbar sd-page-head">
+    <div class="sd-page-head__text">
+      <h1 class="topbar-title">الرواتب والدفعات</h1>
+      <p class="sd-page-head__sub">ما دفعته العيادة للأطباء والموظفين من رواتب ونسب ومكافآت. تدخل هذه الدفعات في مصروفات العيادة.</p>
     </div>
-    <button class="btn-add" onclick="openModal()">
-      دفعة جديدة
-    </button>
+    <div class="sd-page-head__actions">
+      <button type="button" class="sd-btn sd-btn--primary" onclick="openModal()">＋ دفعة جديدة</button>
+    </div>
   </div>
 
   <div class="content">
