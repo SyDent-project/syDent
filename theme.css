@@ -1398,3 +1398,163 @@ textarea.wa-field { resize:vertical; }
 }
 #sbMainContent tbody tr { transition: background-color .18s ease; }
 #sbMainContent .btn:not(:disabled):active { transform: scale(.97); }
+
+/* ==========================================================================
+   SyDent UI kit (C1, Oct 2026) — the one shared set of components.
+   Every page moves onto these in C2; page-local .btn/.form-input/.modal
+   rules are then deleted. Built only on the tokens above, so light/dark
+   and the brand colour come for free. Reference page: ui-kit.html.
+   Naming: .sd-<component> + .sd-<component>--<variant>.
+   ========================================================================== */
+
+/* Components size their own boxes, so they behave the same on pages
+   without a global border-box reset. */
+.sd-btn, .sd-input, .sd-field, .sd-card, .sd-alert, .sd-tabs, .sd-tab,
+.sd-table-wrap, .sd-table, .sd-table th, .sd-table td,
+.sd-modal-backdrop, .sd-modal, .sd-modal *, .sd-empty { box-sizing: border-box; }
+
+/* ---- Button ---------------------------------------------------------- */
+.sd-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 40px; padding: 0 16px; border-radius: var(--r-md);
+  border: 1px solid transparent; background: var(--bg2); color: var(--text);
+  font: inherit; font-size: 14px; font-weight: 600; line-height: 1.2;
+  text-decoration: none; white-space: nowrap; cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.sd-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.sd-btn:disabled, .sd-btn[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
+.sd-btn--primary   { background: var(--green); color: var(--on-accent); }
+.sd-btn--primary:not(:disabled):hover   { background: var(--green2); }
+.sd-btn--secondary { background: var(--bg2); border-color: var(--border2); }
+.sd-btn--secondary:not(:disabled):hover { background: var(--bg4); border-color: var(--green); }
+.sd-btn--ghost     { background: transparent; color: var(--green); }
+.sd-btn--ghost:not(:disabled):hover     { background: var(--green-dim); }
+.sd-btn--danger    { background: var(--red-solid); color: var(--on-red-solid); }
+.sd-btn--danger:not(:disabled):hover    { filter: brightness(.92); }
+.sd-btn--danger-soft { background: var(--red-soft); color: var(--red-ink); border-color: var(--red-bd); }
+.sd-btn--sm   { min-height: 32px; padding: 0 12px; font-size: 13px; border-radius: var(--r-sm); }
+.sd-btn--lg   { min-height: 48px; padding: 0 22px; font-size: 15px; }
+.sd-btn--block { display: flex; width: 100%; }
+.sd-btn--icon { width: 40px; padding: 0; }
+.sd-btn--icon.sd-btn--sm { width: 32px; }
+.sd-btn svg { width: 18px; height: 18px; flex: none; }
+.sd-btn.is-loading { position: relative; color: transparent !important; pointer-events: none; }
+.sd-btn.is-loading::after {
+  content: ""; position: absolute; width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid currentColor; border-color: var(--on-accent) transparent var(--on-accent) transparent;
+  animation: sd-spin .7s linear infinite;
+}
+.sd-btn--secondary.is-loading::after, .sd-btn--ghost.is-loading::after { border-color: var(--green) transparent var(--green) transparent; }
+@keyframes sd-spin { to { transform: rotate(360deg); } }
+@media (pointer: coarse) { .sd-btn { min-height: 44px; } .sd-btn--sm { min-height: 36px; } .sd-btn--icon { width: 44px; } }
+.sd-btn-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* ---- Form field ------------------------------------------------------ */
+.sd-field { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.sd-label { font-size: 13px; font-weight: 600; color: var(--text); }
+.sd-label .sd-req { color: var(--red-ink); margin-inline-start: 2px; }
+.sd-input {
+  width: 100%; min-height: 42px; padding: 0 12px; border-radius: var(--r-md);
+  border: 1px solid var(--border2); background: var(--bg2); color: var(--text);
+  font: inherit; font-size: 14px; transition: border-color .15s ease, box-shadow .15s ease;
+}
+textarea.sd-input { min-height: 96px; padding: 10px 12px; resize: vertical; line-height: 1.7; }
+select.sd-input {
+  appearance: none; -webkit-appearance: none; padding-inline-start: 34px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text2) 50%), linear-gradient(135deg, var(--text2) 50%, transparent 50%);
+  background-position: 12px 50%, 17px 50%; background-size: 5px 5px; background-repeat: no-repeat;
+}
+.sd-input::placeholder { color: var(--text3); }
+.sd-input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-dim); }
+.sd-input:disabled { background: var(--bg3); color: var(--text2); cursor: not-allowed; }
+.sd-input.is-invalid, .sd-field.is-invalid .sd-input { border-color: var(--red-bd); box-shadow: 0 0 0 3px var(--red-dim); }
+.sd-input--num { font-variant-numeric: tabular-nums; direction: ltr; text-align: end; }
+.sd-help  { font-size: 12px; color: var(--text2); }
+.sd-error { font-size: 12px; color: var(--red-ink); font-weight: 600; }
+.sd-form-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.sd-check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.sd-check input { width: 18px; height: 18px; accent-color: var(--green); }
+
+/* ---- Badge (status) -------------------------------------------------- */
+.sd-badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: var(--r-full);
+  border: 1px solid var(--gray-bd); background: var(--gray-bg); color: var(--gray-fg);
+  font-size: 12px; font-weight: 600; line-height: 1.6; white-space: nowrap;
+}
+.sd-badge--dot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.sd-badge--ok     { border-color: var(--green-bd);  background: var(--green-bg);  color: var(--green-fg); }
+.sd-badge--wait   { border-color: var(--yellow-bd); background: var(--yellow-bg); color: var(--yellow-ink); }
+.sd-badge--warn   { border-color: var(--orange-bd); background: var(--orange-bg); color: var(--orange-ink); }
+.sd-badge--danger { border-color: var(--red-bd);    background: var(--red-bg);    color: var(--red-ink); }
+.sd-badge--info   { border-color: var(--blue-bd);   background: var(--blue-bg);   color: var(--blue-fg); }
+.sd-badge--brand  { border-color: rgba(var(--green-rgb), .35); background: var(--green-dim); color: var(--green); }
+
+/* ---- Card ------------------------------------------------------------ */
+.sd-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-card); padding: 16px; min-width: 0; }
+.sd-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.sd-card__title { font-size: 16px; font-weight: 700; color: var(--text); }
+.sd-stat { display: grid; gap: 4px; }
+.sd-stat__label { font-size: 12px; color: var(--text2); }
+.sd-stat__value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---- Table ----------------------------------------------------------- */
+.sd-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--bg2); }
+.sd-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+.sd-table th {
+  text-align: start; font-size: 12px; font-weight: 600; color: var(--text2); background: var(--bg4);
+  padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.sd-table td { padding: 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+.sd-table tbody tr:last-child td { border-bottom: 0; }
+.sd-table tbody tr:hover td { background: var(--bg4); }
+.sd-table .sd-num { font-variant-numeric: tabular-nums; text-align: end; white-space: nowrap; }
+.sd-table .sd-muted { color: var(--text2); font-size: 12px; }
+@media (max-width: 640px) {
+  /* Stacked rows on phones: each row becomes a card, each cell shows its column name. */
+  .sd-table--stack thead { display: none; }
+  .sd-table--stack, .sd-table--stack tbody, .sd-table--stack tr, .sd-table--stack td { display: block; width: 100%; }
+  .sd-table--stack tr { border-bottom: 1px solid var(--border); padding: 8px 0; }
+  .sd-table--stack td { display: flex; justify-content: space-between; gap: 12px; border: 0; padding: 6px 12px; }
+  .sd-table--stack td::before { content: attr(data-label); color: var(--text2); font-size: 12px; font-weight: 600; }
+  .sd-table--stack .sd-num { text-align: start; }
+}
+
+/* ---- Alert ----------------------------------------------------------- */
+.sd-alert { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-md); border: 1px solid var(--blue-bd); background: var(--blue-soft); color: var(--blue-fg); font-size: 14px; line-height: 1.7; }
+.sd-alert--ok     { border-color: var(--green-bd);  background: var(--green-soft);  color: var(--green-fg); }
+.sd-alert--warn   { border-color: var(--yellow-bd); background: var(--yellow-soft); color: var(--yellow-ink); }
+.sd-alert--danger { border-color: var(--red-bd);    background: var(--red-soft);    color: var(--red-ink); }
+.sd-alert strong { display: block; }
+
+/* ---- Tabs (segmented) ------------------------------------------------ */
+.sd-tabs { display: inline-flex; gap: 4px; padding: 4px; border-radius: var(--r-md); background: var(--bg3); border: 1px solid var(--border); max-width: 100%; overflow-x: auto; }
+.sd-tab { border: 0; background: transparent; color: var(--text2); font: inherit; font-size: 14px; font-weight: 600; padding: 8px 14px; border-radius: var(--r-sm); cursor: pointer; white-space: nowrap; }
+.sd-tab[aria-selected="true"], .sd-tab.is-active { background: var(--bg2); color: var(--green); box-shadow: var(--shadow-card); }
+.sd-tab:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
+
+/* ---- Modal ----------------------------------------------------------- */
+.sd-modal-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px; background: rgba(10, 12, 28, .55); }
+.sd-modal-backdrop[hidden] { display: none; }
+.sd-modal { width: 100%; max-width: 520px; max-height: calc(100vh - 32px); overflow: auto; background: var(--bg2); color: var(--text); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-modal); }
+.sd-modal--wide { max-width: 760px; }
+.sd-modal__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
+.sd-modal__title { font-size: 17px; font-weight: 700; }
+.sd-modal__body { padding: 18px; display: grid; gap: 14px; }
+.sd-modal__foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--border); background: var(--bg4); border-radius: 0 0 var(--r-lg) var(--r-lg); }
+@media (max-width: 640px) {
+  /* Bottom sheet on phones. */
+  .sd-modal-backdrop { place-items: end center; padding: 0; }
+  .sd-modal { max-width: none; max-height: 92vh; border-radius: var(--r-lg) var(--r-lg) 0 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .sd-modal__foot { border-radius: 0; }
+  .sd-modal__foot .sd-btn { flex: 1; }
+}
+
+/* ---- Empty state ----------------------------------------------------- */
+.sd-empty { display: grid; justify-items: center; gap: 8px; padding: 32px 16px; text-align: center; color: var(--text2); }
+.sd-empty__title { font-size: 15px; font-weight: 700; color: var(--text); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sd-btn, .sd-input { transition: none; }
+  .sd-btn.is-loading::after { animation-duration: 2s; }
+}

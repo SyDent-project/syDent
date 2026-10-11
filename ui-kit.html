@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#3f4fc4">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=4">
+<title>SyDent — مكتبة المكوّنات</title>
+<!-- Reference page for the shared UI kit in theme.css (.sd-*). Static: no data, no Supabase. -->
+<script src="theme.js?v=20261010a"></script>
+<style>
+body { margin: 0; background: var(--bg); color: var(--text); }
+.kit { max-width: 1080px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 64px; display: grid; gap: 28px; }
+.kit-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.kit-head h1 { margin: 0; font-size: 26px; }
+.kit-head p { margin: 4px 0 0; color: var(--text2); max-width: 65ch; }
+.kit section { display: grid; gap: 14px; }
+.kit h2 { margin: 0; font-size: 18px; }
+.kit-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.kit-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+</style>
+<link rel="stylesheet" href="theme.css?v=20261010a">
+</head>
+<body>
+<main class="kit">
+  <header class="kit-head">
+    <div>
+      <h1>مكتبة المكوّنات</h1>
+      <p>المكوّنات الموحّدة لنظام SyDent. تُستعمل في كل الصفحات بدلاً من الأنماط الخاصة بكل صفحة، وتتبع الوضع الفاتح والداكن تلقائياً.</p>
+    </div>
+    <div id="themeHost"></div>
+  </header>
+
+  <section aria-labelledby="h-btn">
+    <h2 id="h-btn">الأزرار</h2>
+    <div class="kit-row">
+      <button type="button" class="sd-btn sd-btn--primary">حفظ الموعد</button>
+      <button type="button" class="sd-btn sd-btn--secondary">إلغاء</button>
+      <button type="button" class="sd-btn sd-btn--ghost">عرض التفاصيل</button>
+      <button type="button" class="sd-btn sd-btn--danger">حذف المريض</button>
+      <button type="button" class="sd-btn sd-btn--danger-soft">إلغاء الحجز</button>
+      <button type="button" class="sd-btn sd-btn--primary" disabled>غير متاح</button>
+      <button type="button" class="sd-btn sd-btn--primary is-loading">جارٍ الحفظ</button>
+    </div>
+    <div class="kit-row">
+      <button type="button" class="sd-btn sd-btn--primary sd-btn--sm">صغير</button>
+      <button type="button" class="sd-btn sd-btn--primary">متوسط</button>
+      <button type="button" class="sd-btn sd-btn--primary sd-btn--lg">كبير</button>
+      <button type="button" class="sd-btn sd-btn--secondary sd-btn--icon" aria-label="طباعة">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-form">
+    <h2 id="h-form">الحقول</h2>
+    <div class="sd-card">
+      <div class="sd-form-grid">
+        <div class="sd-field">
+          <label class="sd-label" for="kName">اسم المريض <span class="sd-req">*</span></label>
+          <input class="sd-input" id="kName" value="محمد ديب">
+        </div>
+        <div class="sd-field">
+          <label class="sd-label" for="kPhone">رقم الهاتف</label>
+          <input class="sd-input sd-input--num" id="kPhone" placeholder="09xxxxxxxx">
+          <span class="sd-help">يُستعمل لإرسال تذكير الموعد عبر واتساب.</span>
+        </div>
+        <div class="sd-field is-invalid">
+          <label class="sd-label" for="kDate">تاريخ الموعد</label>
+          <input class="sd-input" id="kDate" type="date">
+          <span class="sd-error">اختر تاريخاً قبل الحفظ.</span>
+        </div>
+        <div class="sd-field">
+          <label class="sd-label" for="kTreat">الإجراء</label>
+          <select class="sd-input" id="kTreat"><option>حشوة ضوئية</option><option>معالجة لبية</option><option>تاج زيركون</option></select>
+        </div>
+        <div class="sd-field">
+          <label class="sd-label" for="kAmount">المبلغ (ل.س)</label>
+          <input class="sd-input sd-input--num" id="kAmount" value="250,000">
+        </div>
+        <div class="sd-field">
+          <label class="sd-label" for="kOff">الطبيب المعالج</label>
+          <input class="sd-input" id="kOff" value="د. ريم خليل" disabled>
+        </div>
+      </div>
+      <div class="sd-field" style="margin-top:14px">
+        <label class="sd-label" for="kNote">ملاحظات</label>
+        <textarea class="sd-input" id="kNote" placeholder="ملاحظات الجلسة"></textarea>
+      </div>
+      <div style="margin-top:12px"><label class="sd-check"><input type="checkbox" id="kRemind" checked> إرسال تذكير قبل الموعد بيوم</label></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-badge">
+    <h2 id="h-badge">شارات الحالة</h2>
+    <div class="kit-row">
+      <span class="sd-badge sd-badge--ok sd-badge--dot">حضر</span>
+      <span class="sd-badge sd-badge--wait sd-badge--dot">بالانتظار</span>
+      <span class="sd-badge sd-badge--warn sd-badge--dot">متأخر</span>
+      <span class="sd-badge sd-badge--danger sd-badge--dot">لم يحضر</span>
+      <span class="sd-badge sd-badge--info">مؤكَّد</span>
+      <span class="sd-badge sd-badge--brand">في العيادة</span>
+      <span class="sd-badge">مُلغى</span>
+      <span class="sd-badge sd-badge--ok">مسدَّد</span>
+      <span class="sd-badge sd-badge--danger">مستحق</span>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-card">
+    <h2 id="h-card">البطاقات والأرقام</h2>
+    <div class="kit-grid">
+      <div class="sd-card sd-stat"><span class="sd-stat__label">مواعيد اليوم</span><span class="sd-stat__value">12</span></div>
+      <div class="sd-card sd-stat"><span class="sd-stat__label">دخل اليوم (ل.س)</span><span class="sd-stat__value">840,000</span></div>
+      <div class="sd-card sd-stat"><span class="sd-stat__label">مستحقات</span><span class="sd-stat__value">3</span></div>
+      <div class="sd-card sd-stat"><span class="sd-stat__label">مرضى جدد هذا الشهر</span><span class="sd-stat__value">27</span></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-table">
+    <h2 id="h-table">الجداول</h2>
+    <p class="sd-help">على الهاتف يتحوّل كل صف إلى بطاقة، ويظهر اسم العمود بجانب كل قيمة.</p>
+    <div class="sd-table-wrap">
+      <table class="sd-table sd-table--stack">
+        <thead><tr><th>الوقت</th><th>المريض</th><th>الإجراء</th><th>الطبيب</th><th>الحالة</th><th class="sd-num">المبلغ (ل.س)</th></tr></thead>
+        <tbody>
+          <tr><td data-label="الوقت">09:00</td><td data-label="المريض">سامر الحلبي</td><td data-label="الإجراء">تنظيف وتلميع</td><td data-label="الطبيب">د. ريم خليل</td><td data-label="الحالة"><span class="sd-badge sd-badge--ok sd-badge--dot">حضر</span></td><td data-label="المبلغ (ل.س)" class="sd-num">150,000</td></tr>
+          <tr><td data-label="الوقت">09:45</td><td data-label="المريض">ليلى عيسى<div class="sd-muted">السن ٤٦</div></td><td data-label="الإجراء">معالجة لبية</td><td data-label="الطبيب">د. سامي نصر</td><td data-label="الحالة"><span class="sd-badge sd-badge--brand">في العيادة</span></td><td data-label="المبلغ (ل.س)" class="sd-num">400,000</td></tr>
+          <tr><td data-label="الوقت">10:30</td><td data-label="المريض">محمد ديب<div class="sd-muted">السن ٣٦</div></td><td data-label="الإجراء">حشوة ضوئية</td><td data-label="الطبيب">د. ريم خليل</td><td data-label="الحالة"><span class="sd-badge sd-badge--wait sd-badge--dot">بالانتظار</span></td><td data-label="المبلغ (ل.س)" class="sd-num">250,000</td></tr>
+          <tr><td data-label="الوقت">11:15</td><td data-label="المريض">هبة سعيد</td><td data-label="الإجراء">تاج زيركون</td><td data-label="الطبيب">د. سامي نصر</td><td data-label="الحالة"><span class="sd-badge sd-badge--warn sd-badge--dot">متأخر</span></td><td data-label="المبلغ (ل.س)" class="sd-num">1,200,000</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-alert">
+    <h2 id="h-alert">التنبيهات</h2>
+    <div class="sd-alert"><div><strong>تذكير</strong>لديك ثلاثة مواعيد غير مؤكَّدة لهذا اليوم.</div></div>
+    <div class="sd-alert sd-alert--ok"><div><strong>تم الحفظ</strong>سُجّلت الدفعة وأُضيفت إلى رصيد المريض.</div></div>
+    <div class="sd-alert sd-alert--warn"><div><strong>انتبه</strong>المريض لديه حساسية من البنسلين.</div></div>
+    <div class="sd-alert sd-alert--danger"><div><strong>تعذّر الحفظ</strong>انقطع الاتصال بالخادم. تحقّق من الإنترنت ثم أعد المحاولة.</div></div>
+  </section>
+
+  <section aria-labelledby="h-tabs">
+    <h2 id="h-tabs">التبويبات</h2>
+    <div class="sd-tabs" role="tablist">
+      <button type="button" class="sd-tab" role="tab" aria-selected="true">اليوم</button>
+      <button type="button" class="sd-tab" role="tab" aria-selected="false">الأسبوع</button>
+      <button type="button" class="sd-tab" role="tab" aria-selected="false">الشهر</button>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-modal">
+    <h2 id="h-modal">النوافذ</h2>
+    <div class="kit-row"><button type="button" class="sd-btn sd-btn--primary" id="openModal">فتح نافذة تجريبية</button></div>
+    <div class="sd-card sd-empty">
+      <div class="sd-empty__title">لا توجد مواعيد في هذا اليوم</div>
+      <div>أضف موعداً جديداً أو اختر يوماً آخر من التقويم.</div>
+      <button type="button" class="sd-btn sd-btn--primary sd-btn--sm">موعد جديد</button>
+    </div>
+  </section>
+</main>
+
+<div class="sd-modal-backdrop" id="kitModal" hidden>
+  <div class="sd-modal" role="dialog" aria-modal="true" aria-labelledby="kitModalTitle">
+    <div class="sd-modal__head">
+      <div class="sd-modal__title" id="kitModalTitle">تسجيل دفعة</div>
+      <button type="button" class="sd-btn sd-btn--ghost sd-btn--icon sd-btn--sm" data-close aria-label="إغلاق">✕</button>
+    </div>
+    <div class="sd-modal__body">
+      <div class="sd-field"><label class="sd-label" for="mAmount">المبلغ (ل.س)</label><input class="sd-input sd-input--num" id="mAmount" value="100,000"></div>
+      <div class="sd-field"><label class="sd-label" for="mMethod">طريقة الدفع</label><select class="sd-input" id="mMethod"><option>نقداً</option><option>شام كاش</option><option>حوالة</option></select></div>
+    </div>
+    <div class="sd-modal__foot">
+      <button type="button" class="sd-btn sd-btn--secondary" data-close>إلغاء</button>
+      <button type="button" class="sd-btn sd-btn--primary" data-close>حفظ الدفعة</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  if (window.SyDentTheme) window.SyDentTheme.mount('#themeHost');
+  var modal = document.getElementById('kitModal');
+  document.getElementById('openModal').addEventListener('click', function () { modal.hidden = false; });
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal || e.target.hasAttribute('data-close')) modal.hidden = true;
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') modal.hidden = true; });
+})();
+</script>
+</body>
+</html>
