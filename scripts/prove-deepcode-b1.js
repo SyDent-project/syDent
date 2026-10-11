@@ -33,7 +33,7 @@ function suite(F) {
     ok(m && m[1] !== 'لا يوجد' && /التحميل/.test(m[1]), id + ': initial text must not claim «لا يوجد» before data arrives');
   });
   /* ── #2 مكانُ الشريط: شقيقٌ مباشر بعد .topbar اللاصق وقبل الصفحة ── */
-  const tb = H.slice(H.indexOf('<div class="topbar">'), H.indexOf('<div class="page'));
+  const tb = H.slice(H.indexOf('<div class="topbar'), H.indexOf('<div class="page'));
   ok(/<\/div>\n<\/div>\n<!-- DeepCode #2[^]*?-->\n<div class="pp-med-alert" id="pMedAlert" role="alert" hidden/.test(tb), 'alert strip sits right under the topbar, hidden by default, role=alert');
   const rh = fnSrc(H, 'renderHeader');
   ok(!!rh && !/med-flag-tag|allergy-tag/.test(rh) && /renderMedAlert\(\);/.test(rh), 'renderHeader moved the tags to the strip (no duplicate) and renders it');

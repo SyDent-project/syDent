@@ -84,15 +84,28 @@
 
 <div class="main" id="sbMainContent">
 
-<div class="topbar">
-  <a href="patients.html" class="back-btn">العودة للقائمة</a>
-  <div class="topbar-actions">
-    <button class="btn btn-outline" onclick="openApptModal()" data-doctor-inactive-block>موعد جديد</button>
-    <button class="btn btn-outline" onclick="openNewSessionEntry()" data-doctor-inactive-block>جلسة جديدة</button>
-    <button class="btn btn-outline" id="aiHubBtn" onclick="openModal('aiHubModal')" data-doctor-inactive-block>🤖 المساعد الذكي</button>
-    <button class="btn btn-whatsapp" id="ppWaBtn" onclick="openWaHub()" style="display:none;">واتساب</button>
-    <button class="btn btn-outline" onclick="openPrintChoice()" data-doctor-inactive-block data-sub-read>طباعة / PDF</button>
-    <button class="btn btn-primary" onclick="openPayModal()" data-doctor-inactive-block>تسجيل دفعة</button>
+<!-- Page header: where you are + what you can do for this patient -->
+<div class="topbar sd-page-head pp-head">
+  <div class="sd-page-head__text">
+    <a href="patients.html" class="pp-crumb">‹ المرضى</a>
+    <h1 class="topbar-title">ملف المريض</h1>
+  </div>
+  <div class="sd-page-head__actions">
+    <details class="sd-menu" id="ppTools">
+      <summary class="sd-btn sd-btn--secondary">أدوات</summary>
+      <div class="sd-menu__list" role="menu">
+        <button type="button" class="sd-menu__item" role="menuitem" id="aiHubBtn" onclick="openModal('aiHubModal')" data-doctor-inactive-block>
+          <span>المساعد الذكي<span class="sd-menu__hint">ملخّص للملف، وتقرير إحالة، وشرح الخطة للمريض</span></span>
+        </button>
+        <button type="button" class="sd-menu__item" role="menuitem" onclick="openPrintChoice()" data-doctor-inactive-block data-sub-read>
+          <span>طباعة أو حفظ PDF<span class="sd-menu__hint">ملف المريض أو كشف الحساب</span></span>
+        </button>
+      </div>
+    </details>
+    <button type="button" class="btn btn-whatsapp" id="ppWaBtn" onclick="openWaHub()" style="display:none;">واتساب</button>
+    <button type="button" class="sd-btn sd-btn--secondary" onclick="openApptModal()" data-doctor-inactive-block>موعد جديد</button>
+    <button type="button" class="sd-btn sd-btn--secondary" onclick="openNewSessionEntry()" data-doctor-inactive-block>جلسة جديدة</button>
+    <button type="button" class="sd-btn sd-btn--primary" onclick="openPayModal()" data-doctor-inactive-block>تسجيل دفعة</button>
   </div>
 </div>
 <!-- DeepCode #2 (v550): شريطُ التنبيه الطبي — لاصقٌ تحت الشريط العلوي فيبقى ظاهراً بكل تبويب وأثناء التمرير
@@ -115,20 +128,46 @@
     </div>
   </div>
 
-  <div class="tabs">
-    <button class="tab active" onclick="switchTab('file',this)">الملف</button>
-    <button class="tab" onclick="switchTab('perio',this); initPerioTab();">اللثة</button>
-    <button class="tab" onclick="switchTab('sessions',this)">الجلسات</button>
-    <button class="tab" onclick="switchTab('payments',this)">المدفوعات</button>
-    <button class="tab" onclick="switchTab('labs',this)">المخابر <span id="labsBadge" class="lab-badge" style="display:none">0</span></button>
-    <button class="tab" onclick="switchTab('files',this); loadPatientFiles();">الملفات <span id="filesBadge" class="lab-badge" style="display:none">0</span></button>
-    <button class="tab" onclick="switchTab('rx',this); loadPrescriptions();">الروشتات <span id="rxBadge" class="lab-badge" style="display:none">0</span></button>
-    <button class="tab" onclick="switchTab('postop',this); loadPostOpNotes();">تعليمات <span id="postopBadge" class="lab-badge" style="display:none">0</span></button>
-    <button class="tab" onclick="switchTab('msgs',this); loadPatientMessages();">المراسلات <span id="msgsBadge" class="lab-badge" style="display:none">0</span></button>
-    <button class="tab" id="tabBtnAppts" onclick="switchTab('appts',this); renderApptsTab();">المواعيد <span id="apptsBadge" class="lab-badge appts-badge" style="display:none">0</span></button>
-    <button class="tab" id="tabBtnAudit" onclick="switchTab('audit',this); loadPatientAuditLog();" style="display:none;">سجل النشاطات</button>
-    <button class="tab" onclick="switchTab('timeline',this)">السجل الكامل</button>
-  </div>
+  <!-- Sections of the file, grouped so each tab is easy to find -->
+  <nav class="tabs pp-tabs" aria-label="أقسام ملف المريض">
+    <div class="pp-tabgroup" role="group" aria-label="العلاج">
+      <span class="pp-tabgroup__label">العلاج</span>
+      <div class="pp-tabgroup__row">
+        <button class="tab active" onclick="switchTab('file',this)">الملف</button>
+        <button class="tab" onclick="switchTab('perio',this); initPerioTab();">فحص اللثة</button>
+        <button class="tab" onclick="switchTab('sessions',this)">الجلسات</button>
+        <button class="tab" onclick="switchTab('labs',this)">المخابر <span id="labsBadge" class="lab-badge" style="display:none">0</span></button>
+      </div>
+    </div>
+    <div class="pp-tabgroup" role="group" aria-label="المالية">
+      <span class="pp-tabgroup__label">المالية</span>
+      <div class="pp-tabgroup__row">
+        <button class="tab" onclick="switchTab('payments',this)">المدفوعات</button>
+      </div>
+    </div>
+    <div class="pp-tabgroup" role="group" aria-label="الوثائق">
+      <span class="pp-tabgroup__label">الوثائق</span>
+      <div class="pp-tabgroup__row">
+        <button class="tab" onclick="switchTab('files',this); loadPatientFiles();">الملفات <span id="filesBadge" class="lab-badge" style="display:none">0</span></button>
+        <button class="tab" onclick="switchTab('rx',this); loadPrescriptions();">الوصفات <span id="rxBadge" class="lab-badge" style="display:none">0</span></button>
+        <button class="tab" onclick="switchTab('postop',this); loadPostOpNotes();">التعليمات <span id="postopBadge" class="lab-badge" style="display:none">0</span></button>
+      </div>
+    </div>
+    <div class="pp-tabgroup" role="group" aria-label="التواصل">
+      <span class="pp-tabgroup__label">التواصل</span>
+      <div class="pp-tabgroup__row">
+        <button class="tab" id="tabBtnAppts" onclick="switchTab('appts',this); renderApptsTab();">المواعيد <span id="apptsBadge" class="lab-badge appts-badge" style="display:none">0</span></button>
+        <button class="tab" onclick="switchTab('msgs',this); loadPatientMessages();">المراسلات <span id="msgsBadge" class="lab-badge" style="display:none">0</span></button>
+      </div>
+    </div>
+    <div class="pp-tabgroup" id="ppTabsLog" role="group" aria-label="السجل">
+      <span class="pp-tabgroup__label">السجل</span>
+      <div class="pp-tabgroup__row">
+        <button class="tab" id="tabBtnAudit" onclick="switchTab('audit',this); loadPatientAuditLog();" style="display:none;" title="من عدّل ماذا في ملف المريض ومتى">التعديلات</button>
+        <button class="tab" onclick="switchTab('timeline',this)" title="كل الجلسات والمواعيد والمدفوعات بترتيب زمني">كل الأحداث</button>
+      </div>
+    </div>
+  </nav>
 
   <!-- Tab: الملف -->
   <div class="panel active" id="tab-file">
@@ -5661,6 +5700,13 @@ async function sessProvApplyMove(apptId, provId) {
    قبل هذه الكتلة؛ الحالة المشتركة تبقى هنا والوصول runtime فقط. ── */
 
 /* → نُقل إلى pp-clinical.js (الاستخراج ٨): وحدة المخابر كاملة — طلبات/مودالات/badges/saveToothAndOpenLab + خصم مواد السن+المخبر */
+
+// C2: the «أدوات» menu closes after a choice or a click outside it
+document.addEventListener('click', function (e) {
+  var m = document.getElementById('ppTools');
+  if (!m || !m.open) return;
+  if (!m.contains(e.target) || e.target.closest('.sd-menu__item')) m.open = false;
+});
 
 /* ── Modal helpers ── */
 function switchTabByName(name) {

@@ -111,6 +111,16 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 
 /* ── Tabs ── */
 .tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:22px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:5px;max-width:100%;}
+/* C2: tabs in named groups (العلاج · المالية · الوثائق · التواصل · السجل) */
+.pp-tabs{gap:0;padding:6px 4px;align-items:stretch;}
+.pp-tabgroup{display:flex;flex-direction:column;gap:4px;padding:0 5px;min-width:0;}
+.pp-tabs .tab{padding:8px 11px;font-size:13px;}
+.pp-tabgroup + .pp-tabgroup{border-inline-start:1px solid var(--border);}
+.pp-tabgroup__label{font-size:11px;font-weight:600;color:var(--text2);padding:0 6px;line-height:1.4;}
+.pp-tabgroup__row{display:flex;flex-wrap:wrap;gap:4px;}
+.pp-crumb{display:inline-block;font-size:13px;color:var(--text2);text-decoration:none;margin-bottom:2px;}
+.pp-crumb:hover{color:var(--green);}
+.pp-head .topbar-title{font-size:18px;}
 .tabs::-webkit-scrollbar{display:none;width:0;height:0;}
 .tab{padding:9px 15px;border:none;border-radius:10px;font-family:'Cairo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;background:transparent;color:var(--text2);transition:all .2s;white-space:nowrap;flex-shrink:0;}
 .tab.active{background:var(--green);color:var(--bg);}
@@ -624,6 +634,15 @@ body.ai-on #aiHubBtn{display:inline-block;}
   .topbar{flex-wrap:wrap;}
   .topbar-actions{width:100%;flex-wrap:wrap;gap:6px;}
   .topbar-actions .btn{flex:1 1 auto;min-width:0;padding:8px 10px;font-size:12px;justify-content:center;}
+  /* C2: one swipeable row of grouped tabs instead of four wrapped rows */
+  .pp-tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .pp-tabgroup{flex:0 0 auto;}
+  .pp-tabgroup__row{flex-wrap:nowrap;}
+  /* the row scrolls sideways: fade its far edge so it reads as "more this way" */
+  .pp-tabs{-webkit-mask-image:linear-gradient(to left,transparent 0,#000 28px);mask-image:linear-gradient(to left,transparent 0,#000 28px);}
+  .pp-head .sd-page-head__actions{display:grid;grid-template-columns:1fr 1fr;}
+  .pp-head .sd-page-head__actions > *{width:100%;justify-content:center;}
+  .pp-head .sd-page-head__actions > .sd-btn--primary{grid-column:1 / -1;}
 }
 @media(max-width:600px){
   .hcard{flex-direction:column;text-align:center;}
