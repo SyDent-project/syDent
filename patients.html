@@ -1428,12 +1428,13 @@ function ptAdvClear() {
 }
 function ptAdvFillOptions() {
   var src = document.getElementById('ptAdvSource');
-  if (src && src.options.length === 1) REFERRAL_SOURCE_DEFS.forEach(function (d) { src.add(new Option(d.label, d.key)); });
+  function opt(label, value) { var o = document.createElement('option'); o.value = value; o.textContent = label; return o; }
+  if (src && src.options.length === 1) REFERRAL_SOURCE_DEFS.forEach(function (d) { src.appendChild(opt(d.label, d.key)); });
   var fl = document.getElementById('ptAdvFlag'), wrap = document.getElementById('ptAdvFlagWrap');
   if (fl && fl._defs !== PATIENT_FLAG_DEFS) {
     fl._defs = PATIENT_FLAG_DEFS;
     while (fl.options.length > 1) fl.remove(1);
-    (PATIENT_FLAG_DEFS || []).forEach(function (d) { fl.add(new Option(d.label, d.k)); });
+    (PATIENT_FLAG_DEFS || []).forEach(function (d) { fl.appendChild(opt(d.label, d.k)); });
     if (wrap) wrap.hidden = !(PATIENT_FLAG_DEFS && PATIENT_FLAG_DEFS.length);
   }
 }
