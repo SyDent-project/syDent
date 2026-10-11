@@ -173,7 +173,7 @@ function orthoForArch(isUpper){
   }
   return null;
 }
-function orthoColorForArch(isUpper){ var t = orthoForArch(isUpper); return t ? (t.fill || '#0d8577') : null; }
+function orthoColorForArch(isUpper){ var t = orthoForArch(isUpper); return t ? (t.fill || '#0284c7') : null; }
 function orthoNameForArch(isUpper){ var t = orthoForArch(isUpper); return t ? t.name : null; }
 /* Slim active-ortho banner above the chart. Called at the end of renderTeeth. */
 function renderOrthoOverlay(){
@@ -2378,7 +2378,7 @@ function buildTooth(num, surfaceMap, isUpper) {
   // automatically. pointer-events:none → surface clicks still pass through.
   var __orthoT = (typeof orthoForArch === 'function') ? orthoForArch(isUpper) : null;
   if (__orthoT) {
-    var __orthoC   = __orthoT.fill || '#0d8577';
+    var __orthoC   = __orthoT.fill || '#0284c7';
     var __orthoRem = (typeof orthoIsRemovable === 'function') && orthoIsRemovable(__orthoT);  // removable = labial bow only
     var bxM = (anat.crownL + anat.crownR) / 2;
     // ارتفاع ثابت لكل القوس (cellWidth ثابت = 60 دائم / 48 لبني) → سلك مستوٍ بلا
@@ -3754,7 +3754,7 @@ var STATUS_LABELS = {
 var STATUS_COLORS = {
   planned:          '#ef4444',
   completed:        '#3b82f6',
-  existing_current: '#10b981',                 // green-teal: our practice's historical work
+  existing_current: '#0ea5e9',                 // sky blue: our practice's historical work
   existing_other:   '#9ca3af',                 // grey: external clinic's work
   existing:         '#9ca3af',                 // legacy: pre-migration rows
   referred:         '#f59e0b',

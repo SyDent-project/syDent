@@ -161,7 +161,7 @@ function renderActivityPanel(reqId) {
         var txt = on ? '🟢 متصل الآن'
                      : (seen !== null ? '⚪ غير متصل · آخر ظهور ' + timeSince(new Date(seen).toISOString())
                                        : '⚪ غير متصل');
-        return '<div class="activity-row"><span>📡 الحالة:</span>     <b style="color:' + (on ? 'var(--green, #22c55e)' : 'inherit') + ';">' + escapeHtml(txt) + '</b></div>';
+        return '<div class="activity-row"><span>📡 الحالة:</span>     <b style="color:' + (on ? 'var(--green, #3f4fc4)' : 'inherit') + ';">' + escapeHtml(txt) + '</b></div>';
       })() +
       '<div class="activity-row"><span>⚡ آخر نشاط:</span>   <b>' + escapeHtml(c.lastActivity ? timeSince(c.lastActivity) : 'لا نشاط مسجّل') + '</b></div>' +
       '<div class="activity-row"><span>🕐 آخر تسجيل دخول:</span>   <b>' + escapeHtml(timeSince(c.lastSignIn)) + '</b></div>' +

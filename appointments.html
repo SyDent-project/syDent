@@ -538,11 +538,11 @@ function _sanHex(h) {
   if (window.SyDentColorPicker && typeof window.SyDentColorPicker.sanitizeHex === 'function') {
     return window.SyDentColorPicker.sanitizeHex(h);
   }
-  if (typeof h !== 'string' || !h) return '#0d8577';
+  if (typeof h !== 'string' || !h) return '#0284c7';
   var s = h.trim();
   if (s.charAt(0) !== '#') s = '#' + s;
   if (/^#[0-9A-Fa-f]{3}$/.test(s)) s = '#' + s[1]+s[1] + s[2]+s[2] + s[3]+s[3];
-  return /^#[0-9A-Fa-f]{6}$/.test(s) ? s.toLowerCase() : '#0d8577';
+  return /^#[0-9A-Fa-f]{6}$/.test(s) ? s.toLowerCase() : '#0284c7';
 }
 
 async function loadTreatmentsFromSupabase() {
@@ -562,7 +562,7 @@ async function loadTreatmentsFromSupabase() {
         label: t.label,
         // Rule #195: fill/stroke are DB-stored and later injected raw into style
         // attributes across calendar/list/badge renders. sanitizeHex is a strict
-        // hex allowlist (falls back to #0d8577), so any non-hex value can never
+        // hex allowlist (falls back to #0284c7), so any non-hex value can never
         // reach innerHTML. Sanitize once at the choke point rather than N render sites.
         fill: _sanHex(t.fill),
         stroke: _sanHex(t.stroke),
@@ -3196,7 +3196,7 @@ async function submitAppt(e) {
   var _t        = getTreatment(typeVal);
   var typeName  = _t ? _t.name : (typeVal === '_other' ? 'أخرى' : typeVal);
   const apptColor  = _t ? _t.fill   : 'var(--green)';
-  const apptStroke = _t ? _t.stroke : '#1fba7e';
+  const apptStroke = _t ? _t.stroke : '#0ea5e9';
 
   const btn = document.getElementById('saveBtn');
   btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';

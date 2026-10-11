@@ -1667,7 +1667,7 @@ try {
     function escapeHtml(s){ if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
     function fmtDNum(d){ var p = String(d).slice(0,10).split('-'); return (+p[2]) + '/' + (+p[1]) + '/' + p[0]; }
     function fmtTime12(t){ return String(t).slice(0,5); }
-    function _sanHex(h){ return /^#[0-9a-f]{3,8}$/i.test(String(h)) ? h : '#0d8577'; }
+    function _sanHex(h){ return /^#[0-9a-f]{3,8}$/i.test(String(h)) ? h : '#0284c7'; }
     var CLINIC_DOCTORS = [{id:'d1', name:'<u>د</u>', color:'red;background:url(x)'}], TREATMENTS = [{id:'k1', dbId:'t1', name:'تنظيف', fill:'#123456'}],
         sessions = [], patient = {phone:'09'}, lastReminderLogByAppt = {}, allAppointmentsForTl = [];`, ctx);
   vm.runInContext(ppa, ctx);

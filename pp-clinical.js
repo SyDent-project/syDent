@@ -931,8 +931,8 @@ async function _saveLabOrderInner() {
     if (!nTime) { showToast('⚠️ اختر ساعة موعد التركيب'); return; }
     // Match the lab work-type treatment to inherit colors/treatment_id when possible.
     var trObj = workKey ? getTreatment(workKey) : null;
-    var apptColor  = trObj ? trObj.fill   : '#0d8577';
-    var apptStroke = trObj ? trObj.stroke : '#1fba7e';
+    var apptColor  = trObj ? trObj.fill   : '#0284c7';
+    var apptStroke = trObj ? trObj.stroke : '#0ea5e9';
     // Provider: prefer the most-recent provider used on this patient's sessions
     // (so the new appointment isn't orphaned), else fall back to the clinic default.
     var bestProvider = null;

@@ -1743,7 +1743,7 @@
         for (var j = 0; j < row.__pills.length; j++) {
           var on = (row.__pills[j].dataset.curval === c);
           row.__pills[j].setAttribute('aria-pressed', on ? 'true' : 'false');
-          row.__pills[j].style.background = on ? 'var(--green,#2ee89e)' : 'transparent';
+          row.__pills[j].style.background = on ? 'var(--green,#3f4fc4)' : 'transparent';
           row.__pills[j].style.color = on ? 'var(--on-green,#062018)' : 'var(--text2,#8aa)';
           row.__pills[j].style.fontWeight = on ? '800' : '600';
         }
@@ -4777,15 +4777,15 @@
     // Only accept strings — numbers/objects/etc. fall back to default. This
     // protects against accidental sanitizeHex(123) returning '#112233' due to
     // the short-form expansion path.
-    if (typeof h !== 'string') return '#0d8577';
-    if (!h) return '#0d8577';
+    if (typeof h !== 'string') return '#0284c7';
+    if (!h) return '#0284c7';
     var s = h.trim();
     if (s.charAt(0) !== '#') s = '#' + s;
     if (/^#[0-9A-Fa-f]{3}$/.test(s)) {
       // Expand short form #abc → #aabbcc
       s = '#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3];
     }
-    return /^#[0-9A-Fa-f]{6}$/.test(s) ? s.toLowerCase() : '#0d8577';
+    return /^#[0-9A-Fa-f]{6}$/.test(s) ? s.toLowerCase() : '#0284c7';
   }
   function hexToRgb(hex) {
     var h = sanitizeHex(hex).slice(1);
@@ -4838,7 +4838,7 @@
 
   // ── State (per-open invocation) ─────────────────────────────────────────
   var _isInjected = false;
-  var _currentHex = '#0d8577';
+  var _currentHex = '#0284c7';
   var _onConfirm = null;
   var _activeTab = 'grid'; // 'grid' | 'spectrum' | 'sliders'
   var _spectrumState = { h: 150, s: 0.8, v: 0.9 }; // synced from hex on open

@@ -209,7 +209,7 @@ html[data-sub-level="read"] :is([onclick*="saveDoctor("],[onclick*="unlinkFromUs
              component. Hidden #dColor preserves the get/set API used by
              saveDoctor() and editDoctor() — they read pickedColor unchanged. -->
         <div style="display:flex;align-items:center;gap:10px;">
-          <input type="hidden" id="dColor" value="#0d8577">
+          <input type="hidden" id="dColor" value="#0284c7">
           <button type="button" id="dColorSwatch" onclick="openDocColorPicker()"
                   aria-label="اختيار اللون"
                   style="width:50px;height:40px;padding:0;cursor:pointer;border-radius:8px;border:1px solid var(--border);background:var(--green);flex-shrink:0;"></button>
@@ -274,11 +274,11 @@ function openDocColorPicker() {
     /* v461: مسارُ احتياطٍ نادر (منتقي الألوان لم يُحمَّل) — بحوار المنصة
        إن وُجد، وإلا نافذةُ المتصفّح كملاذٍ أخير كي لا يتعطّل الإدخال. */
     if (window.SyDialog) {
-      SyDialog.prompt({ title: 'لون مخصّص', message: 'أدخل لون hex (مثال: #0d8577):', value: pickedColor })
+      SyDialog.prompt({ title: 'لون مخصّص', message: 'أدخل لون hex (مثال: #0284c7):', value: pickedColor })
         .then(function (typed) { if (typed) _setDocColor(typed); });
       return;
     }
-    var typed = window.prompt('أدخل لون hex (مثال: #0d8577):', pickedColor);
+    var typed = window.prompt('أدخل لون hex (مثال: #0284c7):', pickedColor);
     if (typed) _setDocColor(typed);
     return;
   }

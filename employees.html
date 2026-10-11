@@ -618,7 +618,7 @@ function avatarColor(empOrRole) {
 function _pickRandomDoctorColor() {
   var palette = [
     '#63b3ed', '#f5a623', '#a78bfa', '#f06292',
-    '#4dd0e1', '#ffb74d', '#81c784', '#ff8a65',
+    '#4dd0e1', '#ffb74d', '#7986cb', '#ff8a65',
     '#9575cd', '#4fc3f7', '#dce775', '#e57373'
   ];
   var used = {};
@@ -654,11 +654,11 @@ function openEmpDocColorPicker() {
     /* v461: مسارُ احتياطٍ نادر (منتقي الألوان لم يُحمَّل) — بحوار المنصة
        إن وُجد، وإلا نافذةُ المتصفّح كملاذٍ أخير كي لا يتعطّل الإدخال. */
     if (window.SyDialog) {
-      SyDialog.prompt({ title: 'لون مخصّص', message: 'أدخل لون hex (مثال: #0d8577):', value: _empPickedColor })
+      SyDialog.prompt({ title: 'لون مخصّص', message: 'أدخل لون hex (مثال: #0284c7):', value: _empPickedColor })
         .then(function (typed) { if (typed) _setEmpDocColor(typed); });
       return;
     }
-    var typed = window.prompt('أدخل لون hex (مثال: #0d8577):', _empPickedColor);
+    var typed = window.prompt('أدخل لون hex (مثال: #0284c7):', _empPickedColor);
     if (typed) _setEmpDocColor(typed);
     return;
   }

@@ -76,9 +76,9 @@ const css = `
   }
   .sb-logo-name { font-size: 18px; font-weight: 900; color: var(--text); font-family: 'Cairo', sans-serif; }
   .sb-logo-sub  { font-size: 10px; color: var(--text2); font-family: 'Cairo', sans-serif; }
-  :root[data-theme="light"] .sd-sy{background:linear-gradient(135deg,#3f4fc4 0%,#5a46c8 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#368a64;}
+  :root[data-theme="light"] .sd-sy{background:linear-gradient(135deg,#3f4fc4 0%,#5a46c8 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#3f4fc4;}
   :root[data-theme="light"] .sd-dent{color:#16362c;}
-  :root[data-theme="dark"] .sd-sy{background:linear-gradient(135deg,#8b97ff 0%,#a99bff 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#46b88c;}
+  :root[data-theme="dark"] .sd-sy{background:linear-gradient(135deg,#8b97ff 0%,#a99bff 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#8b97ff;}
   :root[data-theme="dark"] .sd-dent{color:#e8f6f0;}
 
   .sb-nav { flex: 1; padding: 10px 0 14px; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }

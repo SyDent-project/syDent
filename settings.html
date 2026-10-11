@@ -1210,7 +1210,7 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
              below preserves the existing get/set API (.value) so all the
              code in saveOperatory / openOperatoryModal / editOperatory keeps
              working without any changes. -->
-        <input type="hidden" id="fOpColor" value="#0d8577">
+        <input type="hidden" id="fOpColor" value="#0284c7">
         <button type="button" id="fOpColorSwatch" onclick="openOpColorPicker()"
                 aria-label="اختيار اللون"
                 style="width:50px;height:40px;padding:0;cursor:pointer;border-radius:8px;border:1px solid var(--border);background:var(--green);flex-shrink:0;"></button>
@@ -3822,11 +3822,11 @@ function openOpColorPicker() {
     /* v461: مسارُ احتياطٍ نادر (منتقي الألوان لم يُحمَّل) — بحوار المنصة
        إن وُجد، وإلا نافذةُ المتصفّح كملاذٍ أخير كي لا يتعطّل الإدخال. */
     if (window.SyDialog) {
-      SyDialog.prompt({ title: 'لون مخصّص', message: 'أدخل لون hex (مثال: #0d8577):', value: current })
+      SyDialog.prompt({ title: 'لون مخصّص', message: 'أدخل لون hex (مثال: #0284c7):', value: current })
         .then(function (typed) { if (typed) _setOpColor(typed); });
       return;
     }
-    var typed = window.prompt('أدخل لون hex (مثال: #0d8577):', current);
+    var typed = window.prompt('أدخل لون hex (مثال: #0284c7):', current);
     if (typed) _setOpColor(typed);
     return;
   }
