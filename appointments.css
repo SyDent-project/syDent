@@ -51,6 +51,26 @@ body {
 .topbar-title { font-size: 19px; font-weight: 700; flex: 1; }
 .topbar-title span { color: var(--green); }
 
+/* C2: page header — title + one-line purpose on the right, actions on the left */
+.appt-head { justify-content: space-between; gap: 16px; }
+.appt-head__text { flex: 1 1 260px; min-width: 0; }
+.appt-head .topbar-title { margin: 0; font-size: 20px; line-height: 1.4; }
+.appt-head__sub { margin: 2px 0 0; font-size: 13px; color: var(--text2); line-height: 1.6; }
+.appt-head__actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* C2: page sections (one row) + the line that explains the open section */
+.sd-tabs.appt-sections { display: flex; width: 100%; margin-bottom: 8px; }
+.sd-tabs.appt-sections .sd-tab { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; }
+.appt-section-hint { margin: 0 0 18px; font-size: 13px; color: var(--text2); line-height: 1.7; }
+.appt-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px; padding: 0 7px; border-radius: 11px;
+  font-size: 11px; font-weight: 700; line-height: 1;
+  background: var(--green-dim); color: var(--green);
+}
+.appt-count--wait  { background: var(--yellow-solid); color: var(--on-yellow-solid); }
+.appt-count--alert { background: var(--red-solid); color: var(--on-red-solid); }
+
 .btn {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 9px 18px; border-radius: 10px; border: none;
@@ -91,10 +111,11 @@ body {
 /* ─── Calendar Header ─── */
 .cal-header {
   display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
   margin-bottom: 20px;
 }
 .cal-nav {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
 .cal-nav-btn {
   width: 34px; height: 34px; border-radius: 8px;
@@ -603,31 +624,6 @@ body {
 .list-item.booking-item:hover { transform: none; }
 
 /* ─── Gap 7: Planned Appointments ──────────────────── */
-.main-tabs {
-  display: flex; gap: 0;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-  margin-bottom: 20px;
-}
-.main-tab {
-  flex: 0 0 auto;
-  padding: 10px 22px;
-  font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 700;
-  background: transparent; border: none; color: var(--text2);
-  cursor: pointer; transition: all .2s;
-  display: flex; align-items: center; gap: 8px;
-}
-.main-tab.active { background: var(--green-dim); color: var(--green); }
-.main-tab .count-badge {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 22px; height: 22px; padding: 0 7px;
-  border-radius: 11px; font-size: 11px; font-weight: 800;
-  background: rgba(var(--green-rgb),0.22); color: var(--green);
-}
-.main-tab.active .count-badge { background: var(--green); color: var(--on-accent); }
-
 .planned-empty {
   text-align: center; padding: 60px 20px; color: var(--text2);
 }
@@ -771,6 +767,13 @@ body {
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-group.full { grid-column: 1/-1; }
+/* C2: the appointment form is split into titled sections */
+.appt-fs { border: 0; margin: 0; padding: 0 0 18px; min-width: 0; }
+.appt-fs + .appt-fs { border-top: 1px solid var(--border); padding-top: 16px; }
+.appt-fs__title { float: right; width: 100%; padding: 0; margin: 0 0 12px; font-size: 14px; font-weight: 700; color: var(--green); }
+.appt-fs > :not(legend) { clear: both; }   /* a floated legend sits inside the section, not on its border */
+.appt-fs .planned-toggle, .appt-fs .planned-note, .appt-fs__note { margin-bottom: 12px; }
+.appt-help { font-size: 12px; font-weight: 400; color: var(--text2); line-height: 1.6; margin-top: -2px; }
 label { font-size: 12px; font-weight: 700; color: var(--text2); }
 input, select, textarea {
   background: var(--bg3);
@@ -835,9 +838,16 @@ textarea { resize: vertical; min-height: 72px; }
     display: inline-block;
   }
   .topbar { padding: 12px 14px; flex-wrap: wrap; gap: 8px; }
+  .topbar.appt-head { position: static; }
   .topbar-title { flex: 1 1 auto; }
-  .view-toggle { order: 3; flex: 1 1 100%; justify-content: stretch; }
-  .view-toggle .view-btn { flex: 1 1 auto; }
+  .appt-head__actions { flex: 1 1 100%; }
+  .appt-head__actions .sd-btn--primary { order: -1; flex: 1 1 100%; }
+  .appt-head__actions .sd-btn--secondary { flex: 1 1 0; }
+  .cal-header { flex-direction: column; align-items: stretch; }
+  .cal-nav { justify-content: space-between; }
+  .cal-month { min-width: 0; flex: 1; font-size: 16px; }
+  .view-toggle { flex: 1 1 100%; justify-content: stretch; }
+  .view-toggle .view-btn { flex: 1 1 0; }
   .form-grid { grid-template-columns: 1fr; }
   .btn-cancel, .btn-save { width: 100%; padding: 12px; text-align: center; }
   .list-actions { display: none; }
@@ -859,12 +869,12 @@ textarea { resize: vertical; min-height: 72px; }
   }
   .day-view-scroll { overflow-x: auto; }
 }
-/* v470: الهاتف — ستةُ تبويباتٍ بصفٍّ واحد كانت تُعصَر فيلتفّ «طلبات الحجز» لسطرين وتُقصّ
-   شارتُه عند الحافة (بلاغ المالك بلقطة). شبكةٌ 3×2 بخلايا متساوية: كلُّ تسميةٍ بسطرٍ واحد
-   والشارةُ كاملة. مقيسٌ بالمتصفح من 320 إلى 560 (dom-smoke/row-actions). */
+/* v470 + C2: the phone — no clipped tab or badge from 320px up (dom-smoke/row-actions). */
 @media (max-width: 560px) {
-  .view-toggle { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .view-toggle .view-btn { padding: 10px 4px; min-height: 40px; }
+  /* Four sections on a phone: a 2×2 grid, every label on one line */
+  .sd-tabs.appt-sections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .appt-head__sub { display: none; }
 }
 @media (max-width: 480px) {
   .cal-day-name { font-size: 10px; }

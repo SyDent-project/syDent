@@ -16,10 +16,10 @@
 /* ── Modal ── v453: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261011a"></script>
+<script src="theme.js?v=20261011b"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261011a"></script>
-<script src="pwd-policy.js?v=20261011a"></script>
+<script src="supabase-init.js?v=20261011b"></script>
+<script src="pwd-policy.js?v=20261011b"></script>
 <!-- ── Cloudflare Turnstile (CAPTCHA) ── Axis 3 / Item 2. Helper defined BEFORE the API
      script so window.onSyDentTurnstileLoad exists when the (async) script fires. -->
 <style>.cf-turnstile-box{margin:2px 0 14px;min-height:65px;display:flex;justify-content:center}/* v304: press feedback */
@@ -530,11 +530,11 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
 .pwd-toggle svg{display:block;width:20px;height:20px;flex-shrink:0;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261011a">
-<script src="sy-modal.js?v=20261011a"></script>
-<script src="sched-blocks.js?v=20261011a"></script>
-<script src="appt-blocks.js?v=20261011a"></script>
-<script src="sidebar.js?v=20261011a"></script>
+<link rel="stylesheet" href="theme.css?v=20261011b">
+<script src="sy-modal.js?v=20261011b"></script>
+<script src="sched-blocks.js?v=20261011b"></script>
+<script src="appt-blocks.js?v=20261011b"></script>
+<script src="sidebar.js?v=20261011b"></script>
 </head>
 <body>
 
@@ -1047,7 +1047,7 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
       <!-- v501: الأوقاتُ المغلقة (M154) من داخل بطاقة الحجز — نفسُ نافذة صفحة المواعيد (appt-blocks.js) -->
       <div class="form-group">
         <label>الأوقات المغلقة — استراحات · إجازات · انقطاع كهرباء (لا تُعرض للمرضى على البوابة ولا تُحجز)</label>
-        <div><button type="button" class="btn bk-blocks-btn" onclick="openBlockModal()" data-sub-write>⛔ حجز وقت على التقويم</button></div>
+        <div><button type="button" class="btn bk-blocks-btn" onclick="openBlockModal()" data-sub-write>⛔ إغلاق وقت في الجدول</button></div>
       </div>
 
       <button type="button" class="btn btn-primary" id="btnSaveBooking" onclick="saveBookingSettings()">حفظ إعدادات الحجز</button>

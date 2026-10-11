@@ -27,7 +27,7 @@ function _sbkEnsureModal() {
     + '<div class="modal-overlay sy-m sy-m-md" id="schedBlockModal">'
     +   '<div class="modal">'
     +     '<div class="modal-header">'
-    +       '<div class="modal-title" id="sbkHeading">حجز وقت على التقويم</div>'
+    +       '<div class="modal-title" id="sbkHeading">إغلاق وقت في الجدول</div>'
     +       '<button class="modal-close" type="button" onclick="closeBlockModal()">×</button>'
     +     '</div>'
     +     '<div class="modal-body">'
@@ -117,7 +117,7 @@ function sbkToggleAllDay() {
 
 function _sbkReset(dateYmd) {
   _sbkEditingId = null;
-  _sbkEl('sbkHeading').textContent = 'حجز وقت على التقويم';
+  _sbkEl('sbkHeading').textContent = 'إغلاق وقت في الجدول';
   _sbkEl('sbkSaveBtn').textContent = 'حفظ';
   _sbkEl('sbkTitle').value = ''; _sbkEl('sbkKind').value = 'break'; _sbkEl('sbkNotes').value = '';
   /* الافتراضي فارغ (قرار المالك): «من» فارغ = من اليوم · «إلى» فارغ = بلا نهاية — فالاستراحة اليومية
