@@ -87,6 +87,12 @@ node "$S/prove-inv-po.js" --self-test | tail -1 || FAIL=1   # C3: جولة ال�
 node "$S/prove-inv-trace.js" --self-test | tail -1 || FAIL=1   # C3b: جولة المخزون 5 — M177 رقمُ الدفعة LOT: الاستلامُ والشراءُ يحملانه · الخصمُ يأخذ الدفعةَ المختارة أولاً ثم FEFO · «المواد ورقم الدفعة» ببطاقة المريض · «تتبّع دفعة» ومرضاها Excel
 node "$S/prove-mat-cost.js" --self-test | tail -1 || FAIL=1   # C3c: كلفةُ المواد بدالّةٍ واحدة للمحاسبة وتبويب «المواد» بالتقارير — مطابقةُ الصيغة السابقة على 400 عيّنة · كلُّ تفصيلٍ يحفظ المجموع لكل عملة · لا ترتيبَ بالمبلغ · أشهرٌ رقمية
 node "$S/prove-inv-harden.js" --self-test | tail -1 || FAIL=1   # C3d: إحكامُ جولة المخزون — M178 قفلُ الصنف عند نموّ الدفعة فقط · تصفيرُ المنتهية · دوالُّ التريغرات مغلقةٌ أمام anon · كشفُ المخزون Excel بعملة كل صنف · LOT بالسجل
+# D1: فحصُ الشاشات — كل صفحة بـ360/412/768/1024/1366 بمتصفحٍ حقيقي (بلا Playwright يتخطّى نفسه؛ workflow «Responsive» يشغّله إلزامياً)
+if [ -n "${SY_SKIP_RESPONSIVE:-}" ]; then
+  echo "⏭ فحص الشاشات: يُشغَّل منفصلاً (SY_SKIP_RESPONSIVE)"
+else
+  node "$S/check-responsive.js" | tail -1 || FAIL=1
+fi
 python3 "$S/dom-smoke/perf-budget/run.py" | tail -1 || FAIL=1   # v555: حارسُ ميزانية الأداء — جولاتُ كل صفحة بمتصفحٍ حقيقي (400ms/طلب) ضمن ميزانيتها
 python3 "$S/dom-smoke/perf-budget/run.py" --self-test | tail -1 || FAIL=1   # v555: … ويحمرّ بسلسلةٍ متتالية محقونة
 node "$S/prove-dash-nextday.js" --self-test | tail -1 || FAIL=1   # v520: تبديلُ اليوم/يوم العمل القادم — التأكيد · التذكير · الهدلُ بيوم ذلك اليوم

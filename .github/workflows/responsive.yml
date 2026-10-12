@@ -1,0 +1,64 @@
+# ════════════════════════════════════════════════════════════════════════
+# SyDent — responsive.yml · فحص الشاشات (D1)
+# ════════════════════════════════════════════════════════════════════════
+# Every app page at 360 / 412 / 768 / 1024 / 1366 px in a real Chromium
+# (scripts/check-responsive.js): no page wider than the screen, no open
+# «أدوات» menu off the screen, no JavaScript error while rendering.
+# Pages are the locally built dist/ with an offline fictional Supabase stub —
+# nothing touches sydent.app or any database, so no secrets are needed.
+#
+# Separate from ci-guards on purpose: installing Chromium has hung before
+# (see .github/actions/e2e-run) and the deploy gate (promote) must not wait
+# on it. This workflow reports on every PR and push; it does not block deploy.
+# ════════════════════════════════════════════════════════════════════════
+name: Responsive
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  screens:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Playwright (e2e workspace — the version pinned in e2e/package.json)
+        working-directory: e2e
+        run: npm ci
+
+      - name: Playwright version
+        id: pwver
+        working-directory: e2e
+        run: echo "version=$(node -p "require('./package.json').devDependencies['@playwright/test'].replace(/^[^0-9]*/,'')")" >> "$GITHUB_OUTPUT"
+
+      - name: Browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ steps.pwver.outputs.version }}-chromium
+
+      - name: Download Chromium (timeout + one retry, no apt)
+        working-directory: e2e
+        run: |
+          for i in 1 2; do
+            if timeout 300 npx playwright install chromium; then exit 0; fi
+            echo "attempt $i failed or exceeded 5 minutes — retrying in 10s"
+            sleep 10
+          done
+          exit 1
+
+      - name: Screens check
+        run: node scripts/check-responsive.js --require
