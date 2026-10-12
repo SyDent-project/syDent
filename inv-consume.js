@@ -6,12 +6,21 @@
        الافتراضية — بالمئات (خطوةُ الحقل 0.01) وبطريقة أكبر الباقي ⇒ المجموعُ يطابق المُدخَل حرفياً.
      • buildLines(rows): صفوفُ النافذة ⇒ [{item_id, qty, session_id}] للقاعدة.
      • run(sb, lines, note) ⇒ {ok, lines} أو {ok:false, error}.
-     • message(res, names): نصُّ التوست — والنقصُ يُعلَن باسم الصنف (#689). */
+     • message(res, names): نصُّ التوست — والنقصُ يُعلَن باسم الصنف (#689).
+     • M177: loadLots(sb, ownerId, itemIds) الدفعاتُ المفتوحة ذاتُ الرقم (LOT) لكل صنف، الأقربُ انتهاءً أولاً ·
+       lotPicker(cls, idx, list) منتقي «الدفعة (LOT)» للنافذتين — الفارغُ «تلقائي» (FEFO كما كان)،
+       والمختارةُ تُخصم أولاً بالقاعدة (batch_id بالسطر). */
 (function () {
   'use strict';
 
   function num(v) { var n = Number(v); return isFinite(n) ? n : 0; }
   function fmt(n) { return (Math.round(num(n) * 100) / 100).toLocaleString('en-US'); }
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function dmy(v) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || '')); return m ? (m[3] + '/' + m[2] + '/' + m[1]) : ''; }
 
   function split(total, contribs) {
     var T = Math.round(num(total) * 100);
@@ -35,7 +44,9 @@
     (rows || []).forEach(function (r) {
       if (!r || !r.item_id) return;
       split(r.qty, r.contribs).forEach(function (s) {
-        out.push({ item_id: r.item_id, qty: s.qty, session_id: s.session_id });
+        var l = { item_id: r.item_id, qty: s.qty, session_id: s.session_id };
+        if (r.batch_id) l.batch_id = r.batch_id;   // M177: الدفعةُ المختارة أولاً
+        out.push(l);
       });
     });
     return out;
@@ -87,5 +98,49 @@
     return '⚠️ ' + (full ? 'تم خصم ' + full + ' مادة · ' : '') + notes.join(' · ');
   }
 
-  window.SyDentInvConsume = { split: split, buildLines: buildLines, run: run, byItem: byItem, message: message };
+  async function loadLots(sb, ownerId, itemIds) {
+    var out = {};
+    if (!sb || !ownerId || !itemIds || !itemIds.length) return out;
+    try {
+      var r = await sb.from('inventory_batches').select('id, item_id, lot, quantity, expiry_date')
+        .eq('owner_id', ownerId).eq('is_finished', false).not('lot', 'is', null).in('item_id', itemIds);
+      if (r.error || !r.data) return out;
+      r.data.filter(function (b) { return b.lot && num(b.quantity) > 0; })
+        .sort(function (a, b) {
+          var ea = a.expiry_date || '9999-12-31', eb = b.expiry_date || '9999-12-31';
+          return ea < eb ? -1 : ea > eb ? 1 : String(a.lot).localeCompare(String(b.lot));
+        })
+        .forEach(function (b) { (out[b.item_id] = out[b.item_id] || []).push(b); });
+    } catch (e) { /* المنتقي اختياري — بلا دفعات يبقى الخصمُ FEFO */ }
+    return out;
+  }
+
+  function lotPicker(cls, idx, list) {
+    if (!list || !list.length) return '';
+    var h = '<label class="sd-lot"><span>الدفعة (LOT)</span><select class="' + esc(cls) + '" data-idx="' + esc(idx) + '">'
+      + '<option value="">تلقائياً — الأقرب انتهاءً</option>';
+    list.forEach(function (b) {
+      h += '<option value="' + esc(b.id) + '">' + esc(b.lot) + ' · المتبقّي ' + esc(fmt(b.quantity))
+        + (b.expiry_date ? ' · ' + esc(dmy(b.expiry_date)) : '') + '</option>';
+    });
+    return h + '</select></label>';
+  }
+
+  /* النافذتان: صفُّ كل مادة بترتيب list ⇒ المنتقي بعده مباشرة (بعد الفتح — لا يؤخّر النافذة) */
+  async function attachLots(sb, ownerId, host, list, cls) {
+    if (!host || !list || !list.length) return;
+    var rows = host.children ? Array.prototype.slice.call(host.children) : [];
+    var lots = await loadLots(sb, ownerId, list.map(function (m) { return m.item_id; }));
+    list.forEach(function (m, i) {
+      var pk = lotPicker(cls, i, lots[m.item_id]);
+      if (pk && rows[i] && rows[i].isConnected) rows[i].insertAdjacentHTML('afterend', pk);
+    });
+  }
+  function pickedLot(host, cls, idx) {
+    var el = (host && typeof host.querySelector === 'function') ? host.querySelector('select.' + cls + '[data-idx="' + idx + '"]') : null;
+    return (el && el.value) || null;
+  }
+
+  window.SyDentInvConsume = { split: split, buildLines: buildLines, run: run, byItem: byItem, message: message,
+    loadLots: loadLots, lotPicker: lotPicker, attachLots: attachLots, pickedLot: pickedLot };
 })();

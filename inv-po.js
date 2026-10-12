@@ -56,7 +56,7 @@
     return (isFinite(n) && n >= 0) ? r2(n) : null;
   }
 
-  /* rows: [{ line, qty (text), expiry ('YYYY-MM-DD' | ''), price (text) }] */
+  /* rows: [{ line, qty (text), expiry ('YYYY-MM-DD' | ''), lot (text), price (text) }] */
   function receiveLines(rows) {
     var out = [];
     (rows || []).forEach(function (r) {
@@ -64,6 +64,8 @@
       if (q == null || !r.line) return;
       var x = { line_id: r.line.id, qty: q };
       if (r.expiry) x.expiry = String(r.expiry);
+      var lot = String(r.lot == null ? '' : r.lot).trim().slice(0, 60);   // M177
+      if (lot) x.lot = lot;
       var pr = parsePrice(r.price);
       if (pr != null) x.price = pr;
       out.push(x);

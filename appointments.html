@@ -2030,6 +2030,7 @@ async function apptPromptMaterialDeductionBulk(completedSessions) {
   if (btn) { btn.disabled = false; btn.textContent = 'تأكيد الخصم'; }
   var mod = document.getElementById('apptMatDeductModal');
   if (mod) mod.classList.add('open');
+  window.SyDentInvConsume.attachLots(window.sb, currentUser.id, rowsEl, _apptMatDeductList, 'appt-mat-deduct-lot');   // M177: منتقي «الدفعة (LOT)»
 }
 
 function closeApptMatDeductModal() {
@@ -2049,7 +2050,8 @@ async function apptConfirmMaterialDeduction() {
     var m = _apptMatDeductList[idx];
     if (!m) return;
     names[m.item_id] = m.name;
-    rows.push({ item_id: m.item_id, qty: q, contribs: m.contribs || [] });
+    rows.push({ item_id: m.item_id, qty: q, contribs: m.contribs || [],
+                batch_id: window.SyDentInvConsume.pickedLot(document.getElementById('apptMatDeductRows'), 'appt-mat-deduct-lot', idx) });
   });
   if (!rows.length) { closeApptMatDeductModal(); return; }
   if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الخصم…'; }

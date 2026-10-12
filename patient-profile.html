@@ -33,6 +33,7 @@
 <script src="sidebar.js?v=20261012b"></script>
 <script src="ref-pick.js?v=20261012b"></script>
 <script src="inv-consume.js?v=20261012b"></script>
+<script src="inv-trace.js?v=20261012b"></script>
 <script src="timepicker.js?v=20261012b"></script>
 <script src="pp-modules.js?v=20261012b"></script>
 <script src="pp-wa.js?v=20261012b"></script>
@@ -99,6 +100,9 @@
         </button>
         <button type="button" class="sd-menu__item" role="menuitem" onclick="openPrintChoice()" data-doctor-inactive-block data-sub-read>
           <span>طباعة أو حفظ PDF<span class="sd-menu__hint">ملف المريض أو كشف الحساب</span></span>
+        </button>
+        <button type="button" class="sd-menu__item" role="menuitem" onclick="openPatientLots()">
+          <span>🧪 المواد ورقم الدفعة<span class="sd-menu__hint">ما استُعمل للمريض من المخزون، ورقم دفعة كل مادة</span></span>
         </button>
       </div>
     </details>
@@ -1903,6 +1907,15 @@
 </div>
 
 <!-- Modal: تأكيد خصم المواد من المخزون (P3-B) -->
+<!-- M177 (inv-trace.js) — المواد ورقم الدفعة: قراءة بحتة -->
+<div class="modal-overlay sy-m sy-m-lg" id="ptLotsModal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>🧪 المواد ورقم الدفعة</h3><button class="modal-close" onclick="closeModal('ptLotsModal')">✕</button></div>
+    <div class="modal-body"><div id="ptLotsBody"></div></div>
+    <div class="modal-foot"><button class="btn-cancel-m" onclick="closeModal('ptLotsModal')">إغلاق</button></div>
+  </div>
+</div>
+
 <div class="modal-overlay sy-m" id="matDeductModal">
   <div class="modal-box">
     <div class="modal-head"><h3>خصم مواد من المخزون</h3><button class="modal-close" onclick="closeModal('matDeductModal')">✕</button></div>
@@ -6151,6 +6164,7 @@ async function maybePromptMaterialDeduction(treatmentId, treatmentName, multipli
   var btn = document.getElementById('matDeductBtn');
   if (btn) { btn.disabled = false; btn.textContent = 'تأكيد الخصم'; }
   openModal('matDeductModal');
+  window.SyDentInvConsume.attachLots(window.sb, currentUser.id, rowsEl, _matDeductList, 'mat-deduct-lot');   // M177: منتقي «الدفعة (LOT)»
 }
 
 async function confirmMaterialDeduction() {
@@ -6166,7 +6180,8 @@ async function confirmMaterialDeduction() {
     var m = _matDeductList[idx];
     if (!m) return;
     names[m.item_id] = m.name;
-    rows.push({ item_id: m.item_id, qty: q, contribs: m.contribs || [] });
+    rows.push({ item_id: m.item_id, qty: q, contribs: m.contribs || [],
+                batch_id: window.SyDentInvConsume.pickedLot(document.getElementById('matDeductRows'), 'mat-deduct-lot', idx) });
   });
   if (!rows.length) { closeModal('matDeductModal'); return; }
 
@@ -6177,6 +6192,25 @@ async function confirmMaterialDeduction() {
   closeModal('matDeductModal');
   if (btn) { btn.disabled = false; btn.textContent = 'تأكيد الخصم'; }
   showToast(window.SyDentInvConsume.message(res, names));
+}
+
+/* M177 — «🧪 المواد ورقم الدفعة»: حركاتُ الاستهلاك المربوطة بهذا المريض (M169) مع رقم دفعة كل مادة */
+var _ptLotsSeq = 0;   // #705
+async function openPatientLots() {
+  var pid = new URLSearchParams(location.search).get('id');
+  var host = document.getElementById('ptLotsBody');
+  var seq = ++_ptLotsSeq;
+  host.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div><div style="margin-top:8px;">جارٍ التحميل…</div></div>';
+  openModal('ptLotsModal');
+  try {
+    var rows = await window.SyDentInvTrace.patientMaterials(window.sb, currentUser.id, pid);
+    if (seq !== _ptLotsSeq) return;
+    host.innerHTML = window.SyDentInvTrace.patientHtml(rows);
+  } catch (e) {
+    if (seq !== _ptLotsSeq) return;
+    console.warn('openPatientLots:', e);
+    host.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div style="margin-top:8px;">تعذّر التحميل — أعد المحاولة</div></div>';
+  }
 }
 
 window.onPTRRefresh = function() { loadAll(); };
