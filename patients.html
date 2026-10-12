@@ -20,7 +20,7 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261012c"></script>
+<script src="theme.js?v=20261012d"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -53,6 +53,7 @@ body {
 /* ─── Main ─── */
 .main {
   flex: 1;
+  min-width: 0;   /* D1: بنداً مرناً لا يتمدّد لعرض الجدول — كان يدفع الصفحة كلها لبرّا الشاشة على التابلت (1024) */
   margin-right: var(--sb-width, 240px);
   display: flex;
   flex-direction: column;
@@ -212,6 +213,7 @@ tbody tr:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; 
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
+  overflow-x: auto;   /* D1: جدولٌ أعرض من مكانه يتمرّر داخل بطاقته لا الصفحة */
 }
 .table-head {
   padding: 14px 20px;
@@ -429,6 +431,8 @@ textarea { resize: vertical; min-height: 80px; }
 /* ─── Responsive ─── */
 @media (max-width: 1100px) {
   .stats-strip { grid-template-columns: repeat(2, 1fr); }
+  /* D1: التابلت (821–1100) — الهاتف وآخر زيارة يُخفيان كما بالموبايل فيتّسع الجدولُ لباقي الأعمدة بلا تمرير */
+  td:nth-child(2), th:nth-child(2), td:nth-child(4), th:nth-child(4) { display: none; }
   /* v363: شريطُ العنوان (بحث + خمسة أزرار + شارة المستخدم) لم يكن يلتفّ إلا تحت 480px،
      فتجاوز العرضَ بين 481 و1100px (حتى 175px على 1024). البحث يأخذ سطراً والأزرار تلتفّ */
 }
@@ -459,6 +463,10 @@ textarea { resize: vertical; min-height: 80px; }
   td, th        { padding: 10px 10px; }
   td:nth-child(3) { padding: 10px 6px; }
 
+}
+
+/* D1: بطاقةُ المريض من التابلت (≤1100) لا من الموبايل وحده — بين 821 و1100 كانت أزرارُ الصف تُقصّ بخليتها */
+@media (max-width: 1100px) {
   /* v470: كلُّ مريضٍ بطاقة — الاسمُ وحالةُ الدفع بالسطر الأول، والأزرارُ سطرٌ كامل تحتهما
      (معيارُ أزرار الصفوف: بالموبايل تنزل الأزرار لسطرٍ خاصّ بعرض البطاقة، كطلبات الحجز).
      كان عمودُ الإجراءات يكدّس الأزرار الثلاثة فوق بعضها بخلية ضيّقة. */
@@ -501,13 +509,13 @@ textarea { resize: vertical; min-height: 80px; }
 }
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261012c">
+<link rel="stylesheet" href="theme.css?v=20261012d">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261012c"></script>
-<script src="sy-modal.js?v=20261012c"></script>
-<script src="pt-reliability.js?v=20261012c"></script>
-<script src="sidebar.js?v=20261012c"></script>
-<script src="ref-pick.js?v=20261012c"></script>
+<script src="supabase-init.js?v=20261012d"></script>
+<script src="sy-modal.js?v=20261012d"></script>
+<script src="pt-reliability.js?v=20261012d"></script>
+<script src="sidebar.js?v=20261012d"></script>
+<script src="ref-pick.js?v=20261012d"></script>
 </head>
 <body>
 <script>

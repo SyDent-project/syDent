@@ -1573,6 +1573,10 @@ select.sd-input {
   .sd-page-head__actions > .sd-btn--primary { order: -1; flex: 1 1 100%; }
   .sd-page-head__actions > .sd-btn--secondary, .sd-page-head__actions > .sd-menu { flex: 1 1 0; }
   .sd-page-head__actions > .sd-menu > summary { width: 100%; }
+  /* D1: the open menu spans the actions row (it sat on the left column and ran off the screen at 360–412) */
+  .sd-page-head__actions { position: relative; }
+  .sd-page-head__actions > .sd-menu { position: static; }
+  .sd-page-head__actions > .sd-menu > .sd-menu__list { inset-inline: 0; top: auto; min-width: 0; margin-top: 6px; }
 }
 @media (max-width: 560px) { .sd-page-head__sub { display: none; } }
 
