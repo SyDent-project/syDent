@@ -843,6 +843,13 @@
 
     // (M141) الانتهاء لم يعد يُعالَج هنا: level ≠ full أو السماح ⇒ SyDentSub أعلاه.
     if (daysLeft <= 0) return;
+    // Arabic number agreement for «يوم»: يوم واحد · يومين · 3–10 أيام · 11+ يوماً
+    function dashDays(n) {
+      if (n === 1) return 'يوم واحد';
+      if (n === 2) return 'يومين';
+      var r = n % 100;
+      return n + (r >= 3 && r <= 10 ? ' أيام' : ' يوماً');
+    }
 
     // === تحديد ما إذا كان يظهر banner أم لا (حسب الخطة) ===
     var showBanner = false;
@@ -853,39 +860,39 @@
       // تجربة: banner دائم بألوان تدريجية (السلوك القديم)
       showBanner = true;
       bannerColor = daysLeft <= 5 ? 'var(--red)' : daysLeft <= 10 ? 'var(--yellow)' : 'var(--green)';
-      bannerText = '⏰ تنتهي تجربتك خلال ' + daysLeft + ' يوم — <a href="subscription.html" style="color:inherit;text-decoration:underline;">تواصل معنا للتجديد</a>';
+      bannerText = '⏰ تنتهي تجربتك خلال ' + dashDays(daysLeft) + ' — <a href="subscription.html" style="color:inherit;text-decoration:underline;">تواصل معنا للتجديد</a>';
     } else if (cycle === 'yearly') {
       // سنوي: banner فقط ≤30 يوم (Notion/Stripe pattern)
       if (daysLeft <= 7) {
         showBanner = true;
         bannerColor = 'var(--red)';
-        bannerText = '🚨 اشتراكك السنوي ينتهي خلال ' + daysLeft + ' يوم — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد فوراً</a>';
+        bannerText = '🚨 اشتراكك السنوي ينتهي خلال ' + dashDays(daysLeft) + ' — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد فوراً</a>';
       } else if (daysLeft <= 30) {
         showBanner = true;
         bannerColor = 'var(--yellow)';
-        bannerText = '⏰ اشتراكك السنوي ينتهي خلال ' + daysLeft + ' يوم — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد الآن</a>';
+        bannerText = '⏰ اشتراكك السنوي ينتهي خلال ' + dashDays(daysLeft) + ' — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد الآن</a>';
       }
     } else if (cycle === 'quarterly') {
       // ربع سنوي (90 يوم): عتبات بين الشهري والسنوي — تحذير ≤21، عاجل ≤5.
       if (daysLeft <= 5) {
         showBanner = true;
         bannerColor = 'var(--red)';
-        bannerText = '🚨 اشتراكك الربعي ينتهي خلال ' + daysLeft + ' يوم — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد فوراً</a>';
+        bannerText = '🚨 اشتراكك الربعي ينتهي خلال ' + dashDays(daysLeft) + ' — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد فوراً</a>';
       } else if (daysLeft <= 21) {
         showBanner = true;
         bannerColor = 'var(--yellow)';
-        bannerText = '⏰ اشتراكك الربعي ينتهي خلال ' + daysLeft + ' يوم — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد الآن</a>';
+        bannerText = '⏰ اشتراكك الربعي ينتهي خلال ' + dashDays(daysLeft) + ' — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد الآن</a>';
       }
     } else if (cycle === 'monthly') {
       // شهري: banner فقط ≤14 يوم (دورة قصيرة، تحذير أبكر نسبياً)
       if (daysLeft <= 3) {
         showBanner = true;
         bannerColor = 'var(--red)';
-        bannerText = '🚨 اشتراكك الشهري ينتهي خلال ' + daysLeft + ' يوم — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد فوراً</a>';
+        bannerText = '🚨 اشتراكك الشهري ينتهي خلال ' + dashDays(daysLeft) + ' — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد فوراً</a>';
       } else if (daysLeft <= 14) {
         showBanner = true;
         bannerColor = 'var(--yellow)';
-        bannerText = '⏰ اشتراكك الشهري ينتهي خلال ' + daysLeft + ' يوم — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد الآن</a>';
+        bannerText = '⏰ اشتراكك الشهري ينتهي خلال ' + dashDays(daysLeft) + ' — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد الآن</a>';
       }
     } else {
       // Phase X11: any custom/added plan (not trial/monthly/yearly). Use the
@@ -894,23 +901,30 @@
       if (daysLeft <= 3) {
         showBanner = true;
         bannerColor = 'var(--red)';
-        bannerText = '🚨 اشتراكك ينتهي خلال ' + daysLeft + ' يوم — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد فوراً</a>';
+        bannerText = '🚨 اشتراكك ينتهي خلال ' + dashDays(daysLeft) + ' — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد فوراً</a>';
       } else if (daysLeft <= 14) {
         showBanner = true;
         bannerColor = 'var(--yellow)';
-        bannerText = '⏰ اشتراكك ينتهي خلال ' + daysLeft + ' يوم — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد الآن</a>';
+        bannerText = '⏰ اشتراكك ينتهي خلال ' + dashDays(daysLeft) + ' — <a href="subscription.html" style="color:inherit;text-decoration:underline;">جدّد الآن</a>';
       }
     }
 
     if (showBanner) {
       var banner = document.createElement('div');
       banner.id = 'trialBanner';
-      // v279: the strip follows the theme (was a fixed navy slab on the light theme)
-      banner.style.cssText = 'background:var(--bg2);box-shadow:0 2px 10px rgba(16,42,67,.12);border-bottom:2px solid ' + bannerColor + ';padding:10px 16px;text-align:center;font-family:Cairo,sans-serif;font-size:13px;font-weight:700;color:' + bannerColor + ';position:fixed;top:0;left:0;right:0;z-index:9999;';
+      banner.setAttribute('role', 'status');
+      // C2: an in-flow strip at the top of the page content — it used to be
+      // position:fixed over the whole screen and covered the sidebar logo and
+      // the page header. Now it pushes the content down and hides nothing.
+      banner.style.cssText = 'background:var(--bg2);border:1px solid ' + bannerColor + ';border-inline-start-width:4px;border-radius:10px;padding:10px 16px;margin:0 0 16px;text-align:center;font-size:13.5px;font-weight:700;line-height:1.7;color:' + bannerColor + ';';
       banner.innerHTML = bannerText;
-      document.body.insertBefore(banner, document.body.firstChild);
-      // أضف padding للصفحة عشان البانر ما يغطي المحتوى
-      document.body.style.paddingTop = '40px';
+      var _placeBanner = function () {
+        var m = document.getElementById('sbMainContent');
+        if (m) m.insertBefore(banner, m.firstChild);
+        else document.body.insertBefore(banner, document.body.firstChild);
+      };
+      if (document.getElementById('sbMainContent')) _placeBanner();
+      else document.addEventListener('DOMContentLoaded', _placeBanner);
     }
   }
 })();
