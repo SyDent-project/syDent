@@ -6,7 +6,9 @@
        with every patient who received from each (inventory «🧪 تتبّع دفعة»).
      • patientHtml(rows) · lotHtml(groups): escaped views; numbers isolated LTR.
      • lotRows(groups) + LOT_HEADERS: one Excel row per patient per batch (the recall list).
-   Quantities are summed per patient and batch; a return (positive change) is not consumption and is skipped. */
+   Quantities are summed per patient and batch; a return (positive change) is not consumption and is skipped.
+     • C3d: stockRows(items, batches, curLbl) + STOCK_HEADERS — the inventory statement (Excel): one row per active
+       item with its stock value in its own currency (no sum across currencies), nearest expiry and open LOTs. */
 (function () {
   'use strict';
 
@@ -124,6 +126,27 @@
     return out;
   }
 
-  window.SyDentInvTrace = { patientMaterials: patientMaterials, searchLot: searchLot, cleanQuery: cleanQuery,
+  var STOCK_HEADERS = ['الصنف', 'الوحدة', 'الكمية', 'حدّ التنبيه', 'سعر الشراء', 'العملة', 'قيمة المخزون', 'أقرب صلاحية', 'أرقام الدفعات (LOT)'];
+  function stockRows(items, batches, curLbl) {
+    var open = {};
+    (batches || []).forEach(function (b) {
+      if (b.is_finished || !(num(b.quantity) > 0)) return;
+      (open[b.item_id] = open[b.item_id] || []).push(b);
+    });
+    var lbl = curLbl || function (c) { return c === 'USD' ? '$' : 'ل.س'; };
+    return (items || []).filter(function (it) { return it.is_active !== false; })
+      .slice().sort(function (a, b) { return String(a.name || '').localeCompare(String(b.name || ''), 'ar'); })
+      .map(function (it) {
+        var bs = open[it.id] || [];
+        var exp = bs.map(function (b) { return b.expiry_date; }).filter(Boolean).sort()[0] || '';
+        var lots = bs.map(function (b) { return b.lot; }).filter(Boolean);
+        var priced = it.purchase_price != null && it.purchase_price !== '' && num(it.purchase_price) > 0;
+        return [it.name || '', it.unit || '', r2(it.quantity), num(it.reorder_level) > 0 ? r2(it.reorder_level) : '',
+          priced ? r2(it.purchase_price) : '', priced ? lbl(it.currency === 'USD' ? 'USD' : 'SYP') : '',
+          priced ? r2(num(it.quantity) * num(it.purchase_price)) : '', exp ? dmy(exp) : '', lots.join('، ')];
+      });
+  }
+
+  window.SyDentInvTrace = { stockRows: stockRows, STOCK_HEADERS: STOCK_HEADERS, patientMaterials: patientMaterials, searchLot: searchLot, cleanQuery: cleanQuery,
     patientHtml: patientHtml, lotHtml: lotHtml, lotRows: lotRows, LOT_HEADERS: LOT_HEADERS, dmy: dmy };
 })();
