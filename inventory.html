@@ -16,7 +16,7 @@
 /* ── Modal ── v448: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261012b"></script>
+<script src="theme.js?v=20261012c"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -199,7 +199,7 @@ button:disabled { opacity:.6; cursor:wait; }
 .po-head h4 { margin:0; font-size:15px; overflow-wrap:anywhere; }
 .po-meta { font-size:12px; color:var(--text2); margin-bottom:10px; overflow-wrap:anywhere; }
 .po-sec { font-size:13px; font-weight:800; margin:16px 0 8px; }
-.po-row { display:grid; grid-template-columns:minmax(0,1fr) 64px 64px 84px 128px 84px; gap:8px; align-items:center; padding:8px 4px; border-bottom:1px solid var(--border); font-size:13px; }
+.po-row { display:grid; grid-template-columns:minmax(0,1fr) 60px 60px 80px 124px 96px 80px; gap:8px; align-items:center; padding:8px 4px; border-bottom:1px solid var(--border); font-size:13px; }
 .po-row.po-h { font-size:11px; color:var(--text2); font-weight:700; border-bottom-width:2px; }
 .po-row .po-nm { font-weight:700; overflow-wrap:anywhere; }
 .po-row .po-un { display:block; font-size:11px; color:var(--text2); font-weight:400; }
@@ -254,15 +254,16 @@ button:disabled { opacity:.6; cursor:wait; }
 /* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
 html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem("],[onclick*="saveMovement("],[onclick*="finishBatch("],[onclick*="openMoveModal("],[onclick*="deleteItem("],[onclick*="finishBatchFromItem("],[onclick*="ivoSetQty("],[onclick*="applyCount("],[onclick*="ivoSave("],[onclick*="poReceive("],[onclick*="poClose("],[onclick*="poFillAll("],[onclick*="poSupSave("],[onclick*="poSupEdit("],[onclick*="poSupHide("],[onclick*="poExpense("],#poRecvForm){display:none !important;}
 </style>
-<link rel="stylesheet" href="theme.css?v=20261012b">
+<link rel="stylesheet" href="theme.css?v=20261012c">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261012b"></script>
-<script src="sy-modal.js?v=20261012b"></script>
-<script src="sidebar.js?v=20261012b"></script>
-<script src="inv-consume.js?v=20261012b"></script>
-<script src="inv-order.js?v=20261012b"></script>
-<script src="inv-count.js?v=20261012b"></script>
-<script src="inv-po.js?v=20261012b"></script>
+<script src="supabase-init.js?v=20261012c"></script>
+<script src="sy-modal.js?v=20261012c"></script>
+<script src="sidebar.js?v=20261012c"></script>
+<script src="inv-consume.js?v=20261012c"></script>
+<script src="inv-order.js?v=20261012c"></script>
+<script src="inv-count.js?v=20261012c"></script>
+<script src="inv-po.js?v=20261012c"></script>
+<script src="inv-trace.js?v=20261012c"></script>
 </head>
 <body>
 
@@ -388,7 +389,8 @@ html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem(
     <div class="card">
       <div class="card-head">
         <span class="card-title">الأصناف</span>
-        <button type="button" class="btn" onclick="openCountModal()">📋 الجرد</button>
+        <span style="display:flex;gap:8px;flex-wrap:wrap;"><button type="button" class="btn" onclick="openLotModal()">🧪 تتبّع دفعة (LOT)</button>
+        <button type="button" class="btn" onclick="openCountModal()">📋 الجرد</button></span>
       </div>
       <div id="itemsList"><div class="empty"><div class="empty-icon">⏳</div><div style="margin-top:8px;">جارٍ التحميل…</div></div></div>
     </div>
@@ -482,6 +484,8 @@ html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem(
       <div class="form-group" id="moveExpiryGroup">
         <label>تاريخ صلاحية هذه الشحنة <span style="color:var(--text2);font-weight:400;">(اختياري)</span></label>
         <input type="date" id="moveExpiry">
+        <label style="margin-top:10px;">رقم الدفعة LOT <span style="color:var(--text2);font-weight:400;">(اختياري — للزرعات والطعوم)</span></label>
+        <input type="text" id="moveLot" maxlength="60" dir="ltr" placeholder="LOT" autocomplete="off">
       </div>
       <div class="form-group">
         <label>ملاحظة</label>
@@ -539,6 +543,25 @@ html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem(
     </div>
     <div class="modal-foot">
       <button class="btn-cancel-m" onclick="closeModal('poModal')">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: تتبّع دفعة (M177 — inv-trace.js) — قراءة بحتة -->
+<div class="modal-overlay sy-m sy-m-lg" id="lotModal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>🧪 تتبّع دفعة (LOT)</h3><button class="modal-close" onclick="closeModal('lotModal')">✕</button></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">اكتب رقم الدفعة كما هو على العبوة (أو جزءاً منه) لتعرف كل مريضٍ استُعملت له — مثلاً عند سحب المورّد لدفعة.</div>
+      <form class="po-tools" onsubmit="lotSearch();return false;">
+        <input type="text" id="lotQ" maxlength="60" dir="ltr" placeholder="LOT" autocomplete="off" style="flex:1;min-width:160px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);font-family:inherit;">
+        <button type="submit" class="btn btn-primary">🔎 بحث</button>
+        <button type="button" class="btn" onclick="lotExport()">⬇️ Excel</button>
+      </form>
+      <div id="lotRes"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel-m" onclick="closeModal('lotModal')">إغلاق</button>
     </div>
   </div>
 </div>
@@ -700,7 +723,7 @@ function renderExpiry() {
         var nm = it ? it.name : '—';
         var un = it && it.unit ? it.unit : '';
         return '<tr>'
-          + '<td><strong>' + escapeHtml(nm) + '</strong></td>'
+          + '<td><strong>' + escapeHtml(nm) + '</strong>' + (b.lot ? '<div style="font-size:11px;color:var(--text2);">LOT <bdi dir="ltr">' + escapeHtml(b.lot) + '</bdi></div>' : '') + '</td>'
           + '<td style="white-space:nowrap;">' + escapeHtml(batchQtyText(b, un)) + '</td>'
           + '<td style="color:var(--text2);white-space:nowrap;">' + escapeHtml(SyDT.numDate(b.expiry_date) || b.expiry_date) + '</td>'
           + '<td>' + expiryBadge(b.expiry_date) + '</td>'
@@ -918,7 +941,8 @@ function itemExpiryUiRefresh() {
     for (var i = 0; i < batches.length; i++) {
       var b = batches[i];
       h += '<div class="ib-row" data-bid="' + escapeHtml(b.id) + '" data-orig="' + escapeHtml(b.expiry_date || '') + '" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">'
-        + '<span style="flex:1;font-size:12px;color:var(--text2);">' + (b.quantity != null ? ('متبقٍّ ' + escapeHtml(batchQtyText(b, ''))) : 'بلا كمية') + (b.note ? ' · ' + escapeHtml(b.note) : '') + '</span>'
+        + '<span style="flex:1;font-size:12px;color:var(--text2);">' + (b.lot ? '<bdi dir="ltr">' + escapeHtml(b.lot) + '</bdi> · ' : '') + (b.quantity != null ? ('متبقٍّ ' + escapeHtml(batchQtyText(b, ''))) : 'بلا كمية') + (b.note ? ' · ' + escapeHtml(b.note) : '') + '</span>'
+        + (b.lot ? '<button type="button" class="btn-cancel-m" style="padding:6px 8px;font-size:12px;" onclick="openLotModal(this.dataset.lot)" data-lot="' + escapeHtml(b.lot) + '" title="المرضى الذين استُعملت لهم هذه الدفعة">👥 المرضى</button>' : '')
         + '<input type="date" class="ib-date" value="' + escapeHtml(b.expiry_date || '') + '" style="flex:0 0 150px;">'
         + '<button type="button" class="btn-cancel-m" style="padding:6px 8px;font-size:12px;" onclick="finishBatchFromItem(\'' + escapeHtml(b.id) + '\')" title="تعليم كمنتهية/مستهلكة">منتهية</button>'
         + '</div>';
@@ -941,8 +965,10 @@ async function _finishBatchFromItem_inner(batchId) {
   itemExpiryUiRefresh();           /* loadItems أعادت تحميل BATCHES */
 }
 /* حمولة الدفعة — مرآة سطر إدراج دفعة الشراء بـsaveMovement حرفياً (الحارس يقارنهما) */
-function batchPayload(itemId, q, expVal, note) {
-  return { owner_id: currentUser.id, item_id: itemId, quantity: q, expiry_date: expVal, note: note };
+function batchPayload(itemId, q, expVal, note, lot) {
+  var b = { owner_id: currentUser.id, item_id: itemId, quantity: q, expiry_date: expVal, note: note };
+  if (lot) b.lot = lot;   // M177
+  return b;
 }
 
 async function saveItem() {
@@ -1082,6 +1108,7 @@ function openMoveModal(itemId, presetReason) {
   document.getElementById('moveQty').value = '';
   document.getElementById('moveAdjustTo').value = '';
   var _me = document.getElementById('moveExpiry'); if (_me) _me.value = '';
+  var _ml = document.getElementById('moveLot'); if (_ml) _ml.value = '';
   document.getElementById('moveNote').value = '';
   onMoveReasonChange();
   openModal('moveModal');
@@ -1113,9 +1140,12 @@ async function saveMovement() {
   var note = (document.getElementById('moveNote').value || '').trim() || null;
   var _mexp = document.getElementById('moveExpiry');
   var expVal = (reason === 'purchase' && _mexp) ? (_mexp.value || null) : null;
+  var _mlot = document.getElementById('moveLot');
+  var lotVal = (reason === 'purchase' && _mlot) ? ((_mlot.value || '').trim().slice(0, 60) || null) : null;   // M177
   // ملاحظة الحركة بالسجل: أضف الصلاحية عند الشراء
   var movNote = note;
   if (expVal) movNote = (note ? note + ' · ' : '') + 'صلاحية حتى ' + expVal;
+  if (lotVal) movNote = (movNote ? movNote + ' · ' : '') + 'LOT ' + lotVal;
   var cur = Number(it.quantity || 0);
   var change, newQty, q, to;
 
@@ -1178,9 +1208,9 @@ async function saveMovement() {
       .update({ quantity: newQty }).eq('id', moveItemId).eq('owner_id', currentUser.id);
     if (upd.error) throw upd.error;
     // 3) دفعة الصلاحية (شراء فقط، وفقط لو أُدخل تاريخ) — best-effort: فشلها لا يكسر الحركة
-    if (expVal) {
+    if (expVal || lotVal) {
       try {
-        await window.sb.from('inventory_batches').insert(batchPayload(moveItemId, q, expVal, note));   /* v269: حمولة واحدة لكل مداخل الدفعة */
+        await window.sb.from('inventory_batches').insert(batchPayload(moveItemId, q, expVal, note, lotVal));   /* v269: حمولة واحدة لكل مداخل الدفعة · M177: والرقم */
       } catch (be) { console.warn('batch insert:', be); }
     }
     closeModal('moveModal');
@@ -1427,7 +1457,7 @@ async function poOpenOrder(id) {
     });
     o.inventory_order_lines = lines.map(function(l){ return { id: l.id, item_id: l.item_id, qty_ordered: l.qty_ordered, qty_received: l.qty_received }; });
     _po.view = { order: o, lines: lines, receipts: res[1].data || [],
-      rows: lines.map(function(l){ return { line: l, qty: '', expiry: '', price: '' }; }) };
+      rows: lines.map(function(l){ return { line: l, qty: '', expiry: '', lot: '', price: '' }; }) };
     poRenderOrder();
   } catch (e) {
     if (seq !== _poSeq) return;
@@ -1448,7 +1478,7 @@ function poRenderOrder() {
   h += '<div class="po-meta">أُنشئت بتاريخ <bdi dir="ltr">' + escapeHtml(SyDT.numDate(o.created_at)) + '</bdi>' + (o.note ? ' · ' + escapeHtml(o.note) : '') + '</div>';
   if (open) {
     h += '<div id="poRecvForm"><div class="po-sec">📥 تسجيل ما وصل الآن</div>'
-      + '<div class="po-row po-h"><div>الصنف</div><div class="po-n">المطلوب</div><div class="po-n">وصل سابقاً</div><div>الواصل الآن</div><div>الصلاحية (اختياري)</div><div>سعر الوحدة</div></div>';
+      + '<div class="po-row po-h"><div>الصنف</div><div class="po-n">المطلوب</div><div class="po-n">وصل سابقاً</div><div>الواصل الآن</div><div>الصلاحية (اختياري)</div><div>رقم الدفعة LOT</div><div>سعر الوحدة</div></div>';
     h += v.rows.map(function(r, i){
       var l = r.line, it = poItemOf(l), rem = P.remaining(l);
       return '<div class="po-row' + (rem <= 0 ? ' po-done' : '') + '"><div class="po-nm">' + escapeHtml(it.name || '—')
@@ -1457,11 +1487,12 @@ function poRenderOrder() {
         + '<div class="po-n" data-l="وصل سابقاً">' + fmtNum(l.qty_received) + '</div>'
         + '<div class="po-in" data-l="الواصل الآن"><input type="number" min="0" step="any" inputmode="decimal" data-po-i="' + i + '" data-po-f="qty" value="' + escapeHtml(r.qty) + '" placeholder="0" aria-label="الواصل الآن — ' + escapeHtml(it.name || '') + '" oninput="poInput(this)"></div>'
         + '<div class="po-in" data-l="الصلاحية"><input type="date" data-po-i="' + i + '" data-po-f="expiry" value="' + escapeHtml(r.expiry) + '" aria-label="الصلاحية — ' + escapeHtml(it.name || '') + '" oninput="poInput(this)"></div>'
+        + '<div class="po-in" data-l="رقم الدفعة LOT"><input type="text" maxlength="60" dir="ltr" data-po-i="' + i + '" data-po-f="lot" value="' + escapeHtml(r.lot) + '" placeholder="LOT" aria-label="رقم الدفعة — ' + escapeHtml(it.name || '') + '" oninput="poInput(this)"></div>'
         + '<div class="po-in" data-l="سعر الوحدة"><input type="number" min="0" step="any" inputmode="decimal" data-po-i="' + i + '" data-po-f="price" value="' + escapeHtml(r.price) + '" placeholder="' + (l.unit_price != null ? escapeHtml(fmtNum(l.unit_price)) : 'بلا سعر') + '" aria-label="سعر الوحدة — ' + escapeHtml(it.name || '') + '" oninput="poInput(this)"></div>'
         + '</div>';
     }).join('');
     h += '<div class="form-group" style="margin-top:10px;"><label>ملاحظة الاستلام — اختياري</label><input type="text" id="poRecvNote" maxlength="300" placeholder="مثلاً: رقم فاتورة المورّد"></div>'
-      + '<div style="font-size:11px;color:var(--text2);">الصلاحية تفتح دفعةً مستقلة لتنبيه الانتهاء. السعر يُترك فارغاً إذا لم يتغيّر — ويصبح سعرَ الشراء المسجّل للصنف إن كُتب. «أغلق الطلبية» حين لا يُنتظر وصول الباقي.</div>'
+      + '<div style="font-size:11px;color:var(--text2);">الصلاحية أو رقم الدفعة يفتحان دفعةً مستقلة (لتنبيه الانتهاء ولتتبّع المرضى). السعر يُترك فارغاً إذا لم يتغيّر — ويصبح سعرَ الشراء المسجّل للصنف إن كُتب. «أغلق الطلبية» حين لا يُنتظر وصول الباقي.</div>'
       + '<div class="po-acts"><button type="button" class="btn" onclick="poFillAll()">📥 وصل كل المتبقّي</button>'
       + '<button type="button" class="btn btn-primary" onclick="poReceive()">✅ سجّل الاستلام</button>'
       + '<button type="button" class="btn" onclick="poClose()" title="إن لم يكن الباقي سيصل">🔒 أغلق الطلبية</button></div></div>';
@@ -1664,6 +1695,42 @@ async function _ivoSave_inner() {
   } catch (e) { console.error('ivoSave:', e); showToast('⚠️ ' + poErrText(e), true); }
 }
 var ivoSave = iGuarded('ivoSave', _ivoSave_inner, 'جارٍ الحفظ…');
+
+/* ---------- تتبّع دفعة (M177 — inv-trace.js) — قراءة بحتة ---------- */
+var _lotGroups = [];
+var _lotSeq = 0;           // #705
+function openLotModal(prefill) {
+  var q = document.getElementById('lotQ');
+  q.value = (typeof prefill === 'string') ? prefill : '';
+  _lotGroups = [];
+  document.getElementById('lotRes').innerHTML = '';
+  openModal('lotModal');
+  if (q.value) lotSearch(); else setTimeout(function(){ q.focus(); }, 80);
+}
+async function lotSearch() {
+  var q = (document.getElementById('lotQ').value || '').trim();
+  var host = document.getElementById('lotRes');
+  if (window.SyDentInvTrace.cleanQuery(q).length < 2) { showToast('⚠️ اكتب حرفين على الأقل من رقم الدفعة', true); return; }
+  var seq = ++_lotSeq;
+  host.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div><div style="margin-top:8px;">جارٍ البحث…</div></div>';
+  try {
+    var g = await window.SyDentInvTrace.searchLot(window.sb, currentUser.id, q);
+    if (seq !== _lotSeq) return;
+    _lotGroups = g;
+    host.innerHTML = window.SyDentInvTrace.lotHtml(g);
+  } catch (e) {
+    if (seq !== _lotSeq) return;
+    console.warn('lotSearch:', e);
+    host.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div style="margin-top:8px;">' + escapeHtml(isTableMissing(e) || /lot/.test(String(e && e.message)) ? 'ميزة رقم الدفعة غير مفعّلة بعد — طبّق Migration 177' : 'تعذّر البحث — أعد المحاولة') + '</div></div>';
+  }
+}
+function lotExport() {
+  var rows = window.SyDentInvTrace.lotRows(_lotGroups);
+  if (!rows.length) { showToast('لا يوجد مرضى في نتيجة البحث لتصديرهم'); return; }
+  window.SyDentXlsx.save({ filename: 'sydent-lot-' + window.SyDentXlsx.today(), sheetName: 'مرضى الدفعة',
+    headers: window.SyDentInvTrace.LOT_HEADERS, rows: rows })
+    .then(function(){ showToast('⬇️ نزّلت قائمة المرضى'); }, function(){ showToast('⚠️ تعذّر التصدير', true); });
+}
 
 /* ---------- الجرد الدوري (M171 — inv-count.js) ---------- */
 var _ivc = [];            // [{ it, seen, counted (نص الخانة) }]

@@ -889,9 +889,9 @@ try {
   if (KIT.indexOf(KPAR + ' > :is(.modal-box, .modal, .modal-card)') === -1) {
     stMism++; bad('theme.css (عُدّة النوافذ): قاعدة تراجع/تعطيل الأب (:has) مفقودة');
   }
-  [['appointments.html', 5] /* v501: نافذةُ الحجوزات تُحقن من appt-blocks.js */, ['patients.html', 4], ['patient-profile.html', 34],
+  [['appointments.html', 5] /* v501: نافذةُ الحجوزات تُحقن من appt-blocks.js */, ['patients.html', 4], ['patient-profile.html', 35] /* C3b: المواد ورقم الدفعة */,
    ['treatments.html', 2], ['doctors.html', 1], ['employees.html', 2], ['payouts.html', 1],
-   ['expenses.html', 2], ['inventory.html', 6] /* C3: نافذةُ الطلبيات والموردين */, ['labs.html', 3],
+   ['expenses.html', 2], ['inventory.html', 7] /* C3: نافذةُ الطلبيات والموردين · C3b: تتبّعُ الدفعة */, ['labs.html', 3],
    ['provider-reports.html', 3], ['audit-log.html', 1],
    ['settings.html', 5], ['learn.html', 1], ['subscription.html', 2], ['auth.html', 1], ['admin.html', 6]].forEach(([f, n]) => {
     const h = read(f);
@@ -2316,7 +2316,7 @@ try {
     'quickSchedulePlannedFromProfile', 'editPlannedFromProfile', 'deletePlannedFromProfile', 'pfDeleteFile', 'planNewVisit', 'planLinkVisitPick', 'planLinkVisit', 'ppFlagsToggleEdit', 'ppFlagToggle'];
   // عناصرُ تحمل بيانات (سنٌّ بالمخطط · نقطةُ نزف · شريحةُ مراقبة · سجلُّ زرعة) — تبقى ظاهرة ويحرسها أولُ سطرٍ بالدالة
   const PP_GUARD = ['openToothModal', 'openImplantLog', 'perioBop', 'endToothWatch'];
-  const PP_READ = ['switchTab', 'switchTabByName', 'famFilter', 'printChart', 'showDentSeg', 'toggleHistoryMode', 'historyStep', 'historyGo',
+  const PP_READ = ['switchTab', 'openPatientLots', 'switchTabByName', 'famFilter', 'printChart', 'showDentSeg', 'toggleHistoryMode', 'historyStep', 'historyGo',
     'historyToday', 'onTlTypeChip', 'onTlDateRangeChange', 'onTlSearchInput', 'onTlLoadMore', 'perioPickExam', 'perioToggleCompare', 'perioPrint',
     'pfApplyToothFilter', 'closeModal', 'openPrintChoice', 'doPrintRecord', 'openStatementModal', 'printTreatmentPlan', 'copyTreatmentPlan',
     'stmtSetPreset', 'printStatement', 'copyStatement', 'printPrescription', 'copyPrescription', 'printPostOp', 'copyPostOp',
@@ -2440,7 +2440,8 @@ try {
       "write": ["openItemModal", "saveItem", "saveMovement", "finishBatch", "openMoveModal", "deleteItem", "finishBatchFromItem", "ivoSetQty", "applyCount",
                 "ivoSave", "poReceive", "poClose", "poFillAll", "poSupSave", "poSupEdit", "poSupHide", "poExpense"],
       "guard": ["invRowOpen"],
-      "read": ["closeModal", "openHistory", "openOrderModal", "openCountModal", "openPoModal", "poTab", "poOpenOrder", "poBack", "poSend", "poMore", "poSupCancel"],
+      "read": ["closeModal", "openHistory", "openOrderModal", "openCountModal", "openPoModal", "poTab", "poOpenOrder", "poBack", "poSend", "poMore", "poSupCancel",
+               "openLotModal", "lotSearch", "lotExport"],
       "inert": ["mgFillExample", "itemExpiryUiRefresh", "onMoveReasonChange", "poInput"],
       "extra": ["#poRecvForm"]   /* C3: نموذجُ الاستلام (خاناتُ الكمية والصلاحية والسعر) — كتابة */
     },
