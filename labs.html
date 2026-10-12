@@ -70,6 +70,7 @@ body {
   position: sticky; top: 0; z-index: 50;
 }
 .topbar-title { font-size: 20px; font-weight: 700; flex: 1; }
+.lab-search { max-width: none !important; margin-bottom: 16px; }
 .topbar-title span { color: var(--green); }
 
 .search-wrap { position: relative; flex: 1; max-width: 380px; }
@@ -587,16 +588,21 @@ html[data-sub-level="read"] :is([onclick*="openLabOrderModal("],[onclick*="openL
 
 <div class="main" id="sbMainContent">
 
-  <div class="topbar">
-    <div class="topbar-title">إدارة <span>المخابر</span></div>
-    <div class="search-wrap">
-      <span class="search-icon">🔍</span>
-      <input type="text" id="searchInput" placeholder="بحث باسم المريض أو المخبر…">
+  <div class="topbar sd-page-head">
+    <div class="sd-page-head__text">
+      <h1 class="topbar-title">المخابر</h1>
+      <p class="sd-page-head__sub">طلبات المخبر لكل مريض من الإرسال حتى التسليم، وحساب كل مخبر وما دُفع له.</p>
     </div>
-    <button class="btn-add" onclick="openLabOrderModal()" data-doctor-inactive-block>＋ طلب جديد</button>
+    <div class="sd-page-head__actions">
+      <button type="button" class="sd-btn sd-btn--primary" onclick="openLabOrderModal()" data-doctor-inactive-block>＋ طلب جديد</button>
+    </div>
   </div>
 
   <div class="content">
+    <div class="search-wrap lab-search">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="searchInput" placeholder="ابحث باسم المريض أو المخبر…" aria-label="بحث في طلبات المخبر">
+    </div>
 
     <!-- Stats -->
     <div class="stats-strip">
