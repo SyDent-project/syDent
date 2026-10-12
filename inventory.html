@@ -226,14 +226,14 @@ html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem(
 <body>
 
 <div class="main" id="sbMainContent">
-  <div class="topbar">
-    <div style="display:flex;align-items:center;">
-      <div>
-        <h1>المخزون</h1>
-        <div class="sub">إدارة مواد ومستلزمات العيادة</div>
-      </div>
+  <div class="topbar sd-page-head">
+    <div class="sd-page-head__text">
+      <h1 class="topbar-title">المخزون</h1>
+      <p class="sd-page-head__sub">مواد العيادة ومستلزماتها، وكمياتها، وتنبيهات النقص وانتهاء الصلاحية.</p>
     </div>
-    <button class="btn btn-primary" onclick="openItemModal()">صنف جديد</button>
+    <div class="sd-page-head__actions">
+      <button type="button" class="sd-btn sd-btn--primary" onclick="openItemModal()">＋ صنف جديد</button>
+    </div>
   </div>
 
   <div class="content">

@@ -26,7 +26,7 @@ const FILES = ['provider-reports.html', 'settings.html', 'treatments.html'];
 const base = {}; FILES.forEach(f => { base[f] = read(f); });
 const rep = (f, a, b) => F => Object.assign({}, F, { [f]: F[f].replace(a, b) });
 const MUTANTS = [
-  ['settings back to hidden scroll', rep('settings.html', '  .stg-nav{top:56px;}', '  .stg-nav{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;top:56px;}')],
+  ['settings back to hidden scroll', rep('settings.html', '  .stg-nav{top:8px;}', '  .stg-nav{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;top:8px;}')],
   ['chips back to hidden scroll', rep('treatments.html', '  .flt-row .filter-chips{flex:none;width:100%;flex-wrap:wrap;}', '  .flt-row .filter-chips{flex:none;width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;}')],
   ['reports tabs back to a scroll strip', rep('provider-reports.html', '.rpt-tabs{display:grid;grid-template-columns', '.rpt-tabs{display:flex;grid-template-columns')]
 ];

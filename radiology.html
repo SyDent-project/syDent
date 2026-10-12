@@ -95,8 +95,11 @@ body { font-family:'Noto Kufi Arabic','Cairo',sans-serif; background:var(--bg); 
 </head>
 <body>
 <div class="main" id="sbMainContent">
-  <div class="topbar">
-    <div class="topbar-title">التصوير الشعاعي<div class="topbar-sub">كل صور الأشعة والصور السريرية لمرضى العيادة بمكان واحد</div></div>
+  <div class="topbar sd-page-head">
+    <div class="sd-page-head__text">
+      <h1 class="topbar-title">التصوير الشعاعي</h1>
+      <p class="sd-page-head__sub">صور الأشعة والصور السريرية لجميع مرضى العيادة في مكان واحد. تُرفع الصور من ملف المريض.</p>
+    </div>
   </div>
   <div class="content">
     <div class="rx-tabs" role="tablist" id="rxTabs">
@@ -107,7 +110,7 @@ body { font-family:'Noto Kufi Arabic','Cairo',sans-serif; background:var(--bg); 
 
     <div class="stats">
       <div class="stat-card"><div class="stat-label">إجمالي الصور</div><div class="stat-num" id="stTotal">—</div></div>
-      <div class="stat-card"><div class="stat-label">هالشهر</div><div class="stat-num" id="stMonth">—</div></div>
+      <div class="stat-card"><div class="stat-label">هذا الشهر</div><div class="stat-num" id="stMonth">—</div></div>
       <div class="stat-card"><div class="stat-label">عدد المرضى</div><div class="stat-num" id="stPatients">—</div></div>
       <div class="stat-card"><div class="stat-label">مربوطة بسن</div><div class="stat-num" id="stTooth">—</div></div>
     </div>
@@ -116,7 +119,7 @@ body { font-family:'Noto Kufi Arabic','Cairo',sans-serif; background:var(--bg); 
       <input type="search" id="rxSearch" placeholder="🔍  بحث باسم المريض أو اسم الملف…" oninput="rxRender()" aria-label="بحث">
       <select id="rxPeriod" onchange="rxRender()" aria-label="الفترة">
         <option value="all">كل الفترات</option>
-        <option value="30">آخر 30 يوم</option>
+        <option value="30">آخر 30 يوماً</option>
         <option value="90">آخر 3 أشهر</option>
         <option value="365">آخر سنة</option>
       </select>
@@ -252,10 +255,10 @@ function rxRender() {
   var area = document.getElementById('rxArea');
   if (!rxList.length) {
     area.innerHTML = '<div class="empty">' + rxIcon(true)
-      + '<div class="empty-title">' + (all.length ? 'ما في نتائج' : 'لسا ما في ' + escapeHtml(RX_CATS[rxCat])) + '</div>'
+      + '<div class="empty-title">' + (all.length ? 'لا توجد نتائج' : 'لا توجد ' + escapeHtml(RX_CATS[rxCat]) + ' بعد') + '</div>'
       + '<div class="empty-sub">' + (all.length
-          ? 'جرّب تغيّر البحث أو الفترة أو السن.'
-          : 'الصور بتنرفع من ملف المريض ← تبويب «الملفات» بتصنيف «' + escapeHtml(RX_CATS[rxCat] === 'أشعة' ? 'أشعة' : 'صورة سريرية') + '»، وبتظهر هون تلقائياً.')
+          ? 'جرّب تغيير البحث أو الفترة أو السن.'
+          : 'تُرفع الصور من ملف المريض ← تبويب «الملفات» بتصنيف «' + escapeHtml(RX_CATS[rxCat] === 'أشعة' ? 'أشعة' : 'صورة سريرية') + '»، وتظهر هنا تلقائياً.')
       + '</div></div>';
     return;
   }
