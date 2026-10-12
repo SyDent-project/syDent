@@ -26,6 +26,7 @@
 <script src="rpt-att.js?v=20261012c"></script>
 <script src="rpt-ret.js?v=20261012c"></script>
 <script src="rpt-sum.js?v=20261012c"></script>
+<script src="mat-cost.js?v=20261012c"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -453,6 +454,7 @@ html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutMo
     <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="new" onclick="setRptTab('new')">🆕 المرضى الجدد</button>
     <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="att" onclick="setRptTab('att')">📅 الحضور والغياب</button>
     <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="ret" onclick="setRptTab('ret')">🔁 الاحتفاظ</button>
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="mat" onclick="setRptTab('mat')">🧪 المواد</button>
     <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="sum" onclick="setRptTab('sum')">📄 ملخّص الفترة</button>
   </div></div>
 
@@ -536,6 +538,7 @@ html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutMo
   <div id="retHost" class="rt-host" hidden></div>
 
   <!-- v545: ملخّصُ الفترة — للطباعة والإرسال (rpt-sum.js) -->
+  <div id="matHost" class="rt-host" hidden></div>
   <div id="sumHost" class="rt-host" hidden></div>
 
 </div>
@@ -1055,6 +1058,7 @@ async function _loadFilteredDataCore(gate) {
   renderAtt();     // v541
   renderRet();     // v542
   renderSum();     // v545
+  _matData = null; renderMat();   // C3c: تبويبُ المواد يُعاد جلبُه مع كل تحميل (يجلب فقط والتبويبُ ظاهر)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2623,6 +2627,7 @@ var RPT_SUB = {
   new:   'المرضى الجدد: كم ومنين إجوا ومين استقبلهم وقدّيش جابوا — ومَن سجّل وما بلّش',
   att:   'الحضور والغياب: كم موعد ضاع وعند مين وبأي يوم وساعة — ومين المكرّرين',
   ret:   'الاحتفاظ: كم مريض نشط وعم يكبر العدد ولا يصغر — ومين فقدنا ومين طلع بلا موعد جاي',
+  mat:   'المواد المستهلكة: كلفتُها التقديرية بسعر الشراء — حسب المادة أو الشهر أو العلاج أو الطبيب',
   sum:   'ملخّص الفترة: صفحةٌ واحدة مقابل السابقة ونفس الفترة من السنة الماضية — للطباعة أو الواتساب'
 };
 function setRptTab(t, noSync) {
@@ -2644,6 +2649,8 @@ function setRptTab(t, noSync) {
   if (rHost) rHost.hidden = (t !== 'ret');
   var sHost = document.getElementById('sumHost');
   if (sHost) sHost.hidden = (t !== 'sum');
+  var mHost = document.getElementById('matHost');
+  if (mHost) mHost.hidden = (t !== 'mat');
   var sub = document.getElementById('rptSub');
   if (sub) sub.textContent = RPT_SUB[t];
   renderTreat();
@@ -2651,6 +2658,7 @@ function setRptTab(t, noSync) {
   renderAtt();
   renderRet();
   renderSum();
+  renderMat();
   if (!noSync) syncUrl();
 }
 async function loadTrtCatalog() {
@@ -3382,6 +3390,7 @@ async function exportExcel() {
   if (rptTab === 'att') return exportAttExcel();       // v541
   if (rptTab === 'ret') return exportRetExcel();       // v542
   if (rptTab === 'sum') return exportSumExcel();       // v545
+  if (rptTab === 'mat') return exportMatExcel();       // C3c
   if (!doctors.length) { showToast('لا يوجد أطباء للتصدير'); return; }
   // v309: xlsx حقيقي عبر المصدر الواحد SyDentXlsx (تحميلٌ كسول للمكتبة + احتياط TSV بلا إنترنت).
   var btn = document.getElementById('exportXlsxBtn');
@@ -3401,6 +3410,83 @@ async function exportExcel() {
     showToast(kind === 'xlsx' ? '⬇️ تم تصدير ملف Excel' : '⬇️ تعذّر Excel — صُدّر ملف TSV بديل');
   } catch (e) { console.error('exportExcel:', e); showToast('⚠️ تعذّر التصدير'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = old; } }
+}
+
+// ═══ C3c — تبويبُ «🧪 المواد»: كلفةُ المواد المستهلكة بالدالّة نفسها التي تعرضها المحاسبة (mat-cost.js — #684، #722) ═══
+// تقديريٌّ للعرض فقط — لا يدخل أي معادلة ربح. حركاتُ الاستهلاك (M169) تحمل الجلسة والطبيب، فالعلاجُ من الجلسة
+// والطبيبُ من الحركة. الفترةُ هي فترةُ الصفحة؛ فلاترُ الطبيب/النوع لا تُقيّده (يُعرض تفصيلُه حسب الطبيب).
+var _matData = null, _matSeq = 0, _matMode = 'item', _matLast = null;
+var MAT_MODES = { item: 'المادة', month: 'الشهر', treat: 'العلاج', doc: 'الطبيب' };
+function _matKey() { return document.getElementById('fromDate').value + '|' + document.getElementById('toDate').value; }
+async function loadMatData(key) {
+  var seq = ++_matSeq;
+  _matData = { key: key, loading: true };
+  var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+  var d = { key: key, loading: false, failed: false, movs: [], prices: {} };
+  try {
+    var ir = await window.SyDentFetchAll(function(){ return window.sb.from('inventory_items')
+      .select('id, name, unit, purchase_price, currency').eq('owner_id', currentUser.id); });
+    if (ir.error) throw ir.error;
+    var mr = await window.SyDentFetchAll(function(){ return window.sb.from('inventory_movements')
+      .select('id, item_id, change, reason, created_at, provider_id, session_id, ledger_sessions(type)')
+      .eq('owner_id', currentUser.id).eq('reason', 'consume')
+      .gte('created_at', widenStartUtc(from)).lte('created_at', widenEndUtc(to)); });
+    if (mr.error) throw mr.error;
+    d.prices = window.SyDentMatCost.prices(ir.data || [], _rowCur);
+    d.movs = (mr.data || []).filter(function(m){ return inLocalRange(m.created_at, from, to); });
+  } catch (e) { console.warn('materials report:', e); d.failed = true; }
+  if (seq !== _matSeq) return;
+  _matData = d;
+  renderMat();
+}
+function setMatMode(m) { if (MAT_MODES[m]) { _matMode = m; renderMat(); } }
+function _matModel(d, mode) {
+  var C = window.SyDentMatCost;
+  var keyOf = {
+    item:  function(m){ return m.item_id; },
+    month: function(m){ return C.monthKey(m.created_at); },
+    treat: function(m){ return (m.ledger_sessions && m.ledger_sessions.type) || ''; },
+    doc:   function(m){ return m.provider_id || ''; }
+  }[mode];
+  var labelOf = {
+    item:  function(k, m, it){ return it.name || '—'; },
+    month: function(k){ return k === '_none' ? '—' : C.monthLabel(k); },
+    treat: function(k){ return k === '_none' ? 'بلا جلسة (استهلاك يدوي)' : k; },
+    doc:   function(k){ return k === '_none' ? 'بلا طبيب' : _trtDoctorName(k); }
+  }[mode];
+  return C.sortRows(C.breakdown(d.movs, d.prices, null, keyOf, labelOf), mode);
+}
+function renderMat() {
+  var host = document.getElementById('matHost');
+  if (!host || rptTab !== 'mat') return;
+  if (!window.SyDentMatCost) { host.innerHTML = '<div class="empty-state"><div class="ic">⚠️</div><div class="ttl">تعذّر تحميل التقرير — حدّث الصفحة</div></div>'; return; }
+  var loading = '<div class="empty-state"><div class="ic">⏳</div><div class="ttl">جارٍ التحميل…</div></div>';
+  if (!currentUser) { host.innerHTML = loading; return; }
+  var key = _matKey();
+  if (!_matData || _matData.key !== key) { host.innerHTML = loading; loadMatData(key); return; }
+  if (_matData.loading) { host.innerHTML = loading; return; }
+  if (_matData.failed) { host.innerHTML = '<div class="empty-state"><div class="ic">⚠️</div><div class="ttl">تعذّر تحميل حركات المخزون — أعد المحاولة</div></div>'; return; }
+  var model = _matModel(_matData, _matMode);
+  _matLast = { model: model, mode: _matMode };
+  var seg = Object.keys(MAT_MODES).map(function(k){
+    return '<button type="button" class="rt-sort-btn' + (k === _matMode ? ' on' : '') + '" aria-pressed="' + (k === _matMode ? 'true' : 'false') + '" onclick="setMatMode(\'' + k + '\')">' + MAT_MODES[k] + '</button>';
+  }).join('');
+  host.innerHTML = '<div class="rt-card"><div class="rt-head"><h3 class="rt-h">🧪 كلفة المواد المستهلكة — تقديري</h3>'
+    + '<div class="rt-sort" role="group" aria-label="التفصيل حسب">' + seg + '</div></div>'
+    + window.SyDentMatCost.render(model, { mode: _matMode, money: function(v, c){ return fmt(v) + ' ' + (c === 'USD' ? '$' : 'ل.س'); } })
+    + '<div class="rt-note">الكلفة = الكمية المستهلكة × سعر الشراء المسجّل للمادة، بعملة المادة. <b>معلومةٌ مرجعية</b> — لا تدخل المصاريف ولا صافي الربح (المشتريات تدخلها حين تُسجَّل مصروفاً). الرقمُ نفسُه الذي تعرضه صفحة المحاسبة للفترة.</div>'
+    + '</div>';
+}
+async function exportMatExcel() {
+  if (!_matLast) { showToast('لا بيانات للتصدير بعد'); return; }
+  var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+  var all = window.SyDentMatCost.rows(_matLast.model, _matLast.mode);
+  try {
+    var kind = await window.SyDentXlsx.save({ headers: all[0], rows: all.slice(1),
+      filename: 'كلفة-المواد-' + from + '_' + to, sheetName: 'كلفة المواد',
+      cols: [{wch:26},{wch:12},{wch:10},{wch:16},{wch:14}] });
+    showToast(kind === 'xlsx' ? '⬇️ تم تصدير ملف Excel' : '⬇️ تعذّر Excel — صُدّر ملف TSV بديل');
+  } catch (e) { console.error('exportMatExcel:', e); showToast('⚠️ تعذّر التصدير'); }
 }
 
 // ─── Init ───

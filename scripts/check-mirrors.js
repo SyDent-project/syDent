@@ -2459,7 +2459,7 @@ try {
     "provider-reports.html": {
       "write": ["savePayout", "openPayoutModal", "deletePayout"],
       "guard": [],
-      "read": ["exportExcel", "refresh", "clearPresetHighlight", "onFilterChange", "setBasis", "closeModal", "printLedger", "goToFullPayoutsPage", "setPreset", "showDetails", "printSlip", "openLedger", "setRptTab"],
+      "read": ["exportExcel", "refresh", "clearPresetHighlight", "onFilterChange", "setBasis", "closeModal", "printLedger", "goToFullPayoutsPage", "setPreset", "showDetails", "printSlip", "openLedger", "setRptTab", "setMatMode"],
       "inert": [], "extra": []
     },
     "audit-log.html": {
