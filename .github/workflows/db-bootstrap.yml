@@ -1,0 +1,59 @@
+# ════════════════════════════════════════════════════════════════════════
+# SyDent — db-bootstrap.yml · بناء قاعدة مشروع Supabase جديد (A9)
+# ════════════════════════════════════════════════════════════════════════
+# Builds an EMPTY Supabase project to the same schema as dental-dev with
+# scripts/db-bootstrap.py: db/schema.sql → migrations/bootstrap/01–03 → the
+# numbered migrations newer than the snapshot. Verified locally to reproduce
+# dental-dev object for object (columns · policies · triggers · indexes ·
+# constraints).
+#
+# Manual only. Two guards against a mistake on a live database:
+#   • the confirm input must be the project ref typed again;
+#   • the script refuses a project whose public schema already has tables.
+#
+# Secret: SUPABASE_ACCESS_TOKEN (already used by edge-deploy.yml).
+# Dashboard settings no SQL file can carry (Auth email confirmation, URLs,
+# CAPTCHA, Edge Function secrets) stay manual — see migrations/bootstrap/README.md.
+# ════════════════════════════════════════════════════════════════════════
+name: DB Bootstrap
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_ref:
+        description: 'Supabase project ref to build (must be empty)'
+        required: true
+        default: 'nxkalpjrqvpglphmiuui'
+      confirm:
+        description: 'Type the project ref again to confirm'
+        required: true
+
+concurrency:
+  group: db-bootstrap
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Confirm
+        env:
+          REF: ${{ inputs.project_ref }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [ "$REF" != "$CONFIRM" ]; then echo "⛔ confirmation does not match the project ref"; exit 1; fi
+          echo "✅ target: $REF"
+
+      - uses: actions/checkout@v5
+
+      - name: Plan (split every file, check nothing is missing)
+        run: python3 scripts/db-bootstrap.py --check
+
+      - name: Build
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: python3 scripts/db-bootstrap.py --project "${{ inputs.project_ref }}"
