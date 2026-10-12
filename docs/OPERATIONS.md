@@ -20,7 +20,7 @@
 | المشروع | المعرّف | المنطقة | الاستعمال |
 |---|---|---|---|
 | `dental-dev` | `peeydqtjwklixphuzvzg` | Singapore | التطوير. الكود بيحكي معو هلق |
-| `dental-prod` | `nxkalpjrqvpglphmiuui` | Frankfurt | الإطلاق. لسا فاضي، وبيتجهّز بالمهمة A9. مربوط بـ GitHub على `main` |
+| `dental-prod` | `nxkalpjrqvpglphmiuui` | Frankfurt | الإطلاق. بيتبنى بـ `db-bootstrap.yml` (المهمة A9). مربوط بـ GitHub على `main` |
 
 **تجهيز مشروع جديد:** [`migrations/bootstrap/README.md`](../migrations/bootstrap/README.md).
 
@@ -65,6 +65,7 @@
 | `finance-integrity.yml` | يومياً | 22 اختبار هوية مالية على البيانات |
 | `schema-snapshot.yml` | أسبوعياً | تحديث `db/schema.sql` |
 | `dr-restore-test.yml` | يدوي | تجربة استرجاع نسخة احتياطية |
+| `db-bootstrap.yml` | يدوي | بناء قاعدة مشروع Supabase فاضي (بالترتيب الكامل) |
 | `e2e-smoke.yml` | يدوي | اختبارات E2E |
 
 ## قبل الإطلاق
