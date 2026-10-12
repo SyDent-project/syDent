@@ -2441,7 +2441,7 @@ try {
                 "ivoSave", "poReceive", "poClose", "poFillAll", "poSupSave", "poSupEdit", "poSupHide", "poExpense"],
       "guard": ["invRowOpen"],
       "read": ["closeModal", "openHistory", "openOrderModal", "openCountModal", "openPoModal", "poTab", "poOpenOrder", "poBack", "poSend", "poMore", "poSupCancel",
-               "openLotModal", "lotSearch", "lotExport"],
+               "openLotModal", "lotSearch", "lotExport", "exportStock"],
       "inert": ["mgFillExample", "itemExpiryUiRefresh", "onMoveReasonChange", "poInput"],
       "extra": ["#poRecvForm"]   /* C3: نموذجُ الاستلام (خاناتُ الكمية والصلاحية والسعر) — كتابة */
     },

@@ -389,7 +389,8 @@ html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem(
     <div class="card">
       <div class="card-head">
         <span class="card-title">الأصناف</span>
-        <span style="display:flex;gap:8px;flex-wrap:wrap;"><button type="button" class="btn" onclick="openLotModal()">🧪 تتبّع دفعة (LOT)</button>
+        <span style="display:flex;gap:8px;flex-wrap:wrap;"><button type="button" class="btn" onclick="exportStock()">⬇️ كشف المخزون</button>
+        <button type="button" class="btn" onclick="openLotModal()">🧪 تتبّع دفعة (LOT)</button>
         <button type="button" class="btn" onclick="openCountModal()">📋 الجرد</button></span>
       </div>
       <div id="itemsList"><div class="empty"><div class="empty-icon">⏳</div><div style="margin-top:8px;">جارٍ التحميل…</div></div></div>
@@ -1696,6 +1697,16 @@ async function _ivoSave_inner() {
 }
 var ivoSave = iGuarded('ivoSave', _ivoSave_inner, 'جارٍ الحفظ…');
 
+/* ---------- كشف المخزون (C3d) — قراءة بحتة ---------- */
+/* صفٌّ لكل صنفٍ فعّال: الكمية · الحد · سعر الشراء وقيمةُ المخزون بعملة الصنف (لا جمعَ بين عملتين) · أقربُ صلاحية · أرقامُ الدفعات */
+function exportStock() {
+  if (!ITEMS.length) { showToast('لا توجد أصناف بعد'); return; }
+  var rows = window.SyDentInvTrace.stockRows(ITEMS, BATCHES, function(c){ return SyDentCurBag.lblOf(c); });
+  window.SyDentXlsx.save({ filename: 'sydent-stock-' + window.SyDentXlsx.today(), sheetName: 'كشف المخزون',
+    headers: window.SyDentInvTrace.STOCK_HEADERS, rows: rows })
+    .then(function(){ showToast('⬇️ نزّلت كشف المخزون'); }, function(){ showToast('⚠️ تعذّر التصدير', true); });
+}
+
 /* ---------- تتبّع دفعة (M177 — inv-trace.js) — قراءة بحتة ---------- */
 var _lotGroups = [];
 var _lotSeq = 0;           // #705
@@ -1915,7 +1926,7 @@ function histNote(m) {
   if (m.patient && m.patient.name && m.patient_id) {
     parts.push('👤 <a href="patient-profile.html?id=' + encodeURIComponent(m.patient_id) + '" style="color:inherit;">' + escapeHtml(m.patient.name) + '</a>');
   }
-  if (m.batch) parts.push('📦 ' + (m.batch.expiry_date ? escapeHtml(SyDT.numDate(m.batch.expiry_date) || m.batch.expiry_date) : 'دفعة بلا تاريخ'));
+  if (m.batch) parts.push('📦 ' + (m.batch.lot ? 'LOT <bdi dir="ltr">' + escapeHtml(m.batch.lot) + '</bdi> · ' : '') + (m.batch.expiry_date ? escapeHtml(SyDT.numDate(m.batch.expiry_date) || m.batch.expiry_date) : 'دفعة بلا تاريخ'));   /* C3d: ورقمُ الدفعة */
   return parts.length ? parts.join(' · ') : '—';
 }
 var REASON_AR = { purchase: '🟢 شراء', consume: '🔴 استهلاك', return: '↩️ مرتجع', adjust: '⚖️ تعديل', count: '📋 جرد' };   /* M171 */
@@ -1936,7 +1947,8 @@ async function openHistory(itemId) {
         .order('created_at', { ascending: false })
         .limit(100);
     };
-    var res = await histQ('change, reason, note, created_at, patient_id, patient:patients(name), batch:inventory_batches(expiry_date)');
+    var res = await histQ('change, reason, note, created_at, patient_id, patient:patients(name), batch:inventory_batches(expiry_date, lot)');
+    if (res.error) res = await histQ('change, reason, note, created_at, patient_id, patient:patients(name), batch:inventory_batches(expiry_date)');   /* قبل M177 */
     if (res.error) res = await histQ('change, reason, note, created_at');
     if (res.error) throw res.error;
     var rows = res.data || [];
