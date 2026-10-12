@@ -272,14 +272,14 @@ html[data-sub-level="read"] :is([onclick*="openArchiveModal("],[onclick*="doArch
 <body>
 <div class="main" id="sbMainContent">
 
-<div class="topbar">
-  <div>
-    <div class="tb-title">سجل النشاطات</div>
-    <div class="tb-sub">كل العمليات الحساسة في النظام مع تنبيهات ذكية</div>
+<div class="topbar sd-page-head">
+  <div class="sd-page-head__text">
+    <h1 class="topbar-title">سجل النشاطات</h1>
+    <p class="sd-page-head__sub">من عدّل ماذا ومتى: كل عملية حساسة في النظام، مع تنبيهات عند أي نشاط غير معتاد.</p>
   </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;">
-    <button class="btn btn-outline" onclick="openArchiveModal()">أرشفة قديمة</button>
-    <button class="btn btn-outline" onclick="exportCSV()">تصدير Excel</button>
+  <div class="sd-page-head__actions">
+    <button type="button" class="sd-btn sd-btn--ghost" onclick="openArchiveModal()" title="نقل السجلات القديمة إلى الأرشيف">أرشفة القديم</button>
+    <button type="button" class="sd-btn sd-btn--secondary" onclick="exportCSV()">تصدير Excel</button>
   </div>
 </div>
 

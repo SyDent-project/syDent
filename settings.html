@@ -123,7 +123,8 @@ body {
    طبقة عرض بحتة: كل المجموعات موجودة دائماً بالـDOM (display فقط)
    فلا يتأثر أي getElementById أو منطق حفظ قائم. sticky تحت الـtopbar
    (topbar sticky top:0 z-50 وارتفاعه ~66px مكتب / ~54px جوال). */
-.stg-nav{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:6px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;position:sticky;top:70px;z-index:40;}
+.stg-nav{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:6px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;position:sticky;top:96px;z-index:40;}   /* C2: clears the taller page header (title + purpose line) */
+@media (max-width:820px){ .stg-nav{top:8px;} }
 .stg-nav-btn{background:transparent;border:none;cursor:pointer;color:var(--text2);font-family:inherit;font-size:13.5px;font-weight:600;padding:8px 14px;border-radius:8px;white-space:nowrap;transition:background .15s,color .15s;}
 .stg-nav-btn:hover{color:var(--text);background:var(--bg3);}
 .stg-nav-btn.on{color:var(--green);background:rgba(var(--green-rgb),0.12);}
@@ -136,7 +137,7 @@ body {
 @media (max-width:640px){
   /* v547 (الفحص الشامل — نفسُ عيب صورة التقارير): التمريرُ الأفقي المخفي كان يُخفي «⚠️ منطقة الخطر» خارج الشاشة
      بلا أي إشارة؛ الأقسامُ تلتفّ لسطرين وتبقى كلُّها ظاهرة. */
-  .stg-nav{top:56px;}
+  .stg-nav{top:8px;}   /* C2: the page header is not sticky on phones (sd-page-head) */
   .stg-nav-btn{padding:8px 11px;font-size:12.5px;}
 }
 /* الرابط العميق (index → settings.html#apptTypes): إزاحة السكرول تحت
@@ -540,8 +541,11 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
 
 <div class="main" id="sbMainContent">
 
-  <div class="topbar">
-    <div class="topbar-title"><span>الإعدادات</span></div>
+  <div class="topbar sd-page-head">
+    <div class="sd-page-head__text">
+      <h1 class="topbar-title">الإعدادات</h1>
+      <p class="sd-page-head__sub">حسابك، وبيانات العيادة، وأوقات العمل، والمواعيد، والرسائل، والحجز الإلكتروني. اختر القسم من القائمة.</p>
+    </div>
   </div>
 
   <div class="content">

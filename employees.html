@@ -228,13 +228,13 @@ html[data-sub-level="read"] :is([onclick*="openAddModal("],[onclick*="saveEmploy
 <body>
 <div class="main" id="sbMainContent">
 
-<div class="topbar">
-  <div>
-    <div class="tb-title">الموظفون</div>
-    <div class="tb-sub">إدارة هويات الموظفين وأرقام السر</div>
+<div class="topbar sd-page-head">
+  <div class="sd-page-head__text">
+    <h1 class="topbar-title">الموظفون</h1>
+    <p class="sd-page-head__sub">كل من يعمل في العيادة من أطباء وموظفين، ودور كل منهم، ورقمه السري للدخول إلى النظام.</p>
   </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;">
-    <button class="btn btn-primary" onclick="openAddModal()">＋ إضافة موظف</button>
+  <div class="sd-page-head__actions">
+    <button type="button" class="sd-btn sd-btn--primary" onclick="openAddModal()">＋ إضافة موظف</button>
   </div>
 </div>
 
