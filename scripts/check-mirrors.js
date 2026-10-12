@@ -891,7 +891,7 @@ try {
   }
   [['appointments.html', 5] /* v501: نافذةُ الحجوزات تُحقن من appt-blocks.js */, ['patients.html', 4], ['patient-profile.html', 34],
    ['treatments.html', 2], ['doctors.html', 1], ['employees.html', 2], ['payouts.html', 1],
-   ['expenses.html', 2], ['inventory.html', 5], ['labs.html', 3],
+   ['expenses.html', 2], ['inventory.html', 6] /* C3: نافذةُ الطلبيات والموردين */, ['labs.html', 3],
    ['provider-reports.html', 3], ['audit-log.html', 1],
    ['settings.html', 5], ['learn.html', 1], ['subscription.html', 2], ['auth.html', 1], ['admin.html', 6]].forEach(([f, n]) => {
     const h = read(f);
@@ -2437,11 +2437,12 @@ try {
       "extra": []
     },
     "inventory.html": {
-      "write": ["openItemModal", "saveItem", "saveMovement", "finishBatch", "openMoveModal", "deleteItem", "finishBatchFromItem", "ivoSetQty", "applyCount"],
+      "write": ["openItemModal", "saveItem", "saveMovement", "finishBatch", "openMoveModal", "deleteItem", "finishBatchFromItem", "ivoSetQty", "applyCount",
+                "ivoSave", "poReceive", "poClose", "poFillAll", "poSupSave", "poSupEdit", "poSupHide", "poExpense"],
       "guard": ["invRowOpen"],
-      "read": ["closeModal", "openHistory", "openOrderModal", "openCountModal"],
-      "inert": ["mgFillExample", "itemExpiryUiRefresh", "onMoveReasonChange"],
-      "extra": []
+      "read": ["closeModal", "openHistory", "openOrderModal", "openCountModal", "openPoModal", "poTab", "poOpenOrder", "poBack", "poSend", "poMore", "poSupCancel"],
+      "inert": ["mgFillExample", "itemExpiryUiRefresh", "onMoveReasonChange", "poInput"],
+      "extra": ["#poRecvForm"]   /* C3: نموذجُ الاستلام (خاناتُ الكمية والصلاحية والسعر) — كتابة */
     },
     "labs.html": {
       "write": ["openLabOrderModal", "openLabModal", "labTplSaveCurrent", "labTplDeleteSelected", "labClearDateSent", "labAiDraftOrder", "labAiSaveAndSend", "saveLabOrder", "saveLab", "saveLabPayment", "editLab", "delLab", "advanceLabOrder", "redoLabOrder", "editLabOrder", "delLabOrder", "delLabPayment"],
