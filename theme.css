@@ -316,6 +316,23 @@
   gap: 8px;
 }
 
+/* App background (owner request): soft dental line art behind the app pages,
+   lightly blurred so cards and text stay readable. Light and dark versions are
+   pre-tinted to --bg. Only pages with the app shell (#sbMainContent) get it,
+   so the public booking page and the landing page keep their own look. */
+body:has(#sbMainContent)::before {
+  content: '';
+  position: fixed;
+  inset: -8px;
+  z-index: -1;
+  pointer-events: none;
+  background: url('bg-pattern-light.webp') center / cover no-repeat;
+  filter: blur(2px);
+  opacity: .45;
+}
+:root[data-theme="dark"] body:has(#sbMainContent)::before { background-image: url('bg-pattern-dark.webp'); opacity: .7; }
+@media print { body:has(#sbMainContent)::before { display: none; } }
+
 /* Prevent FOUC: smooth theme swap when toggling AFTER initial paint */
 :root[data-theme-ready] body {
   transition: background-color 0.2s ease, color 0.2s ease;
