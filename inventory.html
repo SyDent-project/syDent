@@ -16,7 +16,7 @@
 /* ── Modal ── v448: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261012a"></script>
+<script src="theme.js?v=20261012b"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -188,6 +188,46 @@ button:disabled { opacity:.6; cursor:wait; }
 .ivc-past { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; padding:10px; margin-bottom:8px; background:var(--bg2); border:1px solid var(--border); border-radius:10px; cursor:pointer; text-align:right; width:100%; font-family:Cairo,sans-serif; color:var(--text); }
 .ivc-past small { display:block; color:var(--text2); font-size:11px; margin-top:2px; }
 .ivc-tbl { overflow-x:auto; }
+/* M176 — الطلبيات والموردون (inv-po.js) */
+.po-save { width:100%; margin-top:10px; }
+.po-st { display:inline-block; border-radius:999px; padding:3px 10px; font-size:11px; font-weight:800; white-space:nowrap; border:1px solid var(--border); color:var(--text2); background:var(--bg3); }
+.po-st--wait { color:var(--blue-fg); background:var(--blue-bg); border-color:var(--blue-bd); }
+.po-st--alert { color:var(--yellow-ink); background:var(--yellow-bg); border-color:var(--yellow-bd); }
+.po-st--done { color:var(--green-fg); background:var(--green-bg); border-color:var(--green-bd); }
+.po-tools { display:flex; gap:8px; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.po-head { display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.po-head h4 { margin:0; font-size:15px; overflow-wrap:anywhere; }
+.po-meta { font-size:12px; color:var(--text2); margin-bottom:10px; overflow-wrap:anywhere; }
+.po-sec { font-size:13px; font-weight:800; margin:16px 0 8px; }
+.po-row { display:grid; grid-template-columns:minmax(0,1fr) 64px 64px 84px 128px 84px; gap:8px; align-items:center; padding:8px 4px; border-bottom:1px solid var(--border); font-size:13px; }
+.po-row.po-h { font-size:11px; color:var(--text2); font-weight:700; border-bottom-width:2px; }
+.po-row .po-nm { font-weight:700; overflow-wrap:anywhere; }
+.po-row .po-un { display:block; font-size:11px; color:var(--text2); font-weight:400; }
+.po-row .po-n { text-align:center; }
+.po-row input { width:100%; min-width:0; padding:7px; border:1px solid var(--border); border-radius:8px; background:var(--bg3); color:var(--text); font-family:Cairo,sans-serif; font-size:13px; }
+.po-row.po-done { opacity:.6; }
+.po-ro .po-row { grid-template-columns:minmax(0,1fr) 72px 72px 72px; }
+.po-acts { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+.po-acts .btn { flex:1 1 160px; }
+.po-rc { padding:10px; margin-bottom:8px; background:var(--bg2); border:1px solid var(--border); border-radius:10px; font-size:13px; }
+.po-rc small { display:block; color:var(--text2); font-size:11px; margin-top:2px; }
+.po-rc .po-rc-cur { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px; }
+.po-linked { font-size:12px; color:var(--green-fg); font-weight:700; }
+.po-sup { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; padding:10px; margin-bottom:8px; background:var(--bg2); border:1px solid var(--border); border-radius:10px; }
+.po-sup small { display:block; color:var(--text2); font-size:11px; margin-top:2px; overflow-wrap:anywhere; }
+.po-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:12px; margin-bottom:12px; background:var(--bg3); border-radius:10px; }
+.po-form .form-group { margin:0; }
+.po-form .po-wide { grid-column:1 / -1; }
+@media (max-width:640px) {
+  .po-row { grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); }
+  .po-row .po-nm { grid-column:1 / -1; }
+  .po-row.po-h { display:none; }
+  .po-row .po-n::before { content:attr(data-l) ' '; color:var(--text2); font-size:11px; }
+  .po-row .po-in { grid-column:span 1; }
+  .po-row .po-in::before { content:attr(data-l); display:block; color:var(--text2); font-size:11px; margin-bottom:2px; }
+  .po-ro .po-row { grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); }
+  .po-form { grid-template-columns:1fr; }
+}
 @media (max-width:480px) {
   .ivc-row { grid-template-columns:minmax(0,1fr) 84px 60px; }
   .ivc-row .ivc-seen { display:none; }
@@ -212,16 +252,17 @@ button:disabled { opacity:.6; cursor:wait; }
   .ivo-sign { display:flex; justify-content:space-between; margin-top:28px; font-size:13px; }
 }
 /* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
-html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem("],[onclick*="saveMovement("],[onclick*="finishBatch("],[onclick*="openMoveModal("],[onclick*="deleteItem("],[onclick*="finishBatchFromItem("],[onclick*="ivoSetQty("],[onclick*="applyCount("]){display:none !important;}
+html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem("],[onclick*="saveMovement("],[onclick*="finishBatch("],[onclick*="openMoveModal("],[onclick*="deleteItem("],[onclick*="finishBatchFromItem("],[onclick*="ivoSetQty("],[onclick*="applyCount("],[onclick*="ivoSave("],[onclick*="poReceive("],[onclick*="poClose("],[onclick*="poFillAll("],[onclick*="poSupSave("],[onclick*="poSupEdit("],[onclick*="poSupHide("],[onclick*="poExpense("],#poRecvForm){display:none !important;}
 </style>
-<link rel="stylesheet" href="theme.css?v=20261012a">
+<link rel="stylesheet" href="theme.css?v=20261012b">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261012a"></script>
-<script src="sy-modal.js?v=20261012a"></script>
-<script src="sidebar.js?v=20261012a"></script>
-<script src="inv-consume.js?v=20261012a"></script>
-<script src="inv-order.js?v=20261012a"></script>
-<script src="inv-count.js?v=20261012a"></script>
+<script src="supabase-init.js?v=20261012b"></script>
+<script src="sy-modal.js?v=20261012b"></script>
+<script src="sidebar.js?v=20261012b"></script>
+<script src="inv-consume.js?v=20261012b"></script>
+<script src="inv-order.js?v=20261012b"></script>
+<script src="inv-count.js?v=20261012b"></script>
+<script src="inv-po.js?v=20261012b"></script>
 </head>
 <body>
 
@@ -233,6 +274,7 @@ html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem(
     </div>
     <div class="sd-page-head__actions">
       <button type="button" class="sd-btn sd-btn--primary" onclick="openItemModal()">＋ صنف جديد</button>
+      <button type="button" class="sd-btn" onclick="openPoModal()">🚚 الطلبيات والموردون</button>
     </div>
   </div>
 
@@ -460,7 +502,8 @@ html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem(
     <div class="modal-body">
       <div class="form-group">
         <label>إلى (المورّد) — اختياري</label>
-        <input type="text" id="ivoSupplier" maxlength="80" placeholder="مثلاً: مستودع الشفاء">
+        <input type="text" id="ivoSupplier" maxlength="80" placeholder="مثلاً: مستودع الشفاء" list="ivoSupplierList" autocomplete="off">
+        <datalist id="ivoSupplierList"></datalist>
       </div>
       <div id="ivoRows"></div>
       <div class="ivo-cost" id="ivoCost"></div>
@@ -474,9 +517,28 @@ html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem(
         <button type="button" class="btn" data-ivo="print">🖨️ طباعة / PDF</button>
         <button type="button" class="btn" data-ivo="xlsx">⬇️ Excel</button>
       </div>
+      <button type="button" class="btn btn-primary po-save" onclick="ivoSave()">💾 احفظها طلبيةً لتسجيل استلامها عند وصولها</button>
     </div>
     <div class="modal-foot">
       <button class="btn-cancel-m" onclick="closeModal('orderModal')">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: الطلبيات والموردون (M176 — inv-po.js) -->
+<div class="modal-overlay sy-m sy-m-lg" id="poModal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>🚚 الطلبيات والموردون</h3><button class="modal-close" onclick="closeModal('poModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="ivc-tabs" role="tablist">
+        <button type="button" class="ivc-tab" role="tab" id="poTabOrders" aria-selected="true" onclick="poTab('orders')">🧾 الطلبيات</button>
+        <button type="button" class="ivc-tab" role="tab" id="poTabSuppliers" aria-selected="false" onclick="poTab('suppliers')">🏪 الموردون</button>
+      </div>
+      <div id="poOrders"></div>
+      <div id="poSuppliers" style="display:none;"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel-m" onclick="closeModal('poModal')">إغلاق</button>
     </div>
   </div>
 </div>
@@ -1144,14 +1206,18 @@ async function _ivoLoadClinic() {
     if (r && !r.error && r.data) _ivoClinic = { name: r.data.clinic_name || '', phone: r.data.clinic_phone || '' };
   } catch (e) { /* الاسمُ اختياري بالطلبية */ }
 }
-function openOrderModal() {
+function openOrderModal(all) {
   var low = ITEMS.filter(function(it){ return window.SyDentInvOrder.isLow(it); });
-  if (!low.length) { showToast('ما في أصناف تحتاج إعادة طلب'); return; }
+  if (!low.length && !all) { showToast('ما في أصناف تحتاج إعادة طلب'); return; }
+  if (all && !ITEMS.length) { showToast('لا توجد أصناف بعد — أضف صنفاً أولاً'); return; }
+  /* C3: «＋ طلبية جديدة» تعرض كل الأصناف — الناقصةُ مختارةٌ باقتراحها والباقي مستبعدٌ حتى يُختار */
+  var rest = all ? ITEMS.filter(function(it){ return !window.SyDentInvOrder.isLow(it); }) : [];
   _ivo = low.map(function(it){
     var sg = window.SyDentInvOrder.suggest(it);
     return { it: it, on: true, qty: sg };
-  });
+  }).concat(rest.map(function(it){ return { it: it, on: false, qty: null }; }));
   renderOrderRows();
+  if (currentUser) poLoadSuppliers().catch(function(){});   /* أسماءُ الموردين للاقتراح بخانة «إلى» */
   openModal('orderModal');
   _ivoLoadClinic();
 }
@@ -1238,6 +1304,366 @@ document.addEventListener('input', function(e){
   r.qty = (v > 0) ? v : null;
   renderOrderCost();
 });
+
+/* ---------- الطلبيات والموردون (M176 — inv-po.js) ---------- */
+var SUPPLIERS = null;      // يُجلب كسولاً عند أول حاجة (#687)
+var _po = { tab: 'orders', orders: [], more: false, view: null, supEdit: null };
+var _poSeq = 0;            // #705: حارسُ تسلسل القراءات الكسولة
+var PO_PAGE = 30;
+function poErrText(e) {
+  var m = (e && (e.message || e.details)) || '';
+  if (/over_ordered/.test(m)) return 'الكمية أكبر من المطلوب';
+  if (/order_not_open/.test(m)) return 'الطلبية مكتملة أو مغلقة';
+  if (/item_inactive/.test(m)) return 'في الطلبية صنفٌ محذوف — أعِد تفعيله أو اترك خانته فارغة';
+  if (/read_only/.test(m)) return 'الحساب للقراءة فقط';
+  if (isTableMissing(e)) return 'ميزة الطلبيات غير مفعّلة بعد — طبّق Migration 176';
+  return 'تعذّر الحفظ';
+}
+async function poLoadSuppliers(force) {
+  if (SUPPLIERS && !force) return SUPPLIERS;
+  var r = await window.sb.from('inventory_suppliers').select('id, name, phone, note, is_active')
+    .eq('owner_id', currentUser.id).order('name', { ascending: true });
+  if (r.error) throw r.error;
+  SUPPLIERS = r.data || [];
+  var dl = document.getElementById('ivoSupplierList');
+  if (dl) dl.innerHTML = SUPPLIERS.filter(function(s){ return s.is_active !== false; })
+    .map(function(s){ return '<option value="' + escapeHtml(s.name) + '"></option>'; }).join('');
+  return SUPPLIERS;
+}
+function poSupplierName(id) {
+  if (!id) return '';
+  var s = (SUPPLIERS || []).find(function(x){ return x.id === id; });
+  return s ? s.name : '';
+}
+function openPoModal(tab) {
+  _po.view = null;
+  _ivoLoadClinic();
+  openModal('poModal');
+  poTab(tab || 'orders');
+}
+function poTab(which) {
+  _po.tab = which;
+  document.getElementById('poTabOrders').setAttribute('aria-selected', which === 'orders' ? 'true' : 'false');
+  document.getElementById('poTabSuppliers').setAttribute('aria-selected', which === 'suppliers' ? 'true' : 'false');
+  document.getElementById('poOrders').style.display = which === 'orders' ? '' : 'none';
+  document.getElementById('poSuppliers').style.display = which === 'suppliers' ? '' : 'none';
+  if (which === 'orders') { _po.view = null; poLoadOrders(false); }
+  else poLoadSupplierTab();
+}
+var PO_LOADING = '<div class="empty"><div class="empty-icon">⏳</div><div style="margin-top:8px;">جارٍ التحميل…</div></div>';
+function poFailHtml(e) {
+  return '<div class="empty"><div class="empty-icon">⚠️</div><div style="margin-top:8px;">' + escapeHtml(isTableMissing(e) ? poErrText(e) : 'تعذّر التحميل — أعد المحاولة') + '</div></div>';
+}
+
+/* — قائمة الطلبيات — */
+async function poLoadOrders(more) {
+  var seq = ++_poSeq;
+  var host = document.getElementById('poOrders');
+  if (!more) { _po.orders = []; host.innerHTML = PO_LOADING; }
+  try {
+    await poLoadSuppliers();
+    var from = _po.orders.length;
+    var r = await window.sb.from('inventory_orders')
+      .select('id, supplier_id, status, note, created_at, closed_at, inventory_order_lines(id, item_id, qty_ordered, qty_received)')
+      .eq('owner_id', currentUser.id).order('created_at', { ascending: false }).range(from, from + PO_PAGE - 1);
+    if (seq !== _poSeq) return;
+    if (r.error) throw r.error;
+    var rows = r.data || [];
+    _po.orders = _po.orders.concat(rows);
+    _po.more = rows.length === PO_PAGE;
+    poRenderOrders();
+  } catch (e) {
+    if (seq !== _poSeq) return;
+    console.warn('poLoadOrders:', e);
+    host.innerHTML = poFailHtml(e);
+  }
+}
+function poMore() { poLoadOrders(true); }
+function poRenderOrders() {
+  var P = window.SyDentInvPO;
+  var h = '<div class="po-tools"><span style="font-size:12px;color:var(--text2);">الطلبيات المفتوحة أولاً بالأحدث. اضغط على طلبية لتسجيل ما وصل منها.</span>'
+    + '<button type="button" class="btn btn-primary" onclick="openOrderModal(true)">＋ طلبية جديدة</button></div>';
+  if (!_po.orders.length) {
+    h += '<div class="empty"><div class="empty-icon">🧾</div><div style="margin-top:8px;">لا توجد طلبيات بعد. أنشئ طلبيةً جديدة، أو اضغط «🧾 جهّز الطلبية» من بطاقة الأصناف التي تحتاج إعادة طلب ثم احفظها طلبية.</div></div>';
+    document.getElementById('poOrders').innerHTML = h;
+    return;
+  }
+  var list = _po.orders.slice().sort(function(a, b){
+    var oa = P.isOpen(a.status) ? 0 : 1, ob = P.isOpen(b.status) ? 0 : 1;
+    return oa - ob || String(b.created_at).localeCompare(String(a.created_at));
+  });
+  h += list.map(function(o){
+    var st = P.status(o.status), pg = P.progress(o.inventory_order_lines);
+    var sup = poSupplierName(o.supplier_id) || 'بلا مورّد';
+    return '<button type="button" class="ivc-past" onclick="poOpenOrder(\'' + escapeHtml(o.id) + '\')"><div style="min-width:0;"><strong>' + escapeHtml(sup) + '</strong>'
+      + '<small><bdi dir="ltr">' + escapeHtml(SyDT.numDate(o.created_at)) + '</bdi> · أصناف: ' + pg.lines + ' · اكتمل منها ' + pg.done + '</small></div>'
+      + '<span class="po-st po-st--' + st.tone + '">' + escapeHtml(st.label) + '</span></button>';
+  }).join('');
+  if (_po.more) h += '<button type="button" class="btn" style="width:100%;" onclick="poMore()">عرض طلبيات أقدم</button>';
+  document.getElementById('poOrders').innerHTML = h;
+}
+
+/* — طلبية واحدة: الأصناف · الاستلام · الاستلامات السابقة — */
+async function poOpenOrder(id) {
+  var seq = ++_poSeq;
+  var host = document.getElementById('poOrders');
+  var o = _po.orders.find(function(x){ return x.id === id; });
+  if (!o) return;
+  host.innerHTML = PO_LOADING;
+  try {
+    var res = await Promise.all([
+      window.sb.from('inventory_order_lines')
+        .select('id, item_id, qty_ordered, qty_received, unit_price, currency, inventory_items(name, unit, is_active, quantity, reorder_level)')
+        .eq('order_id', id).eq('owner_id', currentUser.id),
+      window.sb.from('inventory_receipts')
+        .select('id, received_at, note, supplier_id, expense_syp_id, expense_usd_id, inventory_receipt_lines(item_id, qty, unit_price, currency, expiry_date)')
+        .eq('order_id', id).eq('owner_id', currentUser.id).order('received_at', { ascending: false })
+    ]);
+    if (seq !== _poSeq) return;
+    if (res[0].error) throw res[0].error;
+    if (res[1].error) throw res[1].error;
+    var lines = (res[0].data || []).sort(function(a, b){
+      return String((a.inventory_items || {}).name || '').localeCompare(String((b.inventory_items || {}).name || ''), 'ar');
+    });
+    o.inventory_order_lines = lines.map(function(l){ return { id: l.id, item_id: l.item_id, qty_ordered: l.qty_ordered, qty_received: l.qty_received }; });
+    _po.view = { order: o, lines: lines, receipts: res[1].data || [],
+      rows: lines.map(function(l){ return { line: l, qty: '', expiry: '', price: '' }; }) };
+    poRenderOrder();
+  } catch (e) {
+    if (seq !== _poSeq) return;
+    console.warn('poOpenOrder:', e);
+    host.innerHTML = poFailHtml(e);
+  }
+}
+function poBack() { _po.view = null; poRenderOrders(); }
+function poItemOf(l) { return l.inventory_items || {}; }
+function poRenderOrder() {
+  var v = _po.view; if (!v) return;
+  var P = window.SyDentInvPO, o = v.order, st = P.status(o.status), open = P.isOpen(o.status);
+  var sup = poSupplierName(o.supplier_id);
+  var h = '<div class="po-tools"><button type="button" class="btn" onclick="poBack()">→ كل الطلبيات</button>'
+    + '<span style="display:flex;gap:8px;flex-wrap:wrap;"><button type="button" class="btn" onclick="poSend(\'wa\')">💬 واتساب</button>'
+    + '<button type="button" class="btn" onclick="poSend(\'print\')">🖨️ طباعة</button></span></div>';
+  h += '<div class="po-head"><h4>' + escapeHtml(sup || 'طلبية بلا مورّد') + '</h4><span class="po-st po-st--' + st.tone + '">' + escapeHtml(st.label) + '</span></div>';
+  h += '<div class="po-meta">أُنشئت بتاريخ <bdi dir="ltr">' + escapeHtml(SyDT.numDate(o.created_at)) + '</bdi>' + (o.note ? ' · ' + escapeHtml(o.note) : '') + '</div>';
+  if (open) {
+    h += '<div id="poRecvForm"><div class="po-sec">📥 تسجيل ما وصل الآن</div>'
+      + '<div class="po-row po-h"><div>الصنف</div><div class="po-n">المطلوب</div><div class="po-n">وصل سابقاً</div><div>الواصل الآن</div><div>الصلاحية (اختياري)</div><div>سعر الوحدة</div></div>';
+    h += v.rows.map(function(r, i){
+      var l = r.line, it = poItemOf(l), rem = P.remaining(l);
+      return '<div class="po-row' + (rem <= 0 ? ' po-done' : '') + '"><div class="po-nm">' + escapeHtml(it.name || '—')
+        + '<span class="po-un">' + (it.unit ? escapeHtml(it.unit) + ' · ' : '') + 'المتبقّي ' + fmtNum(rem) + (it.is_active === false ? ' · صنف محذوف' : '') + '</span></div>'
+        + '<div class="po-n" data-l="المطلوب">' + fmtNum(l.qty_ordered) + '</div>'
+        + '<div class="po-n" data-l="وصل سابقاً">' + fmtNum(l.qty_received) + '</div>'
+        + '<div class="po-in" data-l="الواصل الآن"><input type="number" min="0" step="any" inputmode="decimal" data-po-i="' + i + '" data-po-f="qty" value="' + escapeHtml(r.qty) + '" placeholder="0" aria-label="الواصل الآن — ' + escapeHtml(it.name || '') + '" oninput="poInput(this)"></div>'
+        + '<div class="po-in" data-l="الصلاحية"><input type="date" data-po-i="' + i + '" data-po-f="expiry" value="' + escapeHtml(r.expiry) + '" aria-label="الصلاحية — ' + escapeHtml(it.name || '') + '" oninput="poInput(this)"></div>'
+        + '<div class="po-in" data-l="سعر الوحدة"><input type="number" min="0" step="any" inputmode="decimal" data-po-i="' + i + '" data-po-f="price" value="' + escapeHtml(r.price) + '" placeholder="' + (l.unit_price != null ? escapeHtml(fmtNum(l.unit_price)) : 'بلا سعر') + '" aria-label="سعر الوحدة — ' + escapeHtml(it.name || '') + '" oninput="poInput(this)"></div>'
+        + '</div>';
+    }).join('');
+    h += '<div class="form-group" style="margin-top:10px;"><label>ملاحظة الاستلام — اختياري</label><input type="text" id="poRecvNote" maxlength="300" placeholder="مثلاً: رقم فاتورة المورّد"></div>'
+      + '<div style="font-size:11px;color:var(--text2);">الصلاحية تفتح دفعةً مستقلة لتنبيه الانتهاء. السعر يُترك فارغاً إذا لم يتغيّر — ويصبح سعرَ الشراء المسجّل للصنف إن كُتب. «أغلق الطلبية» حين لا يُنتظر وصول الباقي.</div>'
+      + '<div class="po-acts"><button type="button" class="btn" onclick="poFillAll()">📥 وصل كل المتبقّي</button>'
+      + '<button type="button" class="btn btn-primary" onclick="poReceive()">✅ سجّل الاستلام</button>'
+      + '<button type="button" class="btn" onclick="poClose()" title="إن لم يكن الباقي سيصل">🔒 أغلق الطلبية</button></div></div>';
+  } else {
+    h += '<div class="po-ro"><div class="po-row po-h"><div>الصنف</div><div class="po-n">المطلوب</div><div class="po-n">الواصل</div><div class="po-n">الناقص</div></div>';
+    h += v.lines.map(function(l){
+      var it = poItemOf(l);
+      return '<div class="po-row"><div class="po-nm">' + escapeHtml(it.name || '—') + (it.unit ? '<span class="po-un">' + escapeHtml(it.unit) + '</span>' : '') + '</div>'
+        + '<div class="po-n" data-l="المطلوب">' + fmtNum(l.qty_ordered) + '</div><div class="po-n" data-l="الواصل">' + fmtNum(l.qty_received) + '</div>'
+        + '<div class="po-n" data-l="الناقص">' + fmtNum(P.remaining(l)) + '</div></div>';
+    }).join('') + '</div>';
+  }
+  h += '<div class="po-sec">🧾 الاستلامات</div>';
+  if (!v.receipts.length) h += '<div style="font-size:12px;color:var(--text2);">لم يُستلم شيءٌ من هذه الطلبية بعد.</div>';
+  h += v.receipts.map(function(rc){
+    var L = rc.inventory_receipt_lines || [], t = P.receiptTotals(L);
+    var curs = Object.keys(t.bag);
+    var money = curs.map(function(c){ return escapeHtml(fmtMoney(t.bag[c], c)); }).join(' + ');
+    var x = '<div class="po-rc"><strong>' + SyDT.cell(rc.received_at) /* يُهرّب داخلياً */ + '</strong>'
+      + '<small>أصناف: ' + L.length + (money ? ' · القيمة: ' + money : '') + (t.unpriced ? ' · أصناف بلا سعر: ' + t.unpriced : '') + (rc.note ? ' · ' + escapeHtml(rc.note) : '') + '</small>';
+    if (curs.length) {
+      x += '<div class="po-rc-cur">' + curs.map(function(c){
+        var linked = c === 'USD' ? rc.expense_usd_id : rc.expense_syp_id;
+        return linked
+          ? '<span class="po-linked">✔ مسجّلة في المصاريف (' + escapeHtml(SyDentCurBag.lblOf(c)) + ')</span>'
+          : '<button type="button" class="btn" onclick="poExpense(\'' + escapeHtml(rc.id) + '\',\'' + escapeHtml(c) + '\')">💸 سجّلها مصروفاً (' + escapeHtml(SyDentCurBag.lblOf(c)) + ')</button>';
+      }).join('') + '</div>';
+    }
+    return x + '</div>';
+  }).join('');
+  document.getElementById('poOrders').innerHTML = h;
+}
+function poInput(el) {
+  var v = _po.view; if (!v) return;
+  var r = v.rows[Number(el.getAttribute('data-po-i'))];
+  if (r) r[el.getAttribute('data-po-f')] = el.value;
+}
+function poFillAll() {
+  var v = _po.view; if (!v) return;
+  v.rows.forEach(function(r){ var rem = window.SyDentInvPO.remaining(r.line); if (rem > 0) r.qty = String(rem); });
+  var note = document.getElementById('poRecvNote'), keep = note ? note.value : '';
+  poRenderOrder();
+  var n2 = document.getElementById('poRecvNote'); if (n2) n2.value = keep;
+}
+async function _poReceive_inner() {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  var v = _po.view; if (!v) return;
+  var P = window.SyDentInvPO;
+  var L = P.receiveLines(v.rows);
+  if (!L.length) { showToast('⚠️ اكتب الكمية الواصلة لصنفٍ واحد على الأقل', true); return; }
+  var over = P.overLines(v.rows);
+  if (over.length) {
+    var names = over.map(function(r){ return poItemOf(r.line).name || '—'; }).join('، ');
+    if (!await SyDialog.confirm({ message: 'الكمية الواصلة أكبر من المطلوب لـ: ' + names + '\nهل تسجّلها كما هي؟' })) return;
+  }
+  var note = ((document.getElementById('poRecvNote') || {}).value || '').trim();
+  try {
+    var r = await window.sb.rpc('inventory_receive', { p_order: v.order.id, p_lines: L, p_note: note || null, p_allow_over: over.length > 0 });
+    if (r.error) throw r.error;
+    if (r.data && r.data.status) v.order.status = r.data.status;
+    showToast('✅ سُجّل الاستلام وزادت الكميات في المخزون');
+    loadItems();
+    await poOpenOrder(v.order.id);
+  } catch (e) { console.error('poReceive:', e); showToast('⚠️ ' + poErrText(e), true); }
+}
+var poReceive = iGuarded('poReceive', _poReceive_inner, 'جارٍ التسجيل…');
+async function _poClose_inner() {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  var v = _po.view; if (!v) return;
+  if (!await SyDialog.confirm({ message: 'إغلاق الطلبية؟\nلن يُنتظر وصولُ ما تبقّى منها، ويبقى ما استُلم مسجّلاً.' })) return;
+  try {
+    var r = await window.sb.from('inventory_orders').update({ status: 'closed', closed_at: new Date().toISOString() })
+      .eq('id', v.order.id).eq('owner_id', currentUser.id).in('status', ['open', 'partial']);
+    if (r.error) throw r.error;
+    v.order.status = 'closed';
+    showToast('🔒 أُغلقت الطلبية');
+    poRenderOrder();
+  } catch (e) { console.error('poClose:', e); showToast('⚠️ ' + poErrText(e), true); }
+}
+var poClose = iGuarded('poClose', _poClose_inner, 'جارٍ الإغلاق…');
+function poSend(kind) {
+  var v = _po.view; if (!v) return;
+  var items = {};
+  v.lines.forEach(function(l){ items[l.item_id] = poItemOf(l); });
+  var o = Object.assign({}, v.order, { supplier_name: poSupplierName(v.order.supplier_id) });
+  var ord = window.SyDentInvPO.order(o, v.lines, items, _ivoClinic);
+  if (!window.SyDentInvOrder.clean(ord).length) { showToast('لا يوجد في الطلبية ما يُنتظر وصوله'); return; }
+  if (kind === 'print') { window.SyDentInvOrder.print(ord); return; }   /* متزامنةٌ داخل النقرة (iOS) */
+  window.open(window.SyDentInvOrder.waUrl(ord), '_blank', 'noopener');
+}
+/* #721: يُمرَّر معرّفُ الاستلام والعملةُ فقط — صفحةُ المصاريف تقرأ المبلغ من القاعدة وتعبّئ ولا تحفظ */
+function poExpense(receiptId, cur) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  location.href = 'expenses.html?inv_receipt=' + encodeURIComponent(receiptId) + '&cur=' + encodeURIComponent(cur);
+}
+
+/* — الموردون — */
+async function poLoadSupplierTab() {
+  var seq = ++_poSeq;
+  var host = document.getElementById('poSuppliers');
+  host.innerHTML = PO_LOADING;
+  try {
+    await poLoadSuppliers(true);
+    if (seq !== _poSeq) return;
+    poRenderSuppliers();
+  } catch (e) {
+    if (seq !== _poSeq) return;
+    console.warn('poLoadSupplierTab:', e);
+    host.innerHTML = poFailHtml(e);
+  }
+}
+function poRenderSuppliers() {
+  var ed = _po.supEdit ? (SUPPLIERS || []).find(function(s){ return s.id === _po.supEdit; }) : null;
+  var h = '<div class="po-form"><div class="form-group"><label>اسم المورّد</label><input type="text" id="poSupName" maxlength="80" placeholder="مثلاً: مستودع الشفاء" value="' + escapeHtml(ed ? ed.name : '') + '"></div>'
+    + '<div class="form-group"><label>الهاتف — اختياري</label><input type="tel" id="poSupPhone" maxlength="30" dir="ltr" placeholder="09xx xxx xxx" value="' + escapeHtml(ed ? (ed.phone || '') : '') + '"></div>'
+    + '<div class="form-group po-wide"><label>ملاحظة — اختياري</label><input type="text" id="poSupNote" maxlength="300" placeholder="مثلاً: يوصل يوم الثلاثاء" value="' + escapeHtml(ed ? (ed.note || '') : '') + '"></div>'
+    + '<div class="po-acts po-wide" style="margin-top:0;"><button type="button" class="btn btn-primary" onclick="poSupSave()">' + (ed ? '💾 حفظ التعديل' : '＋ أضف المورّد') + '</button>'
+    + (ed ? '<button type="button" class="btn" onclick="poSupCancel()">إلغاء التعديل</button>' : '') + '</div></div>';
+  var act = (SUPPLIERS || []).filter(function(s){ return s.is_active !== false; });
+  if (!act.length) h += '<div class="empty"><div class="empty-icon">🏪</div><div style="margin-top:8px;">لا يوجد موردون بعد. أضف مورّداً هنا، أو اكتب اسمه عند حفظ طلبية فيُضاف تلقائياً.</div></div>';
+  h += act.map(function(s){
+    return '<div class="po-sup"><div style="min-width:0;"><strong>' + escapeHtml(s.name) + '</strong>'
+      + ((s.phone || s.note) ? '<small>' + (s.phone ? '📞 <a href="tel:' + escapeHtml(s.phone) + '" dir="ltr">' + escapeHtml(s.phone) + '</a>' : '') + (s.phone && s.note ? ' · ' : '') + escapeHtml(s.note || '') + '</small>' : '')
+      + '</div><span class="sy-acts"><button type="button" class="sy-act" onclick="poSupEdit(\'' + escapeHtml(s.id) + '\')">✏️ تعديل</button>'
+      + '<button type="button" class="sy-act" onclick="poSupHide(\'' + escapeHtml(s.id) + '\')">🗑️ حذف</button></span></div>';
+  }).join('');
+  document.getElementById('poSuppliers').innerHTML = h;
+}
+function poSupEdit(id) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  _po.supEdit = id; poRenderSuppliers();
+  var el = document.getElementById('poSupName'); if (el) el.focus();
+}
+function poSupCancel() { _po.supEdit = null; poRenderSuppliers(); }
+async function _poSupSave_inner() {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  var name = (document.getElementById('poSupName').value || '').trim();
+  var phone = (document.getElementById('poSupPhone').value || '').trim();
+  var note = (document.getElementById('poSupNote').value || '').trim();
+  if (!name) { showToast('⚠️ اكتب اسم المورّد', true); return; }
+  var dup = (SUPPLIERS || []).find(function(s){ return s.is_active !== false && s.id !== _po.supEdit && s.name.trim().toLowerCase() === name.toLowerCase(); });
+  if (dup) { showToast('⚠️ يوجد مورّد بهذا الاسم', true); return; }
+  var row = { name: name, phone: phone ? window.SyDentPhone.tidy(phone) : null, note: note || null };
+  try {
+    var r = _po.supEdit
+      ? await window.sb.from('inventory_suppliers').update(row).eq('id', _po.supEdit).eq('owner_id', currentUser.id)
+      : await window.sb.from('inventory_suppliers').insert(Object.assign({ owner_id: currentUser.id }, row));
+    if (r.error) throw r.error;
+    showToast(_po.supEdit ? '💾 حُفظ التعديل' : '✅ أُضيف المورّد');
+    _po.supEdit = null;
+    await poLoadSupplierTab();
+  } catch (e) { console.error('poSupSave:', e); showToast('⚠️ ' + poErrText(e), true); }
+}
+var poSupSave = iGuarded('poSupSave', _poSupSave_inner, 'جارٍ الحفظ…');
+async function _poSupHide_inner(id) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  var s = (SUPPLIERS || []).find(function(x){ return x.id === id; });
+  if (!s) return;
+  if (!await SyDialog.confirm({ message: 'حذف المورّد «' + s.name + '»؟\nيختفي من القائمة، وتبقى طلبياته السابقة محفوظة.', danger: true })) return;
+  try {
+    var r = await window.sb.from('inventory_suppliers').update({ is_active: false }).eq('id', id).eq('owner_id', currentUser.id);
+    if (r.error) throw r.error;
+    showToast('تم الحذف');
+    await poLoadSupplierTab();
+  } catch (e) { console.error('poSupHide:', e); showToast('⚠️ ' + poErrText(e), true); }
+}
+var poSupHide = iGuarded('poSupHide', _poSupHide_inner, 'جارٍ الحذف…');
+
+/* — «جهّز الطلبية» ⇒ حفظُها طلبيةً: المورّدُ بالاسم (يُضاف إن لم يوجد) ثم RPC واحد — */
+async function _ivoSave_inner() {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  var lines = _ivo.filter(function(r){ return r.on && Number(r.qty) > 0; }).map(function(r){ return { item_id: r.it.id, qty: Number(r.qty) }; });
+  if (!lines.length) { showToast('⚠️ اكتب كميةً لصنفٍ واحد على الأقل', true); return; }
+  var name = (document.getElementById('ivoSupplier').value || '').trim();
+  var note = (document.getElementById('ivoNote').value || '').trim();
+  try {
+    var supId = null;
+    if (name) {
+      await poLoadSuppliers();
+      var key = name.toLowerCase();
+      var same = SUPPLIERS.filter(function(s){ return s.name.trim().toLowerCase() === key; });
+      var s = same.find(function(x){ return x.is_active !== false; }) || same[0];
+      if (s && s.is_active === false) {
+        var ra = await window.sb.from('inventory_suppliers').update({ is_active: true }).eq('id', s.id).eq('owner_id', currentUser.id);
+        if (ra.error) throw ra.error;
+        s.is_active = true;
+      }
+      if (!s) {
+        var ins = await window.sb.from('inventory_suppliers').insert({ owner_id: currentUser.id, name: name }).select('id, name, phone, note, is_active').single();
+        if (ins.error) throw ins.error;
+        s = ins.data; SUPPLIERS.push(s);
+      }
+      supId = s.id;
+    }
+    var r = await window.sb.rpc('inventory_create_order', { p_supplier: supId, p_lines: lines, p_note: note || null });
+    if (r.error) throw r.error;
+    closeModal('orderModal');
+    showToast('💾 حُفظت الطلبية — سجّل استلامها عند وصولها');
+    openPoModal('orders');
+  } catch (e) { console.error('ivoSave:', e); showToast('⚠️ ' + poErrText(e), true); }
+}
+var ivoSave = iGuarded('ivoSave', _ivoSave_inner, 'جارٍ الحفظ…');
 
 /* ---------- الجرد الدوري (M171 — inv-count.js) ---------- */
 var _ivc = [];            // [{ it, seen, counted (نص الخانة) }]

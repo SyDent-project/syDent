@@ -16,7 +16,7 @@
 /* ── Modal ── v448: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261012a"></script>
+<script src="theme.js?v=20261012b"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -510,13 +510,14 @@ button:disabled { opacity: .6; cursor: wait; }
 html[data-sub-level="read"] :is([onclick*="openExpenseModal("],[onclick*="openCatModal("],[onclick*="saveExpense("],[onclick*="saveCategory("],[onclick*="editExpense("],[onclick*="deleteExpense("],[onclick*="editCategory("],[onclick*="toggleCategoryActive("],[onclick*="deleteCategory("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261012a">
+<link rel="stylesheet" href="theme.css?v=20261012b">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261012a"></script>
-<script src="sy-modal.js?v=20261012a"></script>
-<script src="pay-methods.js?v=20261012a"></script>
-<script src="sidebar.js?v=20261012a"></script>
-<script src="timepicker.js?v=20261012a"></script>
+<script src="supabase-init.js?v=20261012b"></script>
+<script src="sy-modal.js?v=20261012b"></script>
+<script src="pay-methods.js?v=20261012b"></script>
+<script src="inv-po.js?v=20261012b"></script>
+<script src="sidebar.js?v=20261012b"></script>
+<script src="timepicker.js?v=20261012b"></script>
 </head>
 <body>
 
@@ -892,6 +893,11 @@ async function init() {
     populateCategoryDropdown();
     renderIconGrid();
     $('eDate').value = todayISO();
+    var _invQ = new URLSearchParams(location.search);
+    if (_invQ.get('inv_receipt')) {
+      history.replaceState({}, '', 'expenses.html');
+      await openInvReceiptExpense(_invQ.get('inv_receipt'), _invQ.get('cur') === 'USD' ? 'USD' : 'SYP');
+    }
   } catch (e) {
     console.error('init failed:', e);
     showToast('⚠️ خطأ في تحميل الصفحة', true);
@@ -1218,6 +1224,7 @@ function openCatColorPicker() {
 // ─── Expense modal ─────────────────────────────────────────────────────────
 function openExpenseModal() {
   editingExpId = null;
+  _invReceiptLink = null;   // C3: إضافةٌ جديدة تفكّ ربط الاستلام (#721)
   $('expModalTitle').textContent = '+ مصروف جديد';
   $('eDate').value = todayISO();
   $('eTime').value = SyDT.nowHM();   // v476: الوقتُ افتراضياً الآن (SyDT — v477)
@@ -1267,6 +1274,52 @@ function editExpense(id) {
 function closeExpModal() {
   $('expModal').classList.remove('show');
   editingExpId = null;
+  _invReceiptLink = null;   // C3: الإغلاقُ يفكّ ربط الاستلام (#721)
+}
+
+/* C3 (M176) — «💸 سجّلها مصروفاً» من استلام طلبية المخزون (#721):
+   الرابطُ يحمل معرّفَ الاستلام والعملةَ فقط؛ المبلغُ والمورّدُ يُقرآن هنا من القاعدة،
+   والنموذجُ يُعبّأ ولا يُحفظ. الحفظُ مسارُ saveExpense القائم وحده، ثم يُربط الاستلامُ
+   بعمود عملته ما دام فارغاً ⇒ لا فاتورةَ مرتين. */
+var _invReceiptLink = null;   // { id, cur }
+async function openInvReceiptExpense(receiptId, cur) {
+  if (window.SyDentSub) {
+    var _sub = await window.SyDentSub.load();
+    if (_sub && _sub.level !== 'full') return;
+  }
+  try {
+    var r = await window.sb.from('inventory_receipts')
+      .select('id, received_at, expense_syp_id, expense_usd_id, inventory_suppliers(name), inventory_receipt_lines(qty, unit_price, currency)')
+      .eq('id', receiptId).eq('owner_id', currentUser.id).maybeSingle();
+    if (r.error) throw r.error;
+    if (!r.data) { showToast('⚠️ الاستلام غير موجود', true); return; }
+    if (cur === 'USD' ? r.data.expense_usd_id : r.data.expense_syp_id) { showToast('هذا الاستلام مسجّلٌ في المصاريف مسبقاً'); return; }
+    var pre = window.SyDentInvPO.expensePrefill({ received_at: r.data.received_at, supplier_name: (r.data.inventory_suppliers || {}).name || '' },
+                                                r.data.inventory_receipt_lines || [], cur);
+    if (!(pre.amount > 0)) { showToast('⚠️ لا قيمة لهذا الاستلام بهذه العملة', true); return; }
+    window.SyDentCurPick.pin('eAmount', cur);
+    openExpenseModal();
+    _invReceiptLink = { id: receiptId, cur: cur };
+    $('eAmount').value = pre.amount;
+    $('eVendor').value = pre.vendor;
+    $('eDescription').value = pre.description;
+    if (pre.date) $('eDate').value = pre.date;
+    var mat = categories.find(function(c){ return c.is_active !== false && /مواد|مستلزمات/.test(c.name || ''); });
+    if (mat) $('eCategory').value = mat.id;
+    if (pre.unpriced) showMsg('expMsg', 'في الاستلام ' + pre.unpriced + ' صنف بلا سعر — راجع المبلغ قبل الحفظ', true);
+  } catch (e) {
+    console.error('openInvReceiptExpense:', e);
+    showToast('⚠️ تعذّر قراءة الاستلام', true);
+  }
+}
+async function linkInvReceipt(link, expense) {
+  if (!link || !expense || expense.currency !== link.cur) return;
+  var col = link.cur === 'USD' ? 'expense_usd_id' : 'expense_syp_id';
+  var upd = {}; upd[col] = expense.id;
+  try {
+    var r = await window.sb.from('inventory_receipts').update(upd).eq('id', link.id).eq('owner_id', currentUser.id).is(col, null);
+    if (r.error) throw r.error;
+  } catch (e) { console.warn('linkInvReceipt:', e); }
 }
 
 // Phase post-X10 B1 fix: module-level in-flight flag prevents double-
@@ -1371,6 +1424,7 @@ async function saveExpense() {
       });
     }
 
+    if (!editingExpId && _invReceiptLink) await linkInvReceipt(_invReceiptLink, res.data);   // C3 (#721): مرةً واحدة
     showToast(editingExpId ? '✓ تم التعديل' : '✓ تمت الإضافة');
     closeExpModal();
     await loadExpenses();
