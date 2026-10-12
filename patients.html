@@ -53,6 +53,7 @@ body {
 /* ─── Main ─── */
 .main {
   flex: 1;
+  min-width: 0;   /* D1: بنداً مرناً لا يتمدّد لعرض الجدول — كان يدفع الصفحة كلها لبرّا الشاشة على التابلت (1024) */
   margin-right: var(--sb-width, 240px);
   display: flex;
   flex-direction: column;
@@ -212,6 +213,7 @@ tbody tr:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; 
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
+  overflow-x: auto;   /* D1: جدولٌ أعرض من مكانه يتمرّر داخل بطاقته لا الصفحة */
 }
 .table-head {
   padding: 14px 20px;
@@ -429,6 +431,8 @@ textarea { resize: vertical; min-height: 80px; }
 /* ─── Responsive ─── */
 @media (max-width: 1100px) {
   .stats-strip { grid-template-columns: repeat(2, 1fr); }
+  /* D1: التابلت (821–1100) — الهاتف وآخر زيارة يُخفيان كما بالموبايل فيتّسع الجدولُ لباقي الأعمدة بلا تمرير */
+  td:nth-child(2), th:nth-child(2), td:nth-child(4), th:nth-child(4) { display: none; }
   /* v363: شريطُ العنوان (بحث + خمسة أزرار + شارة المستخدم) لم يكن يلتفّ إلا تحت 480px،
      فتجاوز العرضَ بين 481 و1100px (حتى 175px على 1024). البحث يأخذ سطراً والأزرار تلتفّ */
 }
