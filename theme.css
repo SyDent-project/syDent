@@ -1638,3 +1638,23 @@ select.sd-input {
   .sd-btn, .sd-input { transition: none; }
   .sd-btn.is-loading::after { animation-duration: 2s; }
 }
+
+/* ═══ Section guides (guides.js) — «📖 دليل هذا القسم» in the page head + the guide body ═══ */
+.sd-guide-btn {
+  display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; padding: 4px 10px;
+  background: rgba(var(--green-rgb), .08); color: var(--green); border: 1px solid rgba(var(--green-rgb), .25);
+  border-radius: var(--r-full, 999px); font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: background .15s;
+}
+.sd-guide-btn:hover { background: rgba(var(--green-rgb), .16); }
+@media print { .sd-guide-btn { display: none !important; } }
+.sd-guide { font-size: 14px; line-height: 1.9; color: var(--text); }
+.sd-guide__intro { margin: 0 0 12px; color: var(--text2); }
+.sd-guide__steps { margin: 0 0 14px; padding-inline-start: 22px; }
+.sd-guide__steps li { margin-bottom: 8px; }
+.sd-guide__steps li::marker { color: var(--green); font-weight: 800; }
+.sd-guide b { color: var(--text); font-weight: 800; }
+.sd-guide__tips { background: rgba(var(--green-rgb), .06); border: 1px solid rgba(var(--green-rgb), .2); border-radius: 12px; padding: 10px 14px; }
+.sd-guide__tips-h { font-weight: 800; margin-bottom: 4px; }
+.sd-guide__tips ul { margin: 0; padding-inline-start: 20px; }
+.sd-guide__tips li { margin-bottom: 4px; color: var(--text2); }
