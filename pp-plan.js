@@ -875,7 +875,7 @@ function stmtLayerHtml(cur, from, to, L, partial, td, th) {
   var lbl = stmtCurLbl(cur), eps = (cur === 'USD') ? 0.005 : 0.5;
   var h = '';
   h += '<table style="width:100%;border-collapse:collapse;font-size:13.5px;">';
-  h += '<thead><tr style="background:var(--green);color:#06371f;">'
+  h += '<thead><tr style="background:var(--green);color:var(--on-accent);">'
     + '<th style="' + th + 'width:92px;">التاريخ</th>'
     + '<th style="' + th + '">البيان</th>'
     + '<th style="' + th + 'width:96px;">مدين</th>'
@@ -907,7 +907,7 @@ function stmtLayerHtml(cur, from, to, L, partial, td, th) {
   // الرصيد الختامي
   h += '<div style="margin-top:10px;font-size:14.5px;font-weight:800;">'
     + 'الرصيد الختامي' + (partial ? ' (حتى نهاية الفترة)' : '') + ': '
-    + '<span style="color:' + (d.closing > eps ? '#b00' : '#080') + ';">' + escapeHtml(stmtBalWord(d.closing, cur)) + '</span></div>';
+    + '<span style="color:' + (d.closing > eps ? '#b00' : '#2f3c9e') + ';">' + escapeHtml(stmtBalWord(d.closing, cur)) + '</span></div>';
 
   // ملخّص كامل الحساب — يطابق بطاقة المريض حرفياً (أولويات renderStats نفسها) داخل الطبقة
   h += '<div style="border:1px solid #d0d0d0;border-radius:10px;padding:12px 16px;margin-top:16px;font-size:13.5px;">';
@@ -922,7 +922,7 @@ function stmtLayerHtml(cur, from, to, L, partial, td, th) {
   } else if (L.trueBalance < -eps) {
     h += '<div style="color:#a07800;font-weight:800;">💸 يستحقّه المريض: ' + fmt(Math.abs(L.trueBalance)) + ' ' + lbl + '</div>';
   } else if (L.completedTotal > eps) {
-    h += '<div style="color:#080;font-weight:800;">✓ الحساب مكتمل</div>';
+    h += '<div style="color:#2f3c9e;font-weight:800;">✓ الحساب مكتمل</div>';
   }
   if (L.plannedTotal > eps) {
     h += '<div style="font-size:11.5px;color:#666;margin-top:4px;">علاج مخطّط (تقديري — غير مستحق): ' + fmt(L.plannedTotal) + ' ' + lbl + '</div>';
