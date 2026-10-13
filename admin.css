@@ -72,9 +72,9 @@ header{
 .header-logo svg{width:28px;height:28px;}
 .header-logo .name{font-size:16px;font-weight:800;color:var(--green);}
 :root[data-theme="light"] .sd-sy{background:linear-gradient(135deg,#3f4fc4 0%,#5a46c8 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#3f4fc4;}
-:root[data-theme="light"] .sd-dent{color:#16362c;}
+:root[data-theme="light"] .sd-dent{color:#171a33;}
 :root[data-theme="dark"] .sd-sy{background:linear-gradient(135deg,#8b97ff 0%,#a99bff 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#8b97ff;}
-:root[data-theme="dark"] .sd-dent{color:#e8f6f0;}
+:root[data-theme="dark"] .sd-dent{color:#e5e7f6;}
 .header-logo .badge{
   font-size:10px;padding:2px 8px;
   background:var(--green-dim);border:1px solid var(--border2);
@@ -848,7 +848,7 @@ header{
 /* Phase X13: monthly/yearly cycle toggle inside the manual plan picker */
 .plan-cycle-toggle{display:flex;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:14px;}
 .plan-cycle-opt{flex:1;border:none;background:transparent;color:var(--text2);font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;padding:9px 6px;border-radius:8px;cursor:pointer;transition:all .15s;white-space:nowrap;}
-.plan-cycle-opt.active{background:var(--green);color:#062018;}
+.plan-cycle-opt.active{background:var(--green);color:var(--on-accent);}
 .plan-option.plan-option-disabled{opacity:.45;cursor:not-allowed;}
 .plan-option.plan-option-disabled:hover{border-color:var(--border);background:var(--bg3);}
 /* Phase 7.6E-Part 2.1: permanent option — yellow accent + warning treatment
@@ -941,7 +941,7 @@ header{
 .tpl-platform-settings-row input:focus{outline:none;border-color:var(--green);}
 .btn-save-support{
   padding:8px 14px;font-size:12px;font-weight:600;font-family:'Cairo',sans-serif;
-  background:var(--green);color:#0a1628;
+  background:var(--green);color:var(--on-accent);
   border:none;border-radius:8px;cursor:pointer;transition:all .15s;
 }
 .btn-save-support:hover:not(:disabled){background:var(--green2);}
@@ -1149,8 +1149,8 @@ header{
   cursor:pointer;transition:all 0.15s;white-space:nowrap;
 }
 .evf-btn:hover{background:var(--bg4);border-color:var(--green);}
-.evf-btn-primary{background:var(--green);color:#0a1628;border-color:var(--green);}
-.evf-btn-primary:hover{background:var(--green2);color:#0a1628;}
+.evf-btn-primary{background:var(--green);color:var(--on-accent);border-color:var(--green);}
+.evf-btn-primary:hover{background:var(--green2);color:var(--on-accent);}
 .evf-btn-csv{background:var(--blue-bg);border-color:var(--blue-bd);color:var(--blue-fg);}
 .evf-btn-csv:hover{background:rgba(var(--blue-rgb),0.30);}
 
@@ -1430,7 +1430,7 @@ header{
 .srq-note{font-size:12.5px;color:var(--text2);margin-top:6px;font-style:italic;}
 .srq-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
 .srq-btn{border:none;border-radius:8px;padding:9px 16px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;cursor:pointer;}
-.srq-btn.ok{background:var(--green,var(--green));color:#062018;}
+.srq-btn.ok{background:var(--green,var(--green));color:var(--on-accent);}
 .srq-btn.no{background:transparent;color:var(--text2);border:1px solid var(--border);}
 .srq-btn:disabled{opacity:.5;cursor:not-allowed;}
 .ps-subcard{

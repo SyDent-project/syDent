@@ -2022,7 +2022,7 @@ function _printSlipCore(provId) {
       + '</div>'
     + '</div>'
 
-    + '<div style="background:#f0fdf4;border:2px solid #0284c7;padding:14px;border-radius:8px;margin-bottom:22px;">'
+    + '<div style="background:#eef0fb;border:2px solid #0284c7;padding:14px;border-radius:8px;margin-bottom:22px;">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;">'
         + '<div>'
           + '<div style="font-size:12px;color:#666;">المستحق (' + sharePct + '% من ' + basisLabel + ')</div>'
@@ -2238,7 +2238,7 @@ function printLedger() {
             .replace(/<td class="num[^"]*">/g, '<td style="padding:6px;border:1px solid #ccc;text-align:left;font-variant-numeric:tabular-nums;">')
             .replace(/<td>/g, '<td style="padding:6px;border:1px solid #ccc;">')
             .replace(/<div class="sub">/g, '<div style="font-size:9.5px;color:#666;">')
-            .replace(/<tr class="(open|close)">/g, '<tr style="font-weight:800;background:#f0fdf4;">')
+            .replace(/<tr class="(open|close)">/g, '<tr style="font-weight:800;background:#eef0fb;">')
         + '</tbody></table>'
       + '<div style="margin-top:14px;padding:10px;border:2px solid #0284c7;border-radius:8px;display:flex;justify-content:space-between;font-size:14px;font-weight:800;">'
         + '<span>' + cs.txt + '</span><span>' + fmtSY(cs.val) + '</span></div>'
@@ -3553,10 +3553,10 @@ window.onPTRRefresh = function() { loadAll(); };
       mainEl.innerHTML =
         '<div style="min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center;font-family:\'Cairo\',sans-serif;">' +
           '<div style="font-size:72px;line-height:1;margin-bottom:20px;">🔒</div>' +
-          '<div style="font-size:20px;font-weight:800;color:#e1f4ee;margin-bottom:12px;">' +
+          '<div style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:12px;">' +
             'تقارير الأطباء غير متاحة' +
           '</div>' +
-          '<div style="font-size:13px;color:#8a9ab5;line-height:1.8;max-width:420px;">' +
+          '<div style="font-size:13px;color:var(--text2);line-height:1.8;max-width:420px;">' +
             'حسابك معطّل من قِبَل صاحب العيادة. ' +
             'الرجاء التواصل معه لإعادة التفعيل.' +
           '</div>' +

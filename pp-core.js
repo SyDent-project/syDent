@@ -166,7 +166,7 @@ function buildPrintHtml(withPrices){
       '<tr><td style="' + td + 'font-weight:700;">إجمالي العلاج المنجز</td><td style="' + td + '">' + SyDentCurBag.text(billedBag, fmt) + '</td></tr>' +
       (SyDentCurBag.active(plannedBag).length ? '<tr><td style="' + td + 'color:#666;">علاج مخطّط (تقديري)</td><td style="' + td + 'color:#666;">' + SyDentCurBag.text(plannedBag, fmt) + '</td></tr>' : '') +
       '<tr><td style="' + td + 'font-weight:700;">إجمالي المدفوع</td><td style="' + td + '">' + SyDentCurBag.text(paidBag, fmt) + '</td></tr>' +
-      '<tr><td style="' + td + 'font-weight:800;">' + (owes ? 'الرصيد المتبقّي' : 'رصيد دائن (للمريض)') + '</td><td style="' + td + 'font-weight:800;color:' + (owes?'#b00':'#080') + ';">' + SyDentCurBag.text(absBalance, fmt) + '</td></tr>' +
+      '<tr><td style="' + td + 'font-weight:800;">' + (owes ? 'الرصيد المتبقّي' : 'رصيد دائن (للمريض)') + '</td><td style="' + td + 'font-weight:800;color:' + (owes?'#b00':'#2f3c9e') + ';">' + SyDentCurBag.text(absBalance, fmt) + '</td></tr>' +
       '</table>';
   }
 
