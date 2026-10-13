@@ -103,7 +103,7 @@ async function suite(F) {
     st[1].qty = 6; st[0].on = false;
     const o = ctx.__q();
     ok(o.supplier === 'مستودع' && o.lines.length === 1 && o.lines[0].name === 'كفوف' && o.lines[0].qty === 6, 'window: exclusion and typed quantity reach the order');
-    ok(/الكلفة التقديرية/.test(get('ivoCost').innerHTML) || /ما في ولا صنف/.test(get('ivoCost').innerHTML), 'window: cost line rendered');
+    ok(/الكلفة التقديرية/.test(get('ivoCost').innerHTML) || /لا يوجد أي صنف/.test(get('ivoCost').innerHTML), 'window: cost line rendered');
   } catch (e) { ok(false, 'order window throws: ' + e.message); }
 }
 
