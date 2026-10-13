@@ -125,7 +125,7 @@ async function suite(F) {
   ok(/^⚠️/.test(part) && /«بنج»: انخصم 2 من 5/.test(part) && /تم خصم 1 مادة/.test(part), 'message: the partial number is announced by name (#689)');
   ok(/«كفوف» محذوف/.test(C.message({ ok: true, lines: [{ item_id: 'i2', requested: 1, deducted: 0, skipped: 'inactive' }] }, names)), 'message: deleted item named');
   ok(/وضع القراءة/.test(C.message({ ok: false, error: { message: 'read_only' } })), 'message: read-only explained');
-  ok(/ما انخصم شي/.test(C.message({ ok: false, error: { message: 'x' } })), 'message: failure says nothing was deducted (all or nothing)');
+  ok(/لم يُخصم شيء/.test(C.message({ ok: false, error: { message: 'x' } })), 'message: failure says nothing was deducted (all or nothing)');
   const log0 = [];
   const r0 = await C.run(makeSb({}, log0, () => ({ data: null, error: { message: 'read_only' } })), [{ item_id: 'i', qty: 1, session_id: null }], 'n');
   ok(!r0.ok && log0.length === 1 && log0[0].rpc === 'inventory_consume' && log0[0].args.p_note === 'n', 'run: one RPC call, error surfaced');
