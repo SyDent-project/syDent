@@ -1947,7 +1947,7 @@ function buildPrescriptionHtml(rx) {
   // جدول الأدوية
   if (rx.items && rx.items.length) {
     h += '<table style="width:100%;border-collapse:collapse;font-size:14px;">';
-    h += '<thead><tr style="background:var(--green);color:#06371f;">'
+    h += '<thead><tr style="background:var(--green);color:var(--on-accent);">'
       + '<th style="padding:10px 12px;text-align:right;border:1px solid #d0d0d0;width:34px;">#</th>'
       + '<th style="padding:10px 12px;text-align:right;border:1px solid #d0d0d0;">الدواء</th>'
       + '<th style="padding:10px 12px;text-align:right;border:1px solid #d0d0d0;">الجرعة</th>'
@@ -2551,7 +2551,7 @@ function buildPostOpHtml(note) {
   h += '<div style="margin-top:4px;">' + escapeHtml(dateStr) + '</div>';
   h += '</div>';
   h += '</div>';
-  h += '<div style="font-size:20px;font-weight:800;color:#06371f;margin:12px 0 4px;">📋 تعليمات بعد الجلسة' + (tl ? (' — ' + escapeHtml(tl)) : '') + '</div>';
+  h += '<div style="font-size:20px;font-weight:800;color:#2f3c9e;margin:12px 0 4px;">📋 تعليمات بعد الجلسة' + (tl ? (' — ' + escapeHtml(tl)) : '') + '</div>';
   h += '<div style="background:#f6f6f6;border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:14px;color:#222;">';
   h += '<strong>المريض:</strong> ' + escapeHtml(pName);
   if (pGender) h += ' &nbsp;•&nbsp; ' + escapeHtml(pGender);

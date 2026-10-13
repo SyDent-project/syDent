@@ -2216,7 +2216,7 @@
         '<div style="font-size:60px;margin-bottom:16px;">🔒</div>' +
         '<div style="font-size:22px;font-weight:800;color:var(--text,#e1f4ee);margin-bottom:10px;">هذه الميزة غير متاحة في خطتك</div>' +
         '<div style="font-size:14px;color:var(--text2,#8a9ab5);margin-bottom:28px;max-width:340px;line-height:1.7;">' + nameLine + '<br>للترقية والوصول لكل الميزات، تواصل معنا.</div>' +
-        '<a href="index.html" style="padding:14px 28px;background:var(--green,var(--green));border-radius:12px;color:#062a1c;font-size:15px;font-weight:800;text-decoration:none;">← العودة للوحة التحكم</a>' +
+        '<a href="index.html" style="padding:14px 28px;background:var(--green,var(--green));border-radius:12px;color:var(--on-accent);font-size:15px;font-weight:800;text-decoration:none;">← العودة للوحة التحكم</a>' +
       '</div>';
   };
 
@@ -2773,7 +2773,7 @@
           '<div style="font-size:14px;color:var(--text2,#8a9ab5);margin-bottom:28px;max-width:360px;line-height:1.7;">' +
             'الوضع الحالي (' + (ROLE_LABELS[role] || role) + ') لا يسمح بالوصول إلى هذه الصفحة.' +
           '</div>' +
-          '<a href="index.html" style="padding:12px 24px;background:var(--green,var(--green));border-radius:10px;color:#0a1628;font-size:14px;font-weight:800;text-decoration:none;margin-bottom:10px;">' +
+          '<a href="index.html" style="padding:12px 24px;background:var(--green,var(--green));border-radius:10px;color:var(--on-accent);font-size:14px;font-weight:800;text-decoration:none;margin-bottom:10px;">' +
             '↩ العودة للصفحة الرئيسية' +
           '</a>' +
           '<button onclick="window.SyDentLock.openSwitchModal()" style="padding:10px 22px;background:transparent;border:1px solid var(--border2,rgba(255,255,255,0.18));border-radius:10px;color:var(--text2,#8a9ab5);font-family:\'Cairo\',sans-serif;font-size:13px;cursor:pointer;margin-top:8px;">' +
@@ -3008,7 +3008,7 @@
       '.sd-lock-modal .sd-btn{flex:1;padding:11px 14px;border-radius:10px;font-family:\'Cairo\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;border:1.5px solid transparent;}' +
       '.sd-lock-modal .sd-btn-cancel{background:transparent;border-color:var(--border2,rgba(255,255,255,0.18));color:var(--text2,#8a9ab5);}' +
       '.sd-lock-modal .sd-btn-cancel:hover{background:var(--bg3,rgba(255,255,255,0.06));}' +
-      '.sd-lock-modal .sd-btn-primary{background:var(--green,var(--green));color:#0a1628;}' +
+      '.sd-lock-modal .sd-btn-primary{background:var(--green,var(--green));color:var(--on-accent);}' +
       '.sd-lock-modal .sd-btn-primary:hover{filter:brightness(1.08);}' +
       '.sd-lock-modal .sd-btn-primary:disabled{opacity:0.5;cursor:not-allowed;}';
     document.head.appendChild(style);

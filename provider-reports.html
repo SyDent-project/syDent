@@ -16,17 +16,17 @@
 /* ── Modal ── v451: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261012d"></script>
+<script src="theme.js?v=20261013a"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261012d"></script>
-<script src="sy-modal.js?v=20261012d"></script>
-<script src="sidebar.js?v=20261012d"></script>
-<script src="rpt-treat.js?v=20261012d"></script>
-<script src="rpt-newpt.js?v=20261012d"></script>
-<script src="rpt-att.js?v=20261012d"></script>
-<script src="rpt-ret.js?v=20261012d"></script>
-<script src="rpt-sum.js?v=20261012d"></script>
-<script src="mat-cost.js?v=20261012d"></script>
+<script src="supabase-init.js?v=20261013a"></script>
+<script src="sy-modal.js?v=20261013a"></script>
+<script src="sidebar.js?v=20261013a"></script>
+<script src="rpt-treat.js?v=20261013a"></script>
+<script src="rpt-newpt.js?v=20261013a"></script>
+<script src="rpt-att.js?v=20261013a"></script>
+<script src="rpt-ret.js?v=20261013a"></script>
+<script src="rpt-sum.js?v=20261013a"></script>
+<script src="mat-cost.js?v=20261013a"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -429,7 +429,7 @@ a.rt-row:hover{background:rgba(var(--green-rgb),0.04);}
 html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutModal("],[onclick*="deletePayout("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261012d">
+<link rel="stylesheet" href="theme.css?v=20261013a">
 </head>
 <body>
 <div class="main" id="sbMainContent">
@@ -2022,7 +2022,7 @@ function _printSlipCore(provId) {
       + '</div>'
     + '</div>'
 
-    + '<div style="background:#f0fdf4;border:2px solid #0284c7;padding:14px;border-radius:8px;margin-bottom:22px;">'
+    + '<div style="background:#eef0fb;border:2px solid #0284c7;padding:14px;border-radius:8px;margin-bottom:22px;">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;">'
         + '<div>'
           + '<div style="font-size:12px;color:#666;">المستحق (' + sharePct + '% من ' + basisLabel + ')</div>'
@@ -2238,7 +2238,7 @@ function printLedger() {
             .replace(/<td class="num[^"]*">/g, '<td style="padding:6px;border:1px solid #ccc;text-align:left;font-variant-numeric:tabular-nums;">')
             .replace(/<td>/g, '<td style="padding:6px;border:1px solid #ccc;">')
             .replace(/<div class="sub">/g, '<div style="font-size:9.5px;color:#666;">')
-            .replace(/<tr class="(open|close)">/g, '<tr style="font-weight:800;background:#f0fdf4;">')
+            .replace(/<tr class="(open|close)">/g, '<tr style="font-weight:800;background:#eef0fb;">')
         + '</tbody></table>'
       + '<div style="margin-top:14px;padding:10px;border:2px solid #0284c7;border-radius:8px;display:flex;justify-content:space-between;font-size:14px;font-weight:800;">'
         + '<span>' + cs.txt + '</span><span>' + fmtSY(cs.val) + '</span></div>'
@@ -3553,10 +3553,10 @@ window.onPTRRefresh = function() { loadAll(); };
       mainEl.innerHTML =
         '<div style="min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center;font-family:\'Cairo\',sans-serif;">' +
           '<div style="font-size:72px;line-height:1;margin-bottom:20px;">🔒</div>' +
-          '<div style="font-size:20px;font-weight:800;color:#e1f4ee;margin-bottom:12px;">' +
+          '<div style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:12px;">' +
             'تقارير الأطباء غير متاحة' +
           '</div>' +
-          '<div style="font-size:13px;color:#8a9ab5;line-height:1.8;max-width:420px;">' +
+          '<div style="font-size:13px;color:var(--text2);line-height:1.8;max-width:420px;">' +
             'حسابك معطّل من قِبَل صاحب العيادة. ' +
             'الرجاء التواصل معه لإعادة التفعيل.' +
           '</div>' +
