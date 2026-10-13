@@ -16,7 +16,7 @@
 /* ── Modal ── v453: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261013a"></script>
+<script src="theme.js?v=20261013b"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -169,6 +169,20 @@ button:active:not(:disabled) { transform: scale(.97); }
 .player-close:hover { color: var(--text); }
 .player-media { aspect-ratio: 16 / 9; background: #000; }
 .player-media iframe, .player-media video { width: 100%; height: 100%; border: none; display: block; }
+.learn-h { font-size: 16px; font-weight: 800; margin: 22px 0 12px; color: var(--text); }
+.guide-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; align-items: start; }
+.guide-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.guide-card > summary { list-style: none; cursor: pointer; padding: 14px 16px; display: flex; gap: 10px; align-items: flex-start; }
+.guide-card > summary::-webkit-details-marker { display: none; }
+.guide-card .gc-ic { font-size: 22px; line-height: 1.2; }
+.guide-card .gc-t { font-weight: 800; font-size: 15px; }
+.guide-card .gc-i { color: var(--text2); font-size: 12.5px; line-height: 1.7; margin-top: 2px; }
+.guide-card .gc-chev { margin-inline-start: auto; color: var(--text2); transition: transform .2s; }
+.guide-card[open] .gc-chev { transform: rotate(180deg); }
+.guide-card[open] { border-color: rgba(var(--green-rgb), .45); }
+.guide-card .sd-guide { padding: 0 16px 16px; }
+.guide-card .sd-guide__intro { display: none; }
+@media (max-width: 560px) { .guide-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -178,7 +192,10 @@ button:active:not(:disabled) { transform: scale(.97); }
     <div class="topbar-title">مركز التعلّم <span>/ دليل الاستخدام</span></div>
   </div>
   <div class="content">
-    <p class="intro">شروحات فيديو قصيرة لكل جزء من SyDent — إدارة المواعيد، مخطط الأسنان، الفوترة والمحاسبة، المخزون والتقارير. اختر القسم من الأعلى وشغّل الفيديو الذي تريده.</p>
+    <p class="intro">دليل مكتوب لكل قسم من SyDent: ما الذي تجده فيه، وكيف تستعمله خطوة بخطوة. اضغط على أي قسم لفتح دليله. ستُضاف شروحات الفيديو أسفل الصفحة فور جاهزيتها.</p>
+    <h2 class="learn-h">📖 أدلة الأقسام</h2>
+    <div class="guide-grid" id="guideArea"></div>
+    <h2 class="learn-h">🎬 شروحات الفيديو</h2>
     <div class="tabs" id="catTabs"></div>
     <div id="videoArea"></div>
   </div>
@@ -195,11 +212,11 @@ button:active:not(:disabled) { transform: scale(.97); }
   </div>
 </div>
 
-<link rel="stylesheet" href="theme.css?v=20261013a">
+<link rel="stylesheet" href="theme.css?v=20261013b">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261013a"></script>
-<script src="sy-modal.js?v=20261013a"></script>
-<script src="sidebar.js?v=20261013a"></script>
+<script src="supabase-init.js?v=20261013b"></script>
+<script src="sy-modal.js?v=20261013b"></script>
+<script src="sidebar.js?v=20261013b"></script>
 <script>
 /* ===== مركز التعلّم (Learn Center) =====
    Source-agnostic video library. Each entry:
@@ -299,6 +316,21 @@ function renderVideos() {
   area.innerHTML = '<div class="video-grid">' + cards + '</div>';
 }
 
+/* Written section guides (guides.js, loaded by sidebar.js). learn.html#<key> opens that guide. */
+function renderGuides() {
+  var G = window.SyDentGuides, area = document.getElementById('guideArea');
+  if (!G || !area) return;
+  var want = (location.hash || '').replace('#', '') || 'start';
+  area.innerHTML = G.list.map(function (g) {
+    return '<details class="guide-card" id="guide-' + escapeHtml(g.key) + '"' + (g.key === want ? ' open' : '') + '>'
+      + '<summary><span class="gc-ic">' + escapeHtml(g.icon) + '</span><span><div class="gc-t">' + escapeHtml(g.title) + '</div>'
+      + '<div class="gc-i">' + escapeHtml(g.intro) + '</div></span><span class="gc-chev">▾</span></summary>'
+      + '<div class="sd-guide">' + G.html(g) + '</div></details>';
+  }).join('');
+  var el = document.getElementById('guide-' + want);
+  if (el && location.hash) el.scrollIntoView({ block: 'start' });
+}
+
 function openPlayer(id) {
   var v = videoById(id);
   if (!v) return;
@@ -324,6 +356,8 @@ document.addEventListener('DOMContentLoaded', function() {
   if (typeof initSidebar === 'function') initSidebar('learn');
   renderTabs();
   renderVideos();
+  renderGuides();
+  document.addEventListener('sydent:guides', renderGuides);
   var btn = document.createElement('button');
   btn.className = 'sb-hamburger';
   btn.id = 'sbHamburgerBtn';

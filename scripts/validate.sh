@@ -21,6 +21,7 @@ node "$S/check-scopes.js"           || FAIL=1
 node "$S/check-demo-sandbox.js"      || FAIL=1
 node "$S/check-template-scope.js"    || FAIL=1
 node "$S/check-colors.js"            || FAIL=1
+node "$S/check-guides.js"            || FAIL=1   # أدلة الأقسام: لكل قسم رئيسي دليلٌ مكتوب (guides.js)
 # v432: مثبت DOM حيّ — ينقر مودال السن كما ينقر الطبيب (يتخطّى نفسه بلا playwright)
 python3 "$S/dom-smoke/run.py" | tail -1 || FAIL=1
 node "$S/check-modal-behaviour.js" | tail -1 || FAIL=1

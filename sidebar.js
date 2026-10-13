@@ -1013,6 +1013,22 @@ function initSidebar(activeId) {
 
   // 5. Pull-to-Refresh
   initPTR();
+
+  // 6. Section guide (guides.js): «📖 دليل هذا القسم» in the page head. Loaded on demand with
+  //    sidebar.js's own version token, so no page has to list it.
+  loadGuides(activeId);
+}
+
+function loadGuides(activeId) {
+  try {
+    if (window.SyDentGuides) { window.SyDentGuides.mount(activeId); return; }
+    var own = document.querySelector('script[src*="sidebar.js"]');
+    var q = own && own.getAttribute('src').indexOf('?') !== -1 ? own.getAttribute('src').split('?')[1] : '';
+    var s = document.createElement('script');
+    s.src = 'guides.js' + (q ? '?' + q : '');
+    s.onload = function () { if (window.SyDentGuides) window.SyDentGuides.mount(activeId); };
+    document.head.appendChild(s);
+  } catch (e) { /* optional — a missing guide never breaks the page */ }
 }
 
 // ─── Pull to Refresh ───────────────────────────────
