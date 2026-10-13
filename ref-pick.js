@@ -81,7 +81,7 @@
       box.hidden = !(v === FRIEND || v === DOCTOR);
       sug.hidden = true;
       if (v === FRIEND) {
-        lbl.textContent = 'مين عرّفه علينا؟ (اختياري)';
+        lbl.textContent = 'من عرّفه علينا؟ (اختياري)';
         inp.placeholder = 'اكتب اسم مريضٍ من مرضاك أو أي اسم';
         hint.textContent = 'اختيارُ مريضٍ من القائمة يربطه به في تقرير المرضى الجدد.';
       } else if (v === DOCTOR) {

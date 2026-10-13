@@ -78,9 +78,9 @@
 
   function errText(err) {
     var msg = String((err && (err.message || err.code)) || '');
-    if (/read_only/.test(msg)) return '⚠️ الحساب بوضع القراءة فقط — ما انخصم شي من المخزون';
-    if (/Failed to fetch|NetworkError|network|offline/i.test(msg)) return '⚠️ ما في اتصال — ما انخصم شي من المخزون، جرّب لما يرجع النت';
-    return '⚠️ تعذّر خصم المواد — ما انخصم شي من المخزون';
+    if (/read_only/.test(msg)) return '⚠️ الحساب بوضع القراءة فقط — لم يُخصم شيء من المخزون';
+    if (/Failed to fetch|NetworkError|network|offline/i.test(msg)) return '⚠️ لا يوجد اتصال — لم يُخصم شيء من المخزون، أعد المحاولة عند عودة الاتصال';
+    return '⚠️ تعذّر خصم المواد — لم يُخصم شيء من المخزون';
   }
 
   function message(res, names) {
@@ -91,7 +91,7 @@
       var nm = (names && names[it.item_id]) || 'صنف';
       if (it.skipped === 'inactive') { notes.push('«' + nm + '» محذوف من المخزون'); return; }
       if (it.deducted + 1e-9 < it.requested) {
-        notes.push('«' + nm + '»: انخصم ' + fmt(it.deducted) + ' من ' + fmt(it.requested) + ' (ما في أكتر بالمخزون)');
+        notes.push('«' + nm + '»: انخصم ' + fmt(it.deducted) + ' من ' + fmt(it.requested) + ' (لا يوجد أكثر في المخزون)');
       } else { full++; }
     });
     if (!notes.length) return 'تم خصم ' + full + ' مادة من المخزون ✓';

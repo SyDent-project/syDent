@@ -16,10 +16,10 @@
 /* ── Modal ── v453: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261012d"></script>
+<script src="theme.js?v=20261013a"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261012d"></script>
-<script src="pwd-policy.js?v=20261012d"></script>
+<script src="supabase-init.js?v=20261013a"></script>
+<script src="pwd-policy.js?v=20261013a"></script>
 <!-- ── Cloudflare Turnstile (CAPTCHA) ── Axis 3 / Item 2. Helper defined BEFORE the API
      script so window.onSyDentTurnstileLoad exists when the (async) script fires. -->
 <style>.cf-turnstile-box{margin:2px 0 14px;min-height:65px;display:flex;justify-content:center}/* v304: press feedback */
@@ -531,11 +531,11 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
 .pwd-toggle svg{display:block;width:20px;height:20px;flex-shrink:0;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261012d">
-<script src="sy-modal.js?v=20261012d"></script>
-<script src="sched-blocks.js?v=20261012d"></script>
-<script src="appt-blocks.js?v=20261012d"></script>
-<script src="sidebar.js?v=20261012d"></script>
+<link rel="stylesheet" href="theme.css?v=20261013a">
+<script src="sy-modal.js?v=20261013a"></script>
+<script src="sched-blocks.js?v=20261013a"></script>
+<script src="appt-blocks.js?v=20261013a"></script>
+<script src="sidebar.js?v=20261013a"></script>
 </head>
 <body>
 
@@ -658,7 +658,7 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
         <div class="form-group">
           <label>رقم اتصال إضافي (اختياري — بدون واتساب)</label>
           <input type="tel" id="fContactPhone" placeholder="مثال: 011 1234567" dir="ltr" autocomplete="off">
-          <div class="section-sub" style="margin-top:6px;">رقم ثانٍ للتواصل إذا عندك خط بدون واتساب. أمّا رقم الواتساب المستخدَم للتذكيرات وللإدارة فبيتحدّد من قسم «تذكيرات WhatsApp» أدناه.</div>
+          <div class="section-sub" style="margin-top:6px;">رقم ثانٍ للتواصل إذا كان لديك خطٌّ بلا واتساب. أمّا رقم الواتساب المستخدَم للتذكيرات وللإدارة فيُحدَّد من قسم «تذكيرات WhatsApp» أدناه.</div>
         </div>
         <button type="submit" class="btn btn-primary" id="btnSaveProfile">حفظ التغييرات</button>
       </form>
@@ -2181,7 +2181,7 @@ async function _keepCustomClinicName_inner() {
   _cnsPendingDerived = '';
   cidAdoptRow(res.data);
   closeClinicNameSync();
-  showToast('👌 تمام — اسم عيادتك بيبقى متل ما هو');
+  showToast('👌 حسناً — سيبقى اسم عيادتك كما هو');
 }
 
 // يُنادى بعد نجاح حفظ الاسم الشخصي. الاسم يُمرَّر صراحةً ولا يُقرأ من

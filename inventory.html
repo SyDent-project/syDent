@@ -16,7 +16,7 @@
 /* ── Modal ── v448: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261012d"></script>
+<script src="theme.js?v=20261013a"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -254,16 +254,16 @@ button:disabled { opacity:.6; cursor:wait; }
 /* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
 html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem("],[onclick*="saveMovement("],[onclick*="finishBatch("],[onclick*="openMoveModal("],[onclick*="deleteItem("],[onclick*="finishBatchFromItem("],[onclick*="ivoSetQty("],[onclick*="applyCount("],[onclick*="ivoSave("],[onclick*="poReceive("],[onclick*="poClose("],[onclick*="poFillAll("],[onclick*="poSupSave("],[onclick*="poSupEdit("],[onclick*="poSupHide("],[onclick*="poExpense("],#poRecvForm){display:none !important;}
 </style>
-<link rel="stylesheet" href="theme.css?v=20261012d">
+<link rel="stylesheet" href="theme.css?v=20261013a">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261012d"></script>
-<script src="sy-modal.js?v=20261012d"></script>
-<script src="sidebar.js?v=20261012d"></script>
-<script src="inv-consume.js?v=20261012d"></script>
-<script src="inv-order.js?v=20261012d"></script>
-<script src="inv-count.js?v=20261012d"></script>
-<script src="inv-po.js?v=20261012d"></script>
-<script src="inv-trace.js?v=20261012d"></script>
+<script src="supabase-init.js?v=20261013a"></script>
+<script src="sy-modal.js?v=20261013a"></script>
+<script src="sidebar.js?v=20261013a"></script>
+<script src="inv-consume.js?v=20261013a"></script>
+<script src="inv-order.js?v=20261013a"></script>
+<script src="inv-count.js?v=20261013a"></script>
+<script src="inv-po.js?v=20261013a"></script>
+<script src="inv-trace.js?v=20261013a"></script>
 </head>
 <body>
 
@@ -292,13 +292,13 @@ html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem(
       <summary>كيف أُدخل المواد؟ — دليل سريع</summary>
       <div class="mg-body">
         <div class="mg-intro">
-          صنّف كل مادة لواحد من <b>3 أنواع</b> — النوع بيحدّد كيف تُدخلها. اضغط «نسخ مثال» جنب أي صنف ليتعبّى لك جاهزاً في نافذة الإضافة، راجِعه واحفظ.
+          صنّف كل مادة لواحد من <b>3 أنواع</b> — النوع يحدّد طريقة إدخالها. اضغط «نسخ مثال» بجانب أي صنف ليُعبَّأ جاهزاً في نافذة الإضافة، ثم راجِعه واحفظه.
         </div>
 
         <!-- النوع 1 -->
         <div class="mg-sec mg-sec-1">
           <div class="mg-h" style="color:var(--green);">النوع 1 — مواد معدودة (خصم تلقائي دقيق)</div>
-          <div class="mg-p">كل استخدام بياخد قطعة كاملة. عرّف الوحدة «قطعة» واربطها بالعلاج من زر «🧰 المواد». الكمية لكل استخدام = رقم صحيح.</div>
+          <div class="mg-p">كل استخدام يأخذ قطعة كاملة. عرّف الوحدة «قطعة» واربطها بالعلاج من زر «🧰 المواد». الكمية لكل استخدام = رقم صحيح.</div>
           <div class="mg-eg">أمثلة: كبسولة بنج، إبرة، ماتريكس باند، إسفين، فايل، زرعة، بوست، قفازات، كمامات.</div>
           <div class="mg-row">
             <div class="mg-row-info"><div class="mg-row-name">كبسولة بنج</div><div class="mg-row-meta">الوحدة: كبسولة · يُربَط بالعلاج · كمية الاستخدام: 1</div></div>
@@ -577,7 +577,7 @@ html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem(
         <button type="button" class="ivc-tab" role="tab" data-ivc="tab-past" aria-selected="false">الجردات السابقة</button>
       </div>
       <div id="ivcNew">
-        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">عِدّ الموجود فعلياً واكتبه. الصنف اللي بتتركه فاضي ما بيتغيّر — فيك تجرد قسم بس. الفرق بيتسجّل حركة «جرد» والكمية بتصير المعدودة.</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">عِدّ الموجود فعلياً واكتبه. الصنف الذي تتركه فارغاً لا يتغيّر — يمكنك جرد قسمٍ واحد فقط. يُسجَّل الفرق حركةَ «جرد»، وتصبح الكمية هي المعدودة.</div>
         <div class="ivc-tools">
           <button type="button" class="btn" data-ivc="blank">🖨️ ورقة عدّ فاضية</button>
           <button type="button" class="btn" data-ivc="fill">↺ اعتبر الكل مطابق</button>
@@ -765,7 +765,7 @@ async function _finishBatch_inner(batchId) {
   /* M169: «انتهت» = متبقّي الدفعة يخرج من الكمية (إتلاف/مصروف) بخطوةٍ واحدة بالقاعدة،
      فلا يبقى مخزونٌ منتهٍ محسوباً متوفّراً بلا تاريخ. */
   var msg = left > 0
-    ? 'تعليم هذه الدفعة كمنتهية؟\nالمتبقّي منها (' + fmtNum(left) + (it && it.unit ? ' ' + it.unit : '') + ') رح ينخصم من كمية الصنف.'
+    ? 'تعليم هذه الدفعة كمنتهية؟\nالمتبقّي منها (' + fmtNum(left) + (it && it.unit ? ' ' + it.unit : '') + ') سيُخصم من كمية الصنف.'
     : 'تعليم هذه الدفعة كمنتهية؟ ستختفي من تنبيهات الصلاحية.';
   if (!await SyDialog.confirm({ message: msg, danger: left > 0 })) return;
   try {
@@ -1239,7 +1239,7 @@ async function _ivoLoadClinic() {
 }
 function openOrderModal(all) {
   var low = ITEMS.filter(function(it){ return window.SyDentInvOrder.isLow(it); });
-  if (!low.length && !all) { showToast('ما في أصناف تحتاج إعادة طلب'); return; }
+  if (!low.length && !all) { showToast('لا توجد أصناف تحتاج إلى إعادة طلب'); return; }
   if (all && !ITEMS.length) { showToast('لا توجد أصناف بعد — أضف صنفاً أولاً'); return; }
   /* C3: «＋ طلبية جديدة» تعرض كل الأصناف — الناقصةُ مختارةٌ باقتراحها والباقي مستبعدٌ حتى يُختار */
   var rest = all ? ITEMS.filter(function(it){ return !window.SyDentInvOrder.isLow(it); }) : [];
@@ -1294,8 +1294,8 @@ function renderOrderCost() {
   var n = window.SyDentInvOrder.clean(ivoOrder()).length;
   el.innerHTML = n
     ? ('💰 الكلفة التقديرية بسعر الشراء المسجّل: ' + (parts.length ? parts.join(' + ') : '—')
-       + (c.missing ? ' · ' + c.missing + ' صنف بلا سعر' : '') + ' — للعرض هون فقط، ما بتطلع بالطلبية')
-    : '⚠️ ما في ولا صنف بكمية — اكتب الكمية المطلوبة';
+       + (c.missing ? ' · ' + c.missing + ' صنف بلا سعر' : '') + ' — للعرض هنا فقط، ولا تظهر في الطلبية')
+    : '⚠️ لا يوجد أي صنف بكمية — اكتب الكمية المطلوبة';
 }
 async function ivoCopy(txt) {
   try { await navigator.clipboard.writeText(txt); return true; } catch (e) {}
@@ -1772,7 +1772,7 @@ function ivcVarHtml(r) {
 }
 function renderCountRows() {
   var host = document.getElementById('ivcRows');
-  if (!_ivc.length) { host.innerHTML = '<div class="empty"><div class="empty-icon">📦</div><div style="margin-top:8px;">ما في أصناف لسا.</div></div>'; renderCountSum(); return; }
+  if (!_ivc.length) { host.innerHTML = '<div class="empty"><div class="empty-icon">📦</div><div style="margin-top:8px;">لا توجد أصناف بعد.</div></div>'; renderCountSum(); return; }
   host.innerHTML = '<div class="ivc-row ivc-h"><div>الصنف</div><div class="ivc-seen">بالنظام</div><div>المعدود</div><div style="text-align:center;">الفرق</div></div>'
     + _ivc.map(function(r, i){
       return '<div class="ivc-row" data-i="' + i + '">'
@@ -1789,15 +1789,15 @@ function renderCountSum() {
   var d = L.filter(function(l){ return l.counted !== l.seen; }).length;
   document.getElementById('ivcSum').textContent = L.length
     ? ('معدود ' + L.length + ' من ' + _ivc.length + ' · فروق ' + d)
-    : 'لسا ما عدّيت شي — اكتب المعدود جنب كل صنف';
+    : 'لم تَعُدّ أي صنف بعد — اكتب المعدود بجانب كل صنف';
 }
 var applyCount = iGuarded('applyCount', _applyCount_inner, 'جارٍ الاعتماد…');
 async function _applyCount_inner() {
   if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
   var L = window.SyDentInvCount.lines(_ivc.map(function(r){ return { item_id: r.it.id, seen: r.seen, counted: r.counted }; }));
-  if (!L.length) { showToast('⚠️ ما في ولا صنف معدود', true); return; }
+  if (!L.length) { showToast('⚠️ لا يوجد أي صنف معدود', true); return; }
   var d = L.filter(function(l){ return l.counted !== l.seen; }).length;
-  if (!await SyDialog.confirm({ message: 'اعتماد الجرد؟\nمعدود ' + L.length + ' صنف، منهم ' + d + ' بفرق — كمياتهم رح تصير المعدودة.', confirmText: 'اعتمد' })) return;
+  if (!await SyDialog.confirm({ message: 'اعتماد الجرد؟\nمعدود ' + L.length + ' صنف، منهم ' + d + ' بفرق — ستصبح كمياتها هي المعدودة.', confirmText: 'اعتمد' })) return;
   var note = (document.getElementById('ivcNote').value || '').trim();
   try {
     var r = await window.sb.rpc('inventory_apply_count', { p_lines: L, p_note: note || null });
@@ -1809,7 +1809,7 @@ async function _applyCount_inner() {
   } catch (e) {
     console.error('applyCount:', e);
     var m = String((e && e.message) || '');
-    showToast(/read_only/.test(m) ? '⚠️ الحساب بوضع القراءة فقط' : (/Failed to fetch|network/i.test(m) ? '⚠️ ما في اتصال — ما انعتمد شي' : '⚠️ تعذّر اعتماد الجرد — ما تغيّر شي'), true);
+    showToast(/read_only/.test(m) ? '⚠️ الحساب بوضع القراءة فقط' : (/Failed to fetch|network/i.test(m) ? '⚠️ لا يوجد اتصال — لم يُعتمد شيء' : '⚠️ تعذّر اعتماد الجرد — لم يتغيّر شيء'), true);
   }
 }
 var _ivcPast = [];        // [{ id, created_at, note, lines:[] }]
@@ -1854,7 +1854,7 @@ function ivcTotalsText(rep) {
 }
 function renderPastCounts() {
   var host = document.getElementById('ivcPast');
-  if (!_ivcPast.length) { host.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div style="margin-top:8px;">ما في جردات سابقة.</div></div>'; return; }
+  if (!_ivcPast.length) { host.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div style="margin-top:8px;">لا توجد جردات سابقة.</div></div>'; return; }
   var names = ivcNames();
   host.innerHTML = _ivcPast.map(function(k){
     var rep = window.SyDentInvCount.report(k.lines, names);

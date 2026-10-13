@@ -16,17 +16,17 @@
 /* ── Modal ── v451: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261012d"></script>
+<script src="theme.js?v=20261013a"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261012d"></script>
-<script src="sy-modal.js?v=20261012d"></script>
-<script src="sidebar.js?v=20261012d"></script>
-<script src="rpt-treat.js?v=20261012d"></script>
-<script src="rpt-newpt.js?v=20261012d"></script>
-<script src="rpt-att.js?v=20261012d"></script>
-<script src="rpt-ret.js?v=20261012d"></script>
-<script src="rpt-sum.js?v=20261012d"></script>
-<script src="mat-cost.js?v=20261012d"></script>
+<script src="supabase-init.js?v=20261013a"></script>
+<script src="sy-modal.js?v=20261013a"></script>
+<script src="sidebar.js?v=20261013a"></script>
+<script src="rpt-treat.js?v=20261013a"></script>
+<script src="rpt-newpt.js?v=20261013a"></script>
+<script src="rpt-att.js?v=20261013a"></script>
+<script src="rpt-ret.js?v=20261013a"></script>
+<script src="rpt-sum.js?v=20261013a"></script>
+<script src="mat-cost.js?v=20261013a"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -429,7 +429,7 @@ a.rt-row:hover{background:rgba(var(--green-rgb),0.04);}
 html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutModal("],[onclick*="deletePayout("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261012d">
+<link rel="stylesheet" href="theme.css?v=20261013a">
 </head>
 <body>
 <div class="main" id="sbMainContent">
@@ -2624,9 +2624,9 @@ var _prLoaded = false;        // أوّلُ تحميلٍ للفترة انتهى
 var RPT_SUB = {
   prov:  'إنتاج وتحصيلات ومستحقات كل طبيب في العيادة',
   treat: 'العلاجات المُجراة: عددها وإنتاجها ونصيبها — للعيادة كلها أو لطبيب',
-  new:   'المرضى الجدد: كم ومنين إجوا ومين استقبلهم وقدّيش جابوا — ومَن سجّل وما بلّش',
-  att:   'الحضور والغياب: كم موعد ضاع وعند مين وبأي يوم وساعة — ومين المكرّرين',
-  ret:   'الاحتفاظ: كم مريض نشط وعم يكبر العدد ولا يصغر — ومين فقدنا ومين طلع بلا موعد جاي',
+  new:   'المرضى الجدد: كم عددهم ومن أين جاؤوا ومن استقبلهم وكم أنتجوا — ومن سجّل ولم يبدأ',
+  att:   'الحضور والغياب: كم موعداً ضاع وعند من وفي أي يوم وساعة — ومن المتكرّرون',
+  ret:   'الاحتفاظ: كم مريضاً نشطاً وهل العدد يكبر أم يصغر — ومن فقدنا ومن غادر بلا موعد قادم',
   mat:   'المواد المستهلكة: كلفتُها التقديرية بسعر الشراء — حسب المادة أو الشهر أو العلاج أو الطبيب',
   sum:   'ملخّص الفترة: صفحةٌ واحدة مقابل السابقة ونفس الفترة من السنة الماضية — للطباعة أو الواتساب'
 };
@@ -3082,7 +3082,7 @@ async function exportAttExcel() {
 
 // ═══ v542 — تبويبُ «الاحتفاظ» (المحرّك والرسم بـrpt-ret.js) ═══
 // الزياراتُ من كل التاريخ قبل الفترة (priorCtx — بهوية الجلسة) + جلسات الفترة، مفلترةً بطبيب الجلسة بقاعدة
-// _newInScope نفسها؛ الجددُ بـSyRptNew.pickNew نفسه. المواعيدُ من بداية الفترة (لـ«حجزوا الخطوة الجاية»)
+// _newInScope نفسها؛ الجددُ بـSyRptNew.pickNew نفسه. المواعيدُ من بداية الفترة (لـ«حجزوا الخطوة التالية»)
 // تُجلب فقط حين يُفتح التبويب (#687)، والأسماءُ لقوائم النطاق الظاهر فقط وبمقاطع 150 (#691).
 var _retData = null, _retSeq = 0, _retLast = null;
 async function loadRetData(key) {
@@ -3139,7 +3139,7 @@ function renderRet() {
   var need = m.noNext.concat(m.lost).map(function(r){ return r.id; }).filter(function(id){ return !(id in _retData.names); });
   if (need.length && !_retData.fetching) _retFetchNames(need, _retData);
   var names = _retData.names;
-  host.innerHTML = (_retData.failed ? '<div class="rt-note" style="margin:0 0 14px;">⚠️ تعذّر تحميل المواعيد — «حجزوا الخطوة الجاية» وقائمةُ «بلا موعد جاي» غيرُ دقيقتين الآن.</div>' : '')
+  host.innerHTML = (_retData.failed ? '<div class="rt-note" style="margin:0 0 14px;">⚠️ تعذّر تحميل المواعيد — «حجزوا الخطوة التالية» وقائمةُ «بلا موعد قادم» غيرُ دقيقتين الآن.</div>' : '')
     + window.SyRptRet.render(m, {
       name: function(id){ return names[id] === undefined ? '…' : names[id]; },
       prof: function(id){ return 'patient-profile.html?id=' + encodeURIComponent(id); },
@@ -3153,12 +3153,12 @@ function buildRetRows() {
   rows.push(['المرضى النشطون (آخر 12 شهراً)', m.activeEnd, 'بداية الفترة', m.activeStart]);
   rows.push(['زاروا بالفترة', m.visited, 'جدد / راجعون', m.newN + ' / ' + m.returning]);
   rows.push(['فقدناهم بالفترة', m.lost.length, 'صافي النمو', m.newN - m.lost.length]);
-  rows.push(['حجزوا الخطوة الجاية', m.booked, 'من', m.visited]);
+  rows.push(['حجزوا الخطوة التالية', m.booked, 'من', m.visited]);
   rows.push([]);
   rows.push(['الشهر','النشطون','جدد','فقدنا']);
   m.trend.forEach(function(t){ rows.push([t.label, t.active, t.fresh, t.lost]); });
   rows.push([]);
-  rows.push(['زاروا بلا موعد جاي','آخر زيارة','جديد','']);
+  rows.push(['زاروا بلا موعد قادم','آخر زيارة','جديد','']);
   m.noNext.forEach(function(r){ rows.push([names[r.id] || r.id, r.last, r.isNew ? 'نعم' : '', '']); });
   rows.push([]);
   rows.push(['فقدناهم','آخر علاج','','']);

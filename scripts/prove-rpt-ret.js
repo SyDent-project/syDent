@@ -2,7 +2,7 @@
    (١) التواريخ: طرحُ الأشهر بقصّ اليوم · اليوم السابق · حدودُ «النشط» (حصريٌّ من الأسفل، ضمنيٌّ من الأعلى);
    (٢) الزيارة = علاجٌ منجز (لا مخطّط · لا رسم · لا رصيدَ سابق) · المرجعُ نهايةُ الفترة ولا يتجاوز اليوم;
    (٣) النشطون بالبداية والنهاية · المفقودون · الجددُ بتعريف تبويب المرضى الجدد حرفياً (من كل الزيارات) · الراجعون ·
-       «حجزوا الخطوة الجاية» (موعدٌ بعد آخر زيارة، لا ملغى ولا غياب ولا مخطّط) · الاتجاهُ الشهري;
+       «حجزوا الخطوة التالية» (موعدٌ بعد آخر زيارة، لا ملغى ولا غياب ولا مخطّط) · الاتجاهُ الشهري;
    (٤) النطاقُ بدوالّ الصفحة (طبيبُ الجلسة · وضعُ الطبيب) · (٥) الرسم · (٦) الربط والتحميل الكسول والتصدير.
    --self-test: طفراتٌ لا بدّ أن تحمّر. */
 'use strict';
@@ -61,7 +61,7 @@ function suite(F) {
   ok(/<bdi dir="ltr">\+3<\/bdi><\/span> <span>منذ بداية الفترة \(4\)/.test(html) && /<div class="val"><bdi dir="ltr">\+2<\/bdi><\/div>/.test(html), 'render: active change and net growth signed (+3 · +2)');
   ok(/<bdi dir="ltr">40%<\/bdi>/.test(html) && /2 من 5 مرضى لهم موعدٌ بعد آخر زيارة/.test(html), 'render: booked share');
   ok(/href="patients\.html\?open=recall">قائمة الاستدعاء<\/a>/.test(html) && (html.match(/href="patient-profile\.html\?id=/g) || []).length === 4, 'render: lost point to the recall list; every listed patient links to the profile');
-  ok(/حجزوا الخطوة الجاية<\/div><div class="val">—<\/div>/.test(R.render(Md, {})), 'render: under 3 visits no rate');
+  ok(/حجزوا الخطوة التالية<\/div><div class="val">—<\/div>/.test(R.render(Md, {})), 'render: under 3 visits no rate');
   ok(/لا زيارات بآخر 12 شهراً/.test(R.render(R.compute(Object.assign({}, base, { all: [], visits: [], appts: [] })), {})), 'render: empty state');
 
   /* (٤) نطاقُ الصفحة */
