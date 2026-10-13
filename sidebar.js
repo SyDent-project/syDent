@@ -171,6 +171,15 @@ const css = `
   .sb-badge ~ .sb-badge { margin-right: 6px; }
   .sb-badge--req { background: var(--red, #e85d5d); }
 
+  /* ─── «📲 ثبّت التطبيق» — shown only where SyDent can be installed (theme.js: SyDentInstall) ─── */
+  .sb-install {
+    margin: 8px 12px; padding: 9px 12px; border-radius: 10px;
+    background: rgba(var(--green-rgb), .08); border: 1px dashed rgba(var(--green-rgb), .35);
+    color: var(--green); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-align: center;
+  }
+  .sb-install[hidden] { display: none; }
+  .sb-install:hover { background: rgba(var(--green-rgb), .14); }
+
   /* ─── Footer: doctor identity + theme toggle on one row ─── */
   .sb-footer {
     padding: 12px 20px;
@@ -676,6 +685,7 @@ l44 -30 346 -5 c376 -5 376 -6 411 -63 19 -30 20 -53 20 -372 0 -252 3 -344
         </div>
       </a>
       <nav class="sb-nav">${navHTML}</nav>
+      <button type="button" class="sb-install" id="sbInstallBtn" hidden>📲 ثبّت التطبيق على هاتفك</button>
       <div class="sb-footer" id="sbDoctorFooter">
         <div class="sb-footer-name" id="sbDoctorName">جارٍ التحميل…</div>
         <button type="button" class="sb-theme-switch" id="sbThemeSwitch" role="switch" aria-label="تبديل الوضع الفاتح/الداكن" title="تبديل الوضع الفاتح/الداكن">
@@ -1013,6 +1023,19 @@ function initSidebar(activeId) {
 
   // 5. Pull-to-Refresh
   initPTR();
+
+  // 5.5 Install button: visible only where SyDent can still be installed (not inside the installed app).
+  try {
+    const ib = document.getElementById('sbInstallBtn');
+    const syncInstall = function () {
+      if (ib) ib.hidden = !(window.SyDentInstall && window.SyDentInstall.available());
+    };
+    if (ib) ib.addEventListener('click', function () { if (window.SyDentInstall) window.SyDentInstall.open(); });
+    syncInstall();
+    document.addEventListener('sydent-can-install', syncInstall);
+    document.addEventListener('sydent-already-installed', syncInstall);
+    window.addEventListener('appinstalled', function () { if (ib) ib.hidden = true; });
+  } catch (e) { /* optional */ }
 
   // 6. Section guide (guides.js): «📖 دليل هذا القسم» in the page head. Loaded on demand with
   //    sidebar.js's own version token, so no page has to list it.
