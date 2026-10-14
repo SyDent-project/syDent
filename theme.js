@@ -270,26 +270,34 @@
   } catch (e) {}
 })();
 
-/* ═══ SyDent PWA — دعوة التثبيت عند أول فتح (بطاقة عائمة) ═══════════════════
-   الغرض: المستخدم الجديد على متصفح جديد لا يعرف أن SyDent قابل للتثبيت —
-   بطاقة واحدة غير حاجزة تعرض «ثبّت الآن / لاحقاً» ثم لا تعود أبداً.
+/* ═══ SyDent PWA — دعوة التثبيت على الهاتف (بطاقة عائمة) ═══════════════════════
+   الغرض: من يفتح SyDent من متصفح هاتفه (أو جهازه اللوحي) يُعرض عليه تثبيته
+   كتطبيق على الشاشة الرئيسية.
 
-   قرارات مقفولة (مبرَّرة بالتصادمات الحيّة وقت الكتابة):
-   • الموضع وسط-أسفل bottom:84px — الزاويتان السفليتان محجوزتان عند bottom:14px
-     (#syMsgFab وsyPwaReload بجهة، وشارة المزامنة بالأخرى) وارتفاعها 46px.
-   • z-index 9990 عمداً — تحت طبقة قفل الـPIN (.sd-lock-modal-overlay = 9999)
-     وتحت كل المودالات، فأي طبقة أعلى تغطّيها كما يجب. رفعها فوق 9999 يعني
-     زر تثبيت يطفو فوق شاشة القفل.
-   • navigator.webdriver → صمت تام: بطاقة عائمة تظهر بعد ثوانٍ تعترض نقرات
-     Playwright وتُسقط اختبارات E2E بأخطاء «covered» عمياء.
-   • صفر سمة data-test — جرد الحارس مقفول على أربع عشرة سمة بالضبط.
-   • رفض localStorage (تصفح خاص) = لا تعرض شيئاً — الافتراض الآمن صمت لا إلحاح.
-   محروس بالكامل — لا يمس أي سلوك قائم ولا أي مسار مالي. */
+   • تظهر على صفحات التطبيق وصفحة الدخول، على الشاشات اللمسية فقط (سطح المكتب
+     يثبّت من الإعدادات).
+   • ثلاث حالات: زرّ تثبيت فعلي (beforeinstallprompt — كروم/سامسونغ/Edge)؛
+     iOS: شرح «مشاركة ⬆️ ← إضافة إلى الشاشة الرئيسية»؛ أندرويد بلا زرّ تلقائي
+     (فايرفوكس…): شرح «قائمة المتصفح ⋮ ← تثبيت التطبيق».
+   • «لاحقاً» تؤجّل 7 أيام لا للأبد؛ التثبيت يُخفيها نهائياً.
+   • window.SyDentInstall.open() يعرضها عند الطلب (زرّ «📲 ثبّت التطبيق» بالقائمة
+     الجانبية) متجاهلاً التأجيل.
+
+   قرارات مقفولة (من النسخة السابقة):
+   • الموضع وسط-أسفل bottom:84px — الزاويتان السفليتان للأزرار العائمة.
+   • z-index 9990 عمداً — تحت طبقة قفل الـPIN (9999) وتحت كل المودالات.
+   • navigator.webdriver → صمت تام (لا تعترض نقرات Playwright).
+   • صفر سمة data-test.
+   • رفض localStorage (تصفح خاص) = لا تعرض تلقائياً.
+   كل النصوص ثابتة حرفياً — صفر استيفاء وصفر إدخال مستخدم (قاعدة #195). */
 (function () {
   'use strict';
-  var KEY = 'sydent_install_prompt';   /* '1' = رُفضت نهائياً على هذا المتصفح */
+  var KEY = 'sydent_install_prompt';   /* '1' = لا تُعرض تلقائياً · رقم = مؤجّلة حتى هذا الوقت (ms) */
   var ID  = 'syInstallCard';
-  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+  var SNOOZE_MS = 7 * 24 * 3600 * 1000;
+  var ua = navigator.userAgent || '';
+  var isIOS = /iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+  var isAndroid = /android/i.test(ua);
 
   function isStandalone() {
     try {
@@ -297,12 +305,18 @@
       return !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
     } catch (e) { return false; }
   }
-  /* نفس صياغة isPublicPage() بـsupabase-init.js موسَّعة بالصفحات غير التطبيقية */
+  function isTouchDevice() {
+    try {
+      if (isIOS || isAndroid) return true;
+      return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches) && window.innerWidth <= 1024;
+    } catch (e) { return false; }
+  }
+  /* صفحات ليست من التطبيق (صفحة الدخول مشمولة عمداً — منها يدخل الشخص) */
   function isExcludedPage() {
     try {
       var p = (window.location.pathname || '').toLowerCase();
       if (p.length > 1 && p.charAt(p.length - 1) === '/') p = p.slice(0, -1);
-      return /^\/(auth|landing|pending|admin|reset-password|privacy|book|offline)(\.html)?$/.test(p);
+      return /^\/(landing|pending|admin|reset-password|privacy|book|offline)(\.html)?$/.test(p);
     } catch (e) { return true; }
   }
   function lockOpen() {
@@ -311,17 +325,25 @@
                 document.getElementById('sydentCpOverlay'));
     } catch (e) { return false; }
   }
-  function dismissed() {
-    try { return localStorage.getItem(KEY) === '1'; } catch (e) { return true; }
+  function held() {
+    try {
+      var v = localStorage.getItem(KEY);
+      if (v === '1') return true;
+      var until = Number(v);
+      return isFinite(until) && until > Date.now();
+    } catch (e) { return true; }
   }
-  function remember() {
-    try { localStorage.setItem(KEY, '1'); } catch (e) {}
-  }
+  function store(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
   function close() {
     try {
       var c = document.getElementById(ID);
       if (c && c.parentNode) c.parentNode.removeChild(c);
     } catch (e) {}
+  }
+  function mode() {
+    if (window.SyDentPWA && window.SyDentPWA.canInstall) return 'prompt';
+    if (isIOS) return 'ios';
+    return 'menu';
   }
 
   function injectStyle() {
@@ -333,80 +355,101 @@
       'z-index:9990;width:min(400px,92vw);box-sizing:border-box;background:var(--bg2);' +
       'border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-modal);' +
       'padding:14px 16px;direction:rtl;font-family:inherit;text-align:right;' +
-      'opacity:0;transition:opacity .25s ease,transform .25s ease;--syic-on-green:#fff}' +
-      ':root[data-theme="dark"] #' + ID + '{--syic-on-green:#062018}' +
+      'opacity:0;transition:opacity .25s ease,transform .25s ease}' +
       '#' + ID + '.show{opacity:1;transform:translateX(-50%) translateY(0)}' +
       '#' + ID + ' .syic-head{display:flex;align-items:center;gap:9px;margin-bottom:6px}' +
+      '#' + ID + ' .syic-head img{width:32px;height:32px;border-radius:8px;flex:0 0 auto}' +
       '#' + ID + ' .syic-title{font-size:14px;font-weight:800;color:var(--text)}' +
-      '#' + ID + ' .syic-desc{font-size:12.5px;line-height:1.6;color:var(--text2);margin-bottom:12px}' +
+      '#' + ID + ' .syic-desc{font-size:12.5px;line-height:1.7;color:var(--text2);margin-bottom:12px}' +
+      '#' + ID + ' .syic-desc b{color:var(--text)}' +
       '#' + ID + ' .syic-actions{display:flex;flex-wrap:wrap;gap:8px}' +
-      '#' + ID + ' .syic-btn{flex:1 1 auto;min-width:0;border-radius:9px;padding:9px 14px;' +
+      '#' + ID + ' .syic-btn{flex:1 1 auto;min-width:0;min-height:40px;border-radius:9px;padding:9px 14px;' +
       'font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;line-height:1.2}' +
-      '#' + ID + ' .syic-primary{background:var(--green);border:1px solid var(--green);color:var(--syic-on-green)}' +
+      '#' + ID + ' .syic-primary{background:var(--green);border:1px solid var(--green);color:var(--on-accent)}' +
       '#' + ID + ' .syic-ghost{background:transparent;border:1px solid var(--border2);color:var(--text2)}' +
       '#' + ID + ' .syic-note{margin-top:10px;font-size:11.5px;color:var(--text3);line-height:1.5}';
     (document.head || document.documentElement).appendChild(st);
   }
 
-  /* كل النصوص ثابتة حرفياً — صفر استيفاء وصفر إدخال مستخدم (قاعدة #195) */
-  function render(iosMode) {
-    if (document.getElementById(ID)) return;
+  var DESC = {
+    prompt: 'افتحه بلمسة واحدة من الشاشة الرئيسية لهاتفك مثل أي تطبيق، بشاشة كاملة ودون شريط المتصفح.',
+    ios: 'اضغط زرّ المشاركة <b>⬆️</b> في شريط المتصفح، ثم اختر <b>«إضافة إلى الشاشة الرئيسية»</b>.',
+    menu: 'افتح قائمة المتصفح <b>⋮</b>، ثم اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>.'
+  };
+
+  function render(m) {
+    close();
     injectStyle();
     var box = document.createElement('div');
     box.id = ID;
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-label', 'تثبيت SyDent كتطبيق');
+    box.setAttribute('data-mode', m);
     box.innerHTML =
-      '<div class="syic-head"><span aria-hidden="true">📲</span>' +
-      '<span class="syic-title">ثبّت SyDent كتطبيق</span></div>' +
-      '<div class="syic-desc">' +
-      (iosMode
-        ? 'للتثبيت: زر المشاركة ⬆️ بشريط سفاري ثم «إضافة إلى الشاشة الرئيسية».'
-        : 'يفتح بضغطة واحدة من شاشة جهازك، ويكمل شغلك حتى بلا إنترنت.') +
-      '</div>' +
+      '<div class="syic-head"><img src="/icons/icon-192.png" alt="" aria-hidden="true">' +
+      '<span class="syic-title">ثبّت SyDent كتطبيق على هاتفك</span></div>' +
+      '<div class="syic-desc">' + DESC[m] + '</div>' +
       '<div class="syic-actions">' +
-      (iosMode
-        ? '<button type="button" class="syic-btn syic-primary" id="syicLater">تم</button>'
-        : '<button type="button" class="syic-btn syic-primary" id="syicGo">ثبّت الآن</button>' +
-          '<button type="button" class="syic-btn syic-ghost" id="syicLater">لاحقاً</button>') +
+      (m === 'prompt'
+        ? '<button type="button" class="syic-btn syic-primary" id="syicGo">ثبّت الآن</button>' +
+          '<button type="button" class="syic-btn syic-ghost" id="syicLater">لاحقاً</button>'
+        : '<button type="button" class="syic-btn syic-primary" id="syicLater">حسناً</button>') +
       '</div>' +
-      '<div class="syic-note">تقدر تثبّت البرنامج من الإعدادات بأي وقت.</div>';
+      '<div class="syic-note">يمكنك التثبيت في أي وقت من زرّ «📲 ثبّت التطبيق» في القائمة الجانبية.</div>';
     document.body.appendChild(box);
 
     var go = document.getElementById('syicGo');
     if (go) {
       go.addEventListener('click', function () {
-        remember(); close();
+        store('1'); close();
         try {
           if (window.SyDentPWA && window.SyDentPWA.promptInstall) window.SyDentPWA.promptInstall();
         } catch (e) {}
       });
     }
     var later = document.getElementById('syicLater');
-    if (later) later.addEventListener('click', function () { remember(); close(); });
+    if (later) later.addEventListener('click', function () { store(String(Date.now() + SNOOZE_MS)); close(); });
 
-    /* إطار كي تُلتقط حالة البداية قبل الانتقال */
     try { requestAnimationFrame(function () { box.classList.add('show'); }); }
     catch (e) { box.classList.add('show'); }
   }
 
+  /* هل يستحق هذا الجهاز عرض التثبيت أصلاً؟ (يستعمله زرّ القائمة الجانبية أيضاً) */
+  function available() {
+    try {
+      if (isStandalone()) return false;
+      if (window.SyDentPWA && window.SyDentPWA.canInstall) return true;
+      if (window.SyDentPWA && window.SyDentPWA.alreadyInstalled) return false;
+      return isIOS || isAndroid;
+    } catch (e) { return false; }
+  }
+
   function maybeShow() {
     try {
-      if (document.getElementById(ID)) return;
       if (navigator.webdriver) return;
-      if (isExcludedPage() || isStandalone() || dismissed()) return;
-      if (lockOpen()) return;
-      if (!document.body) return;
-      if (window.SyDentPWA && window.SyDentPWA.alreadyInstalled) return;
-      if (window.SyDentPWA && window.SyDentPWA.canInstall) { render(false); return; }
-      if (isIOS) render(true);
+      if (!document.body || isExcludedPage() || !isTouchDevice() || held() || lockOpen()) return;
+      if (!available()) return;
+      var c = document.getElementById(ID);
+      var m = mode();
+      if (c && c.getAttribute('data-mode') === m) return;
+      if (c && m !== 'prompt') return;     /* لا نستبدل بطاقة ظاهرة إلا بزرّ تثبيت فعلي */
+      render(m);
     } catch (e) {}
   }
 
+  window.SyDentInstall = {
+    available: available,
+    open: function () { try { if (available()) render(mode()); } catch (e) {} }
+  };
+
   try {
+    /* زرّ التثبيت الفعلي يصل عادةً خلال ثوانٍ؛ بلا زرّ ننتظر أطول قبل شرح الطريقة اليدوية */
     document.addEventListener('sydent-can-install', function () { setTimeout(maybeShow, 2500); });
-    window.addEventListener('load', function () { setTimeout(maybeShow, 2500); });
-    window.addEventListener('appinstalled', function () { remember(); close(); });
+    window.addEventListener('load', function () {
+      setTimeout(function () { if (isIOS || (window.SyDentPWA && window.SyDentPWA.canInstall)) maybeShow(); }, 2500);
+      setTimeout(maybeShow, 8000);
+    });
+    window.addEventListener('appinstalled', function () { store('1'); close(); });
   } catch (e) {}
 })();
 
