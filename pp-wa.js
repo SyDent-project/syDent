@@ -404,7 +404,7 @@ function ppCollectWatches(){
 }
 function ppBookingLink(){
   if (!(CLINIC_SETTINGS_WA && CLINIC_SETTINGS_WA.booking_enabled) || !PP_BOOKING_PLAN_OK || !currentUser) return '';
-  var base = (location.origin && /^https?:/.test(location.origin)) ? location.origin : 'https://sydent.app';
+  var base = (location.origin && /^https?:/.test(location.origin)) ? location.origin : 'https://www.sydent.app';
   return base + '/book.html?c=' + currentUser.id;
 }
 // mirror of prmStripBookingIfDisabled (patients.html)

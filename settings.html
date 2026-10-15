@@ -30,7 +30,7 @@ html[data-sub-level="read"] :is([onsubmit*="saveProfile("] [type="submit"],[oncl
 </style>
 <script>
 (function(){
-  var SITEKEY = '0x4AAAAAAFPRuqXRqDAiojuW';   // public site key — safe in client by design
+  var SITEKEY = '0x4AAAAAAFXnC1T1zKo_VYCS';   // public site key — safe in client by design
   var widgets = {};   // name -> widgetId
   var wanted  = {};   // name -> containerId (render intent recorded before API is ready)
   var ready   = false;
@@ -1468,7 +1468,7 @@ async function loadBookingSettings() {
   if (slotSel.value !== String(row.booking_slot_minutes || 30)) slotSel.value = '30';
   document.getElementById('bkMaxDays').value = row.booking_max_days_ahead || 30;
   document.getElementById('bkNote').value = row.booking_note || '';
-  var base = (location.origin && /^https?:/.test(location.origin)) ? location.origin : 'https://sydent.app';
+  var base = (location.origin && /^https?:/.test(location.origin)) ? location.origin : 'https://www.sydent.app';
   document.getElementById('bkLink').value = base + '/book.html?c=' + currentUser.id;
 }
 
@@ -1881,7 +1881,7 @@ function previewBookingLink() {
   if (!en) return '';
   var link = (document.getElementById('bkLink') && document.getElementById('bkLink').value) || '';
   if (link) return link;
-  var base = (location.origin && /^https?:/.test(location.origin)) ? location.origin : 'https://sydent.app';
+  var base = (location.origin && /^https?:/.test(location.origin)) ? location.origin : 'https://www.sydent.app';
   return base + '/book.html?c=' + (currentUser ? currentUser.id : '');
 }
 // Mirror of patients.html prmStripBookingIfDisabled — drop the {booking_link} line when booking is off.
