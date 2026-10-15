@@ -6,7 +6,7 @@
   "scope": "/",
   "id": "/",
   "related_applications": [
-    { "platform": "webapp", "url": "https://sydent.app/manifest.json", "id": "https://sydent.app/" }
+    { "platform": "webapp", "url": "https://www.sydent.app/manifest.json", "id": "https://www.sydent.app/" }
   ],
   "prefer_related_applications": false,
   "display": "standalone",
