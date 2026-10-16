@@ -39,6 +39,7 @@ AFTER_SNAPSHOT = [
     'migrations/176_inventory_suppliers_orders.sql',
     'migrations/177_inventory_lot.sql',
     'migrations/178_inventory_hardening.sql',
+    'migrations/179_teeth_history_tenant_delete.sql',
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',
