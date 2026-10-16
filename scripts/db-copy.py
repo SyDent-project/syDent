@@ -30,10 +30,10 @@ KEYS = {
 # Which column ties a row to its account, to copy only the chosen accounts.
 OWNER = {
     'auth.users': 'id', 'auth.identities': 'user_id', 'public.doctors': 'id', 'public.clinic_doctors': 'owner_id',
-    'public.clinic_settings': 'doctor_id', 'public.clinic_employees': 'owner_id', 'public.treatments': 'doctor_id',
-    'public.patient_seq': 'doctor_id', 'public.patients': 'doctor_id', 'public.ledger_sessions': 'doctor_id',
+    'public.clinic_settings': 'owner_id', 'public.clinic_employees': 'owner_id', 'public.treatments': 'doctor_id',
+    'public.patient_seq': 'owner_id', 'public.patients': 'doctor_id', 'public.ledger_sessions': 'doctor_id',
     'public.teeth_status': 'doctor_id', 'public.trial_requests': 'user_id', 'public.subscription_events': 'user_id',
-    'public.platform_admins': 'user_id', 'public.audit_log': 'user_id',
+    'public.platform_admins': 'user_id', 'public.audit_log': 'owner_id',
 }
 
 UPSERT = r'''
@@ -53,6 +53,7 @@ BEGIN
           WHERE i.indrelid = t::regclass AND i.indisprimary;
     END IF;
     SELECT string_agg(format('t.%1$I = s.%1$I', k), ' AND ') INTO cond FROM unnest(keys) k;
+    cond := coalesce(cond, 'false');   -- no key at all: insert only
     ins := 0; upd := 0;
     FOR r IN SELECT jsonb_array_elements(coalesce(d->'rows'->t, '[]'::jsonb)) LOOP
       EXECUTE format('UPDATE %s AS t SET (%s) = (SELECT %s FROM jsonb_populate_record(NULL::%s, $1)) FROM jsonb_populate_record(NULL::%s, $1) s WHERE %s',
