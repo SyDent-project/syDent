@@ -47,8 +47,8 @@ jobs:
           # subscription_plans مفتاحها 'code' (لا يوجد عمود 'id') — طلب عمود غير موجود يسبب 400.
           # Target project: repo variables SUPABASE_PROJECT_REF / SUPABASE_PUBLISHABLE_KEY
           # (default to dental-dev).
-          URL="https://${{ vars.SUPABASE_PROJECT_REF || 'peeydqtjwklixphuzvzg' }}.supabase.co/rest/v1/subscription_plans?select=code&limit=1"
-          KEY="${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_H_MS0j2cRi35h0ycqnIl8w_ANOlaQne' }}"
+          URL="https://${{ vars.SUPABASE_PROJECT_REF || 'nxkalpjrqvpglphmiuui' }}.supabase.co/rest/v1/subscription_plans?select=code&limit=1"
+          KEY="${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_UYcgZI4CE--gwIevdEPttg_ytxevCUN' }}"
           # المفتاح الجديد sb_publishable_ ليس JWT — يُرسَل في ترويسة apikey فقط.
           # إرساله في Authorization: Bearer يسبب HTTP 400 (البوابة تحاول فكّه كـ JWT وتفشل).
           HTTP=$(curl -sS -o /tmp/resp.txt -w "%{http_code}" "$URL" \

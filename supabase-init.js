@@ -802,8 +802,8 @@
     return;
   }
 
-  const SUPABASE_URL = 'https://peeydqtjwklixphuzvzg.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_H_MS0j2cRi35h0ycqnIl8w_ANOlaQne';
+  const SUPABASE_URL = 'https://nxkalpjrqvpglphmiuui.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_UYcgZI4CE--gwIevdEPttg_ytxevCUN';
 
   // إنشاء client مشترك
   window.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -5748,7 +5748,7 @@ window.SyDentAccountDelete = (function () {
   }
 
   async function getAuthHeaders() {
-    var h = { apikey: (window.sb && window.sb.supabaseKey) || 'sb_publishable_H_MS0j2cRi35h0ycqnIl8w_ANOlaQne' };
+    var h = { apikey: (window.sb && window.sb.supabaseKey) || 'sb_publishable_UYcgZI4CE--gwIevdEPttg_ytxevCUN' };
     try {
       var s = await window.sb.auth.getSession();
       var t = s && s.data && s.data.session && s.data.session.access_token;
