@@ -16,10 +16,10 @@
 /* ── Modal ── v453: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261013e"></script>
+<script src="theme.js?v=20261015a"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261013e"></script>
-<script src="pwd-policy.js?v=20261013e"></script>
+<script src="supabase-init.js?v=20261015a"></script>
+<script src="pwd-policy.js?v=20261015a"></script>
 <!-- ── Cloudflare Turnstile (CAPTCHA) ── Axis 3 / Item 2. Helper defined BEFORE the API
      script so window.onSyDentTurnstileLoad exists when the (async) script fires. -->
 <style>.cf-turnstile-box{margin:2px 0 14px;min-height:65px;display:flex;justify-content:center}/* v304: press feedback */
@@ -531,11 +531,11 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
 .pwd-toggle svg{display:block;width:20px;height:20px;flex-shrink:0;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261013e">
-<script src="sy-modal.js?v=20261013e"></script>
-<script src="sched-blocks.js?v=20261013e"></script>
-<script src="appt-blocks.js?v=20261013e"></script>
-<script src="sidebar.js?v=20261013e"></script>
+<link rel="stylesheet" href="theme.css?v=20261015a">
+<script src="sy-modal.js?v=20261015a"></script>
+<script src="sched-blocks.js?v=20261015a"></script>
+<script src="appt-blocks.js?v=20261015a"></script>
+<script src="sidebar.js?v=20261015a"></script>
 </head>
 <body>
 
@@ -731,15 +731,15 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
     <!-- 3. تغيير كلمة المرور -->
     <div class="section">
       <div class="section-title">تغيير كلمة المرور</div>
-      <div class="section-sub">يجب أن تكون كلمة المرور 8 أحرف على الأقل وتتضمن حرفاً إنكليزياً ورقماً</div>
+      <div class="section-sub">يجب أن تكون كلمة المرور 8 أحرف على الأقل</div>
       <form onsubmit="changePassword(event)">
         <div class="form-group">
           <label>كلمة المرور الجديدة</label>
-          <input type="password" id="fPassNew" placeholder="••••••••" minlength="6" required>
+          <input type="password" id="fPassNew" placeholder="••••••••" minlength="8" required>
         </div>
         <div class="form-group">
           <label>تأكيد كلمة المرور</label>
-          <input type="password" id="fPassConfirm" placeholder="••••••••" minlength="6" required>
+          <input type="password" id="fPassConfirm" placeholder="••••••••" minlength="8" required>
         </div>
         <button type="submit" class="btn btn-primary" id="btnChangePass">تحديث كلمة المرور</button>
       </form>
@@ -2623,7 +2623,6 @@ async function changePassword(e) {
   const p1 = document.getElementById('fPassNew').value;
   const p2 = document.getElementById('fPassConfirm').value;
   if (p1.length < 8) { showToast('⚠️ كلمة المرور يجب أن تكون 8 أحرف على الأقل', true); return; }
-  if (!/[A-Za-z]/.test(p1) || !/[0-9]/.test(p1)) { showToast('⚠️ كلمة المرور يجب أن تتضمن حرفاً إنكليزياً ورقماً', true); return; }
   if (p1 !== p2)     { showToast('⚠️ كلمتا المرور غير متطابقتين', true); return; }
   // قائمة حظر الكلمات الشائعة/المسرَّبة (pwd-policy.js). السياق: بريد الحساب
   // واسمه من الجلسة، والهاتف من صفّ trial_requests المعروض بالصفحة إن وُجد.

@@ -5,8 +5,9 @@
    المصدر: SecLists · xato-net-10-million-passwords (مرتّبة بالتكرار)، مُرشَّحة
    إلى ما يجتاز سياسة الخادم (8+ · حرف + رقم · ASCII) — أعلى 3000 فقط، فالقائمة
    الكاملة بلا فائدة هنا: ما لا يجتاز السياسة يرفضه Supabase أصلاً.
-   الفحص بالمتصفح (لا يصل الخادم): يحمي الطبيب من اختيار كلمةٍ مسرَّبة أو
-   مبنيّةٍ على رقمه/بريده/اسمه، ولا يدّعي منع مَن يتعمّد الالتفاف على حسابه هو.
+   الفحص بالمتصفح (لا يصل الخادم): يحمي الطبيب من اختيار كلمةٍ مسرَّبة أو نمطٍ
+   متوقَّع (تكرار/تسلسل). بقرار المالك (تشرين الأول 2026): لا شرط حرف+رقم، ويُسمح
+   بكلمةٍ فيها رقم الهاتف أو الاسم أو البريد — الحدّ الأدنى 8 أحرف فقط.
    الحماية السيرفرية من الهجمات (Turnstile · حدّ المعدّل · 8+ حرف+رقم) قائمة.
    يُحمَّل بصفحات التسجيل والاستعادة والإعدادات فقط. التدهور رشيق: غيابُ
    الملف = سياسة الخادم وحدها كما كانت.
@@ -18,29 +19,10 @@
   var SET = null;
   function set(){ if (!SET) { SET = new Set(BLOB.split('\n')); BLOB = null; } return SET; }
 
-  function digitsOf(s){ return String(s || '').replace(/\D/g, ''); }
   function lower(s){ return String(s || '').toLowerCase(); }
 
-  // كلمة مبنيّة على معلوماتٍ عامة عن صاحبها: ≥6 أرقام متتالية من هاتفه، أو الجزء
-  // المحلي من بريده (≥4 محارف)، أو اسمه اللاتيني (≥4 محارف).
-  function personal(pw, ctx){
-    var p = lower(pw);
-    var ph = digitsOf(ctx && ctx.phone);
-    if (ph.length >= 6) {
-      for (var i = 0; i + 6 <= ph.length; i++) if (p.indexOf(ph.slice(i, i + 6)) > -1) return true;
-    }
-    var em = lower(ctx && ctx.email).split('@')[0];
-    if (em.length >= 4 && p.indexOf(em) > -1) return true;
-    var nm = lower(ctx && ctx.name).replace(/[^a-z0-9]+/g, ' ').trim();
-    if (nm) {
-      var parts = nm.split(' ');
-      for (var j = 0; j < parts.length; j++) if (parts[j].length >= 4 && p.indexOf(parts[j]) > -1) return true;
-    }
-    return false;
-  }
-
   // أنماط لوحة المفاتيح/التكرار التي تفلت من القائمة لكنها بلا عشوائية:
-  // محرف واحد يشكّل أكثر من نصف الكلمة، أو تسلسل رقمي/أبجدي بطول ≥6.
+  // محرف واحد يشكّل أكثر من نصف الكلمة، أو الكلمةُ كلّها (إلا محرفاً) تسلسلٌ رقمي/أبجدي.
   function lowEntropy(pw){
     var p = lower(pw);
     var counts = {}; var max = 0;
@@ -50,14 +32,13 @@
     for (var k = 1; k < p.length; k++) {
       var d = p.charCodeAt(k) - p.charCodeAt(k - 1);
       run = (d === 1 || d === -1) ? run + 1 : 1;
-      if (run >= 6) return true;
+      if (run >= 6 && run >= p.length - 1) return true;   // the whole word (±1) is a run — a mobile number with «123456» inside is fine
     }
     return false;
   }
 
   var MESSAGES = {
     common:   'هذه الكلمة من أشيع كلمات المرور المسرَّبة — اختر كلمة أخرى.',
-    personal: 'كلمة المرور لا يجوز أن تحتوي رقم هاتفك أو بريدك أو اسمك.',
     weak:     'كلمة المرور نمطٌ متوقَّع (تكرار أو تسلسل) — اختر كلمة أقوى.'
   };
 
@@ -70,7 +51,6 @@
     var c2 = c1.replace(/\d$/, '');                      // abcd12345   → abcd1234
     if ((c1 !== norm && c1.length >= 8 && set().has(c1)) ||
         (c2 !== c1   && c2.length >= 8 && set().has(c2))) return { ok: false, reason: 'common', message: MESSAGES.common };
-    if (personal(p, ctx)) return { ok: false, reason: 'personal', message: MESSAGES.personal };
     if (lowEntropy(p)) return { ok: false, reason: 'weak', message: MESSAGES.weak };
     return { ok: true, reason: null, message: null };
   }
