@@ -26,6 +26,8 @@ import json, os, sys, urllib.request, urllib.error
 PLATFORM = {'subscription_plans', 'platform_settings', 'platform_settings_audit', 'notification_templates',
             'login_resolve_hits'}
 OWNER_COLS = ['owner_id', 'doctor_id', 'clinic_id', 'user_id']
+# Same data under another column name in the target (the old project ran upstream's inventory round).
+RENAME = {'public.inventory_batches': {'lot_no': 'lot'}}
 CHUNK_BYTES = 700000
 
 UPSERT = r'''
@@ -218,6 +220,9 @@ def main(argv):
     data, total = [], 0
     for t, f in work:
         rows = one(api(src, token, "select coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) as j from %s x where %s" % (t, f))).get('j') or []
+        for old, new in RENAME.get(t, {}).items():
+            for r in rows:
+                if old in r and r.get(new) is None: r[new] = r.pop(old)
         total += len(rows)
         if rows: print('%-34s %5d rows' % (t, len(rows)))
         data.append((t, rows))
