@@ -18,6 +18,8 @@ Safety: it refuses to run on a project whose `public` schema already has tables,
     python3 scripts/db-bootstrap.py --check                     # split every file, print batch counts
     SUPABASE_ACCESS_TOKEN=… python3 scripts/db-bootstrap.py --project <ref>
     python3 scripts/db-bootstrap.py --emit-dir DIR              # write the batches as .sql files (local test)
+    SUPABASE_ACCESS_TOKEN=… python3 scripts/db-bootstrap.py --project <ref> --from migrations/175_x.sql
+                                                                # existing project: apply the plan from that file on
 """
 import json, os, sys, time, urllib.request, urllib.error
 
@@ -172,10 +174,17 @@ def main(argv):
     n = api(ref, token, "select count(*)::int as n from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r'")
     tables = (n[0] or {}).get('n', 0) if isinstance(n, list) and n else 0
     print('target %s · public tables now: %s' % (ref, tables))
-    if tables and '--allow-existing' not in argv:
+    plan = PLAN
+    if '--from' in argv:
+        start = argv[argv.index('--from') + 1]
+        if start not in PLAN or start in PLAN[:4]:
+            print('⛔ --from must name a numbered migration in the plan: %s' % start); return 2
+        plan = PLAN[PLAN.index(start):]
+        print('applying %d files from %s on an existing project' % (len(plan), start))
+    elif tables and '--allow-existing' not in argv:
         print('⛔ the project is not empty — refusing (pass --allow-existing only on purpose)'); return 3
     k = 0
-    for p in PLAN:
+    for p in plan:
         bs, cnt = batches(p)
         for j, b in enumerate(bs, 1):
             k += 1
