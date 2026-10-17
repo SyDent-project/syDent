@@ -80,7 +80,7 @@ function suite(F) {
   const M1 = N.compute(Object.assign({}, base, { patients: Object.assign({}, P, { n4: { name: 'باسل', referral_source: 'social' } }) }));
   ok(/<div class="val rt-val-sm">فيسبوك \/ إنستغرام<\/div><div class="sub">مريضان · <bdi dir="ltr">67%<\/bdi>/.test(N.render(M1, { bag, doc: () => '' })), 'render: a clear top source');
   ok(/مقابل الفترة السابقة \(2\)/.test(html) && /بدأ العلاج منهم 1 \(<bdi dir="ltr">33%<\/bdi>\)/.test(html), 'render: previous period and conversion');
-  ok((html.match(/href="patient-profile\.html\?id=/g) || []).length === 5 && /سجّلوا وما بلّشوا/.test(html), 'render: every new and waiting patient links to their profile');
+  ok((html.match(/href="patient-profile\.html\?id=/g) || []).length === 5 && /سُجّلوا ولم يبدؤوا العلاج/.test(html), 'render: every new and waiting patient links to their profile');
   ok(N.render(M, { bag, doc: () => '' }).indexOf('سُجّلوا بالفترة') === -1, 'render: no registered block outside the clinic scope');
   ok(/تعذّر تحميل تاريخ المرضى قبل الفترة/.test(N.render({}, { priorFailed: true })), 'render: without the history no verdict (#689)');
   ok(/لا مرضى جدد بهذه الفترة/.test(N.render(N.compute({ from: '2026-09-01', to: '2026-09-30', prior: [], period: [], scoped: [] }), { bag })), 'render: empty state');

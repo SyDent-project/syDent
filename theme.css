@@ -334,7 +334,7 @@ body:has(#sbMainContent)::before {
 :root[data-theme="dark"] body:has(#sbMainContent)::before { background-image: url('bg-pattern-dark.webp'); opacity: .8; }
 @media print { body:has(#sbMainContent)::before { display: none; } }
 
-/* M177 — «الدفعة (LOT)» picker under a material row (patient card · appointments) */
+/* M173 — «الدفعة (LOT)» picker under a material row (patient card · appointments) */
 .sd-lot { display: flex; align-items: center; gap: 8px; margin: -4px 0 12px; padding: 0 10px; font-size: 12px; color: var(--text2); }
 .sd-lot select { flex: 1; min-width: 0; padding: 7px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg3); color: var(--text); font-family: inherit; font-size: 12px; }
 
@@ -352,7 +352,11 @@ body:has(#sbMainContent)::before {
    ============================================================================ */
 
 /* ---- landing.html navbar (rgba(10,22,40,0.85) hard-coded) ---------------- */
-:root[data-theme="light"] nav {
+/* v630: كان «nav» عامّاً فيلتقط شريطَي التبويبات اللاصقين (.stg-nav بالإعدادات · .adm-nav بالإدارة) ويجعلهما
+   شبهَ شفّافَين ⇒ المحتوى يظهر خلفهما عند التمرير (صورةُ المالك). محصورٌ الآن بشريط الصفحات العامة (nav بلا فئة)
+   وبقائمة الشريط الجانبي كما كانت تُرسم حرفياً. */
+:root[data-theme="light"] nav:not([class]),
+:root[data-theme="light"] nav.sb-nav {
   background: rgba(255,255,255,0.92);
   border-bottom: 1px solid var(--border);
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
@@ -1658,3 +1662,70 @@ select.sd-input {
 .sd-guide__tips-h { font-weight: 800; margin-bottom: 4px; }
 .sd-guide__tips ul { margin: 0; padding-inline-start: 20px; }
 .sd-guide__tips li { margin-bottom: 4px; color: var(--text2); }
+/* ═══ M192 (v635) — عدّادُ التخزين (تبويبُ الملفات · صفحةُ الاشتراك): SyDentFiles.usageHtml ═══ */
+.sy-usage{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;font-size:12px;color:var(--text2);}
+.sy-usage-lbl{font-weight:700;}
+.sy-usage-bar{position:relative;display:inline-block;width:140px;max-width:40vw;height:8px;border-radius:999px;background:var(--bg4);overflow:hidden;}
+.sy-usage-bar i{position:absolute;inset-block:0;inset-inline-start:0;background:var(--green);border-radius:999px;}
+.sy-usage.warn .sy-usage-bar i{background:var(--orange);}
+.sy-usage.full .sy-usage-bar i{background:var(--red);}
+.sy-usage-msg{font-weight:700;color:var(--orange);}
+.sy-usage.full .sy-usage-msg{color:var(--red);}
+.sy-usage-msg a{color:inherit;}
+
+/* ═══ v636 — عارضُ الأشعة (xray-viewer.js): مسرحٌ داكنٌ دائماً (عُرفُ الأشعة) وأشرطةٌ على توكنات الثيم ═══ */
+:root{ --xrv-stage:#05070a; --xrv-halo:rgba(0,0,0,.85); }
+html.xrv-open,html.xrv-open body{overflow:hidden;}
+.xrv{position:fixed;inset:0;z-index:995;display:flex;flex-direction:column;background:var(--bg);color:var(--text);
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
+.xrv[hidden]{display:none;}
+.xrv-top{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--border);background:var(--bg2);min-height:52px;}
+.xrv-title{flex:1;min-width:0;}
+.xrv-name{font-weight:800;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.xrv-meta{font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.xrv-count{font-size:12px;color:var(--text2);min-width:30px;text-align:center;direction:ltr;}
+.xrv-b{min-width:40px;height:40px;padding:0 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg3);color:var(--text);
+  font-family:'Cairo',sans-serif;font-size:15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;flex:0 0 auto;}
+.xrv-b:disabled{opacity:.4;cursor:default;}
+.xrv-b[hidden]{display:none;}
+.xrv-b.on{background:var(--green-soft);border-color:var(--green-bd);color:var(--green-fg);}
+.xrv-stage{position:relative;flex:1;min-height:0;overflow:hidden;background:var(--xrv-stage);touch-action:none;cursor:grab;outline:none;user-select:none;-webkit-user-select:none;}
+.xrv-stage:active{cursor:grabbing;}
+.xrv-stage:not([data-tool="pan"]){cursor:crosshair;}
+.xrv-world{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;}
+.xrv-img{display:block;max-width:none;user-select:none;-webkit-user-drag:none;pointer-events:none;image-rendering:auto;}
+.xrv-svg{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;}
+.xrv-stage[data-tool="erase"] .xrv-svg{pointer-events:auto;}
+.xrv-stage[data-tool="erase"] .xrv-a{cursor:pointer;}
+.xrv-a{stroke:var(--xrv-c);fill:none;stroke-width:2.5;stroke-linecap:round;}
+.xrv-a text{fill:var(--xrv-c);stroke:var(--xrv-halo);stroke-width:3px;paint-order:stroke;stroke-linejoin:round;font-family:'Cairo',sans-serif;font-weight:800;vector-effect:non-scaling-stroke;}
+.xrv-a.tmp{stroke-dasharray:6 4;}
+.xrv-msg{position:absolute;inset:auto 0 50% 0;text-align:center;color:#e8edf3;font-size:14px;font-weight:700;pointer-events:none;}
+.xrv-msg[hidden]{display:none;}
+.xrv-bar{display:flex;gap:10px;align-items:center;padding:8px 10px;border-top:1px solid var(--border);background:var(--bg2);overflow-x:auto;scrollbar-width:thin;}
+.xrv-grp{display:flex;gap:4px;align-items:center;flex:0 0 auto;padding-inline-end:10px;border-inline-end:1px solid var(--border);}
+.xrv-grp:last-child{border:0;}
+.xrv-col{min-width:30px;width:30px;height:30px;padding:0;border-radius:50%;background:var(--xrv-c);border:2px solid var(--bg2);box-shadow:0 0 0 1px var(--border);}
+.xrv-col.on{box-shadow:0 0 0 2px var(--text);}
+.xrv-rng{display:inline-flex;align-items:center;gap:4px;font-size:15px;}
+.xrv-rng input{width:96px;accent-color:var(--green);}
+.xrv-zl{font-size:12px;color:var(--text2);min-width:46px;text-align:center;direction:ltr;}
+.xrv-status{padding:4px 12px;font-size:12px;font-weight:700;color:var(--text2);background:var(--bg2);border-top:1px solid var(--border);}
+.xrv-status.bad{color:var(--red);}
+.xrv-status[hidden]{display:none;}
+.xrv-ro .xrv-tool:not([data-tool="pan"]):not([data-tool="ruler"]),.xrv-ro .xrv-ed,.xrv-ro .xrv-cols{display:none;}
+.xrv:fullscreen{padding:0;}
+@media (max-width:600px){
+  .xrv-top{gap:4px;padding:4px 6px;}
+  .xrv-b{min-width:40px;height:40px;padding:0 8px;font-size:14px;}
+  .xrv-rng input{width:78px;}
+  .xrv-bar{gap:8px;}
+}
+html.xrv-open #syFabDock{display:none !important;}
+.xrv .xrv-col,.xrv .xrv-col.on{background:var(--xrv-c);}
+/* v637 — المقارنةُ جنباً إلى جنب: أفقياً على الشاشات العريضة، عمودياً على الموبايل العمودي */
+.xrc-body{flex:1;min-height:0;display:flex;gap:2px;background:var(--border);}
+.xrc-pane{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;}
+.xrc-pane .xrv-stage{flex:1;}
+.xrc-lab{padding:5px 10px;font-size:12px;font-weight:800;color:var(--text);background:var(--bg2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+@media (orientation:portrait){ .xrc-body{flex-direction:column;} }

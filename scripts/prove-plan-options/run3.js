@@ -40,7 +40,7 @@ const count = (s, re) => (s.match(re) || []).length;
   // ── N: appointments page mirror flips unit rows on completion ──
   { const b = await X.buildFull(); await b.run('adoptPlanOption(1)');
     const A = E.scan(require('path').resolve(__dirname, '../..') + '/appointments.html');
-    for (const n of ['_apptSessionTreatmentKey', '_apptSyncUnitRowsOnComplete', '_apptSyncToothStatusOnComplete']) b.run(A[n], 'appt:' + n);
+    for (const n of ['_apptSessionTreatmentKey', '_apptKeyPart', '_apptDrawPendingImplant', '_apptSyncUnitRowsOnComplete', '_apptSyncToothStatusOnComplete']) b.run(A[n], 'appt:' + n);
     const zb = b.db.T.ledger_sessions.find(r => r.type === 'جسر (زركون)');
     await b.run(`_apptSyncToothStatusOnComplete(${JSON.stringify({ ...zb, status: 'completed' })}, 'PR9')`);
     T('N: المواعيد — صفوف الوحدة صارت منجزة', rows(b, 43) === 'WHOLE=c_zr:completed@U1' && rows(b, 44) === 'PONTIC=c_zr:completed@U1 WHOLE=extracted:completed' && rows(b, 45) === 'WHOLE=c_zr:completed@U1', rows(b, 43) + ' || ' + rows(b, 44));

@@ -43,7 +43,9 @@ function invariants(b, tag, opt) {
     const t = Number(x.tooth_num);
     const drawn = b.db.T.teeth_status.some(r => Number(r.tooth_num) === t && r.surface === 'WHOLE' && r.treatment_key === 'implant');
     const covered = b.db.T.ledger_sessions.some(r => r.status === 'planned' && String(r.tooth_num).includes(',') && String(r.tooth_num).split(',').map(Number).includes(t));
-    T(`[${tag}] I6 زرعةٌ مخطّطة على ${t} مرسومة أو بديلٌ لجسرٍ مخطّط قائم`, drawn || covered);
+    /* v600: أو قلعُ موقعها ما زال مخطّطاً — الزرعةُ جلسةُ خطةٍ تُرسم عند إنجاز القلع */
+    const extPlanned = b.db.T.teeth_status.some(r => Number(r.tooth_num) === t && r.surface === 'WHOLE' && r.treatment_key === 'extracted' && r.status === 'planned');
+    T(`[${tag}] I6 زرعةٌ مخطّطة على ${t} مرسومة أو بديلٌ لجسرٍ مخطّط قائم أو قلعُها مخطّط`, drawn || covered || extPlanned);
   }
   // I5 real renderer + every tooltip builder run without throwing
   let err = null; try { b.run('renderTeeth()'); } catch (e) { err = e.stack.split('\n').slice(0, 3).join(' | '); }

@@ -22,7 +22,7 @@ const GLOBALS = new Set([
   'HTMLElement','Element','Node','Event','CustomEvent','MutationObserver','IntersectionObserver',
   'BroadcastChannel','Notification','Image','FileReader','DOMParser','getComputedStyle','print',
   'Symbol','Proxy','Reflect','BigInt','Function','matchMedia','open','close','scrollTo','screen',
-  'ResizeObserver','Uint8Array','Uint16Array','Uint32Array','self','createImageBitmap','Int8Array','Float32Array','ArrayBuffer','DataView',
+  'ResizeObserver','Uint8Array','Uint8ClampedArray','Uint16Array','Uint32Array','self','createImageBitmap','Int8Array','Float32Array','ArrayBuffer','DataView',
   'WebSocket','EventSource','Worker','caches','indexedDB','ImageData','OffscreenCanvas','Response',
   'Request','Headers','AbortSignal','ClipboardItem','SVGElement','CanvasRenderingContext2D',
   'Chart','Turnstile','turnstile','supabase','html2canvas','jspdf' // مكتبات CDN

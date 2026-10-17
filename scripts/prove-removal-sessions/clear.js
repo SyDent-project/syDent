@@ -5,7 +5,7 @@ const FILE=process.env.F||require('path').join(__dirname,'..','..','pp-dental.js
 const src=fs.readFileSync(FILE,'utf8');
 function ext(name){const i=src.indexOf(name);if(i<0)throw name;let j=src.indexOf('{',i),d=0,k=j;
  for(;k<src.length;k++){const c=src[k];if(c==='{')d++;else if(c==='}'){d--;if(!d)break;}}return src.slice(i,k+1);}
-const code=['async function _clearToothStatus_inner','function plannedToothSessions','function completedToothSessionsForRows','async function askDeleteCompletedToothSessions','async function deleteToothSessions','async function askDeletePlannedToothSessions','function isUnitLedgerSession','function canDeleteCompletedSessions','function removedRowsOf','function removalSessionsNote','async function followUpRemovedSessions','function removalToast','function _removalSessWhere'].map(ext).join('\n');
+const code=['function isSxSurface','function sxSideOf','async function _clearToothStatus_inner','function plannedToothSessions','function completedToothSessionsForRows','async function askDeleteCompletedToothSessions','async function deleteToothSessions','async function askDeletePlannedToothSessions','function isUnitLedgerSession','function canDeleteCompletedSessions','function removedRowsOf','function removalSessionsNote','async function followUpRemovedSessions','function removalToast','function _removalSessWhere','function dxMapOf','function dxPairs','function dxOf','function dxSet','function dxNames','async function dxRestoreAfterRemoval'].map(ext).join('\n');
 let pass=0,fail=0;function ok(c,m){if(c)pass++;else{fail++;console.log('FAIL',m);}}
 function run(o){
  const log={toasts:[],dels:[],confirms:[]};const answers=o.answers.slice();

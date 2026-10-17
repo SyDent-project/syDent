@@ -65,8 +65,10 @@ const DYNAMIC_LABELS = {
 };
 const DANGER_RE = /\b(delete|del|reject|remove|unlink)[A-Z]\w*\(|\b(delete|remove)\w*\(|[a-z](Delete|Remove|Reject|Unlink)\w*\(|\breject\(|act:del/;   // + pfDeleteFile…
 /* v472 (طلب المالك: «لازم تميّز»): الفعلُ الأساسيّ أخضر، وإعادةُ العمل برتقالية — بالمعالج لا بالنصّ،
-   فلا يعود زرٌّ منها محايداً بصمت. زرٌّ أخضر لغير هذه المعالجات يحتاج إضافتَه هنا بقرار. */
-const PRIMARY_RE = /confirmBookingRequest\(|recordApptTime\(.*confirmed_at|quickSchedulePlanned\(|quickSchedulePlannedFromProfile\(|planNewVisit\(|&pay=1'|prmMarkRecalled\(|completeSessionFromProfile\(|advanceLabOrder\(|planSetStatus\(.*completed|toggleActive\(|unlinkFromUser\(|finishBatch\(|openMoveModal\(.*purchase|openPayoutModal\(|restoreOne\(|\baccept\(|openConvertPicker\(|renewAccount\(|restartTrial\(|reactivateAccount\(|openPayModal\(|toggleCategoryActive\(.*true|act:(schedule|rebook|new)\b|act:open label:📝 حدّد النتيجة/;
+   فلا يعود زرٌّ منها محايداً بصمت. زرٌّ أخضر لغير هذه المعالجات يحتاج إضافتَه هنا بقرار.
+   v571: «📥 استلام» طلبيةٍ مفتوحة = فعلُها الأساسي (كـ«🛒 شراء» للصنف).
+   v628: «📅 فتح الموعد» لطلبٍ من بوابة المريض = فعلُه الأساسي (كـ«✅ تأكيد» لطلب الحجز). */
+const PRIMARY_RE = /confirmBookingRequest\(|portalReqOpenAppt\(|portalReqApprove\(|portalReqCancelApprove\(|recordApptTime\(.*confirmed_at|quickSchedulePlanned\(|quickSchedulePlannedFromProfile\(|planNewVisit\(|&pay=1'|prmMarkRecalled\(|completeSessionFromProfile\(|advanceLabOrder\(|planSetStatus\(.*completed|toggleActive\(|unlinkFromUser\(|finishBatch\(|openMoveModal\(.*purchase|poOpenReceive\(|openPayoutModal\(|restoreOne\(|\baccept\(|openConvertPicker\(|renewAccount\(|restartTrial\(|reactivateAccount\(|openPayModal\(|toggleCategoryActive\(.*true|act:(schedule|rebook|new)\b|act:open label:📝 حدّد النتيجة/;
 const PRIMARY_NOT_RE = /confirmBookingRequest\(.*,\s*true\)/;   // «✏️ تعديل» الطلب يمرّ بنفس المعالج مع true
 const NOT_DANGER_RE = /unlinkFromUser\(/;   // إلغاءُ «المعالج الافتراضي» تبديلُ حالة لا حذف — زرُّها الأخضر هو الحالةُ الفعّالة
 const WARN_RE = /redoLabOrder\(|toggleActive\(|toggleCategoryActive\(.*false|suspendAccount\(|demoteFromAdmin\(/;   // v485: إيقافُ حسابٍ وإنزالٌ من Admin — قابلان للتراجع   // v474: البرتقالي = إعادةُ عمل أو إيقافٌ قابلٌ للتراجع (تعطيل العلاج/الحساب؛ شرطيٌّ مع «تفعيل» الأخضر)

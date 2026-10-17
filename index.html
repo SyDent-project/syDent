@@ -41,7 +41,7 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('landing.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261015a"></script>
+<script src="theme.js?v=20261017a"></script>
 <style>
   :root {
     --bg-primary: #0a1628;
@@ -756,20 +756,20 @@
 .al-count{margin-inline-start:auto;background:var(--red-bg);color:var(--red-ink);border:1px solid var(--red-bd);font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261015a">
+<link rel="stylesheet" href="theme.css?v=20261017a">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261015a"></script>
-<script src="sy-modal.js?v=20261015a"></script>
-<script src="pt-reliability.js?v=20261015a"></script>
-<script src="huddle-flags.js?v=20261015a"></script>
-<script src="pay-methods.js?v=20261015a"></script>
-<script src="acc-daysheet.js?v=20261015a"></script>
-<script src="dash-yesterday.js?v=20261015a"></script>
-<script src="dash-goal.js?v=20261015a"></script>
-<script src="sched-blocks.js?v=20261015a"></script>
-<script src="dash-gaps.js?v=20261015a"></script>
-<script src="sidebar.js?v=20261015a"></script>
-<script src="inv-order.js?v=20261015a"></script>
+<script src="supabase-init.js?v=20261017a"></script>
+<script src="sy-modal.js?v=20261017a"></script>
+<script src="pt-reliability.js?v=20261017a"></script>
+<script src="huddle-flags.js?v=20261017a"></script>
+<script src="pay-methods.js?v=20261017a"></script>
+<script src="acc-daysheet.js?v=20261017a"></script>
+<script src="dash-yesterday.js?v=20261017a"></script>
+<script src="dash-goal.js?v=20261017a"></script>
+<script src="sched-blocks.js?v=20261017a"></script>
+<script src="dash-gaps.js?v=20261017a"></script>
+<script src="sidebar.js?v=20261017a"></script>
+<script src="inv-order.js?v=20261017a"></script>
 </head>
 <body>
 <script>
@@ -2864,9 +2864,12 @@ function startWaitingRoomAutoRefresh(uid) {
   }, 30000);
   // Also refresh immediately when the tab becomes visible again (e.g. user
   // switched away for 5 min and comes back — wait times need a fresh paint).
-  document.addEventListener('visibilitychange', function() {
-    if (!document.hidden && _waitingRoomUid) loadWaitingRoom(_waitingRoomUid);
-  });
+  if (!window._waitingRoomVisWired) {   /* v623: مرةً واحدة — loadDashboard يُعاد تشغيله مع كل تحديثٍ لحظي */
+    window._waitingRoomVisWired = true;
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden && _waitingRoomUid) loadWaitingRoom(_waitingRoomUid);
+    });
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -4433,6 +4436,15 @@ async function nlAsk(){
 // ── NL-ANALYTICS-END ──────────────────────────────────────────────────
 
 loadDashboard();
+(async function () {   /* v623 SyLive: لحظيّ بلا تحديث (M185) */
+  await new Promise(function (r) { setTimeout(r, 300); });
+  if (!window.sb || !window.SyLive) return;
+  var r = await window.sb.auth.getUser(); var u = r && r.data && r.data.user;
+  if (!u) return;
+  window.SyLive.watch({ name: 'dashboard', uid: u.id,
+    tables: ['appointments', 'patients', 'ledger_sessions', 'ledger_payments', 'payment_splits', 'account_adjustments', 'lab_orders', 'patient_intakes', 'booking_requests'],
+    refresh: loadDashboard });
+})();
 dashAiInit();
 obInit();
 
@@ -4529,6 +4541,22 @@ obInit();
             }catch(_){ paint(); }
           }, function(){ paint(); });
       }catch(_){ paint(); }
+      // (ج) M177: استماراتُ مرضى وصلت ولم تُراجَع — صفٌّ لكل استمارة يفتح بطاقة المريض (بوابة الخطة booking كالسطح العام)
+      try{
+        var ikOk = !(window.SyDentPlan && typeof window.SyDentPlan.can === 'function') || window.SyDentPlan.can('booking');
+        if(ikOk){
+          window.sb.from('patient_intakes').select('patient_id, submitted_at, patients(name)').eq('status','submitted').order('submitted_at',{ascending:false}).limit(10)
+            .then(function(res){
+              try{
+                (res.data||[]).forEach(function(it){
+                  var nm=(it.patients&&it.patients.name)||'مريض';
+                  rows.push({href:'patient-profile.html?id='+encodeURIComponent(it.patient_id||''),ic:'📝',bg:'var(--green-bg)',tt:'استمارة مريض بانتظار المراجعة',sub:dpEsc(nm)+' — افتح البطاقة واعتمدها',cnt:1});
+                });
+                paint();
+              }catch(_){ paint(); }
+            }, function(){ paint(); });
+        }
+      }catch(_){ }
       function paint(){
         try{
           if(!rows.length){ card.style.display='none'; return; }
@@ -4550,6 +4578,8 @@ obInit();
   // ربط آمن: نعيد الرسم كلما أعادت اللوحة رسم "مواعيد اليوم" (يشمل وصل/جلس/خرج)
   function dpBoot(){
     renderDashPulse(); renderDashAlerts();
+    /* M178: وصولُ استمارةٍ لحظياً (بثُّ sidebar.js) ⇒ إعادةُ رسم التنبيهات بلا تحديث */
+    window.onSyDentIntake = function(){ try{ renderDashAlerts(); }catch(_){} };
     try{
       var t=document.getElementById('todayAppts');
       if(t&&window.MutationObserver){

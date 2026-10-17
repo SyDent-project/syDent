@@ -29,7 +29,7 @@ function normalizePhone(raw) {
   // guess the country → return null; callers show the "add country code" hint instead
   // of silently messaging a wrong Syrian number.
   if (!raw) return null;
-  var p = String(raw).replace(/\D/g, '');
+  var p = String(raw).replace(/[\u0660-\u0669]/g, function(d){ return String(d.charCodeAt(0) - 0x0660); }).replace(/[\u06F0-\u06F9]/g, function(d){ return String(d.charCodeAt(0) - 0x06F0); }).replace(/\D/g, '');   // v622: Arabic-Indic (٠-٩) and Persian (۰-۹) digits — an Arabic keyboard's default
   if (!p) return null;
   if (p.indexOf('00') === 0) p = p.substring(2);
   if (p.indexOf('0') === 0) {

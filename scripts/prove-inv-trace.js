@@ -1,4 +1,4 @@
-/* C3 part 2 — prover for the batch number (LOT) and tracing it to the patient (M177 + inv-trace.js + inv-consume.js + pages).
+/* C3 part 2 — prover for the batch number (LOT) and tracing it to the patient (M173 + inv-trace.js + inv-consume.js + pages).
    Standalone, on the live files:
    (1) migration: lot on batches and receipt lines (≤ 60) · receive opens a batch on an expiry OR a lot and keeps the lot
        on the receipt line · consume takes the picked batch first (owned, this item, open), drops the item with it, then
@@ -18,14 +18,14 @@ const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL', m); } }
 function fnSrc(src, sig) { const i = src.indexOf(sig); if (i < 0) return ''; const j = src.indexOf('\n}\n', i); return src.slice(i, j + 2); }
 
 async function suite(F) {
-  const M = F['migrations/177_inventory_lot.sql'];
+  const M = F['migrations/173_inventory_lot.sql'];
   ok(/ALTER TABLE public\.inventory_batches ADD COLUMN IF NOT EXISTS lot text;/.test(M) && /ALTER TABLE public\.inventory_receipt_lines ADD COLUMN IF NOT EXISTS lot text;/.test(M), 'migration: lot columns');
   ok(/CHECK \(lot IS NULL OR char_length\(lot\) BETWEEN 1 AND 60\)/.test(M), 'migration: lot length bounded');
   const rv = M.slice(M.indexOf('CREATE OR REPLACE FUNCTION public.inventory_receive'), M.indexOf('CREATE OR REPLACE FUNCTION public.inventory_consume'));
   ok(/left\(nullif\(btrim\(coalesce\(e->>'lot', ''\)\), ''\), 60\) AS lot/.test(rv), 'receive: lot trimmed and bounded');
   ok(/IF r\.expiry IS NOT NULL OR r\.lot IS NOT NULL THEN/.test(rv) && /VALUES \(v_uid, r\.item_id, r\.qty, r\.qty, r\.expiry, r\.lot, 'استلام طلبية'\)/.test(rv), 'receive: a batch on an expiry or a lot, carrying the lot');
   ok(/r\.expiry, r\.lot, v_batch\);/.test(rv), 'receive: lot kept on the receipt line');
-  ok(/ORDER BY 2, 1 /.test(rv) && /my_access_level\(\) <> 'full' THEN RAISE EXCEPTION 'read_only'/.test(rv) && /RAISE EXCEPTION 'over_ordered'/.test(rv), 'receive: M176 rules kept');
+  ok(/ORDER BY 2, 1 /.test(rv) && /my_access_level\(\) <> 'full' THEN RAISE EXCEPTION 'read_only'/.test(rv) && /RAISE EXCEPTION 'over_ordered'/.test(rv), 'receive: M172 rules kept');
   const co = M.slice(M.indexOf('CREATE OR REPLACE FUNCTION public.inventory_consume'), M.indexOf('REVOKE ALL ON FUNCTION public.inventory_receive'));
   ok(/o AS ord,\s+nullif\(e->>'batch_id', ''\)::uuid AS batch_id\s+FROM jsonb_array_elements\(p_lines\) WITH ORDINALITY AS x\(e, o\)\s+ORDER BY 1, 4 /.test(co), 'consume: batch_id added after ord, rank 4 still ord (#719)');
   ok(/b\.id = r\.batch_id AND b\.item_id = r\.item_id AND b\.owner_id = v_uid AND b\.is_finished = false FOR UPDATE/.test(co), 'consume: the picked batch must be this owner\'s, this item\'s and open');
@@ -107,10 +107,10 @@ async function suite(F) {
   ok(iT > iP && (F['scripts/cache-bust.sh'].match(/inv-trace/g) || []).length === 3, 'inv-trace.js loaded after inv-po.js and in the cache-bust fleet');
 }
 
-const FILES = ['migrations/177_inventory_lot.sql', 'inv-consume.js', 'inv-trace.js', 'inv-po.js', 'inventory.html', 'patient-profile.html', 'appointments.html', 'scripts/cache-bust.sh'];
+const FILES = ['migrations/173_inventory_lot.sql', 'inv-consume.js', 'inv-trace.js', 'inv-po.js', 'inventory.html', 'patient-profile.html', 'appointments.html', 'scripts/cache-bust.sh'];
 const base = {}; FILES.forEach(f => { base[f] = read(f); });
 const rep = (f, a, b) => F => Object.assign({}, F, { [f]: F[f].replace(a, b) });
-const MIG = 'migrations/177_inventory_lot.sql';
+const MIG = 'migrations/173_inventory_lot.sql';
 const MUTANTS = [
   ['lot dropped on receiving', rep(MIG, 'r.expiry, r.lot, v_batch);', 'r.expiry, NULL, v_batch);')],
   ['lot alone opens no batch', rep(MIG, 'IF r.expiry IS NOT NULL OR r.lot IS NOT NULL THEN', 'IF r.expiry IS NOT NULL THEN')],

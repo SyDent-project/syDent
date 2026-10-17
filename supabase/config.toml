@@ -12,3 +12,6 @@ verify_jwt = false
 
 [functions.ai-assist]
 verify_jwt = false
+
+[functions.portal-xray]
+verify_jwt = false

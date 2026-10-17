@@ -27,6 +27,10 @@ on:
       confirm:
         description: 'Type the project ref again to confirm'
         required: true
+      from_file:
+        description: 'Existing project: apply the plan from this migration on (e.g. migrations/175_realtime_staff_messages.sql) — empty = full build of an empty project'
+        required: false
+        default: ''
 
 concurrency:
   group: db-bootstrap
@@ -56,4 +60,10 @@ jobs:
       - name: Build
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: python3 scripts/db-bootstrap.py --project "${{ inputs.project_ref }}"
+          FROM_FILE: ${{ inputs.from_file }}
+        run: |
+          if [ -n "$FROM_FILE" ]; then
+            python3 scripts/db-bootstrap.py --project "${{ inputs.project_ref }}" --from "$FROM_FILE"
+          else
+            python3 scripts/db-bootstrap.py --project "${{ inputs.project_ref }}"
+          fi

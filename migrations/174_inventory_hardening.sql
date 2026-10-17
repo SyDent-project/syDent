@@ -1,4 +1,4 @@
--- 178 — Inventory hardening after the round review (task C3, part 4)
+-- 174 — Inventory hardening after the round review (task C3, part 4)
 --
 --   • inventory_batches_guard locks the item only when a batch grows. The
 --     atomic RPCs lock the item first and then touch its batches; a client

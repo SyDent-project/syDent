@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<script>
+/* ── v618 mobile/network: MIRROR intake.html ↔ portal.html ↔ book.html byte-for-byte (prove-portal · prove-public-mobile) ──
+   (1) Sentry loads async (a slow/blocked CDN no longer holds the page) and never receives the
+       link token (any 64-hex run is scrubbed from events and breadcrumbs) nor the page (replays off).
+   (2) withTimeout: a hanging request on a weak mobile link ends in the retry screen, not an endless spinner. */
+window.sentryOnLoad = function(){
+  try {
+    var scrub = function(o){ try { return JSON.parse(JSON.stringify(o).replace(/[0-9a-fA-F]{64}/g, '[token]')); } catch (e) { return null; } };
+    Sentry.init({ sendDefaultPii: false, replaysSessionSampleRate: 0, replaysOnErrorSampleRate: 0,
+      beforeSend: function(ev){ return scrub(ev); }, beforeBreadcrumb: function(b){ return scrub(b); } });
+  } catch (e) {}
+};
+window.withTimeout = function(p, ms){
+  return Promise.race([p, new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('timeout')); }, ms); })]);
+};
+</script>
+<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous" async></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">   <!-- v632: the link token lives in this URL — never sent onward, even to the same site -->
+<title>بوابة المريض</title>
+<link href="/fonts/plex-arabic.css" rel="stylesheet">
+<!--
+  M180 — Patient Portal-lite (بوابةُ المريض الخفيفة)
+  STANDALONE by design, exactly like book.html / intake.html: loads NO shared SyDent
+  files (supabase-init.js / sidebar.js / theme.js / theme.css) and carries NO cache-bust
+  tokens — it is a public anon surface reached by a per-patient tokenised link
+  (?t=<64 hex>). Anonymous surface = ONE read-only SECURITY DEFINER RPC (Migration 180):
+    portal_info(token)  → {status, clinic, patient, show{…}, appts, plan, balance, installments, notes, intake_token}
+  TWO NARROW WRITES: portal_confirm(token, appointment_id) (M182) — the patient confirms an
+  unconfirmed upcoming appointment of his own (status → confirmed, audited as «from the portal»);
+  portal_appt_change(token, appointment_id, kind, reason, pref, note, date, time) (M187 · M189) — cancel / ask to
+  change it (a real free slot from portal_slots — read-only — when the clinic has booking hours), only when the
+  clinic switched it on, before its cutoff, rate-limited, audited and logged in المراسلات. The doctor approves.
+  Everything else is read-only; the other outbound actions are WhatsApp/phone links. Sections arrive only
+  when the clinic's switch for them is on (server-side gate); the page only shapes UX.
+-->
+<style>
+:root{
+  /* SyDent LIGHT palette — mirrors theme.css :root[data-theme="light"] (as book.html / intake.html) */
+  --bg:#ffffff; --card:#f8f7f2; --card2:#efeee9; --line:rgba(28,25,23,0.10);
+  --text:#1c1917; --text2:#57534e; --green:#16a085; --green2:#138a72;
+  --red:#dc2626; --radius:14px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:'IBM Plex Sans Arabic','Cairo',system-ui,sans-serif; font-size:15px;
+  min-height:100vh; padding:16px 14px 40px;
+}
+.wrap{max-width:600px;margin:0 auto;}
+.brand{text-align:center; color:var(--text2); font-size:12px; font-weight:600; letter-spacing:.5px; margin-bottom:14px;}
+.brand b{color:var(--green);}
+.card{
+  background:var(--card); border:1px solid var(--line);
+  border-radius:var(--radius); padding:18px 16px; margin-bottom:14px;
+  box-shadow:0 1px 3px rgba(28,25,23,0.06);
+}
+h1{font-size:21px; font-weight:800; margin:0 0 4px; text-align:center;}
+.sub{color:var(--text2); font-size:13px; text-align:center; margin:0 0 4px;}
+.sec-title{font-size:15.5px; font-weight:800; margin:0 0 10px; display:flex; align-items:center; gap:8px;}
+.sec-title .ic{font-size:18px;}
+.sec-hint{color:var(--text2); font-size:12.5px; margin:-4px 0 10px;}
+.sub-title{font-size:13px; font-weight:800; color:var(--text2); margin:12px 0 6px;}
+.item{
+  background:var(--bg); border:1px solid var(--line); border-radius:11px;
+  padding:11px 12px; margin-bottom:8px;
+}
+.item:last-child{margin-bottom:0;}
+.row{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;}
+.when{font-weight:800; font-size:15px; direction:ltr; unicode-bidi:isolate; text-align:right;}
+.meta{color:var(--text2); font-size:12.5px; margin-top:3px;}
+.pill{
+  display:inline-block; padding:2px 10px; border-radius:999px; font-size:11.5px; font-weight:800;
+  border:1px solid var(--line); background:var(--card2); color:var(--text2); white-space:nowrap;
+}
+.pill.ok{color:var(--green2); border-color:rgba(22,160,133,0.4); background:rgba(22,160,133,0.10);}
+.pill.wait{color:var(--yellow); border-color:rgba(180,83,9,0.35); background:rgba(180,83,9,0.08);}
+.pill.off{color:var(--red); border-color:rgba(220,38,38,0.35); background:rgba(220,38,38,0.07);}
+.pill.done{color:var(--blue); border-color:rgba(29,78,216,0.35); border-style:dashed; background:rgba(29,78,216,0.06);}
+.btn{
+  display:block; width:100%; border:none; border-radius:12px; padding:12px; min-height:48px;
+  font-family:inherit; font-size:15px; font-weight:800; cursor:pointer; margin-top:12px;
+  text-align:center; text-decoration:none;
+}
+.btn-go{background:var(--green); color:var(--btn-ink);}
+.btn-wa{background:#075E54;   /* v631: WhatsApp dark green — white 7.7:1 (teal #128C7E was 4.1:1 · #25D366 1.98:1) */ color:#fff;}
+.btn-sm{display:inline-flex; align-items:center; justify-content:center; width:auto; min-height:44px; padding:8px 14px; font-size:14px; margin-top:8px; border-radius:10px;}   /* v618: 44px touch target */
+.btn-wa-sm{background:rgba(37,211,102,0.14); color:#166534;   /* v631: #15803d was 4.24:1 on its tint (light) */ border:1px solid rgba(37,211,102,0.5);}
+.btn-ok-sm{background:var(--green); color:var(--btn-ink); border:1px solid var(--green);}
+.btn-ok-sm[disabled]{opacity:0.6; cursor:default;}
+/* M187: cancel / change-request panel */
+.btn-no-sm{background:transparent; color:var(--red); border:1px solid rgba(220,38,38,0.45);}
+.btn-ghost-sm{background:var(--card2); color:var(--text); border:1px solid var(--line);}
+.btn-no-sm[disabled],.btn-ghost-sm[disabled]{opacity:0.6; cursor:default;}
+.chg-panel{margin-top:10px; padding:12px; border:1px dashed var(--line); border-radius:10px; background:var(--card);}
+.chg-q{font-weight:800; font-size:14px; margin-bottom:4px;}
+.chg-sub{color:var(--text2); font-size:12.5px; margin-bottom:8px;}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 8px;}
+.chip{min-height:40px; padding:6px 12px; border-radius:999px; border:1px solid var(--line); background:var(--bg); color:var(--text);
+  font-family:inherit; font-size:13.5px; font-weight:700; cursor:pointer;}
+.chip.on{border-color:var(--green); background:rgba(22,160,133,0.12); color:var(--text); box-shadow:inset 0 0 0 1px var(--green);}   /* the green ring is the cue — the text keeps full contrast (light 4.3:1 with --green2) */
+.chg-panel textarea{width:100%; min-height:64px; border:1px solid var(--line); border-radius:10px; padding:8px 10px;
+  background:var(--bg); color:var(--text); font-family:inherit; resize:vertical;}
+.slot-days{display:flex; gap:6px; overflow-x:auto; padding:2px 0 8px; margin:4px 0 2px; -webkit-overflow-scrolling:touch; scrollbar-width:none;}
+.slot-days::-webkit-scrollbar{display:none;}
+.slot-days .chip{flex:none; text-align:center; line-height:1.25;}
+.slot-days .chip small{display:block; font-size:11.5px; font-weight:600; color:var(--text2);}
+.slot-times{display:grid; grid-template-columns:repeat(auto-fill, minmax(76px, 1fr)); gap:6px; margin:4px 0 8px;}
+.slot-times .chip{direction:ltr; font-variant-numeric:tabular-nums;}
+.slot-pick{font-size:13px; font-weight:800; margin:2px 0 8px;}
+.hist-day{font-size:12.5px; font-weight:800; color:var(--text2); margin:10px 0 2px; direction:ltr; unicode-bidi:isolate; text-align:right;}
+.hist-day:first-of-type{margin-top:0;}
+.acts{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+.acts .btn-sm{margin-top:8px;}
+:root[data-theme="dark"] .btn-wa-sm{color:#5fe08a;}
+.pl-row{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); font-size:14px;}   /* v618: two columns — the cost is never clipped on a narrow phone */
+.pl-row:last-of-type{border-bottom:none;}
+.pl-name{flex:1; min-width:0;}
+.pl-cost{white-space:nowrap; font-variant-numeric:tabular-nums; font-weight:700;}
+th,td{padding:8px 6px; border-bottom:1px solid var(--line); text-align:right; vertical-align:top;}
+th{font-size:12px; color:var(--text2); font-weight:700;}
+td.num,th.num{text-align:left; font-variant-numeric:tabular-nums; white-space:nowrap;}
+tr:last-child td{border-bottom:none;}
+.total{display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:2px solid var(--line); font-weight:800;}
+.total .v{font-variant-numeric:tabular-nums; white-space:nowrap;}
+.kv{display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px dashed var(--line); font-size:14px;}
+.kv:last-child{border-bottom:none;}
+.kv .v{font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap;}
+.kv.big{font-size:15.5px; margin-top:6px; padding-top:10px; border-top:2px solid var(--line); border-bottom:none;}
+.red{color:var(--red);} .green{color:var(--green2);} .blue{color:var(--blue);} .yellow{color:var(--yellow);}
+.cur{font-size:12px; color:var(--text2); font-weight:700;}
+.note{
+  background:rgba(22,160,133,0.08); border:1px solid rgba(22,160,133,0.30);
+  border-radius:10px; padding:10px 12px; font-size:13px; color:var(--text);
+  margin-top:10px;
+}
+.warn{background:rgba(180,83,9,0.07); border:1px solid rgba(180,83,9,0.3); border-radius:10px; padding:10px 12px; font-size:13px; margin-top:10px;}
+.txt{white-space:pre-wrap; line-height:1.8; font-size:14px;}
+.empty{color:var(--text2); font-size:13px; text-align:center; padding:8px 0;}
+/* M193: صورُ الأشعة المشارَكة — بطاقاتٌ مصغّرة ونافذةُ تكبيرٍ بسيطة (المسرحُ داكنٌ كعُرف الأشعة) */
+.xr-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px;}
+.xr-card{display:flex; flex-direction:column; gap:4px; padding:0 0 8px; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--bg); cursor:pointer; font:inherit; text-align:start;}
+.xr-card img{width:100%; height:110px; object-fit:cover; background:#05070a; display:block;}
+.xr-card .meta{padding:0 8px;}
+.xr-ov{position:fixed; inset:0; z-index:50; background:rgba(5,7,10,.94); display:flex; align-items:center; justify-content:center; padding:56px 10px 60px;}
+.xr-ov img{max-width:100%; max-height:100%; object-fit:contain; touch-action:pinch-zoom;}
+.xr-x{position:absolute; top:12px; inset-inline-start:12px; width:44px; height:44px; border-radius:50%; border:0; background:rgba(255,255,255,.15); color:#fff; font-size:20px; cursor:pointer;}
+.xr-full{position:absolute; bottom:16px; left:50%; transform:translateX(-50%); color:#fff; font-weight:700; font-size:14px; text-decoration:none; background:rgba(255,255,255,.15); padding:9px 16px; border-radius:22px;}
+details{margin-top:10px;}
+summary{cursor:pointer; font-weight:800; font-size:13.5px; color:var(--text2); list-style:none; padding:8px 0;}
+summary::-webkit-details-marker{display:none;}
+summary::before{content:'▸ '; color:var(--green);}
+details[open] summary::before{content:'▾ ';}
+.center{text-align:center;}
+.big-icon{font-size:52px; text-align:center; margin:6px 0 10px;}
+.spin{
+  width:34px; height:34px; border:3px solid var(--line);
+  border-top-color:var(--green); border-radius:50%;
+  animation:sp 0.8s linear infinite; margin:34px auto;
+}
+@keyframes sp{to{transform:rotate(360deg)}}
+.foot{color:var(--text2); font-size:11px; text-align:center; margin-top:18px; line-height:1.7;}
+.rx-item{padding:6px 0; border-bottom:1px dashed var(--line); font-size:13.5px;}
+.rx-item:last-child{border-bottom:none;}
+.rx-item b{display:block;}
+.rx-item span{display:block; color:var(--text2); font-size:12.5px;}
+@media print{
+  body{padding:0; font-size:13px;}
+  .btn,.foot{display:none !important;}
+  .card{box-shadow:none; break-inside:avoid; margin-bottom:10px;}
+}
+/* ── M181: dark palette for the public pages (mirrors theme.css :root[data-theme="dark"]); MIRROR intake.html ↔ portal.html byte-for-byte ── */
+:root{ --btn-ink:#ffffff; --yellow:#b45309; --blue:#1d4ed8; }
+:root[data-theme="dark"]{
+  --bg:#0a1628; --card:#0f2038; --card2:#132840; --line:rgba(46,232,158,0.15);
+  --text:#e1f4ee; --text2:#8a9ab5; --green:#2ee89e; --green2:#26d48e;
+  --red:#f28b82; --yellow:#f6c177; --blue:#7fb3ff; --btn-ink:#0a1628;
+}
+.theme-btn{
+  position:absolute; top:calc(8px + env(safe-area-inset-top, 0px)); left:calc(10px + env(safe-area-inset-left, 0px)); z-index:5; width:44px; height:44px; border-radius:50%;
+  border:1px solid var(--line); background:var(--card); color:var(--text); font-size:17px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,0.12);
+}
+.theme-btn:active{transform:scale(0.95);}
+@media print{ .theme-btn{display:none !important;} }
+/* ── /M181 ── */
+/* ── v618: mobile — safe areas (notch / home bar / floating Safari bar) · long words never zoom the page out · no iOS focus-zoom; MIRROR intake.html ↔ portal.html ↔ book.html ── */
+html{-webkit-text-size-adjust:100%; text-size-adjust:100%;}
+body{padding-top:calc(16px + env(safe-area-inset-top, 0px)); padding-bottom:calc(72px + env(safe-area-inset-bottom, 0px));
+  padding-left:calc(14px + env(safe-area-inset-left, 0px)); padding-right:calc(14px + env(safe-area-inset-right, 0px));}
+.card,.item,.note,.warn,.txt,.sub,.meta,h1,.rx-item,.foot,.brand{overflow-wrap:anywhere; word-break:break-word;}
+table th,table td{overflow-wrap:normal; word-break:normal;}   /* a cell never splits «36» or «المرحلة» — the table scrolls inside .tbl instead */
+input[type=text],input[type=date],input[type=tel],textarea{font-size:16px;}
+button,a.btn,.theme-btn{touch-action:manipulation;}
+.brand{min-height:44px; display:flex; flex-wrap:wrap; align-items:center; justify-content:center; column-gap:.3em; padding:0 50px;}   /* the row the 44px theme button sits in — cards always start below it */
+/* ── /v618 ── */
+</style>
+<script>
+/* M181: theme — same key as the app (sydent_theme) so the owner's phone follows his choice; the patient's own choice persists on his phone */
+(function(){
+  var KEY = 'sydent_theme';
+  function apply(t){
+    document.documentElement.setAttribute('data-theme', t);
+    document.documentElement.style.colorScheme = t;
+    var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'dark' ? '#0a1628' : '#ffffff');
+    var b = document.getElementById('themeBtn'); if (b) { b.textContent = t === 'dark' ? '☀️' : '🌙'; b.setAttribute('aria-label', t === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'); }
+  }
+  var saved = null; try { saved = localStorage.getItem(KEY); } catch (e) {}
+  apply(saved === 'dark' ? 'dark' : 'light');
+  window.toggleTheme = function(){
+    var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+    apply(next);
+  };
+  document.addEventListener('DOMContentLoaded', function(){ apply(document.documentElement.getAttribute('data-theme') || 'light'); });
+})();
+</script>
+</head>
+<body>
+<button type="button" class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+<div class="wrap">
+  <div class="brand">بوابة المريض · بواسطة <b>SyDent</b></div>
+  <div id="app"><div class="spin"></div></div>
+  <div class="foot">🔒 هذه صفحتك الخاصة — لا تُشارك معلوماتك مع أي جهة أخرى، ولا تُرسل هذا الرابط لغيرك.</div>
+</div>
+
+<script src="/vendor/supabase-2.110.8.min.js"></script>
+<script>
+'use strict';
+// ── Standalone client: must NOT touch the tenant app's auth storage ──
+var SUPABASE_URL = 'https://nxkalpjrqvpglphmiuui.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_UYcgZI4CE--gwIevdEPttg_ytxevCUN';
+var sb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+}) : null;   /* v618: vendor failed to load ⇒ retry screen, not an endless spinner */
+
+/* Patient-facing labels — constants keyed by the DB status codes (zero XSS surface) */
+/* platform semantics (v534): scheduled = غير مؤكد · pending = معلّق · confirmed · completed = مكتمل · broken/no_show = عدم حضور */
+var APPT_STATUS = {
+  scheduled: { l: 'بانتظار التأكيد', c: 'wait' },
+  confirmed: { l: 'مؤكد',            c: 'ok'   },
+  pending:   { l: 'معلّق',           c: 'wait' },
+  completed: { l: 'مكتمل',           c: 'done' },
+  cancelled: { l: 'ملغى',            c: 'off'  },
+  broken:    { l: 'لم يتم الحضور',   c: 'off'  },
+  no_show:   { l: 'لم يتم الحضور',   c: 'off'  }
+};
+var APPT_PAST_NEUTRAL = { l: 'سابق', c: '' };   /* a past appointment never marked completed/cancelled/no-show */
+var FREQ_AR = { weekly: 'أسبوعي', biweekly: 'كل أسبوعين', monthly: 'شهري' };
+var STATUS_MSG = {
+  unavailable: 'هذا الرابط غير متاح — اطلب رابطاً جديداً من العيادة.',
+  expired:     'انتهت صلاحية هذا الرابط — اطلب رابطاً جديداً من العيادة.',
+  revoked:     'أوقفت العيادة هذا الرابط — اطلب رابطاً جديداً إن احتجته.'
+};
+
+/* M187 — patient-facing messages of the cancel / change flow. The clinic edits them in Settings;
+   empty ⇒ these defaults. MIRROR (byte-parity via prove-portal): settings.html DEFAULT_PORTAL_MSGS. */
+var DEFAULT_PORTAL_MSGS = {
+  cancelled: 'تم إلغاء موعدك يوم {date} الساعة {time} ✓ — أبلغنا {clinic_name}. لحجز موعدٍ جديد تواصل مع العيادة متى شئت.',
+  requested: 'وصل طلبك إلى {clinic_name} ✓ — سنتواصل معك قريباً. موعدك يوم {date} الساعة {time} يبقى قائماً حتى تؤكّد العيادة.',
+  too_late:  'لا يمكن إلغاء الموعد أو طلب تغييره من هنا قبل أقل من {cutoff_hours} ساعة من موعده — تواصل مع {clinic_name} مباشرة.',
+  rejected:  'لم تتمكّن {clinic_name} من تلبية طلبك الأخير لهذا الموعد — موعدك قائمٌ كما هو. تواصل مع العيادة مباشرة لنجد ما يناسبك.'
+};
+var CANCEL_REASONS = ['ظرف صحي', 'سفر', 'عمل', 'ظرف عائلي', 'أخرى'];
+var PREFS = [['any', 'أي وقت'], ['morning', 'صباحاً'], ['evening', 'مساءً']];
+var DAYS_AR = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+/* M189: free slots per appointment, fetched when the change panel opens: { loading | err | days:[{d, times:[…]}] } */
+var SLOTS = {};
+
+var INFO = null, TOKEN = null;
+
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function pad2(n){ return (n < 10 ? '0' : '') + n; }
+/* dates: numbers only (platform rule) — dd/mm/yyyy from a plain yyyy-mm-dd, no timezone math */
+function fmtYmd(ymd){
+  var p = String(ymd || '').slice(0, 10).split('-');
+  return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : '';
+}
+function fmtDateTime(iso){
+  if (!iso) return '';
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return pad2(d.getDate()) + '/' + pad2(d.getMonth()+1) + '/' + d.getFullYear() + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+function fmtN(v){
+  var n = Number(v || 0);
+  var r = Math.round(n * 100) / 100;
+  return r.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+function curLbl(c){ return c === 'USD' ? '$' : 'ل.س'; }
+function eps(c){ return c === 'USD' ? 0.005 : 0.5; }
+function app(h){ document.getElementById('app').innerHTML = h; }
+function waPhone(){
+  var p = (INFO && INFO.clinic_phone) ? String(INFO.clinic_phone).replace(/[^0-9+]/g,'') : '';
+  if (!p) return '';
+  if (p.charAt(0) === '0' && p.length === 10) p = '963' + p.slice(1);
+  p = p.replace(/^\+/, '');
+  return /^[0-9]{8,15}$/.test(p) ? p : '';
+}
+function waHref(text){
+  var p = waPhone();
+  if (!p) return '';
+  return 'https://wa.me/' + p + (text ? '?text=' + encodeURIComponent(text) : '');
+}
+function clinicName(){ return (INFO && INFO.clinic_name) || 'العيادة'; }
+function firstName(){ return String((INFO && INFO.patient_name) || '').trim().split(' ')[0]; }
+/* M187: a clinic template (or its default) filled for one appointment — escaped text, escaped values */
+function tplMsg(key, a){
+  var ch = INFO && INFO.changes, custom = ch && ch.tpl && ch.tpl[key];
+  var t = (custom && String(custom).trim()) ? String(custom) : DEFAULT_PORTAL_MSGS[key];
+  var vals = { patient_first_name: firstName(), clinic_name: clinicName(), clinic_phone: (INFO && INFO.clinic_phone) || '',
+               date: a ? fmtYmd(a.date) : '', time: (a && a.time) || '', cutoff_hours: (ch && ch.cutoff_hours) || 24 };
+  return String(t).replace(/\{(patient_first_name|clinic_name|clinic_phone|date|time|cutoff_hours)\}/g, function(_, k){ return String(vals[k]); });
+}
+function telHref(){
+  var p = (INFO && INFO.clinic_phone) ? String(INFO.clinic_phone).replace(/[^0-9+]/g, '') : '';
+  return /^\+?[0-9]{6,15}$/.test(p) ? 'tel:' + p : '';
+}
+function changesOn(){ return !!(INFO && INFO.show && INFO.show.changes && INFO.changes); }
+function dayLabel(ymd){
+  var p = String(ymd || '').split('-'); if (p.length !== 3) return '';
+  var d = new Date(+p[0], +p[1] - 1, +p[2]);
+  return DAYS_AR[d.getDay()] + ' ' + p[2] + '/' + p[1];
+}
+
+/* ── Screens ── */
+function screenDead(title, text, icon){
+  var wa = waHref('');
+  app('<div class="card center"><div class="big-icon">' + icon + '</div><h1>' + esc(title) + '</h1>'
+    + '<p class="sub" style="margin-top:8px;">' + esc(text) + '</p>'
+    + (wa ? '<a class="btn btn-wa" href="' + wa + '" target="_blank" rel="noopener">📱 تواصل مع العيادة</a>' : '')
+    + '</div>');
+}
+
+function apptCard(a, upcoming){
+  var st = APPT_STATUS[a.status] || { l: 'موعد', c: '' };
+  if (upcoming) {
+    /* a confirmed-by-phone appointment that is still "scheduled" reads «مؤكد» to the patient; one the patient cancelled by phone reads «ملغى» */
+    if (a.confirmation === 'cancelled_by_pt') st = APPT_STATUS.cancelled;
+    else if (a.status !== 'confirmed' && a.confirmation === 'confirmed') st = APPT_STATUS.confirmed;
+  } else if (a.status === 'scheduled' || a.status === 'pending' || a.status === 'confirmed' || !APPT_STATUS[a.status]) {
+    st = APPT_PAST_NEUTRAL;   /* the clinic never closed it — show nothing misleading like «بانتظار التأكيد» for a past date */
+  }
+  var when = fmtYmd(a.date) + (a.time ? ' ' + a.time : '');
+  var meta = [];
+  if (a.type) meta.push(esc(a.type));
+  if (a.doctor) meta.push(esc(a.doctor));
+  if (a.duration) meta.push(esc(a.duration) + ' دقيقة');
+  var h = '<div class="item"><div class="row"><span class="when">' + esc(when) + '</span>'
+    + '<span class="pill ' + st.c + '">' + st.l + '</span></div>'
+    + (meta.length ? '<div class="meta">' + meta.join(' · ') + '</div>' : '');
+  if (upcoming) {
+    var wa = waHref('مرحباً، أنا ' + ((INFO && INFO.patient_name) || '') + '. أرغب بتعديل موعدي يوم ' + fmtYmd(a.date) + (a.time ? ' الساعة ' + a.time : '') + '. شكراً.');
+    var validId = /^[0-9a-f-]{36}$/.test(String(a.id || ''));
+    var cancelled = a.confirmation === 'cancelled_by_pt' || a.status === 'cancelled';
+    var canConfirm = (a.status === 'scheduled' || a.status === 'pending') && a.confirmation !== 'confirmed' && a.confirmation !== 'cancelled_by_pt' && validId;
+    /* M187: cancel / change — the clinic's switch, a live id, not cancelled, no open request; the cutoff decided by the server */
+    var chg = changesOn() && validId && !cancelled;
+    if (chg && a.open_request) {
+      var at = a.open_request === 'change' && a.open_request_at ? String(a.open_request_at).split(' ') : null;
+      h += '<div class="meta yellow">⏳ ' + (a.open_request === 'cancel' ? 'طلب إلغاء هذا الموعد'
+        : (at && at.length === 2 ? 'طلب نقل موعدك إلى ' + esc(dayLabel(at[0])) + ' الساعة ' + esc(at[1]) : 'طلب تغيير هذا الموعد')) + ' قيد المراجعة لدى العيادة</div>';
+    }
+    if (chg && !a.open_request && a.can_change === false) h += '<div class="warn" style="margin-top:8px;">' + esc(tplMsg('too_late', a)) + '</div>';
+    /* M191: the clinic rejected his latest request on this appointment — say so (7 days, nothing newer) */
+    if (chg && !a.open_request && a.last_rejected && a.can_change !== false) h += '<div class="warn" style="margin-top:8px;">' + esc(tplMsg('rejected', a)) + '</div>';
+    h += '<div class="acts">';
+    if (canConfirm) h += '<button type="button" class="btn btn-sm btn-ok-sm" onclick="confirmAppt(this, \'' + a.id + '\')">✓ تأكيد الموعد</button>';
+    if (chg && !a.open_request && a.can_change === true) {
+      h += '<button type="button" class="btn btn-sm btn-ghost-sm" onclick="openChange(\'' + a.id + '\', \'change\')">🔁 طلب تغيير الموعد</button>';
+      h += '<button type="button" class="btn btn-sm btn-no-sm" onclick="openChange(\'' + a.id + '\', \'cancel\')">✕ إلغاء الموعد</button>';
+    } else if (chg && !a.open_request && a.can_change === false) {
+      var tel = telHref();
+      if (tel) h += '<a class="btn btn-sm btn-ghost-sm" href="' + tel + '">📞 اتصال بالعيادة</a>';
+      if (wa) h += '<a class="btn btn-sm btn-wa-sm" href="' + wa + '" target="_blank" rel="noopener">📱 واتساب العيادة</a>';
+    } else if (!chg && !cancelled && wa) {
+      h += '<a class="btn btn-sm btn-wa-sm" href="' + wa + '" target="_blank" rel="noopener">📱 طلب تعديل الموعد</a>';
+    }
+    h += '</div>';
+    if (chg && OPEN_CHG && OPEN_CHG.id === a.id) h += changePanel(a, OPEN_CHG.kind);
+  }
+  return h + '</div>';
+}
+/* M187: the inline cancel / change panel (no native dialogs — platform rule) */
+var OPEN_CHG = null;
+function changePanel(a, kind){
+  var when = fmtYmd(a.date) + (a.time ? ' الساعة ' + a.time : '');
+  var direct = INFO.changes && INFO.changes.mode === 'direct';
+  var h = '<div class="chg-panel" id="chgPanel">';
+  if (kind === 'cancel') {
+    h += '<div class="chg-q">إلغاء موعد يوم ' + esc(when) + '؟</div>'
+      + '<div class="chg-sub">' + (direct ? 'يُلغى الموعد فوراً ويصل إشعارٌ للعيادة.' : 'يصل طلب الإلغاء للعيادة وتؤكّده لك.') + ' السبب اختياري.</div>'
+      + '<div class="chips" id="chgChips" role="group" aria-label="سبب الإلغاء (اختياري)">' + CANCEL_REASONS.map(function(r){ return '<button type="button" class="chip" aria-pressed="false" onclick="pickChip(this)" data-v="' + esc(r) + '">' + esc(r) + '</button>'; }).join('') + '</div>';
+  } else if (INFO.changes && INFO.changes.slots && !(SLOTS[a.id] && (SLOTS[a.id].err || (SLOTS[a.id].days && !SLOTS[a.id].days.length)))) {
+    /* M189: a real free slot from the clinic's hours — the doctor approves it */
+    var S = SLOTS[a.id] || { loading: true };
+    h += '<div class="chg-q">طلب تغيير موعد يوم ' + esc(when) + '</div>'
+      + '<div class="chg-sub">اختر يوماً ووقتاً متاحاً — يصل طلبك للعيادة لتعتمده، وموعدك الحالي يبقى قائماً حتى ذلك.</div>';
+    if (S.loading || !S.days) {
+      h += '<div class="empty" id="slotLoading">جارٍ تحميل الأوقات المتاحة…</div>';
+    } else {
+      var day = OPEN_CHG.day || S.days[0].d, dayRow = null;
+      S.days.forEach(function(x){ if (x.d === day) dayRow = x; });
+      if (!dayRow) { dayRow = S.days[0]; day = dayRow.d; }
+      OPEN_CHG.day = day;
+      if (S.days.length > 4) h += '<div class="chg-sub" style="margin:0;">⟵ اسحب لرؤية أيام أخرى</div>';
+      h += '<div class="slot-days" id="slotDays" role="group" aria-label="اليوم">' + S.days.map(function(x){
+          var p = String(x.d).split('-'), on = x.d === day;
+          return '<button type="button" class="chip' + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="pickDay(\'' + esc(x.d) + '\')">'
+            + esc(DAYS_AR[new Date(+p[0], +p[1] - 1, +p[2]).getDay()]) + '<small>' + esc(p[2] + '/' + p[1]) + '</small></button>';
+        }).join('') + '</div>'
+        + '<div class="slot-times" id="slotTimes" role="group" aria-label="الوقت">' + dayRow.times.map(function(t){
+          var on = OPEN_CHG.time === t && OPEN_CHG.day === day;
+          return '<button type="button" class="chip' + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="pickTime(\'' + esc(t) + '\')">' + esc(t) + '</button>';
+        }).join('') + '</div>'
+        + '<div class="slot-pick" id="slotPick">' + (OPEN_CHG.time ? '✓ ' + esc(dayLabel(OPEN_CHG.day)) + ' الساعة ' + esc(OPEN_CHG.time) : 'اختر وقتاً') + '</div>';
+    }
+  } else {
+    h += '<div class="chg-q">طلب تغيير موعد يوم ' + esc(when) + '</div>'
+      + '<div class="chg-sub">اختر ما يناسبك وستتواصل معك العيادة لتحديد الموعد الجديد — موعدك الحالي يبقى قائماً حتى ذلك.</div>'
+      + '<div class="chips" id="chgChips" role="group" aria-label="الوقت المفضّل">' + PREFS.map(function(p){ return '<button type="button" class="chip" aria-pressed="false" onclick="pickChip(this)" data-v="' + p[0] + '">' + p[1] + '</button>'; }).join('') + '</div>';
+  }
+  var needSlot = kind === 'change' && slotMode(a.id);
+  h += '<textarea id="chgText" maxlength="300" oninput="if (OPEN_CHG) OPEN_CHG.note = this.value" aria-label="' + (kind === 'cancel' ? 'تفاصيل السبب' : 'ملاحظة للعيادة') + ' (اختياري)" placeholder="' + (kind === 'cancel' ? 'تفاصيل (اختياري)' : 'ملاحظة للعيادة (اختياري)') + '">' + esc((OPEN_CHG && OPEN_CHG.note) || '') + '</textarea>'
+    + '<div class="acts">'
+    + '<button type="button" class="btn btn-sm ' + (kind === 'cancel' ? 'btn-no-sm' : 'btn-ok-sm') + '" id="chgGo"' + (needSlot && !OPEN_CHG.time ? ' disabled' : '') + ' onclick="submitChange(this, \'' + a.id + '\', \'' + kind + '\')">'
+    + (kind === 'cancel' ? (direct ? 'تأكيد الإلغاء' : 'إرسال طلب الإلغاء') : 'إرسال الطلب') + '</button>'
+    + '<button type="button" class="btn btn-sm btn-ghost-sm" onclick="closeChange()">تراجع</button>'
+    + '</div></div>';
+  return h;
+}
+/* M187: past treatments (CareStack «Past Treatment») — grouped by visit day; amounts only when the clinic shows the balance */
+function sectionHistory(hs){
+  var items = (hs && Array.isArray(hs.items)) ? hs.items : [];
+  var h = '<div class="card"><div class="sec-title"><span class="ic">🗂️</span>علاجاتك السابقة</div>';
+  if (!items.length) return h + '<div class="empty">لا علاجات منجزة مسجّلة بعد.</div></div>';
+  var days = [], byDay = {};
+  items.forEach(function(it){ var k = String(it.date || '').slice(0, 10); if (!byDay[k]) { byDay[k] = []; days.push(k); } byDay[k].push(it); });
+  var dayHtml = function(k){
+    return '<div class="hist-day">' + esc(fmtYmd(k)) + '</div>' + byDay[k].map(function(it){
+      var sub = [];
+      if (it.tooth) sub.push('سن ' + esc(it.tooth));
+      if (it.doctor) sub.push(esc(it.doctor));
+      return '<div class="pl-row"><div class="pl-name">' + esc(it.type || 'علاج') + (it.units && it.units > 1 ? ' <span class="cur">×' + esc(it.units) + '</span>' : '')
+        + (sub.length ? '<div class="meta">' + sub.join(' · ') + '</div>' : '') + '</div>'
+        + (it.cost != null && it.currency ? '<div class="pl-cost">' + fmtN(it.cost) + ' <span class="cur">' + curLbl(it.currency) + '</span></div>' : '')
+        + '</div>';
+    }).join('');
+  };
+  var FIRST = 4;
+  h += days.slice(0, FIRST).map(dayHtml).join('');
+  if (days.length > FIRST) h += '<details><summary>زيارات أقدم (' + (days.length - FIRST) + ')</summary>' + days.slice(FIRST).map(dayHtml).join('') + '</details>';
+  if (hs.more) h += '<div class="note">يُعرض هنا آخر سنتين (حتى 60 علاجاً) — للسجلّ الأقدم تواصل مع العيادة.</div>';
+  return h + '</div>';
+}
+function sectionAppts(d){
+  var up = (d && Array.isArray(d.upcoming)) ? d.upcoming : [];
+  var past = (d && Array.isArray(d.past)) ? d.past : [];
+  var h = '<div class="card"><div class="sec-title"><span class="ic">📅</span>مواعيدك</div>';
+  h += '<div class="sub-title">القادمة</div>';
+  h += up.length ? up.map(function(a){ return apptCard(a, true); }).join('') : '<div class="empty">لا مواعيد قادمة' + (waPhone() ? ' — يمكنك طلب موعد عبر واتساب العيادة' : '') + '</div>';
+  if (!up.length && waPhone()) h += '<a class="btn btn-wa" href="' + waHref('مرحباً، أنا ' + ((INFO && INFO.patient_name) || '') + '. أرغب بحجز موعد. شكراً.') + '" target="_blank" rel="noopener">📱 طلب موعد</a>';
+  if (past.length) {
+    h += '<details><summary>المواعيد السابقة (' + past.length + ')</summary>'
+      + past.map(function(a){ return apptCard(a, false); }).join('') + '</details>';
+  }
+  return h + '</div>';
+}
+function sectionPlan(p){
+  var h = '<div class="card"><div class="sec-title"><span class="ic">🦷</span>خطة علاجك</div>';
+  if (p && p.pending_options) {
+    h += '<div class="warn">خطتك تحوي أكثر من بديل بانتظار قرارك — سيعرض لك الطبيب الخيارات وتظهر الخطة هنا بعد اعتماد أحدها.</div>';
+    return h + '</div>';
+  }
+  var items = (p && Array.isArray(p.items)) ? p.items : [];
+  if (!items.length) return h + '<div class="empty">لا خطة علاج قائمة حالياً.</div></div>';
+  items.forEach(function(it){
+    var sub = [];
+    if (it.tooth) sub.push('سن ' + esc(it.tooth));
+    if (it.phase) sub.push('المرحلة ' + esc(it.phase));
+    h += '<div class="pl-row"><div class="pl-name">' + esc(it.type || 'علاج') + (it.units && it.units > 1 ? ' <span class="cur">×' + esc(it.units) + '</span>' : '')
+      + (sub.length ? '<div class="meta">' + sub.join(' · ') + '</div>' : '') + '</div>'
+      + '<div class="pl-cost">' + fmtN(it.cost) + ' <span class="cur">' + curLbl(it.currency) + '</span></div></div>';
+  });
+  ((p && p.totals) || []).forEach(function(t){
+    h += '<div class="total"><span>الإجمالي' + (p.totals.length > 1 ? ' (' + curLbl(t.currency) + ')' : '') + '</span><span class="v">' + fmtN(t.total) + ' ' + curLbl(t.currency) + '</span></div>';
+  });
+  h += '<div class="note">الأسعار تقديرية وقد تتغيّر حسب ما يتبيّن أثناء العلاج — تواصل مع العيادة لأي استفسار.</div>';
+  return h + '</div>';
+}
+/* balance line — same ranking as the patient card: owed → prepaid credit → surplus → settled */
+function balanceState(b){
+  var e = eps(b.currency), tb = Number(b.true_balance || 0), un = Number(b.unearned || 0);
+  if (tb > e)  return { word: 'المتبقي عليك', v: tb, cls: 'red' };
+  if (un > e)  return { word: 'رصيد مقدّم لك', v: un, cls: 'blue' };
+  if (tb < -e) return { word: 'مبلغ لصالحك', v: Math.abs(tb), cls: 'yellow' };
+  return { word: 'الحساب مسدّد ✓', v: null, cls: 'green' };
+}
+function sectionBalance(bals, insts){
+  var h = '<div class="card"><div class="sec-title"><span class="ic">💰</span>حسابك</div>';
+  bals = Array.isArray(bals) ? bals : [];
+  insts = Array.isArray(insts) ? insts : [];
+  if (!bals.length) h += '<div class="empty">لا حركة مالية بعد.</div>';
+  bals.forEach(function(b){
+    var L = curLbl(b.currency), st = balanceState(b);
+    if (bals.length > 1) h += '<div class="sub-title">حساب ' + L + '</div>';
+    h += '<div class="kv"><span>إجمالي العلاج المنجز</span><span class="v">' + fmtN(b.completed) + ' ' + L + '</span></div>';
+    if (Number(b.reductions) > 0) h += '<div class="kv"><span>خصومات</span><span class="v green">− ' + fmtN(b.reductions) + ' ' + L + '</span></div>';
+    h += '<div class="kv"><span>المدفوع</span><span class="v">' + fmtN(b.paid) + ' ' + L + '</span></div>';
+    if (Number(b.refunds) > 0) h += '<div class="kv"><span>مبالغ مستردّة</span><span class="v">' + fmtN(b.refunds) + ' ' + L + '</span></div>';
+    h += '<div class="kv big"><span class="' + st.cls + '">' + st.word + '</span>' + (st.v === null ? '<span class="v green">—</span>' : '<span class="v ' + st.cls + '">' + fmtN(st.v) + ' ' + L + '</span>') + '</div>';
+  });
+  if (insts.length) {
+    h += '<div class="sub-title">الأقساط</div>';
+    insts.forEach(function(q){
+      var L = curLbl(q.currency);
+      h += '<div class="item"><div class="row"><b>' + esc(q.title || 'خطة أقساط') + '</b><span class="pill">' + esc(FREQ_AR[q.frequency] || q.frequency || '') + ' — ' + fmtN(q.installment) + ' ' + L + '</span></div>';
+      if (q.done) h += '<div class="meta green">✓ مغطّاة بالكامل</div>';
+      else {
+        var due = q.next_due ? fmtYmd(q.next_due) : '';
+        var late = (q.next_due && q.today && String(q.next_due) < String(q.today));
+        h += '<div class="meta ' + (late ? 'red' : '') + '">' + (late ? '⚠️ قسط متأخر — استحقّ بتاريخ ' : 'القسط القادم: ') + '<b>' + esc(due) + '</b></div>';
+        h += '<div class="meta">المتبقي من الخطة: <span style="white-space:nowrap;">' + fmtN(q.remaining) + ' ' + L + '</span> من <span style="white-space:nowrap;">' + fmtN(q.total) + ' ' + L + '</span></div>';
+      }
+      h += '</div>';
+    });
+  }
+  if (waPhone()) h += '<a class="btn btn-sm btn-wa-sm" href="' + waHref('مرحباً، أنا ' + ((INFO && INFO.patient_name) || '') + '. لدي استفسار عن حسابي.') + '" target="_blank" rel="noopener">📱 استفسار عن الحساب</a>';
+  return h + '</div>';
+}
+function sectionNotes(n){
+  var postop = (n && Array.isArray(n.postop)) ? n.postop : [];
+  var rx = (n && Array.isArray(n.rx)) ? n.rx : [];
+  var h = '';
+  h += '<div class="card"><div class="sec-title"><span class="ic">📋</span>تعليمات ما بعد العلاج</div>';
+  h += postop.length
+    ? postop.map(function(x){ return '<div class="item"><div class="meta">' + esc(fmtDateTime(x.created_at)) + '</div><div class="txt">' + esc(x.body) + '</div></div>'; }).join('')
+    : '<div class="empty">لا تعليمات مسجّلة.</div>';
+  h += '</div>';
+  h += '<div class="card"><div class="sec-title"><span class="ic">💊</span>روشتاتك</div>';
+  h += rx.length
+    ? rx.map(function(r){
+        var items = Array.isArray(r.items) ? r.items : [];
+        return '<div class="item"><div class="meta">' + esc(fmtDateTime(r.created_at)) + (r.doctor ? ' · ' + esc(r.doctor) : '') + '</div>'
+          + items.map(function(i){
+              var parts = [i.dosage, i.frequency, i.duration].filter(Boolean).map(esc).join(' · ');
+              return '<div class="rx-item"><b>' + esc(i.drug) + '</b>' + (parts ? '<span>' + parts + '</span>' : '') + (i.instructions ? '<span>' + esc(i.instructions) + '</span>' : '') + '</div>';
+            }).join('')
+          + (r.notes ? '<div class="txt" style="font-size:13px;margin-top:6px;">' + esc(r.notes) + '</div>' : '') + '</div>';
+      }).join('')
+    : '<div class="empty">لا روشتات مسجّلة.</div>';
+  h += '</div>';
+  return h;
+}
+/* M181: three states — pending (fill it) · submitted (received ✓, nothing else exposed) · absent (no card) */
+function sectionIntake(ik){
+  if (!ik || typeof ik !== 'object') return '';
+  if (ik.status === 'submitted') {
+    return '<div class="card"><div class="sec-title"><span class="ic">📝</span>استمارة المريض</div>'
+      + '<div class="note">✓ استمارتك مستلمة' + (ik.submitted_at ? ' بتاريخ ' + esc(fmtDateTime(ik.submitted_at)) : '') + ' — شكراً لك. إن تغيّر شيء في حالتك الصحية أو أدويتك فأخبر العيادة.</div></div>';
+  }
+  var tok = ik.token;
+  if (ik.status !== 'pending' || !tok || !/^[0-9a-f]{64}$/.test(String(tok))) return '';
+  return '<div class="card"><div class="sec-title"><span class="ic">📝</span>استمارة المريض</div>'
+    + '<p class="sec-hint">لديك استمارة بانتظار التعبئة — تأخذ دقيقتين وتساعد الطبيب على علاجك بأمان.</p>'
+    + '<a class="btn btn-go" href="/intake.html?t=' + tok + '">تعبئة الاستمارة الآن</a></div>';
+}
+function screenPortal(){
+  var show = INFO.show || {};
+  var h = '<div class="card"><h1>' + esc(clinicName()) + '</h1>'
+    + '<p class="sub">مرحباً ' + esc(firstName() || 'بك') + ' 👋 — هذه صفحتك الخاصة' + (INFO.expires_at ? '، صالحة حتى ' + esc(fmtDateTime(INFO.expires_at).slice(0, 10)) : '') + '.</p>'
+    + (waPhone() ? '<a class="btn btn-wa" href="' + waHref('مرحباً، أنا ' + ((INFO && INFO.patient_name) || '') + '.') + '" target="_blank" rel="noopener">📱 تواصل مع العيادة عبر واتساب</a>' : '')
+    + '</div>';
+  h += sectionIntake(INFO.intake);
+  if (show.appts)   h += sectionAppts(INFO.appts);
+  if (show.plan)    h += sectionPlan(INFO.plan);
+  if (show.history) h += sectionHistory(INFO.history);   /* M187 */
+  if (show.balance) h += sectionBalance(INFO.balance, INFO.installments);
+  if (show.notes)   h += sectionNotes(INFO.notes);
+  h += sectionXrays();   /* M193: يظهر فقط إن شاركت العيادة صوراً ومفتاحُها مفعّل (الخادمُ يقرّر) */
+  app(h);
+}
+
+/* ── M193 · v638: صورُ الأشعة التي شاركها الطبيب — تأتي من Edge Function `portal-xray` (لا من portal_info):
+   Storage لا يوقّع روابطَ لزائرٍ مجهول، فالدالةُ تتحقّق من الرابط ومفتاح العيادة وعلم المشاركة ثم توقّع كل صورة
+   15 دقيقة. الأصلُ وحده (بلا تعليقات الطبيب). صفرُ كتابة. رابطٌ انتهى ⇒ «حدّث» يطلب روابطَ جديدة. ── */
+var XR = null;   /* null = لم يُطلب · {loading} · {items, at} · {err} */
+var XR_TYPES = { periapical: 'ذروية', bitewing: 'مجنّحة', panoramic: 'بانوراما', cephalometric: 'سيفالومترية', other: 'أخرى' };
+async function loadXrays(){
+  if (!sb || !sb.functions || !TOKEN) return;
+  XR = { loading: true };
+  try {
+    var res = await withTimeout(sb.functions.invoke('portal-xray', { body: { t: TOKEN } }), 20000);
+    var out = (res && res.data) || {};
+    if (res && res.error) throw res.error;
+    XR = out.ok ? { items: Array.isArray(out.items) ? out.items.slice(0, 40) : [], at: Date.now(), ttl: (Number(out.expires_in) || 900) * 1000 } : { off: true };
+  } catch (e) { XR = { err: true }; }
+  if (INFO) screenPortal();
+}
+function xrFresh(){ return XR && XR.items && (Date.now() - XR.at) < (XR.ttl - 60000); }
+function sectionXrays(){
+  if (!XR || XR.loading || XR.off) return '';
+  if (XR.err) return '';
+  var items = XR.items || [];
+  if (!items.length) return '';
+  var h = '<div class="card"><div class="sec-title"><span class="ic">🩻</span>صور الأشعة</div>'
+    + '<p class="sec-hint">صورٌ شاركها معك طبيبك — اضغط صورةً لتكبيرها. للاستفسار عن أي صورة تواصل مع العيادة.</p>';
+  if (!xrFresh()) return h + '<button type="button" class="btn btn-go" onclick="loadXrays()">عرض الصور</button></div>';
+  h += '<div class="xr-grid">' + items.map(function(it, i){
+    if (!/^https:\/\//.test(String(it.url || ''))) return '';
+    var meta = [fmtYmd(String(it.date || '').slice(0, 10))];
+    if (it.kind === 'xray' && XR_TYPES[it.type]) meta.push(XR_TYPES[it.type]);
+    if (Array.isArray(it.teeth) && it.teeth.length) meta.push('سن ' + it.teeth.slice(0, 6).join('، ') + (it.teeth.length > 6 ? '…' : ''));
+    return '<button type="button" class="xr-card" onclick="openXray(' + i + ')"><img src="' + esc(it.url) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
+      + '<span class="meta">' + meta.map(esc).join(' · ') + '</span></button>';
+  }).join('') + '</div>';
+  return h + '</div>';
+}
+function openXray(i){
+  if (!xrFresh()) { loadXrays(); return; }
+  var it = XR.items[i]; if (!it || !/^https:\/\//.test(String(it.url || ''))) return;
+  closeXray();
+  document.body.insertAdjacentHTML('beforeend', '<div class="xr-ov" id="xrOv" role="dialog" aria-modal="true" onclick="if(event.target===this)closeXray()" onkeydown="if(event.key===\'Escape\')closeXray()">'
+    + '<button type="button" class="xr-x" onclick="closeXray()" aria-label="إغلاق">✕</button>'
+    + '<img src="' + esc(it.url) + '" alt="" referrerpolicy="no-referrer">'
+    + '<a class="xr-full" href="' + esc(it.url) + '" target="_blank" rel="noopener noreferrer">فتح بالحجم الكامل ↗</a></div>');
+  document.body.style.overflow = 'hidden';
+  var x = document.querySelector('#xrOv .xr-x'); if (x && x.focus) x.focus();
+}
+function closeXray(){ var o = document.getElementById('xrOv'); if (o) o.remove(); document.body.style.overflow = ''; }
+
+/* M182: the patient confirms his own unconfirmed upcoming appointment — the portal's single write */
+var _confirmBusy = false;
+async function confirmAppt(btn, id){
+  if (_confirmBusy || !TOKEN || !INFO) return;
+  _confirmBusy = true;
+  if (btn) { btn.disabled = true; btn.textContent = 'جارٍ التأكيد…'; }
+  try {
+    if (!sb) throw new Error('vendor');
+    var res = await withTimeout(sb.rpc('portal_confirm', { p_token: TOKEN, p_appt: id }), 20000);
+    if (res.error) throw res.error;
+    var out = res.data || {};
+    if (out.ok) {
+      var list = (INFO.appts && INFO.appts.upcoming) || [];
+      list.forEach(function(a){ if (a.id === id) { a.status = 'confirmed'; a.confirmation = 'confirmed'; } });
+      screenPortal();
+      flash('note', '✓ تم تأكيد موعدك — شكراً لك.');
+    } else {
+      if (btn) { btn.disabled = false; btn.textContent = '✓ تأكيد الموعد'; }
+      flash('warn', out.reason === 'not_confirmable' ? 'لا يمكن تأكيد هذا الموعد — تواصل مع العيادة.' : 'تعذّر التأكيد — أعد تحميل الصفحة أو تواصل مع العيادة.');
+    }
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = '✓ تأكيد الموعد'; }
+    flash('warn', 'تعذّر الاتصال — تحقق من الإنترنت ثم أعد المحاولة.');
+  }
+  _confirmBusy = false;
+}
+/* M187: cancel / change request — the portal's second narrow write */
+function openChange(id, kind){
+  OPEN_CHG = { id: id, kind: kind, day: null, time: null, note: '' };
+  screenPortal();
+  var p = document.getElementById('chgPanel'); if (p && p.scrollIntoView) p.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  if (kind === 'change' && INFO.changes && INFO.changes.slots) loadSlots(id);
+}
+/* M189: the picker is used when the clinic has booking hours and the read returned days */
+function slotMode(id){ var S = SLOTS[id]; return !!(INFO.changes && INFO.changes.slots && !(S && (S.err || (S.days && !S.days.length)))); }
+async function loadSlots(id){
+  SLOTS[id] = { loading: true };
+  try {
+    if (!sb) throw new Error('vendor');
+    var res = await withTimeout(sb.rpc('portal_slots', { p_token: TOKEN, p_appt: id }), 20000);
+    if (res.error) throw res.error;
+    var out = res.data || {};
+    SLOTS[id] = out.ok ? { days: Array.isArray(out.days) ? out.days : [], dur: out.dur } : { err: out.reason || 'unavailable' };
+    if (!out.ok && out.reason === 'too_late') { var a = findAppt(id); if (a) a.can_change = false; OPEN_CHG = null; screenPortal(); if (a) flash('warn', tplMsg('too_late', a), true); return; }
+  } catch (e) { SLOTS[id] = { err: 'network' }; }
+  if (OPEN_CHG && OPEN_CHG.id === id) screenPortal();
+}
+function findAppt(id){ var r = null; ((INFO.appts && INFO.appts.upcoming) || []).forEach(function(x){ if (x.id === id) r = x; }); return r; }
+/* the strip is rebuilt on every pick — keep the chosen day in view (it reset to the first days before) */
+function keepDayVisible(){ var on = document.querySelector('#slotDays .chip.on'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+function pickDay(d){ if (!OPEN_CHG) return; OPEN_CHG.day = d; OPEN_CHG.time = null; screenPortal(); keepDayVisible(); var s = document.getElementById('slotTimes'); if (s && s.scrollIntoView) s.scrollIntoView({ block: 'nearest' }); }
+function pickTime(t){ if (!OPEN_CHG) return; OPEN_CHG.time = t; screenPortal(); keepDayVisible(); var g = document.getElementById('chgGo'); if (g && g.scrollIntoView) g.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+function closeChange(){ OPEN_CHG = null; screenPortal(); }
+function pickChip(btn){
+  var box = btn && btn.parentNode; if (!box) return;
+  var on = btn.classList.contains('on');
+  box.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('on'); c.setAttribute('aria-pressed', 'false'); });
+  if (!on) { btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true'); }
+}
+var _chgBusy = false;
+async function submitChange(btn, id, kind){
+  if (_chgBusy || !TOKEN || !INFO) return;
+  var list = (INFO.appts && INFO.appts.upcoming) || [], a = null;
+  list.forEach(function(x){ if (x.id === id) a = x; });
+  if (!a) return;
+  var useSlot = kind === 'change' && slotMode(id);
+  if (useSlot && !(OPEN_CHG && OPEN_CHG.day && OPEN_CHG.time)) return;
+  var slotD = useSlot ? OPEN_CHG.day : null, slotT = useSlot ? OPEN_CHG.time : null;
+  var chip = document.querySelector('#chgChips .chip.on'), txt = document.getElementById('chgText');
+  var pick = chip ? chip.getAttribute('data-v') : '', extra = txt ? String(txt.value || '').trim().slice(0, 300) : '';
+  var reason = kind === 'cancel' ? [pick, extra].filter(Boolean).join(' — ').slice(0, 300) : '';
+  var label = btn ? btn.textContent : '';
+  _chgBusy = true;
+  if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الإرسال…'; }
+  try {
+    if (!sb) throw new Error('vendor');
+    var res = await withTimeout(sb.rpc('portal_appt_change', { p_token: TOKEN, p_appt: id, p_kind: kind, p_reason: reason || null,
+      p_pref: kind === 'change' && !useSlot ? (pick || null) : null, p_note: kind === 'change' ? (extra || null) : null,
+      p_date: slotD, p_time: slotT }), 20000);
+    if (res.error) throw res.error;
+    var out = res.data || {};
+    if (out.ok) {
+      OPEN_CHG = null;
+      if (out.applied) { a.status = 'cancelled'; a.confirmation = 'cancelled_by_pt'; }
+      else { a.open_request = kind; if (slotD && slotT) a.open_request_at = slotD + ' ' + slotT; }
+      screenPortal();
+      flash('note', tplMsg(out.applied ? 'cancelled' : 'requested', a), true);
+    } else if (out.reason === 'slot_taken') {
+      if (btn) { btn.disabled = false; btn.textContent = label; }
+      if (OPEN_CHG) OPEN_CHG.time = null;
+      _chgBusy = false;
+      await loadSlots(id);   /* re-render first — the notice is inserted into the fresh page */
+      flash('warn', 'هذا الوقت لم يعد متاحاً — اختر وقتاً آخر.');
+      return;
+    } else if (out.reason === 'too_late') {
+      OPEN_CHG = null; a.can_change = false; screenPortal();
+      flash('warn', tplMsg('too_late', a), true);
+    } else if (out.reason === 'disabled') {
+      OPEN_CHG = null; INFO.changes = null; if (INFO.show) INFO.show.changes = false; screenPortal();
+      flash('warn', 'هذه الخدمة غير مفعّلة حالياً — تواصل مع العيادة.');
+    } else {
+      if (btn) { btn.disabled = false; btn.textContent = label; }
+      flash('warn', out.reason === 'rate_limited' ? 'وصلت إلى الحدّ اليومي من الطلبات — تواصل مع العيادة مباشرة.'
+        : (out.reason === 'not_changeable' ? 'لا يمكن تعديل هذا الموعد من هنا — تواصل مع العيادة.' : 'تعذّر الإرسال — أعد تحميل الصفحة أو تواصل مع العيادة.'));
+    }
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+    flash('warn', 'تعذّر الاتصال — تحقق من الإنترنت ثم أعد المحاولة.');
+  }
+  _chgBusy = false;
+}
+/* inline notice at the top of the page (no native dialogs — platform rule); keep ⇒ a clinic message stays until the next action */
+function flash(kind, text, keep){
+  var old = document.getElementById('flashNote'); if (old) old.remove();
+  var top = document.getElementById('app'); if (!top) return;
+  top.insertAdjacentHTML('afterbegin', '<div class="' + (kind === 'warn' ? 'warn' : 'note') + '" id="flashNote" style="margin:0 0 12px;">' + esc(text) + '</div>');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (!keep) setTimeout(function(){ var n = document.getElementById('flashNote'); if (n) n.remove(); }, 5000);
+}
+
+/* printing / «save as PDF» (Dentally offers the plan as a PDF): open the folded lists first so nothing is lost */
+window.onbeforeprint = function(){ document.querySelectorAll('details').forEach(function(d){ d.open = true; }); };
+
+/* ── Boot ── */
+(async function boot(){
+  var m = (location.search || '').match(/[?&]t=([0-9a-fA-F]{64})/);
+  TOKEN = m ? m[1].toLowerCase() : null;
+  if (!TOKEN) { screenDead('الرابط غير صالح', STATUS_MSG.unavailable, '🔗'); return; }
+  /* v618: a weak mobile link — say so after 6s instead of a silent spinner */
+  var slowT = setTimeout(function(){ var a = document.getElementById('app'); if (a && a.querySelector('.spin')) a.insertAdjacentHTML('beforeend', '<p class="sub center" id="slowNote">الاتصال بطيء — لحظات من فضلك…</p>'); }, 6000);
+  try {
+    if (!sb) throw new Error('vendor');
+    var res = await withTimeout(sb.rpc('portal_info', { p_token: TOKEN }), 25000);
+    clearTimeout(slowT);
+    if (res.error) throw res.error;
+    var row = res.data;
+    if (!row || typeof row !== 'object') { screenDead('الرابط غير متاح', STATUS_MSG.unavailable, '🔗'); return; }
+    INFO = row;
+    document.title = 'بوابة المريض — ' + (row.clinic_name || '');
+    if (row.status === 'expired') { screenDead('انتهت صلاحية الرابط', STATUS_MSG.expired, '⌛'); return; }
+    if (row.status === 'revoked') { screenDead('الرابط موقوف', STATUS_MSG.revoked, '⛔'); return; }
+    if (row.status !== 'ok') { screenDead('الرابط غير متاح', STATUS_MSG.unavailable, '🔗'); return; }
+    screenPortal();
+    loadXrays();   /* M193: ثانويّ — لا يؤخّر الصفحة */
+  } catch (e) {
+    clearTimeout(slowT);
+    app('<div class="card center"><div class="big-icon">⚠️</div><h1>تعذّر التحميل</h1><p class="sub" style="margin-top:8px;">تحقق من الاتصال بالإنترنت ثم أعد تحميل الصفحة.</p>'
+      + '<button type="button" class="btn btn-go" onclick="location.reload()">إعادة المحاولة</button></div>');
+  }
+})();
+</script>
+</body>
+</html>

@@ -108,16 +108,16 @@
   }
 
   async function uploadAll(files, orderId, patientId) {
-    var ok = 0, bad = 0;
+    var ok = 0, bad = 0, why = null;
     for (var i = 0; i < files.length; i++) {
       var f = files[i];
       try {
         var r = await SyDentFiles.upload(patientId, f, { labOrderId: orderId, category: isImg(f.type) ? 'clinical_photo' : 'document', note: 'مرفق طلب مخبر' });
-        if (r && r.ok) ok++; else { bad++; console.warn('lab file upload:', r); }
+        if (r && r.ok) ok++; else { bad++; if (!why) why = r; console.warn('lab file upload:', r); }
       } catch (e) { bad++; console.warn('lab file upload:', e); }
     }
     if (ok) toast('📎 رُفع ' + (ok === 1 ? 'مرفقٌ واحد' : ok + ' مرفقات'));
-    if (bad) toast('⚠️ تعذّر رفع ' + bad + ' من المرفقات');
+    if (bad) toast('⚠️ تعذّر رفع ' + bad + ' من المرفقات' + (why && SyDentFiles.message ? ': ' + SyDentFiles.message(why) : ''));   /* M192: السببُ بنصٍّ واحد */
     return ok;
   }
 

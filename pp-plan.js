@@ -104,19 +104,69 @@ async function _setSessionOption_inner(sid, opt) {
   renderSessions();
   try { if (typeof renderPayments === 'function') renderPayments(); } catch (e) {}
 }
-/* شرائح الخيار بصفّ الجلسة المخطّطة — جنب شرائح المرحلة وبنمطها. */
-function planOptionChipsHtml(s) {
-  var cur = planOptOf(s);
-  var _OP = [[1, 'أ'], [2, 'ب'], [3, 'ج'], [null, '—']];
-  return '<span class="sess-phase sess-option" title="خيار خطة العلاج (بديل) — «—» = بند مشترك بكل الخيارات">'
-    + _OP.map(function(op){
-        var _sel = cur === op[0];
-        return '<button type="button" onclick="setSessionOption(\'' + s.id + '\',' + (op[0] === null ? 'null' : op[0]) + ')" '
-          + 'style="min-width:20px;height:20px;padding:0 4px;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;line-height:1;'
-          + 'border:1.5px solid ' + (_sel ? 'var(--blue)' : 'var(--border)') + ';'
-          + 'color:' + (_sel ? 'var(--blue)' : 'var(--text2)') + ';background:transparent;">' + op[1] + '</button>';
-      }).join('')
-    + '</span>';
+/* v597: ضابطُ الصفّ المخطّط — شريحةٌ واحدة تلخّص المرحلة والبديل («م2 · خيار ب»)،
+   وبالنقر تُفتح لوحةٌ مسمّاة: «المرحلة» 1/2/3 (ترتيبُ التنفيذ) · «بديل» أ/ب/ج (خيارٌ
+   يختار المريض واحداً منها). عرضٌ بحت — الكتابةُ ما زالت setSessionPhase/setSessionOption
+   حرفياً (Dentrix Ascend / Open Dental: الاعتمادُ على الحاوية، الترتيبُ داخلها).
+   لوحةٌ مفتوحة واحدة بالجدول؛ تبقى مفتوحة بعد الاختيار حتى يغلقها الطبيب. */
+var _planCtlOpen = null;
+function planRowCtlToggle(sid) {
+  _planCtlOpen = (_planCtlOpen === sid) ? null : sid;
+  if (typeof renderSessions === 'function') renderSessions();
+}
+/* v611: اللوحةُ عائمةٌ (لا تمدّ الصف) — نقرةٌ خارجها أو Escape تغلقها */
+if (typeof document !== 'undefined' && document.addEventListener && !window.__planCtlDocBound) {
+  window.__planCtlDocBound = true;
+  document.addEventListener('click', function(ev){
+    if (_planCtlOpen === null) return;
+    var t = ev.target; while (t && t !== document) { if (t.classList && t.classList.contains('sess-plan-ctl')) return; t = t.parentNode; }
+    _planCtlOpen = null; if (typeof renderSessions === 'function') renderSessions();
+  }, true);
+  document.addEventListener('keydown', function(ev){ if (ev.key === 'Escape' && _planCtlOpen !== null) { _planCtlOpen = null; if (typeof renderSessions === 'function') renderSessions(); } });
+}
+/* v611: ترتيبُ الجدول (عرضٌ بحت، المصفوفةُ لا تُمسّ): المخطّطُ أولاً مجمَّعاً بالخيار أ ← ب ← ج ← المشترك، ثم بالمرحلة
+   1 ← 2 ← 3 ← بلا، ثم الترتيبُ الأصلي (الأحدثُ أولاً)؛ المنجزُ وغيرُه بعده بترتيبه الأصلي — كالمنافسين: الخطةُ
+   مجموعاتٌ بالخيار (Dentrix Ascend cases · Curve options) والسجلُّ زمني. */
+function sessionsForTable(list) {
+  var arr = (list || []).map(function(s, i){ return { s: s, i: i }; });
+  var opt = function(s){ var o = (typeof planOptOf === 'function') ? planOptOf(s) : null; return o ? o : 9; };
+  var ph = function(s){ return (s.phase >= 1 && s.phase <= 3) ? s.phase : 9; };
+  arr.sort(function(a, b){
+    var pa = (a.s.status || 'completed') === 'planned' ? 0 : 1, pb = (b.s.status || 'completed') === 'planned' ? 0 : 1;
+    if (pa !== pb) return pa - pb;
+    if (pa === 0) { var d = opt(a.s) - opt(b.s); if (d) return d; d = ph(a.s) - ph(b.s); if (d) return d; }
+    return a.i - b.i;
+  });
+  return arr.map(function(x){ return x.s; });
+}
+function planRowCtlHtml(s) {
+  var ph = (s.phase >= 1 && s.phase <= 3) ? s.phase : null;
+  var op = planOptOf(s);
+  var open = _planCtlOpen === s.id;
+  var sum = [];
+  if (ph) sum.push('<b class="spc-ph" title="' + PLAN_PHASE_LABELS[ph] + '">م' + ph + '</b>');
+  if (op) sum.push('<b class="spc-op" title="بديلٌ ضمن خيارات الخطة">خيار ' + PLAN_OPTION_LABELS[op] + '</b>');
+  var pill = '<button type="button" class="spc-pill' + (open ? ' on' : '') + (sum.length ? '' : ' spc-none') + '" aria-expanded="' + (open ? 'true' : 'false') + '" onclick="planRowCtlToggle(\'' + s.id + '\')" title="المرحلة (ترتيب التنفيذ) والبديل (خيار للمريض) — اضغط للتعديل">'
+    + (sum.length ? sum.join('<span class="spc-dot">·</span>') : 'ترتيب / بديل') + ' <span class="spc-caret">' + (open ? '▴' : '▾') + '</span></button>';
+  if (!open) return '<span class="sess-plan-ctl">' + pill + '</span>';
+  /* اسمُ المعالج حرفيٌّ داخل onclick (لا مركَّب) — حارسُ وضع القراءة بـcheck-mirrors يقرأ الأسماء من الوسم نفسه. */
+  var chip = function(fn, val, lbl, sel, cls, ttl) {
+    var v = (val === null ? 'null' : val);
+    var on = (fn === 'setSessionPhase')
+      ? 'onclick="setSessionPhase(\'' + s.id + '\',' + v + ')"'
+      : 'onclick="setSessionOption(\'' + s.id + '\',' + v + ')"';
+    return '<button type="button" class="spc-chip ' + cls + (sel ? ' sel' : '') + '" title="' + ttl + '" ' + on + '>' + lbl + '</button>';
+  };
+  return '<span class="sess-plan-ctl open">' + pill
+    + '<span class="spc-panel">'
+    + '<span class="spc-row"><span class="spc-lbl" title="ترتيب التنفيذ داخل الخطة — المرحلة الأولى تُنفَّذ أولاً">المرحلة</span>'
+    + [[1, '1', 'المرحلة الأولى'], [2, '2', 'المرحلة الثانية'], [3, '3', 'المرحلة الثالثة'], [null, '—', 'بلا مرحلة']].map(function(p){ return chip('setSessionPhase', p[0], p[1], ph === p[0], 'spc-c-ph', p[2]); }).join('')
+    + '</span>'
+    + '<span class="spc-row"><span class="spc-lbl" title="خيارٌ بديل يختار المريض واحداً منها — «—» = بند مشترك بكل الخيارات">بديل</span>'
+    + [[1, 'أ', 'الخيار أ'], [2, 'ب', 'الخيار ب'], [3, 'ج', 'الخيار ج'], [null, '—', 'مشترك بكل الخيارات']].map(function(p){ return chip('setSessionOption', p[0], p[1], op === p[0], 'spc-c-op', p[2]); }).join('')
+    + '</span>'
+    + (op ? '<span class="spc-hint">بندٌ بديل — لا يُجدوَل ولا يدخل الزيارات قبل اعتماد الخيار ' + PLAN_OPTION_LABELS[op] + '</span>' : '')
+    + '</span></span>';
 }
 /* شريط المقارنة فوق جدول الجلسات — يظهر فقط عند وجود خيارات. */
 /* M145-i: إنجازٌ من صفحة المواعيد/اللوحة لا يعتمد الخيار (لا منطق مخطط هناك) — يُترك وسمُ البند المنجز
@@ -126,22 +176,64 @@ function planPendingAdoption() {
   (sessions || []).forEach(function(s){ if ((s.status || 'completed') === 'completed' && planOptOf(s)) done[planOptOf(s)] = true; });
   return [1, 2, 3].filter(function(o){ return done[o] && used.some(function(u){ return u !== o; }); });
 }
+/* v598: وصفُ الخيار = أنواعُ علاجاته بلا تكرار («معالجة لبية · تاج زركون») — بلا «+N» ولا أسنان
+   (الأسنانُ بالقائمة تحته)، وبلا تخزين فلا يتقادم. (كان v597 بنداً أبرز + عدد الباقي — المالك رآه غير منسّق.) */
+function planOptionName(opt) {
+  var seen = {}, out = [];
+  planPlannedSessions().forEach(function(s){
+    if (planOptOf(s) !== opt) return;
+    var k = String(s.type || 'علاج');
+    if (seen[k]) return;
+    seen[k] = true; out.push(k);
+  });
+  return out.join(' · ');
+}
+function _planOptItemHtml(s) {
+  var ph = (s.phase >= 1 && s.phase <= 3) ? s.phase : null;
+  return '<li class="po-item"><span class="po-iname" title="' + escapeHtml(planItemName(s)) + '">' + escapeHtml(planItemName(s)) + '</span>'
+    + '<span class="po-phc">' + (ph ? '<span class="po-ph" title="' + PLAN_PHASE_LABELS[ph] + '">م' + ph + '</span>' : '') + '</span>'
+    + '<span class="po-cost">' + fmt(s.cost) + ' ' + _rowLbl(s) + '</span></li>';
+}
+/* v597: بطاقةٌ لكل خيار (اسمٌ · بنودُه بأسنانها وأسعارها · المشترك · الإجمالي · اعتماد) بدل
+   شريطِ أرقامٍ بلا محتوى — نموذجُ Dentrix Ascend (حالةٌ بديلة مسمّاة) وOpen Dental (خطةٌ
+   غير فعّالة بعنوان): الخيارُ حاوية، الاعتمادُ عليها، والترتيبُ داخل المعتمد. يظهر فقط عند وجود خيارات. */
 function planOptionsBarHtml() {
   var used = planOptionsUsed();
   if (!used.length) return '';
   var pend = planPendingAdoption();
-  var h = '<div class="plan-opt-bar" data-plan-opt-bar="1" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg3);">'
-        + '<span style="font-weight:800;font-size:13px;">🔀 خيارات الخطة:</span>';
+  var all = planPlannedSessions();
+  var shared = all.filter(function(s){ return planOptOf(s) === null; });
+  var h = '<div class="plan-opt-bar plan-opts" data-plan-opt-bar="1">'
+        + '<div class="po-head"><span class="po-title">🔀 خيارات الخطة</span>'
+        + '<span class="po-state" title="بدائلُ يختار المريض واحداً منها — اضغط «اعتماد» على ما وافق عليه">⏳ بانتظار قرار المريض</span>'
+        + '<span class="po-steps" title="١ ضع البدائل (شريحة «بديل» بصفّ البند) · ٢ اعتمد ما اختاره المريض · ٣ رتّب المعتمد بالمراحل وجدوِله بالزيارات">١ بدائل ← ٢ اعتماد ← ٣ ترتيب وزيارات</span></div>'
+        + '<div class="po-grid">';
   used.forEach(function(o){
-    h += '<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1.5px solid var(--blue);border-radius:8px;font-size:12.5px;">'
-       + '<b style="color:var(--blue);">' + PLAN_OPTION_LABELS[o] + '</b>'
-       + '<span style="white-space:nowrap;">' + escapeHtml(_planBagText(planOptionTotalBag(o))) + '</span>'
-       + '<button type="button" class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11.5px;" onclick="adoptPlanOption(' + o + ')" title="اعتماد هذا الخيار وحذف بنود الخيارات الأخرى المخطّطة">اعتماد</button>'
-       + '</span>';
+    var own = all.filter(function(s){ return planOptOf(s) === o; });
+    /* v598: رأسٌ موحَّد (الحرف · عدّاد البنود) ووصفٌ تحته · شبكةُ بنود بثلاثة أعمدة ثابتة · سطرُ الإجمالي · زرُّ اعتمادٍ بعرض البطاقة — نفسُ الهيكل بكل البطاقات. */
+    h += '<div class="po-card" data-plan-opt="' + o + '">'
+       +   '<div class="po-card-head"><b class="po-letter">الخيار ' + PLAN_OPTION_LABELS[o] + '</b><span class="po-count">' + own.length + ' ' + (own.length === 1 ? 'بند' : 'بنود') + '</span></div>'
+       +   '<div class="po-name" title="' + escapeHtml(planOptionName(o)) + '">' + escapeHtml(planOptionName(o)) + '</div>'
+       +   '<ul class="po-items">' + own.map(_planOptItemHtml).join('') + '</ul>'
+       +   (shared.length ? '<div class="po-plus">+ ' + shared.length + ' ' + (shared.length === 1 ? 'بند مشترك' : 'بنود مشتركة') + ' (أدناه)</div>' : '')
+       +   '<div class="po-sum" title="المشترك + بنود هذا الخيار"><span>الإجمالي</span><b>' + escapeHtml(_planBagText(planOptionTotalBag(o))) + '</b></div>'
+       +   '<button type="button" class="btn btn-primary btn-sm po-adopt" onclick="adoptPlanOption(' + o + ')" title="اعتماد هذا الخيار وحذف بنود الخيارات الأخرى المخطّطة">✓ اعتماد الخيار ' + PLAN_OPTION_LABELS[o] + '</button>'
+       + '</div>';
   });
-  h += '<span style="font-size:11px;color:var(--text2);">الإجمالي = البنود المشتركة + بنود الخيار</span>';
+  if (shared.length) {
+    var sb = _planBag();
+    shared.forEach(function(s){ sb[_rowCur(s)] += Number(s.cost || 0); });
+    h += '<div class="po-card po-shared">'
+       +   '<div class="po-card-head"><b class="po-letter">مشترك</b><span class="po-count">' + shared.length + ' ' + (shared.length === 1 ? 'بند' : 'بنود') + '</span></div>'
+       +   '<div class="po-name">مع كل الخيارات — يُنفَّذ أيّاً كان المعتمد</div>'
+       +   '<ul class="po-items">' + shared.map(_planOptItemHtml).join('') + '</ul>'
+       +   '<div class="po-sum"><span>الإجمالي</span><b>' + escapeHtml(_planBagText(sb)) + '</b></div>'
+       + '</div>';
+  }
+  h += '</div>'
+     + '<div class="po-note">إجمالي كل خيار = البنود المشتركة + بنوده · البنود البديلة لا تُجدوَل ولا تدخل الزيارات قبل الاعتماد · لنقل بندٍ بين الخيارات: شريحة «ترتيب / بديل» بصفّه.</div>';
   if (pend.length) {
-    h += '<div data-plan-pending="1" style="flex-basis:100%;margin-top:4px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--orange-bd);background:var(--orange-bg);color:var(--text);font-size:12.5px;line-height:1.7;">⚠️ '
+    h += '<div data-plan-pending="1" class="po-pending">⚠️ '
        + (pend.length === 1
           ? 'أُنجز بندٌ من «الخيار ' + PLAN_OPTION_LABELS[pend[0]] + '» من صفحة المواعيد والبدائل ما زالت مخطّطة — اعتمد الخيار لإزالتها وتحديث المخطط. '
             + '<button type="button" class="btn btn-sm" style="padding:2px 10px;font-size:11.5px;margin-inline-start:6px;" onclick="adoptPlanOption(' + pend[0] + ')">اعتماد ' + PLAN_OPTION_LABELS[pend[0]] + '</button>'

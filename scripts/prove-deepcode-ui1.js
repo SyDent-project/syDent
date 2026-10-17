@@ -30,11 +30,11 @@ function suite(F) {
   ok(/ppDockToothModal\(n\);   \/\* DeepCode #20 \(v562\)[^\n]*\n  openModal\('toothModal'\);/.test(D), '#20 docked BEFORE opening (scrolling still possible)');
   const K = fnSrc(D, 'function ppDockToothModal(');
   ok(/if \(ar > 0\) vis\.push\(cand\[k\]\); if \(ar > best\) \{ best = ar; t = cand\[k\]; \}/.test(K) && /vis\[v\]\.classList\.add\('pp-tooth-sel'\)/.test(K), '#20 the visible tooth (not the hidden perio copy), highlighted whole');
-  ok(/\(r\.left \+ r\.width \/ 2\) > window\.innerWidth \/ 2 \? 'pp-dock-left' : 'pp-dock-right'/.test(K), '#20 desktop: panel on the half opposite the tooth');
+  ok(!/pp-dock-left|pp-dock-right/.test(D) && !/pp-dock-left|pp-dock-right/.test(F['patient-profile.css']), '#20 (v577, owner): desktop never side-docks — the modal stays centred; no left/right class anywhere');
   ok(/document\.documentElement\.classList\.add\('pp-dock-room'\);/.test(K) && /document\.documentElement\.classList\.remove\('pp-dock-room'\);/.test(K), '#20 mobile: temporary room to lift the lower arch above the sheet, removed on close');
   ok(/if \(m\.classList\.contains\('open'\) \|\| !m\.classList\.contains\('pp-dock'\)\) return;/.test(K), '#20 the close observer never re-triggers itself (no freeze)');
   const C = F['patient-profile.css'];
-  ok(/#toothModal\.open\.pp-dock-left  \{ justify-content: flex-end;/.test(C) && /#toothModal\.open\.pp-dock > \.modal-box \{ max-height: 60dvh; \}/.test(C) && /html\.pp-dock-room #ppPage \{ padding-bottom: 62dvh; \}/.test(C), '#20 CSS: side panel · shorter sheet · scroll room');
+  ok(/#toothModal\.open\.pp-dock > \.modal-box \{ max-height: 60dvh; \}/.test(C) && /html\.pp-dock-room #ppPage \{ padding-bottom: 62dvh; \}/.test(C), '#20 CSS: side panel · shorter sheet · scroll room');
   const S = F['subscription.html'];
   ok(/<div class="sub-danger" id="subDangerCard" hidden>/.test(S) && /margin-top: 64px;/.test(S) && /\.sub-danger::before \{[^}]*content: "⚠️ منطقة الخطر";/.test(S) && /onclick="window\.subOpenDelete\(\)">حذف حسابي<\/button>/.test(S), '#14 delete card inside a labelled, separated danger zone; behaviour unchanged');
 }
@@ -46,7 +46,7 @@ const MUTANTS = [
   ['mid-screen block broken', rep('payouts.html', "  .date-range input[type=\"date\"], .date-range .sy-df { flex: 1 1 130px; min-width: 0; }\n}\n/* DeepCode #9", "}\n  .date-range input[type=\"date\"], .date-range .sy-df { flex: 1 1 130px; min-width: 0; }\n/* DeepCode #9")],
   ['docked after open', rep('pp-dental.js', "  ppDockToothModal(n);   /* DeepCode #20 (v562) — قبل الفتح: التمريرُ ممكنٌ قبل قفل الصفحة تحت النافذة */\n  openModal('toothModal');", "  openModal('toothModal');\n  ppDockToothModal(n);   /* DeepCode #20 (v562) — قبل الفتح: التمريرُ ممكنٌ قبل قفل الصفحة تحت النافذة */")],
   ['observer loop', rep('pp-dental.js', "if (m.classList.contains('open') || !m.classList.contains('pp-dock')) return;", "if (m.classList.contains('open')) return;")],
-  ['same side as tooth', rep('pp-dental.js', "? 'pp-dock-left' : 'pp-dock-right'", "? 'pp-dock-right' : 'pp-dock-left'")],
+  ['side-dock back', rep('pp-dental.js', "  if (!t) return;\n  for (var v = 0; v < vis.length; v++) vis[v].classList.add('pp-tooth-sel');", "  if (!t) return;\n  m.classList.add('pp-dock-left');\n  for (var v = 0; v < vis.length; v++) vis[v].classList.add('pp-tooth-sel');")],
   ['room never removed', rep('pp-dental.js', "      document.documentElement.classList.remove('pp-dock-room');\n", '')],
   ['danger zone unlabelled', rep('subscription.html', '  content: "⚠️ منطقة الخطر"; position: absolute;', '  position: absolute;')]
 ];

@@ -1,4 +1,4 @@
-/* C3 part 4 — prover for the inventory hardening (M178) and the inventory statement (Excel).
+/* C3 part 4 — prover for the inventory hardening (M174) and the inventory statement (Excel).
    (1) batch guard: the item is locked only when a batch grows; growth still checks «open ≤ quantity»; ownership kept;
    (2) finished batches zeroed; trigger functions not executable by PUBLIC/anon;
    (3) statement: active items only, by name, value in the item's own currency (never summed across currencies),
@@ -14,7 +14,7 @@ const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL', m); } }
 function fnSrc(src, sig) { const i = src.indexOf(sig); if (i < 0) return ''; const j = src.indexOf('\n}\n', i); return src.slice(i, j + 2); }
 
 function suite(F) {
-  const M = F['migrations/178_inventory_hardening.sql'];
+  const M = F['migrations/174_inventory_hardening.sql'];
   const g = M.slice(M.indexOf('CREATE OR REPLACE FUNCTION public.inventory_batches_guard'), M.indexOf('UPDATE public.inventory_batches SET quantity = 0'));
   ok(g.indexOf('v_grow :=') > -1 && g.indexOf('v_grow :=') < g.indexOf('FROM public.inventory_items i'), 'guard: growth decided before touching the item');
   ok(/IF v_grow THEN\s+SELECT i\.quantity, i\.owner_id INTO v_itemq, v_owner FROM public\.inventory_items i WHERE i\.id = NEW\.item_id FOR UPDATE;\s+ELSE\s+SELECT i\.quantity, i\.owner_id INTO v_itemq, v_owner FROM public\.inventory_items i WHERE i\.id = NEW\.item_id;/.test(g), 'guard: lock only on growth');
@@ -51,10 +51,10 @@ function suite(F) {
   ok(/^_ra\/$/m.test(F['.gitignore']), 'git ignores the review screenshots (#725)');
 }
 
-const FILES = ['migrations/178_inventory_hardening.sql', 'inv-trace.js', 'inventory.html', '.gitignore'];
+const FILES = ['migrations/174_inventory_hardening.sql', 'inv-trace.js', 'inventory.html', '.gitignore'];
 const base = {}; FILES.forEach(f => { base[f] = read(f); });
 const rep = (f, a, b) => F => Object.assign({}, F, { [f]: F[f].replace(a, b) });
-const MIG = 'migrations/178_inventory_hardening.sql';
+const MIG = 'migrations/174_inventory_hardening.sql';
 const MUTANTS = [
   ['always locks the item', rep(MIG, "  ELSE\n    SELECT i.quantity, i.owner_id INTO v_itemq, v_owner FROM public.inventory_items i WHERE i.id = NEW.item_id;\n", "  ELSE\n    SELECT i.quantity, i.owner_id INTO v_itemq, v_owner FROM public.inventory_items i WHERE i.id = NEW.item_id FOR UPDATE;\n")],
   ['growth no longer checked', rep(MIG, "RAISE EXCEPTION 'batch_exceeds_stock'", "RAISE NOTICE 'batch_exceeds_stock'")],

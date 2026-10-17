@@ -42,7 +42,7 @@ def helpers():
     for start in ('window.SyDentCurPick = (function',):
         try: extra += iife(s, start) + '\n'
         except ValueError: pass
-    fa = s.index('  window.SyDentFetchAll = async function (build) {'); fb = s.index('\n  };\n', fa) + 5   # v548: الجالبُ المصفّح الحقيقي
+    fa = s.index('  window.SyDentFetchAll = async function (build, orderKeys) {'); fb = s.index('\n  };\n', fa) + 5   # v548: الجالبُ المصفّح الحقيقي
     return s[fa:fb] + '\n' + iife(s, 'window.SyDentCurBag = (function') + '\n' + extra + s[a:b] + s[b:c]
 FAILS, N = [], [0]
 # عميلُ Supabase مصطنع: الجلسةُ «معلّقة» للأبد فلا يحوّل الإقلاعُ إلى صفحة الدخول، والاستعلاماتُ سلسلةٌ لا تنتهي

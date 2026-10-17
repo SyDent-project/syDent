@@ -81,7 +81,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   border-bottom:1px solid var(--red-bd);padding:7px 28px;cursor:pointer;}
 .pp-med-alert[hidden]{display:none;}
 .pma-seg{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px;font-weight:800;line-height:1.6;}
-.pma-warn{flex:0 1 auto;color:var(--red-ink);}
+.pma-warn{flex:0 1 auto;color:var(--red-ink);background:color-mix(in srgb,var(--red-fill) 60%,var(--red-bg));border:1px solid var(--red-bd);border-radius:20px;padding:1px 10px;}   /* v598: بادجٌ كالحساسية (طلب المالك) — أعمقُ من --red-bg كي لا يذوب بخلفية الشريط، وأفتحُ من --red-fill كي يبقى النصُّ ≥4.5:1 */
 .pma-alg{flex:0 1 auto;color:var(--yellow-ink);background:var(--yellow-bg);border:1px solid var(--yellow-bd);border-radius:20px;padding:1px 10px;}
 .pp-med-alert.open{flex-wrap:wrap;}
 .pp-med-alert.open .pma-seg{white-space:normal;overflow:visible;}
@@ -216,6 +216,13 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 .jaw-row{display:flex;justify-content:center;gap:4px;align-items:flex-end;width:max-content;margin:0 auto;min-width:100%;padding:0 12px;}
 .midline{width:2px;background:linear-gradient(to bottom,transparent,var(--border) 15%,var(--border) 85%,transparent);margin:0 6px;align-self:stretch;border-radius:2px;}
 .tooth-cell{display:flex;flex-direction:column;align-items:center;gap:1px;transition:transform .15s;position:relative;}
+/* v580: خليةُ السن الزائد — أضيق من السن وبلا رقم كبير؛ تصطفّ مع أسنان الصف نفسه */
+.tooth-cell.sx-cell,.occ-cell.sx-cell{justify-content:flex-end;}
+#lowerJaw .sx-cell{align-self:flex-start;}   /* الصفُّ flex-end؛ بالسفلي يُحاذى التاجُ من الأعلى */
+#upperOcc .sx-cell,#lowerOcc .sx-cell{align-self:center;}
+.sx-cell .tooth-num{font-size:11px;color:var(--text3);font-weight:700;}
+.sx-cell .sx-hit{cursor:pointer;}
+.sx-cell:hover .sx-shape{filter:drop-shadow(0 0 4px var(--green));}
 .tooth-cell:hover{transform:scale(1.12);z-index:5;}
 .tooth-shape{
   display:block;
@@ -223,7 +230,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   filter:drop-shadow(0 1px 2px rgba(0,0,0,.15));
   transition:filter .15s;
 }
-.ortho-banner{display:none;flex-wrap:wrap;gap:6px;justify-content:center;margin:0 auto 8px;width:max-content;max-width:100%;}
+.ortho-banner{display:none;flex-wrap:wrap;gap:6px;justify-content:center;margin:0 auto 16px;width:max-content;max-width:100%;}
 .ortho-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;border:1px solid;border-radius:8px;padding:3px 10px;white-space:nowrap;}
 .tooth-cell:hover .tooth-shape{filter:drop-shadow(0 0 4px var(--green));}
 .tooth-shape .crown-surface,
@@ -402,6 +409,9 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 #watchDueBanner .wend-chip{display:inline-flex;align-items:center;gap:3px;padding:0 6px;margin:0 1px;border:1px solid rgba(107,114,128,.55);border-radius:999px;cursor:pointer;line-height:1.5;background:transparent;color:inherit;}
 #watchDueBanner .wend-chip:hover{border-color:var(--red,#ef4444);color:var(--red,#ef4444);}
 #watchDueBanner .wend-x{font-size:9px;opacity:.7;}
+#watchDueBanner .wend-r{font-size:10px;line-height:1;padding:0 2px;border-radius:999px;opacity:.85;}
+#watchDueBanner .wend-r:hover{opacity:1;background:rgba(var(--green-rgb),.18);}
+#watchDueBanner .wend-chip:has(.wend-r:hover){border-color:var(--green);color:inherit;}   /* 🔁 = تجديد لا إنهاء: لا احمرار */
 .status-existing{background:#9ca3af;opacity:.7;}           /* legacy fallback (pre-migration) */
 .status-referred{background:#f59e0b;}
 .status-condition{background:#6b7280;opacity:.70;}         /* Cn — clinical watch only, no charge */
@@ -572,6 +582,12 @@ body.ai-on #postOpAiRow,body.ai-on #postOpTplAiRow{display:block;}
 body.ai-on #aiHubBtn{display:inline-block;}
 .pd-in.cmp-worse{outline:2px solid var(--red);outline-offset:-1px;}
 .pd-in.cmp-better{outline:2px solid var(--green);outline-offset:-1px;}
+/* v634: comparison — the previous value under each depth (phones/tablets have no hover), the change counts */
+.pd-stack{display:inline-flex;flex-direction:column;align-items:center;vertical-align:top;gap:1px;}
+.pd-prev{font-size:10px;line-height:1;font-weight:700;color:var(--text2);min-height:10px;}
+.pd-prev.cmp-better,.cmp-better-t{color:var(--green2);}
+.pd-prev.cmp-worse,.cmp-worse-t{color:var(--red-ink, var(--red));}
+.perio-stats span.perio-cmp-sum{border-color:var(--green);}
 .bop-dot{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--border);display:inline-block;cursor:pointer;vertical-align:middle;background:transparent;padding:0;margin:1px;}
 .bop-dot.on{background:var(--red);border-color:var(--red);}
 .bop-dot.dis{opacity:.15;cursor:default;pointer-events:none;}
@@ -736,6 +752,55 @@ body.ai-on #aiHubBtn{display:inline-block;}
 .sess-note{color:var(--text3);font-size:11.5px;margin-top:2px;}
 .sess-links{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
 .sess-phase{display:flex;gap:2px;margin-top:4px;}
+/* v597: خيارات الخطة كبطاقات مسمّاة بمحتواها (Dentrix Ascend / Open Dental) + ضابطُ الصفّ (المرحلة · البديل) */
+/* v612: الحالةُ السريرية بمودال السن — تختفي حقولُ الجلسة (التكلفة · التاريخ · الطبيب · الملاحظة وقالبُها ومساعدُها) */
+#toothStep2[data-cond-ui="1"] .tu-row,#toothStep2[data-cond-ui="1"] #toothUnitsHint,#toothStep2[data-cond-ui="1"] #providerPickerGroup,#toothStep2[data-cond-ui="1"] #snTplRow2,#toothStep2[data-cond-ui="1"] #toothOrthoBox,
+#toothStep2[data-cond-ui="1"] .form-group:has(> #toothDate),#toothStep2[data-cond-ui="1"] .form-group:has(> #toothNotes){display:none !important;}
+.plan-opts{margin:0 0 10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg3);}
+.plan-opts .po-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px;}
+.plan-opts .po-title{font-weight:800;font-size:13px;}
+.plan-opts .po-state{padding:1px 8px;border-radius:10px;border:1px solid var(--yellow);color:var(--yellow);font-size:11px;font-weight:800;white-space:nowrap;}
+.plan-opts .po-steps{font-size:11px;color:var(--text2);margin-inline-start:auto;white-space:nowrap;}
+.plan-opts .po-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;}
+.plan-opts .po-card{display:flex;flex-direction:column;gap:4px;min-width:0;padding:8px 10px;border:1px solid var(--border);border-inline-start:4px solid var(--blue);border-radius:8px;background:var(--bg2,transparent);}
+.plan-opts .po-card.po-shared{border-inline-start-color:var(--border);border-style:dashed;}
+.plan-opts .po-card-head{display:flex;align-items:center;gap:8px;font-size:13px;min-width:0;}
+.plan-opts .po-letter{color:var(--blue);white-space:nowrap;}
+.plan-opts .po-shared .po-letter{color:var(--text2);}
+.plan-opts .po-count{margin-inline-start:auto;padding:1px 8px;border-radius:10px;border:1px solid var(--border);color:var(--text2);font-size:10.5px;font-weight:700;white-space:nowrap;}
+.plan-opts .po-name{font-size:11.5px;color:var(--text2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:-2px;}
+.plan-opts .po-items{list-style:none;margin:4px 0 0;padding:6px 0 0;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:3px;}
+.plan-opts .po-item{display:grid;grid-template-columns:minmax(0,1fr) 26px auto;align-items:center;column-gap:6px;font-size:12px;min-width:0;}
+.plan-opts .po-iname{min-width:0;overflow-wrap:anywhere;}
+.plan-opts .po-phc{display:flex;justify-content:center;}
+.plan-opts .po-ph{padding:0 5px;border-radius:6px;border:1px solid var(--green);color:var(--green);font-size:10.5px;font-weight:800;line-height:16px;}
+.plan-opts .po-cost{font-weight:700;white-space:nowrap;color:var(--text2);justify-self:end;font-variant-numeric:tabular-nums;}
+.plan-opts .po-plus{font-size:11px;color:var(--text2);}
+.plan-opts .po-sum{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:auto;padding-top:6px;border-top:1px solid var(--border);font-size:12px;}
+.plan-opts .po-sum span{color:var(--text2);font-weight:700;}
+.plan-opts .po-sum b{font-size:12.5px;white-space:nowrap;}
+.plan-opts .po-adopt{width:100%;margin-top:4px;padding:5px 10px;font-size:12px;}
+.plan-opts .po-note{margin-top:8px;font-size:11px;color:var(--text2);line-height:1.7;}
+.plan-opts .po-pending{margin-top:8px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--orange-bd);background:var(--orange-bg);color:var(--text);font-size:12.5px;line-height:1.7;}
+/* v601: الضابطُ سطرٌ مستقلّ تحت شارة الحالة دائماً (block flex) بعرضٍ أدنى موحَّد — لا جنبها حيناً وتحتها حيناً. */
+.sess-plan-ctl{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:5px;position:relative;}   /* v611: مرساةُ اللوحة العائمة */
+.spc-pill{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:84px;height:20px;padding:0 8px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-family:inherit;font-size:11px;font-weight:800;cursor:pointer;line-height:1;white-space:nowrap;}
+.spc-pill.on{border-color:var(--text2);}
+.spc-pill.spc-none{border-style:dashed;font-weight:700;}
+.spc-pill .spc-ph{color:var(--green);}
+.spc-pill .spc-op{color:var(--blue);}
+.spc-pill .spc-dot{color:var(--text3);}
+.spc-caret{font-size:9px;opacity:.7;}
+.spc-panel{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);position:absolute;top:calc(100% + 4px);inset-inline-end:0;z-index:40;min-width:236px;box-shadow:0 10px 28px rgba(0,0,0,.18);}   /* v611: عائمةٌ لا تمدّ الصف (بلاغ المالك بصورة) */
+.spc-row{display:flex;align-items:center;gap:2px;}
+.spc-lbl{min-width:46px;font-size:10.5px;font-weight:800;color:var(--text2);}
+.spc-chip{min-width:20px;height:20px;padding:0 4px;border-radius:6px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-family:inherit;font-size:11px;font-weight:800;cursor:pointer;line-height:1;}
+.spc-chip.spc-c-ph.sel{border-color:var(--green);color:var(--green);}
+.spc-chip.spc-c-op.sel{border-color:var(--blue);color:var(--blue);}
+.spc-hint{font-size:10px;color:var(--text2);max-width:220px;line-height:1.5;}
+/* v605: بوضع القراءة شرائحُ الكتابة مخفيّة بسطر الاشتراك أعلاه، فالشريحةُ الملخِّصة تبقى معلومةً فقط: لا سهم ولا لوحة ولا نقر. */
+html[data-sub-level="read"] .spc-pill{pointer-events:none;}
+html[data-sub-level="read"] .spc-caret,html[data-sub-level="read"] .spc-panel{display:none;}
 /* v421 · أُعيد تصميمه v422: تبويب المراسلات — بطاقاتٌ مضغوطة تُفرد بالنقر */
 .msg-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 12px;}
 .msg-chips:empty{display:none;}
@@ -825,6 +890,9 @@ body.ai-on #aiHubBtn{display:inline-block;}
   .sess-table td.sc-actions{order:8;flex:0 0 auto;margin-inline-start:auto;align-self:flex-end;}
   .sess-table td.sc-empty{display:none;}
   .sess-table .sess-phase{display:inline-flex;margin:0 4px;vertical-align:middle;}
+  .sess-table .sess-plan-ctl{margin:5px 0 0;}   /* v601: تحت الشارة بالبطاقة أيضاً */
+  .sess-table .spc-panel{position:static;box-shadow:none;min-width:0;}   /* v611: داخل البطاقة تُعرض بمكانها (الحاوية تقصّ الطافي) */
+  .plan-opts .po-steps{margin-inline-start:0;white-space:normal;}
 }
 @media(max-width:600px){
   /* مخطط الأسنان: أزرارُ الأوضاع والشرائح تبقى ضمن عرض البطاقة (كانت تمدّ الصفحةَ كلَّها أفقياً). */
@@ -1180,7 +1248,7 @@ body.ai-on #aiHubBtn{display:inline-block;}
    ومنطقةِ رفع الملفات — السجلُّ الكامل (كتابة · حراسة · قراءة · خامل) يحرسه check-mirrors V11:
    كلُّ معالجٍ بالصفحة ووحداتها مصنَّف، وهذا السطر يطابق قائمة الكتابة حرفياً.
    السنُّ ونقطةُ النزف وشريحةُ المراقبة وسجلُّ الزرعة تبقى ظاهرة (بيانات) ويحرسها أولُ سطرٍ بدوالها. */
-html[data-sub-level="read"] :is([onclick*="openApptModal("],[onclick*="openNewSessionEntry("],[onclick*="openModal('aiHubModal')"],[onclick*="openWaHub("],[onclick*="openPayModal("],[onclick*="openEditModal("],[onclick*="unlinkFromFamily("],[onclick*="openFamilyLinkModal("],[onclick*="openPlannedApptModal("],[onclick*="toggleBatchMode("],[onclick*="toggleExamMode("],[onclick*="toggleDraftMode("],[onclick*="examUndo("],[onclick*="batchApply("],[onclick*="draftUndo("],[onclick*="draftClearAll("],[onclick*="draftSave("],[onclick*="draftSetWidth("],[onclick*="draftSetEraser("],[onclick*="perioDeleteExam("],[onclick*="perioNewExam("],[onclick*="perioSave("],[onclick*="perioCreateExam("],[onclick*="openObModal("],[onclick*="openAdjustmentModal("],[onclick*="openPlanModal("],[onclick*="openLabOrderModal("],[onclick*="openRxModal("],[onclick*="openPostOpModal("],[onclick*="savePayment("],[onclick*="saveOpeningBalance("],[onclick*="saveAdjustment("],[onclick*="nseRegional("],[onclick*="nseFree("],[onclick*="sessProvMoveToggle("],[onclick*="sessProvTakeAppt("],[onclick*="sessPickStatus("],[onclick*="snTplSaveCurrent("],[onclick*="snTplDeleteSelected("],[onclick*="aiSuggestSessionNote("],[onclick*="saveSession("],[onclick*="aiPatientSummary("],[onclick*="aiReferralOpen("],[onclick*="aiExplainPlan("],[onclick*="aiSeqSuggest("],[onclick*="aiPlanWaSend("],[onclick*="refTplSaveCurrent("],[onclick*="refTplDeleteSelected("],[onclick*="aiReferralGenerate("],[onclick*="onAddPlannedClickPP("],[onclick*="saveAppt("],[onclick*="saveEditedPatient("],[onclick*="confirmRegionalAreaPick("],[onclick*="completeToothPlannedFromModal("],[onclick*="pickStatus("],[onclick*="pickReviewMonths("],[onclick*="aiSuggestToothNote("],[onclick*="saveToothAndOpenLab("],[onclick*="saveRegionalAndOpenLab("],[onclick*="saveBatchAndOpenLab("],[onclick*="saveToothTreatment("],[onclick*="openImplantTemplatesModal("],[onclick*="saveImplantLog("],[onclick*="openImplantTemplateEdit("],[onclick*="saveImplantTemplate("],[onclick*="labTplSaveCurrent("],[onclick*="labTplDeleteSelected("],[onclick*="ppOpenLabModal("],[onclick*="labClearDateSent("],[onclick*="labAiDraftOrder("],[onclick*="labAiSaveAndSend("],[onclick*="saveLabOrder("],[onclick*="ppSaveLab("],[onclick*="revertToFifo("],[onclick*="saveManualSplits("],[onclick*="ppSendWaReminder("],[onclick*="waTplSaveCurrent("],[onclick*="waTplDeleteSelected("],[onclick*="ppWaAiDraft("],[onclick*="ppWaComposeSend("],[onclick*="savePaymentPlan("],[onclick*="openRxTemplatesModal("],[onclick*="rxAddItemRow("],[onclick*="savePrescription("],[onclick*="openPostOpTemplatesModal("],[onclick*="ppPostOpAiSuggest("],[onclick*="savePostOpNote("],[onclick*="openPostOpTemplateEdit("],[onclick*="savePostOpTemplate("],[onclick*="confirmMaterialDeduction("],[onclick*="setSessionPhase("],[onclick*="setSessionOption("],[onclick*="adoptPlanOption("],[onclick*="openAltBridgePicker("],[onclick*="aiPlanOptPick("],[onclick*="completeSessionFromProfile("],[onclick*="ppSessionOpenLab("],[onclick*="delSession("],[onclick*="openSplitEditor("],[onclick*="delPayment("],[onclick*="delAdjustment("],[onclick*="advanceLabOrder("],[onclick*="redoLabOrder("],[onclick*="editLabOrder("],[onclick*="delLabOrder("],[onclick*="deletePrescription("],[onclick*="rxEditTemplate("],[onclick*="deleteRxTemplate("],[onclick*="deletePostOpNote("],[onclick*="deletePostOpTemplate("],[onclick*="removeImplant("],[onclick*="undoExtraction("],[onclick*="clearToothStatus("],[onclick*="removeSpacerUnit("],[onclick*="removeSocket("],[onclick*="removeCondition("],[onclick*="deleteImplantLog("],[onclick*="linkToFamily("],[onclick*="deleteImplantTemplate("],[onclick*="batchSetStatus("],[onclick*="batchPickTx("],[onclick*="examSetStatus("],[onclick*="examSetMonths("],[onclick*="examPick("],[onclick*="planWa("],[onclick*="planSetStatus("],[onclick*="removePendingPP("],[onclick*="unlinkSessionFromApptPP("],[onclick*="quickSchedulePlannedFromProfile("],[onclick*="editPlannedFromProfile("],[onclick*="deletePlannedFromProfile("],[onclick*="pfDeleteFile("],[onclick*="planNewVisit("],[onclick*="planLinkVisitPick("],[onclick*="planLinkVisit("],[onclick*="ppFlagsToggleEdit("],[onclick*="ppFlagToggle("],[data-appt-act="new"],[data-appt-act="remind"],[data-appt-act="rebook"],[data-appt-act="stage"],[data-appt-act="schedule"],[data-appt-act="editplanned"],[data-appt-act="delplanned"],#pfDropZone,#pfUploadCategory,#pfUploadTooth,.wend-x){display:none !important;}
+html[data-sub-level="read"] :is([onclick*="openApptModal("],[onclick*="openNewSessionEntry("],[onclick*="openModal('aiHubModal')"],[onclick*="openWaHub("],[onclick*="openPayModal("],[onclick*="openEditModal("],[onclick*="unlinkFromFamily("],[onclick*="openFamilyLinkModal("],[onclick*="openPlannedApptModal("],[onclick*="toggleBatchMode("],[onclick*="toggleExamMode("],[onclick*="toggleDraftMode("],[onclick*="examUndo("],[onclick*="batchApply("],[onclick*="draftUndo("],[onclick*="draftClearAll("],[onclick*="draftSave("],[onclick*="draftSetWidth("],[onclick*="draftSetEraser("],[onclick*="perioDeleteExam("],[onclick*="perioNewExam("],[onclick*="perioSave("],[onclick*="perioCreateExam("],[onclick*="openObModal("],[onclick*="openAdjustmentModal("],[onclick*="openPlanModal("],[onclick*="openLabOrderModal("],[onclick*="openRxModal("],[onclick*="openPostOpModal("],[onclick*="savePayment("],[onclick*="saveOpeningBalance("],[onclick*="saveAdjustment("],[onclick*="nseRegional("],[onclick*="nseFree("],[onclick*="sessProvMoveToggle("],[onclick*="sessProvTakeAppt("],[onclick*="sessPickStatus("],[onclick*="snTplSaveCurrent("],[onclick*="snTplDeleteSelected("],[onclick*="aiSuggestSessionNote("],[onclick*="saveSession("],[onclick*="aiPatientSummary("],[onclick*="aiReferralOpen("],[onclick*="aiExplainPlan("],[onclick*="aiSeqSuggest("],[onclick*="aiPlanWaSend("],[onclick*="refTplSaveCurrent("],[onclick*="refTplDeleteSelected("],[onclick*="aiReferralGenerate("],[onclick*="onAddPlannedClickPP("],[onclick*="saveAppt("],[onclick*="saveEditedPatient("],[onclick*="confirmRegionalAreaPick("],[onclick*="completeToothPlannedFromModal("],[onclick*="pickStatus("],[onclick*="pickReviewMonths("],[onclick*="aiSuggestToothNote("],[onclick*="saveToothAndOpenLab("],[onclick*="saveRegionalAndOpenLab("],[onclick*="saveBatchAndOpenLab("],[onclick*="saveToothTreatment("],[onclick*="openImplantTemplatesModal("],[onclick*="saveImplantLog("],[onclick*="openImplantTemplateEdit("],[onclick*="saveImplantTemplate("],[onclick*="labTplSaveCurrent("],[onclick*="labTplDeleteSelected("],[onclick*="ppOpenLabModal("],[onclick*="labClearDateSent("],[onclick*="labAiDraftOrder("],[onclick*="labAiSaveAndSend("],[onclick*="saveLabOrder("],[onclick*="ppSaveLab("],[onclick*="revertToFifo("],[onclick*="saveManualSplits("],[onclick*="ppSendWaReminder("],[onclick*="waTplSaveCurrent("],[onclick*="waTplDeleteSelected("],[onclick*="ppWaAiDraft("],[onclick*="ppWaComposeSend("],[onclick*="savePaymentPlan("],[onclick*="openRxTemplatesModal("],[onclick*="rxAddItemRow("],[onclick*="savePrescription("],[onclick*="openPostOpTemplatesModal("],[onclick*="ppPostOpAiSuggest("],[onclick*="savePostOpNote("],[onclick*="openPostOpTemplateEdit("],[onclick*="savePostOpTemplate("],[onclick*="confirmMaterialDeduction("],[onclick*="setSessionPhase("],[onclick*="setSessionOption("],[onclick*="adoptPlanOption("],[onclick*="removeDxNote("],[onclick*="openAltBridgePicker("],[onclick*="openImplantAltBridgePicker("],[onclick*="aiPlanOptPick("],[onclick*="completeSessionFromProfile("],[onclick*="ppSessionOpenLab("],[onclick*="delSession("],[onclick*="openSplitEditor("],[onclick*="delPayment("],[onclick*="delAdjustment("],[onclick*="advanceLabOrder("],[onclick*="redoLabOrder("],[onclick*="editLabOrder("],[onclick*="delLabOrder("],[onclick*="deletePrescription("],[onclick*="rxEditTemplate("],[onclick*="deleteRxTemplate("],[onclick*="deletePostOpNote("],[onclick*="deletePostOpTemplate("],[onclick*="removeImplant("],[onclick*="undoExtraction("],[onclick*="clearToothStatus("],[onclick*="removeSpacerUnit("],[onclick*="removeSocket("],[onclick*="removeCondition("],[onclick*="sxCancelExtraction("],[onclick*="deleteImplantLog("],[onclick*="linkToFamily("],[onclick*="deleteImplantTemplate("],[onclick*="batchSetStatus("],[onclick*="batchPickTx("],[onclick*="examSetStatus("],[onclick*="examSetMonths("],[onclick*="examPick("],[onclick*="planWa("],[onclick*="planSetStatus("],[onclick*="removePendingPP("],[onclick*="unlinkSessionFromApptPP("],[onclick*="quickSchedulePlannedFromProfile("],[onclick*="editPlannedFromProfile("],[onclick*="deletePlannedFromProfile("],[onclick*="pfDeleteFile("],[onclick*="planNewVisit("],[onclick*="planLinkVisitPick("],[onclick*="planLinkVisit("],[onclick*="ppIntakeSend("],[onclick*="ppIntakeCopyLink("],[onclick*="ppIntakeDismiss("],[onclick*="ppIntakeApprove("],[onclick*="ppPortalSend("],[onclick*="ppPortalCopyLink("],[onclick*="ppPortalRenew("],[onclick*="ppPortalRevoke("],[onclick*="pfCamPick("],[onclick*="pfEditXray("],[onclick*="pfCleanOrphans("],[onclick*="xrGalAttach("],[onclick*="pfToggleShare("],[onclick*="pfLiveCam("],[onclick*="xrGalCam("],[onclick*="ppFlagsToggleEdit("],[onclick*="ppFlagToggle("],[onclick*="renewToothWatch("],[data-appt-act="new"],[data-appt-act="remind"],[data-appt-act="rebook"],[data-appt-act="stage"],[data-appt-act="schedule"],[data-appt-act="editplanned"],[data-appt-act="delplanned"],#pfDropZone,#pfUploadCategory,#pfUploadTooth,.wend-x){display:none !important;}
 html[data-sub-level="read"] .wend-chip{cursor:default;}
 
 /* v471: الهاتف — أزرارُ صفّ الجلسة سطرٌ كاملُ العرض تحت البطاقة بفاصلٍ منقّط (معيارُ طلبات الحجز).
@@ -1199,9 +1267,8 @@ html[data-sub-level="read"] .wend-chip{cursor:default;}
 
 /* DeepCode #20 (v562): نافذةُ علاج السن لا تغطّي السنَّ المختار — لوحةٌ بالنصف المقابل (حاسوب) · ورقةٌ أقصر (هاتف) */
 #toothModal.open.pp-dock { background: color-mix(in srgb, var(--bg) 35%, transparent); }
+/* v577: الإرساءُ الجانبي أُلغي بقرار المالك — نافذةُ السن بالمنتصف دائماً (بقي pp-dock: غشاءٌ أخفّ + ارتفاعٌ أقصى) */
 @media (min-width: 561px) {
-  #toothModal.open.pp-dock-left  { justify-content: flex-end;   padding-inline: 24px; }
-  #toothModal.open.pp-dock-right { justify-content: flex-start; padding-inline: 24px; }
   #toothModal.open.pp-dock > .modal-box { max-height: 90vh; box-shadow: var(--shadow-lg, 0 10px 40px color-mix(in srgb, var(--text) 25%, transparent)); }
 }
 @media (max-width: 560px) {
@@ -1209,3 +1276,106 @@ html[data-sub-level="read"] .wend-chip{cursor:default;}
   html.pp-dock-room #ppPage { padding-bottom: 62dvh; }
 }
 .pp-tooth-sel { filter: drop-shadow(0 0 3px var(--accent)) drop-shadow(0 0 7px var(--accent)); }
+
+/* ══ M177: استمارةُ المريض الرقمية — صفُّ البطاقة + مودالُ المراجعة (pp-intake.js) ══ */
+.pp-intake-row .ival{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;}
+.pp-intake-st{font-size:12.5px;color:var(--text2);font-weight:600;}
+.pp-intake-st.pp-intake-new{color:var(--green);font-weight:700;}
+.pp-intake-st.pp-intake-exp{color:var(--yellow-ink);}
+.pp-intake-btn{padding:4px 10px;font-size:12px;}
+.pp-intake-btn.pp-intake-primary{background:var(--green);color:var(--bg);border-color:var(--green);}
+.pp-intake-btn.pp-portal-stop{color:var(--red);border-color:rgba(var(--red-rgb),0.45);}   /* M180: إيقافُ رابط البوابة — فعلٌ مميَّز بمعناه */
+.pp-intake-meta{font-size:12px;color:var(--text2);margin-bottom:12px;}
+.pp-intake-sec{margin-bottom:14px;}
+.pp-intake-sec-t{font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px;}
+.pp-intake-chips{display:flex;flex-wrap:wrap;gap:6px;}
+.pp-intake-chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid var(--border);background:var(--bg3);color:var(--text);}
+.pp-intake-chip.warn{border-color:rgba(var(--red-rgb),0.45);background:var(--red-bg);color:var(--red);}
+.pp-intake-chip.alg{border-color:rgba(var(--yellow-rgb),0.45);background:var(--yellow-bg);color:var(--yellow-ink);}
+.pp-intake-txt{font-size:13.5px;line-height:1.7;white-space:pre-wrap;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:6px;}
+.pp-intake-none{font-size:12.5px;color:var(--text2);}
+.pp-intake-sig{display:block;max-width:100%;width:320px;max-height:120px;object-fit:contain;background:#ffffff;border:1px solid var(--border);border-radius:8px;}
+.pp-intake-merge{margin-top:6px;padding:12px;border-radius:10px;border:1px solid rgba(var(--green-rgb),0.4);background:rgba(var(--green-rgb),0.07);}
+.pp-intake-hint{font-size:12px;color:var(--text2);margin-bottom:8px;}
+.pp-intake-merge-it{display:flex;align-items:flex-start;gap:8px;padding:6px 0;font-size:13px;cursor:pointer;}
+.pp-intake-merge-it input{margin-top:3px;accent-color:var(--green);}
+
+/* ═══ M192 (v635) — الأشعة: أقسامُ تبويب الملفات · الخطُّ الزمني · ورقةُ الرفع والمخططُ المصغّر ═══ */
+.pf-usage{margin:0 0 12px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;}
+.pf-cam{display:none;margin:-6px 0 14px;width:100%;min-height:44px;border:1px solid var(--border);border-radius:12px;background:var(--bg3);color:var(--text);font-family:'Cairo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
+@media (hover:none) and (pointer:coarse){ .pf-cam{display:block;} }
+.pf-segs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px;}
+.pf-seg{border:1px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:999px;padding:6px 12px;min-height:36px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.pf-seg.on{background:var(--green-soft);border-color:var(--green-bd);color:var(--green-fg);}
+.pf-seg-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--bg4);color:var(--text);font-size:11px;margin-inline-start:3px;}
+.pf-day{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:6px 2px 2px;border-bottom:1px solid var(--border);color:var(--text);font-weight:800;font-size:13px;}
+.pf-day-n{color:var(--text2);font-weight:600;font-size:12px;}
+.pf-xr-head{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;}
+.pf-xr-type{font-size:11px;font-weight:800;color:var(--blue-fg);background:var(--blue-bg);border:1px solid var(--blue-bd);border-radius:7px;padding:1px 7px;}
+.pf-xr-date{font-size:11px;color:var(--text2);direction:ltr;}
+.pf-xr-src{font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pf-xr-cbct{font-size:11px;font-weight:700;color:var(--purple-fg);text-decoration:none;}
+.xr-files{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin-bottom:14px;}
+.xr-file{position:relative;border:1px solid var(--border);border-radius:10px;background:var(--bg2);overflow:hidden;font-size:11px;}
+.xr-file.done{border-color:var(--green-bd);}
+.xr-thumb{height:78px;display:flex;align-items:center;justify-content:center;background:var(--bg3);font-size:28px;}
+.xr-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.xr-dcm{font-size:13px;font-weight:800;letter-spacing:1px;color:var(--text);}
+.xr-fname{padding:4px 6px 0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.xr-fsize{padding:0 6px 4px;color:var(--text2);direction:ltr;text-align:right;}
+.xr-st{padding:3px 6px 5px;font-weight:700;color:var(--text2);overflow-wrap:anywhere;}
+.xr-st.ok{color:var(--green-fg);} .xr-st.bad{color:var(--red);}
+.xr-rm{position:absolute;top:4px;inset-inline-start:4px;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer;font-size:13px;line-height:1;}
+.xr-pills{display:flex;gap:6px;flex-wrap:wrap;}
+.xr-pill{border:1px solid var(--border);background:var(--bg3);color:var(--text);border-radius:999px;padding:7px 13px;min-height:40px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.xr-pill.on{background:var(--green-soft);border-color:var(--green-bd);color:var(--green-fg);}
+.xr-chart{display:flex;flex-direction:column;align-items:center;gap:0;padding:8px 4px;border:1px solid var(--border);border-radius:12px;background:var(--bg3);overflow-x:auto;}
+.xr-row{display:flex;gap:3px;align-items:center;}
+.xr-mid{width:2px;align-self:stretch;margin:0 4px;background:var(--border2);}
+.xr-occ{height:2px;width:92%;margin:5px 0;background:var(--border2);}
+.xr-t{width:32px;height:34px;flex:0 0 auto;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;padding:0;}
+.xr-t.on{background:var(--green);border-color:var(--green);color:var(--on-accent);}
+@media (max-width:480px){ .xr-t{width:19px;height:32px;font-size:9.5px;border-radius:6px;} .xr-row{gap:2px;} .xr-mid{margin:0 2px;} }
+.xr-quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.xr-q{border:1px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:9px;padding:5px 10px;min-height:36px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
+.xr-q.on{background:var(--yellow-soft);border-color:var(--yellow-bd);color:var(--text);}
+.xr-sum{margin-top:6px;font-size:12px;color:var(--text2);}
+.xr-hint{font-size:11px;color:var(--text2);font-weight:400;}
+.xr-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media (max-width:560px){ .xr-grid2{grid-template-columns:1fr;} }
+.xr-cbct{border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:var(--bg3);}
+.xr-cbct summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--text);}
+.xr-cbct input{margin-top:8px;}
+
+/* ═══ v637 — الأشعة ج3: معرضُ السن · انتقاءُ المقارنة · منتقي الصور داخل الورقة ═══ */
+.xr-add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:128px;border-style:dashed;cursor:pointer;color:var(--text2);font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;}
+.xr-add-i{font-size:24px;}
+.pf-xr-tools{grid-column:1/-1;display:flex;justify-content:flex-start;}
+.xr-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+.xr-gal-card{border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--bg2);}
+.xr-gal-card.on{border-color:var(--green);box-shadow:0 0 0 2px var(--green-bd);}
+.xr-gal-thumb{display:flex;align-items:center;justify-content:center;width:100%;height:100px;padding:0;border:0;background:var(--bg3);cursor:pointer;font-size:24px;}
+.xr-gal-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.xr-gal-meta{padding:6px 8px 0;font-size:12px;color:var(--text2);}
+.xr-gal-meta b{color:var(--text);}
+.xr-gal-pick{display:flex;align-items:center;gap:6px;padding:6px 8px 8px;font-size:12px;font-weight:700;color:var(--text);cursor:pointer;min-height:36px;}
+.xr-gal-pick input{width:18px;height:18px;accent-color:var(--green);}
+.xr-gal-empty{grid-column:1/-1;text-align:center;color:var(--text2);padding:22px;}
+#xrGalCmp:disabled,#xrUpGo:disabled{opacity:.45;cursor:not-allowed;filter:saturate(.4);}
+
+/* ═══ v642 — كاميرا الفم بالمتصفح ═══ */
+.pf-livecam{display:none;margin:-6px 0 14px;width:100%;min-height:44px;border:1px solid var(--border);border-radius:12px;background:var(--bg3);color:var(--text);font-family:'Cairo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
+@media (hover:hover) and (pointer:fine){ .pf-livecam{display:block;} }
+.xr-cam-bar{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.xr-cam-bar select{flex:1;min-width:0;}
+.xr-cam-stage{position:relative;background:var(--xrv-stage,#05070a);border-radius:12px;overflow:hidden;aspect-ratio:4/3;max-height:52vh;display:flex;align-items:center;justify-content:center;}
+.xr-cam-stage video{width:100%;height:100%;object-fit:contain;display:block;}
+.xr-cam-stage video.mirror{transform:scaleX(-1);}
+.xr-cam-flash{position:absolute;inset:0;background:var(--text);opacity:0;pointer-events:none;}
+.xr-cam-flash.go{animation:xrFlash .25s ease-out;}
+@keyframes xrFlash{0%{opacity:.85}100%{opacity:0}}
+.xr-cam-msg{position:absolute;inset:auto 10px 50% 10px;text-align:center;color:var(--on-accent);font-size:13px;font-weight:700;}
+.xr-cam-msg[hidden]{display:none;}
+.xr-cam-actions{display:flex;justify-content:center;margin:10px 0 12px;}
+.xr-cam-shot{min-height:48px;padding:0 26px;font-size:16px;}
+.xr-cam-shot .xr-hint{color:inherit;opacity:.75;margin-inline-start:4px;}

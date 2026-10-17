@@ -48,7 +48,8 @@ async function _aiErrText(resp) {
     ai_key_missing: 'المساعد غير مهيّأ بعد (مفتاح الخدمة مفقود)',
     ai_upstream_error: 'تعذّر إنشاء الاقتراح — تحقّق من رصيد خدمة الذكاء الاصطناعي',
     ai_empty_response: 'لم يصل اقتراح — حاول مجدداً',
-    empty_input: 'اختر نوع العلاج أو اكتب كلمات مفتاحية أولاً'
+    empty_input: 'اختر نوع العلاج أو اكتب كلمات مفتاحية أولاً',
+    ai_unfaithful: 'لم يطابق الاقتراحُ العلاجَ المسجّل فلم يُدرج — حاول مجدداً أو اكتب الملاحظة يدوياً'   // v641: فحصُ الأمانة بالخادم
   };
   return map[code] || 'تعذّر إنشاء الاقتراح — حاول مجدداً';
 }
@@ -144,7 +145,7 @@ async function aiPatientSummary() {
       var parts = [];
       if (s.date) parts.push(s.date);
       if (s.type) parts.push(s.type);
-      if (s.tooth_num !== null && s.tooth_num !== undefined && s.tooth_num !== '') parts.push('سن ' + s.tooth_num);
+      if (s.tooth_num !== null && s.tooth_num !== undefined && s.tooth_num !== '') parts.push((typeof sessionToothChipText === 'function') ? sessionToothChipText(s.tooth_num, s.surface) : 'سن ' + s.tooth_num);   /* v584 */
       if (s.status && s.status !== 'completed') parts.push('[' + s.status + ']');
       var line = '- ' + parts.join(' · ');
       if (s.notes) line += ' — ' + String(s.notes).slice(0, 200);
@@ -437,7 +438,8 @@ function aiPlanAskOption(kind, cb){
   var h = '';
   if (kind !== 'seq') h += item("'cmp'", '⚖️', 'مقارنة الخيارات', 'رسالة واحدة تعرض البدائل على المريض بإجمالي كل خيار ليختار');
   used.forEach(function(o){
-    h += item(o, '🔀', 'الخيار ' + PLAN_OPTION_LABELS[o] + ' — ' + _planBagText(planOptionTotalBag(o)),
+    var _nm = (typeof planOptionName === 'function') ? planOptionName(o) : '';   /* v597 */
+    h += item(o, '🔀', 'الخيار ' + PLAN_OPTION_LABELS[o] + (_nm ? ' · ' + _nm : '') + ' — ' + _planBagText(planOptionTotalBag(o)),
               (kind === 'seq') ? 'ترتيب بنود هذا الخيار مع البنود المشتركة' : 'شرح هذا الخيار وحده كخطة نهائية');
   });
   box.innerHTML = h;
@@ -564,7 +566,7 @@ function _aiRefTreatmentLines() {
       var parts = [];
       if (s.date) parts.push(s.date);
       if (s.type) parts.push(s.type);
-      if (s.tooth_num !== null && s.tooth_num !== undefined && s.tooth_num !== '') parts.push('سن ' + s.tooth_num);
+      if (s.tooth_num !== null && s.tooth_num !== undefined && s.tooth_num !== '') parts.push((typeof sessionToothChipText === 'function') ? sessionToothChipText(s.tooth_num, s.surface) : 'سن ' + s.tooth_num);   /* v584 */
       var line = '- ' + parts.join(' · ');
       if (s.notes) line += ' — ' + String(s.notes).slice(0, 150);
       var st = s.status || 'completed';
@@ -877,6 +879,38 @@ var _pfUrls  = {};          // storage_path -> short-lived signed URL
 var _pfLoadInFlight = false;
 var _pfToothFilter = '';    // P2: active tooth filter in the gallery ('' = all)
 var _toothPhotoCounts = {}; // P2 Phase B: { tooth_num: photo_count } for chart badges
+var _toothXrayTeeth = {};   // M192 (v635): { tooth: true } ⇐ للسن صورةُ أشعة ⇒ الشارة 🩻 بدل 📷
+var _toothDocIds = {};      // M192: { tooth: 'id id' } — معرّفاتٌ بالشارة كي يرى SyLive حذفاً من جهازٍ آخر (knowsByDom)
+var _pfSeg = 'all';         // M192: قسمُ التبويب — all · xray · photo · doc
+var _pfLoaded = false;      // M192: التبويبُ حُمِّل مرةً ⇒ التحديثُ اللحظي يعيد تحميله
+
+/* M192: عدّادُ الأسنان من teeth[] (صورةُ مجنّحةٍ تُعدّ على كل أسنانها) — مصدرٌ واحد للتحميل الأول وللتبويب. */
+function pfCountTeeth(rows){
+  _toothPhotoCounts = {}; _toothXrayTeeth = {}; _toothDocIds = {};
+  (rows || []).forEach(function(f){
+    var teeth = (f.teeth && f.teeth.length) ? f.teeth : ((f.tooth_num != null && f.tooth_num !== '') ? [f.tooth_num] : []);
+    teeth.forEach(function(t){
+      t = String(t);
+      _toothPhotoCounts[t] = (_toothPhotoCounts[t] || 0) + 1;
+      if (f.category === 'xray') _toothXrayTeeth[t] = true;
+      if (f.id) _toothDocIds[t] = (_toothDocIds[t] ? _toothDocIds[t] + ' ' : '') + f.id;
+    });
+  });
+}
+function pfHasTooth(f, t){
+  t = String(t);
+  if (f.teeth && f.teeth.length) return f.teeth.map(String).indexOf(t) > -1;
+  return String(f.tooth_num) === t;
+}
+function pfSegOf(f){
+  if (f.category === 'xray') return 'xray';
+  if (f.category === 'clinical_photo') return 'photo';
+  return 'doc';
+}
+function pfSetSeg(seg){
+  _pfSeg = (['all', 'xray', 'photo', 'doc'].indexOf(seg) > -1) ? seg : 'all';
+  renderPatientFiles();
+}
 
 // ── P2: tooth linkage for files (Migration 55) ──────────────
 // Build FDI tooth <option>s: permanent (18-11/21-28/48-41/31-38) + primary
@@ -915,12 +949,16 @@ function addPhotoBadges(){
     var cell = document.querySelector('.tooth-cell[data-tooth-cell="' + num + '"]');
     if (!cell) return;
     var badge = document.createElement('div');
+    var ic = _toothXrayTeeth[num] ? '🩻' : '📷';
     badge.className = 'tooth-photo-badge';
-    badge.textContent = '📷' + n;
-    badge.title = '📷 ' + n + ' صورة — اضغط للعرض';
+    badge.textContent = ic + n;
+    badge.title = ic + ' ' + n + (_toothXrayTeeth[num] ? ' صورة (منها أشعة)' : ' صورة') + ' — اضغط للعرض';
+    if (_toothDocIds[num]) badge.setAttribute('data-docs', _toothDocIds[num]);
     badge.addEventListener('click', function(ev){
       ev.stopPropagation();   // don't open the tooth treatment modal
+      if (typeof xrOpenGallery === 'function') { xrOpenGallery({ tooth: String(num) }); return; }   // v637: صورُ السن بالتاريخ + مقارنة
       _pfToothFilter = String(num);
+      _pfSeg = 'all';
       switchTabByName('files');
     });
     cell.appendChild(badge);
@@ -969,14 +1007,13 @@ async function loadPatientFiles(){
   _pfLoadInFlight = true;
   try {
     _pfFiles = await window.SyDentFiles.list(patientId);
+    _pfLoaded = true;
     // Phase B: keep the chart's per-tooth photo counts in sync after upload/delete
-    // (both paths call loadPatientFiles), then re-badge the chart live.
-    _toothPhotoCounts = {};
-    _pfFiles.forEach(function(f){
-      var tn = (f.tooth_num != null && f.tooth_num !== '') ? String(f.tooth_num) : '';
-      if (tn) _toothPhotoCounts[tn] = (_toothPhotoCounts[tn] || 0) + 1;
-    });
+    // (both paths call loadPatientFiles), then re-badge the chart live. M192: من teeth[].
+    pfCountTeeth(_pfFiles);
+    if (window.SyXrayViewer) window.SyXrayViewer.sync(_pfFiles);   // v636: صورةٌ حُذفت/تغيّرت والعارضُ مفتوح
     if (typeof addPhotoBadges === 'function') addPhotoBadges();
+    if (typeof xrUsageRefresh === 'function') xrUsageRefresh();
     var imgPaths = _pfFiles.filter(function(f){ return window.SyDentFiles.isImage(f.mime_type); })
                            .map(function(f){ return f.storage_path; });
     _pfUrls = imgPaths.length ? await window.SyDentFiles.signedUrls(imgPaths, 3600) : {};
@@ -1001,11 +1038,11 @@ function renderPatientFiles(){
   if (!grid) return;
   pfUpdateBadge();
 
-  // Populate the tooth filter from teeth that actually have linked files.
+  // Populate the tooth filter from teeth that actually have linked files (M192: كلُّ أسنان الصورة).
   var teeth = [];
   _pfFiles.forEach(function(f){
-    var t = f.tooth_num != null ? String(f.tooth_num) : '';
-    if (t && teeth.indexOf(t) < 0) teeth.push(t);
+    var ts = (f.teeth && f.teeth.length) ? f.teeth : (f.tooth_num != null && f.tooth_num !== '' ? [f.tooth_num] : []);
+    ts.forEach(function(t){ t = String(t); if (teeth.indexOf(t) < 0) teeth.push(t); });
   });
   teeth.sort(function(a,b){ return (parseInt(a,10)||0) - (parseInt(b,10)||0); });
   var fbar = document.getElementById('pfFilterBar');
@@ -1024,50 +1061,142 @@ function renderPatientFiles(){
     }
   }
 
+  // M192: أقسامُ التبويب بعدّاداتها — 🩻 الأشعة تُعرض خطاً زمنياً بتاريخ الالتقاط.
+  var segBox = document.getElementById('pfSeg');
+  var cnt = { all: _pfFiles.length, xray: 0, photo: 0, doc: 0 };
+  _pfFiles.forEach(function(f){ cnt[pfSegOf(f)]++; });
+  if (segBox) {
+    var SEGS = [['all', 'الكل'], ['xray', '🩻 الأشعة'], ['photo', '📷 صور سريرية'], ['doc', '📄 مستندات']];
+    segBox.innerHTML = SEGS.map(function(s){
+      return '<button type="button" class="pf-seg' + (_pfSeg === s[0] ? ' on' : '') + '" aria-pressed="' + (_pfSeg === s[0]) + '" onclick="pfSetSeg(\'' + s[0] + '\')">' + s[1] + ' <span class="pf-seg-n">' + cnt[s[0]] + '</span></button>';
+    }).join('');
+    segBox.style.display = _pfFiles.length ? 'flex' : 'none';
+  }
+
   if (!_pfFiles.length) {
     grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text2);padding:24px;">لا توجد ملفات بعد — ارفع أول صورة أشعة أو مستند.</div>';
     return;
   }
 
-  var list = _pfToothFilter
-    ? _pfFiles.filter(function(f){ return String(f.tooth_num) === String(_pfToothFilter); })
-    : _pfFiles;
+  var list = _pfFiles.filter(function(f){
+    if (_pfToothFilter && !pfHasTooth(f, _pfToothFilter)) return false;
+    return _pfSeg === 'all' || pfSegOf(f) === _pfSeg;
+  });
 
   if (!list.length) {
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text2);padding:24px;">لا توجد ملفات مرتبطة بالسن ' + escapeHtml(_pfToothFilter) + '.</div>';
+    var what = _pfSeg === 'xray' ? 'صور أشعة' : _pfSeg === 'photo' ? 'صور سريرية' : _pfSeg === 'doc' ? 'مستندات' : 'ملفات';
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text2);padding:24px;">لا توجد ' + what + (_pfToothFilter ? ' مرتبطة بالسن ' + escapeHtml(_pfToothFilter) : '') + '.</div>';
     return;
   }
 
-  grid.innerHTML = list.map(function(f){
-    var isImg = window.SyDentFiles.isImage(f.mime_type);
-    var url   = _pfUrls[f.storage_path] || '';
-    var cat   = window.SyDentFiles.CAT_LABELS[f.category] || window.SyDentFiles.CAT_LABELS.other;
-    var thumb = (isImg && url)
-      ? '<img src="' + escapeHtml(url) + '" alt="" loading="lazy" style="width:100%;height:110px;object-fit:cover;display:block;">'
-      : '<div style="width:100%;height:110px;display:flex;align-items:center;justify-content:center;font-size:40px;background:var(--bg3);">📄</div>';
-    var d = f.created_at ? (SyDT.numDate(f.created_at) + (SyDT.time12(f.created_at) ? ' ' + SyDT.time12(f.created_at) : '')) : '';   // v478: أرقاماً ووقتُ الرفع
-    var toothBadge = (f.tooth_num != null && f.tooth_num !== '')
-      ? '<div style="font-size:10px;color:var(--green);font-weight:700;">🦷 السن ' + escapeHtml(String(f.tooth_num)) + '</div>'
-      : '';
-    return '<div style="border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--bg2);display:flex;flex-direction:column;">' +
-      '<div style="cursor:pointer;" onclick="pfOpenFile(\'' + f.id + '\')">' + thumb + '</div>' +
-      '<div style="padding:8px 9px;flex:1;display:flex;flex-direction:column;gap:4px;">' +
-        '<div style="font-size:11px;color:var(--text2);">' + cat + '</div>' +
-        toothBadge +
-        '<div style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(f.file_name) + '">' + escapeHtml(f.file_name) + '</div>' +
-        '<div style="font-size:10px;color:var(--text2);">' + escapeHtml(d) + ' · ' + escapeHtml(window.SyDentFiles.humanSize(f.size_bytes)) + '</div>' +
-        '<div class="sy-acts" style="flex-wrap:wrap;margin-top:4px;">' +
-          '<button class="sy-act" onclick="pfOpenFile(\'' + f.id + '\')" title="عرض / تنزيل">👁️ عرض</button>' +
-          '<button class="sy-act sy-act-danger" onclick="pfDeleteFile(\'' + f.id + '\')" title="حذف">🗑️ حذف</button>' +
-        '</div>' +
+  if (_pfSeg === 'xray') {
+    // v637: مقارنةٌ من القسم — منتقي صورتين بنافذة المعرض (كلُّ الأشعة الظاهرة)
+    var _cmpN = list.filter(pfViewable).length;
+    // خطٌّ زمني: الأحدثُ التقاطاً أولاً (تاريخُ الالتقاط، وإلا تاريخُ الرفع)
+    var dayOf = function(f){ return f.taken_at || String(f.created_at || '').slice(0, 10); };
+    list = list.slice().sort(function(a, b){ var da = dayOf(a), db = dayOf(b); return da < db ? 1 : da > db ? -1 : String(b.created_at || '').localeCompare(String(a.created_at || '')); });
+    var html = _cmpN >= 2 ? '<div class="pf-xr-tools"><button type="button" class="pf-seg" onclick="xrOpenGallery({ all: true })">⚖️ مقارنة صورتين</button></div>' : '', cur = null;
+    list.forEach(function(f){
+      var d = dayOf(f);
+      if (d !== cur) {
+        cur = d;
+        var n = list.filter(function(x){ return dayOf(x) === d; }).length;
+        html += '<div class="pf-day"><span>📅 ' + escapeHtml(SyDT.numDate(d)) + '</span><span class="pf-day-n">' + n + (n === 1 ? ' صورة' : ' صور') + '</span></div>';
+      }
+      html += pfCardHtml(f);
+    });
+    grid.innerHTML = html;
+    return;
+  }
+  grid.innerHTML = list.map(pfCardHtml).join('');
+}
+
+// v636: صورُ القسم/الفلتر الظاهر بترتيب العرض نفسه (الخطُّ الزمني بتاريخ الالتقاط) — قائمةُ تنقّل العارض.
+/* M193 · v638: المشاركةُ مع المريض — صورُ المتصفح فقط (البوابةُ بلا قارئ DICOM)، الأصلُ وحده، صورةً صورة. */
+function pfShareable(f){ return ['image/jpeg', 'image/png', 'image/webp'].indexOf(f.mime_type) > -1; }
+async function pfToggleShare(id){
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  var f = _pfFiles.find(function(x){ return x.id === id; });
+  if (!f || !pfShareable(f)) return;
+  var to = !f.portal_shared;
+  var r = await window.SyDentFiles.updateMeta(id, { portal_shared: to });
+  if (!r.ok) { showToast('❌ ' + (r.reason === 'db' ? 'تعذّر الحفظ' : window.SyDentFiles.message(r)), true); return; }
+  f.portal_shared = r.row.portal_shared; f.portal_shared_at = r.row.portal_shared_at;
+  var cs = (typeof CLINIC_SETTINGS_WA !== 'undefined' && CLINIC_SETTINGS_WA) ? CLINIC_SETTINGS_WA : {};
+  showToast(to ? ('🔗 ستظهر ببوابة المريض' + (cs.portal_show_xrays === true ? '' : ' بعد تفعيل «صور الأشعة» بإعدادات البوابة')) : 'أُوقفت مشاركتها — لم تعد تظهر للمريض');
+  if (window.logAudit) { try { window.logAudit('patient.file_upload', { patientId: patientId, patientName: (patient && patient.name) || null, description: (to ? 'مشاركة صورة مع المريض ببوابته: ' : 'إيقاف مشاركة صورة: ') + (f.file_name || '') }); } catch (e) {} }
+  renderPatientFiles();
+}
+
+// v637: مشتركان بين التبويب والمعرض — رابطٌ موقّع (من الكاش أو جديد) وتحديثُ الصف بعد حفظ العارض.
+async function pfUrlFor(row){ return _pfUrls[row.storage_path] || await window.SyDentFiles.signedUrl(row.storage_path, 3600); }
+function pfOnViewerSaved(row){
+  var i = _pfFiles.findIndex(function(x){ return x.id === row.id; });
+  if (i > -1) { _pfFiles[i].annotations = row.annotations; _pfFiles[i].calib_mm_per_px = row.calib_mm_per_px; }
+}
+function pfViewable(f){ return window.SyDentFiles.isImage(f.mime_type) || f.mime_type === 'application/dicom'; }   // v637: DICOM بالعارض
+function pfVisibleImages(){
+  var list = _pfFiles.filter(function(f){
+    if (!pfViewable(f)) return false;
+    if (_pfToothFilter && !pfHasTooth(f, _pfToothFilter)) return false;
+    return _pfSeg === 'all' || pfSegOf(f) === _pfSeg;
+  });
+  if (_pfSeg === 'xray') {
+    var dayOf = function(f){ return f.taken_at || String(f.created_at || '').slice(0, 10); };
+    list = list.slice().sort(function(a, b){ var da = dayOf(a), db = dayOf(b); return da < db ? 1 : da > db ? -1 : String(b.created_at || '').localeCompare(String(a.created_at || '')); });
+  }
+  return list;
+}
+
+// بطاقةُ ملفٍّ واحدة (مشتركة بين «الكل» والأقسام والخط الزمني)
+function pfCardHtml(f){
+  var isImg = window.SyDentFiles.isImage(f.mime_type);
+  var isDcm = f.mime_type === 'application/dicom';
+  var url   = _pfUrls[f.storage_path] || '';
+  var cat   = window.SyDentFiles.CAT_LABELS[f.category] || window.SyDentFiles.CAT_LABELS.other;
+  var thumb = (isImg && url)
+    ? '<img src="' + escapeHtml(url) + '" alt="" loading="lazy" style="width:100%;height:110px;object-fit:cover;display:block;">'
+    : '<div style="width:100%;height:110px;display:flex;align-items:center;justify-content:center;font-size:' + (isDcm ? '18px;font-weight:800;letter-spacing:1px' : '40px') + ';background:var(--bg3);">' + (isDcm ? '🩻 DICOM' : '📄') + '</div>';
+  var d = f.created_at ? (SyDT.numDate(f.created_at) + (SyDT.time12(f.created_at) ? ' ' + SyDT.time12(f.created_at) : '')) : '';   // v478: أرقاماً ووقتُ الرفع
+  var ts = (f.teeth && f.teeth.length) ? f.teeth : ((f.tooth_num != null && f.tooth_num !== '') ? [f.tooth_num] : []);
+  var toothBadge = ts.length
+    ? '<div style="font-size:10px;color:var(--green);font-weight:700;">🦷 ' + (ts.length === 1 ? 'السن ' : 'الأسنان ') + escapeHtml(ts.slice(0, 8).join('، ')) + (ts.length > 8 ? ' +' + (ts.length - 8) : '') + '</div>'
+    : '';
+  var xr = f.category === 'xray';
+  var head = xr
+    ? '<div class="pf-xr-head">' + (f.xray_type ? '<span class="pf-xr-type">' + escapeHtml(window.SyDentFiles.XRAY_TYPES[f.xray_type] || '') + '</span>' : '<span class="pf-xr-type">أشعة</span>') +
+      (f.taken_at ? '<span class="pf-xr-date" title="تاريخ الالتقاط">' + escapeHtml(SyDT.numDate(f.taken_at)) + '</span>' : '') + '</div>' +
+      (f.source === 'center' ? '<div class="pf-xr-src">🏥 ' + escapeHtml(f.source_name || 'مركز أشعة') + '</div>' : f.source === 'clinic' ? '<div class="pf-xr-src">🏠 العيادة</div>' : '') +
+      (f.cbct_url ? '<a class="pf-xr-cbct" href="' + escapeHtml(f.cbct_url) + '" target="_blank" rel="noopener noreferrer">🧊 فتح CBCT</a>' : '')
+    : '<div style="font-size:11px;color:var(--text2);">' + cat + '</div>';
+  return '<div style="border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--bg2);display:flex;flex-direction:column;">' +
+    '<div style="cursor:pointer;" onclick="pfOpenFile(\'' + f.id + '\')">' + thumb + '</div>' +
+    '<div style="padding:8px 9px;flex:1;display:flex;flex-direction:column;gap:4px;">' +
+      head +
+      toothBadge +
+      '<div style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(f.file_name) + '">' + escapeHtml(f.file_name) + '</div>' +
+      '<div style="font-size:10px;color:var(--text2);">' + escapeHtml(d) + ' · ' + escapeHtml(window.SyDentFiles.humanSize(f.size_bytes)) + '</div>' +
+      '<div class="sy-acts" style="flex-wrap:wrap;margin-top:4px;">' +
+        '<button class="sy-act" onclick="pfOpenFile(\'' + f.id + '\')" title="عرض / تنزيل">👁️ عرض</button>' +
+        ((xr || f.category === 'clinical_photo') ? '<button class="sy-act" onclick="pfEditXray(\'' + f.id + '\')" title="' + (xr ? 'تعديل النوع والأسنان والتاريخ والمصدر' : 'تعديل الأسنان وتاريخ الالتقاط') + '">✏️ وسم</button>' : '') +
+        (pfShareable(f) ? '<button class="sy-act' + (f.portal_shared ? ' sy-act-primary' : '') + '" onclick="pfToggleShare(\'' + f.id + '\')" title="' + (f.portal_shared ? 'إيقاف عرضها ببوابة المريض' : 'عرض الأصل (بلا تعليقاتك) ببوابة المريض — يتطلّب تفعيل «صور الأشعة» بإعدادات البوابة') + '">' + (f.portal_shared ? '🔗 مشارَكة' : '🔗 مشاركة') + '</button>' : '') +
+        '<button class="sy-act sy-act-danger" onclick="pfDeleteFile(\'' + f.id + '\')" title="حذف">🗑️ حذف</button>' +
       '</div>' +
-    '</div>';
-  }).join('');
+    '</div>' +
+  '</div>';
 }
 
 async function pfOpenFile(id){
   var f = _pfFiles.find(function(x){ return x.id === id; });
   if (!f) return;
+  // v636 (ج2): الصورُ تُفتح بعارض الأشعة — القائمةُ = صورُ القسم/الفلتر الظاهر بترتيب الشبكة (تنقّلٌ بالأسهم).
+  if (window.SyXrayViewer && pfViewable(f)) {
+    var shown = pfVisibleImages();
+    var idx = shown.findIndex(function(x){ return x.id === id; });
+    if (idx < 0) { shown = [f]; idx = 0; }
+    window.SyXrayViewer.open({ docs: shown, index: idx, urlFor: pfUrlFor, onSaved: pfOnViewerSaved });
+    return;
+  }
   var url = window.SyDentFiles.isImage(f.mime_type) ? _pfUrls[f.storage_path] : null;
   if (!url) url = await window.SyDentFiles.signedUrl(f.storage_path, 3600);
   if (!url) { showToast('تعذّر فتح الملف'); return; }
@@ -1086,15 +1215,22 @@ async function pfOpenFile(id){
 async function pfOnFilesPicked(fileList){
   if (!fileList || !fileList.length) return;
   if (!window.SyDentFiles) { showToast('الميزة غير متاحة'); return; }
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
   var cat = (document.getElementById('pfUploadCategory') || {}).value || 'other';
   var tooth = (document.getElementById('pfUploadTooth') || {}).value || '';
-  var status = document.getElementById('pfUploadStatus');
   var files = Array.prototype.slice.call(fileList);
-  var done = 0, failed = 0;
-  if (status){ status.style.display = 'block'; }
+  // M192: الأشعة (أو أي ملف DICOM) تمرّ بورقة الوسم — النوع · الأسنان · تاريخ الالتقاط · المصدر.
+  if (cat === 'xray' || files.some(function(f){ return window.SyDentFiles.isDicomName(f.name) || f.type === 'application/dicom'; })) {
+    if (typeof xrOpenUpload === 'function') { xrOpenUpload(files); return; }
+  }
+  // v642: الصورُ السريرية أيضاً تمرّ بالورقة (الأسنان · تاريخ الالتقاط) — بلا نوعٍ ولا مصدر
+  if (cat === 'clinical_photo' && typeof xrOpenUpload === 'function') { xrOpenUpload(files, null, { category: 'clinical_photo', teeth: tooth ? [tooth] : [] }); return; }
+  var status = document.getElementById('pfUploadStatus');
+  var done = 0, failed = 0, firstFail = null, usage = await window.SyDentFiles.usage();
+  if (status){ status.style.display = 'block'; status.style.color = 'var(--green)'; }
   for (var i = 0; i < files.length; i++) {
     if (status) status.textContent = 'جارٍ الرفع… (' + (i+1) + '/' + files.length + ')';
-    var r = await window.SyDentFiles.upload(patientId, files[i], { category: cat, toothNum: tooth || null });
+    var r = await window.SyDentFiles.upload(patientId, files[i], { category: cat, toothNum: tooth || null, usage: usage });
     if (r.ok) {
       done++;
       if (window.logAudit) {
@@ -1102,14 +1238,18 @@ async function pfOnFilesPicked(fileList){
       }
     } else {
       failed++;
+      if (!firstFail) firstFail = r;
       console.error('upload failed', r);
+      if (r.reason === 'quota' || r.reason === 'offline' || r.reason === 'read') { failed += files.length - i - 1; break; }   // الباقي لن ينجح
     }
   }
   if (status) {
-    status.textContent = (failed ? ('تم رفع ' + done + ' — فشل ' + failed) : ('تم رفع ' + done + ' ملف ✓'));
-    setTimeout(function(){ status.style.display = 'none'; }, 2600);
+    status.textContent = (failed ? ('تم رفع ' + done + ' — فشل ' + failed + ': ' + window.SyDentFiles.message(firstFail)) : ('تم رفع ' + done + ' ملف ✓'));
+    status.style.color = failed ? 'var(--red)' : 'var(--green)';
+    setTimeout(function(){ status.style.display = 'none'; }, failed ? 7000 : 2600);
   }
-  await loadPatientFiles();
+  if (failed) showToast('⚠️ ' + window.SyDentFiles.message(firstFail), true);
+  if (done) await loadPatientFiles();
 }
 
 async function pfDeleteFile(id){
@@ -1122,7 +1262,7 @@ async function pfDeleteFile(id){
     showToast('تم الحذف');
     await loadPatientFiles();
   } else {
-    showToast('تعذّر الحذف');
+    showToast(r.reason === 'read' || r.reason === 'offline' ? ('🔒 ' + window.SyDentFiles.message(r)) : 'تعذّر الحذف — لم يُحذف شيء، حاول مجدداً', true);
     console.error('delete failed', r);
   }
 }

@@ -4,7 +4,7 @@
    run4: الإنجاز من المواعيد واللوحة ثم «الاعتماد المعلّق» بملف المريض */
 const { execFileSync } = require('child_process');
 let ok = 0, bad = 0;
-for (const f of ['run2.js', 'run3.js', 'run4.js', 'run5.js']) {
+for (const f of ['run2.js', 'run3.js', 'run4.js', 'run5.js', 'run6.js']) {
   let out = '';
   try { out = execFileSync(process.execPath, [require('path').join(__dirname, f)], { encoding: 'utf8', timeout: 240000 }); }
   catch (e) { out = (e.stdout || '') + (e.stderr || ''); }

@@ -16,11 +16,11 @@
 /* ── Modal ── v447: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261015a"></script>
+<script src="theme.js?v=20261017a"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261015a"></script>
-<script src="sy-modal.js?v=20261015a"></script>
-<script src="sidebar.js?v=20261015a"></script>
+<script src="supabase-init.js?v=20261017a"></script>
+<script src="sy-modal.js?v=20261017a"></script>
+<script src="sidebar.js?v=20261017a"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -223,7 +223,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 html[data-sub-level="read"] :is([onclick*="openAddModal("],[onclick*="saveEmployee("],[onclick*="removeAllLockPins("],[onclick*="saveOwnerPin("],[onclick*="openOwnerPinModal("],[onclick*="openEditModal("],[onclick*="toggleActive("],[onclick*="deleteEmployee("],.drag-handle){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261015a">
+<link rel="stylesheet" href="theme.css?v=20261017a">
 </head>
 <body>
 <div class="main" id="sbMainContent">
@@ -673,13 +673,15 @@ async function hashPin(pin) {
 }
 
 // ── Data layer ──
-async function loadData() {
+async function loadData(opts) {
+  /* v626: المسارُ اللحظي (SyLive) يقرأ فقط — لا إصلاحَ ذاتياً ولا كتابة، وفشلُ الشبكة العابر يُبقي القائمةَ المعروضة بلا رسالة */
+  var live = !!(opts && opts.live);
   // Phase X14.2: make sure the owner has a clinic_employees row BEFORE we read
   // the list. The owner PIN UI (saveOwnerPin) and the owner card both require
   // it; clinics onboarded without it would otherwise show no owner card and
   // the owner could never set a lock PIN. Idempotent self-heal in SyDentLock.
   try {
-    if (window.SyDentLock && window.SyDentLock.ensureOwnerEmployee) {
+    if (!live && window.SyDentLock && window.SyDentLock.ensureOwnerEmployee) {
       await window.SyDentLock.ensureOwnerEmployee();
     }
   } catch (e) { /* non-fatal — the query below still runs */ }
@@ -710,6 +712,7 @@ async function loadData() {
       .order('name', { ascending: true });
   }
 
+  if (empRes.error && live) { console.warn('live employees refresh:', empRes.error); return false; }
   if (empRes.error) {
     showToast('فشل تحميل قائمة الموظفين', true);
     console.error(empRes.error);
@@ -738,7 +741,7 @@ async function loadData() {
   try {
     var _ownerFull = ((currentUser.user_metadata || {}).full_name
                    || (currentUser.user_metadata || {}).name || '').trim();
-    if (_ownerFull) {
+    if (_ownerFull && !live) {
       var _ownerEmp = employees.find(function(e){ return e.role === 'owner'; });
       if (_ownerEmp && String(_ownerEmp.name || '').trim() !== _ownerFull) {
         _ownerEmp.name = _ownerFull;  // reflect immediately in the upcoming render
@@ -804,6 +807,12 @@ async function loadData() {
   if (window.SyDentLock && window.SyDentLock.invalidateEmployeesCache) {
     window.SyDentLock.invalidateEmployeesCache();
   }
+  return true;
+}
+
+/* v626 (M186): إعادةُ التحميل اللحظية — موظفٌ يُضاف/يُعدَّل/يُعطَّل من جهازٍ آخر يظهر بلا تحديث */
+async function empLiveRefresh() {
+  if (await loadData({ live: true })) renderList();
 }
 
 function renderList() {
@@ -1015,6 +1024,9 @@ async function reorderEmployees(draggedId, targetId) {
   renderList();
 
   // Persist (one update per row — small list, no batching needed).
+  // v626: SyLive لا يرسم بين الكتابات المتتالية (ترتيبٌ نصفُه محفوظ) — يُطبَّق مرةً بعد آخرها
+  document.body.classList.add('sy-live-hold');
+  try {
   for (var k = 0; k < updates.length; k++) {
     var res = await window.sb.from('clinic_employees')
       .update({ sort_order: updates[k].sort_order })
@@ -1029,9 +1041,11 @@ async function reorderEmployees(draggedId, targetId) {
         showToast('⚠️ فشل حفظ الترتيب: ' + res.error.message, true);
       }
       await loadData();  // restore a consistent state from the server
+      renderList();      // v626: كان يحمّل ولا يرسم ⇒ الترتيبُ المتفائل يبقى ظاهراً بعد الفشل
       return;
     }
   }
+  } finally { document.body.classList.remove('sy-live-hold'); }
   showToast('✅ تم تحديث الترتيب');
 }
 
@@ -2535,6 +2549,10 @@ async function removeAllLockPins() {
 
   await loadData();
   renderList();
+
+  /* v626 (M186): لحظيٌّ — النافذةُ المفتوحة والسحبُ وحفظُ الترتيب تؤجّل الرسم حتى تنتهي */
+  if (window.SyLive) window.SyLive.watch({ name: 'employees', uid: currentUser.id,
+    tables: ['clinic_employees', 'clinic_doctors'], refresh: empLiveRefresh });
 
   // ── Phase 6 Q: Deep-link handler ──
   // Allows other pages (doctors.html) to send the Owner straight into a

@@ -18,6 +18,8 @@ Safety: it refuses to run on a project whose `public` schema already has tables,
     python3 scripts/db-bootstrap.py --check                     # split every file, print batch counts
     SUPABASE_ACCESS_TOKEN=… python3 scripts/db-bootstrap.py --project <ref>
     python3 scripts/db-bootstrap.py --emit-dir DIR              # write the batches as .sql files (local test)
+    SUPABASE_ACCESS_TOKEN=… python3 scripts/db-bootstrap.py --project <ref> --from migrations/175_x.sql
+                                                                # existing project: apply the plan from that file on
 """
 import json, os, sys, time, urllib.request, urllib.error
 
@@ -35,11 +37,31 @@ AFTER_SNAPSHOT = [
     'migrations/164_patient_referrer.sql',
     'migrations/169_inventory_atomic_consume.sql',
     'migrations/171_inventory_counts.sql',
-    'migrations/175_fk_indexes_and_grants.sql',
-    'migrations/176_inventory_suppliers_orders.sql',
-    'migrations/177_inventory_lot.sql',
-    'migrations/178_inventory_hardening.sql',
-    'migrations/179_teeth_history_tenant_delete.sql',
+    'migrations/172_inventory_suppliers_orders.sql',
+    'migrations/173_inventory_lot.sql',
+    'migrations/174_inventory_hardening.sql',
+    # upstream v642 (merged Oct 2026): staff realtime, intake, portal, chart dx, x-rays
+    'migrations/175_realtime_staff_messages.sql',
+    'migrations/176_supernumerary_surface.sql',
+    'migrations/177_patient_intake.sql',
+    'migrations/178_intake_template_realtime.sql',
+    'migrations/179_teeth_status_dx.sql',
+    'migrations/180_patient_portal.sql',
+    'migrations/181_portal_intake_state.sql',
+    'migrations/182_portal_confirm.sql',
+    'migrations/183_intake_extras_as_flags.sql',
+    'migrations/184_booking_arabic_digits.sql',
+    'migrations/185_realtime_live_app.sql',
+    'migrations/186_realtime_staff_audit.sql',
+    'migrations/187_portal_history_changes.sql',
+    'migrations/188_portal_requests_hardening.sql',
+    'migrations/189_portal_slot_picker.sql',
+    'migrations/190_portal_cancel_approve.sql',
+    'migrations/191_portal_rejected_notice.sql',
+    'migrations/192_xray_core.sql',
+    'migrations/193_portal_xrays.sql',
+    'migrations/194_fk_indexes_and_grants.sql',
+    'migrations/195_teeth_history_tenant_delete.sql',
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',
@@ -152,10 +174,17 @@ def main(argv):
     n = api(ref, token, "select count(*)::int as n from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r'")
     tables = (n[0] or {}).get('n', 0) if isinstance(n, list) and n else 0
     print('target %s · public tables now: %s' % (ref, tables))
-    if tables and '--allow-existing' not in argv:
+    plan = PLAN
+    if '--from' in argv:
+        start = argv[argv.index('--from') + 1]
+        if start not in PLAN or start in PLAN[:4]:
+            print('⛔ --from must name a numbered migration in the plan: %s' % start); return 2
+        plan = PLAN[PLAN.index(start):]
+        print('applying %d files from %s on an existing project' % (len(plan), start))
+    elif tables and '--allow-existing' not in argv:
         print('⛔ the project is not empty — refusing (pass --allow-existing only on purpose)'); return 3
     k = 0
-    for p in PLAN:
+    for p in plan:
         bs, cnt = batches(p)
         for j, b in enumerate(bs, 1):
             k += 1

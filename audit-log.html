@@ -16,11 +16,11 @@
 /* ── Modal ── v451: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261015a"></script>
+<script src="theme.js?v=20261017a"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261015a"></script>
-<script src="sy-modal.js?v=20261015a"></script>
-<script src="sidebar.js?v=20261015a"></script>
+<script src="supabase-init.js?v=20261017a"></script>
+<script src="sy-modal.js?v=20261017a"></script>
+<script src="sidebar.js?v=20261017a"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -120,6 +120,22 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 
 /* Table */
 .log-list{display:flex;flex-direction:column;gap:6px;}
+/* v626: اللحظي — إبرازُ الصفّ الجديد لحظةً، وحبّةُ «↑ جديد» حين يكون القارئ أسفل القائمة */
+@keyframes logNewFade{from{background:rgba(var(--green-rgb),0.22);border-color:var(--green);}to{}}
+.log-row.log-new{animation:logNewFade 2.6s ease-out;}
+.live-new-pill{
+  /* التوسيطُ بلا transform: قاعدةُ :active العامّة تستبدل الـtransform فتقفز الحبّةُ بين الضغط والرفع وتضيع النقرة */
+  position:fixed;z-index:30;left:16px;right:16px;margin:0 auto;width:fit-content;
+  top:calc(env(safe-area-inset-top, 0px) + 84px);
+  max-width:min(560px, calc(100vw - 32px));min-height:44px;padding:10px 18px;
+  border-radius:999px;border:1px solid var(--green2);background:var(--green2);color:var(--bg);   /* --green2 + --bg (كالزرّ الرئيسي): تباين ≥ 4.5 بالوضعين */
+  font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;cursor:pointer;
+  box-shadow:0 6px 20px rgba(0,0,0,0.25);
+  display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;
+}
+.live-new-pill[hidden]{display:none;}
+#liveNewPillText{flex:none;}
+#liveNewPillDesc{min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:600;}
 .log-row{
   background:var(--bg2);border:1px solid var(--border);
   border-radius:10px;padding:10px 14px;
@@ -267,7 +283,7 @@ button:disabled { opacity: .6; cursor: wait; }
 html[data-sub-level="read"] :is([onclick*="openArchiveModal("],[onclick*="doArchive("],[onclick*="restoreAll("],[onclick*="restoreOne("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261015a">
+<link rel="stylesheet" href="theme.css?v=20261017a">
 </head>
 <body>
 <div class="main" id="sbMainContent">
@@ -369,6 +385,9 @@ html[data-sub-level="read"] :is([onclick*="openArchiveModal("],[onclick*="doArch
     </div>
   </div>
 
+  <!-- v626: حبّةُ الجديد اللحظي (تظهر فقط والقارئُ مُمرِّرٌ للأسفل) -->
+  <button type="button" class="live-new-pill" id="liveNewPill" hidden onclick="liveJumpTop()"><span id="liveNewPillText"></span><span id="liveNewPillDesc"></span></button>
+
   <!-- List -->
   <div id="logContainer">
     <div class="loading">جارٍ التحميل…</div>
@@ -416,6 +435,7 @@ var pageOffset = 0;
 var PAGE_SIZE = 50;
 var hasMore = true;
 var _loadInFlight = false;  // prevent overlapping fetches
+var _logGen = 0;            // v626: يزيد مع كل تحميلٍ للقائمة — التحديثُ اللحظي يتخلّى عن نتيجته إن سبقه تحميل
 var stats = { total: 0, today: 0, week: 0, alerts: 0 };
 
 // Action type prefix → list of full action_types
@@ -428,8 +448,8 @@ var stats = { total: 0, today: 0, week: 0, alerts: 0 };
 // now originate from employees.html (saveOwnerPin / removeOwnerPin). The
 // settings.html lock section is now just a deep-link card.
 var ACTION_TYPES_BY_PREFIX = {
-  patient:     ['patient.create', 'patient.edit', 'patient.delete'],
-  appointment: ['appointment.create', 'appointment.edit', 'appointment.status_change', 'appointment.bulk_complete', 'appointment.delete'],
+  patient:     ['patient.create', 'patient.edit', 'patient.delete', 'patient.intake_review', 'patient.portal_link'],   /* M177 · M180: the two patient-link actions were logged but invisible under the «patient» filter */
+  appointment: ['appointment.create', 'appointment.edit', 'appointment.status_change', 'appointment.bulk_complete', 'appointment.delete', 'appointment.portal_request'],   /* M187: طلبٌ من بوابة المريض */
   appointment_type: ['appointment_type.create', 'appointment_type.edit', 'appointment_type.delete'],
   session:     ['session.create', 'session.complete', 'session.delete'],
   payment:     ['payment.create', 'payment.edit_splits', 'payment.delete'],
@@ -493,7 +513,8 @@ function actionTypeLabel(t) {
     archive_audit:'أرشفة سجل', change_pin:'تغيير PIN',
     role_switch:'تبديل دور', pin_clear:'حذف PIN',
     link:'ربط', unlink:'فكّ ربط', redo:'إعادة عمل',
-    view_accounting:'فتح المحاسبة'
+    view_accounting:'فتح المحاسبة',
+    portal_request:'طلب من البوابة —'   /* M187 → «طلب من البوابة — موعد» */
   };
   return (opMap[op] || op) + ' ' + (entityMap[entity] || entity);
 }
@@ -528,7 +549,13 @@ async function loadEmployeesCache() {
   allEmployees = res.data || [];
 
   // Populate filter dropdown
+  // v626: يُعاد بناؤها لحظياً ⇒ الاختيارُ الحاليّ يبقى (وموظفٌ حُذف يبقى خياراً ما دام مختاراً)،
+  // ولا تُلمس القائمةُ المفتوحة ولا التي لم يتغيّر فيها شيء
   var sel = $('filterEmployee');
+  var sig = allEmployees.map(function(e){ return e.id + ':' + e.name + ':' + e.role; }).join('|');
+  if (sel._sig === sig) return;
+  if (sel._sig !== undefined && document.activeElement === sel) return;
+  var prev = sel.value, prevText = sel.selectedIndex > -1 && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : '';
   sel.innerHTML = '<option value="all">كل الموظفين</option>';
   allEmployees.forEach(function(e){
     var opt = document.createElement('option');
@@ -536,13 +563,55 @@ async function loadEmployeesCache() {
     opt.textContent = e.name + ' (' + roleLabel(e.role) + ')';
     sel.appendChild(opt);
   });
+  if (prev && prev !== 'all') {
+    if (!allEmployees.some(function(e){ return e.id === prev; })) {
+      var gone = document.createElement('option'); gone.value = prev; gone.textContent = prevText || '—'; sel.appendChild(gone);
+    }
+    sel.value = prev;
+  }
+  sel._sig = sig;
 }
 
 // Returns true when the "العرض" filter is set to archived. Single source of
 // truth for the is_archived value used across stats / alerts / list / export.
+/* v626: الفلاترُ «المطبَّقة» لا ما بالقوائم الآن — الفلترُ لا يسري إلا بزرّ «تطبيق»، فالتحديثُ اللحظي و«عرض المزيد»
+   والتصديرُ يقرؤون ما طُبِّق آخراً (كان «عرض المزيد» يخلط فلتراً غيرَ مطبَّق بصفحاتٍ محمّلةٍ بغيره). */
+var _applied = null;
+function readFilterSelects() {
+  var v = function (id, d) { var el = $(id); return el ? el.value : d; };
+  return { date: v('filterDate', 'all'), employee: v('filterEmployee', 'all'), action: v('filterAction', 'all'),
+           alerts: v('filterAlerts', 'all'), archived: v('filterArchive', 'active') === 'archived' };
+}
+function captureFilters() { _applied = readFilterSelects(); }
+/* v626: صفحاتٌ بالإزاحة — سجلٌّ يُدرَج أعلى القائمة بين صفحتين يدفع ما تحته فيعود آخرُ صفٍّ بالصفحة التالية.
+   الإلحاقُ يُسقط المكرَّر (ولا يُسقط غيرَه: الإزاحةُ تتقدّم بعدد ما جاء من الخادم فلا يُتخطّى شيء). */
+function appendUnique(list, batch) {
+  var seen = {}; list.forEach(function (r) { seen[r.id] = 1; });
+  return list.concat(batch.filter(function (r) { if (seen[r.id]) return false; seen[r.id] = 1; return true; }));
+}
+function curFilters() { return _applied || readFilterSelects(); }
 function isArchivedView() {
-  var el = $('filterArchive');
-  return !!(el && el.value === 'archived');
+  return !!curFilters().archived;
+}
+/* مصدرٌ واحد لاستعلام القائمة (القائمة · عرض المزيد · التصدير · اللحظي) — ترتيبٌ ثابت بالمعرّف عند تساوي الوقت */
+var LOG_COLS = 'id, employee_id, employee_name_snapshot, employee_role_snapshot, action_type, entity_type, entity_id, patient_id, patient_name_snapshot, description, is_alert, alert_reason, created_at';
+function buildLogQuery() {
+  var f = curFilters();
+  var range = getDateRange(f.date);
+  var q = window.sb.from('audit_log')
+    .select(LOG_COLS)
+    .eq('owner_id', currentUser.id)
+    .eq('is_archived', !!f.archived);
+  if (range.from) q = q.gte('created_at', range.from);
+  if (f.employee !== 'all') q = q.eq('employee_id', f.employee);
+  if (f.action !== 'all') {
+    // Build explicit list: 'patient' filter → ['patient.create', 'patient.edit', 'patient.delete']
+    // More reliable than .like() across supabase-js versions.
+    var actionList = ACTION_TYPES_BY_PREFIX[f.action] || [];
+    if (actionList.length > 0) q = q.in('action_type', actionList);
+  }
+  if (f.alerts === 'only') q = q.eq('is_alert', true);
+  return q.order('created_at', { ascending: false }).order('id', { ascending: false });
 }
 
 async function loadStats() {
@@ -551,7 +620,7 @@ async function loadStats() {
     .select('id', { count: 'exact', head: true })
     .eq('owner_id', currentUser.id)
     .eq('is_archived', isArchivedView());
-  stats.total = totalRes.count || 0;
+  if (!totalRes.error) stats.total = totalRes.count || 0;   /* v626: فشلٌ عابر لا يرسم أصفاراً */
 
   // Today
   var t = new Date(); t.setHours(0,0,0,0);
@@ -560,7 +629,7 @@ async function loadStats() {
     .eq('owner_id', currentUser.id)
     .eq('is_archived', isArchivedView())
     .gte('created_at', t.toISOString());
-  stats.today = todayRes.count || 0;
+  if (!todayRes.error) stats.today = todayRes.count || 0;
 
   // Week
   var w = new Date(); w.setDate(w.getDate() - 7); w.setHours(0,0,0,0);
@@ -569,7 +638,7 @@ async function loadStats() {
     .eq('owner_id', currentUser.id)
     .eq('is_archived', isArchivedView())
     .gte('created_at', w.toISOString());
-  stats.week = weekRes.count || 0;
+  if (!weekRes.error) stats.week = weekRes.count || 0;
 
   // Alerts
   var alertRes = await window.sb.from('audit_log')
@@ -577,7 +646,7 @@ async function loadStats() {
     .eq('owner_id', currentUser.id)
     .eq('is_archived', isArchivedView())
     .eq('is_alert', true);
-  stats.alerts = alertRes.count || 0;
+  if (!alertRes.error) stats.alerts = alertRes.count || 0;
 
   $('statTotal').textContent = stats.total;
   $('statToday').textContent = stats.today;
@@ -651,8 +720,11 @@ async function loadAlerts() {
 async function loadLogs(reset) {
   if (_loadInFlight) return;
   _loadInFlight = true;
+  _logGen++;
   try {
     if (reset) {
+      captureFilters();
+      _livePending = 0; _liveLatest = null; hideLivePill();
       pageOffset = 0;
       allLogs = [];
       hasMore = true;
@@ -660,27 +732,7 @@ async function loadLogs(reset) {
     }
     if (!hasMore) return;
 
-  var range = getDateRange($('filterDate').value);
-  var employee = $('filterEmployee').value;
-  var action = $('filterAction').value;
-  var alertOnly = $('filterAlerts').value;
-
-  var q = window.sb.from('audit_log')
-    .select('id, employee_id, employee_name_snapshot, employee_role_snapshot, action_type, entity_type, entity_id, patient_id, patient_name_snapshot, description, is_alert, alert_reason, created_at')
-    .eq('owner_id', currentUser.id)
-    .eq('is_archived', isArchivedView());
-
-  if (range.from) q = q.gte('created_at', range.from);
-  if (employee !== 'all') q = q.eq('employee_id', employee);
-  if (action !== 'all') {
-    // Build explicit list: 'patient' filter → ['patient.create', 'patient.edit', 'patient.delete']
-    // More reliable than .like() across supabase-js versions.
-    var actionList = ACTION_TYPES_BY_PREFIX[action] || [];
-    if (actionList.length > 0) q = q.in('action_type', actionList);
-  }
-  if (alertOnly === 'only') q = q.eq('is_alert', true);
-
-  q = q.order('created_at', { ascending: false }).range(pageOffset, pageOffset + PAGE_SIZE - 1);
+  var q = buildLogQuery().range(pageOffset, pageOffset + PAGE_SIZE - 1);
 
   var res = await q;
   if (res.error) {
@@ -704,7 +756,7 @@ async function loadLogs(reset) {
   var batch = res.data || [];
   hasMore = batch.length === PAGE_SIZE;
   pageOffset += batch.length;
-  allLogs = allLogs.concat(batch);
+  allLogs = appendUnique(allLogs, batch);
   renderLogs();
   $('loadMoreBtn').style.display = hasMore ? 'block' : 'none';
   } finally {
@@ -752,7 +804,7 @@ function renderLogs() {
       ? '<span class="ld-alert-tag ' + _prio + '" title="' + escapeHtml(row.alert_reason || '') + '">' + (_prio === 'crit' ? '🔴 حرج' : '🟡 للمراجعة') + '</span>'
       : '';
     html +=
-      '<div class="log-row' + (row.is_alert ? ' alert ' + _prio : '') + (arch ? ' archived' : '') + '">' +
+      '<div class="log-row' + (row.is_alert ? ' alert ' + _prio : '') + (arch ? ' archived' : '') + '" data-id="' + escapeHtml(row.id) + '">' +
         '<div class="log-time">' +
           '<span class="lt-date">' + escapeHtml(dateStr) + '</span>' +
           '<span class="lt-hour">' + escapeHtml(timeStr) + '</span>' +
@@ -785,8 +837,110 @@ function renderLogs() {
   box.innerHTML = SySlots.finalize(html, { 1: '94px', 2: '94px' });   // v484: «المريض» يُطوى حين لا مريضَ بأي صف
 }
 
+/* ═══ v626 (M186): سجلُّ النشاط لحظيّ ═══
+   حدثٌ من أي جهاز ⇒ الإحصاءاتُ والتنبيهاتُ والقائمةُ تتحدّث بلا «جارٍ التحميل» وبلا فقدِ ما حُمِّل بـ«عرض المزيد».
+   • النافذةُ المحمّلة نفسُها تُعاد بالفلاتر المطبَّقة، وتبقى منتهيةً عند آخر صفٍّ كان معروضاً.
+   • أعلى الصفحة ⇒ الجديدُ يظهر فوراً ويُبرَز لحظة. مُمرَّرٌ للأسفل ⇒ لا تتحرّك القائمةُ تحت القارئ (مرساةٌ على أول صفٍّ ظاهر)
+     وتظهر حبّة «↑ N سجلات جديدة — آخرها: … · 👤 المريض» تنقله للأعلى. */
+var _livePending = 0, _liveLatest = null, _livePillWired = false;
+function liveCountText(n) {
+  return n === 1 ? 'سجلٌّ جديد' : n === 2 ? 'سجلّان جديدان' : n <= 10 ? (n + ' سجلات جديدة') : (n + ' سجلاً جديداً');
+}
+function hideLivePill() { var p = $('liveNewPill'); if (p) p.hidden = true; }
+function topbarBottom() { var t = document.querySelector('.topbar'); return t ? Math.max(0, t.getBoundingClientRect().bottom) : 0; }
+function listScrolledAway() {
+  var first = document.querySelector('#logContainer .log-row');
+  return !!first && first.getBoundingClientRect().top < topbarBottom() - 4;
+}
+function showLivePill() {
+  var p = $('liveNewPill'); if (!p || !_livePending) return;
+  if (p.parentNode !== document.body) document.body.appendChild(p);   /* خارج .main: غلافُ الصفحة سياقُ تكديسٍ يعلو الحبّةَ فيبتلع النقرة */
+  var r = _liveLatest || {};
+  var who = r.patient_name_snapshot ? ' · 👤 ' + r.patient_name_snapshot : '';
+  /* العددُ واسمُ المريض لا يُقصّان أبداً — الوصفُ وحده يُختصر على الهاتف */
+  $('liveNewPillText').textContent = '↑ ' + liveCountText(_livePending) + who;
+  $('liveNewPillDesc').textContent = r.description ? '— ' + r.description : '';
+  p.style.top = Math.round(topbarBottom() + 10) + 'px';     /* الشريطُ العلوي يلتفّ على الهاتف ⇒ تحته دائماً */
+  p.hidden = false;
+  if (!_livePillWired) {                         /* #752: مرةً واحدة مهما تكرّر التحديث */
+    _livePillWired = true;
+    window.addEventListener('scroll', function () {
+      if (_livePending && !listScrolledAway()) { _livePending = 0; _liveLatest = null; hideLivePill(); }
+    }, { passive: true });
+  }
+}
+function liveJumpTop() {
+  _livePending = 0; _liveLatest = null; hideLivePill();
+  var box = $('logContainer');
+  var y = box.getBoundingClientRect().top + window.scrollY - topbarBottom() - 12;
+  window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+}
+function markFresh(ids) {
+  ids.forEach(function (id) {
+    var el = document.querySelector('#logContainer .log-row[data-id="' + String(id).replace(/"/g, '') + '"]');
+    if (el) { el.classList.add('log-new'); setTimeout(function () { el.classList.remove('log-new'); }, 2600); }
+  });
+}
+async function auditLiveRefresh() {
+  if (!currentUser) return;
+  await loadEmployeesCache();
+  await loadStats();
+  await loadAlerts();
+  /* «عرض المزيد»/تطبيقٌ جارٍ ⇒ ننتظر انتهاءه (SyLive لا يبدأ تحميلاً آخر حتى نعود) */
+  for (var w = 0; _loadInFlight && w < 50; w++) await new Promise(function (r) { setTimeout(r, 200); });
+  if (!_applied || _loadInFlight) return;
+  for (var attempt = 0; attempt < 3; attempt++) {
+    var r = await auditLiveList();
+    if (r !== 'stale') return;
+    /* «عرض المزيد»/تطبيقٌ سبق القراءة ⇒ نتيجتُها قديمة، لكن الحدثَ نفسه لم يُعرض بعد ⇒ نعيد على الحالة الجديدة */
+    for (var w2 = 0; _loadInFlight && w2 < 50; w2++) await new Promise(function (res) { setTimeout(res, 200); });
+  }
+}
+async function auditLiveList() {
+  var gen = _logGen;
+  var prevIds = {}; allLogs.forEach(function (r) { prevIds[r.id] = 1; });
+  var prevTop = allLogs.length ? allLogs[0].created_at : null;
+  var prevLast = allLogs.length ? allLogs[allLogs.length - 1].id : null;
+  var shown = Math.max(pageOffset, PAGE_SIZE);
+  var want = shown + PAGE_SIZE;                  /* صفحةُ احتياط: الجديدُ أعلى القائمة لا يدفع آخرَ صفٍّ معروض خارجها */
+  var res = await buildLogQuery().range(0, want - 1);
+  if (res.error) { console.warn('live audit refresh:', res.error); return; }   /* فشلٌ عابر ⇒ يبقى المعروض */
+  if (gen !== _logGen || _loadInFlight) return 'stale';   /* تطبيقُ فلترٍ أو «عرض المزيد» سبق ⇒ نتيجتُه هي الأحدث، ونعيد */
+  var rows = res.data || [];
+  var cut = Math.min(rows.length, shown);
+  if (prevLast) { var li = rows.findIndex(function (r) { return r.id === prevLast; }); if (li > -1) cut = li + 1; }
+  var kept = rows.slice(0, cut);
+  var fresh = kept.filter(function (r) { return !prevIds[r.id] && (!prevTop || r.created_at >= prevTop); });
+  /* مرساةٌ قبل الرسم: أولُ صفٍّ ظاهرٍ تحت الشريط العلوي */
+  var away = listScrolledAway(), anchorId = null, anchorTop = 0;
+  if (away) {
+    var tb = topbarBottom(), rws = document.querySelectorAll('#logContainer .log-row');
+    for (var i = 0; i < rws.length; i++) { var t = rws[i].getBoundingClientRect().top; if (t >= tb) { anchorId = rws[i].getAttribute('data-id'); anchorTop = t; break; } }
+  }
+  allLogs = kept;
+  pageOffset = kept.length;
+  hasMore = rows.length > cut || rows.length === want;
+  renderLogs();
+  $('loadMoreBtn').style.display = hasMore ? 'block' : 'none';
+  if (away && anchorId) {
+    var a = document.querySelector('#logContainer .log-row[data-id="' + anchorId + '"]');
+    if (a) window.scrollBy(0, a.getBoundingClientRect().top - anchorTop);
+  }
+  if (fresh.length) {
+    markFresh(fresh.map(function (r) { return r.id; }));
+    if (away) { _livePending += fresh.length; _liveLatest = fresh[0]; showLivePill(); }
+  }
+}
+
 function applyFilters() {
-  loadLogs(true);
+  auditReloadAll();
+}
+/* إعادةُ تحميلٍ كاملة بالفلاتر الحالية (تطبيق · أرشفة · استرجاع · السحب للتحديث): الإحصاءاتُ والتنبيهاتُ تتبع العرضَ المطبَّق */
+async function auditReloadAll() {
+  captureFilters();
+  await loadStats();
+  await loadAlerts();
+  await loadLogs(true);
 }
 
 function loadMore() {
@@ -857,9 +1011,7 @@ async function doArchive() {
 
     showToast('✓ تم أرشفة ' + count + ' سجل');
     closeArchiveModal();
-    await loadStats();
-    await loadAlerts();
-    await loadLogs(true);
+    await auditReloadAll();
   } finally {
     btn.disabled = false;
     btn.textContent = '📦 أرشفة';
@@ -901,9 +1053,7 @@ async function _restoreOne_inner(id) {
     window.logAudit('settings.archive_audit', { description: '↩ استرجاع سجل واحد من الأرشيف' });
   }
   showToast('✓ تم استرجاع السجل');
-  await loadStats();
-  await loadAlerts();
-  await loadLogs(true);
+  await auditReloadAll();
 }
 
 var restoreAll = aGuarded('restoreAll', _restoreAll_inner, 'جارٍ الاستعادة…');   /* v302 */
@@ -931,9 +1081,7 @@ async function _restoreAll_inner() {
     window.logAudit('settings.archive_audit', { description: '↩ استرجاع ' + count + ' سجل من الأرشيف' });
   }
   showToast('✓ تم استرجاع ' + count + ' سجل');
-  await loadStats();
-  await loadAlerts();
-  await loadLogs(true);
+  await auditReloadAll();
 }
 
 // ── Export CSV ──
@@ -953,10 +1101,6 @@ async function loadAllForExport() {
   // Walks remaining pages (starting from current pageOffset) using the
   // SAME filters as loadLogs(). Returns true on success, false on cap-hit
   // or fetch error. Appends fetched rows into allLogs.
-  var range = getDateRange($('filterDate').value);
-  var employee = $('filterEmployee').value;
-  var action = $('filterAction').value;
-  var alertOnly = $('filterAlerts').value;
   var offset = pageOffset;
   var BATCH = 200; // larger than UI page size for speed
   while (true) {
@@ -964,18 +1108,7 @@ async function loadAllForExport() {
       showToast('⚠ تم بلوغ الحد الأقصى للتصدير (' + EXPORT_MAX_ROWS + ' سجل). استخدم فلاتر أضيق.', true);
       return false;
     }
-    var q = window.sb.from('audit_log')
-      .select('id, employee_id, employee_name_snapshot, employee_role_snapshot, action_type, entity_type, entity_id, patient_id, patient_name_snapshot, description, is_alert, alert_reason, created_at')
-      .eq('owner_id', currentUser.id)
-      .eq('is_archived', isArchivedView());
-    if (range.from) q = q.gte('created_at', range.from);
-    if (employee !== 'all') q = q.eq('employee_id', employee);
-    if (action !== 'all') {
-      var actionList = ACTION_TYPES_BY_PREFIX[action] || [];
-      if (actionList.length > 0) q = q.in('action_type', actionList);
-    }
-    if (alertOnly === 'only') q = q.eq('is_alert', true);
-    q = q.order('created_at', { ascending: false }).range(offset, offset + BATCH - 1);
+    var q = buildLogQuery().range(offset, offset + BATCH - 1);
     var res = await q;
     if (res.error) {
       console.error('loadAllForExport error:', res.error);
@@ -984,7 +1117,7 @@ async function loadAllForExport() {
     }
     var batch = res.data || [];
     if (batch.length === 0) break;
-    allLogs = allLogs.concat(batch);
+    allLogs = appendUnique(allLogs, batch);
     offset += batch.length;
     pageOffset = offset;
     if (batch.length < BATCH) {
@@ -1123,17 +1256,17 @@ function openExportChoiceModal() {
   if (window.SyDentLock && !window.SyDentLock.guardPage(['owner'])) return;
 
   await loadEmployeesCache();
-  await loadStats();
-  await loadAlerts();
-  await loadLogs(true);
+  await auditReloadAll();
+
+  /* v626 (M186): لحظيٌّ — كلُّ عمليةٍ بالعيادة تظهر هنا فوراً (نافذةُ الأرشفة/التصدير المفتوحة تؤجّل) */
+  if (window.SyLive) window.SyLive.watch({ name: 'audit-log', uid: currentUser.id,
+    tables: ['audit_log', 'clinic_employees'], refresh: auditLiveRefresh });
 })();
 
 // Pull-to-refresh handler
 window.onPTRRefresh = async function() {
   if (!currentUser) return;
-  await loadStats();
-  await loadAlerts();
-  await loadLogs(true);
+  await auditReloadAll();
 };
 
 // Initialize sidebar
