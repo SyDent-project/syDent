@@ -96,12 +96,10 @@
     <h1 class="topbar-title">ملف المريض</h1>
   </div>
   <div class="sd-page-head__actions">
+    <button type="button" class="sd-btn sd-btn--secondary" id="aiHubBtn" onclick="openModal('aiHubModal')" data-doctor-inactive-block title="ملخّص للملف، وتقرير إحالة، وشرح الخطة للمريض">🤖 المساعد الذكي</button>
     <details class="sd-menu" id="ppTools">
       <summary class="sd-btn sd-btn--secondary">أدوات</summary>
       <div class="sd-menu__list" role="menu">
-        <button type="button" class="sd-menu__item" role="menuitem" id="aiHubBtn" onclick="openModal('aiHubModal')" data-doctor-inactive-block>
-          <span>المساعد الذكي<span class="sd-menu__hint">ملخّص للملف، وتقرير إحالة، وشرح الخطة للمريض</span></span>
-        </button>
         <button type="button" class="sd-menu__item" role="menuitem" onclick="openPrintChoice()" data-doctor-inactive-block data-sub-read>
           <span>طباعة أو حفظ PDF<span class="sd-menu__hint">ملف المريض أو كشف الحساب</span></span>
         </button>
@@ -179,7 +177,79 @@
 
   <!-- Tab: الملف -->
   <div class="panel active" id="tab-file">
-    <!-- C2: the dental chart comes first — it is what the doctor works on most -->
+    <div class="two-col">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">معلومات المريض</span>
+          <button class="btn btn-outline btn-sm" onclick="openEditModal()">تعديل</button>
+        </div>
+        <div class="irow"><span class="ikey">الاسم الكامل</span><span class="ival" id="iName">—</span></div>
+        <div class="irow"><span class="ikey">الجنس</span><span class="ival" id="iGender">—</span></div>
+        <div class="irow"><span class="ikey">العمر</span><span class="ival" id="iAge">—</span></div>
+        <div class="irow"><span class="ikey">رقم الهاتف</span><span class="ival" id="iPhone" dir="ltr">—</span><span id="iPhoneWarn" style="display:none;color:var(--red);font-size:11px;font-weight:700;margin-inline-start:8px;" title="للأرقام غير السورية أضف رمز الدولة (مثال +90…) — عدّله من زر تعديل">⚠️ الرقم غير صحيح</span></div>
+        <div class="irow"><span class="ikey">تحذيرات طبية</span><span class="ival" id="iMedFlags" style="color:var(--red)">جارٍ التحميل…</span></div>
+        <div class="irow"><span class="ikey">الحساسيات</span><span class="ival" id="iAllergies" style="color:var(--yellow-ink)">جارٍ التحميل…</span></div>
+        <div class="irow"><span class="ikey">التاريخ المرضي</span><span class="ival" id="iHistory">جارٍ التحميل…</span></div>
+        <div class="irow pp-intake-row" id="intakeRow"><span class="ikey">استمارة المريض</span><span class="ival" id="iIntake"><span class="pp-intake-st">جارٍ التحميل…</span></span></div>   <!-- M177: استمارةُ المريض الرقمية — الرسم بـppIntakeRender (pp-intake.js) -->
+        <div class="irow pp-intake-row" id="portalRow"><span class="ikey">بوابة المريض</span><span class="ival" id="iPortal"><span class="pp-intake-st">جارٍ التحميل…</span></span></div>   <!-- M180: بوابةُ المريض الخفيفة — الرسم بـppPortalRender (pp-portal.js) -->
+        <div class="irow"><span class="ikey">حالة الدفع</span><span class="ival" id="iPayStatus">—</span></div>
+        <div class="irow"><span class="ikey">الحالة</span><span class="ival" id="iStatus">—</span></div>
+        <div class="irow"><span class="ikey">المصدر</span><span class="ival" id="iSource">—</span></div>
+        <div class="irow"><span class="ikey">آخر زيارة</span><span class="ival" id="iLastVisit">—</span></div>
+        <div class="irow"><span class="ikey">تاريخ التسجيل</span><span class="ival" id="iCreated">—</span></div>
+      </div>
+      <div class="card" id="recentSessCard">
+        <div class="card-head">
+          <span class="card-title">آخر الجلسات</span>
+          <a href="javascript:void(0)" onclick="switchTabByName('sessions')" style="font-size:12px;color:var(--green);text-decoration:none;font-weight:600;">عرض الكل ←</a>
+        </div>
+        <div id="recentSessionsList"></div>
+      </div>
+    </div>
+
+    <!-- Backlog #6 (M94): family/household card — free grouping for navigation only.
+         Finances stay 100% individual (financial guarantor deliberately deferred: touches FIFO). -->
+    <div class="card" id="familyCard">
+      <div class="card-head">
+        <span class="card-title">👨‍👩‍👧 العائلة <span id="familyCount" style="font-size:11px;color:var(--text2);font-weight:500;"></span></span>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-sm" id="famUnlinkBtn" style="display:none;" onclick="unlinkFromFamily()">فكّ الربط</button>
+          <button class="btn btn-outline btn-sm" onclick="openFamilyLinkModal()">＋ ربط مريض</button>
+        </div>
+      </div>
+      <div id="familyBar" style="display:flex;flex-wrap:wrap;gap:8px;padding-top:4px;"></div>
+    </div>
+    <!-- self-contained family-link dialog -->
+    <div id="famLinkModal" data-live-hold style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:center;justify-content:center;">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;width:min(430px,92vw);max-height:80vh;display:flex;flex-direction:column;padding:16px;">
+        <div style="font-weight:800;font-size:15px;margin-bottom:10px;color:var(--text);">👨‍👩‍👧 ربط مريض بالعائلة</div>
+        <input type="text" id="famSearch" placeholder="ابحث بالاسم أو الهاتف…" oninput="famFilter()" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:10px;">
+        <div id="famCandList" style="overflow-y:auto;flex:1;min-height:120px;"></div>
+        <div style="display:flex;justify-content:flex-start;gap:8px;margin-top:12px;">
+          <button type="button" class="hist-btn" onclick="document.getElementById('famLinkModal').style.display='none'">إغلاق</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gap 7: Planned Appointments card (hidden when patient has none) -->
+    <div class="card" id="plannedApptsCard" style="display:none;">
+      <div class="card-head">
+        <span class="card-title">مواعيد مخطّطة <span id="plannedApptsCount" style="font-size:11px;color:var(--text2);font-weight:500;">(0)</span></span>
+        <button class="btn btn-outline btn-sm" onclick="openPlannedApptModal()">＋ موعد مخطّط جديد</button>
+      </div>
+      <div id="plannedApptsList"></div>
+    </div>
+
+    <!-- Backlog #8 (M91): patient-wide implants card — hidden when patient has no records.
+         CareStack Implant Tracker grid parity. Rows open the per-tooth implant modal. -->
+    <div class="card" id="implantsCard" style="display:none;">
+      <div class="card-head">
+        <span class="card-title">🦴 الزرعات <span id="implantsCardCount" style="font-size:11px;color:var(--text2);font-weight:500;">(0)</span></span>
+      </div>
+      <div id="implantsCardList"></div>
+    </div>
+
+    <!-- Dental chart below the patient cards (owner's call, Oct 2026) -->
     <div class="chart-card">
       <div class="chart-card-head">
         <span class="chart-card-title">مخطط الأسنان</span>
@@ -299,78 +369,6 @@
       <div id="draftCursor" class="draft-cursor"></div>
 <div class="chart-legend" id="chartLegend"></div>
       <div class="mix-hint" id="mixHint">💡 <b>الوضع المختلط:</b> انقر <b>رقم</b> السن لتبديله بين لبني ودائم (المواضع 1–5؛ الأرحاء 6–8 دائمة لا تتبدّل)</div>
-    </div>
-
-    <div class="two-col">
-      <div class="card">
-        <div class="card-head">
-          <span class="card-title">معلومات المريض</span>
-          <button class="btn btn-outline btn-sm" onclick="openEditModal()">تعديل</button>
-        </div>
-        <div class="irow"><span class="ikey">الاسم الكامل</span><span class="ival" id="iName">—</span></div>
-        <div class="irow"><span class="ikey">الجنس</span><span class="ival" id="iGender">—</span></div>
-        <div class="irow"><span class="ikey">العمر</span><span class="ival" id="iAge">—</span></div>
-        <div class="irow"><span class="ikey">رقم الهاتف</span><span class="ival" id="iPhone" dir="ltr">—</span><span id="iPhoneWarn" style="display:none;color:var(--red);font-size:11px;font-weight:700;margin-inline-start:8px;" title="للأرقام غير السورية أضف رمز الدولة (مثال +90…) — عدّله من زر تعديل">⚠️ الرقم غير صحيح</span></div>
-        <div class="irow"><span class="ikey">تحذيرات طبية</span><span class="ival" id="iMedFlags" style="color:var(--red)">جارٍ التحميل…</span></div>
-        <div class="irow"><span class="ikey">الحساسيات</span><span class="ival" id="iAllergies" style="color:var(--yellow-ink)">جارٍ التحميل…</span></div>
-        <div class="irow"><span class="ikey">التاريخ المرضي</span><span class="ival" id="iHistory">جارٍ التحميل…</span></div>
-        <div class="irow pp-intake-row" id="intakeRow"><span class="ikey">استمارة المريض</span><span class="ival" id="iIntake"><span class="pp-intake-st">جارٍ التحميل…</span></span></div>   <!-- M177: استمارةُ المريض الرقمية — الرسم بـppIntakeRender (pp-intake.js) -->
-        <div class="irow pp-intake-row" id="portalRow"><span class="ikey">بوابة المريض</span><span class="ival" id="iPortal"><span class="pp-intake-st">جارٍ التحميل…</span></span></div>   <!-- M180: بوابةُ المريض الخفيفة — الرسم بـppPortalRender (pp-portal.js) -->
-        <div class="irow"><span class="ikey">حالة الدفع</span><span class="ival" id="iPayStatus">—</span></div>
-        <div class="irow"><span class="ikey">الحالة</span><span class="ival" id="iStatus">—</span></div>
-        <div class="irow"><span class="ikey">المصدر</span><span class="ival" id="iSource">—</span></div>
-        <div class="irow"><span class="ikey">آخر زيارة</span><span class="ival" id="iLastVisit">—</span></div>
-        <div class="irow"><span class="ikey">تاريخ التسجيل</span><span class="ival" id="iCreated">—</span></div>
-      </div>
-      <div class="card" id="recentSessCard">
-        <div class="card-head">
-          <span class="card-title">آخر الجلسات</span>
-          <a href="javascript:void(0)" onclick="switchTabByName('sessions')" style="font-size:12px;color:var(--green);text-decoration:none;font-weight:600;">عرض الكل ←</a>
-        </div>
-        <div id="recentSessionsList"></div>
-      </div>
-    </div>
-
-    <!-- Backlog #6 (M94): family/household card — free grouping for navigation only.
-         Finances stay 100% individual (financial guarantor deliberately deferred: touches FIFO). -->
-    <div class="card" id="familyCard">
-      <div class="card-head">
-        <span class="card-title">👨‍👩‍👧 العائلة <span id="familyCount" style="font-size:11px;color:var(--text2);font-weight:500;"></span></span>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-outline btn-sm" id="famUnlinkBtn" style="display:none;" onclick="unlinkFromFamily()">فكّ الربط</button>
-          <button class="btn btn-outline btn-sm" onclick="openFamilyLinkModal()">＋ ربط مريض</button>
-        </div>
-      </div>
-      <div id="familyBar" style="display:flex;flex-wrap:wrap;gap:8px;padding-top:4px;"></div>
-    </div>
-    <!-- self-contained family-link dialog -->
-    <div id="famLinkModal" data-live-hold style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:center;justify-content:center;">
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;width:min(430px,92vw);max-height:80vh;display:flex;flex-direction:column;padding:16px;">
-        <div style="font-weight:800;font-size:15px;margin-bottom:10px;color:var(--text);">👨‍👩‍👧 ربط مريض بالعائلة</div>
-        <input type="text" id="famSearch" placeholder="ابحث بالاسم أو الهاتف…" oninput="famFilter()" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:10px;">
-        <div id="famCandList" style="overflow-y:auto;flex:1;min-height:120px;"></div>
-        <div style="display:flex;justify-content:flex-start;gap:8px;margin-top:12px;">
-          <button type="button" class="hist-btn" onclick="document.getElementById('famLinkModal').style.display='none'">إغلاق</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Gap 7: Planned Appointments card (hidden when patient has none) -->
-    <div class="card" id="plannedApptsCard" style="display:none;">
-      <div class="card-head">
-        <span class="card-title">مواعيد مخطّطة <span id="plannedApptsCount" style="font-size:11px;color:var(--text2);font-weight:500;">(0)</span></span>
-        <button class="btn btn-outline btn-sm" onclick="openPlannedApptModal()">＋ موعد مخطّط جديد</button>
-      </div>
-      <div id="plannedApptsList"></div>
-    </div>
-
-    <!-- Backlog #8 (M91): patient-wide implants card — hidden when patient has no records.
-         CareStack Implant Tracker grid parity. Rows open the per-tooth implant modal. -->
-    <div class="card" id="implantsCard" style="display:none;">
-      <div class="card-head">
-        <span class="card-title">🦴 الزرعات <span id="implantsCardCount" style="font-size:11px;color:var(--text2);font-weight:500;">(0)</span></span>
-      </div>
-      <div id="implantsCardList"></div>
     </div>
 
   </div>

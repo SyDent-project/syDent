@@ -28,7 +28,6 @@ function makeSb(tables, log, rpcReply) {
   Q.prototype.eq = function (k, v) { this.f.push([k, v]); return this; };
   Q.prototype.in = function (k, v) { this.inF = [k, v]; return this; };
   Q.prototype.order = function () { return this; };
-  Q.prototype.not = function () { return this; };
   Q.prototype.limit = function () { return this; };
   Q.prototype.single = function () { this.one = true; return this; };
   ['insert', 'update', 'delete', 'upsert'].forEach(m => { Q.prototype[m] = function (p) { log.push({ write: m, t: this.t, p }); this.op = m; return this; }; });
@@ -47,15 +46,14 @@ function echoReply(name, args) {
   return { data: { lines: args.p_lines.map(l => ({ item_id: l.item_id, session_id: l.session_id, requested: l.qty, deducted: l.qty, remaining: 5 })) }, error: null };
 }
 /* DOM صغير: صفوفُ المودال تُقرأ كمدخلات بقيمٍ نحدّدها */
-function makeDom(values, lot) {
+function makeDom(values) {
   const els = {};
-  const get = id => els[id] || (els[id] = { id, innerHTML: '', textContent: '', disabled: false, classList: { add() {}, remove() {}, contains() { return false; } } });
+  const get = id => els[id] || (els[id] = { id, innerHTML: '', textContent: '', disabled: false, classList: { add() {}, remove() {} } });
   return {
     els,
     document: {
       getElementById: get,
-      querySelectorAll: () => values.map((v, i) => ({ value: String(v), getAttribute: () => String(i) })),
-      querySelector: sel => (lot && /lot/.test(sel)) ? { value: lot } : null      /* v572: «الدفعة (LOT)» المختارة */
+      querySelectorAll: () => values.map((v, i) => ({ value: String(v), getAttribute: () => String(i) }))
     }
   };
 }
@@ -120,12 +118,7 @@ async function suite(F) {
   for (let t = 1; t <= 60; t++) { const s2 = C.split(t / 7, [{ session_id: 'a', qty: 1 }, { session_id: 'b', qty: 3 }, { session_id: 'c', qty: 2 }]); if (sum(s2) !== Math.round(t / 7 * 100) / 100) { ok(false, 'split: exact total for ' + t / 7); break; } }
   ok(true, 'split: exact totals across 60 fractions');
   const bl = C.buildLines([{ item_id: 'i1', qty: 2, contribs: [{ session_id: 's1', qty: 1 }, { session_id: 's2', qty: 1 }] }, { item_id: 'i2', qty: 1, contribs: [] }]);
-  ok(bl.length === 3 && bl[0].item_id === 'i1' && bl[0].session_id === 's1' && bl[2].session_id === null && !('batch_id' in bl[0]), 'buildLines: one line per item × session, no batch unless chosen');
-  const bl2 = C.buildLines([{ item_id: 'i1', qty: 1, contribs: [], batch_id: 'B1' }]);
-  ok(bl2.length === 1 && bl2[0].batch_id === 'B1', 'buildLines: chosen batch kept (v572)');
-  ok(C.lotLabel({ lot_no: 'A<1', expiry_date: '2027-01-31', quantity: 4 }) === 'LOT A<1 · صلاحية 31/01/2027 · متبقٍّ 4', 'lotLabel');
-  const ls = C.lotSelectHtml('x', 0, [{ id: 'b"1', lot_no: 'A<1' }]);
-  ok(/<option value="">تلقائي — الأقرب انتهاءً<\/option>/.test(ls) && /value="b&quot;1"/.test(ls) && /LOT A&lt;1/.test(ls) && C.lotSelectHtml('x', 0, []) === '', 'lotSelectHtml: automatic first, escaped, nothing without lots');
+  ok(bl.length === 3 && bl[0].item_id === 'i1' && bl[0].session_id === 's1' && bl[2].session_id === null, 'buildLines: one line per item × session');
   const names = { i1: 'بنج', i2: 'كفوف' };
   ok(/^تم خصم 2 مادة/.test(C.message({ ok: true, lines: [{ item_id: 'i1', requested: 1, deducted: 1 }, { item_id: 'i1', requested: 1, deducted: 1 }, { item_id: 'i2', requested: 1, deducted: 1 }] }, names)), 'message: lines of one item counted once');
   const part = C.message({ ok: true, lines: [{ item_id: 'i1', requested: 5, deducted: 2 }, { item_id: 'i2', requested: 1, deducted: 1 }] }, names);
@@ -142,7 +135,7 @@ async function suite(F) {
   const ppSrc = fnSrc(PP, 'async function maybePromptMaterialDeduction(') + fnSrc(PP, 'async function confirmMaterialDeduction() {');
   {
     const log = [], toasts = [];
-    const dom = makeDom([6], 'B9');   // الطبيب عدّل 4 ⇒ 6 واختار الدفعة B9
+    const dom = makeDom([6]);   // الطبيب عدّل 4 ⇒ 6
     const ctx = {
       window: {}, document: dom.document, console, currentUser: { id: 'u' },
       getTreatment: () => ({ dbId: 'T' }), escapeHtml: s => String(s), openModal() {}, closeModal() {}, showToast: t => toasts.push(t)
@@ -160,7 +153,6 @@ async function suite(F) {
     ok(rpc.length === 1 && !log.some(x => x.write), 'profile: one RPC, zero direct writes');
     ok(lines.length === 2 && lines[0].session_id === 's1' && lines[1].session_id === 's2' && near(lines[0].qty + lines[1].qty, 6), 'profile: the edited 6 split over both tooth sessions');
     ok(rpc.length && rpc[0].args.p_note === 'استهلاك تلقائي (جلسة)', 'profile: note kept');
-    ok(lines.length === 2 && lines.every(l => l.batch_id === 'B9'), 'profile: the chosen LOT travels with every line (v572)');
     ok(/^تم خصم 1 مادة/.test(toasts[toasts.length - 1] || ''), 'profile: toast from the result');
   }
   {
@@ -204,7 +196,7 @@ async function suite(F) {
   ok(/if \(reason === 'consume'\) \{[\s\S]*?SyDentInvConsume\.run\(window\.sb, \[\{ item_id: moveItemId, qty: q, session_id: null \}\]/.test(sm) && sm.indexOf("reason === 'consume'") < sm.indexOf("from('inventory_items')"), 'inventory: manual consume through the RPC, before any direct write');
   ok(/window\.sb\.rpc\('inventory_finish_batch', \{ p_batch: batchId \}\)/.test(INV) && !/update\(\{ is_finished: true \}\)/.test(INV), 'inventory: finishing a batch through the RPC');
   ok(/escapeHtml\(batchQtyText\(b, un\)\)/.test(INV) && /' من ' \+ fmtNum\(rc\)/.test(INV), 'inventory: remaining of received shown');
-  ok(/patient:patients\(name\), batch:inventory_batches\(expiry_date, lot_no\)/.test(INV) && /if \(res\.error\) res = await histQ\('change, reason, note, created_at'\)/.test(INV), 'history: patient and batch, plain read as fallback');
+  ok(/patient:patients\(name\), batch:inventory_batches\(expiry_date\)/.test(INV) && /if \(res\.error\) res = await histQ\('change, reason, note, created_at'\)/.test(INV), 'history: patient and batch, plain read as fallback');
   ok(/<bdi dir="ltr">' \+ chTxt \+ '<\/bdi>/.test(INV), 'history: signed change isolated LTR (#704)');
   ok(/escapeHtml\(m\.patient\.name\)/.test(INV) && /encodeURIComponent\(m\.patient_id\)/.test(INV), 'history: patient name escaped, link encoded');
   ['patient-profile.html', 'appointments.html', 'inventory.html'].forEach(f => {
@@ -235,8 +227,6 @@ const MUTANTS = [
   ['batch path loses its sessions', rep('pp-dental.js', '        _bSessIds.push(_bl.data.id);\n', '')],
   ['manual consume back to read-then-write', rep('inventory.html', "    if (reason === 'consume') {\n      var names = {};", "    if (false) {\n      var names = {};")],
   ['signed change not isolated', rep('inventory.html', '<bdi dir="ltr">\' + chTxt + \'</bdi>', '\' + chTxt + \'')],
-  ['chosen LOT dropped', rep('inv-consume.js', '        if (r.batch_id) ln.batch_id = r.batch_id;\n', '')],
-  ['LOT option unescaped', rep('inv-consume.js', "'<option value=\"' + esc(b.id) + '\">' + esc(lotLabel(b))", "'<option value=\"' + b.id + '\">' + lotLabel(b)")],
   ['patient name unescaped in history', rep('inventory.html', 'escapeHtml(m.patient.name)', 'm.patient.name')]
 ];
 (async () => {

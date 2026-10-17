@@ -39,10 +39,12 @@ function suite(F) {
   });
   ok(/if \(a && \(a\.tagName === 'SELECT' \|\| a\.tagName === 'INPUT' \|\| a\.tagName === 'TEXTAREA'\)\) return;\n    if \(e\.key === ' ' \|\| e\.key === 'Enter'\) \{ e\.preventDefault\(\); xrCamShot\(\); \}/.test(X) && /if \(!_xrCam\.open\) return;/.test(X) && /if \(window\.__xrCamKeyWired\) return;/.test(X),
      'keys: Space/Enter capture only while the camera is open and focus is not in a field (one listener)');
-  const H = F['_headers'];
-  const blocks = H.split(/\n(?=\/)/);
-  const app = blocks.find(b => b.startsWith('/*\n')), book = blocks.filter(b => /^\/book(\.html)?\n/.test(b));
-  ok(app && /camera=\(self\)/.test(app) && book.length === 2 && book.every(b => /camera=\(\)/.test(b)) && /microphone=\(\)/.test(app) && /geolocation=\(\)/.test(app), 'Permissions-Policy: camera allowed for the app, still off on both booking blocks, microphone/geolocation untouched');
+  /* Hosting moved to Vercel: the headers live in vercel.json (each path gets exactly one Permissions-Policy) */
+  let V = null; try { V = JSON.parse(F['vercel.json']); } catch (e) {}
+  const pp = src => { const r = V && V.headers.find(h => h.source === src); const h = r && r.headers.find(x => x.key === 'Permissions-Policy'); return h ? h.value : null; };
+  const all = V ? V.headers.filter(r => r.headers.some(x => x.key === 'Permissions-Policy')).length : 0;
+  const app = pp('/((?!book(?:\\.html)?$).*)'), book = pp('/book(.html)?');
+  ok(all === 2 && app && /camera=\(self\)/.test(app) && book && /camera=\(\)/.test(book) && /microphone=\(\)/.test(app) && /geolocation=\(\)/.test(app), 'Permissions-Policy: camera allowed for the app, still off on the booking page, microphone/geolocation untouched');
   const PP = F['patient-profile.html'], C = F['patient-profile.css'];
   ok(/id="pfLiveCamBtn" class="pf-livecam" onclick="pfLiveCam\(\)"/.test(PP) && /@media \(hover:hover\) and \(pointer:fine\)\{ \.pf-livecam\{display:block;\} \}/.test(C) && /@media \(hover:none\) and \(pointer:coarse\)\{ \.pf-cam\{display:block;\} \}/.test(C),
      'entry points: live camera on pointer devices, native capture on touch devices');
@@ -52,7 +54,7 @@ function suite(F) {
   ok(/if \(cat === 'clinical_photo' && typeof xrOpenUpload === 'function'\) \{ xrOpenUpload\(files, null, \{ category: 'clinical_photo', teeth: tooth \? \[tooth\] : \[\] \}\); return; \}/.test(F['pp-extras.js']), 'files tab: picked clinical photos go through the same sheet');
 }
 
-const FILES = ['pp-xray.js', 'pp-extras.js', 'patient-profile.html', 'patient-profile.css', '_headers'];
+const FILES = ['pp-xray.js', 'pp-extras.js', 'patient-profile.html', 'patient-profile.css', 'vercel.json'];
 const base = {}; FILES.forEach(f => { base[f] = read(f); });
 const rep = (f, a, b) => F => Object.assign({}, F, { [f]: F[f].replace(a, b) });
 const MUTANTS = [
@@ -64,8 +66,8 @@ const MUTANTS = [
   ['shots filed as X-rays', rep('pp-xray.js', "xrOpenUpload(shots, null, { category: 'clinical_photo', teeth: preset.teeth || [] });", 'xrOpenUpload(shots, null, { teeth: preset.teeth || [] });')],
   ['camera in read-only', rep('pp-xray.js', "async function xrCamOpen(preset) {\n  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;", 'async function xrCamOpen(preset) {')],
   ['space captures inside a field', rep('pp-xray.js', "if (a && (a.tagName === 'SELECT' || a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;\n    if (e.key", "if (e.key")],
-  ['camera blocked by headers', rep('_headers', 'Permissions-Policy: geolocation=(), microphone=(), camera=(self), payment=()', 'Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()')],
-  ['camera allowed on the booking page', rep('_headers', '/book.html\n  ! X-Frame-Options\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Strict-Transport-Security: max-age=31536000; includeSubDomains\n  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()', '/book.html\n  ! X-Frame-Options\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Strict-Transport-Security: max-age=31536000; includeSubDomains\n  Permissions-Policy: geolocation=(), microphone=(), camera=(self), payment=()')]
+  ['camera blocked by headers', rep('vercel.json', 'camera=(self)', 'camera=()')],
+  ['camera allowed on the booking page', rep('vercel.json', 'geolocation=(), microphone=(), camera=(), payment=()', 'geolocation=(), microphone=(), camera=(self), payment=()')],
 ];
 suite(base);
 const bp = [pass, fail];

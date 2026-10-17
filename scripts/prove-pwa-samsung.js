@@ -85,7 +85,7 @@ async function suite(F) {
   ok(!r.card, '(٢) guidance dismissed ⇒ silent');
   r = await floating(F, UA.samsung, {}, true);
   r.w.document.getElementById('syicLater').click();
-  ok(r.w.localStorage.getItem('sydent_install_samsung') === '1' && r.w.localStorage.getItem('sydent_install_prompt') === null, '(٢) «لاحقاً» on Samsung silences only the Samsung guidance');
+  ok(Number(r.w.localStorage.getItem('sydent_install_samsung')) > Date.now() && r.w.localStorage.getItem('sydent_install_prompt') === null, '(٢) «لاحقاً» on Samsung snoozes only the Samsung guidance (7 days, like the install card)');
   r = await floating(F, UA.chrome, {}, true);
   ok(r.card && r.w.document.getElementById('syicGo') && !r.w.document.getElementById('syicChrome'), '(٢) Chrome ⇒ «ثبّت الآن» as before');
   r = await floating(F, UA.ios, {}, false);
@@ -105,7 +105,7 @@ const rep = (f, a, b) => F0 => { const F = Object.assign({}, F0); F[f] = F[f].sp
 const MUTANTS = [
   ['detection broken', rep('theme.js', '/SamsungBrowser/i.test(ua)', '/SamsungBrowserX/i.test(ua)')],
   ['Android requirement dropped', rep('theme.js', ' && /Android/i.test(ua);', ';')],
-  ['floating card ignores Samsung', rep('theme.js', '      if (window.SyDentPWA && window.SyDentPWA.samsungBrowser) {\n        if (!dismissed(KEY_SS))', '      if (false) {\n        if (!dismissed(KEY_SS))')],
+  ['floating card ignores Samsung', rep('theme.js', "    if (isSamsung()) return 'samsung';", '')],
   ['shared dismissal key', rep('theme.js', "var KEY_SS = 'sydent_install_samsung';", "var KEY_SS = 'sydent_install_prompt';")],
   ['intent without Chrome package', rep('theme.js', 'package=com.android.chrome;S.browser', 'S.browser')],
   ['settings show ignores Samsung', rep('settings.html', "      if(window.SyDentPWA && window.SyDentPWA.samsungBrowser){", '      if(false){')],
