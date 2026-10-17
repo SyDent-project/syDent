@@ -246,7 +246,7 @@
 
     if (m.referrers && m.referrers.length) {
       var kinds = [['patient', '👥 مرضى عرّفوا غيرهم'], ['doctor', '🩺 أطباء حوّلوا'], ['name', '✍️ أسماء أخرى']];
-      html += '<section class="rt-card"><h3 class="rt-h">من عرّفهم علينا؟ <small class="rt-hs">من «كيف سمع عنّا؟» بملف المريض</small></h3>';
+      html += '<section class="rt-card"><h3 class="rt-h">من عرّفهم بنا؟ <small class="rt-hs">من «كيف سمع عنّا؟» بملف المريض</small></h3>';
       kinds.forEach(function (k) {
         var list = m.referrers.filter(function (r) { return r.kind === k[0]; });
         if (!list.length) return;
@@ -297,7 +297,7 @@
     }
 
     if (reg && reg.waiting.length) {
-      html += '<section class="rt-card"><h3 class="rt-h">سجّلوا وما بلّشوا <small class="rt-hs">' + ptWord(reg.waiting.length) + ' بلا أي علاجٍ منجز لليوم</small></h3>'
+      html += '<section class="rt-card"><h3 class="rt-h">سُجّلوا ولم يبدؤوا العلاج <small class="rt-hs">' + ptWord(reg.waiting.length) + ' بلا أي علاجٍ منجز لليوم</small></h3>'
         + '<div class="rt-chips">';
       reg.waiting.slice(0, LIST_MAX).forEach(function (w) {
         html += '<a class="rt-chip" href="' + esc(prof(w.id)) + '"><b>' + esc(w.name || '—') + '</b><small>'

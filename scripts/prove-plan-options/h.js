@@ -103,19 +103,22 @@ function boot(opts = {}) {
     const at = si.indexOf('window.SyDentCurBag = (function'); const st = si.indexOf('(function', at);
     const node = acorn.parseExpressionAt(si, st, { ecmaVersion: 'latest' });
     ctx.SyDentCurrency = { code: () => 'SYP', labelOf: c => c === 'USD' ? '$' : 'ل.س' };
-    run('window.SyDentCurBag = ' + si.slice(st, node.end) + ';', 'supabase-init.js:SyDentCurBag'); }
+    run('window.SyDentCurBag = ' + si.slice(st, node.end) + ';', 'supabase-init.js:SyDentCurBag');
+    /* v597: SyDT (تواريخُ الطباعة أرقاماً — v487) تقرؤه buildPlanHtml؛ غيابُه أسقط run2 بصمت منذ v487 */
+    const dt = si.indexOf('window.SyDT = (function'), dts = si.indexOf('(function', dt);
+    run('window.SyDT = ' + si.slice(dts, acorn.parseExpressionAt(si, dts, { ecmaVersion: 'latest' }).end) + '; var SyDT = window.SyDT;', 'supabase-init.js:SyDT'); }
   run(fs.readFileSync(REPO + 'pp-core.js', 'utf8'), 'pp-core.js');
   run(fs.readFileSync(REPO + 'pp-dental.js', 'utf8'), 'pp-dental.js');
   run(fs.readFileSync(REPO + 'pp-plan.js', 'utf8'), 'pp-plan.js');
   for (const n of ['_rowCur', '_curLblOf', '_rowLbl', 'syncUnitRowsOnComplete', '_delSession_inner', 'delSession', 'syncToothStatusOnComplete',
-                   '_completeSessionFromProfile_inner', 'completeSessionFromProfile', 'completeToothPlannedFromModal']) {
+                   '_completeSessionFromProfile_inner', 'completeSessionFromProfile', 'completeToothPlannedFromModal', 'drawPendingImplantAfterExtraction']) {
     if (!ext[n]) throw new Error('extract missing ' + n); run(ext[n], 'pp.html:' + n);
   }
   const CAT = [
     ['bridge','جسر','bridge','#dc2626','#991b1b'], ['c_zr','جسر (زركون)','bridge','#a855f7','#6b21a8'],
     ['implant','زراعة','implant','#9ca3af','#4b5563'], ['extracted','قلع','extraction','#ef4444','#991b1b'],
     ['czr','تاج زركون','crown_full','#e5e7eb','#6b7280'], ['crown','تاج خزف على معدن','crown_full','#f97316','#9a3412'],
-    ['comp','حشوة كومبوزت','crown','#2563eb','#1e3a8a']];
+    ['comp','حشوة كومبوزت','crown','#2563eb','#1e3a8a'], ['rct','حشوة عصب','root','#ec4899','#9d174d']];   /* v600: علاجٌ جذري لسيناريو 42 */
   db.T.treatments = CAT.map((c, i) => ({ id: 'T' + i, treatment_key: c[0], name: c[1], label: c[1], target_part: c[2], fill: c[3], stroke: c[4],
     is_active: true, builtin: true, is_favorite: false, needs_lab: false, price: 0, sort_order: i, category: 'restorative', post_extraction: false }));
   ctx.__bootCatalog = async () => { await vm.runInContext('loadTreatmentsFromSupabase()', ctx); vm.runInContext('var _T = rebuildToothMaps(); var T_FILL = _T.fill, T_STROKE = _T.stroke, T_LABEL = _T.label;', ctx); };

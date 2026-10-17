@@ -50,8 +50,10 @@ function updateBookingBadge() {
   for (var i = 0; i < bookingRequests.length; i++) {
     if (bookingRequests[i].status === 'pending') n++;
   }
+  n += (typeof portalReqNewCount === 'function') ? portalReqNewCount() : 0;   /* M187: + طلباتُ بوابة المريض */
   b.textContent = n;
   b.style.display = n > 0 ? 'inline-block' : 'none';
+  b.title = (typeof portalReqNamesTitle === 'function') ? portalReqNamesTitle() : '';
 }
 
 function bookingFmtDate(ds) {
@@ -148,7 +150,7 @@ function renderBookingRequests() {
     return (a.requested_date + (a.requested_time||'')).localeCompare(b.requested_date + (b.requested_time||''));
   });
 
-  var html =
+  var html = ((typeof portalReqBlock === 'function') ? portalReqBlock() : '') +   /* M187: طلباتُ بوابة المريض أولاً */
     '<div style="padding:10px 14px;margin-bottom:10px;background:var(--bg4,rgba(255,255,255,0.04));border-radius:10px;font-size:13px;color:var(--text2);">'
     + '🌐 طلبات الحجز الإلكتروني — ' + (pending.length > 0
         ? ('<b style="color:var(--text)">' + pending.length + '</b> طلب بانتظار التأكيد')
@@ -386,7 +388,7 @@ function bookingMarkConfirmed(apptId, savedAppt) {
         .eq('clinic_id', currentUser.id);
       if (error) { console.warn('P5 confirm link:', error); showToast('⚠️ الموعد حُفظ لكن تعذّر ربط طلب الحجز'); return; }
       showToast('🌐 تم تأكيد طلب الحجز وربطه بالموعد');
-      showBookingWaConfirm(ctx, savedAppt);
+      await showBookingWaConfirm(ctx, savedAppt);   /* M177: قد يُنشئ رابط الاستمارة قبل عرض البطاقة */
       await loadBookingRequests();
     } catch (e) { console.warn('P5 confirm link:', e); }
   })();
@@ -409,11 +411,58 @@ function bookingBuildConfirmMsg(ctx, finalDate, finalTime) {
     + ' نتطلع لرؤيتكم 🦷';
 }
 
-function showBookingWaConfirm(ctx, savedAppt) {
+/* M177: سطرُ رابط الاستمارة يركب على رسالة التأكيد — للمريض المربوط ببطاقة وبلا استمارةٍ حديثة (سنة) فقط،
+   وبإذن الإعداد intake_on_booking وبوابة الخطة booking (نفسُ عقد pp-intake.js: صفٌّ معلّقٌ واحد يُعاد استعماله).
+   أي فشلٍ ⇒ سطرٌ فارغ — رسالةُ التأكيد لا تتعطّل أبداً. */
+var INTAKE_FRESH_MS = 365 * 86400000, INTAKE_LINK_DAYS = 14;
+var BK_DEFAULT_INTAKE_TPL =
+'مرحباً {patient_first_name} 🌟\n' +
+'قبل زيارتك إلى {clinic_name}، نرجو تعبئة استمارة المريض (تأخذ دقيقتين) عبر هذا الرابط:\n' +
+'{intake_link}\n' +
+'المعلومات تساعد الطبيب على علاجك بأمان. شكراً 🦷';
+/* من القالب: نأخذ الأسطر التي تسبق {intake_link} مباشرةً (الدعوة) + الرابط — بلا التحية (رسالةُ التأكيد تحيّي أصلاً) */
+function bookingIntakeLineOf(tpl, link) {
+  var lines = String(tpl || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+  var i = -1;
+  for (var k = 0; k < lines.length; k++) if (lines[k].indexOf('{intake_link}') > -1) { i = k; break; }
+  if (i < 0) return '📝 استمارة المريض: ' + link;
+  var invite = (i > 0 && !/^مرحباً|^أهلاً|^السلام/.test(lines[i - 1])) ? lines[i - 1] + ' ' : '📝 ';
+  return invite + lines[i].replace(/\{intake_link\}/g, link);
+}
+async function bookingIntakeLine(patientId) {
+  try {
+    if (!patientId || !currentUser) return '';
+    if (window.SyDentPlan && typeof window.SyDentPlan.can === 'function' && !window.SyDentPlan.can('booking')) return '';
+    if (CLINIC_SETTINGS_WA && CLINIC_SETTINGS_WA.intake_on_booking === false) return '';
+    var r = await window.sb.from('patient_intakes').select('id, status, token, expires_at, submitted_at, created_at')
+      .eq('owner_id', currentUser.id).eq('patient_id', patientId).order('created_at', { ascending: false }).limit(5);
+    if (r.error) return '';
+    var rows = r.data || [];
+    var fresh = rows.find(function (x) { return (x.status === 'reviewed' || x.status === 'submitted') && (Date.now() - new Date(x.submitted_at || x.created_at).getTime()) < INTAKE_FRESH_MS; });
+    if (fresh) return '';
+    var pend = rows.find(function (x) { return x.status === 'pending'; });
+    var exp = new Date(Date.now() + INTAKE_LINK_DAYS * 86400000).toISOString(), token = null;
+    if (pend) {
+      var u = await window.sb.from('patient_intakes').update({ expires_at: exp }).eq('id', pend.id).eq('owner_id', currentUser.id).eq('status', 'pending').select('token').single();
+      if (u.error || !u.data) return '';
+      token = u.data.token;
+    } else {
+      var ins = await window.sb.from('patient_intakes').insert({ owner_id: currentUser.id, patient_id: patientId, expires_at: exp }).select('token').single();
+      if (ins.error || !ins.data) return '';
+      token = ins.data.token;
+    }
+    var base = (location.origin && /^https?:/.test(location.origin)) ? location.origin : 'https://sydent.app';
+    /* M178: سطرُ الرابط يُستخرج من قالب الإعدادات نفسه — السطرُ الذي يحمل {intake_link} (وإلا الافتراضي) */
+    var tpl = (CLINIC_SETTINGS_WA && CLINIC_SETTINGS_WA.whatsapp_intake_template && String(CLINIC_SETTINGS_WA.whatsapp_intake_template).trim()) || BK_DEFAULT_INTAKE_TPL;
+    return '\n' + bookingIntakeLineOf(tpl, base + '/intake.html?t=' + token);
+  } catch (e) { console.warn('bookingIntakeLine:', e); return ''; }
+}
+
+async function showBookingWaConfirm(ctx, savedAppt) {
   if (!savedAppt || !savedAppt.date || !savedAppt.time) return;
   var phoneIntl = (typeof normalizePhone === 'function') ? normalizePhone(ctx.phone) : null;
   if (!phoneIntl) return;  // لا هاتف صالح → التوست الاعتيادي يكفي
-  var msg = bookingBuildConfirmMsg(ctx, savedAppt.date, savedAppt.time);
+  var msg = bookingBuildConfirmMsg(ctx, savedAppt.date, savedAppt.time) + await bookingIntakeLine(savedAppt.patient_id);
   var old = document.getElementById('bkWaConfirmCard');
   if (old) old.remove();
   var card = document.createElement('div');

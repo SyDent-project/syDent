@@ -7,7 +7,7 @@ const ls = b => b.db.T.ledger_sessions.filter(r => r.status === 'planned').map(r
 const A = E.scan(REPO + 'appointments.html');
 /* completeApptWithProcedures' per-session core, verbatim order: flip the ledger row, then the page's own chart sync */
 async function apptComplete(b, ids) {
-  for (const n of ['_apptSessionTreatmentKey', '_apptSyncUnitRowsOnComplete', '_apptSyncToothStatusOnComplete']) if (!b.ctx[n]) b.run(A[n], 'appt:' + n);
+  for (const n of ['_apptSessionTreatmentKey', '_apptKeyPart', '_apptDrawPendingImplant', '_apptSyncUnitRowsOnComplete', '_apptSyncToothStatusOnComplete']) if (!b.ctx[n]) b.run(A[n], 'appt:' + n);
   for (const id of ids) {
     const s = b.db.T.ledger_sessions.find(r => r.id === id);
     const u = b.db.T.ledger_sessions.find(r => r.id === id); u.status = 'completed';

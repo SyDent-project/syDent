@@ -38,7 +38,7 @@ function ppNormalizePhone(raw) {
   // guess the country → return null; callers show the "add country code" hint instead
   // of silently messaging a wrong Syrian number.
   if (!raw) return null;
-  var p = String(raw).replace(/\D/g, '');
+  var p = String(raw).replace(/[\u0660-\u0669]/g, function(d){ return String(d.charCodeAt(0) - 0x0660); }).replace(/[\u06F0-\u06F9]/g, function(d){ return String(d.charCodeAt(0) - 0x06F0); }).replace(/\D/g, '');   // v622: Arabic-Indic (٠-٩) and Persian (۰-۹) digits — an Arabic keyboard's default
   if (!p) return null;
   if (p.indexOf('00') === 0) p = p.substring(2);
   if (p.indexOf('0') === 0) {
@@ -916,6 +916,8 @@ var PP_MSG_KINDS = {
   review:       { l: 'طلب تقييم',      i: '🌟', tone: 'yellow' },
   referral:     { l: 'إحالة',          i: '↗️', tone: 'gray'   },
   free:         { l: 'رسالة حرة',      i: '✍️', tone: 'gray'   },
+  intake:       { l: 'استمارة المريض', i: '📝', tone: 'cyan'   },   /* M177 */
+  portal:       { l: 'بوابة المريض',   i: '🔗', tone: 'green'  },   /* M180 */
   other:        { l: 'رسالة',          i: '💬', tone: 'gray'   },
   reminder:     { l: 'تذكير بموعد',    i: '⏰', tone: 'lime'   }   /* من reminder_logs — لا يُكتب بـpatient_messages */
 };

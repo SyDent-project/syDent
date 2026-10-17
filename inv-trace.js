@@ -1,4 +1,4 @@
-/* inv-trace.js — M177 (task C3, part 2): batch number (LOT) tracing — one source for both screens.
+/* inv-trace.js — M173 (task C3, part 2): batch number (LOT) tracing — one source for both screens.
    No new table: consume movements already carry patient_id · session_id · batch_id (M169).
      • patientMaterials(sb, ownerId, patientId): what this patient received — item · quantity · LOT · date
        (the patient card «🧪 المواد ورقم الدفعة»).

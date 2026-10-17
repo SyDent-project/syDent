@@ -7,7 +7,7 @@
      • buildLines(rows): صفوفُ النافذة ⇒ [{item_id, qty, session_id}] للقاعدة.
      • run(sb, lines, note) ⇒ {ok, lines} أو {ok:false, error}.
      • message(res, names): نصُّ التوست — والنقصُ يُعلَن باسم الصنف (#689).
-     • M177: loadLots(sb, ownerId, itemIds) الدفعاتُ المفتوحة ذاتُ الرقم (LOT) لكل صنف، الأقربُ انتهاءً أولاً ·
+     • M173: loadLots(sb, ownerId, itemIds) الدفعاتُ المفتوحة ذاتُ الرقم (LOT) لكل صنف، الأقربُ انتهاءً أولاً ·
        lotPicker(cls, idx, list) منتقي «الدفعة (LOT)» للنافذتين — الفارغُ «تلقائي» (FEFO كما كان)،
        والمختارةُ تُخصم أولاً بالقاعدة (batch_id بالسطر). */
 (function () {
@@ -45,7 +45,7 @@
       if (!r || !r.item_id) return;
       split(r.qty, r.contribs).forEach(function (s) {
         var l = { item_id: r.item_id, qty: s.qty, session_id: s.session_id };
-        if (r.batch_id) l.batch_id = r.batch_id;   // M177: الدفعةُ المختارة أولاً
+        if (r.batch_id) l.batch_id = r.batch_id;   // M173: الدفعةُ المختارة أولاً
         out.push(l);
       });
     });

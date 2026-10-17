@@ -1,4 +1,4 @@
-/* C3 part 1 — prover for suppliers, purchase orders and partial receiving (M176 + inv-po.js + inventory/expenses pages).
+/* C3 part 1 — prover for suppliers, purchase orders and partial receiving (M172 + inv-po.js + inventory/expenses pages).
    Standalone, on the live files:
    (1) migration: five owned tables with owner RLS + the shared subscription gate · ownership guard on every link
        (supplier · order · item · receipt · batch · expense of the right currency) · movement guard keeps M169/M171 and
@@ -20,7 +20,7 @@ const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL', m); } }
 function fnSrc(src, sig) { const i = src.indexOf(sig); if (i < 0) return ''; const j = src.indexOf('\n}\n', i); return src.slice(i, j + 2); }
 
 async function suite(F) {
-  const M = F['migrations/176_inventory_suppliers_orders.sql'];
+  const M = F['migrations/172_inventory_suppliers_orders.sql'];
   const T = ['inventory_suppliers', 'inventory_orders', 'inventory_order_lines', 'inventory_receipts', 'inventory_receipt_lines'];
   T.forEach(t => {
     ok(new RegExp('ALTER TABLE public\\.' + t + ' ENABLE ROW LEVEL SECURITY').test(M), 'migration: RLS on ' + t);
@@ -139,10 +139,10 @@ async function suite(F) {
   } catch (e) { ok(false, 'receive window throws: ' + e.message); }
 }
 
-const FILES = ['migrations/176_inventory_suppliers_orders.sql', 'inv-po.js', 'inventory.html', 'expenses.html', 'scripts/cache-bust.sh'];
+const FILES = ['migrations/172_inventory_suppliers_orders.sql', 'inv-po.js', 'inventory.html', 'expenses.html', 'scripts/cache-bust.sh'];
 const base = {}; FILES.forEach(f => { base[f] = read(f); });
 const rep = (f, a, b) => F => Object.assign({}, F, { [f]: F[f].replace(a, b) });
-const MIG = 'migrations/176_inventory_suppliers_orders.sql';
+const MIG = 'migrations/172_inventory_suppliers_orders.sql';
 const MUTANTS = [
   ['receipt lines without the subscription gate', rep(MIG, "SELECT public._sub_guard_table('public.inventory_receipt_lines');", '')],
   ['foreign supplier accepted on an order', rep(MIG, "RAISE EXCEPTION 'order_supplier_not_owned'", "RAISE NOTICE 'order_supplier_not_owned'")],

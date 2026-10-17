@@ -63,13 +63,15 @@
     } catch (e) { out.error = e; return out; }
   }
 
-  /* صفوفُ الأفراد من الصفّ الأساس المحفوظ — الحقولُ الجدولية فقط */
+  /* صفوفُ الأفراد من الصفّ الأساس المحفوظ — الحقولُ الجدولية + ختمُ التأكيد */
   function rows(saved, plan) {
     return plan.map(function (s) {
       return {
         doctor_id: saved.doctor_id, patient_id: s.patient.id, patient_name: s.patient.name || '',
         date: saved.date, time: s.time, duration: saved.duration || 30, type: saved.type || null,
-        status: 'scheduled', notes: null, color: saved.color || null, stroke: saved.stroke || null,
+        /* v617: مؤكدٌ منذ الإنشاء كالموعد الأساس (قرار المالك 12/10/2026) — كان scheduled */
+        status: 'confirmed', confirmation_status: 'confirmed', confirmed_at: new Date().toISOString(),
+        notes: null, color: saved.color || null, stroke: saved.stroke || null,
         provider_id: saved.provider_id || null, operatory_id: saved.operatory_id || null,
         appointment_type_id: saved.appointment_type_id || null, is_planned: false
       };

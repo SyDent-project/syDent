@@ -38,7 +38,15 @@
     { key:'cardiac',            label:'أمراض قلب' },
     { key:'anticoagulants',     label:'مميعات دم' },
     { key:'pregnancy',          label:'حمل / إرضاع' },
-    { key:'asthma',             label:'ربو' }
+    { key:'asthma',             label:'ربو' },
+    /* v621: the seven conditions the patient intake asks about (intake.html INTAKE_EXTRA_DEFS — same keys, same labels · prove-intake) */
+    { key:'bisphosphonates',    label:'أدوية هشاشة العظام (بيسفوسفونات)' },
+    { key:'bleeding',           label:'نزيف يصعب إيقافه' },
+    { key:'infectious',         label:'مرض معدٍ (التهاب كبد وغيره)' },
+    { key:'epilepsy',           label:'صرع' },
+    { key:'thyroid',            label:'غدة درقية' },
+    { key:'kidney_liver',       label:'أمراض كلى / كبد' },
+    { key:'smoker',             label:'مدخّن' }
   ];
   var ALLERGY_FLAGS_DEFS = [
     { key:'penicillin_allergy', label:'بنسلين' },

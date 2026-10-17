@@ -20,31 +20,35 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261015a"></script>
+<script src="theme.js?v=20261017a"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261015a"></script>
-<script src="sy-modal.js?v=20261015a"></script>
-<script src="lab-redo.js?v=20261015a"></script>
-<script src="lab-due.js?v=20261015a"></script>
-<script src="lab-slip.js?v=20261015a"></script>
-<script src="lab-files.js?v=20261015a"></script>
-<script src="pay-methods.js?v=20261015a"></script>
-<script src="appt-conflict.js?v=20261015a"></script>
-<script src="sidebar.js?v=20261015a"></script>
-<script src="ref-pick.js?v=20261015a"></script>
-<script src="inv-consume.js?v=20261015a"></script>
-<script src="inv-trace.js?v=20261015a"></script>
-<script src="timepicker.js?v=20261015a"></script>
-<script src="pp-modules.js?v=20261015a"></script>
-<script src="pp-wa.js?v=20261015a"></script>
-<script src="pp-clinical.js?v=20261015a"></script>
-<script src="pp-dental.js?v=20261015a"></script>
-<script src="pp-plan.js?v=20261015a"></script>
-<script src="pp-timeline.js?v=20261015a"></script>
-<script src="pp-appt.js?v=20261015a"></script>
-<script src="pp-core.js?v=20261015a"></script>
-<script src="pp-extras.js?v=20261015a"></script>
-<link rel="stylesheet" href="patient-profile.css?v=20261015a">
+<script src="supabase-init.js?v=20261017a"></script>
+<script src="sy-modal.js?v=20261017a"></script>
+<script src="lab-redo.js?v=20261017a"></script>
+<script src="lab-due.js?v=20261017a"></script>
+<script src="lab-slip.js?v=20261017a"></script>
+<script src="lab-files.js?v=20261017a"></script>
+<script src="pay-methods.js?v=20261017a"></script>
+<script src="appt-conflict.js?v=20261017a"></script>
+<script src="sidebar.js?v=20261017a"></script>
+<script src="ref-pick.js?v=20261017a"></script>
+<script src="inv-consume.js?v=20261017a"></script>
+<script src="inv-trace.js?v=20261017a"></script>
+<script src="timepicker.js?v=20261017a"></script>
+<script src="pp-modules.js?v=20261017a"></script>
+<script src="pp-wa.js?v=20261017a"></script>
+<script src="pp-clinical.js?v=20261017a"></script>
+<script src="pp-dental.js?v=20261017a"></script>
+<script src="pp-plan.js?v=20261017a"></script>
+<script src="pp-timeline.js?v=20261017a"></script>
+<script src="pp-appt.js?v=20261017a"></script>
+<script src="pp-core.js?v=20261017a"></script>
+<script src="pp-extras.js?v=20261017a"></script>
+<script src="pp-intake.js?v=20261017a"></script>
+<script src="pp-portal.js?v=20261017a"></script>
+<script src="xray-viewer.js?v=20261017a"></script>
+<script src="pp-xray.js?v=20261017a"></script>
+<link rel="stylesheet" href="patient-profile.css?v=20261017a">
 <style>
 /* v270: رأسُ البطاقة للمريض ثنائي العملة — سطرٌ لكل طبقة بوسمه ولونه (كانت الطبقة
    الثانية مخفيّةً بتلميحِ hover لا يراه أحد). صفحيٌّ عمداً لا في patient-profile.css. */
@@ -69,7 +73,7 @@
 :root[data-theme="light"] .perio-arch-title.perio-arch-lower{border-top:2px dashed #7d8fa6;}   /* v345: أوضح بالفاتح */
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261015a">
+<link rel="stylesheet" href="theme.css?v=20261017a">
 </head>
 <body>
 <script>
@@ -283,7 +287,7 @@
         <div class="draft-hint">📱 دوّر الجهاز أفقياً لتكبير المخطط أثناء الشرح</div>
       </div>
       <div class="ortho-banner" id="orthoBanner" style="display:none;"></div>
-      <div id="watchDueBanner" style="display:none;margin:6px 2px 4px;padding:8px 12px;border:1px solid #6b7280;border-radius:10px;background:rgba(107,114,128,.12);color:var(--text);font-size:12.5px;line-height:1.7;"></div>
+      <div id="watchDueBanner" style="display:none;margin:6px 2px 16px;padding:8px 12px;border:1px solid #6b7280;border-radius:10px;background:rgba(107,114,128,.12);color:var(--text);font-size:12.5px;line-height:1.7;"></div>
       <div class="jaw-wrap" id="jawWrap" data-occview="all" data-dent="permanent">
         <div class="jaw-row row-buc" id="upperJaw"></div>
         <div class="jaw-row row-occ" id="upperOcc"></div>
@@ -310,6 +314,8 @@
         <div class="irow"><span class="ikey">تحذيرات طبية</span><span class="ival" id="iMedFlags" style="color:var(--red)">جارٍ التحميل…</span></div>
         <div class="irow"><span class="ikey">الحساسيات</span><span class="ival" id="iAllergies" style="color:var(--yellow-ink)">جارٍ التحميل…</span></div>
         <div class="irow"><span class="ikey">التاريخ المرضي</span><span class="ival" id="iHistory">جارٍ التحميل…</span></div>
+        <div class="irow pp-intake-row" id="intakeRow"><span class="ikey">استمارة المريض</span><span class="ival" id="iIntake"><span class="pp-intake-st">جارٍ التحميل…</span></span></div>   <!-- M177: استمارةُ المريض الرقمية — الرسم بـppIntakeRender (pp-intake.js) -->
+        <div class="irow pp-intake-row" id="portalRow"><span class="ikey">بوابة المريض</span><span class="ival" id="iPortal"><span class="pp-intake-st">جارٍ التحميل…</span></span></div>   <!-- M180: بوابةُ المريض الخفيفة — الرسم بـppPortalRender (pp-portal.js) -->
         <div class="irow"><span class="ikey">حالة الدفع</span><span class="ival" id="iPayStatus">—</span></div>
         <div class="irow"><span class="ikey">الحالة</span><span class="ival" id="iStatus">—</span></div>
         <div class="irow"><span class="ikey">المصدر</span><span class="ival" id="iSource">—</span></div>
@@ -338,7 +344,7 @@
       <div id="familyBar" style="display:flex;flex-wrap:wrap;gap:8px;padding-top:4px;"></div>
     </div>
     <!-- self-contained family-link dialog -->
-    <div id="famLinkModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:center;justify-content:center;">
+    <div id="famLinkModal" data-live-hold style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:center;justify-content:center;">
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;width:min(430px,92vw);max-height:80vh;display:flex;flex-direction:column;padding:16px;">
         <div style="font-weight:800;font-size:15px;margin-bottom:10px;color:var(--text);">👨‍👩‍👧 ربط مريض بالعائلة</div>
         <input type="text" id="famSearch" placeholder="ابحث بالاسم أو الهاتف…" oninput="famFilter()" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:10px;">
@@ -417,6 +423,7 @@
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-inline-start:auto;">
           <select id="perioExamSel" onchange="perioPickExam(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);font-family:'Cairo',sans-serif;font-size:12.5px;max-width:220px;"></select>
           <button type="button" class="hist-btn" id="perioCompareBtn" onclick="perioToggleCompare()">🔍 مقارنة بالسابق</button>
+          <select id="perioCmpSel" onchange="perioRunCompare(this.value)" aria-label="الفحص المقارَن به" style="display:none;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);font-family:'Cairo',sans-serif;font-size:12.5px;max-width:220px;"></select>
           <button type="button" class="hist-btn" id="perioPrintBtn" onclick="perioPrint()">🖨 طباعة</button>
           <button type="button" class="hist-btn exit" id="perioDelBtn" onclick="perioDeleteExam()">🗑</button>
           <button type="button" class="hist-btn" style="border-color:var(--green);color:var(--green);" onclick="perioNewExam()">+ فحص جديد</button>
@@ -446,7 +453,7 @@
       </div>
     </div>
     <!-- self-contained new-exam dialog -->
-    <div id="perioNewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:center;justify-content:center;">
+    <div id="perioNewModal" data-live-hold style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:center;justify-content:center;">
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;width:min(360px,92vw);">
         <h3 style="margin:0 0 12px;">🦷 فحص لثة جديد</h3>
         <label style="font-size:12px;color:var(--text2);">تاريخ الفحص</label>
@@ -544,9 +551,9 @@
       <div class="card-head">
         <span class="card-title">ملفات المريض</span>
         <select id="pfUploadCategory" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:7px 12px;font-family:'Cairo',sans-serif;font-size:13px;cursor:pointer;">
-          <option value="xray">أشعة</option>
+          <option value="xray" selected>أشعة</option>
           <option value="clinical_photo">صورة سريرية</option>
-          <option value="document" selected>مستند</option>
+          <option value="document">مستند</option>
           <option value="receipt">إيصال</option>
           <option value="other">أخرى</option>
         </select>
@@ -554,13 +561,18 @@
           <option value="">— عام (بلا سن) —</option>
         </select>
       </div>
+      <div id="pfUsage" class="pf-usage" style="display:none;"></div>
       <div id="pfDropZone" onclick="document.getElementById('pfFileInput').click()"
            style="border:2px dashed var(--border);border-radius:12px;padding:28px 16px;text-align:center;cursor:pointer;color:var(--text2);transition:all .2s;margin-bottom:16px;">
         <div style="font-size:34px;line-height:1;">📎</div>
-        <div style="font-weight:700;color:var(--text);margin-top:8px;">اسحب الملفات هنا أو انقر للاختيار</div>
-        <div style="font-size:12px;margin-top:4px;">صور (JPG / PNG / WebP) أو PDF — حتى 10 ميغابايت للملف</div>
+        <div style="font-weight:700;color:var(--text);margin-top:8px;">اسحب الملفات هنا أو الصقها (Ctrl+V) أو انقر للاختيار</div>
+        <div style="font-size:12px;margin-top:4px;">صور (JPG / PNG / WebP) · PDF · أشعة DICOM ‎(.dcm) — الأشعة حتى 30 ميغابايت بلا ضغط، والباقي حتى 10</div>
       </div>
-      <input type="file" id="pfFileInput" accept="image/jpeg,image/png,image/webp,application/pdf" multiple
+      <button type="button" id="pfCamBtn" class="pf-cam" onclick="pfCamPick()">📷 تصوير بالكاميرا</button>
+      <button type="button" id="pfLiveCamBtn" class="pf-livecam" onclick="pfLiveCam()" title="كاميرا الفم أو أي كاميرا موصولة — معاينة حيّة والتقاطٌ مباشر إلى ملفات المريض">📸 كاميرا الفم</button>
+      <input type="file" id="pfFileInput" accept="image/jpeg,image/png,image/webp,application/pdf,.dcm,application/dicom" multiple
+             style="display:none;" onchange="pfOnFilesPicked(this.files); this.value='';">
+      <input type="file" id="pfCamInput" accept="image/*" capture="environment"
              style="display:none;" onchange="pfOnFilesPicked(this.files); this.value='';">
       <div id="pfUploadStatus" style="display:none;font-size:13px;color:var(--green);margin-bottom:12px;text-align:center;"></div>
       <div id="pfFilterBar" style="display:none;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
@@ -569,6 +581,7 @@
           <option value="">الكل</option>
         </select>
       </div>
+      <div id="pfSeg" class="pf-segs" style="display:none;"></div>
       <div id="pfFilesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;"></div>
     </div>
   </div>
@@ -1545,6 +1558,31 @@
 </div>
 
 <!-- WhatsApp Compose Modal — روشتة / تعليمات / رسالة حرة (click-to-chat only, not logged) -->
+<!-- M177: مراجعةُ استمارة المريض — الإجاباتُ كما وصلت + خطةُ الدمج بخانةٍ لكل بند (pp-intake.js) -->
+<div class="modal-overlay sy-m" id="ppIntakeModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>📝 استمارة المريض</h3>
+      <button class="modal-close" onclick="closeModal('ppIntakeModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="pp-intake-meta" id="ppIntakeMeta"></div>
+      <div id="ppIntakeBody"></div>
+      <div class="pp-intake-merge" id="ppIntakeMerge" style="display:none;">
+        <div class="pp-intake-sec-t">ما سيُدمج بالملف عند الاعتماد</div>
+        <div class="pp-intake-hint">الدمجُ يضيف فقط ولا يحذف شيئاً من الملف — ألغِ تحديد أي بند لا تريده.</div>
+        <div id="ppIntakeMergeList"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel-m" onclick="closeModal('ppIntakeModal')">إغلاق</button>
+      <button type="button" class="btn" onclick="ppIntakePrint()" style="font-size:13px;">طباعة</button>
+      <button type="button" class="btn pp-intake-wbtn" onclick="ppIntakeDismiss()" style="font-size:13px;display:none;">حفظ بلا دمج</button>
+      <button type="button" class="btn btn-primary pp-intake-wbtn" onclick="ppIntakeApprove()" style="font-size:13px;display:none;">✅ اعتماد ودمج</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay sy-m" id="ppWaComposeModal">
   <div class="modal-box">
     <div class="modal-head">
@@ -1607,6 +1645,113 @@
       <img id="pfLightboxImg" alt="" style="max-width:100%;max-height:70vh;border-radius:10px;display:none;">
       <a id="pfLightboxDownload" href="#" target="_blank" rel="noopener" download
          style="display:inline-block;margin-top:14px;background:var(--green);color:var(--bg);text-decoration:none;border-radius:10px;padding:9px 18px;font-weight:700;font-size:13px;">تنزيل</a>
+    </div>
+  </div>
+</div>
+
+<!-- M192 (v635): ورقةُ رفع الأشعة ووسمها — نوعُ الصورة · الأسنان من مخططٍ مصغّر · تاريخُ الالتقاط · المصدر.
+     لا إغلاقَ بنقرةٍ خارجية (نموذجٌ معبّأ) · تُفتح بـopenModal (.modal-overlay.open ⇒ SyLive يؤجّل الرسم). -->
+<div class="modal-overlay sy-m sy-m-lg" id="xrUpModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="xrUpTitle">🩻 رفع أشعة</h3>
+      <button class="modal-close" onclick="xrUpClose()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="xrUpFiles" class="xr-files"></div>
+      <input type="file" id="xrUpPick" accept="image/jpeg,image/png,image/webp,.dcm,application/dicom" multiple style="display:none;" onchange="xrUpAddFiles(this.files); this.value='';">
+      <div class="form-group" id="xrUpTypeGroup">
+        <label>نوع الصورة</label>
+        <div id="xrUpTypes" class="xr-pills"></div>
+      </div>
+      <div class="form-group">
+        <label>الأسنان الظاهرة <span class="xr-hint">(انقر السن لاختياره)</span></label>
+        <div id="xrUpTeeth"></div>
+        <div class="xr-quick">
+          <button type="button" class="xr-q" onclick="xrTeethQuick('upper')">الفك العلوي</button>
+          <button type="button" class="xr-q" onclick="xrTeethQuick('lower')">الفك السفلي</button>
+          <button type="button" class="xr-q" onclick="xrTeethQuick('clear')">مسح</button>
+          <button type="button" class="xr-q" id="xrUpPrimary" aria-pressed="false" onclick="xrTogglePrimary()">🧒 أسنان لبنية</button>
+        </div>
+        <div id="xrUpTeethSum" class="xr-sum"></div>
+      </div>
+      <div class="xr-grid2">
+        <div class="form-group">
+          <label for="xrUpDate">تاريخ الالتقاط</label>
+          <input type="date" id="xrUpDate">
+        </div>
+        <div class="form-group" id="xrUpSrcGroup">
+          <label>المصدر</label>
+          <div class="xr-pills">
+            <button type="button" class="xr-pill on" id="xrUpSrc_clinic" aria-pressed="true" onclick="xrSetSource('clinic')">🏠 العيادة</button>
+            <button type="button" class="xr-pill" id="xrUpSrc_center" aria-pressed="false" onclick="xrSetSource('center')">🏥 مركز أشعة</button>
+          </div>
+          <div id="xrUpSrcNameWrap" style="display:none;margin-top:8px;">
+            <input type="text" id="xrUpSrcName" maxlength="120" placeholder="اسم المركز (اختياري)">
+          </div>
+        </div>
+      </div>
+      <details id="xrUpCbctWrap" class="xr-cbct">
+        <summary>🧊 رابط CBCT لدى المركز (اختياري)</summary>
+        <input type="url" id="xrUpCbct" maxlength="2000" dir="ltr" placeholder="https://…">
+        <div class="xr-hint">الصورة ثلاثية الأبعاد تبقى بعارض المركز — يُحفظ الرابط وحده ويُفتح بنقرة.</div>
+      </details>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-secondary" onclick="xrUpClose()">إلغاء</button>
+      <button type="button" class="btn btn-primary" id="xrUpGo" onclick="xrUpSubmit()">⬆️ رفع</button>
+    </div>
+  </div>
+</div>
+
+<!-- v637: معرضُ صور السن (شارةُ 🩻 على المخطط) أو كلِّ الأشعة — مرتّبٌ بتاريخ الالتقاط، وانتقاءُ صورتين للمقارنة.
+     قراءةٌ وانتقاء (لا بيانات تُكتب هنا إلا «📎 أضف صورة» المحروس) ⇒ لا إغلاقَ بنقرةٍ خارجية كسائر النوافذ. -->
+<div class="modal-overlay sy-m sy-m-lg" id="xrGalModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="xrGalTitle">🦷 صور السن</h3>
+      <button class="modal-close" onclick="xrGalClose()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="xrGalHint" class="xr-hint" style="margin-bottom:10px;"></div>
+      <div id="xrGalGrid" class="xr-gal"></div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-secondary" onclick="xrGalToFiles()">📁 تبويب الملفات</button>
+      <button type="button" class="btn btn-secondary" id="xrGalAdd" onclick="xrGalAttach()">📎 أضف صورة</button>
+      <button type="button" class="btn btn-secondary" id="xrGalCam" onclick="xrGalCam()">📸 صوّر</button>
+      <button type="button" class="btn btn-primary" id="xrGalCmp" onclick="xrGalCompare()" disabled>⚖️ مقارنة</button>
+    </div>
+  </div>
+</div>
+
+<!-- v642: كاميرا الفم (أو أي كاميرا UVC موصولة) — معاينةٌ حيّة بالمتصفح، التقاطٌ بالزر أو Space/Enter (زرُّ مقبض
+     الكاميرا يُحاكي أحدَهما غالباً)، ثم تمرّ اللقطاتُ بورقة الوسم (الأسنان · التاريخ) وتُرفع صوراً سريرية.
+     لا إغلاقَ بنقرةٍ خارجية (لقطاتٌ غير مرفوعة) · البثُّ يُوقف عند الإغلاق. -->
+<div class="modal-overlay sy-m sy-m-lg" id="xrCamModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>📸 كاميرا الفم</h3>
+      <button class="modal-close" onclick="xrCamClose()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="xr-cam-bar">
+        <select id="xrCamDevice" onchange="xrCamStart(this.value)" aria-label="الكاميرا"></select>
+        <button type="button" class="xr-q" id="xrCamMirror" aria-pressed="false" onclick="xrCamMirror()">🪞 انعكاس</button>
+      </div>
+      <div class="xr-cam-stage" id="xrCamStage">
+        <video id="xrCamVideo" autoplay playsinline muted></video>
+        <div class="xr-cam-flash" id="xrCamFlash"></div>
+        <div class="xr-cam-msg" id="xrCamMsg" hidden></div>
+      </div>
+      <div class="xr-cam-actions">
+        <button type="button" class="btn btn-primary xr-cam-shot" id="xrCamShotBtn" onclick="xrCamShot()">📸 التقاط <span class="xr-hint">(Space)</span></button>
+      </div>
+      <div id="xrCamShots" class="xr-files"></div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-secondary" onclick="xrCamClose()">إلغاء</button>
+      <button type="button" class="btn btn-primary" id="xrCamDone" onclick="xrCamDone()" disabled>✓ إنهاء ووسم اللقطات</button>
     </div>
   </div>
 </div>
@@ -1907,7 +2052,7 @@
 </div>
 
 <!-- Modal: تأكيد خصم المواد من المخزون (P3-B) -->
-<!-- M177 (inv-trace.js) — المواد ورقم الدفعة: قراءة بحتة -->
+<!-- M173 (inv-trace.js) — المواد ورقم الدفعة: قراءة بحتة -->
 <div class="modal-overlay sy-m sy-m-lg" id="ptLotsModal">
   <div class="modal-box">
     <div class="modal-head"><h3>🧪 المواد ورقم الدفعة</h3><button class="modal-close" onclick="closeModal('ptLotsModal')">✕</button></div>
@@ -2237,6 +2382,7 @@ var _splitsLoadedOk = false;   // v262: آخر قراءة للتوزيعات ن�
 var adjustments = [];     // account_adjustments for current patient (discount / write_off / refund)
 var patientPlans = [];    // payment_plans for current patient (Backlog #3 — scheduling layer, display-only)
 var teethMap  = {};   // { tooth_num: { O: 'filling', M: 'crown', D: null, B: null, L: null, I: null } }
+var teethDx   = {};   // v605 (M179): { tooth_num: { surface: 'O:cond-caries[,M:cond-wear]' } } — التشخيصُ تحت علاج السطح (منفصلٌ عن teethMap عمداً)
 var labOrders = [];   // lab orders for current patient
 var _chartStatusFilter = 'all';   // chart view filter: all | planned | completed | hide_existing (in-memory, like occViewSeg)
 var allLabs   = [];   // all labs for the doctor
@@ -2886,9 +3032,11 @@ async function loadAll() {
   const { data: td } = await window.sb.from('teeth_status').select('*')
     .eq('patient_id', patientId);
   teethMap = {};
+  teethDx = {}; window.teethDx = teethDx;   /* v605 */
   (td || []).forEach(function(t){
     var n = String(t.tooth_num);
     var s = t.surface || 'O';
+    if (t.dx_key) { if (!teethDx[n]) teethDx[n] = {}; teethDx[n][s] = t.dx_key; }   /* v605 (M179) */
     if (!teethMap[n]) teethMap[n] = {};
     teethMap[n][s] = t.treatment_key;
     // Store treatment status alongside (default 'completed' for legacy data with no status column)
@@ -2912,16 +3060,13 @@ async function loadAll() {
   // _pfFiles here). Graceful: empty map if the tooth_num column is missing (pre-M55).
   _toothPhotoCounts = {};
   try {
-    var pcRes = await window.sb.from('patient_documents').select('tooth_num')
+    /* M192: كلُّ أسنان الصورة (teeth[]) · الفئةُ للأيقونة 🩻 · المعرّفُ كي يرى SyLive حذفاً من جهازٍ آخر.
+       tooth_num مرآةُ أول سن (تريغر) ⇒ «غير فارغ» يعني صورةً مربوطة بسنٍّ واحدٍ على الأقل. */
+    var pcRes = await window.sb.from('patient_documents').select('id,teeth,tooth_num,category')
       .eq('patient_id', patientId)
       .not('tooth_num', 'is', null);
-    if (!pcRes.error && pcRes.data) {
-      pcRes.data.forEach(function(r){
-        var tn = (r.tooth_num != null && r.tooth_num !== '') ? String(r.tooth_num) : '';
-        if (tn) _toothPhotoCounts[tn] = (_toothPhotoCounts[tn] || 0) + 1;
-      });
-    }
-  } catch(e) { /* tooth_num column missing pre-Migration-55 → leave empty */ }
+    if (!pcRes.error && pcRes.data) pfCountTeeth(pcRes.data);
+  } catch(e) { /* لا شارات — التبويبُ يعيد العدّ حين يُفتح */ }
     })(),
     (async function(){
   // lab orders (defensive: fail silently if table missing or RLS blocks)
@@ -2969,6 +3114,8 @@ async function loadAll() {
   // Both reads are fault-tolerant (missing tables won't break the page).
   try { await ppLoadClinicSettings(); } catch(e) { console.warn('ppLoadClinicSettings:', e); }
   try { if (typeof ppFlagsInit === 'function') ppFlagsInit(); } catch(e) {}   /* M148: غير حاجب — الهيدر يُرسم ثم تلحقه الأعلام */
+  try { if (typeof ppIntakeLoad === 'function') ppIntakeLoad(); } catch(e) {}   /* M177: غير حاجب — صفُّ الاستمارة يلحق بعد معرفة الخطة */
+  try { if (typeof ppPortalLoad === 'function') ppPortalLoad(); } catch(e) {}   /* M180: غير حاجب — صفُّ البوابة يلحق بعد معرفة الخطة */
   try { await ppLoadReminderLogs(); }   catch(e) { console.warn('ppLoadReminderLogs:', e); }
     })(),
     (async function(){
@@ -3783,7 +3930,15 @@ const MEDICAL_FLAGS_DEFS = [
   { key:'cardiac',            label:'أمراض قلب' },
   { key:'anticoagulants',     label:'مميعات دم' },
   { key:'pregnancy',          label:'حمل / إرضاع' },
-  { key:'asthma',             label:'ربو' }
+  { key:'asthma',             label:'ربو' },
+  /* v621: the seven conditions the patient intake asks about (intake.html INTAKE_EXTRA_DEFS — same keys, same labels · prove-intake) */
+  { key:'bisphosphonates',    label:'أدوية هشاشة العظام (بيسفوسفونات)' },
+  { key:'bleeding',           label:'نزيف يصعب إيقافه' },
+  { key:'infectious',         label:'مرض معدٍ (التهاب كبد وغيره)' },
+  { key:'epilepsy',           label:'صرع' },
+  { key:'thyroid',            label:'غدة درقية' },
+  { key:'kidney_liver',       label:'أمراض كلى / كبد' },
+  { key:'smoker',             label:'مدخّن' }
 ];
 /* فصل التحذيرات عن الحساسيات (قرار المالك 19/07/2026): مفتاحا الحساسية يبقيان
    مخزَّنين داخل medical_flags نفسها (صفر ترحيل بيانات) لكن يُعرَضان تحت الحساسيات. */
@@ -3964,7 +4119,8 @@ function renderSessions() {
   var showProviderCol = CLINIC_DOCTORS && CLINIC_DOCTORS.length >= 1;
   var DASH_ = '<span class="sess-dash">—</span>';
   var _visits = (typeof planVisits === 'function') ? planVisits() : [];   // v410: تُحسب مرّةً للجدول كله
-  sessions.forEach(function(s) {
+  var _tableRows = (typeof sessionsForTable === 'function') ? sessionsForTable(sessions) : sessions;   /* v611: المخطّط أولاً بالخيار ثم المرحلة */
+  _tableRows.forEach(function(s) {
     /* v353: جدولٌ بأعمدة (طلب المالك): التاريخ · العلاج · السن · الحالة · الطبيب · الدفع ·
        التفاصيل (الوصف + الملاحظة + الموعد/المخبر) · التكلفة · الأزرار. عرضٌ بحت — الحساب
        والأزرار ووظائفها كما هي. تحت 980px (حاوية mc) يصير كلُّ صفٍّ بطاقة (patient-profile.css). */
@@ -3977,7 +4133,7 @@ function renderSessions() {
     // السن أو المنطقة (Phase 3 Feature G): السنُّ يغلب؛ وإلا الربع/الفك؛ و«الفم كامل» يحمله الوصف.
     var whereBadge = '';
     if (s.tooth_num) {
-      whereBadge = '<span class="sess-chip tone tone-lime">سن ' + escapeHtml(String(s.tooth_num)) + '</span>';
+      whereBadge = '<span class="sess-chip tone tone-lime">' + escapeHtml(sessionToothChipText(String(s.tooth_num), s.surface)) + '</span>';   /* v584 */
     } else if (s.quadrant && QUADRANT_LABELS[s.quadrant]) {
       whereBadge = '<span class="sess-chip tone tone-lime" title="' + QUADRANT_LABELS[s.quadrant] + '">🔲 ' + QUADRANT_LABELS[s.quadrant] + '</span>';
     } else if (s.arch && ARCH_LABELS[s.arch]) {
@@ -3988,22 +4144,10 @@ function renderSessions() {
     var stTone = (typeof STATUS_TONES !== 'undefined' && STATUS_TONES[st]) || 'blue';
     var stBadge = '<span class="sess-chip cbadge tone tone-' + stTone + '">' + stLbl + '</span>';
     // C: plan-phase chips — planned sessions only. Display-only field (phase
-    // never enters FIFO / balances). Instant write via setSessionPhase.
+    // never enters FIFO / balances). v597: المرحلةُ والبديلُ بضابطٍ واحد مسمّى (pp-plan.js
+    // planRowCtlHtml) بدل صفّين من الشرائح؛ الكتابةُ ما زالت setSessionPhase/setSessionOption.
     var phaseChips = '';
-    if (st === 'planned') {
-      var _PH = [[1, '1'], [2, '2'], [3, '3'], [null, '—']];
-      phaseChips = '<span class="sess-phase" title="مرحلة خطة العلاج">'
-        + _PH.map(function(ph){
-            var _sel = ((s.phase >= 1 && s.phase <= 3) ? s.phase : null) === ph[0];
-            return '<button type="button" onclick="setSessionPhase(\'' + s.id + '\',' + (ph[0] === null ? 'null' : ph[0]) + ')" '
-              + 'style="min-width:20px;height:20px;padding:0 4px;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;font-family:Cairo,sans-serif;line-height:1;'
-              + 'border:1.5px solid ' + (_sel ? 'var(--green)' : 'var(--border)') + ';'
-              + 'color:' + (_sel ? 'var(--green)' : 'var(--text2)') + ';background:transparent;">' + ph[1] + '</button>';
-          }).join('')
-        + '</span>';
-      // M145: شرائح الخيار البديل (أ/ب/ج) — عرضية بحتة مثل المرحلة.
-      if (typeof planOptionChipsHtml === 'function') phaseChips += planOptionChipsHtml(s);
-    }
+    if (st === 'planned' && typeof planRowCtlHtml === 'function') phaseChips = planRowCtlHtml(s);
     // M79-b: حالةُ الجلسة تجاه المخبر — تُحسب مرّةً ويقرأها الشارةُ والزرّ معاً
     // فلا ينحرفان (مالكٌ واحد للحكم، درس #348).
     var _labSt = (typeof _ppSessLabState === 'function') ? _ppSessLabState(s) : 'none';
@@ -4372,7 +4516,7 @@ function renderRecentSessions() {
     var typeFill   = typeMatch ? typeMatch.fill   : 'var(--blue)';
     var typeStroke = typeMatch ? typeMatch.stroke : 'var(--blue)';
     var typeBadge = '<span class="cbadge" style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;--bc:' + typeFill + ';">' + escapeHtml(s.type || '—') + '</span>';
-    var toothBadge = s.tooth_num ? ' <span class="tone tone-lime" style="border-width:1px;border-style:solid;padding:0 5px;border-radius:10px;font-size:10px;font-weight:700;">سن ' + s.tooth_num + '</span>' : '';
+    var toothBadge = s.tooth_num ? ' <span class="tone tone-lime" style="border-width:1px;border-style:solid;padding:0 5px;border-radius:10px;font-size:10px;font-weight:700;">' + escapeHtml(sessionToothChipText(s.tooth_num, s.surface)) + '</span>' : '';   /* v584 */
     // Phase 3 Feature G: regional badge for recent sessions list
     var regionalBadge = '';
     if (!s.tooth_num) {
@@ -4533,7 +4677,11 @@ async function _delSession_inner(id, opts) {
       && isImplantKey(sessionTreatmentKey(sess)) && isExtractionKey((teethMap[String(sess.tooth_num)] || {})[sessSurface]);
     if (!stillUsed && _rowIsExtraction) {
       /* صفر مساس بالمخطط */
+    } else if (!stillUsed && (function(){ var _sm0 = teethMap[String(sess.tooth_num)] || {}, _k0 = _sm0[sessSurface];
+                 return !!_k0 && ((_sm0.__status || {})[sessSurface] === 'condition') && typeof isConditionKey === 'function' && isConditionKey(_k0); })()) {
+      /* v605: صفُّ حالةٍ سريرية لا يمثّل جلسةً قط ⇒ لا يُمحى بحذفها (التشخيصُ المستعاد بعد «إزالة» العلاج يبقى) */
     } else if (!stillUsed) {
+      var _dxP = (typeof dxOf === 'function') ? dxOf(sess.tooth_num, sessSurface) : [];   /* v605: التقاطٌ قبل الحذف */
       var tsDel = await window.sb.from('teeth_status').delete()
         .eq('patient_id', patientId)
         .eq('tooth_num', sess.tooth_num)
@@ -4542,8 +4690,12 @@ async function _delSession_inner(id, opts) {
       var tn = String(sess.tooth_num);
       if (teethMap[tn]) {
         delete teethMap[tn][sessSurface];
-        if (Object.keys(teethMap[tn]).length === 0) delete teethMap[tn];
+        if (teethMap[tn].__status) delete teethMap[tn].__status[sessSurface];
+        if (Object.keys(teethMap[tn]).filter(function(k){ return k.charAt(0) !== '_'; }).length === 0) delete teethMap[tn];
       }
+      /* v605: العلاجُ المحذوف كان يحمل تشخيصاً ⇒ يعود السطحُ إليه لا «سليماً» */
+      if (!tsDel.error && _dxP.length && typeof dxRestoreAfterRemoval === 'function') await dxRestoreAfterRemoval(sess.tooth_num, sessSurface, _dxP);
+      else if (typeof dxSet === 'function') dxSet(sess.tooth_num, sessSurface, null);
       renderTeeth();
     } else if (typeof sessionTreatmentKey === 'function' && !(typeof isUnitLedgerSession === 'function' && isUnitLedgerSession(sess))) {
       // v260: السطحُ ما زال تستعمله جلسةٌ أخرى — لو كان صفُّ المخطّط يمثّل الجلسةَ
@@ -4563,7 +4715,17 @@ async function _delSession_inner(id, opts) {
             var xst = x.status || 'completed';
             return xs === sessSurface && (xst === 'planned' || xst === 'completed');
           }).sort(function(a, b){ return (a.status === 'planned' ? 0 : 1) - (b.status === 'planned' ? 0 : 1); });
+          /* v600: حذفُ جلسة القلع وبقيت عليه زرعةٌ (جلسةُ خطة) ⇒ لا تُرسم الزرعةُ على سنٍّ قائم؛ يُزال صفُّ
+             القلع والسنُّ يعود قائماً (الزرعةُ تبقى بالخطة والتلميح) */
+          var _dIsExt = (typeof isExtractionKey === 'function') && isExtractionKey(_dKey);
+          if (_dIsExt) _survivors = _survivors.filter(function(x){ return !isImplantKey(sessionTreatmentKey(x)); });
           var _keep = _survivors.find(function(x){ return !!sessionTreatmentKey(x); });
+          if (!_keep && _dIsExt && _rowSt === 'planned') {
+            var _dx = await window.sb.from('teeth_status').delete()
+              .eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', _tn2).eq('surface', sessSurface);
+            if (_dx.error) console.warn('delSession: planned extraction row clear warn:', _dx.error);
+            else if (teethMap[_tn2]) { delete teethMap[_tn2][sessSurface]; if (teethMap[_tn2].__status) delete teethMap[_tn2].__status[sessSurface]; }
+          }
           if (_keep) {
             var _kKey = sessionTreatmentKey(_keep), _kSt = _keep.status || 'completed';
             if (_kKey !== _rowKey || _kSt !== _rowSt) {
@@ -4594,9 +4756,25 @@ async function _delSession_inner(id, opts) {
       try { await bridgeDrawingRemoveForDeletedSession(sess); } catch (e) { console.warn('delSession: bridge drawing removal skipped:', e); }
     }
   }
+  /* v600: حذفُ قلعٍ مخطّط وعلى السن زرعةٌ مخطّطة (جلسةُ خطة تُبنى عليه) ⇒ سؤالٌ صريح بنمط v488؛ الاعتمادُ (skipConfirm)
+     يحذف بدائله بنفسه فلا يُسأل. «أبقِها» = السلوكُ السابق (تبقى بالخطة والتلميح). */
+  var _orphN = 0;
+  if (!(opts && opts.skipConfirm === true) && sess && (sess.status || 'completed') === 'planned' && sess.tooth_num
+      && String(sess.tooth_num).indexOf(',') === -1 && typeof isExtractionKey === 'function' && isExtractionKey(sessionTreatmentKey(sess))
+      && !isImplant(sess.tooth_num)) {
+    var _orph = sessions.filter(function(x){
+      return x && (x.status || 'completed') === 'planned' && String(x.tooth_num || '') === String(sess.tooth_num) && isImplantKey(sessionTreatmentKey(x));
+    });
+    if (_orph.length && await SyDialog.confirm({
+        message: 'على السن ' + sess.tooth_num + ' ' + (_orph.length === 1 ? 'زرعةٌ مخطّطة تُبنى' : _orph.length + ' زرعات مخطّطة تُبنى') + ' على هذا القلع:\n'
+               + _orph.map(function(x){ return '   – ' + (x.type || '') + ' — ' + fmt(x.cost) + ' ' + _rowLbl(x); }).join('\n') + '\n\nاحذفها أيضاً؟',
+        confirmText: 'احذفها', cancelText: 'أبقِها', danger: true })) {
+      for (var _oi = 0; _oi < _orph.length; _oi++) { await _delSession_inner(_orph[_oi].id, { skipConfirm: true, quiet: true }); _orphN++; }
+    }
+  }
   await syncPaymentStatus();
   renderTeeth(); renderStats(); renderInfo(); renderSessions(); renderRecentSessions(); renderPayments(); renderTimeline();
-  showToast('🗑️ تم حذف الجلسة');
+  if (!(opts && opts.quiet === true)) showToast(_orphN ? '🗑️ تم حذف الجلسة وجلسة الزرعة المبنية عليها' : '🗑️ تم حذف الجلسة');
 }
 
 /* Phase 8A: Convert a single planned session to completed from patient-profile.
@@ -4653,6 +4831,29 @@ async function syncUnitRowsOnComplete(sess) {
   hits.forEach(function(h){ teethMap[h.tn].__status[h.sf] = 'completed'; if (teethMap[h.tn].__review) delete teethMap[h.tn].__review[h.sf]; });
   return '';
 }
+/* v600: بعد إنجاز قلع سنٍّ عليه جلسةُ زرعةٍ مخطّطة واحدة بلا بدائل منافسة (مرسومةً لم تكن لأن القلعَ كان خطة)
+   ⇒ تُرسم مخطّطةً على الموقع (مسحُ صفوف السن كمسار الزرعة العادي). أكثرُ من واحدة أو بديلٌ معلّق أو جسرٌ
+   مرسوم ⇒ صفر مساس (تبقى بالتلميح والخطة). */
+async function drawPendingImplantAfterExtraction(tn) {
+  tn = String(tn);
+  var sm = teethMap[tn] || {};
+  if (isBridgeKey(sm.PONTIC) || isImplant(tn)) return;
+  var imps = (sessions || []).filter(function(x){
+    if (!x || (x.status || 'completed') !== 'planned' || String(x.tooth_num || '') !== tn) return false;
+    if (!isImplantKey(sessionTreatmentKey(x))) return false;
+    return !(typeof planRivalsOf === 'function' && planRivalsOf(x).length);
+  });
+  if (imps.length !== 1) return;
+  var x = imps[0], key = sessionTreatmentKey(x);
+  var w = await window.sb.from('teeth_status').delete().eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', tn);
+  if (w.error) { console.warn('drawPendingImplant wipe:', w.error); return; }
+  var r = await upsertTeethStatusWithFallback({
+    doctor_id: currentUser.id, patient_id: patientId, tooth_num: tn, surface: 'WHOLE',
+    treatment_key: key, status: 'planned', provider_id: x.provider_id || null
+  }, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
+  if (r.error) { console.warn('drawPendingImplant row:', r.error); delete teethMap[tn]; return; }
+  teethMap[tn] = { WHOLE: key, __status: { WHOLE: 'planned' } };
+}
 async function syncToothStatusOnComplete(sess) {
   if (!sess || !sess.tooth_num) return '';
   if (typeof isUnitLedgerSession === 'function' && isUnitLedgerSession(sess)) return await syncUnitRowsOnComplete(sess);
@@ -4689,6 +4890,36 @@ async function syncToothStatusOnComplete(sess) {
       .eq('surface', sf).eq('treatment_key', key).eq('status', 'planned');
     if (u2.error) console.warn('completeSessionFromProfile: teeth_status update warn:', u2.error);
     reflectLocal(key, 'completed');
+    if (!u2.error && sf === 'WHOLE' && typeof isExtractionKey === 'function' && isExtractionKey(key)) {
+      /* v608: أُنجز القلعُ من الجلسة ⇒ باقي صفوف السن تُمحى وحالاتُها تُحمل على صفّ القلع (مرآةُ مسار المخطط) */
+      if (typeof wipeToothAfterExtraction === 'function') {
+        try {
+          var _xdx = await wipeToothAfterExtraction(tn, pid);
+          if (_xdx) {
+            var _xAll = dxJoin(dxOf(tn, 'WHOLE').concat(dxPairs(_xdx)));
+            var uX = await window.sb.from('teeth_status').update({ dx_key: _xAll })
+              .eq('doctor_id', currentUser.id).eq('patient_id', pid).eq('tooth_num', tn).eq('surface', 'WHOLE');
+            if (uX.error) console.warn('extraction dx carry warn:', uX.error); else dxSet(tn, 'WHOLE', _xAll);
+          }
+        } catch (e) { console.warn('wipeToothAfterExtraction:', e); }
+      }
+      /* v600: أُنجز القلع وعلى السن زرعةٌ مخطّطة (جلسةُ خطة) بلا بدائل منافسة ⇒ تُرسم الآن مخطّطةً مكان القلع */
+      try { await drawPendingImplantAfterExtraction(tn); } catch (e) { console.warn('drawPendingImplantAfterExtraction:', e); }
+    }
+    return '';
+  }
+  /* v600: زرعةٌ (جلسةُ خطة) أُنجزت وموقعُها مقلوعٌ منجز ⇒ الزرعة تأخذ الموقع (مرآةُ مسحِ الزرعة العادي)؛
+     جسرٌ مرسومٌ على الموقع ⇒ صفر مساس. */
+  if (sf === 'WHOLE' && typeof isImplantKey === 'function' && isImplantKey(key) && isExtractionKey(rowKey)
+      && rowSt !== 'planned' && rowSt !== 'referred' && !isBridgeKey(sm.PONTIC)) {
+    var wI = await window.sb.from('teeth_status').delete().eq('doctor_id', currentUser.id).eq('patient_id', pid).eq('tooth_num', tn);
+    if (wI.error) { console.warn('implant-complete wipe warn:', wI.error); return ''; }
+    var rI = await upsertTeethStatusWithFallback({
+      doctor_id: currentUser.id, patient_id: pid, tooth_num: tn, surface: 'WHOLE',
+      treatment_key: key, status: 'completed', provider_id: sess.provider_id || null, review_at: null
+    }, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
+    if (rI.error) { console.warn('implant-complete row warn:', rI.error); delete teethMap[tn]; return ''; }
+    teethMap[tn] = { WHOLE: key, __status: { WHOLE: 'completed' } };
     return '';
   }
   if (rowKey === key) return '';   // already completed on the chart
@@ -6075,6 +6306,20 @@ async function init() {
   const { data } = await window.sb.auth.getUser();
   if (!data || !data.user) { window.location.href = 'auth.html'; return; }
   currentUser = data.user;
+  if (window.SyLive && patientId) {   /* v623 SyLive: لحظيّ بلا تحديث (M185) — مفلترٌ بهذا المريض وحده */
+    var _pf = 'patient_id=eq.' + patientId;
+    window.SyLive.watch({ name: 'patient-profile', uid: currentUser.id,
+      tables: [{ t: 'patients', filter: 'id=eq.' + patientId }, { t: 'appointments', filter: _pf }, { t: 'ledger_sessions', filter: _pf },
+               { t: 'ledger_payments', filter: _pf }, { t: 'payment_splits', filter: _pf }, { t: 'account_adjustments', filter: _pf },
+               { t: 'payment_plans', filter: _pf }, { t: 'teeth_status', filter: _pf }, { t: 'lab_orders', filter: _pf },
+               { t: 'patient_intakes', filter: _pf }, { t: 'patient_portals', filter: _pf }, { t: 'patient_documents', filter: _pf }],
+      refresh: async function () {
+        await loadAll();
+        try { if (_pfLoaded && typeof loadPatientFiles === 'function') await loadPatientFiles(); } catch (e) {}   /* M192: تبويبُ الملفات إن فُتح */
+        try { if (typeof ppIntakeLoad === 'function') ppIntakeLoad(true); } catch (e) {}
+        try { if (typeof ppPortalLoad === 'function') ppPortalLoad(true); } catch (e) {}
+      } });
+  }
   setTimeout(ppLoadSlow, 15000);   /* v567 */
   try { await loadAll(); }
   catch (e) { ppLoadFailed(e); return; }   /* DeepCode #2 (v550): لا هيكلَ أبدي ولا «لا يوجد» كاذبة */
@@ -6164,7 +6409,7 @@ async function maybePromptMaterialDeduction(treatmentId, treatmentName, multipli
   var btn = document.getElementById('matDeductBtn');
   if (btn) { btn.disabled = false; btn.textContent = 'تأكيد الخصم'; }
   openModal('matDeductModal');
-  window.SyDentInvConsume.attachLots(window.sb, currentUser.id, rowsEl, _matDeductList, 'mat-deduct-lot');   // M177: منتقي «الدفعة (LOT)»
+  window.SyDentInvConsume.attachLots(window.sb, currentUser.id, rowsEl, _matDeductList, 'mat-deduct-lot');   // M173: منتقي «الدفعة (LOT)»
 }
 
 async function confirmMaterialDeduction() {
@@ -6194,7 +6439,7 @@ async function confirmMaterialDeduction() {
   showToast(window.SyDentInvConsume.message(res, names));
 }
 
-/* M177 — «🧪 المواد ورقم الدفعة»: حركاتُ الاستهلاك المربوطة بهذا المريض (M169) مع رقم دفعة كل مادة */
+/* M173 — «🧪 المواد ورقم الدفعة»: حركاتُ الاستهلاك المربوطة بهذا المريض (M169) مع رقم دفعة كل مادة */
 var _ptLotsSeq = 0;   // #705
 async function openPatientLots() {
   var pid = new URLSearchParams(location.search).get('id');

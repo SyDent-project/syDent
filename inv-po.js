@@ -1,4 +1,4 @@
-/* inv-po.js — M176 (task C3, part 1): suppliers, purchase orders and partial receiving — one source.
+/* inv-po.js — M172 (task C3, part 1): suppliers, purchase orders and partial receiving — one source.
    Writes go through the RPCs (inventory_create_order / inventory_receive); this file only shapes data:
      • STATUS: label and tone for each order status.
      • progress(lines): ordered / received / remaining counts for the order card.
@@ -64,7 +64,7 @@
       if (q == null || !r.line) return;
       var x = { line_id: r.line.id, qty: q };
       if (r.expiry) x.expiry = String(r.expiry);
-      var lot = String(r.lot == null ? '' : r.lot).trim().slice(0, 60);   // M177
+      var lot = String(r.lot == null ? '' : r.lot).trim().slice(0, 60);   // M173
       if (lot) x.lot = lot;
       var pr = parsePrice(r.price);
       if (pr != null) x.price = pr;

@@ -66,9 +66,13 @@ jobs:
       - name: Deploy ai-assist (verify_jwt OFF)
         run: supabase functions deploy ai-assist --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
 
+      - name: Deploy portal-xray (verify_jwt OFF)
+        run: supabase functions deploy portal-xray --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+
       - name: Summary
         run: |
           echo "## Edge Functions deployed ✅" >> "$GITHUB_STEP_SUMMARY"
           echo "- admin-ops → https://$PROJECT_REF.functions.supabase.co/admin-ops" >> "$GITHUB_STEP_SUMMARY"
           echo "- ai-assist → https://$PROJECT_REF.functions.supabase.co/ai-assist" >> "$GITHUB_STEP_SUMMARY"
+          echo "- portal-xray → https://$PROJECT_REF.functions.supabase.co/portal-xray" >> "$GITHUB_STEP_SUMMARY"
           echo "- verify_jwt: OFF (بالتصميم — المصادقة داخل الـ handler)" >> "$GITHUB_STEP_SUMMARY"

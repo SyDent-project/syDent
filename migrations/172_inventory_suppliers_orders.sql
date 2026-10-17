@@ -1,4 +1,4 @@
--- 176 — Suppliers, purchase orders and partial receiving (task C3, part 1)
+-- 172 — Suppliers, purchase orders and partial receiving (task C3, part 1)
 --
 -- Open Dental «Supply Inventory» (Suppliers · Orders · receive) on top of the
 -- atomic stock model of M169:
@@ -393,9 +393,9 @@ REVOKE ALL ON FUNCTION public.inventory_receive(uuid, jsonb, text, boolean) FROM
 GRANT EXECUTE ON FUNCTION public.inventory_create_order(uuid, jsonb, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.inventory_receive(uuid, jsonb, text, boolean) TO authenticated, service_role;
 
-COMMENT ON TABLE public.inventory_suppliers IS 'M176: suppliers the clinic buys from';
-COMMENT ON TABLE public.inventory_orders IS 'M176: purchase order — open → partial → received, or closed by hand';
-COMMENT ON TABLE public.inventory_order_lines IS 'M176: ordered item · ordered and received quantities · price and currency at order time';
-COMMENT ON TABLE public.inventory_receipts IS 'M176: one delivery against an order; linked once per currency to the expense that pays it';
-COMMENT ON TABLE public.inventory_receipt_lines IS 'M176: what arrived on a delivery, at what price, and the batch it opened';
-COMMENT ON COLUMN public.inventory_movements.receipt_id IS 'M176: the delivery behind this purchase movement';
+COMMENT ON TABLE public.inventory_suppliers IS 'M172: suppliers the clinic buys from';
+COMMENT ON TABLE public.inventory_orders IS 'M172: purchase order — open → partial → received, or closed by hand';
+COMMENT ON TABLE public.inventory_order_lines IS 'M172: ordered item · ordered and received quantities · price and currency at order time';
+COMMENT ON TABLE public.inventory_receipts IS 'M172: one delivery against an order; linked once per currency to the expense that pays it';
+COMMENT ON TABLE public.inventory_receipt_lines IS 'M172: what arrived on a delivery, at what price, and the batch it opened';
+COMMENT ON COLUMN public.inventory_movements.receipt_id IS 'M172: the delivery behind this purchase movement';

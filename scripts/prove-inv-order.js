@@ -71,7 +71,7 @@ async function suite(F) {
   ok(/getElementById\('itemReorderQty'\)\.value = it \? \(it\.reorder_qty != null \? it\.reorder_qty : ''\) : '';/.test(INV), 'item form: filled on edit');
   const orderSrc = ['function openOrderModal(', 'function renderOrderRows(', 'function ivoOrder(', 'function renderOrderCost(', 'function ivoSetQty('].map(s => fnSrc(INV, s)).join('');
   ok(orderSrc.length > 500 && !/\.(insert|update|delete|upsert|rpc)\(/.test(orderSrc), 'order window writes nothing to the database');
-  ok(/if \(act === 'print'\) \{ window\.SyDentInvOrder\.print\(order\); return; \}/.test(INV), 'print stays synchronous inside the click');
+  ok((INV.match(/if \(act === 'print'\) \{ window\.SyDentInvOrder\.print\(order\); return; \}/g) || []).length === 2, 'print stays synchronous inside the click (order window + saved order, v571)');
   ok(/escapeHtml\(it\.name\)/.test(fnSrc(INV, 'function renderOrderRows(')), 'order rows escape names');
   ok(/html\[data-sub-level="read"\] :is\([^\n]*\[onclick\*="ivoSetQty\("\][^\n]*\)\{display:none !important;\}/.test(INV), 'deep link to the setting hidden in read mode');
   ok(/onclick="openOrderModal\(\)">🧾 جهّز الطلبية<\/button>/.test(INV), 'the button sits on the low-stock card');
@@ -94,7 +94,7 @@ async function suite(F) {
   vm.createContext(ctx);
   vm.runInContext(F['inv-order.js'], ctx);
   try {
-    vm.runInContext(['var _ivo = [];', 'var _ivoClinic = null;', 'async function _ivoLoadClinic() {}', fnSrc(INV, 'function openOrderModal('), fnSrc(INV, 'function renderOrderRows('),
+    vm.runInContext(['var _ivo = [];', 'var _ivoClinic = null;', 'async function _ivoLoadClinic() {}', 'function loadSuppliers() { return Promise.resolve([]); }', 'function ivoFillSupplierSelect() {}', /* v571: المورّدُ المحفوظ (البند 4) */ fnSrc(INV, 'function openOrderModal('), fnSrc(INV, 'function renderOrderRows('),
       fnSrc(INV, 'function ivoOrder('), fnSrc(INV, 'function renderOrderCost('), 'this.__o = openOrderModal; this.__q = ivoOrder; this.__s = function(){ return _ivo; };'].join('\n'), ctx);
     ctx.__o();
     const st = ctx.__s();

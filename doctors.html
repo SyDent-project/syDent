@@ -16,11 +16,11 @@
 /* ── Modal ── v447: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261015a"></script>
+<script src="theme.js?v=20261017a"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261015a"></script>
-<script src="sy-modal.js?v=20261015a"></script>
-<script src="sidebar.js?v=20261015a"></script>
+<script src="supabase-init.js?v=20261017a"></script>
+<script src="sy-modal.js?v=20261017a"></script>
+<script src="sidebar.js?v=20261017a"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -141,7 +141,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 html[data-sub-level="read"] :is([onclick*="saveDoctor("],[onclick*="unlinkFromUser("],[onclick*="linkToUser("],[onclick*="goEditDoctor("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261015a">
+<link rel="stylesheet" href="theme.css?v=20261017a">
 </head>
 <body>
 <div class="main" id="sbMainContent">
@@ -303,13 +303,16 @@ function initials(name) {
   return (parts[0].charAt(0) + parts[parts.length-1].charAt(0)).toUpperCase();
 }
 
-async function loadDoctors() {
+async function loadDoctors(opts) {
+  /* v626: المسارُ اللحظي (SyLive) يقرأ ويرسم فقط — لا إصلاحَ ذاتياً ولا كتابة (جهازان معاً ⇒ إدراجٌ مزدوج) */
+  var live = !!(opts && opts.live);
   // Load all clinic_doctors for this owner
   var { data, error } = await window.sb.from('clinic_doctors')
     .select('*')
     .eq('owner_id', currentUser.id)
     .order('created_at', { ascending: true });
 
+  if (error && live) { console.warn('live doctors refresh:', error); return; }   /* فشلٌ عابر ⇒ تبقى القائمةُ بلا رسالة */
   if (error) {
     console.error('load doctors:', error);
     if (error.code === 'PGRST204' || (error.message && error.message.indexOf('clinic_doctors') >= 0)) {
@@ -371,6 +374,7 @@ async function loadDoctors() {
     console.warn('Phase 7.2 v2: clinic_employees query threw, using provider_type fallback:', empCatch);
   }
 
+  if (empQueryFailed && live) return;   /* v626: لا انتقالَ لوضع الاحتياط في التحديث اللحظي — تبقى القائمةُ المعروضة */
   if (empQueryFailed) {
     // Degraded mode: keep the old behavior so the owner is not locked out.
     doctors = allRows.filter(function(d){
@@ -409,7 +413,7 @@ async function loadDoctors() {
   //     Never promote arbitrary rows: any other row may belong to a hired
   //     doctor (linked via clinic_employees.doctor_id).
   var hasOwnerRow = allRows.some(function(d){ return d.is_owner === true; });
-  if (!hasOwnerRow) {
+  if (!hasOwnerRow && !live) {
     // Name unification: prefer the auth full_name (single source of truth for
     // the owner's personal/provider name) over the legacy employee name so a
     // brand-new owner-doctor row is created correct from the first visit.
@@ -467,7 +471,7 @@ async function loadDoctors() {
   try {
     var _ownerFull = ((currentUser.user_metadata || {}).full_name
                    || (currentUser.user_metadata || {}).name || '').trim();
-    if (_ownerFull) {
+    if (_ownerFull && !live) {
       var _od = doctors.find(function(d){ return d.is_owner === true; });
       if (_od && String(_od.name || '').trim() !== _ownerFull) {
         _od.name = _ownerFull;  // reflect immediately in renderList
@@ -844,6 +848,11 @@ async function _unlinkFromUser_inner(id) {
   doctorOwner = null;
 
   await loadDoctors();
+
+  /* v626 (M186): لحظيٌّ بلا تحديث — طبيبٌ يُضاف/يُعدَّل/يُربط من جهازٍ آخر يظهر هنا (النافذةُ المفتوحة تؤجّل) */
+  if (window.SyLive) window.SyLive.watch({ name: 'doctors', uid: currentUser.id,
+    tables: ['clinic_doctors', 'clinic_employees'],
+    refresh: function () { return loadDoctors({ live: true }); } });
 })();
 
 async function doLogout() {

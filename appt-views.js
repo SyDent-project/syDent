@@ -213,11 +213,13 @@ function renderDay() {
           <div class="slot-time">${fmtTime12(e.time)}</div>
           <div class="slot-content">
             <div class="appt-block" style="--bc:${_bc.fill};" onclick="editAppt('${e.id}')" onkeydown="if(event.key==='Enter'&&event.target===this)editAppt('${e.id}')" tabindex="0" role="button">
-              <div class="appt-name">${escapeHtml(e.patient_name)||'—'} ${lbHtml}${psHtml}${waHtml}${opHtml}${getApptMedBadge(e)}${getApptReliabBadge(e)/* xss-ok: SyDentReliability.badgeHtml أرقامٌ وعنوانٌ مهرَّب */}${getApptSeriesBadge(e)/* xss-ok: أرقامٌ فقط */}${getApptPtFlags(e)}${getApptAsapBadge(e)}</div>
+              <div class="appt-head">
+                <div class="appt-name">${escapeHtml(e.patient_name)||'—'} ${lbHtml}${psHtml}${waHtml}${opHtml}${getApptMedBadge(e)}${getApptReliabBadge(e)/* xss-ok: SyDentReliability.badgeHtml أرقامٌ وعنوانٌ مهرَّب */}${getApptSeriesBadge(e)/* xss-ok: أرقامٌ فقط */}${getApptPtFlags(e)}${getApptAsapBadge(e)}</div>
+                <span class="appt-status ${statusClass(e.status)}">${statusLabel(e.status)}</span>
+              </div>
               <div class="appt-type">${escapeHtml(e.type)||'—'} (${e.duration} د)</div>
               ${renderTimeStrip(e)}
               <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
-                <span class="appt-status ${statusClass(e.status)}">${statusLabel(e.status)}</span>
                 <span onclick="event.stopPropagation()">${renderTimeActionBtn(e)}</span>
               </div>
             </div>

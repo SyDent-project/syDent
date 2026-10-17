@@ -140,5 +140,6 @@ vite.config.ts.timestamp-*
 SyDent_Context_md_*.md
 __pycache__/
 
-# validate.sh row-action review screenshots (#725)
+# مخلّفات بوابة validate.sh (لقطات مراجعة أزرار الصفوف) — لا تُكومَت (#725)
 _ra/
+_pp/

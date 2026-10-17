@@ -725,6 +725,16 @@ async function refreshSidebarDynamic() {
     .from('booking_requests')
     .select('id', { count: 'exact', head: true })
     .eq('clinic_id', uid).eq('status', 'pending'));
+  /* M187: طلباتُ بوابة المريض الجديدة — تُضاف لشارة «المواعيد» وتلميحُها يسمّي المرضى (الجدول قد يغيب قبل M187 ⇒ تجاهل صامت) */
+  const _sbPortalP = _sbSettle(window.sb
+    .from('portal_requests')
+    .select('patient_name_snapshot')
+    .eq('owner_id', uid).eq('status', 'new').limit(50));
+  /* M178: استماراتُ مرضى وصلت ولم تُراجَع — شارةٌ على «المرضى» (head:true؛ الجدول قد يغيب قبل M177 ⇒ تجاهل صامت) */
+  const _sbIntakeP = _sbSettle(window.sb
+    .from('patient_intakes')
+    .select('id', { count: 'exact', head: true })
+    .eq('owner_id', uid).eq('status', 'submitted'));
 
   // فحص حالة الحساب — إذا موقوف يحجب الصفحة
   // M141: بالمعرّف لا بالبريد — البريدُ يتغيّر من الإعدادات بلا مزامنة لصفّ الطلب،
@@ -891,19 +901,132 @@ async function refreshSidebarDynamic() {
   try {
     if (apptLink) {
       const { count: reqCount, error: reqErr } = _sbTake(await _sbReqP);   /* v555: أُطلق مع الدفعة أعلاه */
-      let rb = apptLink.querySelector('.sb-badge--req');
-      if (!reqErr && (reqCount || 0) > 0) {
-        if (!rb) {
-          rb = document.createElement('span');
-          rb.className = 'sb-badge sb-badge--req';
-          apptLink.appendChild(rb);
-        }
-        rb.textContent = reqCount;
-      } else if (rb) {
-        rb.remove();
-      }
+      const { data: ptRows, error: ptErr } = _sbTake(await _sbPortalP);    /* M187 */
+      sbApptReqBadge(reqErr ? 0 : (reqCount || 0), ptErr ? [] : (ptRows || []).map(function (r) { return r.patient_name_snapshot || '—'; }));
     }
   } catch (e) { /* silent — شارة اختيارية لا تعطّل السايدبار */ }
+
+  // M178: شارةُ الاستمارات الواصلة على «المرضى» + بثٌّ لحظي لوصولها (Realtime postgres_changes يحترم RLS)
+  try {
+    const { count: ikCount, error: ikErr } = _sbTake(await _sbIntakeP);
+    if (!ikErr) sbIntakeBadge(ikCount || 0);
+    sbIntakeSubscribe(uid);
+  } catch (e) { /* silent — الجدول غائب قبل M177 */ }
+  try { sbPortalSubscribe(uid); } catch (e) { /* silent — الجدول غائب قبل M187 */ }
+}
+
+/* ── M187: طلباتُ بوابة المريض — شارةُ «المواعيد» + بثٌّ لحظي باسم المريض ─────────────
+   الشارة = طلباتُ الحجز المعلّقة + طلباتُ البوابة الجديدة؛ التلميحُ يسمّي مرضى البوابة (كل تنبيهٍ يقول لأي مريض).
+   البثّ: اشتراكٌ واحد لكل صفحة على INSERT portal_requests (owner_id=uid) — توستٌ باسم المريض والموعد،
+   وإعادةُ عدّ الشارة؛ وUPDATE (تمّ/تجاهل/إغلاقٌ تلقائي) يعيد العدّ. لا addEventListener (سجلّ وضع القراءة). */
+var _sbBookingN = 0;
+function sbApptReqBadge(bookingN, portalNames) {
+  const apptLink = document.querySelector('.sb-item[href="appointments.html"]');
+  if (!apptLink) return;
+  if (typeof bookingN === 'number') _sbBookingN = bookingN;
+  const n = _sbBookingN + portalNames.length;
+  let rb = apptLink.querySelector('.sb-badge--req');
+  if (n > 0) {
+    if (!rb) {
+      rb = document.createElement('span');
+      rb.className = 'sb-badge sb-badge--req';
+      apptLink.appendChild(rb);
+    }
+    rb.textContent = n > 99 ? '99+' : String(n);
+    rb.title = portalNames.length
+      ? ('طلبات من بوابة المريض: ' + portalNames.slice(0, 6).join('، ') + (portalNames.length > 6 ? '…' : '') + (_sbBookingN ? ' · وطلبات حجز: ' + _sbBookingN : ''))
+      : ('طلبات حجز بانتظار التأكيد: ' + _sbBookingN);
+  } else if (rb) {
+    rb.remove();
+  }
+}
+async function sbPortalRecount(uid) {
+  try {
+    const r = await window.sb.from('portal_requests').select('patient_name_snapshot').eq('owner_id', uid).eq('status', 'new').limit(50);
+    if (!r.error) sbApptReqBadge(null, (r.data || []).map(function (x) { return x.patient_name_snapshot || '—'; }));
+  } catch (e) {}
+}
+var PORTAL_REQ_PREF = { any: 'أي وقت', morning: 'صباحاً', evening: 'مساءً' };
+function sbPortalToastText(row) {
+  const name = row.patient_name_snapshot || 'مريض';
+  const when = (row.appt_date ? (window.SyDT && window.SyDT.numDate ? window.SyDT.numDate(String(row.appt_date).slice(0, 10)) : String(row.appt_date).slice(0, 10)) : '')
+    + (row.appt_time ? ' ' + String(row.appt_time).slice(0, 5) : '');
+  if (row.kind === 'cancel' && row.applied) return '📅 ' + name + ' ألغى موعده ' + when + ' من البوابة' + (row.reason ? ' — السبب: ' + row.reason : '');
+  if (row.kind === 'cancel') return '📅 ' + name + ' يطلب إلغاء موعده ' + when + ' — من البوابة' + (row.reason ? ' — السبب: ' + row.reason : '');
+  /* M189: the slot he picked */
+  var to = row.requested_date && row.requested_time
+    ? ' إلى ' + (window.SyDT && window.SyDT.numDate ? window.SyDT.numDate(String(row.requested_date).slice(0, 10)) : String(row.requested_date).slice(0, 10)) + ' ' + String(row.requested_time).slice(0, 5)
+    : '';
+  return '🔁 ' + name + (to ? ' يطلب نقل موعده ' + when + to : ' يطلب تغيير موعده ' + when) + (row.preference ? ' — يفضّل ' + (PORTAL_REQ_PREF[row.preference] || '') : '') + ' — من البوابة';
+}
+var _sbPortalChan = null;
+function sbPortalSubscribe(uid) {
+  if (_sbPortalChan || !uid || !window.sb || typeof window.sb.channel !== 'function') return;
+  try {
+    _sbPortalChan = window.sb.channel('portalreq-' + uid)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'portal_requests', filter: 'owner_id=eq.' + uid }, function (payload) {
+        var row = payload && payload.new;
+        if (!row || row.owner_id !== uid) return;
+        sbPortalRecount(uid);
+        try { if (window.showToast) window.showToast(sbPortalToastText(row), false, 8000); } catch (e1) {}
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'portal_requests', filter: 'owner_id=eq.' + uid }, function (payload) {
+        var row = payload && payload.new;
+        if (!row || row.owner_id !== uid) return;
+        sbPortalRecount(uid);
+      })
+      .subscribe(function (status, err) {
+        try { console.info('[portal-req] realtime: ' + String(status || '') + (err ? ' — ' + (err.message || err) : '')); } catch (e3) {}
+      });
+  } catch (e) { _sbPortalChan = null; }
+}
+
+/* ── M178: استمارات المرضى — شارةٌ وبثّ ──────────────────────────────────
+   الشارة = عددُ الاستمارات بحالة submitted (بانتظار المراجعة) على رابط «المرضى».
+   البثّ: اشتراكٌ واحد لكل صفحة على UPDATE patient_intakes (owner_id=uid) —
+   الوصولُ (status ⇒ submitted) يرفع الشارة ويُظهر توستاً ويستدعي window.onSyDentIntake(row)
+   إن عرّفته الصفحة (اللوحة تعيد رسم التنبيهات · بطاقة المريض تُحدّث صفّها)؛ الاعتمادُ (⇒ reviewed/dismissed)
+   يُعيد عدَّ الشارة. لا addEventListener (سجلّ وضع القراءة). */
+function sbIntakeBadge(n) {
+  const link = document.querySelector('.sb-item[href="patients.html"]');
+  if (!link) return;
+  let b = link.querySelector('.sb-badge--intake');
+  if (n > 0) {
+    if (!b) { b = document.createElement('span'); b.className = 'sb-badge sb-badge--req sb-badge--intake'; b.title = 'استمارات بانتظار المراجعة — اضغط لعرضها'; b.setAttribute('onclick', "event.preventDefault();event.stopPropagation();location.href='patients.html?filter=intake';"); link.appendChild(b); }
+    b.textContent = n > 99 ? '99+' : String(n);
+  } else if (b) b.remove();
+}
+var _sbIntakeChan = null;
+async function sbIntakeRecount(uid) {
+  try {
+    const r = await window.sb.from('patient_intakes').select('id', { count: 'exact', head: true }).eq('owner_id', uid).eq('status', 'submitted');
+    if (!r.error) sbIntakeBadge(r.count || 0);
+  } catch (e) {}
+}
+async function sbIntakeToast(row) {
+  var name = '';
+  try {
+    var r = await window.sb.from('patients').select('name').eq('id', row.patient_id).eq('doctor_id', row.owner_id).maybeSingle();
+    if (!r.error && r.data) name = r.data.name || '';
+  } catch (e) {}
+  try { if (window.showToast) window.showToast(name ? ('📝 وصلت استمارة ' + name + ' — افتح بطاقته لمراجعتها') : '📝 وصلت استمارة مريض جديدة — افتح بطاقته لمراجعتها', false, 8000); } catch (e1) {}
+}
+function sbIntakeSubscribe(uid) {
+  if (_sbIntakeChan || !uid || !window.sb || typeof window.sb.channel !== 'function') return;
+  try {
+    _sbIntakeChan = window.sb.channel('intakes-' + uid)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'patient_intakes', filter: 'owner_id=eq.' + uid }, function (payload) {
+        var row = payload && payload.new;
+        if (!row || row.owner_id !== uid) return;
+        sbIntakeRecount(uid);
+        if (row.status !== 'submitted') return;
+        sbIntakeToast(row);   /* v628: التوستُ يسمّي المريض (كل تنبيهٍ يقول لأي مريض) */
+        try { if (typeof window.onSyDentIntake === 'function') window.onSyDentIntake(row); } catch (e2) {}
+      })
+      .subscribe(function (status, err) {
+        try { console.info('[intakes] realtime: ' + String(status || '') + (err ? ' — ' + (err.message || err) : '')); } catch (e3) {}
+      });
+  } catch (e) { _sbIntakeChan = null; }
 }
 
 // ─── JS ───
@@ -1020,6 +1143,14 @@ function initSidebar(activeId) {
 
   // 4.5 Dynamic refresh: doctor name + appointments badge
   setTimeout(refreshSidebarDynamic, 200);
+  /* v623 SyLive: شارتا «مواعيد اليوم» و«طلبات الحجز» لحظيّتان — لا تلمسان نافذة ⇒ بلا تأجيل */
+  setTimeout(async function () {
+    try {
+      if (!window.sb || !window.SyLive) return;
+      var r = await window.sb.auth.getUser(); var u = r && r.data && r.data.user;
+      if (u) window.SyLive.watch({ name: 'sidebar', uid: u.id, tables: ['appointments', 'booking_requests'], refresh: refreshSidebarDynamic, hold: false });
+    } catch (e) {}
+  }, 1500);
 
   // 5. Pull-to-Refresh
   initPTR();
@@ -1217,14 +1348,15 @@ window.doLogout = async function() {
     '#syToast.show{transform:translateX(-50%) translateY(0);opacity:1;}' +
     '#syToast.err{border-color:var(--red);border-right-color:var(--red);}';
   document.head.appendChild(st);
-  window.showToast = function (msg, isErr) {
+  /* v629: ms اختياري — تنبيهاتُ البوابة والاستمارة تحمل اسماً وموعداً وسبباً فتبقى أطول (الافتراضي كما كان) */
+  window.showToast = function (msg, isErr, ms) {
     var t = document.getElementById('syToast');
     if (!t) { t = document.createElement('div'); t.id = 'syToast'; document.body.appendChild(t); }
     t.textContent = msg;
     t.classList.toggle('err', !!isErr);
     t.classList.add('show');
     clearTimeout(t._tm);
-    t._tm = setTimeout(function () { t.classList.remove('show'); }, 2600);
+    t._tm = setTimeout(function () { t.classList.remove('show'); }, (typeof ms === 'number' && ms > 0) ? ms : 2600);
   };
 })();
 
@@ -1247,7 +1379,19 @@ window.doLogout = async function() {
    Zero financial contact. The table is its own record — no logAudit.
    Layering: FAB z=99988 / panel z=99989 — below sync badge (99990, opposite
    corner) and below toast (99999). Requires Migration 80; degrades silently
-   (FAB self-removes) if the table is missing. */
+   (FAB self-removes) if the table is missing.
+   v579 (owner report, 5 Oct 2026 — a message took ~22s to arrive):
+   - Realtime (Migration 175 publishes staff_messages): INSERT/UPDATE events
+     filtered owner_id=eq.<uid> (RLS enforces the same server-side) ⇒ a message
+     and its «تم ✓» arrive in under a second. The 30s poll stays as the fallback
+     while the channel is down, plus a slow resync while it is up; the channel
+     (re)joining, the tab becoming visible and the network coming back each
+     trigger a catch-up load.
+   - Sound: a short two-note chime synthesised with Web Audio (no asset) for
+     each incoming message that needs MY ack (never my own), once per message,
+     panel open or closed, tab visible or not. Browsers only allow audio after a
+     user gesture ⇒ the AudioContext is created/resumed inside the first
+     pointerdown/keydown. 🔔/🔕 in the panel header, saved per device. */
 /* SYDENT_MSGS_MODULE_START */
 (function () {
   if (window.__sydentMsgsWire) return;
@@ -1266,6 +1410,19 @@ window.doLogout = async function() {
   var _pollTimer = null;
   var _lastToastId = null;
   var _dead = false; // set when Migration 80 is missing → widget self-removes
+  /* v585 (owner report, 6 Oct 2026 — «ما عادت تصل»): the 30s poll is NEVER suppressed. v579 paused it for 5 min
+     while the channel reported SUBSCRIBED, so a subscription that joined but delivered nothing left the widget
+     silent for up to 5 min — worse than the 0–30s it replaced. Realtime now only ADDS speed; the poll is the floor. */
+  var SOUND_KEY = 'sydent_msgs_sound';
+  var _uid = null;
+  var _chan = null;            // realtime channel (one per page)
+  var _rtLive = false;         // channel status === SUBSCRIBED
+  var _rtStatus = 'off';       // last status the channel reported (diagnostics: SyDentMsgs._rt())
+  var _rtEvents = 0;           // realtime rows received (diagnostics)
+  var _rtLastEventAt = 0;
+  var _lastLoadAt = 0;
+  var _notified = {};          // message ids already announced (toast + chime) — once per message
+  var _ac = null;              // AudioContext — only ever created inside a user gesture
 
   // ── Pure helpers (node-tested via SYDENT_MSGS markers) ──────────────────
   function msgNeedsAck(row, myRole) {
@@ -1318,6 +1475,7 @@ window.doLogout = async function() {
   function killWidget() {
     _dead = true;
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    if (_chan) { try { window.sb.removeChannel(_chan); } catch (e0) {} _chan = null; _rtLive = false; }
     var f = document.getElementById('syMsgFab');   if (f) f.remove();
     var p = document.getElementById('syMsgPanel'); if (p) p.remove();
   }
@@ -1339,6 +1497,8 @@ window.doLogout = async function() {
       '.sy-msg-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;' +
       'border-bottom:1px solid var(--border);font-weight:800;font-size:14px;color:var(--text)}' +
       '.sy-msg-x{background:none;border:none;color:var(--text2);font-size:16px;cursor:pointer;padding:2px 6px}' +
+      '#syMsgSound{font-size:15px;margin-inline-end:2px}' +
+      '#syMsgSound[aria-pressed="false"]{opacity:.6}' +
       '#syMsgAckAll{background:none;border:1px solid var(--green);color:var(--green);border-radius:8px;' +
       'font-size:11px;font-weight:800;padding:4px 8px;cursor:pointer;margin-inline-end:6px}' +
       '.sy-msg-presets{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px 0}' +
@@ -1400,7 +1560,8 @@ window.doLogout = async function() {
     panel.innerHTML =
       '<div class="sy-msg-head"><span>الرسائل الداخلية</span><span>' +
       '<button type="button" id="syMsgAckAll" hidden>تأكيد الكل ✓</button>' +
-      '<button type="button" class="sy-msg-x" aria-label="إغلاق">✕</button></span></div>' +
+      '<button type="button" id="syMsgSound" class="sy-msg-x"></button>' +
+      '<button type="button" class="sy-msg-x" id="syMsgClose" aria-label="إغلاق">✕</button></span></div>' +
       '<div class="sy-msg-presets" id="syMsgPresets"></div>' +
       '<div class="sy-msg-compose">' +
       '<select id="syMsgTarget">' +
@@ -1415,7 +1576,9 @@ window.doLogout = async function() {
       '<div id="syMsgList"></div>';
     document.body.appendChild(panel);
 
-    panel.querySelector('.sy-msg-x').addEventListener('click', togglePanel);
+    document.getElementById('syMsgClose').addEventListener('click', togglePanel);
+    document.getElementById('syMsgSound').addEventListener('click', toggleSound);
+    renderSoundBtn();
     document.getElementById('syMsgPresets').addEventListener('click', function (ev) {
       var b = ev.target && ev.target.closest ? ev.target.closest('.sy-msg-preset') : null;
       if (!b) return;
@@ -1472,6 +1635,116 @@ window.doLogout = async function() {
     _open = p.hidden;
     p.hidden = !p.hidden;
     if (_open) { positionPanel(); renderList(); load(false); }
+  }
+
+  // ── Sound (v579) ────────────────────────────────────────────────────────
+  function soundOn() {
+    try { return localStorage.getItem(SOUND_KEY) !== '0'; } catch (e) { return true; }
+  }
+  function renderSoundBtn() {
+    var b = document.getElementById('syMsgSound');
+    if (!b) return;
+    var on = soundOn();
+    b.textContent = on ? '🔔' : '🔕';
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    var t = on ? 'صوت التنبيه مفعّل — انقر للكتم' : 'صوت التنبيه مكتوم — انقر للتفعيل';
+    b.setAttribute('aria-label', t);
+    b.title = t;
+  }
+  function toggleSound() {
+    var on = !soundOn();
+    try { localStorage.setItem(SOUND_KEY, on ? '1' : '0'); } catch (e) {}
+    renderSoundBtn();
+    if (on) { unlockAudio(); chime(); }   // the click itself is a gesture — preview the chime
+  }
+  // Browsers refuse audio before a user gesture: create/resume the context INSIDE one.
+  function unlockAudio() {
+    try {
+      if (!_ac) {
+        var C = window.AudioContext || window.webkitAudioContext;
+        if (!C) return;
+        _ac = new C();
+      }
+      if (_ac.state === 'suspended' && _ac.resume) _ac.resume().catch(function () {});
+    } catch (e) { _ac = null; }
+  }
+  // Two short soft sine notes (~0.35s total). No context yet (no gesture) ⇒ silent by necessity.
+  function subBlocked() {   // read-only / blocked subscription: the widget is hidden (theme.css) ⇒ no sound either
+    var lv = document.documentElement.getAttribute('data-sub-level');
+    return lv === 'read' || lv === 'none';
+  }
+  function chime() {
+    if (!soundOn() || !_ac || subBlocked()) return;
+    try {
+      if (_ac.state === 'suspended' && _ac.resume) _ac.resume().catch(function () {});
+      var t0 = _ac.currentTime + 0.02;
+      [[880, 0], [1318.5, 0.13]].forEach(function (n) {
+        var o = _ac.createOscillator(), g = _ac.createGain(), at = t0 + n[1];
+        o.type = 'sine';
+        o.frequency.setValueAtTime(n[0], at);
+        g.gain.setValueAtTime(0.0001, at);
+        g.gain.exponentialRampToValueAtTime(0.16, at + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + 0.22);
+        o.connect(g); g.connect(_ac.destination);
+        o.start(at); o.stop(at + 0.25);
+      });
+    } catch (e) {}
+  }
+  // One announcement per message: toast + chime. Only for rows that need MY ack.
+  function announce(r) {
+    if (!r || !r.id || _notified[r.id]) return;
+    if (!msgNeedsAck(r, myRole())) return;
+    _notified[r.id] = 1;
+    _lastToastId = r.id;
+    if (window.showToast) window.showToast('💬 رسالة جديدة من ' + (r.sender_name || ''));
+    chime();
+  }
+
+  // ── Realtime (v579, Migration 175) ──────────────────────────────────────
+  function findIdx(id) {
+    for (var i = 0; i < _rows.length; i++) { if (_rows[i].id === id) return i; }
+    return -1;
+  }
+  function onRtInsert(payload) {
+    var r = payload && payload.new;
+    _rtEvents++; _rtLastEventAt = Date.now();
+    if (_dead || !r || !r.id || r.owner_id !== _uid) return;
+    var i = findIdx(r.id);
+    if (i >= 0) { _rows[i] = Object.assign({}, _rows[i], r); }
+    else {
+      _rows.unshift(r);
+      _rows.sort(function (a, b) { return String(b.created_at || '').localeCompare(String(a.created_at || '')); });
+      if (_rows.length > LIST_LIMIT) _rows.length = LIST_LIMIT;
+    }
+    renderBadge();
+    if (_open) renderList();
+    announce(r);
+  }
+  function onRtUpdate(payload) {
+    var r = payload && payload.new;
+    _rtEvents++; _rtLastEventAt = Date.now();
+    if (_dead || !r || !r.id || r.owner_id !== _uid) return;
+    var i = findIdx(r.id);
+    if (i < 0) return;   // outside the loaded window — nothing on screen to update
+    _rows[i] = Object.assign({}, _rows[i], r);
+    renderBadge();
+    if (_open) renderList();
+  }
+  function subscribeRealtime() {
+    if (_chan || _dead || !_uid || !window.sb || typeof window.sb.channel !== 'function') return;
+    var f = 'owner_id=eq.' + _uid;
+    try {
+      _chan = window.sb.channel('staff-msgs-' + _uid)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'staff_messages', filter: f }, onRtInsert)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'staff_messages', filter: f }, onRtUpdate)
+        .subscribe(function (status, err) {
+          var was = _rtLive;
+          _rtStatus = String(status || '');
+          _rtLive = (status === 'SUBSCRIBED');
+          try { console.info('[staff-msgs] realtime: ' + _rtStatus + (err ? ' — ' + (err.message || err) : '')); } catch (e1) {}
+          if (_rtLive && !was) load(true);   // (re)joined — catch up anything sent while down
+        });
+    } catch (e) { _chan = null; _rtLive = false; /* polling carries on alone */ }
   }
 
   // ── Render ──────────────────────────────────────────────────────────────
@@ -1565,6 +1838,7 @@ window.doLogout = async function() {
         .order('created_at', { ascending: false })
         .limit(LIST_LIMIT);
       if (res && res.error) throw res.error;
+      _lastLoadAt = Date.now();
       _rows = (res && res.data) ? res.data : [];
       renderBadge();
       if (_open) renderList();
@@ -1582,8 +1856,7 @@ window.doLogout = async function() {
       if (!msgNeedsAck(r, role)) continue;
       if (prevIds[r.id]) return;           // newest actionable row already known
       if (_lastToastId === r.id) return;   // throttle: one toast per message
-      _lastToastId = r.id;
-      if (window.showToast) window.showToast('💬 رسالة جديدة من ' + (r.sender_name || ''));
+      announce(r);                         // toast + chime (once per message — _notified)
       return;
     }
   }
@@ -1625,7 +1898,10 @@ window.doLogout = async function() {
       var res = await window.sb.from('staff_messages').insert(row).select().maybeSingle();
       if (res && res.error) throw res.error;
       if (inp) inp.value = '';
-      if (res && res.data) _rows.unshift(res.data);
+      if (res && res.data) {
+        var di = findIdx(res.data.id);           // realtime may have delivered it first
+        if (di >= 0) _rows[di] = res.data; else _rows.unshift(res.data);
+      }
       renderList();
       renderBadge();
       if (window.showToast) window.showToast('تم إرسال الرسالة');
@@ -1696,8 +1972,12 @@ window.doLogout = async function() {
     if (_pollTimer) return;
     _pollTimer = setInterval(function () {
       if (document.hidden) return; // visible-tab-only (index waiting-room pattern)
+      /* v585: no realtime-based skip here — the poll is the delivery floor (realtime only makes it faster). */
       load(true);
     }, POLL_MS);
+    // Catch-up triggers: back to the tab, network back.
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) load(true); });
+    window.addEventListener('online', function () { load(true); });
   }
 
   // ── Boot: self-deferring — sidebar.js parses in <head> before autoInit ──
@@ -1711,11 +1991,18 @@ window.doLogout = async function() {
     }
     window.sbGetUser().then(function (u) {
       if (!u) return; // no session — stay silent
+      _uid = u.id;
       injectUI();
       loadPresets(u.id);
       sweepOld(u.id);
       load(false);
       startPolling();
+      subscribeRealtime();
+      // Audio unlock: the first gesture on the page creates/resumes the AudioContext.
+      // (HTML user-activation events: mousedown/pointerdown for a mouse, pointerup/touchend for touch, keydown.)
+      ['pointerdown', 'pointerup', 'touchend', 'keydown'].forEach(function (ev) {
+        document.addEventListener(ev, unlockAudio, { capture: true, passive: true });
+      });
     }).catch(function () {});
   }
   if (document.readyState === 'loading') {
@@ -1731,7 +2018,9 @@ window.doLogout = async function() {
     badgeCount: msgBadgeCount,
     defaults: PRESETS.slice(),
     _sanitizePresets: sanitizePresets,
-    refresh: function () { return load(true); }
+    refresh: function () { return load(true); },
+    soundOn: soundOn,
+    _rt: function () { return { live: _rtLive, status: _rtStatus, joined: !!_chan, events: _rtEvents, lastEventAt: _rtLastEventAt, lastLoadAt: _lastLoadAt, role: myRole(), rows: _rows.length }; }
   };
 })();
 /* SYDENT_MSGS_MODULE_END */

@@ -549,6 +549,12 @@ function renderPlanEditorFields(p) {
     var _entCap = (p.entitlements && typeof p.entitlements === 'object') ? p.entitlements.ai_monthly_calls : null;
     _aiCapEl.value = (typeof _entCap === 'number' && isFinite(_entCap)) ? String(_entCap) : '';
   }
+  // Migration 192: storage cap (MB) — same jsonb, read by the storage quota policy.
+  var _stEl = document.getElementById('planFldStorageMb');
+  if (_stEl) {
+    var _entSt = (p.entitlements && typeof p.entitlements === 'object') ? p.entitlements.storage_mb : null;
+    _stEl.value = (typeof _entSt === 'number' && isFinite(_entSt)) ? String(_entSt) : '';
+  }
   var sw = document.getElementById('planSwitchActive');
   if (sw) {
     sw.classList.toggle('on', !!p.is_active);
@@ -819,6 +825,13 @@ function readEditorIntoState() {
     if (_aic.value === '') { delete ed.entitlements.ai_monthly_calls; }
     else { ed.entitlements.ai_monthly_calls = Number(_aic.value); }
   }
+  // Migration 192: blank ⇒ DELETE the key (no cap — the server treats absent as unlimited).
+  var _stc = document.getElementById('planFldStorageMb');
+  if (_stc) {
+    if (!ed.entitlements || typeof ed.entitlements !== 'object') ed.entitlements = {};
+    if (_stc.value === '') { delete ed.entitlements.storage_mb; }
+    else { ed.entitlements.storage_mb = Number(_stc.value); }
+  }
   // Phase X11: features are managed live in ed.features by the row handlers
   // (renderFeatureRows / onFeatureRowInput / add / removeFeatureRow), so there
   // is no textarea to read here. Empty rows are trimmed at save time.
@@ -1062,6 +1075,13 @@ function validatePlanEdits(p) {
       return { ok:false, error:'سقف نداءات الذكاء الاصطناعي يجب أن يكون عدداً صحيحاً ≥ 1، أو اتركه فارغاً للافتراضي.' };
     }
   }
+  // Migration 192: storage cap (MB) — if present, a whole number ≥ 1.
+  if (_vEnt.storage_mb !== undefined) {
+    var _vSt = _vEnt.storage_mb;
+    if (typeof _vSt !== 'number' || isNaN(_vSt) || _vSt < 1 || Math.floor(_vSt) !== _vSt) {
+      return { ok:false, error:'سقف التخزين يجب أن يكون عدداً صحيحاً من الميغابايت ≥ 1، أو اتركه فارغاً لبلا سقف.' };
+    }
+  }
   // A paid tier must offer at least ONE (cycle × currency) point priced > 0
   // (trial is free on all). Migration 105: a USD-only tier is valid.
   if (p.code !== 'trial') {
@@ -1156,6 +1176,9 @@ function buildPlanDiff(orig, edited) {
     var _oCap = (typeof oEnt.ai_monthly_calls === 'number') ? oEnt.ai_monthly_calls : null;
     var _eCap = (typeof eEnt.ai_monthly_calls === 'number') ? eEnt.ai_monthly_calls : null;
     if (_oCap !== _eCap) diff.entitlements.ai_cap = { from:_oCap, to:_eCap };
+    var _oSt = (typeof oEnt.storage_mb === 'number') ? oEnt.storage_mb : null;   // Migration 192
+    var _eSt = (typeof eEnt.storage_mb === 'number') ? eEnt.storage_mb : null;
+    if (_oSt !== _eSt) diff.entitlements.storage_mb = { from:_oSt, to:_eSt };
   }
   return diff;
 }

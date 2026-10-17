@@ -240,6 +240,21 @@
   } catch (e) {}
   try {
     window.SyDentPWA = window.SyDentPWA || { canInstall: false, promptInstall: null, alreadyInstalled: false };
+    /* متصفح سامسونج: يلتقط beforeinstallprompt لكنه يبني APK خاصاً به موجَّهاً لإصدار
+       أندرويد قديم، فيحظره Google Play Protect («تم حظر تطبيق غير آمن») على الأجهزة
+       الحديثة. لا نعرض عليه زرّ تثبيت أبداً — نوجّهه لـChrome (WebAPK يبنيه Google
+       بإصدارٍ حديث موقَّع). الرابط intent:// يفتح الصفحة نفسها بـChrome، وإن لم يكن
+       مثبّتاً فصفحةُ Chrome على Play. */
+    (function () {
+      var ua = navigator.userAgent || '';
+      window.SyDentPWA.samsungBrowser = /SamsungBrowser/i.test(ua) && /Android/i.test(ua);
+      window.SyDentPWA.chromeIntentUrl = function () {
+        var l = window.location;
+        return 'intent://' + l.host + l.pathname + l.search +
+          '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' +
+          encodeURIComponent('https://play.google.com/store/apps/details?id=com.android.chrome') + ';end';
+      };
+    })();
     window.addEventListener('beforeinstallprompt', function (e) {
       try { e.preventDefault(); } catch (err) {}
       window.SyDentPWA.canInstall = true;
@@ -293,6 +308,7 @@
 (function () {
   'use strict';
   var KEY = 'sydent_install_prompt';   /* '1' = لا تُعرض تلقائياً · رقم = مؤجّلة حتى هذا الوقت (ms) */
+  var KEY_SS = 'sydent_install_samsung'; /* v625: Samsung Internet — separate key for the «open in Chrome» card */
   var ID  = 'syInstallCard';
   var SNOOZE_MS = 7 * 24 * 3600 * 1000;
   var ua = navigator.userAgent || '';
@@ -325,15 +341,16 @@
                 document.getElementById('sydentCpOverlay'));
     } catch (e) { return false; }
   }
-  function held() {
+  function held(k) {
     try {
-      var v = localStorage.getItem(KEY);
+      var v = localStorage.getItem(k || KEY);
       if (v === '1') return true;
       var until = Number(v);
       return isFinite(until) && until > Date.now();
     } catch (e) { return true; }
   }
-  function store(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
+  function store(v, k) { try { localStorage.setItem(k || KEY, v); } catch (e) {} }
+  function isSamsung() { return !!(window.SyDentPWA && window.SyDentPWA.samsungBrowser); }
   function close() {
     try {
       var c = document.getElementById(ID);
@@ -341,6 +358,8 @@
     } catch (e) {}
   }
   function mode() {
+    /* v625: Samsung Internet fires beforeinstallprompt but its install is blocked by Play Protect ⇒ send to Chrome */
+    if (isSamsung()) return 'samsung';
     if (window.SyDentPWA && window.SyDentPWA.canInstall) return 'prompt';
     if (isIOS) return 'ios';
     return 'menu';
@@ -374,7 +393,8 @@
   var DESC = {
     prompt: 'افتحه بلمسة واحدة من الشاشة الرئيسية لهاتفك مثل أي تطبيق، بشاشة كاملة ودون شريط المتصفح.',
     ios: 'اضغط زرّ المشاركة <b>⬆️</b> في شريط المتصفح، ثم اختر <b>«إضافة إلى الشاشة الرئيسية»</b>.',
-    menu: 'افتح قائمة المتصفح <b>⋮</b>، ثم اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>.'
+    menu: 'افتح قائمة المتصفح <b>⋮</b>، ثم اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>.',
+    samsung: 'متصفح سامسونج يثبّت نسخةً يحظرها Google Play Protect. افتح SyDent في <b>Chrome</b> وثبّته من هناك.'
   };
 
   function render(m) {
@@ -390,7 +410,10 @@
       '<span class="syic-title">ثبّت SyDent كتطبيق على هاتفك</span></div>' +
       '<div class="syic-desc">' + DESC[m] + '</div>' +
       '<div class="syic-actions">' +
-      (m === 'prompt'
+      (m === 'samsung'
+        ? '<button type="button" class="syic-btn syic-primary" id="syicChrome">افتح في Chrome</button>' +
+          '<button type="button" class="syic-btn syic-ghost" id="syicLater">لاحقاً</button>'
+        : m === 'prompt'
         ? '<button type="button" class="syic-btn syic-primary" id="syicGo">ثبّت الآن</button>' +
           '<button type="button" class="syic-btn syic-ghost" id="syicLater">لاحقاً</button>'
         : '<button type="button" class="syic-btn syic-primary" id="syicLater">حسناً</button>') +
@@ -407,8 +430,15 @@
         } catch (e) {}
       });
     }
+    var chrome = document.getElementById('syicChrome');
+    if (chrome) {
+      chrome.addEventListener('click', function () {
+        store('1', KEY_SS); close();
+        try { window.location.href = window.SyDentPWA.chromeIntentUrl(); } catch (e) {}
+      });
+    }
     var later = document.getElementById('syicLater');
-    if (later) later.addEventListener('click', function () { store(String(Date.now() + SNOOZE_MS)); close(); });
+    if (later) later.addEventListener('click', function () { store(String(Date.now() + SNOOZE_MS), m === 'samsung' ? KEY_SS : KEY); close(); });
 
     try { requestAnimationFrame(function () { box.classList.add('show'); }); }
     catch (e) { box.classList.add('show'); }
@@ -418,6 +448,7 @@
   function available() {
     try {
       if (isStandalone()) return false;
+      if (isSamsung()) return true;
       if (window.SyDentPWA && window.SyDentPWA.canInstall) return true;
       if (window.SyDentPWA && window.SyDentPWA.alreadyInstalled) return false;
       return isIOS || isAndroid;
@@ -427,7 +458,7 @@
   function maybeShow() {
     try {
       if (navigator.webdriver) return;
-      if (!document.body || isExcludedPage() || !isTouchDevice() || held() || lockOpen()) return;
+      if (!document.body || isExcludedPage() || !isTouchDevice() || held(isSamsung() ? KEY_SS : KEY) || lockOpen()) return;
       if (!available()) return;
       var c = document.getElementById(ID);
       var m = mode();
@@ -593,33 +624,8 @@
     });
   }
 
-  /* DeepCode #17 (v550): يتنحّى أثناء التمرير لأسفل (أي حاويةٍ تمرّر — التقاطٌ على المستند)
-     ويعود بالتمرير لأعلى، أو قرب أعلى الحاوية، أو حين يتغيّر شيءٌ داخله (شارةُ رسالةٍ جديدة). */
-  var AWAY_PX = 6, AWAY_TOP = 80;
-  function awayStep(prevY, y) {
-    if (y <= AWAY_TOP) return false;
-    if (y > prevY + AWAY_PX) return true;
-    if (y < prevY - AWAY_PX) return false;
-    return null;   /* حركةٌ صغيرة: بلا تغيير */
-  }
-  function wireAway(d) {
-    var last = typeof WeakMap === 'function' ? new WeakMap() : null;
-    document.addEventListener('scroll', function (e) {
-      var t = (e.target === document || e.target === document.documentElement || e.target === document.body)
-        ? (document.scrollingElement || document.documentElement) : e.target;
-      if (!t || typeof t.scrollTop !== 'number' || !last) return;
-      /* حاويةٌ لم تُرَ بعد تبدأ من أعلاها (0): أولُ حدث تمرير — وقد يكون الوحيد (قفزةُ عجلة/مفتاح) — يُحتسب. */
-      var y = t.scrollTop, p = last.has(t) ? last.get(t) : 0;
-      var r = awayStep(p, y);
-      if (r === true) d.classList.add('sy-fab-away');
-      else if (r === false) d.classList.remove('sy-fab-away');
-      if (r !== null || !last.has(t)) last.set(t, y);
-    }, { capture: true, passive: true });
-    if (typeof MutationObserver === 'function') {
-      new MutationObserver(function () { d.classList.remove('sy-fab-away'); })
-        .observe(d, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden'] });
-    }
-  }
+  /* v579 (قرار المالك، 5 تشرين الأول 2026): أُزيل تنحّي الحاوية أثناء التمرير لأسفل (DeepCode #17-ب، v550) —
+     زرّا الرسائل والتحديث ظاهران دائماً بكل موضع تمرير. بقي من #17 المسافةُ بآخر المحتوى (آخرُ صفٍّ يصعد فوق الزر). */
 
   function injectStyle() {
     if (_styled) return;
@@ -633,10 +639,9 @@
       '#syFabDock.snap{transition:left .2s ease,top .2s ease,opacity .18s ease,transform .18s ease}' +
       '#syFabDock:empty{display:none}' +
       '#syFabDock>button{position:relative;touch-action:none}' +
-      /* DeepCode #17 (v550): (أ) مسافةٌ بآخر محتوى الصفحة بقدر الزر فآخرُ صفٍّ يصعد فوقه دائماً;
-         (ب) يتنحّى أثناء التمرير لأسفل ويعود بالتمرير لأعلى أو بوصول رسالة (نمط Material). */
-      'body:has(#syFabDock:not(:empty)) .sb-main-content::after{content:"";display:block;height:calc(var(--sy-fab-bottom,14px) + 62px)}' +
-      '#syFabDock.sy-fab-away{opacity:0;pointer-events:none;transform:translateY(14px)}';
+      /* DeepCode #17 (v550): مسافةٌ بآخر محتوى الصفحة بقدر الزر فآخرُ صفٍّ يصعد فوقه دائماً.
+         (التنحّي بالتمرير أُزيل بـv579 بقرار المالك — الحاويةُ ظاهرةٌ دائماً.) */
+      'body:has(#syFabDock:not(:empty)) .sb-main-content::after{content:"";display:block;height:calc(var(--sy-fab-bottom,14px) + 62px)}';
     document.head.appendChild(st);
   }
 
@@ -652,7 +657,6 @@
       d.setAttribute('aria-label', 'أزرار عائمة');
       document.body.appendChild(d);
       wireDrag(d);
-      wireAway(d);
       if (!_resizeWired) {
         _resizeWired = true;
         window.addEventListener('resize', function () { if (_dock) applySaved(_dock, false); });
@@ -670,7 +674,7 @@
     return d;
   }
 
-  window.SyDentFabDock = { get: get, adopt: adopt, apply: function () { if (_dock) applySaved(_dock, false); }, _awayStep: awayStep };
+  window.SyDentFabDock = { get: get, adopt: adopt, apply: function () { if (_dock) applySaved(_dock, false); } };
 })();
 /* SYDENT_FAB_DOCK_END */
 

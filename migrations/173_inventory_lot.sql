@@ -1,4 +1,4 @@
--- 177 — Batch number (LOT) and tracing to the patient (task C3, part 2)
+-- 173 — Batch number (LOT) and tracing to the patient (task C3, part 2)
 --
 -- Implants, membranes and bone grafts carry a manufacturer LOT; a recall names
 -- the LOT, and the clinic must find every patient who received it.
@@ -202,5 +202,5 @@ REVOKE ALL ON FUNCTION public.inventory_consume(jsonb, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.inventory_receive(uuid, jsonb, text, boolean) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.inventory_consume(jsonb, text) TO authenticated, service_role;
 
-COMMENT ON COLUMN public.inventory_batches.lot IS 'M177: manufacturer batch number (LOT) — recall tracing through consume movements';
-COMMENT ON COLUMN public.inventory_receipt_lines.lot IS 'M177: LOT as written at receiving';
+COMMENT ON COLUMN public.inventory_batches.lot IS 'M173: manufacturer batch number (LOT) — recall tracing through consume movements';
+COMMENT ON COLUMN public.inventory_receipt_lines.lot IS 'M173: LOT as written at receiving';

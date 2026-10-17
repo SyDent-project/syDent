@@ -1256,6 +1256,7 @@ async function _saveToothAndOpenLab_inner() {
   if (typeof condNormalizePending === 'function') condNormalizePending();
   /* M145-h: البديلُ جلسةُ سجلٍّ تُوسَم بخيار — مسارُ المخبر لا يوسم؛ زرُّه محجوبٌ بوضع البديل وهذا حارسُه */
   if (typeof _altBridge !== 'undefined' && _altBridge) { showToast('🔀 البدائل تُحفظ بزر «حفظ» — أرسل للمخبر بعد اعتماد الخيار'); return; }
+  if (typeof _implantAlt !== 'undefined' && _implantAlt) { showToast('🔀 البدائل تُحفظ بزر «حفظ» — أرسل للمخبر بعد اعتماد الخيار'); return; }   /* v600 */
   var _sp = await persistSpecialTreatment();
   if (_sp.blocked) return;
 
@@ -2644,7 +2645,7 @@ function labAiNormPhone(raw) {
   /* نسخة سلوكية من عائلة مطبّعات الهاتف (المجموعة A بـcheck-mirrors —
      صارت 6 نسخ بانضمام نسختي هذه المرآة). أي تغيير دلالي يطبَّق على الكل. */
   if (!raw) return null;
-  var p = String(raw).replace(/\D/g, '');
+  var p = String(raw).replace(/[\u0660-\u0669]/g, function(d){ return String(d.charCodeAt(0) - 0x0660); }).replace(/[\u06F0-\u06F9]/g, function(d){ return String(d.charCodeAt(0) - 0x06F0); }).replace(/\D/g, '');   // v622: Arabic-Indic (٠-٩) and Persian (۰-۹) digits — an Arabic keyboard's default
   if (!p) return null;
   if (p.indexOf('00') === 0) p = p.substring(2);
   if (p.indexOf('0') === 0) {

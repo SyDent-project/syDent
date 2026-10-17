@@ -60,6 +60,13 @@ const AI_MODEL = "claude-haiku-4-5-20251001"; // Anthropic fallback; → "claude
 // free daily allocation. Override per project with the CF_AI_MODEL secret.
 const CF_DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash";
 const MAX_TOKENS = 700;                         // fallback ceiling
+/* v641 — نموذجٌ لكل ميزة (الافتراضي AI_MODEL). ملاحظةُ الجلسة نصٌّ سريريٌّ قصير
+   يُحفظ بسجلّ المريض، وHaiku عرّب «حشوة كومبوزت» إلى «زرع إنستري مركب» (بلاغ
+   المالك 15/10) ⇒ نموذجٌ أدقّ بالعربية السريرية؛ كلفتُه ضئيلة لقِصَر النص. إن
+   رفضت الخدمةُ النموذجَ المخصّص (400/404) يعود النداءُ نفسُه إلى AI_MODEL. */
+const FEATURE_MODEL: Record<string, string> = {
+  session_note: "claude-sonnet-5-5",
+};
 /* سقف المخرجات لكل ميزة — شرح الخطة قد يحوي عدة بلوكات مراحل + بنود مشتركة
    + إجمالي + ملاحظات + خاتمة، والعربية كثيفة التوكينات (700 كانت تبتر الشرح
    بعد ثلاثة بنود وتُسقط الباقي بصمت). */
@@ -219,6 +226,73 @@ function placeholderLine(list: string[]): string {
     (list.length ? list.join(" · ") : "(لا يوجد — استعمل {الاسم} فقط)") + "\n";
 }
 
+// ═══ NOTE-FAITH BEGIN ═══
+/* v641 — أمانةُ ملاحظة الجلسة: فحصٌ حتميّ للمخرج قبل أن يصل الطبيب.
+   (أ) اسمُ العلاج المسجّل مذكورٌ حرفياً · (ب) لا إجراءَ علاجيّ من عائلةٍ غير
+   واردة بالمدخلات (العلاج + كلمات الطبيب) · (ج) لا رقمَ سنٍّ غير واردٍ بها.
+   الفشلُ ⇒ إعادةُ كتابةٍ واحدة بتنبيهٍ صريح، ثم رفضٌ نظيف (ai_unfaithful). */
+function nfNorm(s: string): string {
+  return String(s || "")
+    .replace(/[\u064B-\u0652\u0670\u0640]/g, "")
+    .replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه")
+    .replace(/ؤ/g, "و").replace(/ئ/g, "ي")
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06F0))
+    .replace(/\s+/g, " ").trim().toLowerCase();
+}
+function nfTreatmentCore(treatment: string): string {
+  const t = String(treatment || "").replace(/^[^\p{L}\p{N}]+/u, "")
+    .split(" — ")[0].replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
+  const n = nfNorm(t);
+  if (n.length < 2 || n === "اخري" || n === "غير محدد") return "";
+  return t;
+}
+function nfWord(stems: string): RegExp {
+  return new RegExp("(?<![\\u0621-\\u064A])[وفبلك]?(?:ال|لل)?(?:" + stems + ")(?![\\u0621-\\u064A])", "i");
+}
+const NF_GROUPS = [
+  { key: "implant", label: "زرع", ar: nfWord("زرع|زرعه|زرعات|زراعه|زراعات|غرسه|غرسات"), la: /\bimplants?\b/i, implies: ["crown"] },
+  { key: "extraction", label: "قلع", ar: nfWord("قلع"), la: /\b(?:ext|extraction|exo)\b/i, implies: [] },
+  { key: "filling", label: "حشوة/ترميم",
+    // «حشو الأقنية» يقع هنا أيضاً — والمعالجةُ اللبية تسمح بالحشوة (implies) فلا رفضَ خاطئ
+    ar: nfWord("حشوه|حشوات|حشو|ترميم|ترميمات|كومبوزت|كومبوزيت|كمبوزت|كمبوزيت|امالغم|املغم|ملغم"),
+    la: /\b(?:comp|composite|amalgam|gic?|filling)\b/i, implies: [] },
+  { key: "crown", label: "تاج", ar: nfWord("تاج|تيجان|تلبيس|تلبيسه"), la: /\b(?:crowns?|pfm|zirconia)\b/i, implies: ["filling", "post"] },
+  { key: "bridge", label: "جسر", ar: nfWord("جسر|جسور"), la: /\bbridges?\b/i, implies: ["crown", "filling"] },
+  { key: "endo", label: "معالجة لبية", ar: nfWord("لبيه|عصب|اقنيه|قناه|قنوات|بتر لب"), la: /\b(?:rct|endo|root canal|pulpotomy|pulpectomy)\b/i, implies: ["filling"] },
+  { key: "post", label: "وتد", ar: nfWord("وتد|اوتاد"), la: /\bposts?\b/i, implies: ["crown", "filling"] },
+  { key: "whitening", label: "تبييض", ar: nfWord("تبييض"), la: /\b(?:bleach\w*|whitening)\b/i, implies: [] },
+  { key: "ortho", label: "تقويم", ar: nfWord("تقويم"), la: /\bortho\w*/i, implies: [] },
+  { key: "scaling", label: "تقليح", ar: nfWord("تقليح|قلح|جير"), la: /\b(?:scaling|prophy\w*)\b/i, implies: [] },
+  { key: "veneer", label: "قشور", ar: nfWord("قشره|قشور|فينير|فنير"), la: /\bveneers?\b/i, implies: [] },
+  { key: "denture", label: "طقم", ar: nfWord("طقم|اطقم|بدله"), la: /\bdentures?\b/i, implies: [] },
+];
+const NF_TOOTH_RUN = /(?:سن|اسنان|ضرس|اضراس|رحي|ناب|قاطع|ثنيه|ضاحك)(?:ين|ان)?(?: رقم| رقمي)?:? ?((?:\d{2}(?!\d)(?: ?[،,\-–] ?| و ?| ?و)?)+)/g;
+function sessionNoteIssues(treatment: string, notes: string, text: string): string[] {
+  const issues: string[] = [];
+  const inN = nfNorm(String(treatment || "") + " \n " + String(notes || ""));
+  const outN = nfNorm(text);
+  const core = nfTreatmentCore(treatment);
+  if (core && outN.indexOf(nfNorm(core)) < 0) issues.push("لم يُذكر اسم العلاج «" + core + "» حرفياً");
+  const allowed: Record<string, boolean> = {};
+  for (const g of NF_GROUPS) {
+    if (g.ar.test(inN) || g.la.test(inN)) { allowed[g.key] = true; for (const k of g.implies) allowed[k] = true; }
+  }
+  for (const g of NF_GROUPS) {
+    if (!allowed[g.key] && (g.ar.test(outN) || g.la.test(outN))) issues.push("ذُكر إجراءٌ غير مسجّل: " + g.label);
+  }
+  const inNums: Record<string, boolean> = {};
+  for (const m of inN.match(/\d+/g) || []) inNums[m] = true;
+  const seen: Record<string, boolean> = {};
+  for (const m of outN.matchAll(NF_TOOTH_RUN)) {
+    for (const n of m[1].match(/\d{2}/g) || []) {
+      if (!inNums[n] && !seen[n]) { seen[n] = true; issues.push("ذُكر سنٌّ غير مسجّل: " + n); }
+    }
+  }
+  return issues;
+}
+// ═══ NOTE-FAITH END ═══
+
 const SYSTEM_PROMPTS: Record<string, string> = {
   session_note:
     "أنت مساعد كتابة ملاحظات سريرية لعيادة أسنان. حوّل مدخلات الطبيب المختصرة " +
@@ -233,7 +307,12 @@ const SYSTEM_PROMPTS: Record<string, string> = {
     "ولا عبارات جاهزة. " +
     "(5) أبقِها مختصرة (٢-٤ جمل عادةً) بلا حشو. " +
     "(6) لا تضع اسم مريض أو أي معرّف شخصي. " +
-    "(7) نصّ عادي بلا أي رموز تنسيق.",
+    "(7) نصّ عادي بلا أي رموز تنسيق. " +
+    "(8) اذكر اسم العلاج المسجّل حرفياً كما ورد في المدخلات (مثال: «حشوة كومبوزت» تبقى «حشوة كومبوزت») — " +
+    "لا تترجمه ولا تعرّبه ولا تستبدله بمرادف، وكذلك أسماء السطوح كما وردت (إنسي · وحشي · إطباقي · دهليزي · " +
+    "حنكي · لساني). " +
+    "(9) لا تذكر أي إجراء علاجي آخر غير العلاج المسجّل وما ورد صراحةً في ملاحظات الطبيب. " +
+    "(10) إن كانت المدخلات شحيحة فاكتب جملة واحدة دقيقة بدل الإطالة أو التخمين.",
   patient_summary:
     "أنت مساعد سريري لعيادة أسنان. لخّص ملف المريض للطبيب قبل الزيارة بشكل موجز ومهني للاطّلاع السريع. " +
     "اكتب الملخّص فقط (بلا مقدمة عن نفسك) وفق هذا الترتيب، كل قسم بعنوان على سطر مستقل يليه محتواه:\n\n" +
@@ -983,9 +1062,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── 5) Build the prompt (minimized · feature-specific) ─────────────
   let userContent = "";
+  let noteTreatment = "", noteRough = "";   // v641: لفحص الأمانة بعد النداء
   if (feature === "session_note") {
-    const treatment = String(input?.treatment || "").slice(0, 400);
+    // عنوانُ نافذة السن يبدأ برمز (🦷 · 🔀) — يُنزع كي يصل اسمُ العلاج نظيفاً
+    const treatment = String(input?.treatment || "").replace(/^[^\p{L}\p{N}]+/u, "").slice(0, 400);
     const rough = String(input?.notes || "").slice(0, 1500);
+    noteTreatment = treatment; noteRough = rough;
     if (!treatment && !rough) return json(400, { error: "empty_input" });
     userContent =
       "العلاج المُسجَّل بالجلسة: " + (treatment || "(غير محدد)") + "\n" +
@@ -1208,16 +1290,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // ── 6) Call the AI provider (server-side · key never leaves here) ──
   // سقف الميزة، ومحاولة ثانية بسقف مضاعف إن انقطع الناتج (stop_reason=max_tokens)
   // كي لا يصل المريض شرحٌ مبتور تسقط منه علاجات بصمت.
-  let aiText = "";
-  let usage = { input_tokens: 0, output_tokens: 0 };
-  let tokenCap = (hasFeature(FEATURE_MAX_TOKENS, feature) ? FEATURE_MAX_TOKENS[feature] : 0) || MAX_TOKENS;
-  if (useCloudflare) {
-    // Cloudflare Workers AI (REST). Chat models return an OpenAI-style
-    // { choices[], usage } inside { result }; older ones { result.response }.
-    try {
+  // v641: per-feature model (FEATURE_MODEL) falling back to AI_MODEL on 400/404,
+  // and the session note goes through the faithfulness check (sessionNoteIssues).
+  // Cloudflare Workers AI (when configured) uses its own single model.
+  const baseCap = (hasFeature(FEATURE_MAX_TOKENS, feature) ? FEATURE_MAX_TOKENS[feature] : 0) || MAX_TOKENS;
+  let usedModel = useCloudflare ? modelName : ((hasFeature(FEATURE_MODEL, feature) ? FEATURE_MODEL[feature] : "") || AI_MODEL);
+  const usage = { input_tokens: 0, output_tokens: 0 };
+  const runModel = async (content: string): Promise<{ text: string; error: string }> => {
+    let tokenCap = baseCap;
+    if (useCloudflare) {
+      // Cloudflare Workers AI (REST). Chat models return an OpenAI-style
+      // { choices[], usage } inside { result }; older ones { result.response }.
       let data: any = null;
       for (let attempt = 0; attempt < 2; attempt++) {
-        const r = await fetch(
+        const cr = await fetch(
           `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${modelName}`,
           {
             method: "POST",
@@ -1228,7 +1314,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
             body: JSON.stringify({
               messages: [
                 { role: "system", content: SYSTEM_PROMPTS[feature] },
-                { role: "user", content: userContent },
+                { role: "user", content },
               ],
               max_completion_tokens: tokenCap,
               // GLM / Qwen chat templates think before answering by default,
@@ -1238,12 +1324,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
             }),
           },
         );
-        if (!r.ok) {
-          const errTxt = await r.text().catch(() => "");
-          console.error("workers_ai_error", r.status, errTxt.slice(0, 300));
-          return json(502, { error: "ai_upstream_error" });
+        if (!cr.ok) {
+          const errTxt = await cr.text().catch(() => "");
+          console.error("workers_ai_error", cr.status, errTxt.slice(0, 300));
+          return { text: "", error: "ai_upstream_error" };
         }
-        data = (await r.json())?.result;
+        data = (await cr.json())?.result;
         if (data?.choices?.[0]?.finish_reason === "length" && attempt === 0) {
           console.warn("ai_truncated_retry", feature, tokenCap);
           tokenCap = tokenCap * 2;
@@ -1252,18 +1338,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
         break;
       }
       const choiceText = data?.choices?.[0]?.message?.content;
-      aiText = String((typeof choiceText === "string" ? choiceText : data?.response) || "").trim();
-      usage = {
-        input_tokens: data?.usage?.prompt_tokens ?? 0,
-        output_tokens: data?.usage?.completion_tokens ?? 0,
-      };
-    } catch (e) {
-      console.error("workers_ai_fetch_failed", String(e));
-      return json(502, { error: "ai_upstream_error" });
+      usage.input_tokens += data?.usage?.prompt_tokens ?? 0;
+      usage.output_tokens += data?.usage?.completion_tokens ?? 0;
+      return { text: String((typeof choiceText === "string" ? choiceText : data?.response) || "").trim(), error: "" };
     }
-  } else try {
     let r: Response | null = null;
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt++) {
       r = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -1272,39 +1352,68 @@ Deno.serve(async (req: Request): Promise<Response> => {
           "anthropic-version": ANTHROPIC_VERSION,
         },
         body: JSON.stringify({
-          model: AI_MODEL,
+          model: usedModel,
           max_tokens: tokenCap,
           system: SYSTEM_PROMPTS[feature],
-          messages: [{ role: "user", content: userContent }],
+          messages: [{ role: "user", content }],
         }),
       });
-      if (!r.ok) break;
+      if (!r.ok) {
+        if ((r.status === 400 || r.status === 404) && usedModel !== AI_MODEL) {
+          const t = await r.text().catch(() => "");
+          console.warn("ai_model_fallback", usedModel, r.status, t.slice(0, 200));
+          usedModel = AI_MODEL;
+          continue;
+        }
+        break;
+      }
       const peek = await r.clone().json();
-      if (peek?.stop_reason === "max_tokens" && attempt === 0) {
+      if (peek?.stop_reason === "max_tokens" && tokenCap === baseCap) {
         console.warn("ai_truncated_retry", feature, tokenCap);
         tokenCap = tokenCap * 2;
         continue;
       }
       break;
     }
-    if (!r) return json(502, { error: "ai_unavailable" });
+    if (!r) return { text: "", error: "ai_unavailable" };
     if (!r.ok) {
       const errTxt = await r.text().catch(() => "");
       console.error("anthropic_error", r.status, errTxt.slice(0, 300));
-      return json(502, { error: "ai_upstream_error" });
+      return { text: "", error: "ai_upstream_error" };
     }
     const data = await r.json();
-    aiText = (Array.isArray(data?.content) ? data.content : [])
+    usage.input_tokens += data?.usage?.input_tokens ?? 0;
+    usage.output_tokens += data?.usage?.output_tokens ?? 0;
+    const text = (Array.isArray(data?.content) ? data.content : [])
       .filter((b: any) => b?.type === "text")
       .map((b: any) => b.text)
       .join("\n")
       .trim();
-    usage = {
-      input_tokens: data?.usage?.input_tokens ?? 0,
-      output_tokens: data?.usage?.output_tokens ?? 0,
-    };
+    return { text, error: "" };
+  };
+
+  let aiText = "";
+  let unfaithful = false;
+  try {
+    const first = await runModel(userContent);
+    if (first.error) return json(502, { error: first.error });
+    aiText = first.text;
+    if (aiText && feature === "session_note") {
+      let issues = sessionNoteIssues(noteTreatment, noteRough, aiText);
+      if (issues.length) {
+        console.warn("session_note_unfaithful", issues.join(" | "));
+        const second = await runModel(userContent +
+          "\n\nتنبيه: رُفضت مسودةٌ سابقة لأنها خالفت المدخلات (" + issues.join("؛ ") + "). " +
+          "أعد كتابة الملاحظة ملتزماً حرفياً باسم العلاج المسجّل وأسماء السطوح كما وردت، " +
+          "ودون ذكر أي إجراء أو سن غير وارد في المدخلات.");
+        if (second.error) return json(502, { error: second.error });
+        aiText = second.text;
+        issues = aiText ? sessionNoteIssues(noteTreatment, noteRough, aiText) : [];
+        if (issues.length) { console.warn("session_note_unfaithful_final", issues.join(" | ")); unfaithful = true; }
+      }
+    }
   } catch (e) {
-    console.error("anthropic_fetch_failed", String(e));
+    console.error(useCloudflare ? "workers_ai_fetch_failed" : "anthropic_fetch_failed", String(e));
     return json(502, { error: "ai_upstream_error" });
   }
   if (!aiText) return json(502, { error: "ai_empty_response" });
@@ -1314,11 +1423,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     await admin.from("ai_usage_log").insert({
       owner_id: ownerId,
       feature,
-      model: modelName,
+      model: usedModel,
       input_tokens: usage.input_tokens,
       output_tokens: usage.output_tokens,
     });
   } catch (_e) { /* best-effort metering */ }
+
+  // مسودةٌ تخالف العلاجَ المسجّل لا تصل الطبيب أبداً (لا تُكتب بحقل الملاحظة)
+  if (unfaithful) return json(422, { error: "ai_unfaithful" });
 
   return json(200, { text: aiText });
 });

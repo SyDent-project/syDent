@@ -620,6 +620,7 @@ function batchSyncUI() {
    حرفياً (examRouteSurface): حشوة = السطح المنقور · جذري = الجذر المنقور ·
    كامل/قلع/زراعة/تاج = السن كاملاً. نقرة ثانية على الموضع نفسه = إلغاء. */
 function batchToggleAt(n, clickedSurface) {
+  if (typeof isSxSurface === 'function' && isSxSurface(clickedSurface)) { showToast('🩺 السنُّ الزائد خارج التحديد المتعدد — انقره بالوضع العادي'); return; }   /* v580 */
   if (!batchSelectedKey) { showToast('👆 اختر علاجاً من شريط التحديد أولاً'); return; }
   var t = getTreatment(batchSelectedKey);
   if (!t) { showToast('⚠️ العلاج المختار غير موجود'); return; }
@@ -680,10 +681,17 @@ function batchAllowed(n, t, s) {
     if (tp === 'crown' || (tp === 'both' && _sTaj)) return { ok: false, msg: 'دعامة جسر' };
     return { ok: true };
   }
-  if (isExtracted(n)) {
+  /* v600: قلعٌ مخطّط = سنٌّ قائم (مرآةُ isAllowed بالمودال): علاجاتُه كلُّها + الزرعة كخطة؛ لا قلعَ ثانياً */
+  var _xPl = (typeof isExtractionPlanned === 'function') && isExtractionPlanned(n);
+  if (isExtracted(n) && !_xPl) {
     if (tp !== 'implant') return { ok: false, msg: 'مقلوع' };
     if (isPrimaryTooth(n)) return { ok: false, msg: 'لبني مقلوع' };
     return { ok: true };
+  }
+  if (_xPl) {
+    if (tp === 'extraction') return { ok: false, msg: 'قلعه مخطّط أصلاً' };
+    if (tp === 'implant') return isPrimaryTooth(n) ? { ok: false, msg: 'لبني' } : { ok: true };
+    if (tp === 'bridge' || t.post_extraction === true || (typeof isSpacerTreatment === 'function' && isSpacerTreatment(t))) return { ok: false, msg: 'من نافذة السن' };
   }
   if (tp === 'implant') return { ok: false, msg: 'سن قائم — الزراعة تُخطَّط على موقع مقلوع (سجّل القلع أولاً ولو مخططاً)' };
   if (tp === 'extraction' && typeof toothHasSpacer === 'function' && toothHasSpacer(n)) return { ok: false, msg: 'عليه حافظ مسافة' };
@@ -987,6 +995,12 @@ async function _examStamp_inner(n, clickedSurface) {
       if (t.cond_scope === 'both') s = _clk;
       else { showToast('🩺 «' + t.name + '» حالةٌ سطحية — انقر السطحَ التاجيَّ المطلوب لا الجذر'); return; }
     } else s = _clk;
+    if (typeof condStorageSurface === 'function') s = condStorageSurface(t, s);   /* v580: «سن زائد» ⇒ SX<الجهة> — نفسُ مسند المودال */
+  }
+  /* v580: نقرةُ خلية السن الزائد بالفحص الأولي — القلعُ وحده يُختم عليها، بمرساتها SX (لا WHOLE) */
+  if (typeof isSxSurface === 'function' && isSxSurface(clickedSurface)) {
+    if (_isCond || tp !== 'extraction') { showToast('🩺 على السن الزائد يُسجَّل القلعُ فقط'); return; }
+    s = clickedSurface;
   }
   var tn = String(n);
   var sm = teethMap[tn] || {};
@@ -1000,15 +1014,21 @@ async function _examStamp_inner(n, clickedSurface) {
     }
     var prevStX = (sm.__status || {})[s] || null;
     var prevRvX = (sm.__review || {})[s] || null;
+    var _dxT = (typeof dxOf === 'function') ? dxOf(n, s) : [];   /* v605: العلاجُ المختوم فوق حالة ⇒ تعود عند إلغائه */
     var dr = await window.sb.from('teeth_status').delete()
       .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
       .eq('tooth_num', tn).eq('surface', s);
     if (dr.error) { showToast('⚠️ ' + dr.error.message); return; }
+    /* v581: إلغاءُ ختم تماسٍ مفتوح يزيل صفَّ الجار المقابل أيضاً — مرآةُ إزالة المودال (التماسُ نفسه) */
+    var _twins = (typeof condContactTwins === 'function') ? condContactTwins(n, s, examSelectedKey) : [];
     delete teethMap[tn][s];
     if (teethMap[tn].__status) delete teethMap[tn].__status[s];
     if (teethMap[tn].__review) delete teethMap[tn].__review[s];
     var _rk = Object.keys(teethMap[tn]).filter(function(k){ return k !== '__status' && k !== '__review'; });
     if (_rk.length === 0) delete teethMap[tn];
+    if (_twins.length) await deleteContactTwinRows(_twins);   /* v581 */
+    if (_dxT.length && typeof dxRestoreAfterRemoval === 'function') await dxRestoreAfterRemoval(n, s, _dxT);   /* v605 */
+    else if (typeof dxSet === 'function') dxSet(n, s, null);
     examUndoStack.push({ type: 'unstamp', n: tn, s: s, key: examSelectedKey, st: prevStX, rv: prevRvX });
     examCount = Math.max(0, examCount - 1);
     renderTeeth(); renderStats();
@@ -1017,7 +1037,7 @@ async function _examStamp_inner(n, clickedSurface) {
   }
 
   // ── State guards (mirror of modal isAllowed) ──
-  var ok = examAllowed(n, t);
+  var ok = (typeof isSxSurface === 'function' && isSxSurface(s)) ? { ok: true } : examAllowed(n, t);   /* v580: حالةُ السن المجاور لا تحكم السنَّ الزائد (مرآةُ isAllowed) */
   if (!ok.ok) { showToast(ok.msg); return; }
   /* v434: حالةٌ محصورةٌ بأسطحٍ بعينها (تماسٌ مفتوح ⇒ إنسي/وحشي) */
   if (_isCond && typeof condSurfaceNotAllowed === 'function') {
@@ -1028,8 +1048,16 @@ async function _examStamp_inner(n, clickedSurface) {
   if (_isCond && s !== COND_SURFACE && typeof condSurfaceConflict === 'function') {
     var _ecf = condSurfaceConflict(n, s);
     if (_ecf) {
+      /* v610: مرآةُ الوضع العادي — الحالةُ تُسجَّل ملاحظةً/تشخيصاً على صفّ العلاج، والتراجعُ يعيد dx السابق */
       var _ecfT = getTreatment((teethMap[tn] || {})[_ecf]);
-      showToast('🩺 السطح يحمل علاجاً (' + (_ecfT ? _ecfT.name : _ecf) + ') — سجّل الحالة على سطحٍ آخر');
+      var _ePrev = (typeof dxMapOf === 'function') ? (dxMapOf(tn)[_ecf] || null) : null;
+      var _eRes = await dxAddNote(n, _ecf, s, examSelectedKey);
+      if (_eRes === false) return;
+      examUndoStack.push({ type: 'note', n: tn, s: _ecf, prevDx: _ePrev });
+      examCount++;
+      renderTeeth(); renderStats();
+      var _ceN = document.getElementById('examCountEl'); if (_ceN) _ceN.textContent = examCount;
+      showToast('🩺 «' + t.name + '» ' + (_eRes === true ? 'ملاحظةً على ' : 'تشخيصاً تحت ') + (_ecfT ? _ecfT.name : _ecf) + ' (' + surfLabelFor(s, n) + ')');
       return;
     }
   }
@@ -1042,6 +1070,7 @@ async function _examStamp_inner(n, clickedSurface) {
     pendingTreatStatus = examStatus; pendingReviewMonths = examReviewMonths;
     pendingBridgeExtra = { mesial: 0, distal: 0 };   // M85: exam stamps always use the base unit — never inherit modal chips
     if (typeof _altBridge !== 'undefined') _altBridge = null;   /* M145-h: وضعُ «بديل الجسر» لا يُورَّث لختم الفحص */
+    if (typeof _implantAlt !== 'undefined') _implantAlt = null;   /* v600 */
     var sp = await persistSpecialTreatment();
     bridgeUnitForLedger = null; spacerUnitForLedger = null;   // defensive: never leak into a later normal save
     if (sp.blocked) return;
@@ -1086,6 +1115,17 @@ var examUndo = ppGuarded('examUndo', _examUndo_inner, '⏳');   /* v284: قفل 
 async function _examUndo_inner() {
   var a = examUndoStack.pop();
   if (!a) { showToast('لا شيء للتراجع عنه'); return; }
+  if (a.type === 'note') {   /* v610: تراجعٌ عن ملاحظةٍ على علاج ⇒ dx السابق كما كان */
+    var uN = await window.sb.from('teeth_status').update({ dx_key: a.prevDx || null })
+      .eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', a.n).eq('surface', a.s);
+    if (uN.error) { showToast('⚠️ ' + uN.error.message); examUndoStack.push(a); return; }
+    dxSet(a.n, a.s, a.prevDx || null);
+    examCount = Math.max(0, examCount - 1);
+    renderTeeth(); renderStats();
+    var _ceU = document.getElementById('examCountEl'); if (_ceU) _ceU.textContent = examCount;
+    showToast('↩️ أُلغيت الملاحظة');
+    return;
+  }
   if (a.type === 'stamp') {
     if (a.prevKey) {   // restore the overwritten row
       var rR = await upsertTeethStatusWithFallback({
@@ -1151,6 +1191,8 @@ async function _examUndo_inner() {
 var perioInited = false, perioExams = [], perioCurrent = null;
 var perioRows = {}, perioLoadedTeeth = {}, perioDirty = false;
 var perioCompare = false, perioMaxSeq = 0, perioCmpLocked = [], perioCmpPrev = null;
+/* v634: the exam compared against (any older one, not only the previous) + its rows — the print reads them */
+var perioCmpExam = null, perioCmpRows = null;
 var PERIO_B = ['mb','b','db'], PERIO_L = ['ml','l','dl'];
 
 function perioIsExtracted(n){
@@ -1434,7 +1476,9 @@ function updatePerioStats(){
     '<span style="border-color:var(--red);">نزف BOP: ' + pct + '٪' + (cp ? ' (كان ' + cp.pct + '٪)' : '') + '</span>' +
     '<span style="border-color:var(--yellow);">مواقع ≥4مم: ' + w4 + (cp ? ' (كان ' + cp.w4 + ')' : '') + '</span>' +
     '<span style="border-color:var(--red);">مواقع ≥6مم: ' + w6 + (cp ? ' (كان ' + cp.w6 + ')' : '') + '</span>' +
-    '<span style="border-color:var(--purple);">CAL ≥5مم: ' + cal5 + (cp && cp.cal5 !== undefined ? ' (كان ' + cp.cal5 + ')' : '') + '</span>';
+    '<span style="border-color:var(--purple);">CAL ≥5مم: ' + cal5 + (cp && cp.cal5 !== undefined ? ' (كان ' + cp.cal5 + ')' : '') + '</span>' +
+    (cp && cp.better !== undefined ? '<span class="perio-cmp-sum">مقابل ' + fmtD(cp.date) + ': <b class="cmp-better-t">▼ تحسّن ' + cp.better + '</b> · <b class="cmp-worse-t">▲ تراجع ' + cp.worse + '</b> · ثبات ' + cp.same
+      + (cp.bopStop || cp.bopNew ? ' · نزف: توقّف ' + cp.bopStop + ' / جديد ' + cp.bopNew : '') + '</span>' : '');
 }
 
 /* ── save ── */
@@ -1562,8 +1606,26 @@ async function _perioDeleteExam_inner() {
 }
 
 /* ── compare with previous exam ── */
+function perioClearCompareMarks(){
+  var panel = document.getElementById('tab-perio');
+  /* v634: unwrap the «previous value» stacks (input stays where it was) */
+  panel.querySelectorAll('.pd-stack').forEach(function(st){
+    var inp = st.querySelector('input'); if (inp) st.parentNode.insertBefore(inp, st); st.remove();
+  });
+  panel.querySelectorAll('.pd-in').forEach(function(el){
+    el.classList.remove('cmp-worse','cmp-better','cmp-same'); el.title = '';
+  });
+  panel.querySelectorAll('.bop-dot').forEach(function(d){
+    d.classList.remove('cmp-worse','cmp-better'); d.title = '';
+  });
+  perioCmpLocked.forEach(function(d){ d.style.pointerEvents = ''; });
+  perioCmpLocked = [];
+}
 function perioExitCompareState(){
   var panel = document.getElementById('tab-perio');
+  perioClearCompareMarks();
+  var cs = document.getElementById('perioCmpSel'); if (cs) { cs.style.display = 'none'; cs.innerHTML = ''; }
+  perioCmpExam = null; perioCmpRows = null;
   panel.querySelectorAll('.pd-in').forEach(function(el){
     el.classList.remove('cmp-worse','cmp-better'); el.readOnly = false; el.title = '';
   });
@@ -1584,32 +1646,60 @@ async function perioToggleCompare(){
   if (perioCompare) { perioExitCompareState(); return; }
   if (!perioCurrent) return;
   var idx = perioExams.findIndex(function(e){ return e.id === perioCurrent.id; });
-  var prev = idx >= 0 ? perioExams[idx + 1] : null;
-  if (!prev) { showToast('لا يوجد فحص أسبق للمقارنة'); return; }
+  var older = idx >= 0 ? perioExams.slice(idx + 1) : [];
+  if (!older.length) { showToast('لا يوجد فحص أسبق للمقارنة'); return; }
+  /* v634: any older exam can be the baseline (default: the previous one) — e.g. the first exam vs today after treatment */
+  var cs = document.getElementById('perioCmpSel');
+  if (cs) {
+    cs.innerHTML = older.map(function(e){ var nm = perioDocName(e.provider_id); return '<option value="' + e.id + '">مقابل ' + fmtD(e.exam_date) + (nm ? ' — ' + escapeHtml(nm) : '') + '</option>'; }).join('');
+    cs.value = older[0].id;
+    cs.style.display = older.length > 1 ? '' : 'none';
+  }
+  await perioRunCompare(older[0].id);
+}
+async function perioRunCompare(prevId){
+  var prev = perioExams.find(function(e){ return e.id === prevId; });
+  if (!prev || !perioCurrent) return;
   var r = await window.sb.from('perio_measurements').select('*')
     .eq('doctor_id', currentUser.id).eq('exam_id', prev.id);
   if (r.error) { showToast('⚠️ ' + r.error.message); return; }
   var pm = {}; (r.data || []).forEach(function(row){ pm[row.tooth_num] = row; });
+  perioClearCompareMarks();
   var panel = document.getElementById('tab-perio');
-  panel.querySelectorAll('input.pd-in:not(:disabled)').forEach(function(el){
+  var nBetter = 0, nWorse = 0, nSame = 0, nBopNew = 0, nBopStop = 0;
+  panel.querySelectorAll('input.pd-in:not(.mob):not(.rec):not(:disabled)').forEach(function(el){
     el.readOnly = true;
     var t = el.dataset.t, f = el.dataset.f;
     var cur = el.value === '' ? null : parseInt(el.value, 10);
     var pv = pm[t] && (pm[t][f] === 0 || pm[t][f]) ? pm[t][f] : null;
     if (cur === null && pv === null) return;
+    var cls = '';
     if (cur !== null && pv !== null) {
-      if (cur > pv) el.classList.add('cmp-worse');
-      else if (cur < pv) el.classList.add('cmp-better');
+      if (cur > pv) { cls = 'cmp-worse'; nWorse++; }
+      else if (cur < pv) { cls = 'cmp-better'; nBetter++; }
+      else { cls = 'cmp-same'; nSame++; }
       el.title = 'كان: ' + pv;
     } else if (pv !== null) { el.title = 'كان: ' + pv + ' — الآن فارغ'; }
     else { el.title = 'جديد (لم يُقَس سابقاً)'; }
+    if (cls) el.classList.add(cls);
+    /* v634: the previous value under the number — visible on phones/tablets too (a title needs a mouse) */
+    var st = document.createElement('span');
+    st.className = 'pd-stack';
+    el.parentNode.insertBefore(st, el);
+    st.appendChild(el);
+    var pr = document.createElement('span');
+    pr.className = 'pd-prev' + (cls ? ' ' + cls : '');
+    pr.textContent = pv === null ? '–' : String(pv);
+    pr.setAttribute('aria-label', pv === null ? 'لم يُقَس سابقاً' : 'كان ' + pv);
+    st.appendChild(pr);
   });
+  panel.querySelectorAll('input.pd-in.rec, input.pd-in.mob').forEach(function(el){ el.readOnly = true; });
   panel.querySelectorAll('.bop-dot:not(.dis)').forEach(function(d){
     d.style.pointerEvents = 'none'; perioCmpLocked.push(d);
     var now = d.classList.contains('on');
     var was = !!(pm[d.dataset.t] && pm[d.dataset.t][d.dataset.f]);
-    if (now && !was) { d.classList.add('cmp-worse'); d.title = 'نزف جديد (لم يكن ينزف)'; }
-    else if (!now && was) { d.classList.add('cmp-better'); d.title = 'توقف النزف (كان ينزف)'; }
+    if (now && !was) { d.classList.add('cmp-worse'); d.title = 'نزف جديد (لم يكن ينزف)'; nBopNew++; }
+    else if (!now && was) { d.classList.add('cmp-better'); d.title = 'توقف النزف (كان ينزف)'; nBopStop++; }
   });
   /* previous-exam summary for the stats chips */
   var pOn = 0, pAll = 0, p4 = 0, p6 = 0, pCal5 = 0;
@@ -1626,10 +1716,12 @@ async function perioToggleCompare(){
       }
     });
   });
-  perioCmpPrev = { pct: pAll ? Math.round(pOn * 100 / pAll) : 0, w4: p4, w6: p6, cal5: pCal5 };
+  perioCmpPrev = { pct: pAll ? Math.round(pOn * 100 / pAll) : 0, w4: p4, w6: p6, cal5: pCal5,
+                   better: nBetter, worse: nWorse, same: nSame, bopNew: nBopNew, bopStop: nBopStop, date: prev.exam_date };
+  perioCmpExam = prev; perioCmpRows = pm;
   perioCompare = true;
   updatePerioStats();
-  document.getElementById('perioCompareBtn').textContent = '✕ إنهاء المقارنة (مقابل ' + fmtD(prev.exam_date) + ')';
+  document.getElementById('perioCompareBtn').textContent = '✕ إنهاء المقارنة';
   document.getElementById('perioSaveBtn').disabled = true;
   showToast('🔍 مقارنة بفحص ' + fmtD(prev.exam_date));
 }
@@ -1661,8 +1753,16 @@ function perioSnapshotFromDom(){
   });
   return snap;
 }
-function perioPrintArch(arr, lingLabel, src){
+function perioPrintArch(arr, lingLabel, src, cmp){
   src = src || perioRows;
+  /* v634: in comparison mode each depth carries its change — ▼ green = improved (shallower), ▲ red = worse; works in grey print too */
+  function mark(v, t, f){
+    if (!(v === 0 || v)) return '–';
+    if (!cmp) return v;
+    var pv = cmp[t] && (cmp[t][f] === 0 || cmp[t][f]) ? cmp[t][f] : null;
+    if (pv === null || pv === v) return v;
+    return v < pv ? '<b style="color:#15803d;">' + v + '▼</b>' : '<b style="color:#b91c1c;">' + v + '▲</b>';
+  }
   var td = 'border:1px solid #999;padding:3px 4px;text-align:center;font-size:11px;';
   var lb = td + 'font-weight:700;background:#f0f0f0;white-space:nowrap;';
   var MID = 'border-right:3px double #555;';
@@ -1670,7 +1770,7 @@ function perioPrintArch(arr, lingLabel, src){
     var s = '';
     arr.forEach(function(t, i){
       var row = src[t] || {}, parts = [];
-      sites.forEach(function(x){ var v = row['pd_' + x]; parts.push((v === 0 || v) ? v : '–'); });
+      sites.forEach(function(x){ parts.push(mark(row['pd_' + x], t, 'pd_' + x)); });
       s += '<td style="' + td + (i === 8 ? MID : '') + '">' + (perioIsExtracted(t) ? '×' : parts.join(' · ')) + '</td>';
     });
     return s;
@@ -1733,6 +1833,45 @@ function perioPrintArch(arr, lingLabel, src){
     + '<tr><td style="' + lb + '">التشعب</td>' + furc + '</tr>'
     + '</table>';
 }
+/* v634: the patient's comparison page — which exams, before/after table, a plain sentence, the legend */
+function perioPrintCompareBlock(){
+  var cp = perioCmpPrev, now = perioNowStats();
+  var td = 'border:1px solid #999;padding:4px 8px;text-align:center;font-size:12px;';
+  var th = td + 'font-weight:700;background:#f0f0f0;';
+  function row(lbl, a, b, lowerIsBetter){
+    var d = b - a, col = d === 0 ? '#333' : ((d < 0) === lowerIsBetter ? '#15803d' : '#b91c1c');
+    return '<tr><td style="' + th + '">' + lbl + '</td><td style="' + td + '">' + a + '</td><td style="' + td + '">' + b + '</td>'
+      + '<td style="' + td + 'font-weight:700;color:' + col + ';">' + (d === 0 ? '—' : (d > 0 ? '+' : '') + d) + '</td></tr>';
+  }
+  var sentence = cp.better > cp.worse
+    ? 'تحسّنت حالة اللثة: نقص عمق الجيب في ' + cp.better + ' موقعاً' + (cp.worse ? '، وزاد في ' + cp.worse : '') + '.'
+    : (cp.worse > cp.better ? 'تحتاج اللثة متابعة: زاد عمق الجيب في ' + cp.worse + ' موقعاً' + (cp.better ? '، ونقص في ' + cp.better : '') + '.'
+      : 'حالة اللثة مستقرة مقارنة بالفحص السابق.');
+  return '<div style="font-size:13px;font-weight:800;margin:6px 0 4px;">مقارنة: ' + fmtD(cp.date) + ' ← ' + fmtD(perioCurrent.exam_date) + '</div>'
+    + '<div style="font-size:12.5px;margin:0 0 6px;">' + sentence + '</div>'
+    + '<table style="border-collapse:collapse;margin:0 0 8px;">'
+    + '<tr><th style="' + th + '"></th><th style="' + th + '">' + fmtD(cp.date) + '</th><th style="' + th + '">' + fmtD(perioCurrent.exam_date) + '</th><th style="' + th + '">الفرق</th></tr>'
+    + row('نزف عند السبر (٪)', cp.pct, now.pct, true)
+    + row('مواقع 4–5 مم', cp.w4, now.w4, true)
+    + row('مواقع ≥6 مم', cp.w6, now.w6, true)
+    + row('CAL ≥5 مم', cp.cal5, now.cal5, true)
+    + '</table>'
+    + '<div style="font-size:11px;color:#333;margin:0 0 4px;">في الجداول: <b style="color:#15803d;">▼</b> تحسّن (عمقٌ أقل) · <b style="color:#b91c1c;">▲</b> تراجع (عمقٌ أكبر) — مقابل فحص ' + fmtD(cp.date) + '</div>';
+}
+/* the current numbers as plain values (the stats chips hold text) */
+function perioNowStats(){
+  var panel = document.getElementById('tab-perio');
+  var w4 = 0, w6 = 0, bopOn = 0, bopAll = 0, cal5 = 0;
+  panel.querySelectorAll('input.pd-in:not(.mob):not(.rec):not(:disabled)').forEach(function(el){
+    var n = parseInt(el.value, 10); if (!isNaN(n)) { if (n >= 6) w6++; else if (n >= 4) w4++; }
+  });
+  panel.querySelectorAll('.bop-dot:not(.dis)').forEach(function(d){ bopAll++; if (d.classList.contains('on')) bopOn++; });
+  UPPER_T.concat(LOWER_T).forEach(function(t){
+    if (perioIsExtracted(t)) return;
+    PERIO_B.concat(PERIO_L).forEach(function(s){ var cv = perioCalcCal(t, s); if (cv !== null && cv >= 5) cal5++; });
+  });
+  return { pct: bopAll ? Math.round(bopOn * 100 / bopAll) : 0, w4: w4, w6: w6, cal5: cal5 };
+}
 function perioPrint(){
   if (!perioCurrent) return;
   var perioSrc = perioSnapshotFromDom();
@@ -1746,9 +1885,9 @@ function perioPrint(){
     + '<div style="font-size:13px;margin-bottom:2px;"><b>' + escapeHtml((patient && patient.name) || '') + '</b>'
     + ' — ' + fmtD(perioCurrent.exam_date) + (nm ? ' — ' + escapeHtml(nm) : '') + '</div>'
     + (perioCurrent.notes ? '<div style="font-size:12px;color:#444;margin-bottom:4px;">' + escapeHtml(perioCurrent.notes) + '</div>' : '')
-    + '<div style="font-size:12px;margin:4px 0 8px;">' + statsTxt + '</div>'
-    + '<div style="font-weight:800;font-size:12.5px;">الفك العلوي</div>' + perioPrintArch(UPPER_T, 'حنكي', perioSrc)
-    + '<div style="font-weight:800;font-size:12.5px;">الفك السفلي</div>' + perioPrintArch(LOWER_T, 'لساني', perioSrc)
+    + (perioCompare && perioCmpPrev && perioCmpRows ? perioPrintCompareBlock() : '<div style="font-size:12px;margin:4px 0 8px;">' + statsTxt + '</div>')
+    + '<div style="font-weight:800;font-size:12.5px;">الفك العلوي</div>' + perioPrintArch(UPPER_T, 'حنكي', perioSrc, perioCompare ? perioCmpRows : null)
+    + '<div style="font-weight:800;font-size:12.5px;">الفك السفلي</div>' + perioPrintArch(LOWER_T, 'لساني', perioSrc, perioCompare ? perioCmpRows : null)
     + '<div style="font-size:10.5px;color:#555;margin-top:6px;">● نزف عند السبر · × سن مقلوع · القيم بالملم (أنسي · وسط · وحشي) · CAL = العمق + الانحسار (الانحسار الفارغ = 0) · التشعب على الأرحاء: 1=I · 2=II · 3=III · — لا ينطبق</div>'
     + '</div>';
   var pr = document.getElementById('printRoot');

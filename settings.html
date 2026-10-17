@@ -16,17 +16,17 @@
 /* ── Modal ── v453: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261015a"></script>
+<script src="theme.js?v=20261017a"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261015a"></script>
-<script src="pwd-policy.js?v=20261015a"></script>
+<script src="supabase-init.js?v=20261017a"></script>
+<script src="pwd-policy.js?v=20261017a"></script>
 <!-- ── Cloudflare Turnstile (CAPTCHA) ── Axis 3 / Item 2. Helper defined BEFORE the API
      script so window.onSyDentTurnstileLoad exists when the (async) script fires. -->
 <style>.cf-turnstile-box{margin:2px 0 14px;min-height:65px;display:flex;justify-content:center}/* v304: press feedback */
 button:active:not(:disabled) { transform: scale(.97); }
 button:disabled { opacity: .6; cursor: wait; }
 /* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
-html[data-sub-level="read"] :is([onsubmit*="saveProfile("] [type="submit"],[onclick*="saveLicenseNo("],[onclick*="applyDerivedClinicName("],[onclick*="keepCustomClinicName("],[onsubmit*="saveClinicIdentity("] [type="submit"],[onsubmit*="saveMultiCurrency("] [type="submit"],[onsubmit*="saveProductionGoal("] [type="submit"],[onsubmit*="saveAppointmentSettings("] [type="submit"],[onclick*="openApptTypeModal("],[onclick*="openOperatoryModal("],[onclick*="toggleWaEnabled("],[onclick*="insertPlaceholder("],[onclick*="insertPlaceholderInto("],[onclick*="saveClinicSettings("],[onclick*="resetTemplate("],[onclick*="saveBookingSettings("],[onclick*="saveStaffMsgPresets("],[onclick*="pfdAdd("],[onclick*="pfdRemove("],[onclick*="pfdReset("],[onclick*="savePatientFlagDefs("],[onclick*="resetStaffMsgPresets("],[onclick*="saveAiSettings("],[onclick*="runBackfill("],[onclick*="saveApptType("],[onclick*="saveOperatory("],[onclick*="duplicateApptType("],[onclick*="editApptType("],[onclick*="deleteApptType("],[onclick*="editOperatory("],[onclick*="deleteOperatory("],[onclick*="openBlockModal("]){display:none !important;}
+html[data-sub-level="read"] :is([onsubmit*="saveProfile("] [type="submit"],[onclick*="saveLicenseNo("],[onclick*="applyDerivedClinicName("],[onclick*="keepCustomClinicName("],[onsubmit*="saveClinicIdentity("] [type="submit"],[onsubmit*="saveMultiCurrency("] [type="submit"],[onsubmit*="saveProductionGoal("] [type="submit"],[onsubmit*="saveAppointmentSettings("] [type="submit"],[onclick*="openApptTypeModal("],[onclick*="openOperatoryModal("],[onclick*="toggleWaEnabled("],[onclick*="insertPlaceholder("],[onclick*="insertPlaceholderInto("],[onclick*="saveClinicSettings("],[onclick*="resetTemplate("],[onclick*="restorePortalMsgs("],[onclick*="saveBookingSettings("],[onclick*="saveStaffMsgPresets("],[onclick*="pfdAdd("],[onclick*="pfdRemove("],[onclick*="pfdReset("],[onclick*="savePatientFlagDefs("],[onclick*="resetStaffMsgPresets("],[onclick*="saveAiSettings("],[onclick*="runBackfill("],[onclick*="saveApptType("],[onclick*="saveOperatory("],[onclick*="duplicateApptType("],[onclick*="editApptType("],[onclick*="deleteApptType("],[onclick*="editOperatory("],[onclick*="deleteOperatory("],[onclick*="openBlockModal("],[onclick*="saveIntakeSettings("],[onclick*="savePortalSettings("]){display:none !important;}
 </style>
 <script>
 (function(){
@@ -416,6 +416,10 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
    يفيضان عن flex. الحلّ: شرائحُ بمربّعٍ مخفيٍّ يغطّيها (نفس نافذة «حجز وقت») + شبكةُ عمودين minmax(0,1fr). */
 #bookingSection .bk-toggle-row { flex-direction: row; align-items: center; gap: 10px; }
 #bookingSection .bk-toggle-row label { margin: 0; cursor: pointer; font-weight: 700; color: var(--text); }
+#intakeSection .bk-toggle-row { flex-direction: row; align-items: center; gap: 10px; }   /* M177: نفسُ طقم الحجز */
+#intakeSection .bk-toggle-row label { margin: 0; cursor: pointer; font-weight: 700; color: var(--text); }
+#portalSection .bk-toggle-row { flex-direction: row; align-items: center; gap: 10px; }   /* M180: نفسُ طقم الحجز */
+#portalSection .bk-toggle-row label { margin: 0; cursor: pointer; font-weight: 700; color: var(--text); }
 #bookingSection .bk-days { display: flex; flex-wrap: wrap; gap: 8px; }
 #bookingSection .bk-day { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 64px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg3); color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer; user-select: none; transition: border-color .15s, background .15s; }
 #bookingSection .bk-day input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0; cursor: pointer; }
@@ -531,11 +535,11 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
 .pwd-toggle svg{display:block;width:20px;height:20px;flex-shrink:0;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261015a">
-<script src="sy-modal.js?v=20261015a"></script>
-<script src="sched-blocks.js?v=20261015a"></script>
-<script src="appt-blocks.js?v=20261015a"></script>
-<script src="sidebar.js?v=20261015a"></script>
+<link rel="stylesheet" href="theme.css?v=20261017a">
+<script src="sy-modal.js?v=20261017a"></script>
+<script src="sched-blocks.js?v=20261017a"></script>
+<script src="appt-blocks.js?v=20261017a"></script>
+<script src="sidebar.js?v=20261017a"></script>
 </head>
 <body>
 
@@ -554,7 +558,7 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
     <!-- بطاقة تثبيت التطبيق — شرطية (منطق الإظهار بذيل الصفحة بالـid)،
          فوق شريط التبويبات فتظهر بكل التبويبات -->
     <a class="shub-card" href="#" id="pwaInstallCard" style="display:none"
-       onclick="try{if(this.getAttribute('data-ios')!=='1'&&window.SyDentPWA&&window.SyDentPWA.promptInstall)window.SyDentPWA.promptInstall();}catch(e){}return false;">
+       onclick="try{if(this.getAttribute('data-samsung')==='1'){if(window.SyDentPWA&&window.SyDentPWA.chromeIntentUrl)window.location.href=window.SyDentPWA.chromeIntentUrl();}else if(this.getAttribute('data-ios')!=='1'&&window.SyDentPWA&&window.SyDentPWA.promptInstall)window.SyDentPWA.promptInstall();}catch(e){}return false;">
       <div class="shub-ic c"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 21h16"/></svg></div>
       <div class="shub-body"><div class="shub-title">ثبّت SyDent كتطبيق</div><div class="shub-desc">تثبيت على سطح المكتب / الشاشة الرئيسية — يعمل بلا إنترنت</div></div>
       <svg class="shub-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
@@ -867,7 +871,7 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
 
     <!-- Phase 2A: WhatsApp Reminders -->
     <div class="section" style="border-color: rgba(var(--green-rgb),0.25);">
-      <div class="section-title">تذكيرات WhatsApp للمواعيد</div>
+      <div class="section-title">قوالب WhatsApp</div>
       <div class="section-sub">أرسل تذكيرات للمرضى عبر WhatsApp قبل مواعيدهم بنقرة واحدة. <strong style="color:var(--green)">مجاني تماماً</strong> — يفتح WhatsApp Web/Mobile مع الرسالة جاهزة.</div>
 
       <div class="wa-toggle-row">
@@ -976,6 +980,34 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
         </div>
         <textarea id="fReviewTemplate" oninput="autoSizeTextarea(this)" placeholder="رسالة طلب تقييم غوغل من المريض..."></textarea>
         <div style="font-size:12px;color:var(--text2,#8da0bd);margin-top:4px;">يظهر زر «🌟 طلب تقييم» في ملف المريض فقط عند ضبط رابط تقييم غوغل أعلاه. الرمز {review_link} يُستبدل بالرابط.</div>
+
+      <!-- M178: قالب رسالة استمارة المريض -->
+      <div>
+        <label class="wa-tpl-title">📝 قالب رسالة استمارة المريض</label>
+        <div class="wa-placeholders">
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto('fIntakeTemplate','{patient_first_name}')">{patient_first_name}</span>
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto('fIntakeTemplate','{patient_name}')">{patient_name}</span>
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto('fIntakeTemplate','{clinic_name}')">{clinic_name}</span>
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto('fIntakeTemplate','{clinic_phone}')">{clinic_phone}</span>
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto('fIntakeTemplate','{intake_link}')">{intake_link}</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--text2);margin:-2px 0 4px;">💡 {intake_link} رابط الاستمارة الخاص بالمريض — يُولَّد عند الإرسال من بطاقته ويُرفق تلقائياً برسالة تأكيد الحجز.</div>
+        <textarea id="fIntakeTemplate" oninput="autoSizeTextarea(this)" placeholder="رسالة دعوة المريض لتعبئة الاستمارة..."></textarea>
+      </div>
+
+      <!-- M180: قالب رسالة بوابة المريض -->
+      <div>
+        <label class="wa-tpl-title">🔗 قالب رسالة بوابة المريض</label>
+        <div class="wa-placeholders">
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto('fPortalTemplate','{patient_first_name}')">{patient_first_name}</span>
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto('fPortalTemplate','{patient_name}')">{patient_name}</span>
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto('fPortalTemplate','{clinic_name}')">{clinic_name}</span>
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto('fPortalTemplate','{clinic_phone}')">{clinic_phone}</span>
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto('fPortalTemplate','{portal_link}')">{portal_link}</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--text2);margin:-2px 0 4px;">💡 {portal_link} رابط البوابة الخاص بالمريض — يُولَّد عند الإرسال من بطاقته (صلاحية 30 يوماً قابلة للتجديد).</div>
+        <textarea id="fPortalTemplate" oninput="autoSizeTextarea(this)" placeholder="رسالة إرسال رابط بوابة المريض..."></textarea>
+      </div>
       </div>
 
       <div class="wa-actions-row">
@@ -1055,6 +1087,124 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
       </div>
 
       <button type="button" class="btn btn-primary" id="btnSaveBooking" onclick="saveBookingSettings()">حفظ إعدادات الحجز</button>
+    </div>
+
+    <!-- ═══ M177: استمارة المريض الرقمية (Digital intake form) ═══ -->
+    <div class="section" style="border-color: rgba(var(--green-rgb),0.25);" id="intakeSection">
+      <div class="section-title">استمارة المريض</div>
+      <div class="section-sub">يعبّي المريض تاريخه الطبي وحساسيته وأدويته من هاتفه قبل الزيارة عبر رابطٍ خاص به — تصلك الاستمارة إلى بطاقته وتعتمدها بنقرة فتُغذّي تحذيرات السلامة. الرابط يُرسل من بطاقة المريض، ويُرفق تلقائياً برسالة تأكيد الحجز الإلكتروني.</div>
+      <div id="intakeMigNotice" style="display:none;padding:10px 12px;border-radius:10px;background:var(--red-soft);border:1px solid var(--red-bd);color:var(--red-ink);font-size:13px;margin-bottom:12px;">يلزم تطبيق <b>Migration 177</b> على قاعدة البيانات لتفعيل هذا القسم.</div>
+
+      <div class="form-group bk-toggle-row">
+        <input type="checkbox" id="ikOnBooking" class="bk-switch">
+        <label for="ikOnBooking" style="margin:0;cursor:pointer;font-weight:700;">إرفاق رابط الاستمارة برسالة تأكيد الحجز الإلكتروني</label>
+      </div>
+      <div class="form-group bk-toggle-row">
+        <input type="checkbox" id="ikSignature" class="bk-switch">
+        <label for="ikSignature" style="margin:0;cursor:pointer;font-weight:700;">إظهار حقل التوقيع للمريض (اختياري له — لا يمنع الإرسال)</label>
+      </div>
+      <div class="form-group">
+        <label>ملاحظة تظهر للمريض أعلى الاستمارة (اختياري)</label>
+        <textarea id="ikNote" maxlength="300" placeholder="مثال: نرجو إحضار الأدوية التي تتناولها معك."></textarea>
+      </div>
+
+      <button type="button" class="btn btn-primary" id="btnSaveIntake" onclick="saveIntakeSettings()">حفظ إعدادات الاستمارة</button>
+    </div>
+
+    <!-- ═══ M180: بوابة المريض الخفيفة (Patient portal-lite) ═══ -->
+    <div class="section" style="border-color: rgba(var(--green-rgb),0.25);" id="portalSection">
+      <div class="section-title">بوابة المريض</div>
+      <div class="section-sub">صفحة خاصة بكل مريض يفتحها من هاتفه برابطٍ يُرسل من بطاقته: يقرأ مواعيده وخطة علاجه المعتمدة وتعليماته وروشتاته — ويؤكّد موعده، ويلغيه أو يطلب تغييره إن فعّلت ذلك أدناه. اختر ما يراه المريض.</div>
+      <div id="portalMigNotice" style="display:none;padding:10px 12px;border-radius:10px;background:var(--red-soft);border:1px solid var(--red-bd);color:var(--red-ink);font-size:13px;margin-bottom:12px;">يلزم تطبيق <b>Migration 180</b> على قاعدة البيانات لتفعيل هذا القسم.</div>
+
+      <div class="form-group bk-toggle-row">
+        <input type="checkbox" id="ptShowAppts" class="bk-switch">
+        <label for="ptShowAppts" style="margin:0;cursor:pointer;font-weight:700;">📅 المواعيد القادمة والسابقة (مع التأكيد وطلب التعديل)</label>
+      </div>
+      <div class="form-group bk-toggle-row">
+        <input type="checkbox" id="ptShowPlan" class="bk-switch">
+        <label for="ptShowPlan" style="margin:0;cursor:pointer;font-weight:700;">🦷 خطة العلاج المعتمدة (البنود · المراحل · الإجمالي)</label>
+      </div>
+      <div class="form-group bk-toggle-row">
+        <input type="checkbox" id="ptShowBalance" class="bk-switch">
+        <label for="ptShowBalance" style="margin:0;cursor:pointer;font-weight:700;">💰 الرصيد (إجمالي · مدفوع · متبقٍّ · القسط القادم) — مطفأ افتراضياً</label>
+      </div>
+      <div class="form-group bk-toggle-row">
+        <input type="checkbox" id="ptShowNotes" class="bk-switch">
+        <label for="ptShowNotes" style="margin:0;cursor:pointer;font-weight:700;">📋 تعليمات ما بعد العلاج والروشتات</label>
+      </div>
+      <div class="form-group bk-toggle-row">
+        <input type="checkbox" id="ptShowHistory" class="bk-switch">
+        <label for="ptShowHistory" style="margin:0;cursor:pointer;font-weight:700;">🗂️ العلاجات المنجزة سابقاً (آخر سنتين — المبالغ تظهر فقط إن كان الرصيد مفعّلاً)</label>
+      </div>
+      <div class="form-group bk-toggle-row">
+        <input type="checkbox" id="ptShowXrays" class="bk-switch">
+        <label for="ptShowXrays" style="margin:0;cursor:pointer;font-weight:700;">🩻 صور الأشعة التي تشاركها مع المريض — مطفأ افتراضياً · لا يظهر إلا ما تضغط عليه «مشاركة مع المريض» بتبويب الملفات صورةً صورة (الأصل فقط، بلا تعليقاتك)</label>
+      </div>
+
+      <!-- M187: الإلغاء وطلب التغيير من البوابة — مطفأ افتراضياً -->
+      <div style="margin:14px 0 6px;padding-top:12px;border-top:1px dashed var(--border);font-weight:800;">🔁 إلغاء الموعد وطلب تغييره من البوابة</div>
+      <div class="form-group bk-toggle-row">
+        <input type="checkbox" id="ptAllowChanges" class="bk-switch" onchange="portalChangesUi()">
+        <label for="ptAllowChanges" style="margin:0;cursor:pointer;font-weight:700;">السماح للمريض بإلغاء موعده أو طلب تغييره — مطفأ افتراضياً (يتطلّب تفعيل المواعيد أعلاه)</label>
+      </div>
+      <div id="ptChangesBox">
+        <div class="form-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 12px;">
+          <div class="form-group">
+            <label for="ptCancelMode">الإلغاء من البوابة</label>
+            <select id="ptCancelMode">
+              <option value="direct">يُلغى الموعد فوراً (وتصلك تنبيهة باسم المريض)</option>
+              <option value="request">يصل كطلب — أنت تقرّر الإلغاء</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="ptCutoff">أقلّ مهلة قبل الموعد</label>
+            <select id="ptCutoff">
+              <option value="12">12 ساعة</option>
+              <option value="24">24 ساعة</option>
+              <option value="48">48 ساعة</option>
+              <option value="72">72 ساعة</option>
+            </select>
+          </div>
+        </div>
+        <div class="section-sub" style="margin:4px 0 8px;">طلب التغيير يصل دائماً كطلب ويبقى الموعد قائماً حتى تعيد جدولته — يُغلق الطلب تلقائياً حين تنقل الموعد أو تلغيه. الحدّ: 3 إجراءات للمريض كل 24 ساعة.</div>
+        <div style="margin:6px 0 6px;font-weight:700;font-size:13px;">رسائل تظهر للمريض</div>
+        <div class="wa-placeholders" style="margin-bottom:6px;">
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto(_ptMsgFocus,'{patient_first_name}')">{patient_first_name}</span>
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto(_ptMsgFocus,'{clinic_name}')">{clinic_name}</span>
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto(_ptMsgFocus,'{clinic_phone}')">{clinic_phone}</span>
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto(_ptMsgFocus,'{date}')">{date}</span>
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto(_ptMsgFocus,'{time}')">{time}</span>
+          <span class="wa-placeholder-pill" onclick="insertPlaceholderInto(_ptMsgFocus,'{cutoff_hours}')">{cutoff_hours}</span>
+        </div>
+        <div class="form-group">
+          <label for="ptMsgCancelled">بعد الإلغاء</label>
+          <textarea id="ptMsgCancelled" maxlength="600" onfocus="_ptMsgFocus='ptMsgCancelled'" oninput="autoSizeTextarea(this)"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="ptMsgRequested">بعد إرسال طلب (تغيير، أو إلغاء بوضع «كطلب»)</label>
+          <textarea id="ptMsgRequested" maxlength="600" onfocus="_ptMsgFocus='ptMsgRequested'" oninput="autoSizeTextarea(this)"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="ptMsgTooLate">حين يفوت وقت الإلغاء</label>
+          <textarea id="ptMsgTooLate" maxlength="600" onfocus="_ptMsgFocus='ptMsgTooLate'" oninput="autoSizeTextarea(this)"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="ptMsgRejected">حين ترفض طلبه (يظهر على موعده في البوابة لمدة 7 أيام)</label>
+          <textarea id="ptMsgRejected" maxlength="600" onfocus="_ptMsgFocus='ptMsgRejected'" oninput="autoSizeTextarea(this)"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="ptMsgMoved">واتساب للمريض بعد اعتمادك الوقت الذي طلبه</label>
+          <textarea id="ptMsgMoved" maxlength="1000" onfocus="_ptMsgFocus='ptMsgMoved'" oninput="autoSizeTextarea(this)"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="ptMsgCancelOk">واتساب للمريض بعد اعتمادك طلب إلغائه (وضع «كطلب»)</label>
+          <textarea id="ptMsgCancelOk" maxlength="1000" onfocus="_ptMsgFocus='ptMsgCancelOk'" oninput="autoSizeTextarea(this)"></textarea>
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="restorePortalMsgs()" style="margin-bottom:12px;">↺ استعادة الرسائل الافتراضية</button>
+      </div>
+
+      <button type="button" class="btn btn-primary" id="btnSavePortal" onclick="savePortalSettings()">حفظ إعدادات البوابة</button>
     </div>
 
     <!-- 1.9 الرسائل الداخلية — الأزرار الجاهزة (Migration 81) -->
@@ -1345,6 +1495,177 @@ function sGuarded(name, inner, label) {
   };
 }
 
+/* ═══ M177: استمارة المريض — نفسُ عقد قسم الحجز (بوابة الخطة booking · أعمدةٌ مسمّاة · graceful pre-M177) ═══ */
+async function loadIntakeSettings() {
+  try {
+    if (window.SyDentPlan) {
+      await window.SyDentPlan.load();
+      if (!window.SyDentPlan.can('booking')) {
+        var lockSec = document.getElementById('intakeSection');
+        if (lockSec) lockSec.innerHTML =
+          '<div class="section-title">استمارة المريض</div>' +
+          '<div style="padding:12px 14px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);font-size:13.5px;color:var(--text2);line-height:1.8;">' +
+            '🔒 استمارة المريض الرقمية غير متاحة في خطتك الحالية (ضمن بوابة المريض الإلكترونية).' +
+            ' للترقية راجع صفحة <a href="subscription.html" style="color:var(--green);font-weight:700;">الاشتراك</a>.' +
+          '</div>';
+        return;
+      }
+    }
+  } catch (planGateErr) { /* fail-open */ }
+  var row = (typeof CLINIC_SETTINGS_WA !== 'undefined') ? CLINIC_SETTINGS_WA : null;
+  if (!row && currentUser) {
+    try {
+      const res = await window.sb.from('clinic_settings').select('*').eq('owner_id', currentUser.id).maybeSingle();
+      row = res.data || null;
+    } catch (e) { row = null; }
+  }
+  if (row && !('intake_signature' in row)) {
+    var n = document.getElementById('intakeMigNotice');
+    if (n) n.style.display = 'block';
+    var b = document.getElementById('btnSaveIntake');
+    if (b) b.disabled = true;
+    return;
+  }
+  document.getElementById('ikOnBooking').checked = row ? row.intake_on_booking !== false : true;
+  document.getElementById('ikSignature').checked = row ? row.intake_signature !== false : true;
+  document.getElementById('ikNote').value = (row && row.intake_note) || '';
+}
+async function saveIntakeSettings() {
+  if (!currentUser) return;
+  var btn = document.getElementById('btnSaveIntake');
+  btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';
+  var payload = {
+    owner_id: currentUser.id,
+    intake_on_booking: document.getElementById('ikOnBooking').checked,
+    intake_signature: document.getElementById('ikSignature').checked,
+    intake_note: (document.getElementById('ikNote').value || '').trim().slice(0, 300) || null,
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await window.sb.from('clinic_settings').upsert(payload, { onConflict: 'owner_id' });
+  btn.disabled = false; btn.textContent = 'حفظ إعدادات الاستمارة';
+  if (error) {
+    var em = (error.message || '') + ' ' + (error.code || '');
+    if (/\b42703\b|PGRST204/i.test(em)) {
+      var n = document.getElementById('intakeMigNotice');
+      if (n) n.style.display = 'block';
+      showToast('⚠️ يلزم تطبيق Migration 177 أولاً', true);
+    } else showToast('❌ ' + (error.message || 'فشل الحفظ'), true);
+    return;
+  }
+  if (typeof CLINIC_SETTINGS_WA !== 'undefined' && CLINIC_SETTINGS_WA) Object.assign(CLINIC_SETTINGS_WA, payload);
+  showToast('✅ تم حفظ إعدادات الاستمارة');
+  if (typeof window.logAudit === 'function') window.logAudit('settings.update', { description: 'تحديث إعدادات استمارة المريض' });
+}
+
+/* ═══ M180: بوابة المريض — نفسُ عقد قسم الاستمارة (بوابة الخطة booking · أعمدةٌ مسمّاة · graceful pre-M180) ═══ */
+async function loadPortalSettings() {
+  try {
+    if (window.SyDentPlan) {
+      await window.SyDentPlan.load();
+      if (!window.SyDentPlan.can('booking')) {
+        var lockSec = document.getElementById('portalSection');
+        if (lockSec) lockSec.innerHTML =
+          '<div class="section-title">بوابة المريض</div>' +
+          '<div style="padding:12px 14px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);font-size:13.5px;color:var(--text2);line-height:1.8;">' +
+            '🔒 بوابة المريض غير متاحة في خطتك الحالية (ضمن بوابة المريض الإلكترونية).' +
+            ' للترقية راجع صفحة <a href="subscription.html" style="color:var(--green);font-weight:700;">الاشتراك</a>.' +
+          '</div>';
+        return;
+      }
+    }
+  } catch (planGateErr) { /* fail-open */ }
+  var row = (typeof CLINIC_SETTINGS_WA !== 'undefined') ? CLINIC_SETTINGS_WA : null;
+  if (!row && currentUser) {
+    try {
+      const res = await window.sb.from('clinic_settings').select('*').eq('owner_id', currentUser.id).maybeSingle();
+      row = res.data || null;
+    } catch (e) { row = null; }
+  }
+  if (row && !('portal_show_balance' in row)) {
+    var n = document.getElementById('portalMigNotice');
+    if (n) n.style.display = 'block';
+    var b = document.getElementById('btnSavePortal');
+    if (b) b.disabled = true;
+    return;
+  }
+  document.getElementById('ptShowAppts').checked   = row ? row.portal_show_appts !== false : true;
+  document.getElementById('ptShowPlan').checked    = row ? row.portal_show_plan !== false : true;
+  document.getElementById('ptShowBalance').checked = row ? row.portal_show_balance === true : false;
+  document.getElementById('ptShowNotes').checked   = row ? row.portal_show_notes !== false : true;
+  /* M187 — graceful before the migration: the new controls simply keep their defaults */
+  document.getElementById('ptShowHistory').checked  = row ? row.portal_show_history !== false : true;
+  document.getElementById('ptAllowChanges').checked = row ? row.portal_allow_changes === true : false;
+  document.getElementById('ptShowXrays').checked    = row ? row.portal_show_xrays === true : false;   /* M193 — مطفأ افتراضياً */
+  document.getElementById('ptCancelMode').value     = (row && row.portal_cancel_mode === 'request') ? 'request' : 'direct';
+  document.getElementById('ptCutoff').value         = String((row && [12, 24, 48, 72].indexOf(Number(row.portal_cutoff_hours)) > -1) ? Number(row.portal_cutoff_hours) : 24);
+  document.getElementById('ptMsgCancelled').value   = (row && row.portal_msg_cancelled) || DEFAULT_PORTAL_MSGS.cancelled;
+  document.getElementById('ptMsgRequested').value   = (row && row.portal_msg_requested) || DEFAULT_PORTAL_MSGS.requested;
+  document.getElementById('ptMsgTooLate').value     = (row && row.portal_msg_too_late) || DEFAULT_PORTAL_MSGS.too_late;
+  document.getElementById('ptMsgRejected').value    = (row && row.portal_msg_rejected) || DEFAULT_PORTAL_MSGS.rejected;   /* M191 */
+  document.getElementById('ptMsgMoved').value       = (row && row.portal_msg_moved) || DEFAULT_PORTAL_MOVED_TPL;   /* M189 */
+  document.getElementById('ptMsgCancelOk').value    = (row && row.portal_msg_cancel_ok) || DEFAULT_PORTAL_CANCEL_OK_TPL;   /* M190 */
+  portalChangesUi();
+}
+/* M187: the cancel/change controls fade while the switch is off (still visible — the owner sees what he would turn on) */
+var _ptMsgFocus = 'ptMsgCancelled';
+function portalChangesUi() {
+  var on = document.getElementById('ptAllowChanges').checked, box = document.getElementById('ptChangesBox');
+  if (box) { box.style.opacity = on ? '1' : '0.55'; }
+  ['ptMsgCancelled', 'ptMsgRequested', 'ptMsgTooLate', 'ptMsgRejected', 'ptMsgMoved', 'ptMsgCancelOk'].forEach(function (id) { var el = document.getElementById(id); if (el) autoSizeTextarea(el); });
+}
+function restorePortalMsgs() {
+  document.getElementById('ptMsgCancelled').value = DEFAULT_PORTAL_MSGS.cancelled;
+  document.getElementById('ptMsgRequested').value = DEFAULT_PORTAL_MSGS.requested;
+  document.getElementById('ptMsgTooLate').value   = DEFAULT_PORTAL_MSGS.too_late;
+  document.getElementById('ptMsgRejected').value  = DEFAULT_PORTAL_MSGS.rejected;
+  document.getElementById('ptMsgMoved').value     = DEFAULT_PORTAL_MOVED_TPL;
+  document.getElementById('ptMsgCancelOk').value  = DEFAULT_PORTAL_CANCEL_OK_TPL;
+  portalChangesUi();
+}
+/* a message equal to the default is stored as NULL ⇒ a later wording fix of the default reaches every clinic that never edited it */
+function portalMsgVal(id, key) {
+  var v = String(document.getElementById(id).value || '').trim().slice(0, 600);
+  return (!v || v === DEFAULT_PORTAL_MSGS[key]) ? null : v;
+}
+async function savePortalSettings() {
+  if (!currentUser) return;
+  var btn = document.getElementById('btnSavePortal');
+  btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';
+  var payload = {
+    owner_id: currentUser.id,
+    portal_show_appts:   document.getElementById('ptShowAppts').checked,
+    portal_show_plan:    document.getElementById('ptShowPlan').checked,
+    portal_show_balance: document.getElementById('ptShowBalance').checked,
+    portal_show_notes:   document.getElementById('ptShowNotes').checked,
+    portal_show_history:  document.getElementById('ptShowHistory').checked,    /* M187 */
+    portal_allow_changes: document.getElementById('ptAllowChanges').checked,
+    portal_show_xrays:    document.getElementById('ptShowXrays').checked,      /* M193 */
+    portal_cancel_mode:   document.getElementById('ptCancelMode').value === 'request' ? 'request' : 'direct',
+    portal_cutoff_hours:  [12, 24, 48, 72].indexOf(Number(document.getElementById('ptCutoff').value)) > -1 ? Number(document.getElementById('ptCutoff').value) : 24,
+    portal_msg_cancelled: portalMsgVal('ptMsgCancelled', 'cancelled'),
+    portal_msg_requested: portalMsgVal('ptMsgRequested', 'requested'),
+    portal_msg_too_late:  portalMsgVal('ptMsgTooLate', 'too_late'),
+    portal_msg_rejected:  portalMsgVal('ptMsgRejected', 'rejected'),   /* M191 */
+    portal_msg_moved:     (function () { var v = String(document.getElementById('ptMsgMoved').value || '').trim().slice(0, 1000); return (!v || v === DEFAULT_PORTAL_MOVED_TPL) ? null : v; })(),   /* M189 */
+    portal_msg_cancel_ok: (function () { var v = String(document.getElementById('ptMsgCancelOk').value || '').trim().slice(0, 1000); return (!v || v === DEFAULT_PORTAL_CANCEL_OK_TPL) ? null : v; })(),   /* M190 */
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await window.sb.from('clinic_settings').upsert(payload, { onConflict: 'owner_id' });
+  btn.disabled = false; btn.textContent = 'حفظ إعدادات البوابة';
+  if (error) {
+    var em = (error.message || '') + ' ' + (error.code || '');
+    if (/\b42703\b|PGRST204/i.test(em)) {
+      var n = document.getElementById('portalMigNotice');
+      if (n) n.style.display = 'block';
+      showToast('⚠️ يلزم تطبيق Migration 180 و187 أولاً', true);
+    } else showToast('❌ ' + (error.message || 'فشل الحفظ'), true);
+    return;
+  }
+  if (typeof CLINIC_SETTINGS_WA !== 'undefined' && CLINIC_SETTINGS_WA) Object.assign(CLINIC_SETTINGS_WA, payload);
+  showToast('✅ تم حفظ إعدادات البوابة');
+  if (typeof window.logAudit === 'function') window.logAudit('settings.update', { description: 'تحديث إعدادات بوابة المريض' });
+}
+
 async function loadAiSettings() {
   // AI plan gate — when the clinic's plan disables ai_features, replace the
   // whole section with a lock note. The ai-assist Edge Function enforces the
@@ -1623,6 +1944,8 @@ function stgApplyNameFields(nm) {
     if (_cpEl) _cpEl.value = (_cp && _cp.contact_phone) || '';
   } catch (e) { /* non-fatal — column may predate Migration 62 */ }
   await loadBookingSettings();
+  await loadIntakeSettings();
+  await loadPortalSettings();   /* M180 */
   await loadAiSettings();
   // Bug #2: auto-scan for orphaned payment splits (fault-tolerant)
   await scanOrphanedPayments();
@@ -1664,6 +1987,35 @@ const DEFAULT_REVIEW_TEMPLATE =
 'شكراً لزيارتك {clinic_name}. يسعدنا أن رأيك يهمّنا! 🌟\n' +
 'إذا كانت تجربتك طيّبة، نتشرّف بتقييمك على غوغل — لا يستغرق سوى دقيقة ويساعد غيرك في الوصول إلينا:\n' +
 '{review_link}';
+
+// M178 — intake form invitation default (used if the clinic hasn't customized).
+// MIRROR (byte-parity via check-mirrors.js): settings DEFAULT_INTAKE_TEMPLATE
+// · pp-intake PP_DEFAULT_INTAKE_TPL · appt-booking BK_DEFAULT_INTAKE_TPL.
+const DEFAULT_INTAKE_TEMPLATE =
+'مرحباً {patient_first_name} 🌟\n' +
+'قبل زيارتك إلى {clinic_name}، نرجو تعبئة استمارة المريض (تأخذ دقيقتين) عبر هذا الرابط:\n' +
+'{intake_link}\n' +
+'المعلومات تساعد الطبيب على علاجك بأمان. شكراً 🦷';
+
+// M180 — patient portal link default (used if the clinic hasn't customized).
+/* M187 — patient-facing messages of the portal's cancel / change flow.
+   MIRROR (byte-parity via prove-portal): portal.html DEFAULT_PORTAL_MSGS. */
+var DEFAULT_PORTAL_MSGS = {
+  cancelled: 'تم إلغاء موعدك يوم {date} الساعة {time} ✓ — أبلغنا {clinic_name}. لحجز موعدٍ جديد تواصل مع العيادة متى شئت.',
+  requested: 'وصل طلبك إلى {clinic_name} ✓ — سنتواصل معك قريباً. موعدك يوم {date} الساعة {time} يبقى قائماً حتى تؤكّد العيادة.',
+  too_late:  'لا يمكن إلغاء الموعد أو طلب تغييره من هنا قبل أقل من {cutoff_hours} ساعة من موعده — تواصل مع {clinic_name} مباشرة.',
+  rejected:  'لم تتمكّن {clinic_name} من تلبية طلبك الأخير لهذا الموعد — موعدك قائمٌ كما هو. تواصل مع العيادة مباشرة لنجد ما يناسبك.'
+};
+/* M189 — WhatsApp to the patient after the clinic approves the slot he picked. MIRROR (prove-portal): appt-portal.js PORTAL_MOVED_TPL. */
+var DEFAULT_PORTAL_MOVED_TPL = 'مرحباً {patient_first_name} 🌟 تم نقل موعدك في {clinic_name} إلى يوم {date} الساعة {time} كما طلبت ✓ — نتطلع لرؤيتك 🦷';
+/* M190 — WhatsApp after approving a cancel request. MIRROR (prove-portal): appt-portal.js PORTAL_CANCEL_OK_TPL. */
+var DEFAULT_PORTAL_CANCEL_OK_TPL = 'مرحباً {patient_first_name} — تم إلغاء موعدك في {clinic_name} يوم {date} الساعة {time} بناءً على طلبك ✓. لحجز موعدٍ جديد تواصل معنا متى شئت 🦷';
+// MIRROR (byte-parity via check-mirrors.js): settings DEFAULT_PORTAL_TEMPLATE · pp-portal PP_DEFAULT_PORTAL_TPL.
+const DEFAULT_PORTAL_TEMPLATE =
+'مرحباً {patient_first_name} 🌟\n' +
+'هذا رابط صفحتك الخاصة لدى {clinic_name} — تجد فيه مواعيدك وخطة علاجك وتعليمات ما بعد العلاج:\n' +
+'{portal_link}\n' +
+'الرابط خاص بك فلا تشاركه مع أحد. شكراً 🦷';
 
 let CLINIC_SETTINGS_WA = null;
 
@@ -1776,6 +2128,10 @@ function applyWaSettingsToForm(s) {
   if (gRevEl) gRevEl.value = safe.google_review_url || '';
   var recallTplEl = document.getElementById('fRecallTemplate');
   if (recallTplEl) recallTplEl.value = safe.whatsapp_recall_template || DEFAULT_RECALL_TEMPLATE;
+  var intakeTplEl = document.getElementById('fIntakeTemplate');
+  if (intakeTplEl) intakeTplEl.value = safe.whatsapp_intake_template || DEFAULT_INTAKE_TEMPLATE;   /* M178 */
+  var portalTplEl = document.getElementById('fPortalTemplate');
+  if (portalTplEl) portalTplEl.value = safe.whatsapp_portal_template || DEFAULT_PORTAL_TEMPLATE;   /* M180 */
   var bdayTplEl = document.getElementById('fBdayTemplate');
   if (bdayTplEl) bdayTplEl.value = safe.whatsapp_birthday_template || DEFAULT_BIRTHDAY_TEMPLATE;
   var instTplEl = document.getElementById('fInstTemplate');
@@ -1836,14 +2192,16 @@ function insertPlaceholderInto(elId, ph) {
 }
 
 async function resetTemplate() {
-  if (!await SyDialog.confirm({ title: 'استعادة الافتراضي', message: 'استعادة كل القوالب الافتراضية (التذكير + الاستدعاء الدوري + عيد الميلاد + تذكير القسط + التقييم)؟ ستفقد أي تعديلات على القوالب الخمسة.' })) return;
+  if (!await SyDialog.confirm({ title: 'استعادة الافتراضي', message: 'استعادة كل القوالب الافتراضية (التذكير + الاستدعاء الدوري + عيد الميلاد + تذكير القسط + التقييم + الاستمارة + البوابة)؟ ستفقد أي تعديلات على القوالب السبعة.' })) return;
   document.getElementById('fTemplate').value = DEFAULT_WA_TEMPLATE;
   var r = document.getElementById('fRecallTemplate'); if (r) r.value = DEFAULT_RECALL_TEMPLATE;
   var b = document.getElementById('fBdayTemplate');   if (b) b.value = DEFAULT_BIRTHDAY_TEMPLATE;
   var iT = document.getElementById('fInstTemplate');  if (iT) iT.value = DEFAULT_INSTALLMENT_TEMPLATE;
   var rv = document.getElementById('fReviewTemplate'); if (rv) rv.value = DEFAULT_REVIEW_TEMPLATE;
+  var ik = document.getElementById('fIntakeTemplate'); if (ik) ik.value = DEFAULT_INTAKE_TEMPLATE;   /* M178 */
+  var pt = document.getElementById('fPortalTemplate'); if (pt) pt.value = DEFAULT_PORTAL_TEMPLATE;   /* M180 */
   autoSizeTemplates();
-  showToast('🔄 تم استعادة القوالب الافتراضية الأربعة (لم تُحفظ بعد)');
+  showToast('🔄 تم استعادة القوالب الافتراضية السبعة (لم تُحفظ بعد)');
 }
 
 // Build sample data for the live preview — mirrors the structure used by
@@ -1917,12 +2275,18 @@ function previewTemplate() {
   const reviewTpl = (document.getElementById('fReviewTemplate') || {}).value || DEFAULT_REVIEW_TEMPLATE;
   const _reviewSample = Object.assign({}, sample, { review_link: 'https://g.page/r/عيادتك' });
   const review = applyPlaceholders(reviewTpl, _reviewSample);
+  const intakeTpl = (document.getElementById('fIntakeTemplate') || {}).value || DEFAULT_INTAKE_TEMPLATE;
+  const intake = applyPlaceholders(intakeTpl, Object.assign({}, sample, { intake_link: 'https://sydent.app/intake.html?t=…' }));
+  const portalTpl = (document.getElementById('fPortalTemplate') || {}).value || DEFAULT_PORTAL_TEMPLATE;
+  const portal = applyPlaceholders(portalTpl, Object.assign({}, sample, { portal_link: 'https://sydent.app/portal.html?t=…' }));
   const sep = '\n\n────────────\n\n';
   const combined = '🔔 رسالة التذكير\n' + rem + sep
                  + '🔁 رسالة الاستدعاء الدوري\n' + rec + sep
                  + '🎂 رسالة عيد الميلاد\n' + bdy + sep
                  + '💰 رسالة تذكير القسط\n' + inst + sep
-                 + '🌟 رسالة التقييم\n' + review;
+                 + '🌟 رسالة التقييم\n' + review + sep
+                 + '📝 رسالة استمارة المريض\n' + intake + sep
+                 + '🔗 رسالة بوابة المريض\n' + portal;
   document.getElementById('waPreviewBubble').textContent = combined;
   const now = new Date();
   const tm = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -2216,6 +2580,10 @@ async function saveClinicSettings() {
   const installmentTemplate = (instTplRaw && instTplRaw.trim()) ? instTplRaw.trim() : DEFAULT_INSTALLMENT_TEMPLATE;
   const reviewTplRaw   = (document.getElementById('fReviewTemplate') || {}).value;
   const reviewTemplate = (reviewTplRaw && reviewTplRaw.trim()) ? reviewTplRaw.trim() : DEFAULT_REVIEW_TEMPLATE;
+  const intakeTplRaw   = (document.getElementById('fIntakeTemplate') || {}).value;
+  const intakeTemplate = (intakeTplRaw && intakeTplRaw.trim()) ? intakeTplRaw.trim() : DEFAULT_INTAKE_TEMPLATE;   /* M178 */
+  const portalTplRaw   = (document.getElementById('fPortalTemplate') || {}).value;
+  const portalTemplate = (portalTplRaw && portalTplRaw.trim()) ? portalTplRaw.trim() : DEFAULT_PORTAL_TEMPLATE;   /* M180 */
   // Google review link: trim + auto-prepend https:// so a pasted bare domain still opens correctly. Empty → null.
   let gReviewRaw = ((document.getElementById('fGReviewUrl') || {}).value || '').trim();
   if (gReviewRaw && !/^https?:\/\//i.test(gReviewRaw)) gReviewRaw = 'https://' + gReviewRaw;
@@ -2236,6 +2604,8 @@ async function saveClinicSettings() {
     whatsapp_birthday_template: birthdayTemplate,
     whatsapp_installment_template: installmentTemplate,
     whatsapp_review_template: reviewTemplate,
+    whatsapp_intake_template: intakeTemplate,
+    whatsapp_portal_template: portalTemplate,
     google_review_url: googleReviewUrl,
     updated_at: new Date().toISOString()
   };
@@ -2256,7 +2626,7 @@ async function saveClinicSettings() {
   // not applied), drop the offending column and retry so the core WhatsApp
   // settings still save without error. Loops in case more than one is missing.
   let _data = data, _error = error;
-  const _optionalCols = ['recall_interval_months', 'whatsapp_recall_template', 'whatsapp_birthday_template', 'whatsapp_installment_template', 'google_review_url', 'whatsapp_review_template'];
+  const _optionalCols = ['recall_interval_months', 'whatsapp_recall_template', 'whatsapp_birthday_template', 'whatsapp_installment_template', 'google_review_url', 'whatsapp_review_template', 'whatsapp_intake_template', 'whatsapp_portal_template'];
   let _guard = 0;
   while (_error && _guard < 5) {
     const em = (_error.message || '') + ' ' + (_error.code || '');
@@ -4553,6 +4923,8 @@ document.addEventListener('DOMContentLoaded', function(){
    • Chromium (كروم/Edge/Brave): تظهر مع زر تثبيت فعلي (beforeinstallprompt).
    • iOS سفاري: آبل لا تتيح prompt برمجياً إطلاقاً — تتحول البطاقة لإرشادية
      تشرح المسار اليدوي (مشاركة ⬆️ ← إضافة إلى الشاشة الرئيسية).
+   • متصفح سامسونج: زرُّه يُنتج تطبيقاً يحظره Google Play Protect ⇒ البطاقة
+     توجّه لـChrome (intent:// يفتح الصفحة نفسها هناك) ولا تعرض زرّ تثبيت.
    • داخل التطبيق المثبَّت (standalone): لا تظهر أصلاً. */
 (function(){
   'use strict';
@@ -4567,6 +4939,14 @@ document.addEventListener('DOMContentLoaded', function(){
     try{
       var c=document.getElementById('pwaInstallCard');
       if(!c || isStandalone()) return;
+      if(window.SyDentPWA && window.SyDentPWA.samsungBrowser){
+        var ts=c.querySelector('.shub-title'), dss=c.querySelector('.shub-desc');
+        if(ts) ts.textContent='ثبّت SyDent عبر Chrome';
+        if(dss) dss.textContent='متصفح سامسونج يثبّت نسخة يحظرها Google Play Protect — اضغط لفتح SyDent بـChrome وثبّته من هناك';
+        c.setAttribute('data-samsung','1');
+        c.style.display='flex';
+        return;
+      }
       if(window.SyDentPWA && window.SyDentPWA.canInstall){
         /* وصول beforeinstallprompt = غير مثبّت قطعاً — يتغلّب على أي كشف سابق */
         if(c.getAttribute('data-have')==='1'){

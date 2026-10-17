@@ -230,6 +230,8 @@ var SURFACE_LABELS = {
   'BRIDGE': 'جسر',
   'PONTIC': 'سن وهمي (جسر)',
   'SPACER': 'حافظ مسافة',
+  'SXM': 'سن زائد إنسي',      /* v580: السن الزائد المجاور من الجهة الإنسية (مرساةٌ على السن المجاور) */
+  'SXD': 'سن زائد وحشي',
   'SOCKET': 'موقع القلع'
 };
 
@@ -339,6 +341,254 @@ function rootAreaLabelFor(code, num){
    otherwise the first composite code that includes this region letter colors it.
    (After composite-save subsumption cleanup, real overlaps don't occur — this is
    the safety net.) Returns the treatment_key or null. */
+
+/* ═══ v595: الحالةُ تُرسم على الإجراء نفسه (قرار المالك 10 ت١ 2026 بعد مراجعة Open Dental · Dentrix Ascend · Sensei · Curve · Cloud 9):
+   اللونُ للمادة/العلاج كما كان، والحالةُ بالشكل على كل سطحٍ وجذرٍ وتاجٍ بالمنظرين —
+   منجز = تعبئةٌ صلبة · مخطط = تهشيرٌ مائل + إطار · موجود/عيادتنا = تعبئةٌ أفتح · موجود/عيادة أخرى = أفتح + إطارٌ متقطّع ·
+   محوَّل = إطارٌ منقّط بلا تعبئة. حلّ محلّ تعتيم السن كله (opacity على الخلية) الذي كان يبهت التشريحَ السليم
+   ولا يميّز سطحاً منجزاً عن مخططٍ على السن نفسه. الحالةُ السريرية لا تمرّ من هنا (رمزٌ لا طلاء — v434). */
+function txStatusOf(sm, key){
+  if (!sm) return 'completed';
+  var st = sm.__status || {};
+  /* v601 (مراجعة): نفسُ ترتيب قراءة العلاج (effectiveSurfaceTreatment / حلقة الجذر المركّب) — صفُّ السطح
+     المفرد يفوز بحالته (أو «منجز» إن كان صفّاً قديماً بلا حالة)، ثم أولُ مركّبٍ بالخريطة يحوي الحرف. */
+  if (sm[key]) return st[key] || 'completed';
+  for (var k in sm) { if (k === '__status' || !sm[k]) continue; if ((isCompositeSurfaceCode(k) || isCompositeRootCode(k)) && k.indexOf(key) !== -1) return st[k] || 'completed'; }
+  return st[key] || 'completed';
+}
+/* v601: حالةُ الوهمي — PONTIC، أو WHOLE على بيانات الجسر القديمة؛ الوهميُّ بين دعامتين بلا صفّ خاص يتبع «منجز» */
+function txPonticStatus(sm){
+  if (!sm) return 'completed';
+  var st = sm.__status || {};
+  if (sm.PONTIC) return st.PONTIC || 'completed';
+  if (isBridgeKey(sm.WHOLE)) return st.WHOLE || 'completed';
+  return 'completed';
+}
+function txPaint(st, fill, stroke, pid){
+  stroke = stroke || fill;
+  if (st === 'planned')          return { defs: '<pattern id="' + pid + '" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="2.2" height="5" fill="' + fill + '"/></pattern>', fill: 'url(#' + pid + ')', fo: 0.95, stroke: stroke, sw: 1.7, dash: '' };
+  if (st === 'referred')         return { defs: '', fill: fill, fo: 0.12, stroke: stroke, sw: 1.7, dash: '1.6 2.4' };
+  if (st === 'existing_current') return { defs: '', fill: fill, fo: 0.55, stroke: null, sw: 0, dash: '' };
+  if (st === 'existing_other' || st === 'existing') return { defs: '', fill: fill, fo: 0.38, stroke: stroke, sw: 1.2, dash: '2.2 2' };
+  return { defs: '', fill: fill, fo: SURFACE_FILL_OPACITY, stroke: null, sw: 0, dash: '' };
+}
+function txRectSvg(x, y, w, h, p, clip, extra){
+  return (p.defs ? '<defs>' + p.defs + '</defs>' : '')
+    + '<rect ' + (extra || '') + ' x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="2" ry="2" fill="' + p.fill + '" fill-opacity="' + p.fo + '"'
+    + (p.stroke ? ' stroke="' + p.stroke + '" stroke-width="' + p.sw + '"' + (p.dash ? ' stroke-dasharray="' + p.dash + '"' : '') : '')
+    + (clip ? ' clip-path="url(#' + clip + ')"' : '') + ' pointer-events="none"></rect>';
+}
+/* إطارُ «السن كاملاً» وتعبئةُ التاج الكامل والقناة يأخذان الشكلَ نفسه بسمات الـpath */
+function txPathAttrs(st, fill, stroke, pid, baseFo){
+  var p = txPaint(st, fill, stroke, pid);
+  if (st === 'planned') return { defs: '<defs>' + p.defs + '</defs>', attrs: 'fill="' + p.fill + '" fill-opacity="' + Math.min(0.95, baseFo + 0.3) + '" stroke="' + stroke + '" stroke-width="1.4"' };
+  if (st === 'referred') return { defs: '', attrs: 'fill="' + fill + '" fill-opacity="0.12" stroke="' + stroke + '" stroke-width="1.4" stroke-dasharray="1.6 2.4"' };
+  if (st === 'existing_current') return { defs: '', attrs: 'fill="' + fill + '" fill-opacity="' + (baseFo * 0.65).toFixed(2) + '"' };
+  if (st === 'existing_other' || st === 'existing') return { defs: '', attrs: 'fill="' + fill + '" fill-opacity="' + (baseFo * 0.45).toFixed(2) + '" stroke="' + stroke + '" stroke-width="1" stroke-dasharray="2.2 2"' };
+  return { defs: '', attrs: 'fill="' + fill + '" fill-opacity="' + baseFo + '"' };
+}
+function txRingDash(st){ return st === 'planned' ? ' stroke-dasharray="5 3"' : (st === 'referred' ? ' stroke-dasharray="1.6 2.4"' : ((st === 'existing_other' || st === 'existing') ? ' stroke-dasharray="2.2 2"' : '')); }
+
+/* ═══ v605 (M179 · قرار المالك «ابدا» 11 ت١ 2026، بعد مراجعة Dentrix Ascend · Open Dental): التشخيصُ يبقى تحت العلاج.
+   صفُّ teeth_status واحدٌ لكل سطح ⇒ حشوةٌ مخطّطة على «تسوس» كانت تمحو التشخيص. الآن زنادُ القاعدة
+   (trg_teeth_status_dx) يحفظه بعمود dx_key «سطح:حالة[,سطح:حالة]» على صفّ العلاج، والعميلُ يعكسه بذاكرة
+   window.teethDx (منفصلةٌ عن teethMap عمداً — حلقاتُ teethMap كثيرةٌ ولا تتخطّى كلُّها مفاتيحَ __meta).
+   مخطّط/محوَّل ⇒ رمزُ الحالة يُرسم فوق التهشير + «التشخيص: …» بالتلميح · منجز/موجود ⇒ «عولج: …» بلا رمز ·
+   إزالةُ العلاج عن سطحه ⇒ تعود الحالة (لا «سليم») · الجلسةُ تحمل «سبب العلاج». */
+function dxMapOf(num){ var m = window.teethDx; return (m && m[String(num)]) || {}; }
+/* v610: زوجٌ بعلامة «!» قبل مفتاح الحالة = **ملاحظةٌ على العلاج** (كسرُ حشوة · نخرٌ ثانوي…): حالةٌ جديدة سُجّلت على
+   سطحٍ يحمل علاجاً منجزاً/قائماً — تبقى معلّقةً فوقه (رمزٌ على الترميم و«ملاحظة: …» بالتلميح) حتى يُخطَّط علاجٌ
+   بديل فتنتقل إليه سبباً («التشخيص: …»). الزوجُ العادي = «عولج». التخزينُ بعمود dx_key نفسه بلا Migration،
+   وزنادُ M179 لا يقرأ محتواه، والتاريخُ ينسخه كما هو. */
+function dxPairs(str){
+  if (!str) return [];
+  return String(str).split(',').map(function(p){
+    var i = p.indexOf(':'); if (i <= 0) return null;
+    var k = p.slice(i + 1), pend = k.charAt(0) === '!';
+    return { sf: p.slice(0, i), key: pend ? k.slice(1) : k, pending: pend };
+  }).filter(function(x){ return x && isConditionKey(x.key); });
+}
+function dxJoin(pairs){
+  var seen = {}, out = [];
+  (pairs || []).forEach(function(p){ if (!p || !p.sf || !isConditionKey(p.key)) return; var k = p.sf + ':' + p.key; if (!seen[k]) { seen[k] = 1; out.push(p.sf + ':' + (p.pending ? '!' : '') + p.key); } });
+  return out.join(',');
+}
+/* الملاحظاتُ تصير تشخيصاً حين يحملها علاجٌ جديد (الصفُّ الجديد هو علاجُها) */
+function dxPromote(pairs){ return (pairs || []).map(function(p){ return { sf: p.sf, key: p.key, pending: false }; }); }
+function dxNotesOf(num, surface){ return dxOf(num, surface).filter(function(p){ return p.pending; }); }
+function dxOf(num, surface){ return dxPairs(dxMapOf(num)[surface]); }
+function dxSet(num, surface, str){
+  var tn = String(num), m = window.teethDx || (window.teethDx = {});
+  if (str) { (m[tn] || (m[tn] = {}))[surface] = str; }
+  else if (m[tn]) { delete m[tn][surface]; if (!Object.keys(m[tn]).length) delete m[tn]; }
+}
+/* «تسوس» أو «تسوس (إطباقي) · تآكل (إنسي)» حين يختلف سطحُ الحالة عن سطح العلاج (المركّب) */
+function dxNames(num, surface, pairs){
+  return (pairs || []).map(function(p){ var d = getCondition(p.key); var n = d ? d.name : p.key;
+    return p.sf === surface ? n : n + ' — ' + surfLabelFor(p.sf, num); }).join(' · ');
+}
+function dxTipText(num, surface, st){
+  if (window.__historyMode || st === 'condition') return '';   /* صفُّ الحالة نفسه لا يحمل تشخيصاً (حتى لو بقيت مرآةٌ قديمة) */
+  var pairs = dxOf(num, surface); if (!pairs.length) return '';
+  var pending = (st === 'planned' || st === 'referred');
+  if (pending) return ' <span class="dx-tip" style="font-size:11px;color:var(--text2);">· التشخيص: ' + escapeHtml(dxNames(num, surface, pairs)) + '</span>';
+  /* v610: منجز/قائم ⇒ «عولج: …» للأزواج العادية و«ملاحظة: …» للملاحظات المعلّقة فوقه */
+  var done = pairs.filter(function(p){ return !p.pending; }), notes = pairs.filter(function(p){ return p.pending; }), h = '';
+  if (done.length) h += ' <span class="dx-tip" style="font-size:11px;color:var(--text2);">· عولج: ' + escapeHtml(dxNames(num, surface, done)) + '</span>';
+  if (notes.length) h += ' <span class="dx-tip dx-note" style="font-size:11px;color:var(--red);font-weight:700;">· ملاحظة: ' + escapeHtml(dxNames(num, surface, notes)) + '</span>';
+  return h;
+}
+/* عرضُ الحالات للرسم: حالاتُ الخريطة + تشخيصاتٌ معلّقة تحت علاجٍ مخطّط/محوَّل حاضرٍ بالخريطة (المرشَّحة) */
+function dxCondView(num, sm){
+  var v = {};
+  for (var k in sm) { if (k.charAt(0) === '_' || !sm[k]) continue; if (isConditionKey(sm[k])) v[k] = sm[k]; }
+  if (window.__historyMode) return v;
+  var dm = dxMapOf(num), st = (sm && sm.__status) || {};
+  for (var c in dm) {
+    if (!sm[c]) continue;
+    var cs = st[c] || 'completed', pend = (cs === 'planned' || cs === 'referred');
+    /* v610: تحت علاجٍ مخطّط كلُّ الأزواج تُرسم (تشخيص)؛ فوق علاجٍ منجز/قائم الملاحظاتُ «!» وحدها */
+    dxPairs(dm[c]).forEach(function(p){ if ((pend || p.pending) && !v[p.sf]) v[p.sf] = p.key; });
+  }
+  return v;
+}
+/* عكسُ زناد القاعدة بالذاكرة بعد كتابةٍ ناجحة (يُستدعى قبل أن يحدّث المستدعي teethMap) */
+function dxMirrorAfterWrite(row, prevKey, prevSt){
+  if (!row || row.tooth_num == null || !row.surface) return;
+  if (row.status === 'condition') { dxSet(row.tooth_num, row.surface, null); return; }
+  if (row.dx_key) { dxSet(row.tooth_num, row.surface, row.dx_key); return; }
+  if (!prevKey) { dxSet(row.tooth_num, row.surface, null); return; }
+  if (prevSt === 'condition' && isConditionKey(prevKey) && prevKey !== row.treatment_key) dxSet(row.tooth_num, row.surface, row.surface + ':' + prevKey);
+}
+/* سطرُ «سبب العلاج» للجلسة (مخطّط/منجز) */
+function dxSessionNote(num, surface, notes){
+  var pairs = dxOf(num, surface); if (!pairs.length) return notes;
+  var line = 'سبب العلاج: ' + dxNames(num, surface, pairs);
+  return notes ? (notes + ' — ' + line) : line;
+}
+/* إزالةُ علاجٍ عن سطحه وهو يحمل تشخيصاً ⇒ تعود الحالاتُ على أسطحها بعد حذف الصف (pairs تُلتقط قبل الحذف).
+   سطحٌ صار يحمل صفّاً آخر لا يُكتب فوقه. يعيد عدد الحالات المستعادة. */
+async function dxRestoreAfterRemoval(num, carrierSurface, pairs){
+  var tn = String(num), n = 0;
+  dxSet(tn, carrierSurface, null);
+  for (var i = 0; i < (pairs || []).length; i++) {
+    var p = pairs[i];
+    if ((teethMap[tn] || {})[p.sf]) continue;
+    var r = await upsertTeethStatusWithFallback({ doctor_id: currentUser.id, patient_id: patientId, tooth_num: tn, surface: p.sf,
+      treatment_key: p.key, status: 'condition', review_at: null }, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
+    if (r.error) { console.warn('dxRestoreAfterRemoval:', r.error); continue; }
+    if (!teethMap[tn]) teethMap[tn] = {};
+    teethMap[tn][p.sf] = p.key;
+    if (!teethMap[tn].__status) teethMap[tn].__status = {};
+    teethMap[tn].__status[p.sf] = 'condition';
+    if (teethMap[tn].__review) delete teethMap[tn].__review[p.sf];
+    n++;
+  }
+  return n;
+}
+/* v608: القلعُ المنجز (أو القائم) يُنهي السنّ — كل صفوفه الأخرى (أسطحُ التاج والجذور والحالات)
+   تُمحى من المخطط (بلاغُ المالك: سنٌّ عليه كسران قُلع وبقي الكسران بتلميحه وزرّا إزالتهما).
+   حالاتُها وتشخيصاتُها تُحمل على صفّ القلع (نموذجُ v606) فيُقرأ «عولج: كسر — دهليزي · كسر — الجذر»،
+   وإلغاءُ القلع يعيدها (dxRestoreAfterRemoval). التاريخُ محفوظ بزناد teeth_status_history.
+   يُستثنى WHOLE (صفُّ القلع نفسه) وما بعد القلع (PONTIC/SOCKET/SPACER). يعيد dx المجموع أو ''. */
+async function wipeToothAfterExtraction(num, pid) {
+  var tn = String(num), sm = teethMap[tn] || {};
+  var keep = { WHOLE: 1, PONTIC: 1, SOCKET: 1, SPACER: 1 };
+  var del = Object.keys(sm).filter(function(k){ return k.charAt(0) !== '_' && !keep[k] && sm[k]; });
+  if (!del.length) return '';
+  var pairs = dxCollectSubsumed(tn, del);
+  var r = await window.sb.from('teeth_status').delete()
+    .eq('doctor_id', currentUser.id).eq('patient_id', pid || patientId).eq('tooth_num', tn).in('surface', del);
+  if (r.error) { console.warn('wipeToothAfterExtraction:', r.error); return ''; }
+  del.forEach(function(k){
+    delete sm[k];
+    ['__status', '__review', '__unit', '__prov'].forEach(function(b){ if (sm[b]) delete sm[b][k]; });
+    dxSet(tn, k, null);
+  });
+  return dxJoin(pairs);
+}
+function isExtractionLandedStatus(st) { return st === 'completed' || st === 'existing_current' || st === 'existing_other' || st === 'existing'; }
+/* v609: التاجُ الكامل (ومثبِّتُ الجسر على الدعامة) يغطّي كل أسطح التاج ⇒ صفوفُها تُمحى من المخطط كما يمحو
+   المركّبُ حروفَه (v605): الحالاتُ (كسر/نخر…) دائماً وتُحمل dx على صفّ التاج («التشخيص: …» إن كان مخطّطاً،
+   «عولج: …» إن أُنجز)، وعلاجاتُ الأسطح (حشوات) فقط حين يكون التاجُ منجزاً/قائماً — تاجٌ مخطّط يترك الحشواتِ
+   ظاهرةً تحت تهشيره. الجذورُ (R*) ولبُّ السن لا تُمسّ. بلاغُ المالك (11 تشرين الأول 2026): تاجٌ على سنٍّ عليه
+   نخرٌ «مراقبة» كان يُبقي النخرَ معروضاً تحت التاج. يعيد dx المجموع أو ''. */
+async function subsumeCrownSurfaces(num, landed, pid) {
+  var tn = String(num), sm = teethMap[tn] || {};
+  var del = Object.keys(sm).filter(function(k){
+    if (k.charAt(0) === '_' || !sm[k] || !/^[MODBLIV]+$/.test(k)) return false;
+    return isConditionKey(sm[k]) || landed;
+  });
+  if (!del.length) return '';
+  var pairs = dxCollectSubsumed(tn, del);
+  var r = await window.sb.from('teeth_status').delete()
+    .eq('doctor_id', currentUser.id).eq('patient_id', pid || patientId).eq('tooth_num', tn).in('surface', del);
+  if (r.error) { console.warn('subsumeCrownSurfaces:', r.error); return ''; }
+  del.forEach(function(k){
+    delete sm[k];
+    ['__status', '__review', '__unit', '__prov'].forEach(function(b){ if (sm[b]) delete sm[b][k]; });
+    dxSet(tn, k, null);
+  });
+  return dxJoin(pairs);
+}
+/* v609: الزرعةُ تمحو السنَّ كله (المسارُ القائم) — الآن تحمل حالاتِه dx على صفّها وتُصفّر مرآةَ dx الممحوّة */
+function dxCollectWholeTooth(num) {
+  var tn = String(num), sm = teethMap[tn] || {};
+  var all = Object.keys(sm).filter(function(k){ return k.charAt(0) !== '_' && sm[k]; });
+  var out = dxJoin(dxCollectSubsumed(tn, all));
+  all.forEach(function(k){ dxSet(tn, k, null); });
+  return out;
+}
+/* المركّبُ (MOD · R1R2) يمحو صفوفَ حروفه ⇒ تُجمع حالاتُها وتشخيصاتُها لتُحمل على صفّه الجديد */
+function dxCollectSubsumed(num, surfaces){
+  var sm = teethMap[String(num)] || {}, st = sm.__status || {}, out = [];
+  (surfaces || []).forEach(function(sf){
+    var k = sm[sf]; if (!k) return;
+    if (isConditionKey(k) && (st[sf] || 'completed') === 'condition') out.push({ sf: sf, key: k });
+    else out = out.concat(dxPromote(dxOf(num, sf)));   /* v610: ملاحظاتُ الصفّ الممحوّ تصير تشخيصَ الصفّ الجديد */
+  });
+  return out;
+}
+/* v610: تسجيلُ حالةٍ على سطحٍ يحمل علاجاً ⇒ لا يُمحى العلاج: الحالةُ تُضاف إلى dx_key صفِّه — ملاحظةً «!» إن كان
+   منجزاً/قائماً، تشخيصاً عادياً إن كان مخطّطاً/محوَّلاً. الزنادُ (M179) لا يمسّ dx_key المرسل. يعيد false عند الفشل،
+   وإلا true = ملاحظة / 'dx' = تشخيصٌ تحت مخطّط. */
+async function dxAddNote(num, rowSurface, atSurface, condKey) {
+  var tn = String(num), sm = teethMap[tn] || {}, st = (sm.__status && sm.__status[rowSurface]) || 'completed';
+  var pend = !(st === 'planned' || st === 'referred');
+  var pairs = dxOf(tn, rowSurface).filter(function(p){ return !(p.sf === atSurface && p.key === condKey); });
+  if (!pend) pairs = dxPromote(pairs);   /* تحت علاجٍ مخطّط كلُّ ما يحمله تشخيصٌ له */
+  pairs.push({ sf: atSurface, key: condKey, pending: pend });
+  var str = dxJoin(pairs);
+  var u = await window.sb.from('teeth_status').update({ dx_key: str })
+    .eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', tn).eq('surface', rowSurface);
+  if (u.error) { console.error('dxAddNote:', u.error); showToast('⚠️ خطأ حفظ الملاحظة: ' + u.error.message); return false; }
+  dxSet(tn, rowSurface, str);
+  return pend ? true : 'dx';
+}
+/* v610: إزالةُ ملاحظةٍ عن علاجها (زرُّ النافذة) — العلاجُ يبقى */
+async function _removeDxNote_inner(num, rowSurface, atSurface, condKey) {
+  if (window.SyDentLock && window.SyDentLock.isDoctorAccountInactive && window.SyDentLock.isDoctorAccountInactive()) { showToast('🔒 حسابك غير نشط — لا يمكن تعديل حالة الأسنان'); return; }
+  var tn = String(num), def = getCondition(condKey);
+  var pairs = dxOf(tn, rowSurface);
+  if (!pairs.some(function(p){ return p.sf === atSurface && p.key === condKey; })) { showToast('⚠️ لا توجد هذه الملاحظة'); return; }
+  if (!await SyDialog.confirm({ message: 'إزالة الملاحظة «' + (def ? def.name : condKey) + '» (' + conditionSiteLabel(num, atSurface) + ') عن علاج السن ' + num + '؟\nالعلاجُ نفسه يبقى.', danger: false })) return;
+  var str = dxJoin(pairs.filter(function(p){ return !(p.sf === atSurface && p.key === condKey); })) || null;
+  var u = await window.sb.from('teeth_status').update({ dx_key: str })
+    .eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', tn).eq('surface', rowSurface);
+  if (u.error) { console.error('removeDxNote:', u.error); showToast('⚠️ ' + u.error.message); return; }
+  dxSet(tn, rowSurface, str);
+  closeModal('toothModal');
+  renderTeeth(); renderStats();
+  showToast('✅ أُزيلت الملاحظة «' + (def ? def.name : condKey) + '» عن السن ' + num);
+}
+var removeDxNote = ppGuarded('removeDxNote', _removeDxNote_inner, '⏳');
+/* ملاحظاتُ السن كلُّها (لأزرار النافذة): [{row, sf, key, def}] */
+function dxNoteRowsOf(num){
+  var tn = String(num), dm = dxMapOf(tn), sm = teethMap[tn] || {}, out = [];
+  for (var r in dm) { if (!sm[r]) continue; dxPairs(dm[r]).forEach(function(p){ if (p.pending) out.push({ row: r, sf: p.sf, key: p.key, def: getCondition(p.key) }); }); }
+  return out;
+}
+
 function effectiveSurfaceTreatment(sm, regionKey){
   if (!sm) return null;
   if (sm[regionKey]) return sm[regionKey];
@@ -1083,6 +1333,7 @@ function isExtracted(num) {
   if (isExtractionKey(sm.WHOLE)) return true;
   // Legacy: any surface marked as extracted
   for (var k in sm) {
+    if (isSxSurface(k)) continue;   /* v580: قلعُ السن الزائد على SX ليس قلعَ هذا السن */
     if (isExtractionKey(sm[k])) return true;
   }
   return false;
@@ -1099,6 +1350,7 @@ function extractionSurfaceOf(num) {
   if (isExtractionKey(sm.WHOLE)) return 'WHOLE';
   for (var k in sm) {
     if (k === '__status' || k === '__review' || k === '__unit') continue;
+    if (isSxSurface(k)) continue;   /* v580: مرساةُ السن الزائد — لا تُقرأ قلعاً للسن المجاور (كانت ستُشبحه وتفتح عليه الزرع) */
     if (isExtractionKey(sm[k])) return k;
   }
   return null;
@@ -1139,20 +1391,35 @@ var COND_SURFACE = 'COND';
    scope: 'surface' = target_part 'crown' · 'both' = تاجٌ وجذر · 'tooth' = السن كاملاً.
    anchor: موضعُ الرمز حين يكون التخزينُ على COND فقط ('apex' = ذروة الجذر). */
 var COND_DEFS = [
-  { id:'cond-fracture',    name:'كسر',                fill:'#b91c1c', stroke:'#7f1d1d', scope:'both',    symbol:'fracture' },
-  { id:'cond-sensitivity', name:'حساسية عاجية',       fill:'#0ea5e9', stroke:'#075985', scope:'surface', symbol:'waves'    },
-  { id:'cond-calculus',    name:'قلح',                fill:'#a16207', stroke:'#713f12', scope:'surface', symbol:'hatch'    },
+  { id:'cond-fracture',    name:'كسر',                fill:'#b91c1c', stroke:'#7f1d1d', scope:'both',    symbol:'fracture', occ:true },
+  { id:'cond-sensitivity', name:'حساسية عاجية',       fill:'#0ea5e9', stroke:'#075985', scope:'surface', symbol:'waves', occ:true },
+  { id:'cond-calculus',    name:'قلح',                fill:'#a16207', stroke:'#713f12', scope:'surface', symbol:'hatch', occ:true },
   { id:'cond-recession',   name:'انحسار لثوي',        fill:'#f472b6', stroke:'#9d174d', scope:'surface', symbol:'chevron', draw:'gum', anchor:'cej' },
   { id:'cond-abscess',     name:'خراج',               fill:'#dc2626', stroke:'#7f1d1d', scope:'tooth',   symbol:'abscess', anchor:'apex' },
-  { id:'cond-retained',    name:'جذر متبقٍّ (بقايا جذر)', fill:'#78716c', stroke:'#44403c', scope:'tooth', symbol:'retained', draw:'no-crown' },
+  /* v578: بلا رمز — «الرمزُ» هو غيابُ التاج نفسه (Dentrix والتخطيط الورقي)؛ المثلثُ أُزيل بقرار المالك */
+  { id:'cond-retained',    name:'جذر متبقٍّ (بقايا جذر)', fill:'#78716c', stroke:'#44403c', scope:'tooth', symbol:null, draw:'no-crown' },
   { id:'cond-impacted',    name:'انطمار',             fill:'#7c3aed', stroke:'#4c1d95', scope:'tooth',   symbol:'impacted', draw:'impacted' },
-  { id:'cond-white-spot',  name:'بقعة بيضاء (إزالة تمعدن)', fill:'#e5e7eb', stroke:'#6b7280', scope:'surface', symbol:'ring' },
-  { id:'cond-open-contact',name:'تماس مفتوح (فراغ بين سنّين)', fill:'#0d9488', stroke:'#115e59', scope:'surface', symbol:'gap', only:['M','D'] },
+  { id:'cond-white-spot',  name:'بقعة بيضاء (إزالة تمعدن)', fill:'#e5e7eb', stroke:'#6b7280', scope:'surface', symbol:'ring', occ:true },
+  { id:'cond-open-contact',name:'تماس مفتوح (فراغ بين سنّين)', fill:'#0d9488', stroke:'#115e59', scope:'surface', symbol:'gap', only:['M','D'], occ:true },
   /* C3 (v489): «غير بازغ» — سنٌّ لم يطلع **بعد** وطريقُه سالك (نموٌّ طبيعي، أرحاءُ طفلٍ
      دائمة مثلاً) — يختلف عن «انطمار» (محبوسٌ يحتاج تدخّلاً): يُرسم **بمكانه باهتاً بحدٍّ
      منقّط** لا مُزاحاً. رمزُه «U» (اصطلاحُ Dentrix لكود Unerupted). ولا مواقعَ سبرٍ له
      ⇒ يُستثنى من البريو (perio:'skip'). التخزين على COND — M152 تكفي، بلا ترحيل. */
-  { id:'cond-unerupted',   name:'غير بازغ',           fill:'#94a3b8', stroke:'#475569', scope:'tooth',   symbol:'unerupted', draw:'unerupted', perio:'skip' }
+  { id:'cond-unerupted',   name:'غير بازغ',           fill:'#94a3b8', stroke:'#475569', scope:'tooth',   symbol:'unerupted', draw:'unerupted', perio:'skip' },
+  /* v578 (مراجعةُ Dentrix Ascend بطلب المالك): ثلاثُ حالاتٍ سطحية كانت ناقصة —
+     «تسوس» تعبئةٌ صلبة للسطح (Dentrix: Caries solid) فيُوثَّق نخرٌ مبدئي بلا التزامٍ بعلاج ·
+     «تآكل» نقاطٌ على السطح (Abrasion/attrition dotted) · «انزياح» سهمٌ من مركز التاج نحو
+     السطح المنقور = اتجاهُ الانزياح (Drifting/inclination)، إنسي/وحشي بالمنظرين، دهليزي/لساني إطباقياً. */
+  { id:'cond-caries',      name:'تسوس (نخر)',         fill:'#9f1239', stroke:'#4c0519', scope:'surface', symbol:'solid',  occ:true },
+  { id:'cond-wear',        name:'تآكل (سحل / تآكل حمضي)', fill:'#d97706', stroke:'#92400e', scope:'surface', symbol:'dotted', occ:true },
+  { id:'cond-drift',       name:'انزياح / ميلان',      fill:'#0369a1', stroke:'#0c4a6e', scope:'surface', symbol:'arrow',  occ:true, only:['M','D','B','L'] },
+  /* v580 (قرارُ المالك: الخيار أ مع إمكانية القلع): «سن زائد» يُسجَّل على السن المجاور بجهةٍ
+     (إنسي/وحشي) ويُخزَّن على سطحٍ محجوز SXM/SXD (M176) لا على M/D (كي لا يُقرأ تعبئةَ سطح ولا
+     يزاحم حشوةً) ولا على COND (كي يبقى للسن حالتُه). يُرسم سنّاً صغيراً بين الخليتين بالمنظرين؛
+     ونقرُه يفتح المودال على SX حيث العلاجُ الوحيد المتاح هو القلع (جلسةٌ حقيقية على السن المجاور
+     بالسطح SX ⇒ الخطة والزيارات والمالية والتقارير كأي قلع). Dentrix/Open Dental يرقّمانه
+     51–82 كسنٍّ مستقل — خيار (ب) المؤجَّل؛ لا بريو ولا علاجاتٍ أخرى عليه بالتصميم. */
+  { id:'cond-supernumerary',name:'سن زائد',             fill:'#4338ca', stroke:'#1e1b4b', scope:'surface', symbol:null, only:['M','D'], store:'sx' }
 ];
 /* تُبنى مرةً بشكلِ صفِّ علاجٍ كامل: كلُّ قارئٍ للكتالوج يجدُ ما يتوقّعه. */
 var COND_LIBRARY = COND_DEFS.map(function(c){
@@ -1164,7 +1431,11 @@ var COND_LIBRARY = COND_DEFS.map(function(c){
            is_bundle:false, builtin:true, default_note:'', completion_note:'', layman_name:'',
            is_condition:true, cond_scope:c.scope, symbol:c.symbol,
            cond_anchor:c.anchor || null, cond_only:c.only || null, cond_draw:c.draw || null,
-           cond_perio:c.perio || null };
+           cond_perio:c.perio || null,
+           /* v576/v578: رايةُ «يُرى من الأعلى» — كلُّ حالةِ سطحٍ تُرسم بكل منظرٍ يظهر فيه سطحُها
+              (قاعدةُ Dentrix؛ قرارُ المالك 5 ت١ 2026 ألغى استثناءَ v437). حالاتُ السن تشريحية. */
+           cond_occ: !!c.occ,
+           cond_store: c.store || null };   /* v580: 'sx' ⇒ يُخزَّن على SX<جهة> لا على الجهة نفسها */
 });
 function getCondition(id){
   if (!id) return null;
@@ -1234,11 +1505,88 @@ function condSurfaceConflict(num, surf){
 }
 /* v434: حالةٌ محصورةٌ بأسطحٍ بعينها (التماسُ المفتوح بين سنّين ⇒ إنسي/وحشي).
    تُعيد رسالةَ الرفض أو null. */
+/* v580: السنُّ الزائد — سطحُ التخزين SXM/SXD. مسندٌ واحد تقرؤه كلُّ المواضع (#668). */
+function isSxSurface(s){ return /^SX[MD]$/.test(String(s || '')); }
+function sxSideOf(s){ return isSxSurface(s) ? String(s).charAt(2) : null; }
+/* v584: نصُّ شارة السن بقوائم الجلسات — جلسةٌ على مرساة SX تُسمّى «سن زائد لـ N» لا «سن N» (قلعُ الزائد ليس قلعَ 23) */
+function sessionToothChipText(num, surface){
+  if (num === null || num === undefined || num === '') return '';
+  return isSxSurface(surface) ? 'سن زائد لـ ' + num : 'سن ' + num;
+}
+/* أين تُخزَّن الحالةُ فعلاً؟ الحالاتُ العادية على سطحها؛ «سن زائد» على SX<الجهة> (M/D فقط) */
+function condStorageSurface(def, surf){
+  if (def && def.cond_store === 'sx' && /^[MD]$/.test(String(surf || ''))) return 'SX' + surf;
+  return surf;
+}
+/* حالةُ السن الزائد بجهةٍ من خريطةٍ مفلترة: null = لا سنَّ زائداً (أو قُلع) ·
+   {present:true} · {present:true, planned:true, key} = قلعٌ مخطّط (✕) */
+function sxState(sm, side){
+  if (!sm) return null;
+  var k = sm['SX' + side]; if (!k) return null;
+  if (isConditionKey(k)) return { present: true, planned: false, key: k };
+  if (isExtractionKey(k)) {
+    var st = (sm.__status && sm.__status['SX' + side]) || 'completed';
+    return (typeof extractionStatusIsOpen === 'function' && extractionStatusIsOpen(st)) ? { present: true, planned: true, key: k, status: st } : null;
+  }
+  return { present: true, planned: false, key: k };
+}
 function condSurfaceNotAllowed(def, surf){
   if (!def || !def.cond_only) return null;
   var s = String(surf || '');
+  if (def.cond_store === 'sx' && isSxSurface(s)) s = sxSideOf(s);   /* v580: صيغةُ التخزين مقبولة */
   for (var i = 0; i < def.cond_only.length; i++) if (s === def.cond_only[i]) return null;
-  return '🩺 «' + def.name + '» يُسجَّل على السطح الإنسي أو الوحشي (نقطة التماس مع السن المجاور)';
+  var L = { M:'الإنسي', D:'الوحشي', B:'الدهليزي', L:'اللساني', O:'الإطباقي', I:'القاطع', V:'العنقي' }, names = [];
+  for (i = 0; i < def.cond_only.length; i++) names.push(L[def.cond_only[i]] || def.cond_only[i]);
+  if (def.symbol === 'gap') return '🩺 «' + def.name + '» يُسجَّل على السطح الإنسي أو الوحشي (نقطة التماس مع السن المجاور)';
+  if (def.cond_store === 'sx') return '🩺 «' + def.name + '» يُسجَّل على الإنسي أو الوحشي للسن المجاور له (الجهةُ المنقورة = موضعُ السن الزائد)';   /* v582 */
+  return '🩺 «' + def.name + '» يُسجَّل على: ' + names.join(' / ') + ' (الجهةُ المنقورة = الاتجاه)';
+}
+/* v576: التماسُ المفتوح حدثٌ **بين سنّين** لا على سنٍّ واحد (المعيارُ: خطٌّ على إنسيّ
+   سنٍّ وخطٌّ على وحشيّ جاره). يُسجَّل حيث نُقر (M/D) ويُرسم خطاً واحداً على حافّة
+   ذلك السطح، **والجارُ يرسم خطَّه على حافّته المقابلة** عبر هذا المسند — بلا كتابةٍ
+   على الجار (#668: الأثرُ البنيوي عبر مسندٍ واحد تقرؤه كلُّ المواضع). */
+var COND_CONTACT_ID = 'cond-open-contact';
+/* جيرانُ نقطة التماس بجهةٍ: [{num, surf}] — السطحُ المقابل: إنسيُّ السن ↔ وحشيُّ الأمامي،
+   وعبر الخطِّ الناصف إنسيٌّ ↔ إنسيٌّ (11↔21 · 31↔41 · 51↔61 · 71↔81). التسنينُ المختلط:
+   النظيرُ اللبني/الدائم للجار يُفحص أيضاً (16 ↔ 15 أو 55)، والرحى اللبنية الثانية
+   تجاور الرحى الدائمة الأولى (55 ↔ 16). */
+function proximalNeighbors(num, side){
+  var n = parseInt(num, 10), q = Math.floor(n / 10), pos = n % 10, prim = isPrimaryTooth(n), out = [];
+  if (!(q >= 1 && q <= 8) || !(pos >= 1 && pos <= 8)) return out;
+  function add(qq, pp, surf){ if (qq >= 1 && qq <= 8 && pp >= 1 && pp <= (qq >= 5 ? 5 : 8)) out.push({ num: String(qq * 10 + pp), surf: surf }); }
+  var twin = prim ? q - 4 : q + 4;
+  if (side === 'M') {
+    if (pos > 1) { add(q, pos - 1, 'D'); add(twin, pos - 1, 'D'); }
+    else { var cq = (q % 2 === 1) ? q + 1 : q - 1; add(cq, 1, 'M'); add(prim ? cq - 4 : cq + 4, 1, 'M'); }
+  } else if (side === 'D') {
+    if (pos < (prim ? 5 : 8)) { add(q, pos + 1, 'M'); add(twin, pos + 1, 'M'); }
+    else if (prim) add(q - 4, 6, 'M');
+  }
+  return out;
+}
+/* جهتا التماس المفتوح المرئيتان على هذا السن: ما سُجِّل عليه + ما سجّله جارُه على
+   السطح المقابل. تقرأ خريطةَ الجار بالفلترة نفسها التي تصل buildTooth (العرضُ التاريخي). */
+function condContactSides(num, sm){
+  var res = { M: false, D: false }, s, i;
+  for (s in res) if (sm && sm[s] === COND_CONTACT_ID) res[s] = true;
+  for (s in res) {
+    if (res[s]) continue;
+    var nb = proximalNeighbors(num, s);
+    for (i = 0; i < nb.length; i++) {
+      var raw = (typeof teethMap !== 'undefined' && teethMap) ? teethMap[nb[i].num] : null;
+      if (!raw) continue;
+      var nsm = (typeof chartFilterSM === 'function') ? chartFilterSM(raw) : raw;
+      if (nsm && nsm[nb[i].surf] === COND_CONTACT_ID) { res[s] = true; break; }
+    }
+  }
+  return res;
+}
+/* خطُّ التماس المفتوح: عموديٌّ على حافّة السطح الإنسي/الوحشي، مقصوصٌ بصورة التاج */
+function condContactLineSvg(x, y0, y1, clipId){
+  var d = getCondition(COND_CONTACT_ID) || {};
+  return '<line class="cond-contact" x1="' + x + '" y1="' + y0 + '" x2="' + x + '" y2="' + y1 + '" '
+       + 'stroke="' + (d.stroke || '#115e59') + '" stroke-width="3.4" stroke-linecap="round"'
+       + (clipId ? ' clip-path="url(#' + clipId + ')"' : '') + ' pointer-events="none"/>';
 }
 /* حالةُ سنٍّ على مستوى السن (سطح COND) — تقرؤها الرسومُ والتلميحُ وزرُّ الإزالة */
 function toothConditionKey(num){
@@ -1283,6 +1631,39 @@ function condAnchorFor(anat, key, def){
   }
   return { x: 50, y: anat.crownTop + anat.crownH * 0.5, size: 26 };   /* مركّبٌ أو لساني */
 }
+/* v578: سهمٌ من (x1,y1) إلى (x2,y2) برأسٍ عند النهاية — الانزياحُ يُشير إلى جهة الحركة */
+function condArrowSvg(x1, y1, x2, y2, c, size){
+  var ang = Math.atan2(y2 - y1, x2 - x1), h = size * 0.32, a1 = ang + Math.PI * 0.8, a2 = ang - Math.PI * 0.8;
+  return '<path d="M ' + x1 + ' ' + y1 + ' L ' + x2 + ' ' + y2 + ' M ' + (x2 + h*Math.cos(a1)) + ' ' + (y2 + h*Math.sin(a1)) + ' L ' + x2 + ' ' + y2
+       + ' L ' + (x2 + h*Math.cos(a2)) + ' ' + (y2 + h*Math.sin(a2)) + '" fill="none" stroke="' + c + '" stroke-width="' + (size*0.15) + '" stroke-linecap="round" stroke-linejoin="round"/>';
+}
+/* v581: مستطيلاتُ مفتاحٍ تاجيٍّ (مفرد أو مركّب كـMOD) من قائمة مستطيلاتٍ تحمل .key — بترتيب الحروف */
+function condRectsFor(rects, key){
+  var out = [], k = String(key || ''), i, j;
+  if (!/^[MODBLIV]+$/.test(k)) { for (i = 0; i < rects.length; i++) if (rects[i] && rects[i].key === k) out.push(rects[i]); return out; }
+  for (i = 0; i < k.length; i++) for (j = 0; j < rects.length; j++) if (rects[j] && rects[j].key === k.charAt(i)) out.push(rects[j]);
+  return out;
+}
+/* v578: حالةٌ تملأ مساحةَ سطحها (تسوس: صلب · تآكل: نقاط) — مقصوصةٌ بصورة التاج، بلا أحداثِ مؤشّر */
+function condSurfaceFillSvg(def, x, y, w, h, clipId, rx){
+  if (!def || !def.symbol) return '';
+  var cp = clipId ? ' clip-path="url(#' + clipId + ')"' : '', g = '';
+  if (def.symbol === 'solid') {
+    g = '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '"' + (rx ? ' rx="' + rx + '"' : '') + ' fill="' + def.fill + '" fill-opacity="0.62" stroke="' + def.stroke + '" stroke-width="0.8"' + cp + '/>';
+  } else if (def.symbol === 'dotted') {
+    var step = Math.max(4, Math.min(w, h) / 3.2), rr = step * 0.22;
+    for (var yy = y + step/2; yy < y + h; yy += step) for (var xx = x + step/2; xx < x + w; xx += step)
+      g += '<circle cx="' + xx.toFixed(1) + '" cy="' + yy.toFixed(1) + '" r="' + rr.toFixed(1) + '" fill="' + def.stroke + '"' + cp + '/>';
+  } else return '';
+  return '<g class="cond-sym cond-fill" pointer-events="none">' + g + '</g>';
+}
+/* v578: سهمُ الانزياح من مركز التاج نحو مركز السطح المنقور (الجهة = الاتجاه) */
+function condDriftSvg(def, cx, cy, tx, ty, size, isUpper){
+  var dx = tx - cx, dy = ty - cy, len = Math.sqrt(dx*dx + dy*dy) || 1, ux = dx/len, uy = dy/len;
+  var g = condArrowSvg(cx - ux*size*0.45, cy - uy*size*0.45, cx + ux*size*0.45, cy + uy*size*0.45, def.stroke, size);
+  /* بالعلوي تُقلب المجموعةُ عمودياً — السهمُ اتجاهيٌّ فيتبع القلبَ ولا يُعاد قلبُه */
+  return '<g class="cond-sym cond-drift" pointer-events="none">' + g + '</g>';
+}
 function conditionSymbolSvg(def, cx, cy, size, isUpper){
   if (!def || !def.symbol) return '';
   var k = def.symbol, c = def.stroke || '#444', f = def.fill || '#888', r = size/2, g = '';
@@ -1311,12 +1692,20 @@ function conditionSymbolSvg(def, cx, cy, size, isUpper){
   } else if (k === 'abscess') {
     g = '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r*0.95) + '" fill="' + f + '" fill-opacity="0.22" stroke="none"/>'
       + '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r*0.42) + '" fill="' + c + '"/>';
-  } else if (k === 'retained') {
-    g = '<path d="M ' + (cx-r*0.85) + ' ' + (cy-r*0.7) + ' L ' + (cx+r*0.85) + ' ' + (cy-r*0.7) + ' L ' + cx + ' ' + (cy+r) + ' Z" '
-      + 'fill="' + f + '" fill-opacity="0.35" stroke="' + c + '" stroke-width="' + (size*0.11) + '" stroke-linejoin="round"/>';
+  } else if (k === 'solid') {
+    /* v578: مربّعٌ صلبٌ (لافتةٌ فقط — على المخطط تُملأ مساحةُ السطح نفسها: condSurfaceFillSvg) */
+    g = '<rect x="' + (cx-r*0.8) + '" y="' + (cy-r*0.8) + '" width="' + (1.6*r) + '" height="' + (1.6*r) + '" rx="' + (r*0.2) + '" fill="' + f + '" fill-opacity="0.75" stroke="' + c + '" stroke-width="' + (size*0.08) + '"/>';
+  } else if (k === 'dotted') {
+    for (var dy=-1; dy<=1; dy++) for (var dx=-1; dx<=1; dx++) g += '<circle cx="' + (cx+dx*r*0.55) + '" cy="' + (cy+dy*r*0.55) + '" r="' + (r*0.17) + '" fill="' + c + '"/>';
+  } else if (k === 'arrow') {
+    /* v578: سهمٌ أفقي (لافتة)؛ على المخطط يُوجَّه نحو السطح المنقور: condArrowSvg */
+    g = condArrowSvg(cx-r*0.9, cy, cx+r*0.9, cy, c, size);
   } else if (k === 'impacted') {
-    g = '<path d="M ' + (cx-r*0.9) + ' ' + (cy+r*0.9) + ' L ' + (cx+r*0.9) + ' ' + (cy-r*0.9) + '" stroke="' + c + '" stroke-width="' + (size*0.15) + '" stroke-linecap="round"/>'
-      + '<path d="M ' + (cx+r*0.15) + ' ' + (cy-r*0.9) + ' L ' + (cx+r*0.9) + ' ' + (cy-r*0.9) + ' L ' + (cx+r*0.9) + ' ' + (cy-r*0.15) + '" '
+    /* v576: السهمُ يشير **نحو الذروة** (اتجاهُ المحور الطولي للسن المنطمر — داخل العظم):
+       +y بالإحداثيات المحلية = ذرويٌّ بالفكين، فلا يُقلب بالعلوي (انظر noFlip أدناه):
+       سفلي ↘ · علوي ↗. قبل v576 كان يُثبَّت ↗ على الشاشة فيصير بالسفلي نحو الإطباق. */
+    g = '<path d="M ' + (cx-r*0.9) + ' ' + (cy-r*0.9) + ' L ' + (cx+r*0.9) + ' ' + (cy+r*0.9) + '" stroke="' + c + '" stroke-width="' + (size*0.15) + '" stroke-linecap="round"/>'
+      + '<path d="M ' + (cx+r*0.15) + ' ' + (cy+r*0.9) + ' L ' + (cx+r*0.9) + ' ' + (cy+r*0.9) + ' L ' + (cx+r*0.9) + ' ' + (cy+r*0.15) + '" '
       + 'fill="none" stroke="' + c + '" stroke-width="' + (size*0.13) + '" stroke-linecap="round" stroke-linejoin="round"/>';
   } else if (k === 'unerupted') {
     /* C3: حرفُ «U» هندسياً (اصطلاحُ Dentrix) — مفتوحُ الأعلى، بلا تعبئة */
@@ -1332,7 +1721,9 @@ function conditionSymbolSvg(def, cx, cy, size, isUpper){
   } else return '';
   /* كلُّ الرموز تُقلب مضاداً حول مركزها بالفك العلوي فتبقى معتدلةً على الشاشة
      (v437: أُلغي استثناءُ v436 مع عودة شكل الانحسار القديم). */
-  var open = isUpper
+  /* v576: سهمُ الانطمار اتجاهيٌّ (ذروي) فيتبع قلبَ المجموعة ولا يُقلب مضاداً */
+  var noFlip = (k === 'impacted');
+  var open = (isUpper && !noFlip)
     ? '<g class="cond-sym" transform="translate(0,' + (2*cy) + ') scale(1,-1)" pointer-events="none">'
     : '<g class="cond-sym" pointer-events="none">';
   return open + g + '</g>';
@@ -1439,6 +1830,7 @@ function getDominantStatus(num) {
   var statuses = [];
   for (var k in sm) {
     if (k === '__status') continue;
+    if (isSxSurface(k)) continue;   /* v580: حالةُ السن الزائد لا تلوّن السنَّ المجاور */
     var st = sm.__status[k] || 'completed';
     statuses.push(st);
   }
@@ -1602,6 +1994,51 @@ function extractedTipRows(num, sm) {
   }
   return rows + sessionTipRows(num, sm);
 }
+/* v580: خليةُ السن الزائد بالمنظر الوجهي — سنٌّ مخروطيٌّ صغير (نمطُ mesiodens) بلون الحالة، بين
+   خليتي السنّين؛ قابلٌ للنقر كسطحٍ (data-surface=SX<الجهة>) فيمرّ بالقمع الواحد openToothModal.
+   قلعٌ مخطّط ⇒ ✕ بلون الحالة فوقه؛ منجز ⇒ لا خلية أصلاً (sxState = null). */
+var SX_CELL_SCALE = 0.55;
+function buildSxCell(num, side, isUpper, st) {
+  var def = getCondition('cond-supernumerary') || { fill: '#4338ca', stroke: '#1e1b4b', name: 'سن زائد' };
+  var W = Math.round(cellWidth(num) * SX_CELL_SCALE), H = Math.round(W * 2.1);
+  var sf = 'SX' + side, lbl = surfLabelFor(sf, num) + ' لـ ' + num;
+  var tr = isUpper ? ' transform="translate(0,210) scale(1,-1)"' : '';
+  var crown = 'M 22 70 Q 22 12 50 10 Q 78 12 78 70 Q 64 80 50 80 Q 36 80 22 70 Z';
+  var root  = 'M 30 74 Q 50 70 70 74 L 56 178 Q 50 190 44 178 Z';
+  var svg = '<svg class="tooth-shape sx-shape" viewBox="0 0 100 210" width="' + W + '" height="' + H + '" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"><g' + tr + '>'
+    + '<path d="' + root + '" fill="#e8d5b0" stroke="#967048" stroke-width="2" pointer-events="none"/>'
+    + '<path d="' + crown + '" fill="' + def.fill + '" fill-opacity="0.28" stroke="' + def.stroke + '" stroke-width="2.4" stroke-linejoin="round" pointer-events="none"/>'
+    + (st && st.planned ? '<path class="planned-x" d="M 18 6 L 82 190 M 82 6 L 18 190" fill="none" stroke="' + plannedExtractionMarkColor(st.status) + '" stroke-width="7" stroke-linecap="round" stroke-opacity="0.92" pointer-events="none"/>' : '')
+    + '<path class="crown-surface sx-hit" data-tooth="' + num + '" data-surface="' + sf + '" d="M 14 2 L 86 2 L 86 198 L 14 198 Z" fill="#000" fill-opacity="0"><title>' + escapeHtml(lbl) + (st && st.planned ? ' — قلعٌ مخطّط' : '') + '</title></path>'
+    + '</g></svg>';
+  var tip = '<div class="tooth-tip"><div class="tip-row"><span class="tip-dot" style="background:' + escapeHtml(def.fill) + '"></span><b>' + escapeHtml(def.name) + ':</b> ' + escapeHtml(surfLabelFor(sf, num)) + ' لـ ' + num
+          + (st && st.planned ? ' — <b>قلعٌ مخطّط</b>' : '') + '</div></div>';
+  var numHtml = '<div class="tooth-num" title="' + escapeHtml(lbl) + '">+</div>';
+  return '<div class="tooth-cell sx-cell" data-sx-cell="' + num + ':' + side + '" title="' + escapeHtml(lbl) + '">'
+       + (isUpper ? tip + svg + numHtml : numHtml + svg + tip) + '</div>';
+}
+/* v580: خليةُ السن الزائد بالمنظر الإطباقي — بيضاويٌّ صغير بلون الحالة */
+function buildSxOccCell(num, side, isUpper, st) {
+  var def = getCondition('cond-supernumerary') || { fill: '#4338ca', stroke: '#1e1b4b', name: 'سن زائد' };
+  var sz = Math.round(cellWidth(num) * SX_CELL_SCALE), sf = 'SX' + side, lbl = surfLabelFor(sf, num) + ' لـ ' + num;
+  var svg = '<svg class="tooth-shape sx-shape" viewBox="16.67 16.67 66.67 66.67" width="' + sz + '" height="' + sz + '" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">'
+    + '<ellipse cx="50" cy="50" rx="22" ry="27" fill="' + def.fill + '" fill-opacity="0.28" stroke="' + def.stroke + '" stroke-width="1.8" pointer-events="none"/>'
+    + '<circle cx="50" cy="50" r="5" fill="' + def.stroke + '" fill-opacity="0.35" pointer-events="none"/>'
+    + (st && st.planned ? '<path class="planned-x" d="M 27 22 L 73 78 M 73 22 L 27 78" fill="none" stroke="' + plannedExtractionMarkColor(st.status) + '" stroke-width="3.2" stroke-linecap="round" stroke-opacity="0.92" pointer-events="none"/>' : '')
+    + '<rect class="crown-surface sx-hit" data-tooth="' + num + '" data-surface="' + sf + '" x="24" y="20" width="52" height="60" rx="8" fill="#000" fill-opacity="0"><title>' + escapeHtml(lbl) + '</title></rect></svg>';
+  return '<div class="occ-cell sx-cell" data-sx-occ="' + num + ':' + side + '" title="' + escapeHtml(lbl) + '">'
+       + '<div class="tooth-tip"><div class="tip-row"><span class="tip-dot" style="background:' + escapeHtml(def.fill) + '"></span><b>' + escapeHtml(def.name) + ':</b> ' + escapeHtml(surfLabelFor(sf, num)) + ' لـ ' + num + '</div></div>'
+       + svg + '<div class="tooth-num">+</div></div>';
+}
+/* v580: خليتا السن الزائد حول خلية السن num. الصفوفُ DOM بترتيب 28→18 و38→48 والصفحةُ RTL،
+   فالعنصرُ **السابق** بالـDOM يظهر **يمين** السن والتالي يساره؛ والإنسيُّ يميناً بالربعين 1 و4.
+   ⇒ before = جهةُ اليمين البصري · after = جهةُ اليسار البصري (مثبتٌ بلقطة متصفح، لا بالـDOM وحده). */
+function sxCellsFor(num, isUpper, occ) {
+  var sm = chartFilterSM(teethMap[String(num)] || {}), quad = normQuad(num), mesialOnRight = (quad === 1 || quad === 4);
+  var rightSide = mesialOnRight ? 'M' : 'D', leftSide = mesialOnRight ? 'D' : 'M';
+  var R = sxState(sm, rightSide), L = sxState(sm, leftSide), b = occ ? buildSxOccCell : buildSxCell;
+  return { before: R ? b(num, rightSide, isUpper, R) : '', after: L ? b(num, leftSide, isUpper, L) : '' };
+}
 function buildExtractedPlaceholder(num, isUpper) {
   var anat = toothAnatomy(num);
   var W = anat.cellW;
@@ -1677,6 +2114,12 @@ function buildPonticTooth(num, isUpper) {
   var transform = isUpper ? 'transform="translate(0,210) scale(1,-1)"' : '';
   // SVG occupies the FULL tooth cell (same as a natural tooth) so it stays in
   // the row flow at the same height. The clipPath restricts drawing to the crown area only.
+  /* v601 (مراجعة v595): الوهميُّ بلا سطوحٍ ولا تعتيمٍ للخلية الآن ⇒ حالتُه بالشكل نفسه على تاجه */
+  var _pStat = txPonticStatus(teethMap[String(num)] || {});
+  var _pPaint = (_pStat === 'completed')
+    ? '<path d="' + anat.outlineD + '" fill="url(#pg' + gid + ')" stroke="' + bridgeStroke + '" stroke-width="1.2" stroke-linejoin="round" clip-path="url(#pclip' + gid + ')"/>'
+    : (function(){ var a = txPathAttrs(_pStat, bridgeColor, bridgeStroke, 'pp' + gid, 0.92);
+        return a.defs + '<path d="' + anat.outlineD + '" ' + a.attrs + ' stroke-linejoin="round" clip-path="url(#pclip' + gid + ')"/>'; })();
   var svg = '<svg class="tooth-shape pontic-shape" data-tooth="' + num + '" data-bridge="1" '
     + 'viewBox="0 0 100 210" width="' + W + '" height="' + H + '" '
     + 'xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" '
@@ -1693,9 +2136,7 @@ function buildPonticTooth(num, isUpper) {
     + '</clipPath>'
     + '</defs>'
     + '<g ' + transform + '>'
-    + '<path d="' + anat.outlineD + '" fill="url(#pg' + gid + ')" '
-      + 'stroke="' + bridgeStroke + '" stroke-width="1.2" stroke-linejoin="round" '
-      + 'clip-path="url(#pclip' + gid + ')"/>'
+    + _pPaint
     + '</g>'
     + '<title>السن ' + num + ' — جسر (دعامة وهمية)</title>'
     + '</svg>';
@@ -1725,10 +2166,11 @@ function buildImplantTooth(num, isUpper) {
   var H = Math.round(W * 2.1);
   // Use the actual stored implant key (could be 'implant' or a custom variant like 'زراعة سويسرية')
   var sm = teethMap[String(num)] || {};
-  var implantKey = 'implant';
+  var implantKey = 'implant', _iSf = 'WHOLE';
   for (var k in sm) {
-    if (isImplantKey(sm[k])) { implantKey = sm[k]; break; }
+    if (k !== '__status' && isImplantKey(sm[k])) { implantKey = sm[k]; _iSf = k; break; }
   }
+  var _iStat = (sm.__status && sm.__status[_iSf]) || 'completed';   /* v601: حالةُ الزرعة على تاجها + غرسةٌ باهتة غير مزروعة */
   var implantColor = (T_FILL && T_FILL[implantKey]) || '#a78bfa';
   var implantStroke = (T_STROKE && T_STROKE[implantKey]) || '#7c5cbf';
   var screwBody = '#7a7d82';
@@ -1757,6 +2199,12 @@ function buildImplantTooth(num, isUpper) {
               + ' L ' + (screwL + screwW * 0.18) + ' ' + (ty + threadStep * 0.5)
               + ' L ' + screwR + ' ' + ty + ' ';
   }
+  var _iCrown = (_iStat === 'completed')
+    ? '<path d="' + anat.outlineD + '" fill="url(#cg' + gid + ')" stroke="' + implantStroke + '" stroke-width="1.2" stroke-linejoin="round" clip-path="url(#cclip' + gid + ')"/>'
+    : (function(){ var a = txPathAttrs(_iStat, implantColor, implantStroke, 'pi' + gid, 0.92);
+        return a.defs + '<path d="' + anat.outlineD + '" ' + a.attrs + ' stroke-linejoin="round" clip-path="url(#cclip' + gid + ')"/>'; })();
+  var _iScrewOpen = (_iStat === 'completed') ? '' : '<g class="implant-fixture-pending" opacity="' + (_iStat === 'planned' || _iStat === 'referred' ? '0.4' : '0.7') + '">';
+  var _iScrewClose = (_iStat === 'completed') ? '' : '</g>';
   var svg = '<svg class="tooth-shape implant-shape" data-tooth="' + num + '" data-implant="1" '
     + 'viewBox="0 0 100 210" width="' + W + '" height="' + H + '" '
     + 'xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" '
@@ -1781,9 +2229,7 @@ function buildImplantTooth(num, isUpper) {
     + '</defs>'
     + '<g ' + transform + '>'
     // Crown (clipped to crown area)
-    + '<path d="' + anat.outlineD + '" fill="url(#cg' + gid + ')" '
-      + 'stroke="' + implantStroke + '" stroke-width="1.2" stroke-linejoin="round" '
-      + 'clip-path="url(#cclip' + gid + ')"/>'
+    + _iCrown + _iScrewOpen
     // Screw body (rounded rectangle with pointed apex)
     + '<path d="M ' + screwL + ' ' + screwTop
       + ' L ' + screwR + ' ' + screwTop
@@ -1799,6 +2245,7 @@ function buildImplantTooth(num, isUpper) {
     // Threads (zig-zag pattern across the fixture)
     + '<path d="' + threadsD + '" fill="none" '
       + 'stroke="' + screwLo + '" stroke-width="0.6" opacity="0.85"/>'
+    + _iScrewClose
     + '</g>'
     + '<title>السن ' + num + ' — زراعة</title>'
     + '</svg>';
@@ -2086,6 +2533,11 @@ function buildTooth(num, surfaceMap, isUpper) {
     else rFill = 'url(#rg' + gid + ')';
     svg += '<path class="root-part" data-tooth="' + num + '" data-surface="' + r.key + '" '
         +  'd="' + r.d + '" fill="' + rFill + '" stroke="' + rootStroke + '" stroke-width="0.6"></path>';
+    if (rTreatKey && !isCanal && !isConditionKey(rTreatKey) && T_FILL[rTreatKey]) {   /* v595: الحالةُ على تعبئة الجذر (وتد…) */
+      var _rst = txStatusOf(sm, r.key);
+      if (_rst !== 'completed') { var _rpa = txPathAttrs(_rst, rFill, T_STROKE[rTreatKey] || rootStroke, 'pr' + gid + r.key, 1);
+        svg += '<path d="' + r.d + '" fill="url(#rg' + gid + ')" pointer-events="none"></path>' + _rpa.defs + '<path d="' + r.d + '" ' + _rpa.attrs + ' pointer-events="none"></path>'; }
+    }
     // Side shadow overlay on each root (only if no full-fill treatment)
     if (!(rTreatKey && !isCanal && T_FILL[rTreatKey])) {
       svg += '<path d="' + r.d + '" fill="url(#rs' + gid + ')" pointer-events="none"></path>';
@@ -2114,15 +2566,14 @@ function buildTooth(num, surfaceMap, isUpper) {
                    ' '   + cTopL + ' ' + (cTop + cLen*0.40) +
                    ' '   + cTopL + ' ' + cTop +
                    ' Z';
-      canalSvg += '<path d="' + canalD + '" fill="' + canalColor + '" fill-opacity="0.85" '
-          +  'stroke="' + canalColor + '" stroke-width="0.3" stroke-opacity="0.6" '
-          +  'pointer-events="none"></path>';
+      var _cpa = txPathAttrs(txStatusOf(sm, r.key), canalColor, T_STROKE[rTreatKey] || canalColor, 'pc' + gid + r.key, 0.85);   /* v595 */
+      canalSvg += _cpa.defs + '<path d="' + canalD + '" ' + _cpa.attrs + ' pointer-events="none"></path>';
     }
     // whole-tooth ring for a root drawn BEHIND: painted now so the roots in front
     // cover its hidden part (the ring shows only on the visible sliver).
     if (hasWhole && r.behind) {
       svg += '<path d="' + r.d + '" fill="none" stroke="' + wholeColor + '" '
-          +  'stroke-width="2.4" stroke-linejoin="round" pointer-events="none"></path>';
+          +  'stroke-width="2.4" stroke-linejoin="round"' + txRingDash(txStatusOf(sm, 'WHOLE')) + ' pointer-events="none"></path>';
     }
   }
   // Furcation depth: a soft shadow where the roots part, clipped to the roots
@@ -2282,6 +2733,15 @@ function buildTooth(num, surfaceMap, isUpper) {
     // there). Industry charting standards (Pabau, Quizlet) describe surface
     // fills as a "shaded patch" rather than a sharp rectangle, and rounded
     // edges read more naturally as a restoration rather than a UI element.
+    if (useColor) {   /* v595: الحالةُ بالشكل؛ المستطيلُ يبقى منطقةَ النقر نفسها */
+      var _sp = txPaint(txStatusOf(sm, fillKey), fill, T_STROKE[tk] || fill, 'pf' + gid + fillKey);
+      return (_sp.defs ? '<defs>' + _sp.defs + '</defs>' : '')
+        + '<rect class="crown-surface" data-tooth="' + num + '" data-surface="' + fillKey + '" '
+        + 'x="' + rx + '" y="' + ry + '" width="' + rw + '" height="' + rh + '" rx="2" ry="2" '
+        + 'fill="' + _sp.fill + '" fill-opacity="' + _sp.fo + '" '
+        + (_sp.stroke ? 'stroke="' + _sp.stroke + '" stroke-width="' + _sp.sw + '" ' + (_sp.dash ? 'stroke-dasharray="' + _sp.dash + '" ' : '') : '')
+        + 'clip-path="url(#cc' + gid + ')"><title>' + surfLabelFor(fillKey, num) + '</title></rect>';
+    }
     return '<rect class="crown-surface" data-tooth="' + num + '" data-surface="' + fillKey + '" '
         + 'x="' + rx + '" y="' + ry + '" width="' + rw + '" height="' + rh + '" rx="2" ry="2" '
         + 'fill="' + fill + '" fill-opacity="' + opacity + '" '
@@ -2328,19 +2788,20 @@ function buildTooth(num, surfaceMap, isUpper) {
   // Bridge abutments stay near-solid (they represent a physical bridge crown).
   if (hasCrownFull) {
     var cfOpacity = isBridgeAbutment ? 0.92 : 0.38;
-    svg += '<path d="' + anat.outlineD + '" fill="' + crownFullColor + '" fill-opacity="' + cfOpacity + '" '
-        +  'stroke="none" pointer-events="none"></path>';
+    var _cfa = txPathAttrs(txStatusOf(sm, isBridgeAbutment ? 'WHOLE' : (sm.CROWN_FULL ? 'CROWN_FULL' : 'WHOLE')), crownFullColor, T_STROKE[crownFullT] || crownFullColor, 'pw' + gid, cfOpacity);   /* v595 */
+    svg += _cfa.defs + '<path d="' + anat.outlineD + '" ' + _cfa.attrs + ' pointer-events="none"></path>';
   }
   // whole-tooth: a colored OUTLINE (ring) around the crown + each root, so the
   // tooth reads as fully treated while leaving the interior (and its surface
   // treatments) clearly visible.
   if (hasWhole) {
+    var _wrd = txRingDash(txStatusOf(sm, 'WHOLE'));   /* v595 */
     svg += '<path d="' + anat.outlineD + '" fill="none" stroke="' + wholeColor + '" '
-        +  'stroke-width="3" stroke-linejoin="round" pointer-events="none"></path>';
+        +  'stroke-width="3" stroke-linejoin="round"' + _wrd + ' pointer-events="none"></path>';
     for (var wri = 0; wri < anat.roots.length; wri++) {
       if (anat.roots[wri].behind) continue;   // already ringed inside the roots loop
       svg += '<path d="' + anat.roots[wri].d + '" fill="none" stroke="' + wholeColor + '" '
-          +  'stroke-width="2.4" stroke-linejoin="round" pointer-events="none"></path>';
+          +  'stroke-width="2.4" stroke-linejoin="round"' + _wrd + ' pointer-events="none"></path>';
     }
   }
   if (_unerupted) {
@@ -2352,16 +2813,48 @@ function buildTooth(num, surfaceMap, isUpper) {
   /* v430: رموزُ الحالات السريرية — حالةُ السن (سطح COND) بمنتصف التاج، وحالةُ السطح
      بمركز مستطيلِ سطحها. تُرسم فوق الطبقات وتحت ✕ القلع، بلا أحداثِ مؤشّر. */
   {
-    var _cAll = [];
-    for (var _ck in sm) {
-      if (_ck === '__status' || _ck === '__review' || _ck === '__unit') continue;
-      var _cDef = getCondition(sm[_ck]); if (!_cDef) continue;
+    var _cAll = [], _cView = dxCondView(num, sm);   /* v605: + تشخيصاتٌ معلّقة تحت علاجٍ مخطّط */
+    for (var _ck in _cView) {
+      var _cDef = getCondition(_cView[_ck]); if (!_cDef) continue;
       _cAll.push({ k: _ck, d: _cDef });
     }
+    var _fRects = [anat.surfaces.O, anat.surfaces.B, anat.surfaces.L, anat.surfaces.left, anat.surfaces.right];
     for (var _cx = 0; _cx < _cAll.length; _cx++) {
-      var _an = condAnchorFor(anat, _cAll[_cx].k, _cAll[_cx].d);   /* v434 */
-      svg += conditionSymbolSvg(_cAll[_cx].d, _an.x, _an.y, _an.size, isUpper);
+      var _cd2 = _cAll[_cx].d, _ck2 = _cAll[_cx].k;
+      if (_cd2.symbol === 'gap') continue;                   /* v576: يُرسم بطبقة التماس */
+      if (isSxSurface(_ck2)) continue;                       /* v580: السنُّ الزائد خليةٌ مستقلة */
+      /* v581: المفتاحُ قد يكون مركّباً (MOD · BL) من شرائح المودال — كلُّ حرفٍ مستطيلُه (بلاغ المالك: نخرٌ على MOD لم يُرسم) */
+      var _frs = condRectsFor(_fRects, _ck2), _fr = _frs.length === 1 ? _frs[0] : null;
+      if (_cd2.symbol === 'solid' || _cd2.symbol === 'dotted') {          /* v578: تعبئةُ السطح */
+        for (var _fj = 0; _fj < _frs.length; _fj++) {
+          var _q2 = _frs[_fj], _px = (_q2 === anat.surfaces.left || _q2 === anat.surfaces.right);
+          /* v587: الإنسيُّ/الوحشيُّ وجهياً = منطقةُ التماس (الثلثان الإطباقيان من الشريط) بزوايا مدوّرة — لا شريطٌ بطول التاج يبدو إطاراً */
+          if (_px) svg += condSurfaceFillSvg(_cd2, _q2.x, _q2.y, _q2.w + 1.5, _q2.h * 0.6, 'cc' + gid, 2.5);
+          else svg += condSurfaceFillSvg(_cd2, _q2.x, _q2.y, _q2.w, _q2.h, 'cc' + gid);
+        }
+        continue;
+      }
+      if (_cd2.symbol === 'arrow') {
+        /* v578/581: الانزياح — إنسي/وحشي وجهياً؛ السهمُ عند الثلث الذروي للجذور (المعيارُ الورقي: سهمٌ أحمر
+           بجهة الانزياح عند الجذر على المنظر الوجهي؛ الدوران/الميلانُ الدهليزي-اللساني إطباقياً) */
+        if (_fr && (_ck2 === 'M' || _ck2 === 'D')) { var _cej = anat.crownTop + anat.crownH, _ry = anat.rootBot ? _cej + (anat.rootBot - _cej) * 0.62 : _cej + 40;
+          svg += condDriftSvg(_cd2, 50, _ry, _fr.x + _fr.w/2, _ry, 30, isUpper); }
+        continue;
+      }
+      if (_frs.length > 1) {                                                 /* v581: رمزٌ على مركّب ⇒ مركزُ الاتحاد */
+        var _ux0 = Infinity, _uy0 = Infinity, _ux1 = -Infinity, _uy1 = -Infinity;
+        for (var _fk = 0; _fk < _frs.length; _fk++) { var _q = _frs[_fk]; _ux0 = Math.min(_ux0, _q.x); _uy0 = Math.min(_uy0, _q.y); _ux1 = Math.max(_ux1, _q.x + _q.w); _uy1 = Math.max(_uy1, _q.y + _q.h); }
+        svg += conditionSymbolSvg(_cd2, (_ux0 + _ux1) / 2, (_uy0 + _uy1) / 2, Math.min(_ux1 - _ux0, _uy1 - _uy0) * 0.7 + 6, isUpper);
+        continue;
+      }
+      var _an = condAnchorFor(anat, _ck2, _cd2);   /* v434 */
+      svg += conditionSymbolSvg(_cd2, _an.x, _an.y, _an.size, isUpper);
     }
+    /* v576: التماسُ المفتوح — خطٌّ واحد على حافّة السطح الإنسي/الوحشي، وجارُه يرسم خطَّه
+       على حافّته المقابلة (condContactSides) فيُقرأ الفراغُ بين السنّين كالمعيار. */
+    var _ctS = condContactSides(num, sm), _ctL = anat.surfaces.left, _ctR = anat.surfaces.right;
+    if (_ctL && _ctS[_ctL.key]) svg += condContactLineSvg(_ctL.x + 2.2, _ctL.y, _ctL.y + _ctL.h, 'cc' + gid);
+    if (_ctR && _ctS[_ctR.key]) svg += condContactLineSvg(_ctR.x + _ctR.w - 2.2, _ctR.y, _ctR.y + _ctR.h, 'cc' + gid);
   }
   /* v429: قلعٌ مخطّط/محوّل على سنٍّ قائم ⇒ ✕ بلون الحالة عبر التاج والجذر. قبل v429 لم يكن
      هذا الخريطُ يصل buildTooth أصلاً (كان يُرسم شبحاً) — فالفرعُ حارسٌ لا يمسّ بايتاً قديماً. */
@@ -2423,12 +2916,12 @@ function buildTooth(num, surfaceMap, isUpper) {
   function tipStatusBadge(sm, sk) {
     if (!sm || !sm.__status) return '';
     var st = sm.__status[sk];
-    if (!st || st === 'completed') return '';  // 'completed' is the default — no badge
+    if (!st || st === 'completed') return (sm[sk] ? dxTipText(num, sk, st || 'completed') : '');  // 'completed' is the default — no badge · v605: «عولج: …»
     var lbl = STATUS_LABELS[st] || st;
     var col = STATUS_COLORS[st] || '#888';
     return ' <span style="display:inline-block;padding:0 5px;border-radius:6px;'
          + 'background:' + col + '33;color:' + col + ';'
-         + 'font-size:10px;font-weight:700;margin-right:4px;">' + lbl + '</span>';
+         + 'font-size:10px;font-weight:700;margin-right:4px;">' + lbl + '</span>' + dxTipText(num, sk, st);   /* v605 */
   }
   var tipRows = '';
   if (hasCrownFull) {
@@ -2649,15 +3142,19 @@ function renderLegend() {
     for (var _lc = 0; _lc < _legCondIds.length; _lc++) {
       var _ld = _legCond[_legCondIds[_lc]];
       html += '<div class="leg" title="حالة سريرية — بلا تكلفة">'
-            + '<svg width="16" height="16" viewBox="0 0 26 26" style="vertical-align:middle;margin-left:3px;">'
-            + conditionSymbolSvg(_ld, 13, 13, 22, false) + '</svg>' + escapeHtml(_ld.name) + '</div>';
+            + (_ld.symbol
+                ? '<svg width="16" height="16" viewBox="0 0 26 26" style="vertical-align:middle;margin-left:3px;">' + conditionSymbolSvg(_ld, 13, 13, 22, false) + '</svg>'
+                : '<div class="leg-dot" style="background:' + escapeHtml(_ld.fill) + ';"></div>')   /* v578: حالةٌ بلا رمز (جذر متبقٍّ) */
+            + escapeHtml(_ld.name) + '</div>';
     }
   }
   // Status legend (small separator)
   html += '<div class="leg-sep" style="width:1px;height:14px;background:var(--border);margin:0 6px;"></div>';
-  html += '<div class="leg" title="العلاج المخطط (لم يُنجز بعد)"><div class="leg-dot" style="background:#ef4444;border-radius:50%;"></div>مخطط</div>';
-  html += '<div class="leg" title="العلاج الموجود مسبقاً"><div class="leg-dot" style="background:#9ca3af;border-radius:50%;"></div>موجود مسبقاً</div>';
-  html += '<div class="leg" title="العلاج المحوّل لطبيب آخر"><div class="leg-dot" style="background:#f59e0b;border-radius:50%;"></div>محوّل</div>';
+  /* v595: مفتاحُ الحالة بالشكل نفسه المرسوم على الإجراء (اللونُ للمادة؛ هنا لونُ الشارة) */
+  function _legSw(st, col){ var p = txPaint(st, col, col, 'lg' + st); return '<svg width="22" height="14" viewBox="0 0 22 14" style="vertical-align:middle;margin-left:4px;">' + txRectSvg(1, 1, 20, 12, p, null, '') + '</svg>'; }
+  html += '<div class="leg" title="العلاج المخطط (لم يُنجز بعد) — تهشيرٌ بلون العلاج">' + _legSw('planned', '#ef4444') + 'مخطط</div>';
+  html += '<div class="leg" title="موجود مسبقاً من عيادتنا — تعبئةٌ أفتح · من عيادة أخرى — أفتح بإطارٍ متقطّع">' + _legSw('existing_other', '#9ca3af') + 'موجود مسبقاً</div>';
+  html += '<div class="leg" title="العلاج المحوّل لطبيب آخر — إطارٌ منقّط">' + _legSw('referred', '#f59e0b') + 'محوّل</div>';
   html += '<div class="leg" title="حالة سريرية للمتابعة فقط — بدون تكلفة"><div class="leg-dot" style="background:#6b7280;border-radius:50%;"></div>مراقبة</div>';
   leg.innerHTML = html;
 }
@@ -2818,7 +3315,9 @@ function buildOcclusalTooth(num, sm, isUpper){
       var pKey = isBridgeKey(rawP.PONTIC) ? rawP.PONTIC : (isBridgeKey(rawP.WHOLE) ? rawP.WHOLE : 'bridge');
       var pFill = (T_FILL && T_FILL[pKey]) || '#dc2626';
       var pStroke = (T_STROKE && T_STROKE[pKey]) || '#991b1b';
-      svg += '<path d="'+outline+'" fill="'+pFill+'" fill-opacity="0.92" stroke="'+pStroke+'" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+      var _pSt = txPonticStatus(rawP);   /* v601 */
+      if (_pSt === 'completed') svg += '<path d="'+outline+'" fill="'+pFill+'" fill-opacity="0.92" stroke="'+pStroke+'" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+      else { var _opa = txPathAttrs(_pSt, pFill, pStroke, 'ppo'+gid, 0.92); svg += _opa.defs + '<path d="'+outline+'" '+_opa.attrs+' stroke-linejoin="round"/></svg>'; }
       return svg;
     }
     // موقع القلع (M63): tint the occlusal silhouette in the treatment colour under the dashes
@@ -2864,7 +3363,7 @@ function buildOcclusalTooth(num, sm, isUpper){
   var antX=b.x0, antW=(b.x1-b.x0);
   var leftKey=mesialOnRight?'D':'M', rightKey=mesialOnRight?'M':'D';
   var OS=16; // overshoot (occlusal units) — trimmed back to the crown by the clip-path
-  function reg(key,rx,ry,rw,rh){var tk=effectiveSurfaceTreatment(sm,key),fill='#000',op=0;if(tk&&isConditionKey(tk))tk=null;/* v434 */if(tk&&T_FILL[tk]){fill=T_FILL[tk];op=SURFACE_FILL_OPACITY;}if(op===0)return '';return '<rect x="'+rx+'" y="'+ry+'" width="'+rw+'" height="'+rh+'" fill="'+fill+'" fill-opacity="'+op+'" clip-path="url(#cl'+gid+')" pointer-events="none"></rect>';}
+  function reg(key,rx,ry,rw,rh){var tk=effectiveSurfaceTreatment(sm,key),fill='#000',op=0;if(tk&&isConditionKey(tk))tk=null;/* v434 */if(tk&&T_FILL[tk]){fill=T_FILL[tk];op=SURFACE_FILL_OPACITY;}if(op===0)return '';return txRectSvg(rx,ry,rw,rh,txPaint(txStatusOf(sm,key),fill,T_STROKE[tk]||fill,'po'+gid+key),'cl'+gid,'');}   /* v595 */
   // Anatomy (cusps / grooves / ridges / fossae) is drawn BEFORE the surface
   // tints so a colored surface (e.g. an occlusal filling) sits ON TOP of the
   // anatomy at full SURFACE_FILL_OPACITY — otherwise the pale cusp highlights
@@ -2913,13 +3412,53 @@ function buildOcclusalTooth(num, sm, isUpper){
   if(G.cusps && occHasSurfaceFill && !occHasCrownFull && !occHasWhole){ svg+=G.cusps; }
   // ── Full-coverage layers (drawn last so surface treatments beneath stay visible) ──
   // crown_full: semi-transparent wash (bridge abutment near-solid); whole: colored ring.
-  if(occHasCrownFull){ var occCfOp=occIsBridge?0.92:0.38; svg+='<path d="'+outline+'" fill="'+occCrownFullColor+'" fill-opacity="'+occCfOp+'" pointer-events="none"/>'; }
-  if(occHasWhole){ svg+='<path d="'+outline+'" fill="none" stroke="'+occWholeColor+'" stroke-width="2.6" stroke-linejoin="round" pointer-events="none"/>'; }
+  if(occHasCrownFull){ var occCfOp=occIsBridge?0.92:0.38; var _ocfa=txPathAttrs(txStatusOf(sm, sm.CROWN_FULL&&!occIsBridge?'CROWN_FULL':'WHOLE'), occCrownFullColor, occCrownFullColor, 'pwo'+gid, occCfOp); svg+=_ocfa.defs+'<path d="'+outline+'" '+_ocfa.attrs+' pointer-events="none"/>'; }   /* v595 */
+  if(occHasWhole){ svg+='<path d="'+outline+'" fill="none" stroke="'+occWholeColor+'" stroke-width="2.6" stroke-linejoin="round"'+txRingDash(txStatusOf(sm,'WHOLE'))+' pointer-events="none"/>'; }
   /* v437: **لا رموزَ حالاتٍ بالمنظر الإطباقي** (طلب المالك: تكرارٌ بلا فائدة — المنظرُ
      الوجهي يحملها بموضعها التشريحي الصحيح). يبقى بالإطباقي أثرُ الحالة على **التشريح**
      وحدَه (تصغيرُ المنطمر · ظلُّ الجذر المتبقّي المنقّط) وصفوفُ التلميح كما هي. */
+  /* v576: استثناءٌ مُعلَن من v437 بطلب المالك — ما يُرى من الأعلى يُرسم من الأعلى: الحالاتُ
+     ذاتُ الراية cond_occ (الكسرُ على سطح تاج · التماسُ المفتوح) بمكان سطحها بالضبط؛
+     كسرُ الجذر وحالاتُ الذروة واللثة تبقى وجهيةً فقط (غيرُ مرئيةٍ من الأعلى). */
+  {
+    /* v581: مستطيلاتُ الحالات الإطباقية **الدلالية** لا مستطيلاتُ النقر — بالأمامي حزامُ القاطع/الحنكي
+       يُضيَّق بعرض الشريطين الإنسي/الوحشي حتى لا يبدو نخرُ الحنكي نخراً على الإنسي والوحشي أيضاً (بلاغ المالك، السن 13). */
+    var _oR = ant ? { I:[antX+cap,iEdgeY,antW-2*cap,iHv], L:[antX+cap,lFillY,antW-2*cap,lHv] }
+                  : { O:[midX,oY,midW,third], B:[midX,bY,midW,third], L:[midX,lY,midW,third] };
+    _oR[leftKey]=[b.x0,b.y0,cap,(b.y1-b.y0)]; _oR[rightKey]=[b.x1-cap,b.y0,cap,(b.y1-b.y0)];
+    var _oRects=[]; for (var _rk2 in _oR) _oRects.push({ key:_rk2, x:_oR[_rk2][0], y:_oR[_rk2][1], w:_oR[_rk2][2], h:_oR[_rk2][3] });
+    /* v594 (قرار المالك 10 ت١ بعد مراجعة Open Dental · Dentrix · Eaglesoft · Dentally · Curve): المنظرُ الإطباقي بالبرامج خريطةُ سطوح
+       (مخطّطُ المربّعات الخمسة) لا إسقاطٌ تشريحيّ — فحزامُ B الخلفي جزءٌ منه، وحالةُ الدهليزي تُرسم عليه كما تُرسم الحشوةُ الدهليزية (حُمل v586).
+       الأماميُّ بلا حزام B من الأعلى أصلاً (v581 · كالحشوات) فيبقى وجهياً. */
+    var _oRectsCond=_oRects;
+    var _oView=dxCondView(num, sm);   /* v605: + تشخيصاتٌ معلّقة تحت علاجٍ مخطّط */
+    for (var _ok in _oView) {
+      if(isSxSurface(_ok)) continue;   /* v580 */
+      var _od=getCondition(_oView[_ok]); if(!_od||!_od.cond_occ||_od.symbol==='gap') continue;
+      /* v581: الدهليزيُّ بالأمامي لا يُرى من الأعلى (المنظرُ القاطعي يُظهر الحافّةَ والحنكي فقط) — لا يُرسم؛
+         والمفتاحُ المركّب (MOD · BL) يُحلّ إلى مستطيلات حروفه؛ وسهمُ الانزياح نحو الدهليزي يبقى (اتجاهٌ لا سطح). */
+      /* v586 كان يستثني حزام B بكل الأسنان؛ v594 أعاده للخلفي (توحيدٌ مع طبقة الحشوات وخريطة السطوح عند المنافسين). */
+      if(_od.symbol==='arrow'){ var _oa=_oR[_ok]||((ant&&_ok==='B')?_oR.I:null); if(_oa) svg+=condDriftSvg(_od,50,50,_oa[0]+_oa[2]/2,_oa[1]+_oa[3]/2,26,false); continue; }   /* v578: الجهةُ = الاتجاه */
+      var _orcs = condRectsFor(_oRectsCond, _ok), _orc = _orcs.length === 1 ? [_orcs[0].x,_orcs[0].y,_orcs[0].w,_orcs[0].h] : null;
+      if(_od.symbol==='solid'||_od.symbol==='dotted'){ for(var _oj=0;_oj<_orcs.length;_oj++){ var _r3=_orcs[_oj];
+          /* v587 (بلاغ المالك بصورة 38، بعد مراجعة Dentrix ومعيار Class II): الإنسيُّ/الوحشيُّ من الأعلى صندوقٌ عند الحافّة الحفافية
+             بالثلث الأوسط دهليزياً-لسانياً (أعرض قليلاً من القناة الإطباقية) لا شريطٌ بطول السن — فيبدو MOD كتحضيرٍ حقيقي لا حرفَ H. */
+          if(_r3.key===leftKey||_r3.key===rightKey){ var _bh=(b.y1-b.y0), _cy=ant?(b.y0+_bh/2):(oY+third/2), _hh=ant?_bh*0.5:third*1.35;
+            var _bx=(_r3.key===leftKey)?_r3.x:_r3.x-1.5; svg+=condSurfaceFillSvg(_od,_bx,_cy-_hh/2,_r3.w+1.5,_hh,'cl'+gid,2.5); }
+          else svg+=condSurfaceFillSvg(_od,_r3.x,_r3.y,_r3.w,_r3.h,'cl'+gid); } continue; }   /* v578/581/587 */
+      if(_orcs.length>1){ var _x0=Infinity,_y0=Infinity,_x1=-Infinity,_y1=-Infinity; for(var _om=0;_om<_orcs.length;_om++){ var _z=_orcs[_om]; _x0=Math.min(_x0,_z.x); _y0=Math.min(_y0,_z.y); _x1=Math.max(_x1,_z.x+_z.w); _y1=Math.max(_y1,_z.y+_z.h); }
+        svg+=conditionSymbolSvg(_od,(_x0+_x1)/2,(_y0+_y1)/2,Math.min(_x1-_x0,_y1-_y0)*0.7+4,false); continue; }
+      if(_orc) svg+=conditionSymbolSvg(_od,_orc[0]+_orc[2]/2,_orc[1]+_orc[3]/2,Math.min(_orc[2],_orc[3])*0.9+4,false);
+      else if(_ok===COND_SURFACE) svg+=conditionSymbolSvg(_od,50,50,24,false);
+    }
+    var _octS=condContactSides(num, sm);
+    if(_octS[leftKey])  svg+=condContactLineSvg(b.x0+2, b.y0, b.y1, 'cl'+gid);
+    if(_octS[rightKey]) svg+=condContactLineSvg(b.x1-2, b.y0, b.y1, 'cl'+gid);
+  }
   if(occPlannedX){ var _oxC=plannedExtractionMarkColor(_oxSt); svg+='<path class="planned-x" d="M '+(b.x0-1)+' '+(b.y0-1)+' L '+(b.x1+1)+' '+(b.y1+1)+' M '+(b.x1+1)+' '+(b.y0-1)+' L '+(b.x0-1)+' '+(b.y1+1)+'" fill="none" stroke="'+_oxC+'" stroke-width="3.2" stroke-linecap="round" stroke-opacity="0.92" pointer-events="none"/>'; }   /* v429 */
-  if(isImplant){ svg+='<circle cx="50" cy="50" r="13" fill="#0ea5e9" fill-opacity="0.85" stroke="#0369a1" stroke-width="1" pointer-events="none"/>'; }
+  if(isImplant){ var _ioF='#0ea5e9', _ioS='#0369a1', _ioSt=(sm.__status&&sm.__status.WHOLE)||'completed';   /* v601: حالةُ الزرعة بالشكل */
+    if(_ioSt==='completed') svg+='<circle cx="50" cy="50" r="13" fill="'+_ioF+'" fill-opacity="0.85" stroke="'+_ioS+'" stroke-width="1" pointer-events="none"/>';
+    else { var _ioa=txPathAttrs(_ioSt,_ioF,_ioS,'pio'+gid,0.85); svg+=_ioa.defs+'<circle cx="50" cy="50" r="13" '+_ioa.attrs+' pointer-events="none"/>'; } }
   else {
     // Per-surface transparent hit-zones at LOGICAL geometry (no overshoot) so they
     // tile the crown without overlap → accurate hit-testing. Each is a .crown-surface
@@ -2962,9 +3501,9 @@ function occTipRows(num, sm){
   sm = sm || {};
   function badge(sk){
     var st = sm.__status ? sm.__status[sk] : null;
-    if(!st || st==='completed') return '';
+    if(!st || st==='completed') return sm[sk] ? dxTipText(num, sk, 'completed') : '';   /* v605 */
     var lbl=STATUS_LABELS[st]||st, col=STATUS_COLORS[st]||'#888';
-    return ' <span style="display:inline-block;padding:0 5px;border-radius:6px;background:'+col+'33;color:'+col+';font-size:10px;font-weight:700;margin-right:4px;">'+lbl+'</span>';
+    return ' <span style="display:inline-block;padding:0 5px;border-radius:6px;background:'+col+'33;color:'+col+';font-size:10px;font-weight:700;margin-right:4px;">'+lbl+'</span>' + dxTipText(num, sk, st);
   }
   function row(color,label,name,b){ return '<div class="tip-row"><span class="tip-dot" style="background:'+escapeHtml(color)+'"></span><b>'+label+':</b> '+escapeHtml(name)+b+'</div>'; } // Rule #195: name/fill are clinic-entered data
   var rows='', whole=sm.WHOLE, cf=sm.CROWN_FULL;
@@ -2998,12 +3537,14 @@ function renderOcclusal(){
       if(i===mid) html+='<div class="midline"></div>';
       var num=R[1][i], sm=chartFilterSM(teethMap[String(num)]||{});
       var op=1, st=getDominantStatus(num);
-      if(st==='planned') op=0.55; else if(st==='referred') op=0.5; else if(st==='condition') op=(condOnlyLibraryRows(num)?1:0.45);   /* v431 */
-      else if(st==='existing_current') op=0.8; else if(st==='existing_other'||st==='existing') op=0.6;
-      html+='<div class="occ-cell" data-occ-cell="'+num+'" title="السن '+num+'" style="opacity:'+op+'">'
+      if(st==='condition') op=(condOnlyLibraryRows(num)?1:0.45);   /* v431 · v595: الحالاتُ الأخرى تُرسم على الإجراء نفسه — لا تعتيمَ للسن */
+      var _sxO=sxCellsFor(num, R[2], true);   /* v580 */
+      html+=_sxO.before
+          + '<div class="occ-cell" data-occ-cell="'+num+'" title="السن '+num+'" style="opacity:'+op+'">'
           + '<div class="tooth-tip">'+occTipRows(num,sm)+'</div>'
           + buildOcclusalTooth(num, sm, R[2])
-          + '<div class="tooth-num">'+num+'</div></div>';
+          + '<div class="tooth-num">'+num+'</div></div>'
+          + _sxO.after;
     }
     el.innerHTML=html;
   });
@@ -3071,19 +3612,23 @@ function renderTeeth() {
   var uMid = AU.length/2, lMid = AL.length/2;
   for (var i=0; i<AU.length; i++) {
     if (i === uMid) uHtml += '<div class="midline"></div>';
-    var un = AU[i];
+    var un = AU[i], _sxU = sxCellsFor(un, true, false);   /* v580 */
+    uHtml += _sxU.before;
     if (isImplant(un)) uHtml += buildImplantTooth(un, true);
     else if (ponticSet[un]) uHtml += buildPonticTooth(un, true);
     else if (isExtractionDone(un)) uHtml += buildExtractedPlaceholder(un, true);   /* v429: المخطّط يبقى قائماً */
     else uHtml += buildTooth(un, chartFilterSM(teethMap[String(un)]), true);
+    uHtml += _sxU.after;
   }
   for (var j=0; j<AL.length; j++) {
     if (j === lMid) lHtml += '<div class="midline"></div>';
-    var ln = AL[j];
+    var ln = AL[j], _sxL = sxCellsFor(ln, false, false);   /* v580 */
+    lHtml += _sxL.before;
     if (isImplant(ln)) lHtml += buildImplantTooth(ln, false);
     else if (ponticSet[ln]) lHtml += buildPonticTooth(ln, false);
     else if (isExtractionDone(ln)) lHtml += buildExtractedPlaceholder(ln, false);
     else lHtml += buildTooth(ln, chartFilterSM(teethMap[String(ln)]), false);
+    lHtml += _sxL.after;
   }
   upperEl.innerHTML = uHtml;
   lowerEl.innerHTML = lHtml;
@@ -3139,7 +3684,7 @@ function renderWatchBanner() {
   // A3: group rows by review date (or overdue-days) — the date anchors once per group,
   // teeth are deduped (teeth_status stores one row per surface), and the treatment
   // name appears once per (date,name) sub-group instead of repeating per tooth.
-  function _watchGroupLines(list, keyOf, labelOf){
+  function _watchGroupLines(list, keyOf, labelOf, renewable){
     var by = {}, keys = [];
     list.forEach(function(d){
       var k = keyOf(d);
@@ -3157,8 +3702,12 @@ function renderWatchBanner() {
         // ج: كل سن = chip قابل للنقر لإنهاء مراقبته (الوسيط أرقام فقط — تعقيم صارم للـonclick)
         return (teeth.length === 1 ? 'سن ' : 'الأسنان ') + teeth.map(function(t){
           var tn = String(t).replace(/[^0-9]/g, '');
+          // v589: الشريحة المستحقّة تحمل 🔁 «مراجعة اليوم» (يجدّد المراقبة بنفس مدّتها السابقة — منطق Open Dental
+          // بإعادة حساب الاستحقاق بعد المراجعة) إلى جانب ✕ (إنهاؤها). النقر على 🔁 لا يصل لـendToothWatch (#29).
           return '<span class="wend-chip" onclick="endToothWatch(\'' + tn + '\')" title="إنهاء مراقبة السن ' + tn + '">'
-               + escapeHtml(t) + '<span class="wend-x">✕</span></span>';
+               + escapeHtml(t)
+               + (renewable ? '<span class="wend-r" onclick="event.stopPropagation();renewToothWatch(\'' + tn + '\')" title="مراجعة اليوم — تجديد مراقبة السن ' + tn + ' بنفس المدّة">🔁</span>' : '')
+               + '<span class="wend-x">✕</span></span>';
         }).join('، ')
              + (nm ? ' (' + escapeHtml(nm) + ')' : '');
       });
@@ -3169,7 +3718,8 @@ function renderWatchBanner() {
     due.sort(function(a, b){ return b.days - a.days; });   // most overdue first
     var parts = _watchGroupLines(due,
       function(d){ return 'd' + d.days; },
-      function(d){ return d.days === 0 ? 'اليوم' : ('منذ ' + d.days + (d.days === 1 ? ' يوم' : ' أيام')); });
+      function(d){ return d.days === 0 ? 'اليوم' : ('منذ ' + d.days + (d.days === 1 ? ' يوم' : ' أيام')); },
+      true);
     html += '<div><b>⏰ مراقبات مستحقّة للمراجعة:</b> ' + parts.join(' · ') + '</div>';
   }
   if (soon.length) {
@@ -3226,6 +3776,88 @@ async function endToothWatch(num) {
     if (typeof renderStats === 'function') renderStats();
     showToast('✅ أُنهيت مراقبة السن ' + tn);
   } finally { window._endWatchInFlight = false; }
+}
+
+/* v589: «مراجعة اليوم» — المراقبةُ المستحقّة فُحصت ولا يزال السن يحتاج متابعة: يُجدَّد
+   موعدُ المراجعة من اليوم بنفس مدّة المراقبة السابقة (تُستنتَج من سجل التاريخ M76:
+   review_at − changed_at للكتابة التي ضبطت الموعد الحالي، مقرّبةً لأقرب خيار 3/6/12)؛
+   ولا تاريخ ⇒ الافتراضي 3 أشهر. الحالة تبقى 'condition' — فقط review_at يتقدّم، فتعود
+   المراقبة «قادمة» بالبانر وقائمة المتابعة والشارة بكتابة واحدة. مرجعُ المنافسين:
+   Open Dental يعيد حساب الاستحقاق التالي بعد كل مراجعة؛ ولا منصةَ تمسح المراقبة بانتهاء مدّتها. */
+var WATCH_MONTH_OPTS = [3, 6, 12];
+function _snapWatchMonths(m) {
+  if (!(m > 0)) return 3;
+  var best = 3, bd = Infinity;
+  for (var i = 0; i < WATCH_MONTH_OPTS.length; i++) {
+    var d = Math.abs(WATCH_MONTH_OPTS[i] - m);
+    if (d < bd) { bd = d; best = WATCH_MONTH_OPTS[i]; }
+  }
+  return best;
+}
+/* الكتابة التي ضبطت review_at الحالي: أحدث صف condition غير محذوف بنفس التاريخ (أو أحدث صف مؤرَّخ). */
+async function _prevWatchMonths(tn, surfaces) {
+  try {
+    var cur = (teethMap[tn] && teethMap[tn].__review) || {};
+    var q = await window.sb.from('teeth_status_history')
+      .select('surface,review_at,changed_at')
+      .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
+      .eq('tooth_num', tn).in('surface', surfaces)
+      .eq('status', 'condition').neq('op', 'D').not('review_at', 'is', null)
+      .order('changed_at', { ascending: false }).limit(40);
+    if (q.error || !q.data || !q.data.length) return 3;
+    var row = null;
+    for (var i = 0; i < q.data.length; i++) {
+      var r = q.data[i];
+      if (cur[r.surface] && String(r.review_at).slice(0, 10) === String(cur[r.surface]).slice(0, 10)) { row = r; break; }
+    }
+    if (!row) row = q.data[0];
+    var set = new Date(String(row.changed_at).slice(0, 10)), due = new Date(String(row.review_at).slice(0, 10));
+    return _snapWatchMonths((due - set) / 86400000 / 30.44);
+  } catch (e) { return 3; }
+}
+async function renewToothWatch(num) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;   /* M141-ب: 🔁 مخفية بالقراءة أصلاً */
+  if (window.__draftMode) { showToast('✏️ أغلق المسودة أولاً'); return; }
+  if (window.__historyMode) { showToast('🕰️ عرض تاريخي للقراءة فقط — أنهِ العرض للتعديل'); return; }
+  if (window.__examMode) { showToast('🩺 أنهِ وضع الفحص الأولي أولاً'); return; }
+  if (window.__batchMode) { showToast('☑️ أنهِ وضع التحديد المتعدد أولاً'); return; }
+  if (window.SyDentLock && window.SyDentLock.isDoctorAccountInactive && window.SyDentLock.isDoctorAccountInactive()) {
+    showToast('🔒 حسابك غير نشط — لا يمكن تعديل حالة الأسنان');
+    return;
+  }
+  var tn = String(num).replace(/[^0-9]/g, '');
+  var st = teethMap[tn] && teethMap[tn].__status;
+  if (!st) return;
+  var surfaces = Object.keys(st).filter(function(s){
+    if (s === COND_SURFACE || isConditionKey(teethMap[tn][s])) return false;
+    return st[s] === 'condition';
+  });
+  if (!surfaces.length) return;
+  if (window._renewWatchInFlight) return;   // حارس الإرسال المزدوج (#66)
+  window._renewWatchInFlight = true;
+  try {
+    var months = await _prevWatchMonths(tn, surfaces);
+    var d = new Date(); d.setMonth(d.getMonth() + months);
+    var next = ppYmdLocal(d);
+    var label = months === 12 ? 'سنة' : (months + ' أشهر');
+    if (!await SyDialog.confirm({ title: 'مراجعة اليوم', message: 'تُسجَّل مراجعة السن ' + tn + ' اليوم وتُجدَّد مراقبته لـ' + label + ' (نفس المدّة السابقة) حتى ' + fmtDNum(next) + '.', confirmText: 'تجديد المراقبة' })) return;
+    for (var i = 0; i < surfaces.length; i++) {
+      var s = surfaces[i];
+      var r = await window.sb.from('teeth_status').update({ review_at: next })
+        .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
+        .eq('tooth_num', tn).eq('surface', s).eq('status', 'condition');
+      if (r.error) {
+        console.error('renewToothWatch:', r.error);
+        showToast('⚠️ تعذّر تجديد المراقبة — حاول مجدداً');
+        return;
+      }
+      if (!teethMap[tn].__review) teethMap[tn].__review = {};
+      teethMap[tn].__review[s] = next;
+    }
+    renderTeeth();   // يعيد الرسم + البانر (السن ينتقل إلى «تحت المراقبة» بموعده الجديد)
+    if (typeof renderStats === 'function') renderStats();
+    showToast('🔁 جُدِّدت مراقبة السن ' + tn + ' حتى ' + fmtDNum(next));
+  } finally { window._renewWatchInFlight = false; }
 }
 
 /* ج: UPDATE مقيّد بـstatus='condition' مع نفس تدهورَي upsertTeethStatusWithFallback:
@@ -3300,12 +3932,8 @@ function addStatusBadges() {
     // Apply visual treatment to the tooth shape
     var shape = cell.querySelector('.tooth-shape');
     if (shape) {
-      if (status === 'planned') shape.style.opacity = '0.55';
-      else if (status === 'existing_current') shape.style.opacity = '0.75';
-      else if (status === 'existing_other') shape.style.opacity = '0.55';
-      else if (status === 'existing') shape.style.opacity = '0.65';  // legacy
-      else if (status === 'referred') shape.style.opacity = '0.50';
-      else if (status === 'condition') shape.style.opacity = '0.45';  // grey watch — most faded (v431: حالاتُ المكتبة لا تصل هنا)
+      /* v595: الحالةُ مرسومةٌ على الإجراء نفسه — التعتيمُ بقي للمراقبة الرمادية وحدها */
+      if (status === 'condition') shape.style.opacity = '0.45';  // grey watch — most faded (v431: حالاتُ المكتبة لا تصل هنا)
     }
   }
 }
@@ -3494,6 +4122,96 @@ function openAltBridgePicker(n) {
   if (bridges.length)  { html += sub('🌉 نوع جسر آخر'); for (var j = 0; j < bridges.length; j++) html += txButtonHtml(bridges[j]); }
   c.innerHTML = head + html;
 }
+/* ═══ v600: «جسر بديل للزرعة» — الاتجاهُ المعاكس لـ M145-e ══════════════════════════
+   كان البديلُ متاحاً باتجاهٍ واحد: جسرٌ مرسوم ⇒ زرعةٌ بديلة (جلسةُ سجل). زرعةٌ مخطّطة مرسومة
+   لم تكن تقبل جسراً بديلاً (فرعُ «مزروع» يحجب كلَّ شيء). الحلُّ لا يبني آليةً ثانية: يحوّل السنَّ
+   إلى الشكل المدعوم أصلاً — صفُّ الزرعة المخطّطة ⇒ صفُّ قلعٍ بحالته الحقيقية (مخطّط إن وُجدت جلسةُ
+   قلعٍ مخطّطة على السن، وإلا منجز — كما يفعل removeImplant)، ثم يُرسم الجسرُ بمساره العادي، وجلسةُ
+   الزرعة تبقى كما هي فتصير «زرعةً بديلة» يقرؤها plannedAltImplantsForUnit، ويوسَم الاثنان أ/ب.
+   الاعتمادُ والحذفُ والتلميحُ ورسمُ الزرعة عند اعتمادها = آليةُ M145 القائمة حرفياً. */
+var _implantAlt = null;   // { tooth } — يُصفَّر بكل فتحٍ للمودال وبختم الفحص
+function implantRowsAllPlanned(num) {
+  var sm = teethMap[String(num)] || {}, any = false;
+  for (var k in sm) {
+    if (k.charAt(0) === '_' || !isImplantKey(sm[k])) continue;
+    any = true;
+    if (((sm.__status && sm.__status[k]) || 'completed') !== 'planned') return false;
+  }
+  return any;
+}
+/* حالةُ صفّ القلع الذي يعود إليه موقعُ زرعةٍ تُزال/تُحوَّل: مخطّط إن كان القلعُ نفسه ما زال خطة. */
+function extractionStatusUnderImplant(num) {
+  var tn = String(num);
+  var pl = (sessions || []).some(function(x){
+    return x && (x.status || 'completed') === 'planned' && String(x.tooth_num || '') === tn && isExtractionKey(sessionTreatmentKey(x));
+  });
+  return pl ? 'planned' : 'completed';
+}
+function openImplantAltBridgePicker(n) {
+  _implantAlt = null; _altBridge = null;
+  if (!isImplant(n) || !implantRowsAllPlanned(n) || isPrimaryTooth(n)) { showToast('⚠️ الجسر البديل متاح لزرعةٍ مخطّطة على سنٍّ دائم فقط'); return; }
+  var bridges = TREATMENTS.filter(function(t){ return t.is_active !== false && (t.target_part || 'crown') === 'bridge'; });
+  var c = document.getElementById('toothOptsContainer');
+  var tabs = document.getElementById('txTabs');
+  if (!c) return;
+  if (tabs) tabs.innerHTML = '';
+  var head = '<div style="grid-column:1/-1;width:100%;padding:8px 10px;margin-bottom:6px;border:1px dashed var(--blue);border-radius:10px;font-size:12.5px;color:var(--text2);line-height:1.7;">'
+    + '🔀 <b style="color:var(--blue);">جسر بديل للزرعة</b> — السن ' + n + '.<br>يُرسم الجسرُ على المخطط وتبقى الزرعةُ خياراً آخر بخطة العلاج (أ/ب) يظهر بتلميح السن؛ '
+    + 'اعتمادُ الزرعة لاحقاً يعيد رسمها ويحذف الجسر.</div>';
+  if (!bridges.length) { c.innerHTML = head + '<div style="padding:16px;text-align:center;color:var(--text2);font-size:13px;">لا يوجد جسرٌ مفعَّل بقائمة العلاجات.</div>'; return; }
+  _implantAlt = { tooth: parseInt(n, 10) };
+  currentTooth = n;
+  var html = '<div style="grid-column:1/-1;width:100%;font-size:12px;font-weight:800;color:var(--text2);margin:6px 0 2px;">🌉 نوع الجسر</div>';
+  for (var j = 0; j < bridges.length; j++) html += txButtonHtml(bridges[j]);
+  c.innerHTML = head + html;
+}
+/* الخطوة الثانية: الحالةُ «مخطّط» قسراً (بديلٌ بالخطة)، بلا زر مخبر. */
+function implantAltStep2(label) {
+  if (!_implantAlt) return;
+  pickStatus('planned');
+  var sp = document.getElementById('toothStatusPicker'); if (sp) sp.style.display = 'none';
+  var lb = document.getElementById('toothLabBtn'); if (lb) lb.style.display = 'none';
+  var ti = document.getElementById('toothStep2Title');
+  if (ti) ti.textContent = '🔀 ' + label + ' — جسر بديل (مخطّط) للزرعة مكان السن ' + _implantAlt.tooth;
+}
+/* تحويلُ صفوف الزرعة المخطّطة إلى صفّ قلع (القاعدة + الذاكرة). يعيد نسخةً للاستعادة أو null عند الفشل. */
+async function _implantAltToExtraction(num) {
+  var tn = String(num), before = JSON.parse(JSON.stringify(teethMap[tn] || {}));
+  var st = extractionStatusUnderImplant(num);
+  var d = await window.sb.from('teeth_status').delete()
+    .eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', tn);
+  if (d.error) { console.warn('_implantAltToExtraction: wipe:', d.error); return null; }
+  var r = await upsertTeethStatusWithFallback({
+    doctor_id: currentUser.id, patient_id: patientId, tooth_num: tn, surface: 'WHOLE', treatment_key: 'extracted', status: st
+  }, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
+  if (r.error) { console.warn('_implantAltToExtraction: extracted row:', r.error); await _implantAltRestore(num, before); return null; }
+  teethMap[tn] = { WHOLE: 'extracted', __status: { WHOLE: st } };
+  return before;
+}
+async function _implantAltRestore(num, before) {
+  var tn = String(num);
+  await window.sb.from('teeth_status').delete().eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', tn);
+  for (var k in before) {
+    if (k.charAt(0) === '_' || !before[k]) continue;
+    var row = { doctor_id: currentUser.id, patient_id: patientId, tooth_num: tn, surface: k, treatment_key: before[k],
+                status: (before.__status && before.__status[k]) || 'completed' };
+    if (before.__unit && before.__unit[k]) row.unit_id = before.__unit[k];
+    var w = await upsertTeethStatusWithFallback(row, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
+    if (w.error) console.warn('_implantAltRestore:', w.error);
+  }
+  teethMap[tn] = before;
+}
+/* بعد رسم جسرٍ عادي: جلساتُ زرعةٍ مخطّطة على أسنان وحدته (زرعةٌ بقلعٍ مخطّط، أو زرعةٌ حُوّلت للتو)
+   صارت بدائلَ له ⇒ وسمُ أ/ب (الأقدمُ أولاً؛ زرعاتُ الوحدة تتشارك خياراً). عرضيٌّ بحت. */
+async function tagBridgeOverPendingImplants(newSess, unit) {
+  if (!newSess || !unit || typeof planTagAltBridge !== 'function') return null;
+  var imps = plannedAltImplantsForUnit(unit);
+  if (!imps.length) return null;
+  imps.sort(function(a, b){ return String(a.created_at || '').localeCompare(String(b.created_at || '')); });
+  await planTagAltBridge(imps[0], [newSess].concat(plannedBridgeSessionsForUnit(unit).filter(function(x){ return x.id !== newSess.id; })), []);
+  for (var i = 1; i < imps.length; i++) await planTagAltBridge(imps[i], [], [imps[0]]);
+  return planOptOf(newSess);
+}
 /* الخطوة الثانية بوضع البديل: الحالةُ «مخطّط» قسراً، بلا شرائح وحدة ولا زر مخبر. */
 function altBridgeStep2(label) {
   if (!_altBridge) return;
@@ -3634,6 +4352,8 @@ async function _altChartToImplants(ctx, imps) {
   }
   for (var i = 0; i < imps.length; i++) {
     var x = imps[i], tn = String(parseInt(x.tooth_num, 10)), key = sessionTreatmentKey(x);
+    /* v600: قلعُ هذا الموقع ما زال مخطّطاً ⇒ الزرعةُ المخطّطة تبقى جلسةَ خطة (لا مسحَ لصفّ القلع ولا لعلاجات السن) */
+    
     var w = await window.sb.from('teeth_status').delete()
       .eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', tn);
     if (w.error) { console.warn('_altChartToImplants: pre-wipe:', w.error); continue; }
@@ -3822,7 +4542,7 @@ function warnEcEoMigrationOnce() {
    Note: ledger_sessions inserts don't need a similar wrapper because their callers
    already guard with `if (pendingTreatStatus === 'completed' || 'planned')`, so
    existing_* statuses never reach the ledger insert path. */
-async function upsertTeethStatusWithFallback(row, opts) {
+async function _upsertTeethStatusRaw(row, opts) {
   var first = await window.sb.from('teeth_status').upsert(row, opts);
   if (first.error && isStatusConstraintError(first.error)
       && (row.status === 'existing_current' || row.status === 'existing_other')) {
@@ -3854,7 +4574,7 @@ async function upsertTeethStatusWithFallback(row, opts) {
       && String(first.error.message || '').indexOf('unit_id') !== -1) {
     warnUnitIdMigrationOnce();   // user-visible once — a silent console.warn let this slip live
     var noUnitRow = Object.assign({}, row); delete noUnitRow.unit_id;
-    return await upsertTeethStatusWithFallback(noUnitRow, opts);
+    return await _upsertTeethStatusRaw(noUnitRow, opts);
   }
   // A (M74): if the DB pre-dates the review_at column, retry once without it so the
   // clinical save itself never fails — only the scheduled-review metadata is dropped.
@@ -3866,6 +4586,21 @@ async function upsertTeethStatusWithFallback(row, opts) {
   }
   return first;
 }
+/* v605: نقطةُ الاختناق لكل كتابات السطح — تعكس زنادَ M179 بالذاكرة (window.teethDx) بعد النجاح؛
+   وقاعدةٌ أقدم بلا عمود dx_key ⇒ إعادةٌ بدونه (المركّبُ وحده يرسله). */
+async function upsertTeethStatusWithFallback(row, opts) {
+  var _tn = row && row.tooth_num != null ? String(row.tooth_num) : null;
+  var _pm = _tn && typeof teethMap !== 'undefined' ? (teethMap[_tn] || {}) : {};
+  var _pk = row ? (_pm[row.surface] || null) : null, _ps = row ? ((_pm.__status || {})[row.surface] || (_pk ? 'completed' : null)) : null;
+  var res = await _upsertTeethStatusRaw(row, opts);
+  if (res && res.error && row && row.dx_key && String(res.error.message || '').indexOf('dx_key') !== -1) {
+    var _nd = Object.assign({}, row); delete _nd.dx_key;
+    res = await _upsertTeethStatusRaw(_nd, opts);
+    if (res && !res.error) row = _nd;
+  }
+  if (res && !res.error) { try { dxMirrorAfterWrite(row, _pk, _ps); } catch (e) { console.warn('dx mirror:', e); } }
+  return res;
+}
 
 /* v430: قفلُ منتقي الحالة على «مراقبة» حين يكون المختارُ حالةً سريرية — والعكسُ يفكّه.
    الشرطُ الحاسم عند الكتابة لا بالواجهة (condNormalizePending)، وهذا للوضوح البصري. */
@@ -3876,7 +4611,17 @@ function condLockStatusPicker(on) {
     var isCond = b.getAttribute('data-status') === 'condition';
     b.style.display = (on && !isCond) ? 'none' : '';
   });
+  condStep2Ui(on);   /* v612 */
   if (on) pickStatus('condition');
+}
+/* v612 (بلاغ المالك بصورتين): الحالةُ السريرية توثيقٌ على المخطط لا جلسة — لا تكلفة ولا تاريخ ولا طبيب ولا
+   ملاحظة/قالب/مساعد (لا شيءَ منها يُخزَّن للحالة)، والزرُّ «حفظ» لا «حفظ كجلسة». سمةٌ على الخطوة الثانية
+   وCSS يخفي بـ!important فلا يتسرّب عرضٌ مضبوطٌ inline من مسارٍ آخر. */
+function condStep2Ui(on) {
+  var step = document.getElementById('toothStep2');
+  if (step && step.setAttribute) { if (on) step.setAttribute('data-cond-ui', '1'); else if (step.removeAttribute) step.removeAttribute('data-cond-ui'); }
+  var btn = document.querySelector ? document.querySelector('#toothFoot .btn-save-m') : null;
+  if (btn) btn.textContent = on ? 'حفظ' : 'حفظ كجلسة';
 }
 /* حارسُ الكتابة: مفتاحُ حالةٍ ⇒ status='condition' دائماً وتكلفةٌ صفرية — مهما فعلت الواجهة */
 function condNormalizePending() {
@@ -4187,6 +4932,7 @@ async function openToothModal(n, surface) {
   var _entryReq = (_toothEntryNext === true); _toothEntryNext = false;   /* v333: يُستهلك أولاً — أيُّ خروجٍ مبكر لا يورّثه */
   if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;   /* M141-ب: نقرُ السن بالمخطط — المخطط يبقى للعرض */
   _altBridge = null;   /* M145-b: وضعُ الجسر البديل لا يُورَّث لأي فتحٍ أو ختمِ فحص — قبل كل اعتراضات الأوضاع */
+  _implantAlt = null;  /* v600: وضعُ «جسر بديل للزرعة» كذلك */
   var _spk = document.getElementById('toothStatusPicker'); if (_spk) _spk.style.display = '';
   if (typeof condLockStatusPicker === 'function') condLockStatusPicker(false);   /* v431: قفلُ الحالة السريرية لا يتسرّب لفتحةٍ تالية (المسارُ الإقليمي يفتح الخطوة الثانية بلا pickToothTreatment) */
   toothEntryMode = false;
@@ -4276,7 +5022,8 @@ async function openToothModal(n, surface) {
 
   // Title
   var clickedAreaLabel;
-  if (isWholeClick) clickedAreaLabel = 'السن كاملاً';
+  if (isSxSurface(currentSurface)) clickedAreaLabel = surfLabel;   /* v580: «سن زائد إنسي» */
+  else if (isWholeClick) clickedAreaLabel = 'السن كاملاً';
   else if (isRootClick) clickedAreaLabel = rootAreaLabelFor(currentSurface, n);
   else clickedAreaLabel = 'السطح ' + surfLabel;
 
@@ -4385,12 +5132,21 @@ async function openToothModal(n, surface) {
   }
 
   // Detect tooth states for the picker
-  var isAlreadyExtracted = isExtracted(n);
-  var isAlreadyBridgeAbut = isBridgeAbut(n);   // bridge abutment (not pontic)
+  /* v600 (بلاغ المالك 10 ت١ 2026 — 42/45/36): الأهليةُ تتبع **حالةَ** القلع لا وجودَه. قلعٌ مخطّط =
+     سنٌّ ما زال بالفم ⇒ كلُّ علاجاته متاحة (عصب · تاج · حشوة · حالات) **مع** بدائل التعويض
+     (زرعة · جسر · علاجات السنخ) كخياراتٍ مخطّطة — نمط Open Dental/Dentrix (X حتى الإنجاز) وCurve
+     («اقلع أم حافظ» زوجُ خياراتٍ بديلة). كان السنُّ يصير «مقلوعاً» للمنتقي فور تخطيط القلع فيُحجب
+     العصبُ عنه، ويسمح بالعصب فقط إن سبق القلعَ بالترتيب. isExtracted() تبقى عمياء للجسور والرسم. */
+  var _ext = isExtracted(n);
   var smN = teethMap[String(n)] || {};
-  var isAlreadyPontic = isAlreadyExtracted && isBridgeKey(smN.PONTIC);
+  var isAlreadyPontic = _ext && isBridgeKey(smN.PONTIC);
+  var _extPlanned = _ext && !isAlreadyPontic && isExtractionPlanned(n);
+  var isAlreadyExtracted = _ext && !_extPlanned;
+  var isAlreadyBridgeAbut = isBridgeAbut(n);   // bridge abutment (not pontic)
   var isPartOfBridge = isAlreadyBridgeAbut || isAlreadyPontic;
   var isAlreadyImplant = isImplant(n);
+  /* v600: زرعةٌ مخطّطة كلُّ صفوفها «مخطّط» ⇒ يُتاح «جسر بديل» للزرعة (خيار أ/ب) */
+  var _implantPlanned = isAlreadyImplant && implantRowsAllPlanned(n);
 
   // UNIFIED LIST: Show ALL treatments regardless of where the user clicked.
   // The smart routing happens at save time based on each treatment's target_part.
@@ -4402,6 +5158,8 @@ async function openToothModal(n, surface) {
   function isAllowed(t) {
     // Inactive treatments don't appear in the picker (but their rendering still works for legacy data)
     if (t.is_active === false) return false;
+    /* v580: على السن الزائد العلاجُ الوحيد هو القلع (أيُّ علاجِ قلع بالكتالوج) — لا حالاتَ ولا غيره */
+    if (isSxSurface(currentSurface)) return !t.is_condition && (t.target_part || 'crown') === 'extraction';
     // M146: علاجٌ «لبنية فقط» لا يُعرض على سنٍّ دائم والعكس — بكل حالات السن
     if (!txDentitionOk(t, n)) return false;
     // ── Owner matrix (OpenDental treatment-area model) — applies to STANDING teeth
@@ -4415,6 +5173,13 @@ async function openToothModal(n, surface) {
       // extraction ghosts the tooth immediately, so the correct sequence stays
       // one tap away. (Exam mode intentionally still stamps implants anywhere —
       // it records EXISTING state, not new work.)
+      /* v600: سنٌّ قلعُه مخطّط ⇒ بدائلُ التعويض متاحة كخيارٍ مخطّط (الزرعة جلسةُ خطةٍ تُرسم عند إنجاز
+         القلع؛ الجسر يُرسم وهمياً فوق القلع المخطّط كما كان) — بنفس قيود اللبني و M61؛ وقلعٌ ثانٍ لا. */
+      if (_extPlanned) {
+        if (tpS === 'extraction') return false;
+        if (tpS === 'implant' || tpS === 'bridge') return !isPrimaryTooth(n);
+        if (t.post_extraction === true || (typeof isSpacerTreatment === 'function' && isSpacerTreatment(t))) return window.__m61 === true;
+      }
       if (tpS === 'implant') return false;
       // Socket-site treatments (طعم عظمي/ضماد سنخ) and space maintainers anchor
       // at an extraction site — meaningless on a standing tooth. Hiding them here
@@ -4472,11 +5237,21 @@ async function openToothModal(n, surface) {
 
   // Context special action (shown below the palette, in every tab)
   var _special;
-  if (isAlreadyImplant)        _special = '<button class="topt tone tone-purple" style="font-weight:700;" onclick="removeImplant(' + n + ')">🔩 إزالة الزراعة</button>';
+  if (isAlreadyImplant)        _special = (_implantPlanned && !isPrimaryTooth(n) ? '<button class="topt" style="border-color:var(--blue);color:var(--blue);font-weight:700;" onclick="openImplantAltBridgePicker(' + n + ')" title="إضافة جسرٍ كخيارٍ بديل للزرعة بخطة العلاج (أ/ب) — يُرسم الجسر وتبقى الزرعة خياراً بتلميح السن حتى تعتمد أحدهما">🔀 جسر بديل للزرعة</button>' : '')
+                                        + '<button class="topt tone tone-purple" style="font-weight:700;" onclick="removeImplant(' + n + ')">🔩 إزالة الزراعة</button>';
   else if (isPartOfBridge)     _special = (altBridgeContext(n) ? '<button class="topt" style="border-color:var(--blue);color:var(--blue);font-weight:700;" onclick="openAltBridgePicker(' + n + ')" title="إضافة نوع جسر آخر كخيارٍ بديل بخطة العلاج — المخطط لا يتغيّر">' + (isAlreadyPontic ? '🔀 بديل للجسر (جسر آخر / زرعة)' : '🔀 جسر بديل (خيار آخر بالخطة)') + '</button>' : '')
                                         + '<button class="topt" style="border-color:#dc2626;color:#dc2626;font-weight:700;" onclick="undoExtraction(' + n + ')">🔗 إزالة الجسر</button>';
   else if (isAlreadyExtracted) _special = '<button class="topt" style="border-color:var(--red);color:var(--red);font-weight:700;" onclick="undoExtraction(' + n + ')">↩️ إلغاء القلع (إعادة السن)</button>';
+  else if (_extPlanned)        _special = '<button class="topt" style="border-color:var(--red);color:var(--red);font-weight:700;" onclick="undoExtraction(' + n + ')">↩️ إلغاء القلع المخطّط</button>'
+                                        + '<button class="topt" style="border-color:var(--text2)" title="يزيل ما على السطح المنقور (علاجاً كان أو حالة)" onclick="clearToothStatus()">⬜ سليم (إلغاء)</button>';
   else                         _special = '<button class="topt" style="border-color:var(--text2)" title="يزيل ما على السطح المنقور (علاجاً كان أو حالة)؛ وعلى سطحٍ فارغ يعيد السنَّ كاملاً سليماً" onclick="clearToothStatus()">⬜ سليم (إلغاء)</button>';
+  /* v580: على السن الزائد — قلعٌ مخطّط ⇒ «إلغاء قلع السن الزائد»؛ وإلا تبقى أزرارُ الحالات أدناه (إزالة «سن زائد») بلا «سليم» */
+  if (isSxSurface(currentSurface)) {
+    var _sxSt = sxState(teethMap[String(n)] || {}, sxSideOf(currentSurface));
+    _special = (_sxSt && _sxSt.planned)
+      ? '<button class="topt" style="border-color:var(--red);color:var(--red);font-weight:700;" onclick="sxCancelExtraction(' + n + ',\'' + sxSideOf(currentSurface) + '\')">↩️ إلغاء قلع السن الزائد</button>'
+      : '';
+  }
 
   // حافظ مسافة: removal action stacks on top of whatever context applies
   if (typeof toothHasSpacer === 'function' && toothHasSpacer(n)) {
@@ -4486,6 +5261,8 @@ async function openToothModal(n, surface) {
      وحالةُ السطح المنقور أولاً. «⬜ سليم (إلغاء)» يبقى لإعادة السطح/السن سليماً. */
   if (typeof conditionRowsOf === 'function') {
     var _cRows = conditionRowsOf(n);
+    /* v583: نافذةُ السن الزائد تخصّه وحده — لا تعرض حالاتِ السن المضيف (كان «إزالة خراج 23» يظهر داخل نافذة زائده) */
+    if (isSxSurface(currentSurface)) _cRows = _cRows.filter(function(r){ return r.surface === currentSurface; });
     _cRows.sort(function(a, b){ return (a.surface === surface ? 0 : 1) - (b.surface === surface ? 0 : 1); });
     var _cBtns = '';
     for (var _ci2 = 0; _ci2 < _cRows.length; _ci2++) {
@@ -4494,7 +5271,34 @@ async function openToothModal(n, surface) {
              +  'title="يزيل هذه الحالة وحدَها — لا يمسّ العلاجات ولا الحالات الأخرى" '
              +  'onclick="removeCondition(' + n + ',\'' + _cr.surface + '\')">🩺 إزالة «' + escapeHtml(_cr.def.name) + '» — ' + escapeHtml(conditionSiteLabel(n, _cr.surface, true)) + '</button>';
     }
+    /* v581: تماسٌ مفتوح يرسمه هذا السنُّ لأن **جارَه** سجّله (المسندُ condContactSides) — زرُّ إزالته من هنا أيضاً،
+       وإلا بدا الخطُّ بلا زرٍّ يزيله على السن الذي يُرى عليه. */
+    if (!isSxSurface(currentSurface)) {
+      var _ctN = condContactSides(n, teethMap[String(n)] || {});
+      ['M', 'D'].forEach(function(_sd){
+        if (!_ctN[_sd] || (teethMap[String(n)] || {})[_sd] === COND_CONTACT_ID) return;
+        var _nbs = proximalNeighbors(n, _sd);
+        for (var _ni = 0; _ni < _nbs.length; _ni++) {
+          var _nr = teethMap[_nbs[_ni].num];
+          if (!_nr || _nr[_nbs[_ni].surf] !== COND_CONTACT_ID) continue;
+          _cBtns += '<button class="topt tx-cond-remove" style="border-color:#115e59;color:#115e59;font-weight:700;" '
+                 +  'title="التماسُ مسجَّل على السن المجاور — يُزال من هناك" '
+                 +  'onclick="removeCondition(' + _nbs[_ni].num + ',\'' + _nbs[_ni].surf + '\')">🩺 إزالة «تماس مفتوح» — مع السن ' + _nbs[_ni].num + ' (' + escapeHtml(surfLabelFor(_sd, n)) + ')</button>';
+        }
+      });
+    }
     _special = _cBtns + _special;
+  }
+  /* v610: ملاحظاتٌ معلّقة فوق علاجات السن — زرُّ إزالةٍ لكلٍّ منها */
+  var _nRows = dxNoteRowsOf(n);
+  if (_nRows.length) {
+    var _nBtns = '';
+    _nRows.forEach(function(_nr){
+      var _nt = getTreatment((teethMap[String(n)] || {})[_nr.row]);
+      _nBtns += '<button class="topt tx-cond-remove" style="border-color:var(--red);color:var(--red);font-weight:700;" '
+             +  'onclick="removeDxNote(' + n + ',\'' + _nr.row + '\',\'' + _nr.sf + '\',\'' + _nr.key + '\')">🩺 إزالة ملاحظة «' + escapeHtml(_nr.def ? _nr.def.name : _nr.key) + '» — ' + escapeHtml(conditionSiteLabel(n, _nr.sf, true)) + ' (على ' + escapeHtml(_nt ? _nt.name : _nr.row) + ')</button>';
+    });
+    _special = _nBtns + _special;
   }
   // موقع القلع: removal of a post-extraction site treatment stacks on top too
   if (typeof toothHasSocket === 'function' && toothHasSocket(n)) {
@@ -4523,7 +5327,9 @@ async function openToothModal(n, surface) {
 }
 
 /* DeepCode #20 (v562): نافذةُ العلاج كانت بمنتصف الشاشة فوق المخطط فتغطّي السنَّ المختار نفسه.
-   الحاسوب: النافذةُ لوحةٌ بالنصف **المقابل** لموضع السن، بغشاءٍ أخفّ يُبقي المخطط مقروءاً.
+   الحاسوب (v577 — قرارُ المالك 5 ت١ 2026 بصورة: «تطلع مرة عاليمين ومرة عاليسار — المفروض دائماً بنص
+   الصفحة»): **لا إرساءَ جانبياً** — النافذةُ بمنتصف الشاشة دائماً؛ يبقى الغشاءُ الأخفّ وإبرازُ السن.
+   (كان: لوحةٌ بالنصف المقابل لموضع السن — أُلغي.)
    الهاتف (ورقةٌ سفلية أصلاً): السنُّ يُمرَّر لأعلى الشاشة والورقةُ أقصر فيبقى ظاهراً فوقها.
    السنُّ المختار مُبرَز طوال فتح النافذة، ويُزال كلُّ ذلك عند إغلاقها (أيّاً كان مسارُ الإغلاق). */
 function ppDockToothModal(n) {
@@ -4536,7 +5342,6 @@ function ppDockToothModal(n) {
   /* عدّةُ عناصر تحمل رقمَ السن نفسه (الأسطح، الجذور، الرقم) — المختارُ أكبرُها الظاهر = السنُّ كاملاً */
   var vis = [];
   for (var k = 0, best = 0; k < cand.length; k++) { var cr = cand[k].getBoundingClientRect(), ar = cr.width * cr.height; if (ar > 0) vis.push(cand[k]); if (ar > best) { best = ar; t = cand[k]; } }
-  m.classList.remove('pp-dock-left', 'pp-dock-right');
   if (!t) return;
   for (var v = 0; v < vis.length; v++) vis[v].classList.add('pp-tooth-sel');   /* التاجُ والجذورُ والأسطحُ معاً */
   m.classList.add('pp-dock');
@@ -4545,16 +5350,13 @@ function ppDockToothModal(n) {
     /* المخططُ قرب آخر الصفحة فلا يتّسع التمريرُ لرفع الفكّ السفلي فوق الورقة — مساحةٌ مؤقتة أسفل الصفحة تُزال عند الإغلاق */
     document.documentElement.classList.add('pp-dock-room');
     try { t.scrollIntoView({ block: 'start', inline: 'center' }); window.scrollBy(0, -72); } catch (e) {}
-  } else {
-    var r = t.getBoundingClientRect();
-    m.classList.add((r.left + r.width / 2) > window.innerWidth / 2 ? 'pp-dock-left' : 'pp-dock-right');
-  }
+  }   /* v577: الحاسوب بلا إرساءٍ جانبي — المنتصفُ دائماً (pp-dock وحده: غشاءٌ أخفّ + ارتفاعٌ أقصى) */
   if (!m.__ppDockWatch && typeof MutationObserver === 'function') {
     m.__ppDockWatch = true;
     new MutationObserver(function () {
       /* لا تُعدّل الصنفَ إلا إن وُجد ما يُزال — classList.remove يكتب السمةَ ولو بلا تغيير فيُعيد إطلاقَ المراقب (حلقة) */
       if (m.classList.contains('open') || !m.classList.contains('pp-dock')) return;
-      m.classList.remove('pp-dock', 'pp-dock-left', 'pp-dock-right');
+      m.classList.remove('pp-dock');
       document.documentElement.classList.remove('pp-dock-room');
       var s = document.querySelectorAll('.pp-tooth-sel');
       for (var j = 0; j < s.length; j++) s[j].classList.remove('pp-tooth-sel');
@@ -4657,8 +5459,55 @@ function conditionRowsOf(num){
 }
 function conditionSiteLabel(num, surface, short){
   if (surface === COND_SURFACE) return 'السن كاملاً';
+  if (isSxSurface(surface)) return surfLabelFor(surface, num);   /* v580 */
   if (typeof isRootCode === 'function' && isRootCode(surface)) return rootAreaLabelFor(surface, num);
   return (short ? '' : 'السطح ') + surfLabelFor(surface, num);
+}
+/* v581: التماسُ المفتوح المسجَّل على الجارين معاً — صفوفُ الجار المقابلة لصفِّ (num, sf). مسندٌ واحد تقرؤه
+   إزالةُ المودال وإلغاءُ ختم الفحص الأولي (مرآتان بالسلوك نفسه). */
+function condContactTwins(num, sf, key){
+  var twins = [];
+  if (key !== COND_CONTACT_ID || !/^[MD]$/.test(String(sf || ''))) return twins;
+  var nbs = proximalNeighbors(num, sf);
+  for (var ni = 0; ni < nbs.length; ni++) { var nraw = teethMap[nbs[ni].num]; if (nraw && nraw[nbs[ni].surf] === COND_CONTACT_ID) twins.push(nbs[ni]); }
+  return twins;
+}
+async function deleteContactTwinRows(twins){
+  for (var ti = 0; ti < twins.length; ti++) {
+    var tw = twins[ti];
+    var dr2 = await window.sb.from('teeth_status').delete()
+      .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
+      .eq('tooth_num', tw.num).eq('surface', tw.surf).eq('treatment_key', COND_CONTACT_ID);
+    if (dr2.error) { console.error('delete twin contact row error:', dr2.error); showToast('⚠️ ' + dr2.error.message); continue; }
+    if (teethMap[tw.num]) {
+      delete teethMap[tw.num][tw.surf];
+      if (teethMap[tw.num].__status) delete teethMap[tw.num].__status[tw.surf];
+      if (teethMap[tw.num].__review) delete teethMap[tw.num].__review[tw.surf];
+      if (!Object.keys(teethMap[tw.num]).filter(function(k){ return k !== '__status' && k !== '__review' && k !== '__unit'; }).length) delete teethMap[tw.num];
+    }
+  }
+}
+/* v580: إلغاءُ قلعٍ مخطّط على سنٍّ زائد — يعيد السنَّ الزائد حالةً كما كان، ويسأل عن جلساته المخطّطة (نمط v488) */
+var sxCancelExtraction = ppGuarded('sxCancelExtraction', _sxCancelExtraction_inner, '⏳');
+async function _sxCancelExtraction_inner(num, side) {
+  if (window.SyDentLock && window.SyDentLock.isDoctorAccountInactive && window.SyDentLock.isDoctorAccountInactive()) { showToast('🔒 حسابك غير نشط'); return; }
+  var tn = String(num), sf = 'SX' + side, key = (teethMap[tn] || {})[sf];
+  if (!key || !isExtractionKey(key)) { showToast('⚠️ لا قلعَ مخطّطاً على هذا السن الزائد'); return; }
+  if (!await SyDialog.confirm({ message: 'إلغاء قلع «' + surfLabelFor(sf, num) + ' لـ ' + num + '»؟\nيعود السنُّ الزائد مرسوماً كحالة.', danger: true })) return;
+  closeModal('toothModal');
+  var pl = plannedToothSessions(num, [sf]);
+  if (pl.length) await askDeletePlannedToothSessions(pl, 'على السن الزائد قلعٌ مخطّط بالسجل:', 'هل تحذفه من السجل؟');
+  var r = await upsertTeethStatusWithFallback({
+    doctor_id: currentUser.id, patient_id: patientId, tooth_num: tn, surface: sf,
+    treatment_key: 'cond-supernumerary', status: 'condition', provider_id: null, review_at: null
+  }, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
+  if (r.error) { showToast('⚠️ ' + r.error.message); return; }
+  teethMap[tn][sf] = 'cond-supernumerary';
+  if (!teethMap[tn].__status) teethMap[tn].__status = {};
+  teethMap[tn].__status[sf] = 'condition';
+  if (teethMap[tn].__review) delete teethMap[tn].__review[sf];
+  renderTeeth(); renderStats(); renderSessions(); renderRecentSessions(); renderTimeline();
+  showToast('↩️ أُلغي قلعُ السن الزائد');
 }
 var removeCondition = ppGuarded('removeCondition', _removeCondition_inner, '⏳');
 async function _removeCondition_inner(num, surface) {
@@ -4671,7 +5520,12 @@ async function _removeCondition_inner(num, surface) {
   var key = (teethMap[tn] || {})[sf];
   if (!key || !isConditionKey(key)) { showToast('⚠️ لا توجد حالةٌ سريرية على هذا الموضع'); return; }
   var def = getCondition(key), site = conditionSiteLabel(num, sf);
-  if (!await SyDialog.confirm({ message: 'إزالة الحالة السريرية «' + def.name + '» (' + site + ') عن السن ' + num + '؟\nبقيةُ ما على السن من علاجاتٍ وحالاتٍ لا يتأثر.', danger: true })) return;
+  /* v581: التماسُ المفتوح حدثٌ بين سنّين — إن سجّله الطبيبُ على الجارين معاً (قبل v576 كان الخطّان على سنٍّ واحد
+     فاعتاد وسمَهما) فإزالتُه من سنٍّ واحد تُبقي الخطّين (الجارُ يرسم خطَّه وخطَّ جاره بالمسند) ويبدو أنه «لم يُزَل».
+     يُحذف صفُّ الجار المقابل معه — هو التماسُ نفسه. */
+  var twins = condContactTwins(num, sf, key);
+  var twinTxt = twins.length ? '\nويُزال معه تسجيلُه المقابل على ' + twins.map(function(t){ return 'السن ' + t.num + ' (' + surfLabelFor(t.surf, t.num) + ')'; }).join(' و') + ' — هو التماسُ نفسه.' : '';
+  if (!await SyDialog.confirm({ message: 'إزالة الحالة السريرية «' + def.name + '» (' + site + ') عن السن ' + num + '؟' + twinTxt + '\nبقيةُ ما على السن من علاجاتٍ وحالاتٍ لا يتأثر.', danger: true })) return;
   var dr = await window.sb.from('teeth_status').delete()
     .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
     .eq('tooth_num', tn).eq('surface', sf)
@@ -4682,6 +5536,7 @@ async function _removeCondition_inner(num, surface) {
   if (teethMap[tn].__review) delete teethMap[tn].__review[sf];
   var _restC = Object.keys(teethMap[tn]).filter(function(k){ return k !== '__status' && k !== '__review' && k !== '__unit'; });
   if (_restC.length === 0) delete teethMap[tn];
+  await deleteContactTwinRows(twins);   /* v581 */
   closeModal('toothModal');
   renderTeeth(); renderStats();
   showToast('✅ أُزيلت «' + def.name + '» (' + site + ') عن السن ' + num);
@@ -4863,11 +5718,13 @@ async function _undoExtraction_inner(num) {
       // Undoing a plain extraction: delete the 'extracted' marker only
       for (var sk2 in sm) {
         if (isExtractionKey(sm[sk2])) {
+          var _xBack = dxOf(tn, sk2);   /* v608: حالاتٌ حملها القلع (كسر…) تعود مع عودة السن */
           var dr2 = await window.sb.from('teeth_status').delete()
             .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
             .eq('tooth_num', tn).eq('surface', sk2);
           if (dr2.error) { console.error('delete extracted error:', dr2.error); _wErr = true; }
           delete teethMap[tn][sk2];
+          if (!dr2.error && _xBack.length) await dxRestoreAfterRemoval(tn, sk2, _xBack);
         }
       }
       // A post-extraction site treatment (SOCKET) is no longer valid once the tooth returns —
@@ -4966,18 +5823,20 @@ async function _removeImplant_inner(num) {
   if (dAll.error) { console.error('clear surfaces error:', dAll.error); _wErr = true; }
   delete teethMap[tn];
   // Then: replace with extracted at WHOLE — typically an implant replaces a missing tooth
-  var rU = await window.sb.from('teeth_status').upsert({
-    doctor_id: currentUser.id, patient_id: patientId,
-    tooth_num: tn, surface: 'WHOLE', treatment_key: 'extracted'
-  }, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
+  /* v600: القلعُ يعود بحالته الحقيقية — مخطّطاً إن كانت جلسةُ قلعِ السن ما زالت خطة (كان يعود «منجزاً» دائماً
+     فيُخفي سنّاً ما زال بالفم)؛ وإلا كما كان حرفياً. */
+  var _rxSt = extractionStatusUnderImplant(num);
+  var _rxRow = { doctor_id: currentUser.id, patient_id: patientId, tooth_num: tn, surface: 'WHOLE', treatment_key: 'extracted' };
+  if (_rxSt === 'planned') _rxRow.status = 'planned';
+  var rU = await window.sb.from('teeth_status').upsert(_rxRow, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
   if (rU.error) { console.error('restore extracted after implant removal error:', rU.error); _wErr = true; }
-  teethMap[tn] = { WHOLE: 'extracted' };
+  teethMap[tn] = (_rxSt === 'planned') ? { WHOLE: 'extracted', __status: { WHOLE: 'planned' } } : { WHOLE: 'extracted' };
   closeModal('toothModal');
   renderTeeth(); renderStats();
   if (_wErr) { showToast('⚠️ تمّ جزئياً — بعض الخطوات لم تُحفظ، تحقّق من الاتصال وأعد المحاولة'); return; }
   var _fu = await followUpRemovedSessions(_imPl, _imDone, 'أُزيلت الزراعة. هل تريد حذف '
     + (_imPl.length === 1 ? 'جلستها المخطّطة' : 'جلساتها المخطّطة (' + _imPl.length + ')') + ' من السجل أيضاً؟');
-  showToast(removalToast('✅', 'تمت إزالة الزراعة — السن ' + num + ' مقلوع', _fu));
+  showToast(removalToast('✅', 'تمت إزالة الزراعة — السن ' + num + (_rxSt === 'planned' ? ' قلعه مخطّط' : ' مقلوع'), _fu));
 }
 
 /* ─── D2 ─── */
@@ -5254,6 +6113,7 @@ function proceedToRegionalStep2(status, label) {
   document.getElementById('toothStep1').style.display = 'none';
   document.getElementById('toothStep2').style.display = 'block';
   document.getElementById('toothFoot').style.display  = 'flex';
+  condStep2Ui(false);   /* v612: مسارُ المنطقة علاجٌ دائماً */
   syncOrthoField();   // ortho regional treatments → reveal the duration field
   renderBridgeUnitChips();   // M85: regional flow is never a bridge → self-hides (clears stale row)
 
@@ -5475,6 +6335,9 @@ function pickToothTreatment(status, label) {
   if (isConditionKey(status)) {
     if (tr && tr.cond_scope === 'tooth') currentSurface = COND_SURFACE;
     else if (currentSurface === 'WHOLE' || currentSurface === 'CROWN_FULL' || !currentSurface) currentSurface = COND_SURFACE;
+    currentSurface = condStorageSurface(tr, currentSurface);   /* v580: «سن زائد» ⇒ SX<الجهة> */
+  } else if (isSxSurface(currentSurface)) {
+    /* v580: قلعُ السن الزائد يبقى على مرساته SX — لا يُحوَّل إلى WHOLE (ذاك قلعُ السن المجاور) */
   } else if (spacerFlow || socketCtx) {
     currentSurface = 'WHOLE';            // unit/site flows anchor at WHOLE
   } else if (tp === 'implant' || tp === 'bridge') {
@@ -5511,6 +6374,7 @@ function pickToothTreatment(status, label) {
   else if (socketCtx) areaLabel = 'موقع القلع';
   else if (tr && tr.target_part === 'bridge') areaLabel = 'جسر — الوحدة موضّحة أدناه';
   else if (currentSurface === COND_SURFACE) areaLabel = 'حالة سريرية — السن كاملاً';   /* v430 */
+  else if (isSxSurface(currentSurface)) areaLabel = surfLabelFor(currentSurface, currentTooth);   /* v580 */
   else if (currentSurface === 'WHOLE') areaLabel = 'السن كاملاً';
   else if (currentSurface === 'CROWN_FULL') areaLabel = 'التاج كامل';
   else if (isRootCode(currentSurface)) areaLabel = rootAreaLabelFor(currentSurface, currentTooth);
@@ -5568,6 +6432,7 @@ function pickToothTreatment(status, label) {
   var _blbHide = document.getElementById('batchLabBtn');
   if (_blbHide) _blbHide.style.display = 'none';
   if (_altBridge) altBridgeStep2(label);   /* M145-b */
+  if (_implantAlt) implantAltStep2(label);   /* v600 */
   condLockStatusPicker(isConditionKey(status));   /* v430: الحالةُ السريرية لا تُسجَّل بأي حالةٍ أخرى */
   if (isConditionKey(status)) return;             /* حقلُ التكلفة مقفولٌ بصفر — لا تركيزَ عليه */
   setTimeout(function(){ document.getElementById('toothCost').focus(); document.getElementById('toothCost').select(); }, 100);
@@ -5613,6 +6478,39 @@ async function persistSpecialTreatment() {
     }
     currentSurface = 'WHOLE';
     return { handled: true, altImplant: true, altUnit: _altBridge.unit.slice() };
+  }
+  /* v600: زرعةٌ على سنٍّ قلعُه ما زال مخطّطاً = جلسةُ خطةٍ فقط (نمط M145-e) — **صفر مسح**. مسحُ الزرعة
+     العادي أدناه كان يحذف صفَّ القلع المخطّط وكلَّ علاجات السن المخطّطة (اختفى قلعُ 45 من المخطط هكذا)؛
+     السنُّ يبقى مرسوماً قائماً بـ✕، والزرعةُ تظهر بتلميحه وبالخطة، وتُرسم عند إنجاز القلع. */
+  if (pendingTp === 'implant' && !_altBridge && !_implantAlt && window.__examMode !== true && isExtractionPlanned(currentTooth)
+      && !isBridgeKey((teethMap[String(currentTooth)] || {}).PONTIC)) {
+    if (pendingTreatStatus !== 'planned') {
+      showToast('🔩 قلعُ السن ' + currentTooth + ' ما زال مخطّطاً — الزرعة تُضاف كعلاجٍ مخطّط وتُرسم عند إنجاز القلع');
+      return { blocked: true };
+    }
+    currentSurface = 'WHOLE';
+    return { handled: true, implantPending: true };
+  }
+  /* v600: «جسر بديل للزرعة» — تحويلُ صفّ الزرعة المخطّطة لصفّ قلع ثم رسمُ الجسر بمساره العادي (استدعاءٌ
+     ذاتي بالوضع مُطفأ)؛ رفضُ أيّ حارسٍ للجسر ⇒ استعادةُ الزرعة كما كانت حرفياً. */
+  if (isBridgeTreatment && _implantAlt) {
+    var _ia = _implantAlt;
+    if (pendingTreatStatus !== 'planned' || parseInt(currentTooth, 10) !== _ia.tooth || !isImplant(currentTooth) || !implantRowsAllPlanned(currentTooth)) {
+      showToast('⚠️ الجسر البديل يُضاف كعلاجٍ مخطّط لزرعةٍ مخطّطة فقط');
+      return { blocked: true };
+    }
+    var _iaBefore = await _implantAltToExtraction(currentTooth);
+    if (!_iaBefore) { showToast('⚠️ تعذّر تجهيز موقع الزرعة للجسر — لم يتغيّر شيء'); return { blocked: true }; }
+    _implantAlt = null;
+    var _iaRes;
+    try { _iaRes = await persistSpecialTreatment(); } catch (e) { console.warn('implant-alt bridge:', e); _iaRes = { blocked: true }; }
+    if (!_iaRes || _iaRes.blocked || !_iaRes.bridgeUnit) {
+      await _implantAltRestore(_ia.tooth, _iaBefore);
+      renderTeeth();
+      return { blocked: true };
+    }
+    _iaRes.implantAltBridge = true;
+    return _iaRes;
   }
   if (isBridgeTreatment && _altBridge) {
     /* M145-b: جسرٌ بديل = جلسةُ سجلٍّ فقط لنفس الوحدة — صفر كتابة على المخطط. */
@@ -5736,11 +6634,15 @@ async function persistSpecialTreatment() {
       // a pontic. Replaces the old "endpoints only" comparison.
       var isAbut = !isExtracted(unit[u]);
       if (isAbut) {
-        var rA = await upsertTeethStatusWithFallback({
+        /* v609: مثبِّتُ الجسر تاجٌ كامل على الدعامة ⇒ نفسُ محو أسطح التاج وحملِ حالاتها */
+        var _aRow = {
           doctor_id: currentUser.id, patient_id: patientId,
           tooth_num: un, surface: 'WHOLE', treatment_key: bridgeKey, status: pendingTreatStatus, provider_id: pendingProviderId,
           unit_id: unitId
-        }, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
+        };
+        var _aDx = await subsumeCrownSurfaces(un, isExtractionLandedStatus(pendingTreatStatus), patientId);
+        if (_aDx) _aRow.dx_key = _aDx;
+        var rA = await upsertTeethStatusWithFallback(_aRow, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
         if (rA.error) {
           console.error('bridge abutment save error:', rA.error);
           showToast('⚠️ خطأ حفظ السن ' + un + ': ' + rA.error.message);
@@ -5812,12 +6714,13 @@ async function persistSpecialTreatment() {
   // wipe ALL existing surfaces for this tooth first
   // (so old root canals, fillings, etc. don't survive — an implant replaces the natural tooth completely)
   if (pendingTp === 'implant') {
+      var _iDx = dxCollectWholeTooth(currentTooth);   /* v609 */
       var dAll = await window.sb.from('teeth_status').delete()
         .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
         .eq('tooth_num', String(currentTooth));
       if (dAll.error) console.error('clear surfaces before implant error:', dAll.error);
       teethMap[String(currentTooth)] = {};
-      return { handled: false, implantWiped: true };
+      return { handled: false, implantWiped: true, implantDx: _iDx };
     }
   return { handled: false };
 }
@@ -6048,9 +6951,18 @@ async function _saveToothTreatment_inner() {
         showToast('⚠️ السن ' + _bn + ' لم يعد مؤهلاً (' + _bv.msg + ') — توقفت الدفعة');
         _bFailed = true; break;
       }
+      /* v600: زرعةٌ على سنٍّ قلعُه مخطّط ⇒ جلسةُ خطةٍ فقط بلا مسحٍ ولا رسم (مرآةُ implantPending بالمودال) */
+      var _bSessOnly = _bTp === 'implant' && isExtractionPlanned(_bn) && !isBridgeKey((teethMap[String(_bn)] || {}).PONTIC);
+      if (_bSessOnly && pendingTreatStatus !== 'planned') {
+        showToast('🔩 قلعُ السن ' + _bn + ' ما زال مخطّطاً — الزرعة عليه تُضاف كعلاجٍ مخطّط — توقفت الدفعة');
+        _bFailed = true; break;
+      }
+      if (_bSessOnly) _bSurface = 'WHOLE';
       // Implant replaces the natural tooth completely: wipe ALL existing surfaces
       // first (exact mirror of persistSpecialTreatment's implant pre-wipe).
-      if (_bTp === 'implant') {
+      var _bImplantDx = '';
+      if (_bTp === 'implant' && !_bSessOnly) {
+        _bImplantDx = dxCollectWholeTooth(_bn);   /* v609 */
         var _bd = await window.sb.from('teeth_status').delete()
           .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
           .eq('tooth_num', String(_bn));
@@ -6061,22 +6973,36 @@ async function _saveToothTreatment_inner() {
         }
         teethMap[String(_bn)] = {};
       }
-      var _br = await upsertTeethStatusWithFallback({
-        doctor_id: currentUser.id, patient_id: patientId,
-        tooth_num: String(_bn), surface: _bSurface, treatment_key: pendingToothStatus,
-        status: pendingTreatStatus, provider_id: pendingProviderId,
-        review_at: null
-      }, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
-      if (_br.error) {
-        console.error('batch teeth_status save error:', _br.error);
-        showToast('⚠️ خطأ حفظ السن ' + _bn + ': ' + _br.error.message);
-        _bFailed = true; break;   // M85.2: stop on the first failure (no partial-silent spam)
+      if (!_bSessOnly) {
+        var _bRow = {
+          doctor_id: currentUser.id, patient_id: patientId,
+          tooth_num: String(_bn), surface: _bSurface, treatment_key: pendingToothStatus,
+          status: pendingTreatStatus, provider_id: pendingProviderId,
+          review_at: null
+        };
+        /* v608: قلعٌ منجز/قائم بالدفعة ⇒ المحوُ نفسه وحملُ الحالات على صفّ القلع */
+        if (_bSurface === 'WHOLE' && isExtractionKey(pendingToothStatus) && isExtractionLandedStatus(pendingTreatStatus)) {
+          var _bxdx = await wipeToothAfterExtraction(_bn, patientId);
+          if (_bxdx) _bRow.dx_key = _bxdx;
+        }
+        if (_bImplantDx) _bRow.dx_key = _bImplantDx;   /* v609 */
+        /* v609: تاجٌ كامل بالدفعة ⇒ أسطحُ التاج تُمحى وحالاتُها تُحمل */
+        if ((_bSurface === 'CROWN_FULL' || _bSurface === 'WHOLE') && _bTp === 'crown_full') {
+          var _bcdx = await subsumeCrownSurfaces(_bn, isExtractionLandedStatus(pendingTreatStatus), patientId);
+          if (_bcdx) _bRow.dx_key = dxJoin(dxPairs(_bRow.dx_key || '').concat(dxPairs(_bcdx)));
+        }
+        var _br = await upsertTeethStatusWithFallback(_bRow, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
+        if (_br.error) {
+          console.error('batch teeth_status save error:', _br.error);
+          showToast('⚠️ خطأ حفظ السن ' + _bn + ': ' + _br.error.message);
+          _bFailed = true; break;   // M85.2: stop on the first failure (no partial-silent spam)
+        }
+        if (!teethMap[String(_bn)]) teethMap[String(_bn)] = {};
+        teethMap[String(_bn)][_bSurface] = pendingToothStatus;
+        if (!teethMap[String(_bn)].__status) teethMap[String(_bn)].__status = {};
+        teethMap[String(_bn)].__status[_bSurface] = pendingTreatStatus;
+        _syncReviewCache(_bn, _bSurface);
       }
-      if (!teethMap[String(_bn)]) teethMap[String(_bn)] = {};
-      teethMap[String(_bn)][_bSurface] = pendingToothStatus;
-      if (!teethMap[String(_bn)].__status) teethMap[String(_bn)].__status = {};
-      teethMap[String(_bn)].__status[_bSurface] = pendingTreatStatus;
-      _syncReviewCache(_bn, _bSurface);
       /* v430: حالةٌ سريرية بالدفعة ⇒ صفُّ مخططٍ فقط، بلا أي سطرٍ بالسجل (مسارُ الدفعة كان
          يُدرج بلا بوابة حالة). */
       if (isConditionKey(pendingToothStatus)) { _bCreated++; continue; }
@@ -6085,7 +7011,7 @@ async function _saveToothTreatment_inner() {
       var _bl = await window.sb.from('ledger_sessions').insert({
         doctor_id: currentUser.id, patient_id: patientId,
         type: pendingToothLabel, description: _bDesc,
-        cost: cost, date: date, notes: notes, tooth_num: String(_bn), surface: _bSurface,
+        cost: cost, date: date, notes: _bSessOnly ? notes : dxSessionNote(_bn, _bSurface, notes), tooth_num: String(_bn), surface: _bSurface,   /* v605 */
         status: pendingTreatStatus,
         provider_id: pendingProviderId,
         treatment_key: getTreatment(pendingToothStatus) ? pendingToothStatus : null,   // v260
@@ -6189,8 +7115,15 @@ async function _saveToothTreatment_inner() {
     if (currentSurface !== COND_SURFACE) {
       var _cfK = condSurfaceConflict(currentTooth, currentSurface);
       if (_cfK) {
+        /* v610: الحالةُ تُسجَّل على صفّ العلاج نفسه (ملاحظة/تشخيص) بدل منع التسجيل — العلاجُ لا يُمحى ولا يُغطّى */
         var _cfT = getTreatment((teethMap[String(currentTooth)] || {})[_cfK]);
-        showToast('🩺 السطح يحمل علاجاً (' + (_cfT ? _cfT.name : _cfK) + ') — سجّل الحالة على سطحٍ آخر أو أزل العلاج أولاً');
+        var _cfRes = await dxAddNote(currentTooth, _cfK, currentSurface, pendingToothStatus);
+        if (_cfRes === false) return;
+        renderTeeth(); renderStats();
+        closeModal('toothModal');
+        showToast(_cfRes === true
+          ? '🩺 سُجّلت «' + pendingToothLabel + '» ملاحظةً على ' + (_cfT ? _cfT.name : _cfK) + ' (' + surfLabelFor(currentSurface, currentTooth) + ') — تنتقل سبباً لأي علاجٍ بديل تخطّطه على السطح'
+          : '🩺 سُجّلت «' + pendingToothLabel + '» تشخيصاً تحت ' + (_cfT ? _cfT.name : _cfK) + ' المخطّط (' + surfLabelFor(currentSurface, currentTooth) + ')');
         return;
       }
     }
@@ -6232,6 +7165,7 @@ async function _saveToothTreatment_inner() {
     // a SUBSET of the new composite (single 'M' / 'MO' subsumed by 'MOD'), so they
     // don't linger underneath. Scoped to composite saves ONLY → single-surface save
     // behavior is unchanged. (Renders precedence is the safety net for rare overlaps.)
+    var _dxCarry = [];   /* v605: حالاتُ/تشخيصاتُ الأسطح التي يمحوها المركّب ⇒ تُحمل على صفّه */
     if (isCompositeSurfaceCode(currentSurface)) {
       var _newSet = currentSurface.split('');
       var _smC = teethMap[String(currentTooth)] || {};
@@ -6242,6 +7176,7 @@ async function _saveToothTreatment_inner() {
         var _isSub = _ck.split('').every(function(l){ return _newSet.indexOf(l) !== -1; });
         if (_isSub) _toDel.push(_ck);
       }
+      if (!isConditionKey(pendingToothStatus)) _dxCarry = _dxCarry.concat(dxCollectSubsumed(currentTooth, _toDel));
       for (var _di=0; _di<_toDel.length; _di++) {
         var _dk = _toDel[_di];
         var _drc = await window.sb.from('teeth_status').delete()
@@ -6268,6 +7203,7 @@ async function _saveToothTreatment_inner() {
         var _isSubR = rootCodeParts(_rkc).every(function(rp){ return _newRSet.indexOf(rp) !== -1; });
         if (_isSubR) _toDelR.push(_rkc);
       }
+      if (!isConditionKey(pendingToothStatus)) _dxCarry = _dxCarry.concat(dxCollectSubsumed(currentTooth, _toDelR));   /* v605: كسرٌ على R1 تحت R1R2R3 */
       for (var _dri=0; _dri<_toDelR.length; _dri++) {
         var _dkr = _toDelR[_dri];
         var _drr = await window.sb.from('teeth_status').delete()
@@ -6306,11 +7242,35 @@ async function _saveToothTreatment_inner() {
       }
     } else {
     // Normal save — DB constraint now accepts all valid surface values
-    var rN = await upsertTeethStatusWithFallback({
+    /* v608: قلعٌ منجز/قائم على WHOLE ⇒ تُمحى باقي صفوف السن أولاً وتُحمل حالاتُها على صفّ القلع */
+    if (currentSurface === 'WHOLE' && isExtractionKey(pendingToothStatus) && isExtractionLandedStatus(pendingTreatStatus)) {
+      var _xdx = await wipeToothAfterExtraction(currentTooth, patientId);
+      if (_xdx) _dxCarry = _dxCarry.concat(dxPairs(_xdx));
+    }
+    /* v609: تاجٌ كامل على WHOLE ⇒ أسطحُ التاج تُمحى (الحالاتُ دائماً، الحشواتُ إن أُنجز) وتُحمل حالاتُها عليه */
+    if ((currentSurface === 'CROWN_FULL' || currentSurface === 'WHOLE') && pendingTp === 'crown_full') {   /* المسارُ يوجّه التاجَ الكامل إلى CROWN_FULL */
+      var _cdx = await subsumeCrownSurfaces(currentTooth, isExtractionLandedStatus(pendingTreatStatus), patientId);
+      if (_cdx) _dxCarry = _dxCarry.concat(dxPairs(_cdx));
+    }
+    if (_sp.implantDx) _dxCarry = _dxCarry.concat(dxPairs(_sp.implantDx));   /* v609: الزرعة تحمل حالاتِ السن الممحوّة */
+    var _rowN = {
       doctor_id: currentUser.id, patient_id: patientId,
       tooth_num: String(currentTooth), surface: currentSurface, treatment_key: pendingToothStatus, status: pendingTreatStatus, provider_id: pendingProviderId,
       review_at: _reviewAtVal()
-    }, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
+    };
+    /* v605: المركّبُ يحمل حالاتِ حروفه الممحوّة (+ حالةَ صفّه/تشخيصَه القائم) — وإلا الزنادُ يتولّى السطحَ المفرد */
+    if (_dxCarry.length && pendingTreatStatus !== 'condition' && !isConditionKey(pendingToothStatus)) {
+      var _dxJ = dxJoin(_dxCarry.concat(dxCollectSubsumed(currentTooth, [currentSurface])));
+      if (_dxJ) _rowN.dx_key = _dxJ;
+    } else if (pendingTreatStatus !== 'condition' && !isConditionKey(pendingToothStatus)) {
+      /* v610: استبدالُ صفِّ **علاجٍ** يحمل ملاحظةً/تشخيصاً على السطح نفسه ⇒ الصفُّ الجديد يحمله صراحةً ومرقّىً
+         (الملاحظةُ تصير تشخيصَه) — الزنادُ لا يحمل إلا حالة→علاج، فكانت العلامةُ «!» تبقى على البديل وتعود «ملاحظة»
+         بعد إنجازه. صفُّ الحالة المفرد يبقى للزناد كما بـv606. */
+      var _smX = teethMap[String(currentTooth)] || {}, _curKX = _smX[currentSurface];
+      var _curCondX = _curKX && isConditionKey(_curKX) && ((_smX.__status && _smX.__status[currentSurface]) || 'completed') === 'condition';
+      if (_curKX && !_curCondX) { var _dxR = dxJoin(dxCollectSubsumed(currentTooth, [currentSurface])); if (_dxR) _rowN.dx_key = _dxR; }
+    }
+    var rN = await upsertTeethStatusWithFallback(_rowN, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
     if (rN.error) {
       console.error('teeth_status save error:', rN.error);
       showToast('⚠️ خطأ حفظ الحالة: ' + rN.error.message);
@@ -6336,6 +7296,7 @@ async function _saveToothTreatment_inner() {
     ledgerDescription = areaForDesc;
   } else {
     if (_socketSave) areaForDesc = 'موقع القلع';
+    else if (isSxSurface(currentSurface)) areaForDesc = surfLabelFor(currentSurface, currentTooth);   /* v580 */
     else if (currentSurface === 'WHOLE') areaForDesc = 'السن كاملاً';
     else if (currentSurface === 'CROWN_FULL') areaForDesc = 'التاج كامل';
     else if (isRootCode(currentSurface)) areaForDesc = rootAreaLabelFor(currentSurface, currentTooth);
@@ -6354,10 +7315,13 @@ async function _saveToothTreatment_inner() {
   // 'referred' (sent away) are clinical notes only — they don't represent current chargeable production.
   var newSess = null;
   if (pendingTreatStatus === 'completed' || pendingTreatStatus === 'planned') {
+    /* v584: جلسةُ قلع السن الزائد تُسمّى بوضوح بكل القوائم والتقارير (كانت «قلع — سن 23» فبدت قلعاً لـ23) */
+    var _sxType = isSxSurface(currentSurface) ? pendingToothLabel + ' — ' + surfLabelFor(currentSurface, currentTooth) : pendingToothLabel;
     var _toothPayload = {
       doctor_id: currentUser.id, patient_id: patientId,
-      type: pendingToothLabel, description: ledgerDescription,
-      cost: cost, date: date, notes: notes, tooth_num: ledgerToothNum, surface: dbSurface,
+      type: _sxType, description: ledgerDescription,
+      cost: cost, date: date, tooth_num: ledgerToothNum, surface: dbSurface,
+      notes: (spacerUnitForLedger || bridgeUnitForLedger || _socketSave) ? notes : dxSessionNote(currentTooth, currentSurface, notes),   /* v605: «سبب العلاج» */
       status: pendingTreatStatus,
       provider_id: pendingProviderId,
       treatment_key: getTreatment(pendingToothStatus) ? pendingToothStatus : null,   // v260
@@ -6378,6 +7342,10 @@ async function _saveToothTreatment_inner() {
     if (newSess) {
       sessions.unshift(newSess); sortByDateDesc(sessions);
       /* M145-b: وسمُ خياري الخطة تلقائياً (الأصلي أ، البديل التالي) — عرضيٌّ بحت. */
+      /* v600: جسرٌ رُسم فوق موقعٍ عليه زرعةٌ مخطّطة (قلعٌ مخطّط + زرعة، أو «جسر بديل للزرعة») ⇒ وسمُ أ/ب */
+      if (bridgeUnitForLedger && !_sp.altBridge) {
+        try { _sp.overImplantOpt = await tagBridgeOverPendingImplants(newSess, bridgeUnitForLedger); } catch (e) { console.warn('tagBridgeOverPendingImplants:', e); }
+      }
       if ((_sp.altBridge || _sp.altImplant) && typeof planTagAltBridge === 'function') {
         try {
           var _au = _sp.altBridge ? bridgeUnitForLedger : _sp.altUnit;
@@ -6421,7 +7389,9 @@ async function _saveToothTreatment_inner() {
   else if (isRootCode(currentSurface)) areaLabelToast = rootAreaLabelFor(currentSurface, currentTooth);
   else areaLabelToast = 'السطح ' + surfLabelFor(currentSurface, currentTooth);
   var _altTagged = (_sp.altBridge || _sp.altImplant) && newSess && typeof planOptOf === 'function' && planOptOf(newSess);
-  if (_altTagged) showToast('🔀 أُضيف «' + pendingToothLabel + '» كـ«الخيار ' + PLAN_OPTION_LABELS[_altTagged] + '» — '
+  if (_sp.overImplantOpt) showToast('🔀 أُضيف «' + pendingToothLabel + '» كـ«الخيار ' + PLAN_OPTION_LABELS[_sp.overImplantOpt] + '» — بديلٌ للزرعة المخطّطة (الجسر مرسوم، والزرعة خيارٌ بتلميح السن)');
+  else if (_sp.implantPending) showToast('🔩 أُضيفت ' + pendingToothLabel + ' للسن ' + currentTooth + ' كعلاجٍ مخطّط — المخطط يبقى بالقلع المخطّط، وتُرسم الزرعة عند إنجاز القلع');
+  else if (_altTagged) showToast('🔀 أُضيف «' + pendingToothLabel + '» كـ«الخيار ' + PLAN_OPTION_LABELS[_altTagged] + '» — '
       + (_sp.altBridge ? 'بديلٌ للجسر ' + (bridgeUnitForLedger || []).join('، ') : 'زرعةٌ بديلة للجسر مكان السن ' + currentTooth));   /* M145-h */
   else showToast('✅ تمت إضافة ' + pendingToothLabel + ' للسن ' + currentTooth + ' (' + areaLabelToast + ')');
   // P3-B: الخصم التلقائي للمواد (مسار مخطّط الأسنان) — معزول داخل try/catch.
@@ -6434,10 +7404,24 @@ async function _saveToothTreatment_inner() {
       await maybePromptMaterialDeduction(pendingToothStatus, pendingToothLabel, 1, newSess ? [newSess.id] : []);   /* M169 */
     }
   } catch (e) { console.warn('material deduction skipped (tooth):', e); }
+  /* v637: جلسةُ «أشعة» منجزةٌ على سن ⇒ عرضُ إرفاق صورتها مربوطةً بالسن والجلسة (حوارٌ اختياري — ورقةُ الرفع بمنتقيها). */
+  try {
+    var _xt = getTreatment(pendingToothStatus);
+    if (pendingTreatStatus === 'completed' && newSess && _xt && (_xt.id === 'xray' || /أشعة/.test(_xt.name || '')) && typeof xrAttachForSession === 'function') {
+      await xrAttachForSession(currentTooth, newSess.id);
+    }
+  } catch (e) { console.warn('xray attach offer skipped:', e); }
 }
 
 var clearToothStatus = ppGuarded('clearToothStatus', _clearToothStatus_inner, '⏳');   /* v284: قفل + انشغال */
 async function _clearToothStatus_inner() {
+  /* v580: على السن الزائد لا «سليم» يطال السن المجاور — قلعٌ مخطّط يُلغى بمساره، وحالةٌ تُزال بمسارها */
+  if (isSxSurface(currentSurface)) {
+    var _sxK = (teethMap[String(currentTooth)] || {})[currentSurface];
+    if (_sxK && isExtractionKey(_sxK)) return sxCancelExtraction(currentTooth, sxSideOf(currentSurface));
+    if (_sxK && isConditionKey(_sxK)) return removeCondition(currentTooth, currentSurface);
+    closeModal('toothModal'); return;
+  }
   var _wErr = false;   /* v285: كانت تُظهر توست نجاح حتى مع فشل كتابة (console فقط) */
   // Determine what surfaces to clear.
   // Logic:
@@ -6526,6 +7510,12 @@ async function _clearToothStatus_inner() {
     return { sf: sk, key: sm[sk], st: (sm.__status && sm.__status[sk]) || 'completed' };
   }));
   var _clrNote = removalSessionsNote(_plSess.length, _doneSess.length);
+  /* v605: إزالةُ علاجٍ يحمل تشخيصاً (لا تنظيفُ السن كله) ⇒ يعود التشخيص بدل «سليم» — Dentrix: حذفُ الإجراء يُبقي الحالة */
+  var _dxBack = {}, _dxBackNames = [];
+  /* المعيارُ ما نُقر لا العدد: نقرةُ السطح المعالَج ⇒ يعود تشخيصُه (حتى لو كان العلاجَ الوحيد على السن)؛
+     نقرةُ سطحٍ فارغ ⇒ «اجعل السن سليماً» فلا استعادة */
+  if (!!sm[currentSurface]) surfacesToClear.forEach(function(sk){ var _pp = dxOf(currentTooth, sk); if (_pp.length) { _dxBack[sk] = _pp; _dxBackNames.push(dxNames(currentTooth, sk, _pp)); } });
+  if (_dxBackNames.length) _clrNote += '\n\n↩︎ يعود التشخيص على السطح: ' + _dxBackNames.join(' · ');
   if (!await SyDialog.confirm({ message: 'هل تريد إزالة العلاج من ' + areaLabel + ' للسن ' + currentTooth + '؟' + _clrNote, danger: true })) return;
 
   // Delete each surface from DB + memory
@@ -6552,6 +7542,9 @@ async function _clearToothStatus_inner() {
     }
     if (remaining.length === 0) delete teethMap[String(currentTooth)];
   }
+  for (var _dcs = 0; _dcs < surfacesToClear.length; _dcs++) if (!_dxBack[surfacesToClear[_dcs]]) dxSet(currentTooth, surfacesToClear[_dcs], null);   /* v605: لا بقايا */
+  if (!_wErr) { for (var _dbk in _dxBack) await dxRestoreAfterRemoval(currentTooth, _dbk, _dxBack[_dbk]); }   /* v605 */
+  else { for (var _dbk2 in _dxBack) dxSet(currentTooth, _dbk2, null); }
   renderTeeth();
   closeModal('toothModal');
   if (_wErr) { showToast('⚠️ تمّ جزئياً — بعض الخطوات لم تُحفظ، تحقّق من الاتصال وأعد المحاولة'); return; }
@@ -6559,9 +7552,10 @@ async function _clearToothStatus_inner() {
   var _fu = await followUpRemovedSessions(_plSess, _doneSess, 'أُزيل الرسم. هل تريد حذف '
     + (_plSess.length === 1 ? 'العلاج المخطّط' : 'العلاجات المخطّطة (' + _plSess.length + ')') + ' من السجل أيضاً؟');
   if (_fu.warn) { showToast(removalToast('', 'أُزيل الرسم', _fu)); return; }
+  var _clrState = _dxBackNames.length ? ' عاد إلى التشخيص (' + _dxBackNames.join(' · ') + ')' : ' أصبح سليماً';   /* v605 */
   showToast(_fu.parts.length
-    ? '✅ ' + areaLabel + ' للسن ' + _clrTooth + ' أصبح سليماً — ' + _fu.parts.join(' · ')
-    : '🔄 ' + areaLabel + ' للسن ' + _clrTooth + ' أصبح سليماً');
+    ? '✅ ' + areaLabel + ' للسن ' + _clrTooth + _clrState + ' — ' + _fu.parts.join(' · ')
+    : '🔄 ' + areaLabel + ' للسن ' + _clrTooth + _clrState);
 }
 
 /* v478: العلاجاتُ المخطّطة على سنٍّ واحد (لا جلسات الوحدات: جسر/حافظ/وهمي — لها مسارها M145-l).
