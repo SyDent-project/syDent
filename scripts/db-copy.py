@@ -20,6 +20,8 @@ consistent clinic. Upsert, never delete: each row is UPDATEd on its primary key 
 so a re-run is safe. Sequences are moved past the copied ids at the end.
 
 An account whose email already exists in the target under another id is skipped (reported, not written).
+A row that breaks a CHECK rule added after it was written (e.g. an old cancelled request) is left out and
+counted; any other error stops the copy.
 """
 import json, os, sys, urllib.request, urllib.error
 
@@ -31,6 +33,8 @@ RENAME = {'public.inventory_batches': {'lot_no': 'lot'}}
 CHUNK_BYTES = 700000
 
 UPSERT = r'''
+CREATE TEMP TABLE IF NOT EXISTS _dbcopy_skip (t text, err text);
+TRUNCATE pg_temp._dbcopy_skip;
 DO $do$
 DECLARE d jsonb := $json$__DATA__$json$::jsonb; t text := d->>'table'; r jsonb; ins_cols text; upd_cols text;
         keys text[]; cond text; n int; ins int := 0; upd int := 0;
@@ -56,11 +60,16 @@ BEGIN
       GET DIAGNOSTICS n = ROW_COUNT;
     END IF;
     IF n = 0 THEN
-      EXECUTE format('INSERT INTO %s (%s) OVERRIDING SYSTEM VALUE SELECT %s FROM jsonb_populate_record(NULL::%s, $1)', t, ins_cols, ins_cols, t) USING r;
-      ins := ins + 1;
+      BEGIN
+        EXECUTE format('INSERT INTO %s (%s) OVERRIDING SYSTEM VALUE SELECT %s FROM jsonb_populate_record(NULL::%s, $1)', t, ins_cols, ins_cols, t) USING r;
+        ins := ins + 1;
+      EXCEPTION WHEN check_violation THEN   -- an old row that predates a stricter rule: left out and counted
+        INSERT INTO pg_temp._dbcopy_skip VALUES (t, SQLERRM);
+      END;
     ELSE upd := upd + 1; END IF;
   END LOOP;
 END $do$;
+SELECT count(*)::int AS skipped, string_agg(DISTINCT err, ' | ') AS why FROM pg_temp._dbcopy_skip;
 '''
 
 # Every serial / identity column of the given tables moves past its highest copied value.
@@ -241,9 +250,11 @@ def main(argv):
                 payload = json.dumps({'table': t, 'rows': chunk}, ensure_ascii=False)
                 if '$json$' in payload: print('⛔ %s: data contains the quoting tag' % t); return 1
                 try:
-                    api(dst, token, UPSERT.replace('__DATA__', payload))
+                    res = one(api(dst, token, UPSERT.replace('__DATA__', payload)))
                 except Exception as e:
                     print('⛔ %s failed: %s' % (t, e)); return 1
+                if res.get('skipped'):
+                    print('⏭️  %s: %d old row(s) left out — %s' % (t, res['skipped'], (res.get('why') or '')[:200]))
                 chunk, size = [], 0
             if r is not None: chunk.append(r); size += len(s)
         print('✓ %s' % t)
