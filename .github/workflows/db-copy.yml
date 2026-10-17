@@ -1,10 +1,11 @@
 # ════════════════════════════════════════════════════════════════════════
 # SyDent — db-copy.yml · نقل حسابات عيادات من مشروع Supabase لمشروع تاني
 # ════════════════════════════════════════════════════════════════════════
-# scripts/db-copy.py: auth users (with their password hashes, so people keep
-# their email and password) and their clinic rows, source → target, through
-# the Management API. Upsert only, never deletes; safe to re-run. The rows
-# stay inside the runner — the log shows table names and row counts only.
+# scripts/db-copy.py: chosen auth users (with their password hashes, so people
+# keep their email and password) and every clinic row they own, source → target,
+# through the Management API. Run with list first to pick the accounts.
+# Upsert only, never deletes; safe to re-run. The rows stay inside the runner —
+# the log shows table names, row counts and masked emails only.
 #
 # Manual only. The confirm input must repeat the target ref.
 # Secret: SUPABASE_ACCESS_TOKEN with database access to BOTH projects.
@@ -25,8 +26,16 @@ on:
       confirm:
         description: 'Type the target ref again to confirm'
         required: true
+      list:
+        description: 'Only list the source accounts (masked emails, counts) — writes nothing'
+        type: boolean
+        default: false
+      ids:
+        description: 'Accounts to copy: uuids from the list, comma separated'
+        required: false
+        default: ''
       emails:
-        description: 'Only these accounts (comma separated) — empty = every account'
+        description: 'Or the accounts by email (comma separated)'
         required: false
         default: ''
       dry_run:
@@ -61,10 +70,14 @@ jobs:
           FROM: ${{ inputs.from_ref }}
           TO: ${{ inputs.to_ref }}
           EMAILS: ${{ inputs.emails }}
+          IDS: ${{ inputs.ids }}
+          LIST: ${{ inputs.list }}
           DRY: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
+          if [ "$LIST" = "true" ]; then python3 scripts/db-copy.py --from "$FROM" --to "$TO" --list; exit 0; fi
           extra=""
-          if [ -n "$EMAILS" ]; then extra="--emails $EMAILS"; fi
+          if [ -n "$IDS" ]; then extra="--ids $IDS"; fi
+          if [ -n "$EMAILS" ]; then extra="$extra --emails $EMAILS"; fi
           if [ "$DRY" = "true" ]; then extra="$extra --dry-run"; fi
           python3 scripts/db-copy.py --from "$FROM" --to "$TO" $extra
