@@ -4353,7 +4353,7 @@ async function _altChartToImplants(ctx, imps) {
   for (var i = 0; i < imps.length; i++) {
     var x = imps[i], tn = String(parseInt(x.tooth_num, 10)), key = sessionTreatmentKey(x);
     /* v600: قلعُ هذا الموقع ما زال مخطّطاً ⇒ الزرعةُ المخطّطة تبقى جلسةَ خطة (لا مسحَ لصفّ القلع ولا لعلاجات السن) */
-    
+    if (x.status !== 'completed' && isExtractionPlanned(tn)) continue;
     var w = await window.sb.from('teeth_status').delete()
       .eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', tn);
     if (w.error) { console.warn('_altChartToImplants: pre-wipe:', w.error); continue; }
