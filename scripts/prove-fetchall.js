@@ -24,7 +24,7 @@ const ALLOW = [
   ['index.html', 'appointments', 'eq:doctor_id eq:date', 'يومٌ واحد'], ['index.html', 'ledger_payments', 'eq:doctor_id eq:date', 'يومٌ واحد'],
   ['index.html', 'appointments', 'eq:doctor_id eq:date not:arrived_at', 'يومٌ واحد'],
   ['patient-profile.html', 'appointments', '', 'مريضٌ واحد (eq patient_id بعد تعليق)'], ['patient-profile.html', 'appointments', 'eq:doctor_id eq:provider_id eq:date neq:id not:status', 'يومٌ واحد'],
-  ['patients.html', 'patient_recalls', 'eq:owner_id gte:recalled_at', '120 يوماً من الاستدعاءات'], ['patients.html', 'payment_plans', 'eq:doctor_id eq:status', 'الخطط النشطة'],
+  ['patients.html', 'payment_plans', 'eq:doctor_id eq:status', 'الخطط النشطة'],
   ['pp-timeline.js', 'appointments', '', 'مريضٌ واحد (eq patient_id بعد تعليق)'], ['pt-reliability.js', 'appointments', 'eq:doctor_id gte:date lte:date', 'داخل بنّاءٍ يمرّ بـfetchAll'],
   ['sidebar.js', 'appointments', 'eq:doctor_id eq:date', 'يومٌ واحد']
 ];
@@ -47,7 +47,7 @@ function scan(F) {
 }
 async function suite(F) {
   const I = F['supabase-init.js'];
-  const a = I.indexOf('  window.SyDentFetchAll = async function (build) {'), b = I.indexOf('\n  };\n', a);
+  const a = I.indexOf('  window.SyDentFetchAll = async function (build, orderKeys) {'), b = I.indexOf('\n  };\n', a);
   ok(a > -1, 'shared fetcher exported from supabase-init.js');
   const c = { Promise, window: {} }; vm.createContext(c);
   vm.runInContext('var window = this.window;\n' + I.slice(a, b + 5), c);
@@ -83,7 +83,7 @@ const base = {}; FILES.forEach(f => { base[f] = read(f); });
 const rep = (f, x, y) => F => Object.assign({}, F, { [f]: F[f].replace(x, y) });
 const MUTANTS = [
   ['fetcher stops after one page', rep('supabase-init.js', "      if (rows.length < PAGE) break;\n      off += PAGE;\n    }\n    return { data: out, error: null };", "      break;\n    }\n    return { data: out, error: null };")],
-  ['fetcher reuses one builder', rep('supabase-init.js', "    var PAGE = 1000, out = [], off = 0;\n    for (;;) {\n      var res = await build().order('id')", "    var PAGE = 1000, out = [], off = 0, qb = build();\n    for (;;) {\n      var res = await qb.order('id')")],
+  ['fetcher reuses one builder', rep('supabase-init.js', "    for (;;) {\n      var q = build();\n      for (var ki = 0; ki < keys.length; ki++) q = q.order(keys[ki]);", "    var q = build();\n    for (;;) {\n      for (var ki = 0; ki < keys.length; ki++) q = q.order(keys[ki]);")],
   ['patients list unpaged again', F => Object.assign({}, F, { 'patients.html': F['patients.html'].replace(/await window\.SyDentFetchAll\(function\(\)\{ return (window\.sb\s*\.from\('patients'\)\s*\.select\('\*'\)[\s\S]*?\.order\('created_at', \{ ascending: true \}\)); \}\)/, 'await $1') })],
   ['a new unpaged bulk read', rep('expenses.html', "async function loadExpenses() {", "async function loadExpenses() {\n  var _x = await window.sb.from('expenses').select('id').eq('owner_id', currentUser.id);")]
 ];

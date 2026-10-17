@@ -21,7 +21,7 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261002d"></script>
+<script src="theme.js?v=20261016a"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -477,13 +477,13 @@ textarea { resize: vertical; min-height: 80px; }
 }
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261002d">
+<link rel="stylesheet" href="theme.css?v=20261016a">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261002d"></script>
-<script src="sy-modal.js?v=20261002d"></script>
-<script src="pt-reliability.js?v=20261002d"></script>
-<script src="sidebar.js?v=20261002d"></script>
-<script src="ref-pick.js?v=20261002d"></script>
+<script src="supabase-init.js?v=20261016a"></script>
+<script src="sy-modal.js?v=20261016a"></script>
+<script src="pt-reliability.js?v=20261016a"></script>
+<script src="sidebar.js?v=20261016a"></script>
+<script src="ref-pick.js?v=20261016a"></script>
 </head>
 <body>
 <script>
@@ -572,6 +572,7 @@ textarea { resize: vertical; min-height: 80px; }
       <button class="filter-btn" onclick="setFilter('active', this)">تحت العلاج <span class="filter-n" data-filter-n="active"></span></button>
       <button class="filter-btn" onclick="setFilter('pending', this)">متبقي دفع <span class="filter-n" data-filter-n="pending"></span></button>
       <button class="filter-btn" onclick="setFilter('new', this)">جدد (هذا الشهر) <span class="filter-n" data-filter-n="new"></span></button>
+      <button class="filter-btn" onclick="setFilter('intake', this)">📝 استمارات <span class="filter-n" data-filter-n="intake"></span></button>   <!-- M178: استماراتٌ وصلت ولم تُراجَع -->
     </div>
 
     <!-- Table -->
@@ -814,7 +815,15 @@ const MEDICAL_FLAGS_DEFS = [
   { key:'cardiac',            label:'أمراض قلب' },
   { key:'anticoagulants',     label:'مميعات دم' },
   { key:'pregnancy',          label:'حمل / إرضاع' },
-  { key:'asthma',             label:'ربو' }
+  { key:'asthma',             label:'ربو' },
+  /* v621: the seven conditions the patient intake asks about (intake.html INTAKE_EXTRA_DEFS — same keys, same labels · prove-intake) */
+  { key:'bisphosphonates',    label:'أدوية هشاشة العظام (بيسفوسفونات)' },
+  { key:'bleeding',           label:'نزيف يصعب إيقافه' },
+  { key:'infectious',         label:'مرض معدٍ (التهاب كبد وغيره)' },
+  { key:'epilepsy',           label:'صرع' },
+  { key:'thyroid',            label:'غدة درقية' },
+  { key:'kidney_liver',       label:'أمراض كلى / كبد' },
+  { key:'smoker',             label:'مدخّن' }
 ];
 /* فصل التحذيرات عن الحساسيات (قرار المالك 19/07/2026): مفتاحا الحساسية يبقيان
    مخزَّنين داخل medical_flags نفسها (صفر ترحيل بيانات) لكن يُعرَضان تحت الحساسيات. */
@@ -1208,7 +1217,8 @@ function getFiltered() {
       filter === 'all'     ? true :
       filter === 'active'  ? p.status === 'تحت العلاج' :
       filter === 'pending' ? payInfo(p).key === 'due' :
-      filter === 'new'     ? isThisMonth(p.created_at) : true;
+      filter === 'new'     ? isThisMonth(p.created_at) :
+      filter === 'intake'  ? !!prmIntake[p.id] : true;   /* M178 */
     return matchQ && matchF;
   });
 }
@@ -1277,6 +1287,8 @@ function render() {
       const relBadge = (window.SyDentReliability && prmReliab[p.id]) ? window.SyDentReliability.badgeHtml(prmReliab[p.id], true) : '';   /* v497 */
       /* M148: الأعلام الإدارية الملوّنة تحت الاسم — التسمية تُهرَّب داخل SyDentFlags.chipsHtml والنغمة من قائمة مغلقة */
       const ptFlags = (window.SyDentFlags && PATIENT_FLAG_DEFS) ? window.SyDentFlags.chipsHtml(p.flags, PATIENT_FLAG_DEFS) : '';
+      /* M178: استمارةٌ وصلت ولم تُراجَع — شارةٌ ثابتةُ النص (لا نصَّ من المستخدم) تحت الاسم */
+      const intakeChip = prmIntake[p.id] ? '<span class="pt-flag cbadge tone tone-cyan prm-intake-chip" title="وصلت ' + prmEsc(prmIntakeWhen(prmIntake[p.id])) + ' — افتح البطاقة لمراجعتها واعتمادها">📝 استمارة بانتظار المراجعة</span>' : '';
       return `
       <tr class="${rowCls}" onclick="openProfile('${p.id}')" onkeydown="if(event.key==='Enter'&&event.target===this)openProfile('${p.id}')" tabindex="0" style="cursor:pointer;" data-test="patient-row" data-patient-id="${p.id}">
         <td>
@@ -1285,7 +1297,7 @@ function render() {
             <div>
               <div class="patient-name">${prmEsc(p.name)}${flagBadge}${relBadge/* xss-ok: SyDentReliability.badgeHtml أرقامٌ وعنوانٌ مهرَّب */}</div>
               <div class="patient-id" data-test="patient-local-id">${prmEsc(p.local_id || '')}</div>
-              ${ptFlags ? '<div class="pt-flags-row">' + ptFlags + '</div>' : ''/* xss-ok: ناتج SyDentFlags.chipsHtml — التسمية مُهرَّبة بالمصدر والنغمة من قائمة مغلقة */}
+              ${(ptFlags || intakeChip) ? '<div class="pt-flags-row">' + intakeChip + ptFlags + '</div>' : ''/* xss-ok: ناتج SyDentFlags.chipsHtml — التسمية مُهرَّبة بالمصدر والنغمة من قائمة مغلقة · شارةُ الاستمارة نصٌّ ثابت وتاريخٌ مُهرَّب */}
             </div>
           </div>
         </td>
@@ -1383,11 +1395,12 @@ function updateFilterCounts() {
   var base = patients.filter(function(p){
     return !q || p.name.toLowerCase().includes(q) || (p.phone || '').includes(q) || (p.local_id || '').toLowerCase().includes(q);
   });
-  var n = { all: base.length, active: 0, pending: 0, 'new': 0 };
+  var n = { all: base.length, active: 0, pending: 0, 'new': 0, intake: 0 };
   base.forEach(function(p){
     if (p.status === 'تحت العلاج') n.active++;
     if (payInfo(p).key === 'due') n.pending++;
     if (isThisMonth(p.created_at)) n['new']++;
+    if (prmIntake[p.id]) n.intake++;   /* M178 */
   });
   document.querySelectorAll('.filter-n[data-filter-n]').forEach(function(el){
     var k = el.getAttribute('data-filter-n');
@@ -1675,6 +1688,19 @@ async function deletePatient(id) {
   var rowEl = document.querySelector('tr[data-patient-id="' + id + '"]');
   if (rowEl) rowEl.classList.add('row-busy');
   document.querySelectorAll('body > .dots-menu.open').forEach(function(m){ m.classList.remove('open'); });
+  /* M192 (v635): ملفاتُ المريض بالتخزين تُمسح أولاً — الصفوفُ تذهب بـCASCADE، والملفُّ الباقي يتيمٌ يستهلك حصّة
+     العيادة ولا يظهر بأي مكان. ما يعيش خارج القاعدة يُمسح أولاً وفشلُه يُجهض الحذف (لا مريضَ محذوفٌ فوق ملفاتٍ باقية). */
+  var _pf = null;
+  if (window.SyDentFiles && typeof window.SyDentFiles.purgePatient === 'function') {
+    _pf = await window.SyDentFiles.purgePatient(id);
+    if (!_pf.ok) {
+      delete _deletingIds[id];
+      if (rowEl) rowEl.classList.remove('row-busy');
+      showToast('❌ تعذّر حذف ملفات المريض (الأشعة والمستندات) — لم يُحذف المريض. تحقّق من الاتصال وحاول مجدداً', true);
+      console.error('purgePatient', _pf);
+      return;
+    }
+  }
   const { error } = await window.sb
     .from('patients')
     .delete()
@@ -1683,7 +1709,8 @@ async function deletePatient(id) {
   if (error) {
     delete _deletingIds[id];
     if (rowEl) rowEl.classList.remove('row-busy');
-    showToast('❌ خطأ في الحذف');
+    /* v638: الملفاتُ مُسحت لكن حذفَ المريض فشل (اتصال) — قلها صراحةً؛ إعادةُ المحاولة تُكمل (المجلدُ فارغ فيمرّ الحذف). */
+    showToast((_pf && _pf.removed) ? '⚠️ حُذفت ملفات المريض (' + _pf.removed + ') ولم يُحذف المريض نفسه — تحقّق من الاتصال وأعد الحذف لإكماله' : '❌ خطأ في الحذف', true);
     return;
   }
   delete _deletingIds[id];
@@ -2206,9 +2233,13 @@ async function runPatientImport(){
   const { data } = await window.sb.auth.getUser();
   if (!data || !data.user) { window.location.href = 'auth.html'; return; }
   currentUser = data.user;
+  if (window.SyLive) window.SyLive.watch({ name: 'patients', uid: currentUser.id,
+    tables: ['patients', 'appointments', 'ledger_sessions', 'ledger_payments', 'payment_splits', 'account_adjustments', 'patient_intakes'],
+    refresh: async function () { try { await loadPrmIntake(); } catch (e) {} return loadPatients(); } });   /* v623 SyLive: لحظيّ بلا تحديث (M185) */
   /* DeepCode #1 (v557): بياناتُ المتابعة (PRM) ومؤشّرُ الالتزام مستقلّان عن القائمة ولا يرسمها أيٌّ منهما —
      يُطلقان معها، ويُطبَّقان بالترتيب نفسه بعدها (المتابعة ثم الالتزام ثم إعادةُ الرسم إن وُجد ما يُعرض). */
   const _prmP = (async function () { try { await loadPrmMeta(); } catch(e) { /* PRM is non-critical */ } })();
+  const _ikP = loadPrmIntake();   /* M178: مع الدفعة — لا جولةَ إضافية */
   const _relP = _ptSettle(window.SyDentReliability ? window.SyDentReliability.load(currentUser.id) : null);
   await loadPatients();
   await _prmP;
@@ -2219,6 +2250,7 @@ async function runPatientImport(){
       if (Object.keys(prmReliab).length) render();
     }
   } catch (eRel) { prmReliab = {}; }
+  try { prmIntake = await _ikP; if (Object.keys(prmIntake).length) { updateFilterCounts(); render(); } } catch (eIk) { prmIntake = {}; }   /* M178 */
   // Apply URL filter param (deep-link from dashboard, e.g. ?filter=pending)
   applyUrlFilter();
   applyUrlQuery();
@@ -2226,13 +2258,13 @@ async function runPatientImport(){
 })();
 
 // Reads ?filter=<key> from the URL and activates the matching filter button.
-// Allowed keys mirror setFilter(): all, active, pending, new.
+// Allowed keys mirror setFilter(): all, active, pending, new, intake.
 function applyUrlFilter() {
   try {
     var params = new URLSearchParams(window.location.search || '');
     var f = (params.get('filter') || '').toLowerCase();
     if (!f) return;
-    var allowed = { all: 1, active: 1, pending: 1, 'new': 1 };
+    var allowed = { all: 1, active: 1, pending: 1, 'new': 1, intake: 1 };   /* M178: من شارة «المرضى» بالقائمة الجانبية */
     if (!allowed[f]) return;
     var btn = document.querySelector('.filter-btn[onclick*="\'' + f + '\'"]');
     if (btn) setFilter(f, btn);
@@ -2322,6 +2354,28 @@ var DEFAULT_RECALL_TPL = 'مرحباً {patient_first_name}،\nنذكّرك بم
 var DEFAULT_BDAY_TPL   = 'كل عام وأنت بخير {patient_first_name}! 🎉\nعائلة {clinic_name} تتمنى لك عيد ميلاد سعيداً وابتسامة مشرقة دائماً. 🎂🦷';
 var prmRecentRecalls  = {};    // patient_id → آخر recalled_at (ms)
 var prmReliab = {};   /* v497: مؤشّر التزام المريض — patient_id ⇒ stats (pt-reliability.js) */
+var prmIntake = {};   /* M178: استماراتٌ وصلت ولم تُراجَع — patient_id ⇒ submitted_at (قراءةٌ واحدة مع الدفعة؛ الجدول غائبٌ قبل M177 ⇒ {}) */
+async function loadPrmIntake() {
+  try {
+    var r = await window.sb.from('patient_intakes').select('patient_id, submitted_at').eq('owner_id', currentUser.id).eq('status', 'submitted').limit(500);
+    var m = {};
+    if (!r.error) (r.data || []).forEach(function (x) { m[x.patient_id] = x.submitted_at; });
+    return m;
+  } catch (e) { return {}; }
+}
+function prmIntakeWhen(iso) {
+  var t = new Date(iso || 0);
+  if (isNaN(t.getTime())) return '';
+  return formatDate(iso) + ' ' + (t.getHours() < 10 ? '0' : '') + t.getHours() + ':' + (t.getMinutes() < 10 ? '0' : '') + t.getMinutes();
+}
+/* M178: وصولُ استمارةٍ لحظياً (بثُّ sidebar.js) ⇒ الشارةُ والعدّادُ يتحدّثان بلا تحديث */
+window.onSyDentIntake = function (row) {
+  try {
+    if (!row || !row.patient_id) return;
+    prmIntake[row.patient_id] = row.submitted_at || new Date().toISOString();
+    updateFilterCounts(); render();
+  } catch (e) {}
+};
 var prmUpcomingApptPatients = {};  // patient_id → true (عنده موعد قادم محجوز → يُستثنى من الاستدعاء)
 var prmActiveTab      = 'recall';
 
@@ -2342,7 +2396,7 @@ function prmNormalizePhone(raw){
   // guess the country → return null; callers show the "add country code" hint instead
   // of silently messaging a wrong Syrian number.
   if (!raw) return null;
-  var p = String(raw).replace(/\D/g, '');
+  var p = String(raw).replace(/[\u0660-\u0669]/g, function(d){ return String(d.charCodeAt(0) - 0x0660); }).replace(/[\u06F0-\u06F9]/g, function(d){ return String(d.charCodeAt(0) - 0x06F0); }).replace(/\D/g, '');   // v622: Arabic-Indic (٠-٩) and Persian (۰-۹) digits — an Arabic keyboard's default
   if (!p) return null;
   if (p.indexOf('00') === 0) p = p.substring(2);
   if (p.indexOf('0') === 0) {
@@ -2401,10 +2455,12 @@ async function loadPrmMeta(){
     (async function(){
   // 2) سجل الاستدعاءات الأخيرة (للتهدئة) — آخر ~120 يوم
   try {
-    var since = new Date(Date.now() - 120*86400000).toISOString();
-    var rr = await window.sb.from('patient_recalls')
+    /* v591: النافذة = مدّة التهدئة (+يوم) لا 120 يوماً — الأبعدُ لا يُقرأ أصلاً؛ ومصفّحة:
+       قراءةٌ بلا تصفيح تُقصّ عند 1000 صفٍّ بلا ترتيب ⇒ تهدئةٌ تضيع عشوائياً ⇒ استدعاءٌ مكرّر للمريض نفسه. */
+    var since = new Date(Date.now() - ((PRM_COOLDOWN_DAYS || 30) + 1) * 86400000).toISOString();
+    var rr = await window.SyDentFetchAll(function(){ return window.sb.from('patient_recalls')
       .select('patient_id, recalled_at').eq('owner_id', currentUser.id)
-      .gte('recalled_at', since);
+      .gte('recalled_at', since); });
     prmRecentRecalls = {};
     if (rr && !rr.error && rr.data) rr.data.forEach(function(r){
       var t = new Date(r.recalled_at).getTime();
@@ -2417,13 +2473,16 @@ async function loadPrmMeta(){
   try {
     var todayStr = prmYmdLocal();
     var ap = await window.SyDentFetchAll(function(){ return window.sb.from('appointments')
-      .select('patient_id')
+      .select('patient_id, date')
       .eq('doctor_id', currentUser.id)
       .gte('date', todayStr)
       .not('status', 'in', '(cancelled,broken,no_show,completed)'); });
     prmUpcomingApptPatients = {};
     if (ap && !ap.error && ap.data) ap.data.forEach(function(r){
-      if (r.patient_id) prmUpcomingApptPatients[r.patient_id] = true;
+      if (!r.patient_id) return;
+      /* v590: القيمةُ أقربُ موعدٍ قادم (نصّ yyyy-mm-dd، صادقٌ منطقياً كالسابق) — تُعرض على صفوف المراقبة */
+      var d = String(r.date || '').slice(0, 10) || '9999-99-99', cur = prmUpcomingApptPatients[r.patient_id];
+      if (!cur || d < cur) prmUpcomingApptPatients[r.patient_id] = d;
     });
   } catch (e) { /* graceful */ }
   /* v504 — قائمة «غابوا»: آخرُ موعدٍ منتهٍ للمريض خلال PRM_NOSHOW_DAYS كان غياباً (no_show/broken)
@@ -2443,11 +2502,16 @@ async function loadPrmMeta(){
   //    للاستدعاء الفعلي، وقادمة/بلا موعد (A2) للعرض المعلوماتي. graceful قبل M74.
   try {
     var _wToday = prmYmdLocal();
+    //    v590: teeth_status بلا عمود id (مفتاحٌ مركّب) ⇒ أعمدةُ الترتيب تُمرَّر صراحةً، وإلا 42703 صامت وصفرُ مراقبات.
     var tw = await window.SyDentFetchAll(function(){ return window.sb.from('teeth_status')
       .select('patient_id, tooth_num, surface, treatment_key, review_at')
       .eq('doctor_id', currentUser.id)
-      .eq('status', 'condition'); });
+      .eq('status', 'condition'); }, ['patient_id', 'tooth_num', 'surface']);
     var _wRows = (tw && !tw.error && tw.data) ? tw.data : [];
+    if (tw && tw.error) console.warn('prm: تعذّر جلب المراقبات —', tw.error.message || tw.error);
+    //    v590: الحالاتُ السريرية (COND · السنُّ الزائد SXM/SXD) توثيقٌ دائم لا مراقبةٌ بموعد (v430/v580) —
+    //    بانرُ بطاقة المريض يستثنيها أصلاً؛ هنا كانت ستظهر «بلا موعد» على كل مريضٍ موسومٍ بحالة.
+    _wRows = _wRows.filter(function(r){ return !prmIsClinicalCondSurface(r.surface); });
     // A5: حافة القلع — سن وُسم للمراقبة ثم قُلع يجب ألّا يُستدعى (تكافؤ مع تخطّي
     // isExtracted ببانر ملف المريض). جلب كسول: فقط عند وجود مراقبات، ومقصور على
     // مرضاها. أي فشل ⇒ تدهور رشيق لعدم الفلترة (سلوك ما قبل A5).
@@ -2525,6 +2589,11 @@ async function loadPrmMeta(){
 
 // A5: فلترة صفوف المراقبة لأسنان قُلعت لاحقاً — نقية وقابلة للاختبار بمعزل.
 // exMap = { patient_id: { tooth_num: 1 } } أو null (⇒ بلا فلترة، تدهور رشيق).
+// ── MIRROR (دلالياً) ── COND_SURFACE + SX بـpp-dental.js: الأسطحُ المحجوزة للحالات السريرية لا للمراقبة
+function prmIsClinicalCondSurface(surface) {
+  var s = String(surface || '');
+  return s === 'COND' || s === 'SXM' || s === 'SXD';
+}
 function prmFilterExtractedWatches(rows, exMap) {
   if (!exMap) return rows || [];
   return (rows || []).filter(function(r){
@@ -2539,9 +2608,13 @@ function prmYmdLocal(d){
   d = d || new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
-function prmThresholdDate(){
-  var d = new Date(); d.setHours(0,0,0,0);
-  d.setMonth(d.getMonth() - (PRM_RECALL_MONTHS || 6));
+function prmThresholdDate(today){
+  var d = today ? new Date(today.getTime()) : new Date(); d.setHours(0,0,0,0);
+  /* v591: طرحُ الأشهر بتثبيت اليوم — setMonth وحده يفيض (31 ت١ − شهر = 1 ت١ لا 30 أيلول) فيُستدعى من زار قبل أيام */
+  var day = d.getDate();
+  d.setDate(1); d.setMonth(d.getMonth() - (PRM_RECALL_MONTHS || 6));
+  var last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, last));
   return prmYmdLocal(d);
 }
 
@@ -2552,7 +2625,8 @@ function prmApptExcludedCount(){
   Object.keys(prmUpcomingApptPatients || {}).forEach(function(pid){
     if (!_prmFind(pid)) return;
     var lv = lastVisitMap[pid];
-    if ((lv && String(lv) <= th) || (prmDueWatches || {})[pid] || (prmSoonWatches || {})[pid]) n++;
+    /* v590: المراقباتُ لم تعد تُحجب بالموعد — المحجوبُ هو الاستدعاءُ الدوري وحده */
+    if (lv && String(lv) <= th && !(prmDueWatches || {})[pid] && !(prmSoonWatches || {})[pid]) n++;
   });
   return n;
 }
@@ -2654,8 +2728,9 @@ function prmRecallList(){
     for (var i = 0; i < out.length; i++) { if (out[i].p.id === pid) { existing = out[i]; break; } }
     if (existing) { existing.watch = wsD; return; }
     var p = _prmFind(pid); if (!p) return;
-    if (prmUpcomingApptPatients[pid]) return;
-    out.push({ p: p, lastVisit: lastVisitMap[pid] || '', watch: wsD });
+    /* v590 (قرار المالك): صاحبُ المراقبة يظهر ولو حجز موعداً — يُعلَن موعدُه بدل إخفائه؛
+       الموعدُ يستثني الاستدعاءَ الدوري (زيارةٌ متأخرة) وحده. */
+    out.push({ p: p, lastVisit: lastVisitMap[pid] || '', watch: wsD, appt: prmUpcomingApptPatients[pid] || null });
   });
   // A2: دمج أصحاب المراقبات القادمة/بلا موعد — صفوف كاملة بنفس الأساس (واتساب/نسخ/تم)
   //     وبنفس قواعد التهدئة واستثناء الموعد المحجوز. من عنده صف موجود تُدمج عليه بلا تكرار.
@@ -2674,8 +2749,8 @@ function prmRecallList(){
     for (var j = 0; j < out.length; j++) { if (out[j].p.id === pid) { existing = out[j]; break; } }
     if (existing) { existing.soon = ws; return; }
     var p2 = _prmFind(pid); if (!p2) return;
-    if (prmUpcomingApptPatients[pid]) return;
     soonOut.push({ p: p2, lastVisit: lastVisitMap[pid] || '', soon: ws, soonOnly: true,
+                   appt: prmUpcomingApptPatients[pid] || null,
                    _k: String((ws[0] && ws[0].review_at) || '9999-99') });
   });
   out.sort(function(a,b){ return String(a.lastVisit).localeCompare(String(b.lastVisit)); }); // الأقدم أولاً
@@ -2683,12 +2758,21 @@ function prmRecallList(){
   return out.concat(soonOut);
 }
 
-function prmDaysUntilBirthday(dob){
+/* v591: المواليد تُقرأ أجزاءً من النصّ (لا new Date(iso) الذي يفسّرها UTC فينزاح يومٌ بالمناطق السالبة)،
+   و29 شباط بسنةٍ غير كبيسة = 28 شباط (كان يتسرّب إلى 1 آذار). دالةٌ محضة: today اختياري للمثبت. */
+function prmDaysUntilBirthday(dob, today){
   if (!dob) return null;
-  var d = new Date(dob); if (isNaN(d.getTime())) return null;
-  var now = new Date(); now.setHours(0,0,0,0);
-  var bd = new Date(now.getFullYear(), d.getMonth(), d.getDate()); bd.setHours(0,0,0,0);
-  if (bd.getTime() < now.getTime()) bd = new Date(now.getFullYear()+1, d.getMonth(), d.getDate());
+  var p = String(dob).slice(0, 10).split('-');
+  if (p.length !== 3) return null;
+  var m = +p[1], dd = +p[2];
+  if (!(m >= 1 && m <= 12) || !(dd >= 1 && dd <= 31)) return null;
+  var now = today ? new Date(today.getTime()) : new Date(); now.setHours(0,0,0,0);
+  function bdIn(y){
+    var last = new Date(y, m, 0).getDate();            // آخرُ يومٍ بالشهر بتلك السنة
+    return new Date(y, m - 1, Math.min(dd, last));
+  }
+  var bd = bdIn(now.getFullYear());
+  if (bd.getTime() < now.getTime()) bd = bdIn(now.getFullYear() + 1);
   return Math.round((bd.getTime() - now.getTime()) / 86400000);
 }
 
@@ -3223,7 +3307,7 @@ function renderPrmRecall(){
     var _exN = prmApptExcludedCount();
     var _exLine = !_exN ? '' :
       '<div style="margin-top:10px;font-size:12.5px;color:var(--text2,#8da0bd);">🔎 '
-      + (_exN === 1 ? 'مريض واحد لديه مراقبات أو استدعاء لكنه مستثنى' : _exN + ' مرضى لديهم مراقبات أو استدعاء لكنهم مستثنون')
+      + (_exN === 1 ? 'مريض واحد متأخر عن المراجعة لكنه مستثنى' : _exN + ' مرضى متأخرون عن المراجعة لكنهم مستثنون')
       + ' — <b style="color:var(--green,#2ee89e);">عنده موعد قادم محجوز ✓</b></div>';
     el.innerHTML = '<div style="text-align:center;padding:36px 16px;color:var(--text2,#8da0bd);">'
       + '<div style="font-size:38px;">🔁</div>'
@@ -3231,7 +3315,7 @@ function renderPrmRecall(){
       + _exLine + '</div>';
     return;
   }
-  el.innerHTML = SySlots.finalize('<div style="font-size:12px;color:var(--text2,#8da0bd);padding:0 2px 10px;">مرضى لم يزوروا منذ أكثر من ' + (PRM_RECALL_MONTHS||6) + ' أشهر، ومراقبات أسنان — <b style="color:var(--text,#e8eefc);">' + dueN + '</b> للاستدعاء' + (soonN ? ' · <b style="color:var(--text,#e8eefc);">' + soonN + '</b> مراقبة قادمة' : '') + '. <span style="opacity:.75;">(يُستثنى من عنده موعد قادم محجوز)</span></div>'
+  el.innerHTML = SySlots.finalize('<div style="font-size:12px;color:var(--text2,#8da0bd);padding:0 2px 10px;">مرضى لم يزوروا منذ أكثر من ' + (PRM_RECALL_MONTHS||6) + ' أشهر، ومراقبات أسنان — <b style="color:var(--text,#e8eefc);">' + dueN + '</b> للاستدعاء' + (soonN ? ' · <b style="color:var(--text,#e8eefc);">' + soonN + '</b> مراقبة قادمة' : '') + '. <span style="opacity:.75;">(من عنده موعد قادم محجوز يُستثنى من الاستدعاء الدوري؛ أصحاب المراقبات يظهرون مع موعدهم 📅)</span></div>'
     + list.map(function(r){
       var p = r.p;
       var sub = r.lastVisit ? ('آخر زيارة: ' + prmEsc(formatDate(r.lastVisit))) : 'لا زيارات مكتملة بعد';
@@ -3244,6 +3328,10 @@ function renderPrmRecall(){
       if (r.watch && r.watch.length) {
         var _wt = prmEsc(prmWatchTeeth(r.watch));
         sub = '🦷 <b style="color:var(--yellow);">مراقبة مستحقّة:</b> ' + _wt + ' — ' + sub;
+      }
+      /* v590: صاحبُ المراقبة الذي حجز موعداً يظهر مع موعده (قرار المالك) بدل أن يختفي */
+      if (r.appt) {
+        sub = '<b style="color:var(--green,#2ee89e);">📅 عنده موعد قادم ' + prmEsc(prmFmtNum(r.appt)) + '</b> · ' + sub;
       }
       var phone = p.phone || '';
       var waBtn = phone
@@ -3304,6 +3392,9 @@ function prmDoCopyBday(id){ var p=_prmFind(id); if(p) prmCopyText(prmBdayMsg(p))
 
 async function prmMarkRecalled(id){
   var p = _prmFind(id); if (!p) return;
+  if (window._prmMarkInFlight && window._prmMarkInFlight[id]) return;   /* v591: نقرةٌ مزدوجة ⇒ صفٌّ واحد (#66) */
+  (window._prmMarkInFlight = window._prmMarkInFlight || {})[id] = true;
+  var _prevRecall = prmRecentRecalls[id], _prevExempt = prmPostRecallWatch[id];
   prmRecentRecalls[id] = Date.now();   // إخفاء فوري متفائل
   delete prmPostRecallWatch[id];       // A6: «تم» الجديد يغطي كل المراقبات الحالية — استثناءات الاستدعاء السابق تسقط
   renderPrmRecall(); renderPrmNoShow(); updatePrmBadge();   /* v504 */
@@ -3314,8 +3405,12 @@ async function prmMarkRecalled(id){
     showToast('تم تسجيل الاستدعاء ✓');
   } catch (e) {
     console.warn('prmMarkRecalled:', e);
-    showToast('⚠️ تعذّر تسجيل الاستدعاء (سيظهر مجدداً لاحقاً)');
-  }
+    /* v591: الفشلُ يعيد الصفَّ فوراً — كان يختفي حتى إعادة التحميل رغم أن القاعدة لم تسجّل شيئاً */
+    if (_prevRecall === undefined) delete prmRecentRecalls[id]; else prmRecentRecalls[id] = _prevRecall;
+    if (_prevExempt !== undefined) prmPostRecallWatch[id] = _prevExempt;
+    renderPrmRecall(); renderPrmNoShow(); updatePrmBadge();
+    showToast('⚠️ تعذّر تسجيل الاستدعاء — حاول مجدداً');
+  } finally { delete window._prmMarkInFlight[id]; }
 }
 
 /* ═══ بند #4-أ: الصياغة الذكية للاستدعاء (ai-assist · followup_message) ═══

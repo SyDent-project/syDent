@@ -2,7 +2,8 @@
    #2  الحقولُ الطبية لا تبدأ «لا يوجد» · شريطُ التنبيه الطبي داخل الشريط العلوي اللاصق ومصدرُه warnParts/allergyParts
        (نقلٌ لا تكرار — خرجت الوسومُ من سطر الهيدر) · مهرَّب · مخفيٌّ بلا تحذير · فشلُ التحميل يقول «تعذّر» لا «لا يوجد».
    #16 هيكلُ التحميل على الصفحة حتى رسم الهيدر/المعلومات/الأرقام · يُزال بـinit وبمسار الفشل.
-   #17 مسافةُ آخر المحتوى بقدر الزر العائم · التنحّي بالتمرير لأسفل والعودةُ بالتمرير لأعلى/قرب الأعلى/بتغيّرٍ داخله.
+   #17 مسافةُ آخر المحتوى بقدر الزر العائم. (التنحّي بالتمرير أُزيل بـv579 بقرار المالك — الحاويةُ ظاهرةٌ دائماً،
+       والمثبتُ يحرس الغياب: لا مستمعَ تمرير ولا حالةَ إخفاء بوحدة الحاوية.)
    --self-test: كلُّ طفرةٍ لا بدّ أن تحمّر. */
 'use strict';
 const fs = require('fs'), vm = require('vm'), path = require('path');
@@ -27,6 +28,8 @@ const base = {}; FILES.forEach(f => { base[f] = read(f); });
 
 function suite(F) {
   const H = F['patient-profile.html'], C = F['patient-profile.css'], T = F['theme.js'];
+  { const mw = (C.match(/\.pma-warn\{([^}]*)\}/) || [])[1] || '';   /* v598: التحذيرُ الطبي بادجٌ كالحساسية (حدٌّ + حشوةٌ أعمقُ من الشريط + زوايا) */
+    ok(/border:1px solid var\(--red-bd\)/.test(mw) && /border-radius:20px/.test(mw) && /background:color-mix\(in srgb,var\(--red-fill\)/.test(mw), 'medical warning renders as a pill badge like the allergy one'); }
   /* ── #2 القيمُ الابتدائية ── */
   ['iMedFlags', 'iAllergies', 'iHistory'].forEach(id => {
     const m = H.match(new RegExp('id="' + id + '"[^>]*>([^<]*)<'));
@@ -78,16 +81,13 @@ function suite(F) {
   ok(/new ResizeObserver\(set\)\.observe\(tb\)/.test(fnSrc(H, 'ppWatchTopbar')) && /if \(h\) ppWatchTopbar\(\);/.test(H), 'topbar height measured live (wrapping) when the strip shows');
   /* ── #17 الزر العائم ── */
   ok(/body:has\(#syFabDock:not\(:empty\)\) \.sb-main-content::after\{content:"";display:block;height:calc\(var\(--sy-fab-bottom,14px\) \+ 62px\)\}/.test(T), 'content end spacer as tall as the dock');
-  ok(/#syFabDock\.sy-fab-away\{opacity:0;pointer-events:none;/.test(T), 'away state is invisible AND click-through');
-  ok(/wireDrag\(d\);\s*\n\s*wireAway\(d\);/.test(T), 'away behaviour wired when the dock is created');
-  ok(/p = last\.has\(t\) \? last\.get\(t\) : 0;/.test(T), 'an unseen container starts at 0 — a single jump (wheel/End key) still hides the dock');
-  ok(/\{ capture: true, passive: true \}/.test(T) && /new MutationObserver\(function \(\) \{ d\.classList\.remove\('sy-fab-away'\); \}\)/.test(T), 'captures every scroll container · returns on any change inside (new message)');
-  const tctx = {}; vm.createContext(tctx);
-  const aw = fnSrc(T, 'awayStep'), consts = (T.match(/var AWAY_PX = \d+, AWAY_TOP = \d+;/) || [''])[0];
-  try { vm.runInContext(consts + aw + ';this.s=awayStep;', tctx); } catch (e) { ok(false, 'awayStep runs'); return; }
-  const s = tctx.s;
-  ok(s(100, 300) === true && s(300, 200) === false && s(300, 303) === null && s(500, 60) === false && s(0, 70) === false,
-     'down ⇒ away · up ⇒ back · jitter ⇒ unchanged · near the top ⇒ always back');
+  /* v579 — قرار المالك: زرّا الرسائل والتحديث ظاهران دائماً (لا تنحّي بالتمرير). */
+  const dockMod = (T.split('/* SYDENT_FAB_DOCK_START */')[1] || '').split('/* SYDENT_FAB_DOCK_END */')[0];
+  ok(dockMod.length > 2000, 'fab dock module found between its markers');
+  ok(!/addEventListener\(\s*['"]scroll['"]/.test(dockMod), 'v579: the dock listens to no scroll event (never hides while scrolling)');
+  ok(!/sy-fab-away|wireAway|awayStep/.test(T), 'v579: no away state / wiring left anywhere in theme.js');
+  ok(!/#syFabDock[.:\[][^{]*\{[^}]*(opacity:0|visibility:hidden|pointer-events:none)/.test(dockMod), 'v579: no dock state rule makes it invisible or click-through');
+  ok(/#syFabDock:empty\{display:none\}/.test(dockMod), 'the dock hides only when it holds no button');
 }
 const rep = (f, a, b) => F0 => { const F = Object.assign({}, F0); F[f] = F[f].split(a).join(b); return F; };
 const MUTANTS = [
@@ -96,6 +96,7 @@ const MUTANTS = [
   ['strip not escaped', rep('patient-profile.html', "⚠️ حساسية: ' + escapeHtml(a.join('، '))", "⚠️ حساسية: ' + (a.join('، '))")],
   ['strip never hides', rep('patient-profile.html', '  el.hidden = !h;', '  el.hidden = false;')],
   ['strip id lost', rep('patient-profile.html', '<div class="pp-med-alert" id="pMedAlert" role="alert" hidden', '<div class="pp-med-alert" id="pMedAlertX" role="alert" hidden')],
+  ['warning back to plain text', rep('patient-profile.css', 'background:color-mix(in srgb,var(--red-fill) 60%,var(--red-bg));border:1px solid var(--red-bd);border-radius:20px;padding:1px 10px;', '')],
   ['strip not sticky', rep('patient-profile.css', '.pp-med-alert{position:sticky;', '.pp-med-alert{')],
   ['strip translucent again', rep('patient-profile.css', 'background:linear-gradient(var(--red-bg),var(--red-bg)),var(--bg);', 'background:var(--red-bg);')],
   ['mobile topbar still eats the screen', rep('patient-profile.css', '  .topbar{position:static;}\n', '')],
@@ -106,12 +107,11 @@ const MUTANTS = [
   ['[hidden] loses to display:flex', rep('patient-profile.css', '.pp-med-alert[hidden]{display:none;}\n', '')],
   ['skeleton shows placeholders', rep('patient-profile.css', 'color:transparent !important;background:var(--bg3)', 'background:var(--bg3)')],
   ['no end spacer', rep('theme.js', " .sb-main-content::after{content:\"\";display:block;height:calc(var(--sy-fab-bottom,14px) + 62px)}", " .sb-main-content::after{}")],
-  ['away still clickable', rep('theme.js', '{opacity:0;pointer-events:none;', '{opacity:0;')],
-  ['away never wired', rep('theme.js', '      wireDrag(d);\n      wireAway(d);', '      wireDrag(d);')],
-  ['first (only) scroll event ignored', rep('theme.js', 'p = last.has(t) ? last.get(t) : 0;', 'p = last.has(t) ? last.get(t) : y;')],
+  ['scroll-hide re-added (listener)', rep('theme.js', '      wireDrag(d);\n', "      wireDrag(d);\n      document.addEventListener('scroll', function () { d.classList.add('x'); }, true);\n")],
+  ['scroll-hide re-added (state rule)', rep('theme.js', "      '#syFabDock:empty{display:none}' +", "      '#syFabDock:empty{display:none}' +\n      '#syFabDock.gone{opacity:0;pointer-events:none}' +")],
+  ['away helper re-added', rep('theme.js', '  function injectStyle() {\n    if (_styled) return;', '  function awayStep(){}\n  function injectStyle() {\n    if (_styled) return;')],
   ['network failure still says not-found', rep('patient-profile.html', "    var _net = !!(pErr && (/fetch|network|load failed|timeout/i.test(String(pErr.message || '')) || (typeof navigator !== 'undefined' && navigator.onLine === false)));", "    var _net = false;")],
-  ['no slow-network message', rep('patient-profile.html', '  setTimeout(ppLoadSlow, 15000);   /* v567 */\n', '')],
-  ['never comes back near the top', rep('theme.js', '    if (y <= AWAY_TOP) return false;\n', '')]
+  ['no slow-network message', rep('patient-profile.html', '  setTimeout(ppLoadSlow, 15000);   /* v567 */\n', '')]
 ];
 suite(base);
 const bp = pass, bf = fail;

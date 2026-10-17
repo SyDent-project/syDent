@@ -29,9 +29,10 @@ const bridgesPlanned = b => b.db.T.ledger_sessions.filter(r => r.status === 'pla
   { const b = await h.bootAsync(); S.seed(b);
     b.db.T.teeth_status.filter(r => r.unit_id === 'U1').forEach(r => { r.status = 'completed'; });
     b.db.T.ledger_sessions.find(r => r.id === 'br').status = 'completed'; S.load(b);
-    b.ctx._answers = [true]; b.dialogs.length = 0;
+    b.ctx._answers = [true, false]; b.dialogs.length = 0;
     await b.run('undoExtraction(44)');
-    T('U4: جسرٌ منجز ⇒ لا سؤال عن الجلسة والجلسة المنجزة باقية', b.dialogs.length === 1 && b.db.T.ledger_sessions.find(r => r.id === 'br').status === 'completed');
+    /* v488 (قرار المالك): الجلسةُ المنجزة يُسأل عنها المالكُ بسؤالٍ ثانٍ — رفضُه (الافتراضي) يُبقيها */
+    T('U4: جسرٌ منجز ⇒ لا سؤال عن «مخطّطة»، والجلسة المنجزة باقية برفض سؤال المنجزة', !b.dialogs.some(d => /المخطّطة/.test(d.message || '')) && (b.db.T.ledger_sessions.find(r => r.id === 'br') || {}).status === 'completed');
     X.invariants(b, 'U4'); }
   // U5: with plan options — both bridge options listed with their letters; the implant option stays
   { const b = await X.buildFull(); b.ctx._answers = [true, true]; b.dialogs.length = 0;

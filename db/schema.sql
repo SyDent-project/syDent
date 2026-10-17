@@ -45,6 +45,28 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 
 
 
+CREATE OR REPLACE FUNCTION "public"."_intake_clinic_open"("p_clinic" "uuid") RETURNS boolean
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE v_status TEXT; v_plan TEXT; v_allowed BOOLEAN;
+BEGIN
+  SELECT tr.status, tr.plan INTO v_status, v_plan FROM public.trial_requests tr
+  WHERE tr.user_id = p_clinic LIMIT 1;
+  IF v_status IN ('new','rejected','suspended') THEN RETURN false; END IF;
+  IF public.tenant_access_level(p_clinic) <> 'full' THEN RETURN false; END IF;
+  IF v_plan IS NOT NULL THEN
+    SELECT (COALESCE(sp.entitlements->>'booking', 'true') <> 'false') INTO v_allowed
+      FROM public.subscription_plans sp WHERE sp.code = v_plan;
+    IF v_allowed IS FALSE THEN RETURN false; END IF;
+  END IF;
+  RETURN true;
+END; $$;
+
+
+ALTER FUNCTION "public"."_intake_clinic_open"("p_clinic" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."_login_resolve_bump"("p_bucket" "text", "p_limit" integer, "p_window" interval) RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -122,19 +144,40 @@ CREATE OR REPLACE FUNCTION "public"."booking_blocked_slots"("p_clinic" "uuid", "
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $$
-  SELECT g.d::date,
-         COALESCE(b.start_time, i.work_start) AS t,
-         CASE WHEN b.start_time IS NULL
-              THEN GREATEST(1, (EXTRACT(EPOCH FROM (i.work_end - i.work_start)) / 60)::int)
-              ELSE GREATEST(1, (EXTRACT(EPOCH FROM (b.end_time - b.start_time)) / 60)::int) END AS dur
-  FROM public.schedule_blocks b
-  CROSS JOIN public.booking_clinic_info(p_clinic) i
-  CROSS JOIN LATERAL generate_series(GREATEST(b.date_from, p_from), LEAST(COALESCE(b.date_to, p_to), p_to), interval '1 day') AS g(d)
-  WHERE b.doctor_id = p_clinic
-    AND b.blocks_scheduling
-    AND b.operatory_id IS NULL AND b.provider_id IS NULL
-    AND b.date_from <= p_to AND (b.date_to IS NULL OR b.date_to >= p_from)
-    AND (b.weekdays IS NULL OR EXTRACT(DOW FROM g.d)::smallint = ANY (b.weekdays));
+  WITH info AS (SELECT * FROM public.booking_clinic_info(p_clinic)),
+  days AS (
+    SELECT g.d::date AS d FROM info i
+    CROSS JOIN LATERAL generate_series(p_from, p_to, interval '1 day') AS g(d)
+  ),
+  slots AS (
+    SELECT dd.d, (i.work_start + (n * i.slot_minutes) * interval '1 minute')::time AS t, i.slot_minutes AS dur
+    FROM days dd CROSS JOIN info i
+    CROSS JOIN LATERAL generate_series(0, GREATEST(0, (EXTRACT(EPOCH FROM (i.work_end - i.work_start)) / 60 / i.slot_minutes)::int - 1)) AS n
+  ),
+  inst AS (
+    SELECT dd.d, b.operatory_id, b.provider_id,
+           COALESCE(b.start_time, '00:00'::time) AS s,
+           CASE WHEN b.end_time IS NULL THEN '24:00'::interval ELSE b.end_time::interval END AS e
+    FROM public.schedule_blocks b
+    JOIN days dd ON dd.d >= b.date_from AND (b.date_to IS NULL OR dd.d <= b.date_to)
+    WHERE b.doctor_id = p_clinic AND b.blocks_scheduling
+      AND (b.weekdays IS NULL OR EXTRACT(DOW FROM dd.d)::smallint = ANY (b.weekdays))
+  ),
+  provs AS (SELECT id FROM public.clinic_doctors WHERE owner_id = p_clinic AND is_active IS NOT FALSE),
+  ops   AS (SELECT id FROM public.operatories  WHERE doctor_id = p_clinic AND is_active IS NOT FALSE)
+  SELECT s.d, s.t, s.dur
+  FROM slots s
+  WHERE
+    EXISTS (SELECT 1 FROM inst i WHERE i.d = s.d AND i.operatory_id IS NULL AND i.provider_id IS NULL
+              AND i.s::interval < s.t::interval + (s.dur * interval '1 minute') AND s.t::interval < i.e)
+    OR ((SELECT count(*) FROM provs) > 0 AND NOT EXISTS (
+          SELECT 1 FROM provs p WHERE NOT EXISTS (
+            SELECT 1 FROM inst i WHERE i.d = s.d AND i.provider_id = p.id AND i.operatory_id IS NULL
+              AND i.s::interval < s.t::interval + (s.dur * interval '1 minute') AND s.t::interval < i.e)))
+    OR ((SELECT count(*) FROM ops) > 0 AND NOT EXISTS (
+          SELECT 1 FROM ops o WHERE NOT EXISTS (
+            SELECT 1 FROM inst i WHERE i.d = s.d AND i.operatory_id = o.id AND i.provider_id IS NULL
+              AND i.s::interval < s.t::interval + (s.dur * interval '1 minute') AND s.t::interval < i.e)));
 $$;
 
 
@@ -353,9 +396,8 @@ DECLARE
   v_recent_count INT;
   v_payment_age_minutes NUMERIC;
   v_original_creation TIMESTAMPTZ;
-  v_is_owner BOOLEAN := COALESCE(NEW.employee_role_snapshot, 'owner') = 'owner';   -- M166
+  v_is_owner BOOLEAN := COALESCE(NEW.employee_role_snapshot, 'owner') = 'owner';
 BEGIN
-  -- ── Rule 1: حذف دفعة بسرعة (M166: لغير المالك) ─────────────────────
   IF NOT v_is_owner AND NEW.action_type = 'payment.delete' AND NEW.old_value IS NOT NULL THEN
     BEGIN
       v_original_creation := (NEW.old_value->>'created_at')::TIMESTAMPTZ;
@@ -372,7 +414,6 @@ BEGIN
     END;
   END IF;
 
-  -- ── Rule 2: تعديل سعر جلسة بأكثر من 50% (M166: لغير المالك) ──────
   IF NOT v_is_owner AND NEW.action_type = 'session.edit_price'
      AND NEW.old_value IS NOT NULL AND NEW.new_value IS NOT NULL THEN
     BEGIN
@@ -391,7 +432,6 @@ BEGIN
     END;
   END IF;
 
-  -- ── Rule 3: 5 تعديلات من نفس الموظف على نفس المريض اليوم (M166: لغير المالك · مرةً واحدة عند الخامس) ──
   IF NOT v_is_owner AND NEW.patient_id IS NOT NULL AND NEW.employee_id IS NOT NULL
      AND (NEW.action_type LIKE '%.delete' OR NEW.action_type LIKE '%.edit%') THEN
     SELECT COUNT(*) INTO v_recent_count
@@ -402,7 +442,6 @@ BEGIN
       AND (action_type LIKE '%.delete' OR action_type LIKE '%.edit%')
       AND created_at >= date_trunc('day', now())
       AND created_at < NEW.created_at;
-    -- مرةً واحدة: عند بلوغ الخامس، وما لم يُطلَق تنبيهُ هذه المجموعة اليوم (يصمد أمام الإدراج الجماعي بالطابع نفسه)
     IF v_recent_count >= 4 AND NOT EXISTS (
          SELECT 1 FROM public.audit_log
           WHERE owner_id = NEW.owner_id AND employee_id = NEW.employee_id AND patient_id = NEW.patient_id
@@ -414,7 +453,6 @@ BEGIN
     END IF;
   END IF;
 
-  -- ── Rule 4: حذف دفعة/جلسة من غير المالك (طبيب موظف أو سكرتيرة) — كما هو ──
   IF NEW.action_type IN ('payment.delete', 'session.delete')
      AND NEW.employee_role_snapshot IN ('doctor', 'secretary') THEN
     NEW.is_alert := TRUE;
@@ -521,6 +559,27 @@ END; $$;
 ALTER FUNCTION "public"."enforce_patient_limit"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."fn_teeth_status_dx"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF NEW.status = 'condition' THEN
+    NEW.dx_key := NULL;
+  ELSIF TG_OP = 'UPDATE'
+        AND OLD.status = 'condition'
+        AND OLD.treatment_key LIKE 'cond-%'
+        AND NEW.treatment_key IS DISTINCT FROM OLD.treatment_key
+        AND NEW.dx_key IS NULL THEN
+    NEW.dx_key := OLD.surface || ':' || OLD.treatment_key;
+  END IF;
+  RETURN NEW;
+END; $$;
+
+
+ALTER FUNCTION "public"."fn_teeth_status_dx"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."fn_teeth_status_history"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -531,15 +590,15 @@ BEGIN
       RETURN OLD;
     END IF;
     INSERT INTO teeth_status_history
-      (doctor_id, patient_id, tooth_num, surface, treatment_key, status, provider_id, review_at, op)
+      (doctor_id, patient_id, tooth_num, surface, treatment_key, status, provider_id, review_at, dx_key, op)
     VALUES
-      (OLD.doctor_id, OLD.patient_id, OLD.tooth_num, OLD.surface, OLD.treatment_key, OLD.status, OLD.provider_id, OLD.review_at, 'D');
+      (OLD.doctor_id, OLD.patient_id, OLD.tooth_num, OLD.surface, OLD.treatment_key, OLD.status, OLD.provider_id, OLD.review_at, OLD.dx_key, 'D');
     RETURN OLD;
   ELSE
     INSERT INTO teeth_status_history
-      (doctor_id, patient_id, tooth_num, surface, treatment_key, status, provider_id, review_at, op)
+      (doctor_id, patient_id, tooth_num, surface, treatment_key, status, provider_id, review_at, dx_key, op)
     VALUES
-      (NEW.doctor_id, NEW.patient_id, NEW.tooth_num, NEW.surface, NEW.treatment_key, NEW.status, NEW.provider_id, NEW.review_at,
+      (NEW.doctor_id, NEW.patient_id, NEW.tooth_num, NEW.surface, NEW.treatment_key, NEW.status, NEW.provider_id, NEW.review_at, NEW.dx_key,
        CASE WHEN TG_OP = 'INSERT' THEN 'I' ELSE 'U' END);
     RETURN NEW;
   END IF;
@@ -648,6 +707,635 @@ $$;
 ALTER FUNCTION "public"."handle_new_owner_doctor"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."intake_info"("p_token" "text") RETURNS TABLE("clinic_name" "text", "clinic_phone" "text", "patient_name" "text", "patient_dob" "date", "status" "text", "expired" boolean, "submitted_at" timestamp with time zone, "intake_note" "text", "ask_signature" boolean)
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $_$
+DECLARE v RECORD;
+BEGIN
+  IF p_token IS NULL OR p_token !~ '^[0-9a-f]{64}$' THEN RETURN; END IF;
+  SELECT i.id, i.owner_id, i.patient_id, i.status, i.expires_at, i.submitted_at
+    INTO v FROM public.patient_intakes i WHERE i.token = p_token LIMIT 1;
+  IF NOT FOUND THEN RETURN; END IF;
+  IF NOT public._intake_clinic_open(v.owner_id) THEN RETURN; END IF;
+  RETURN QUERY
+  SELECT cs.clinic_name, cs.clinic_phone, p.name, p.dob,
+         v.status, (v.status = 'pending' AND v.expires_at < now()), v.submitted_at,
+         cs.intake_note, COALESCE(cs.intake_signature, true)
+  FROM public.patients p
+  LEFT JOIN public.clinic_settings cs ON cs.owner_id = v.owner_id
+  WHERE p.id = v.patient_id AND p.doctor_id = v.owner_id;
+END; $_$;
+
+
+ALTER FUNCTION "public"."intake_info"("p_token" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."intake_submit"("p_token" "text", "p_answers" "jsonb", "p_signature" "text" DEFAULT NULL::"text") RETURNS "uuid"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $_$
+DECLARE
+  v        RECORD;
+  v_med    TEXT[] := ARRAY['diabetes','hypertension','cardiac','anticoagulants','pregnancy','asthma'];
+  v_alg    TEXT[] := ARRAY['penicillin_allergy','latex_allergy','anesthetic_allergy','nsaid_allergy'];
+  v_extra  TEXT[] := ARRAY['bisphosphonates','bleeding','infectious','epilepsy','thyroid','kidney_liver','smoker'];
+  v_clean  JSONB;
+  v_dob    DATE;
+  v_dob_t  TEXT;
+  v_now_dam TIMESTAMP;
+  v_ask_sig BOOLEAN;
+  v_sig    TEXT;
+  f_med JSONB; f_alg JSONB; f_ex JSONB;
+BEGIN
+  IF p_token IS NULL OR p_token !~ '^[0-9a-f]{64}$' THEN RAISE EXCEPTION 'bad_token'; END IF;
+  SELECT i.id, i.owner_id, i.status, i.expires_at INTO v
+    FROM public.patient_intakes i WHERE i.token = p_token LIMIT 1 FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'bad_token'; END IF;
+  IF NOT public._intake_clinic_open(v.owner_id) THEN RAISE EXCEPTION 'unavailable'; END IF;
+  IF v.status <> 'pending' THEN RAISE EXCEPTION 'already_submitted'; END IF;
+  IF v.expires_at < now() THEN RAISE EXCEPTION 'expired'; END IF;
+  IF p_answers IS NULL OR jsonb_typeof(p_answers) <> 'object' THEN RAISE EXCEPTION 'bad_answers'; END IF;
+  IF lower(COALESCE(p_answers->>'consent','')) NOT IN ('true','t','1') THEN RAISE EXCEPTION 'bad_answers'; END IF;
+
+  v_now_dam := (now() AT TIME ZONE 'Asia/Damascus');
+  IF (SELECT count(*) FROM public.patient_intakes i
+      WHERE i.owner_id = v.owner_id AND i.submitted_at IS NOT NULL
+        AND (i.submitted_at AT TIME ZONE 'Asia/Damascus')::date = v_now_dam::date) >= 300 THEN
+    RAISE EXCEPTION 'rate_clinic';
+  END IF;
+
+  SELECT COALESCE(jsonb_agg(DISTINCT x), '[]'::jsonb) INTO f_med
+    FROM jsonb_array_elements_text(COALESCE(CASE WHEN jsonb_typeof(p_answers->'med')='array' THEN p_answers->'med' END, '[]'::jsonb)) x
+   WHERE x = ANY (v_med);
+  SELECT COALESCE(jsonb_agg(DISTINCT x), '[]'::jsonb) INTO f_alg
+    FROM jsonb_array_elements_text(COALESCE(CASE WHEN jsonb_typeof(p_answers->'alg')='array' THEN p_answers->'alg' END, '[]'::jsonb)) x
+   WHERE x = ANY (v_alg);
+  SELECT COALESCE(jsonb_agg(DISTINCT x), '[]'::jsonb) INTO f_ex
+    FROM jsonb_array_elements_text(COALESCE(CASE WHEN jsonb_typeof(p_answers->'extra')='array' THEN p_answers->'extra' END, '[]'::jsonb)) x
+   WHERE x = ANY (v_extra);
+
+  IF char_length(COALESCE(p_answers->>'med_other','')) > 500 OR char_length(COALESCE(p_answers->>'alg_other','')) > 300
+     OR char_length(COALESCE(p_answers->>'meds','')) > 500 OR char_length(COALESCE(p_answers->>'complaint','')) > 500 THEN
+    RAISE EXCEPTION 'bad_answers';
+  END IF;
+
+  v_dob_t := NULLIF(btrim(COALESCE(p_answers->>'dob','')), '');
+  IF v_dob_t IS NOT NULL THEN
+    BEGIN v_dob := v_dob_t::date; EXCEPTION WHEN others THEN RAISE EXCEPTION 'bad_answers'; END;
+    IF v_dob < DATE '1900-01-01' OR v_dob > v_now_dam::date THEN RAISE EXCEPTION 'bad_answers'; END IF;
+  END IF;
+
+  v_clean := jsonb_build_object(
+    'v', 1,
+    'med', f_med, 'alg', f_alg, 'extra', f_ex,
+    'med_other', NULLIF(btrim(COALESCE(p_answers->>'med_other','')), ''),
+    'alg_other', NULLIF(btrim(COALESCE(p_answers->>'alg_other','')), ''),
+    'meds',      NULLIF(btrim(COALESCE(p_answers->>'meds','')), ''),
+    'complaint', NULLIF(btrim(COALESCE(p_answers->>'complaint','')), ''),
+    'dob', v_dob,
+    'consent', true
+  );
+
+  SELECT COALESCE(cs.intake_signature, true) INTO v_ask_sig FROM public.clinic_settings cs WHERE cs.owner_id = v.owner_id;
+  v_sig := NULL;
+  IF COALESCE(v_ask_sig, true) AND p_signature IS NOT NULL AND p_signature LIKE 'data:image/png;base64,%' THEN
+    IF char_length(p_signature) > 120000 THEN RAISE EXCEPTION 'bad_answers'; END IF;
+    v_sig := p_signature;
+  END IF;
+
+  UPDATE public.patient_intakes
+     SET status = 'submitted', submitted_at = now(), answers = v_clean, signature = v_sig
+   WHERE id = v.id AND status = 'pending';
+  RETURN v.id;
+END; $_$;
+
+
+ALTER FUNCTION "public"."intake_submit"("p_token" "text", "p_answers" "jsonb", "p_signature" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."inventory_apply_count"("p_lines" "jsonb", "p_note" "text" DEFAULT NULL::"text") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_today date := (now() AT TIME ZONE 'Asia/Damascus')::date;
+  v_count uuid; v_out jsonb := '[]'::jsonb;
+  r record; s record;
+  v_q numeric; v_price numeric; v_cur text; v_var numeric; v_new numeric; v_take numeric;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'not_authenticated' USING ERRCODE = '42501'; END IF;
+  IF public.my_access_level() <> 'full' THEN RAISE EXCEPTION 'read_only' USING ERRCODE = '42501'; END IF;
+  IF p_lines IS NULL OR jsonb_typeof(p_lines) <> 'array'
+     OR jsonb_array_length(p_lines) = 0 OR jsonb_array_length(p_lines) > 500 THEN
+    RAISE EXCEPTION 'bad_lines' USING ERRCODE = '22023';
+  END IF;
+  IF (SELECT count(DISTINCT e->>'item_id') FROM jsonb_array_elements(p_lines) e) <> jsonb_array_length(p_lines) THEN
+    RAISE EXCEPTION 'duplicate_item' USING ERRCODE = '22023';
+  END IF;
+
+  INSERT INTO public.inventory_counts (owner_id, note)
+  VALUES (v_uid, left(nullif(btrim(coalesce(p_note, '')), ''), 300)) RETURNING id INTO v_count;
+
+  FOR r IN
+    SELECT (e->>'item_id')::uuid AS item_id, (e->>'seen')::numeric AS seen, (e->>'counted')::numeric AS counted
+      FROM jsonb_array_elements(p_lines) e
+     ORDER BY 1
+  LOOP
+    IF r.item_id IS NULL OR r.seen IS NULL OR r.counted IS NULL OR r.counted < 0 OR r.counted > 1000000 OR r.seen < 0 THEN
+      RAISE EXCEPTION 'bad_line' USING ERRCODE = '22023';
+    END IF;
+    SELECT i.quantity, i.purchase_price, i.currency INTO v_q, v_price, v_cur
+      FROM public.inventory_items i WHERE i.id = r.item_id AND i.owner_id = v_uid AND i.is_active FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'item_not_owned' USING ERRCODE = '42501'; END IF;
+
+    v_var := r.counted - r.seen;
+    v_new := greatest(v_q + v_var, 0);
+    v_var := v_new - v_q;
+
+    IF v_var < 0 THEN
+      FOR s IN SELECT * FROM public.inventory_fefo_take(r.item_id, -v_var, v_today, false) LOOP
+        INSERT INTO public.inventory_movements (owner_id, item_id, change, reason, note, batch_id, count_id)
+        VALUES (v_uid, r.item_id, -s.took, 'count', 'جرد: نقص', s.batch_id, v_count);
+      END LOOP;
+      UPDATE public.inventory_items SET quantity = v_new WHERE id = r.item_id;
+    ELSIF v_var > 0 THEN
+      UPDATE public.inventory_items SET quantity = v_new WHERE id = r.item_id;
+      INSERT INTO public.inventory_movements (owner_id, item_id, change, reason, note, count_id)
+      VALUES (v_uid, r.item_id, v_var, 'count', 'جرد: زيادة', v_count);
+    END IF;
+
+    INSERT INTO public.inventory_count_lines (owner_id, count_id, item_id, expected, counted, variance, unit_price, currency)
+    VALUES (v_uid, v_count, r.item_id, r.seen, r.counted, v_var, v_price, v_cur);
+    v_out := v_out || jsonb_build_object('item_id', r.item_id, 'expected', r.seen, 'counted', r.counted,
+                                         'variance', v_var, 'quantity', v_new);
+  END LOOP;
+  RETURN jsonb_build_object('count_id', v_count, 'lines', v_out);
+END $$;
+
+
+ALTER FUNCTION "public"."inventory_apply_count"("p_lines" "jsonb", "p_note" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."inventory_batches_guard"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE v_itemq numeric; v_owner uuid; v_other numeric; v_grow boolean;
+BEGIN
+  IF TG_OP = 'INSERT' AND NEW.received_qty IS NULL THEN NEW.received_qty := NEW.quantity; END IF;
+  v_grow := NOT NEW.is_finished AND (
+              TG_OP = 'INSERT'
+              OR NEW.item_id IS DISTINCT FROM OLD.item_id
+              OR OLD.is_finished
+              OR coalesce(NEW.quantity, 0) > coalesce(OLD.quantity, 0));
+  IF v_grow THEN
+    SELECT i.quantity, i.owner_id INTO v_itemq, v_owner FROM public.inventory_items i WHERE i.id = NEW.item_id FOR UPDATE;
+  ELSE
+    SELECT i.quantity, i.owner_id INTO v_itemq, v_owner FROM public.inventory_items i WHERE i.id = NEW.item_id;
+  END IF;
+  IF NOT FOUND OR v_owner IS DISTINCT FROM NEW.owner_id THEN
+    RAISE EXCEPTION 'batch_item_not_owned' USING ERRCODE = '42501';
+  END IF;
+  IF v_grow THEN
+    SELECT coalesce(sum(coalesce(x.quantity, 0)), 0) INTO v_other
+      FROM public.inventory_batches x
+     WHERE x.item_id = NEW.item_id AND x.is_finished = false AND x.id IS DISTINCT FROM NEW.id;
+    IF v_other + coalesce(NEW.quantity, 0) > coalesce(v_itemq, 0) THEN
+      RAISE EXCEPTION 'batch_exceeds_stock' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION "public"."inventory_batches_guard"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."inventory_consume"("p_lines" "jsonb", "p_note" "text" DEFAULT NULL::"text") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_today date := (now() AT TIME ZONE 'Asia/Damascus')::date;
+  v_note text := left(nullif(btrim(coalesce(p_note, '')), ''), 200);
+  v_out jsonb := '[]'::jsonb;
+  r record; s record;
+  v_q numeric; v_active boolean; v_pat uuid; v_prov uuid; v_take numeric; v_bq numeric; v_t numeric;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'not_authenticated' USING ERRCODE = '42501'; END IF;
+  IF public.my_access_level() <> 'full' THEN RAISE EXCEPTION 'read_only' USING ERRCODE = '42501'; END IF;
+  IF p_lines IS NULL OR jsonb_typeof(p_lines) <> 'array'
+     OR jsonb_array_length(p_lines) = 0 OR jsonb_array_length(p_lines) > 200 THEN
+    RAISE EXCEPTION 'bad_lines' USING ERRCODE = '22023';
+  END IF;
+
+  FOR r IN
+    SELECT (e->>'item_id')::uuid AS item_id,
+           (e->>'qty')::numeric AS qty,
+           nullif(e->>'session_id', '')::uuid AS session_id,
+           nullif(e->>'batch_id', '')::uuid AS batch_id,
+           o AS ord
+      FROM jsonb_array_elements(p_lines) WITH ORDINALITY AS t(e, o)
+     ORDER BY 1, 5
+  LOOP
+    IF r.item_id IS NULL OR r.qty IS NULL OR NOT (r.qty > 0) OR r.qty > 1000000 THEN
+      RAISE EXCEPTION 'bad_line' USING ERRCODE = '22023';
+    END IF;
+    SELECT i.quantity, i.is_active INTO v_q, v_active
+      FROM public.inventory_items i WHERE i.id = r.item_id AND i.owner_id = v_uid FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'item_not_owned' USING ERRCODE = '42501'; END IF;
+
+    v_pat := NULL; v_prov := NULL;
+    IF r.session_id IS NOT NULL THEN
+      SELECT ls.patient_id, ls.provider_id INTO v_pat, v_prov
+        FROM public.ledger_sessions ls WHERE ls.id = r.session_id AND ls.doctor_id = v_uid;
+      IF NOT FOUND THEN RAISE EXCEPTION 'session_not_owned' USING ERRCODE = '42501'; END IF;
+    END IF;
+
+    IF NOT v_active THEN
+      v_out := v_out || jsonb_build_object('item_id', r.item_id, 'session_id', r.session_id,
+                 'requested', r.qty, 'deducted', 0, 'remaining', v_q, 'skipped', 'inactive');
+      CONTINUE;
+    END IF;
+
+    v_take := least(r.qty, greatest(v_q, 0));
+    IF v_take > 0 THEN
+      v_t := 0;
+      IF r.batch_id IS NOT NULL THEN
+        SELECT b.quantity INTO v_bq FROM public.inventory_batches b
+         WHERE b.id = r.batch_id AND b.item_id = r.item_id AND b.owner_id = v_uid AND b.is_finished = false FOR UPDATE;
+        IF NOT FOUND THEN RAISE EXCEPTION 'batch_not_available' USING ERRCODE = '22023'; END IF;
+        v_t := least(v_take, coalesce(v_bq, 0));
+        IF v_t > 0 THEN
+          UPDATE public.inventory_batches SET quantity = quantity - v_t, is_finished = (quantity - v_t) <= 0 WHERE id = r.batch_id;
+          INSERT INTO public.inventory_movements
+            (owner_id, item_id, change, reason, note, session_id, patient_id, provider_id, batch_id)
+          VALUES (v_uid, r.item_id, -v_t, 'consume', coalesce(v_note, 'استهلاك'), r.session_id, v_pat, v_prov, r.batch_id);
+        END IF;
+      END IF;
+      FOR s IN SELECT * FROM public.inventory_fefo_take(r.item_id, v_take - v_t, v_today, false) LOOP
+        INSERT INTO public.inventory_movements
+          (owner_id, item_id, change, reason, note, session_id, patient_id, provider_id, batch_id)
+        VALUES (v_uid, r.item_id, -s.took, 'consume', coalesce(v_note, 'استهلاك'),
+                r.session_id, v_pat, v_prov, s.batch_id);
+      END LOOP;
+      UPDATE public.inventory_items SET quantity = quantity - v_take WHERE id = r.item_id;
+    END IF;
+    v_out := v_out || jsonb_build_object('item_id', r.item_id, 'session_id', r.session_id,
+               'requested', r.qty, 'deducted', v_take, 'remaining', v_q - v_take);
+  END LOOP;
+  RETURN jsonb_build_object('lines', v_out);
+END $$;
+
+
+ALTER FUNCTION "public"."inventory_consume"("p_lines" "jsonb", "p_note" "text") OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."inventory_consume"("p_lines" "jsonb", "p_note" "text") IS 'M169: خصمُ موادٍ ذرّي — قفلُ الصنف · FEFO على الدفعات · حركةٌ لكل شريحة بالجلسة والمريض والطبيب والدفعة';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."inventory_count_lines_guard"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.inventory_counts k WHERE k.id = NEW.count_id AND k.owner_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'count_line_count_not_owned' USING ERRCODE = '42501';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.inventory_items i WHERE i.id = NEW.item_id AND i.owner_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'count_line_item_not_owned' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION "public"."inventory_count_lines_guard"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."inventory_create_order"("p_supplier" "uuid", "p_note" "text", "p_lines" "jsonb") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_uid uuid := auth.uid(); v_order uuid; r record; v_price numeric; v_cur text;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'not_authenticated' USING ERRCODE = '42501'; END IF;
+  IF public.my_access_level() <> 'full' THEN RAISE EXCEPTION 'read_only' USING ERRCODE = '42501'; END IF;
+  IF p_lines IS NULL OR jsonb_typeof(p_lines) <> 'array'
+     OR jsonb_array_length(p_lines) = 0 OR jsonb_array_length(p_lines) > 200 THEN
+    RAISE EXCEPTION 'bad_lines' USING ERRCODE = '22023';
+  END IF;
+  INSERT INTO public.inventory_orders (owner_id, supplier_id, note)
+  VALUES (v_uid, p_supplier, left(nullif(btrim(coalesce(p_note, '')), ''), 300)) RETURNING id INTO v_order;
+  FOR r IN SELECT (e->>'item_id')::uuid AS item_id, (e->>'qty')::numeric AS qty,
+                  nullif(e->>'unit_price', '')::numeric AS price
+             FROM jsonb_array_elements(p_lines) e ORDER BY 1
+  LOOP
+    IF r.item_id IS NULL OR r.qty IS NULL OR NOT (r.qty > 0) OR (r.price IS NOT NULL AND r.price < 0) THEN
+      RAISE EXCEPTION 'bad_line' USING ERRCODE = '22023';
+    END IF;
+    SELECT i.purchase_price, i.currency INTO v_price, v_cur
+      FROM public.inventory_items i WHERE i.id = r.item_id AND i.owner_id = v_uid AND i.is_active;
+    IF NOT FOUND THEN RAISE EXCEPTION 'item_not_owned' USING ERRCODE = '42501'; END IF;
+    INSERT INTO public.inventory_order_lines (owner_id, order_id, item_id, qty_ordered, unit_price, currency)
+    VALUES (v_uid, v_order, r.item_id, r.qty, coalesce(r.price, v_price), coalesce(v_cur, 'SYP'));
+  END LOOP;
+  RETURN jsonb_build_object('order_id', v_order);
+END $$;
+
+
+ALTER FUNCTION "public"."inventory_create_order"("p_supplier" "uuid", "p_note" "text", "p_lines" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."inventory_fefo_take"("p_item" "uuid", "p_qty" numeric, "p_today" "date", "p_batches_only" boolean DEFAULT false) RETURNS TABLE("batch_id" "uuid", "took" numeric)
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_need numeric := coalesce(p_qty, 0);
+  v_itemq numeric; v_open numeric; v_rem numeric; t numeric; b record;
+BEGIN
+  IF v_need <= 0 THEN RETURN; END IF;
+  SELECT i.quantity INTO v_itemq FROM public.inventory_items i WHERE i.id = p_item;
+  SELECT coalesce(sum(coalesce(x.quantity, 0)), 0) INTO v_open
+    FROM public.inventory_batches x WHERE x.item_id = p_item AND x.is_finished = false;
+  v_rem := greatest(coalesce(v_itemq, 0) - v_open, 0);
+
+  FOR b IN SELECT x.id, x.quantity FROM public.inventory_batches x
+            WHERE x.item_id = p_item AND x.is_finished = false AND coalesce(x.quantity, 0) > 0
+              AND (x.expiry_date IS NULL OR x.expiry_date >= p_today)
+            ORDER BY x.expiry_date NULLS LAST, x.created_at, x.id
+            FOR UPDATE LOOP
+    EXIT WHEN v_need <= 0;
+    t := least(v_need, b.quantity);
+    UPDATE public.inventory_batches SET quantity = quantity - t, is_finished = (quantity - t) <= 0 WHERE id = b.id;
+    batch_id := b.id; took := t; RETURN NEXT;
+    v_need := v_need - t;
+  END LOOP;
+
+  IF v_need > 0 AND NOT p_batches_only AND v_rem > 0 THEN
+    t := least(v_need, v_rem);
+    batch_id := NULL; took := t; RETURN NEXT;
+    v_need := v_need - t;
+  END IF;
+
+  FOR b IN SELECT x.id, x.quantity FROM public.inventory_batches x
+            WHERE x.item_id = p_item AND x.is_finished = false AND coalesce(x.quantity, 0) > 0
+              AND x.expiry_date < p_today
+            ORDER BY x.expiry_date, x.created_at, x.id
+            FOR UPDATE LOOP
+    EXIT WHEN v_need <= 0;
+    t := least(v_need, b.quantity);
+    UPDATE public.inventory_batches SET quantity = quantity - t, is_finished = (quantity - t) <= 0 WHERE id = b.id;
+    batch_id := b.id; took := t; RETURN NEXT;
+    v_need := v_need - t;
+  END LOOP;
+
+  IF v_need > 0 AND NOT p_batches_only THEN
+    batch_id := NULL; took := v_need; RETURN NEXT;
+  END IF;
+END $$;
+
+
+ALTER FUNCTION "public"."inventory_fefo_take"("p_item" "uuid", "p_qty" numeric, "p_today" "date", "p_batches_only" boolean) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."inventory_finish_batch"("p_batch" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_item uuid; v_left numeric; v_exp date; v_fin boolean; v_q numeric; v_out numeric;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'not_authenticated' USING ERRCODE = '42501'; END IF;
+  IF public.my_access_level() <> 'full' THEN RAISE EXCEPTION 'read_only' USING ERRCODE = '42501'; END IF;
+  SELECT b.item_id INTO v_item FROM public.inventory_batches b WHERE b.id = p_batch AND b.owner_id = v_uid;
+  IF NOT FOUND THEN RAISE EXCEPTION 'batch_not_owned' USING ERRCODE = '42501'; END IF;
+  SELECT i.quantity INTO v_q FROM public.inventory_items i WHERE i.id = v_item AND i.owner_id = v_uid FOR UPDATE;
+  SELECT coalesce(b.quantity, 0), b.expiry_date, b.is_finished INTO v_left, v_exp, v_fin
+    FROM public.inventory_batches b WHERE b.id = p_batch FOR UPDATE;
+  IF v_fin THEN RETURN jsonb_build_object('item_id', v_item, 'removed', 0, 'already', true); END IF;
+  v_out := least(v_left, greatest(v_q, 0));
+  UPDATE public.inventory_batches SET quantity = 0, is_finished = true WHERE id = p_batch;
+  IF v_out > 0 THEN
+    UPDATE public.inventory_items SET quantity = quantity - v_out WHERE id = v_item;
+  END IF;
+  INSERT INTO public.inventory_movements (owner_id, item_id, change, reason, note, batch_id)
+  VALUES (v_uid, v_item, -v_out, 'adjust',
+          '📦 دفعة انتهت' || CASE WHEN v_out > 0 THEN ' — أُخرج متبقّيها من المخزون' ELSE '' END
+          || ' (صلاحية ' || coalesce(to_char(v_exp, 'DD/MM/YYYY'), 'بلا تاريخ') || ')',
+          p_batch);
+  RETURN jsonb_build_object('item_id', v_item, 'removed', v_out, 'already', false);
+END $$;
+
+
+ALTER FUNCTION "public"."inventory_finish_batch"("p_batch" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."inventory_items_trim_batches"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE v_open numeric;
+BEGIN
+  IF NEW.quantity < OLD.quantity THEN
+    SELECT coalesce(sum(coalesce(x.quantity, 0)), 0) INTO v_open
+      FROM public.inventory_batches x WHERE x.item_id = NEW.id AND x.is_finished = false;
+    IF v_open > NEW.quantity THEN
+      PERFORM public.inventory_fefo_take(NEW.id, v_open - NEW.quantity,
+                                         (now() AT TIME ZONE 'Asia/Damascus')::date, true);
+    END IF;
+  END IF;
+  RETURN NULL;
+END $$;
+
+
+ALTER FUNCTION "public"."inventory_items_trim_batches"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."inventory_movements_guard"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.inventory_items i WHERE i.id = NEW.item_id AND i.owner_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'movement_item_not_owned' USING ERRCODE = '42501';
+  END IF;
+  IF NEW.session_id IS NOT NULL AND NOT EXISTS
+     (SELECT 1 FROM public.ledger_sessions s WHERE s.id = NEW.session_id AND s.doctor_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'movement_session_not_owned' USING ERRCODE = '42501';
+  END IF;
+  IF NEW.patient_id IS NOT NULL AND NOT EXISTS
+     (SELECT 1 FROM public.patients p WHERE p.id = NEW.patient_id AND p.doctor_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'movement_patient_not_owned' USING ERRCODE = '42501';
+  END IF;
+  IF NEW.provider_id IS NOT NULL AND NOT EXISTS
+     (SELECT 1 FROM public.clinic_doctors c WHERE c.id = NEW.provider_id AND c.owner_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'movement_provider_not_owned' USING ERRCODE = '42501';
+  END IF;
+  IF NEW.batch_id IS NOT NULL AND NOT EXISTS
+     (SELECT 1 FROM public.inventory_batches b WHERE b.id = NEW.batch_id AND b.owner_id = NEW.owner_id AND b.item_id = NEW.item_id) THEN
+    RAISE EXCEPTION 'movement_batch_not_owned' USING ERRCODE = '42501';
+  END IF;
+  IF NEW.count_id IS NOT NULL AND NOT EXISTS
+     (SELECT 1 FROM public.inventory_counts k WHERE k.id = NEW.count_id AND k.owner_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'movement_count_not_owned' USING ERRCODE = '42501';
+  END IF;
+  IF NEW.order_line_id IS NOT NULL AND NOT EXISTS
+     (SELECT 1 FROM public.inventory_order_lines l WHERE l.id = NEW.order_line_id AND l.owner_id = NEW.owner_id AND l.item_id = NEW.item_id) THEN
+    RAISE EXCEPTION 'movement_order_line_not_owned' USING ERRCODE = '42501';
+  END IF;
+  IF NEW.receipt_id IS NOT NULL AND NOT EXISTS
+     (SELECT 1 FROM public.inventory_receipts r WHERE r.id = NEW.receipt_id AND r.owner_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'movement_receipt_not_owned' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION "public"."inventory_movements_guard"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."inventory_order_lines_guard"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.inventory_orders o WHERE o.id = NEW.order_id AND o.owner_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'order_line_order_not_owned' USING ERRCODE = '42501';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.inventory_items i WHERE i.id = NEW.item_id AND i.owner_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'order_line_item_not_owned' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION "public"."inventory_order_lines_guard"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."inventory_orders_guard"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF NEW.supplier_id IS NOT NULL AND NOT EXISTS
+     (SELECT 1 FROM public.inventory_suppliers s WHERE s.id = NEW.supplier_id AND s.owner_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'order_supplier_not_owned' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION "public"."inventory_orders_guard"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."inventory_receipts_guard"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.inventory_orders o WHERE o.id = NEW.order_id AND o.owner_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'receipt_order_not_owned' USING ERRCODE = '42501';
+  END IF;
+  IF NEW.expense_syp_id IS NOT NULL AND NOT EXISTS
+     (SELECT 1 FROM public.expenses e WHERE e.id = NEW.expense_syp_id AND e.owner_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'receipt_expense_not_owned' USING ERRCODE = '42501';
+  END IF;
+  IF NEW.expense_usd_id IS NOT NULL AND NOT EXISTS
+     (SELECT 1 FROM public.expenses e WHERE e.id = NEW.expense_usd_id AND e.owner_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'receipt_expense_not_owned' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION "public"."inventory_receipts_guard"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."inventory_receive"("p_order" "uuid", "p_lines" "jsonb", "p_allow_over" boolean DEFAULT false) RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_status text; v_sup text; v_receipt uuid; v_batch uuid;
+  r record; l record;
+  v_price numeric; v_syp numeric := 0; v_usd numeric := 0; v_out jsonb := '[]'::jsonb;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'not_authenticated' USING ERRCODE = '42501'; END IF;
+  IF public.my_access_level() <> 'full' THEN RAISE EXCEPTION 'read_only' USING ERRCODE = '42501'; END IF;
+  SELECT o.status, s.name INTO v_status, v_sup
+    FROM public.inventory_orders o LEFT JOIN public.inventory_suppliers s ON s.id = o.supplier_id
+   WHERE o.id = p_order AND o.owner_id = v_uid FOR UPDATE OF o;
+  IF NOT FOUND THEN RAISE EXCEPTION 'order_not_owned' USING ERRCODE = '42501'; END IF;
+  IF v_status = 'cancelled' THEN RAISE EXCEPTION 'order_cancelled' USING ERRCODE = '22023'; END IF;
+  IF p_lines IS NULL OR jsonb_typeof(p_lines) <> 'array'
+     OR jsonb_array_length(p_lines) = 0 OR jsonb_array_length(p_lines) > 200 THEN
+    RAISE EXCEPTION 'bad_lines' USING ERRCODE = '22023';
+  END IF;
+  IF (SELECT count(DISTINCT e->>'line_id') FROM jsonb_array_elements(p_lines) e) <> jsonb_array_length(p_lines) THEN
+    RAISE EXCEPTION 'duplicate_line' USING ERRCODE = '22023';
+  END IF;
+
+  INSERT INTO public.inventory_receipts (owner_id, order_id) VALUES (v_uid, p_order) RETURNING id INTO v_receipt;
+
+  FOR r IN SELECT (e->>'line_id')::uuid AS line_id, (e->>'qty')::numeric AS qty,
+                  nullif(e->>'expiry', '')::date AS expiry, nullif(e->>'unit_price', '')::numeric AS price,
+                  left(nullif(btrim(coalesce(e->>'lot', '')), ''), 60) AS lot
+             FROM jsonb_array_elements(p_lines) e
+             LEFT JOIN public.inventory_order_lines ol0 ON ol0.id = (e->>'line_id')::uuid
+            ORDER BY ol0.item_id NULLS LAST, 1
+  LOOP
+    IF r.line_id IS NULL OR r.qty IS NULL OR NOT (r.qty > 0) OR r.qty > 1000000 OR (r.price IS NOT NULL AND r.price < 0) THEN
+      RAISE EXCEPTION 'bad_line' USING ERRCODE = '22023';
+    END IF;
+    SELECT ol.item_id, ol.qty_ordered, ol.qty_received, ol.unit_price, ol.currency INTO l
+      FROM public.inventory_order_lines ol WHERE ol.id = r.line_id AND ol.order_id = p_order AND ol.owner_id = v_uid FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'line_not_in_order' USING ERRCODE = '42501'; END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.inventory_items i WHERE i.id = l.item_id AND i.is_active) THEN
+      RAISE EXCEPTION 'item_inactive' USING ERRCODE = '22023';
+    END IF;
+    IF l.qty_received + r.qty > l.qty_ordered AND NOT coalesce(p_allow_over, false) THEN
+      RAISE EXCEPTION 'over_receive' USING ERRCODE = '22023';
+    END IF;
+    PERFORM 1 FROM public.inventory_items i WHERE i.id = l.item_id AND i.owner_id = v_uid FOR UPDATE;
+
+    v_price := coalesce(r.price, l.unit_price);
+    UPDATE public.inventory_items SET quantity = quantity + r.qty,
+           purchase_price = CASE WHEN r.price IS NOT NULL THEN r.price ELSE purchase_price END
+     WHERE id = l.item_id;
+    v_batch := NULL;
+    IF r.expiry IS NOT NULL OR r.lot IS NOT NULL THEN
+      INSERT INTO public.inventory_batches (owner_id, item_id, quantity, expiry_date, lot_no, note)
+      VALUES (v_uid, l.item_id, r.qty, r.expiry, r.lot, left('📦 طلبية' || coalesce(' — ' || v_sup, ''), 120)) RETURNING id INTO v_batch;
+    END IF;
+    INSERT INTO public.inventory_movements (owner_id, item_id, change, reason, note, batch_id, order_line_id, receipt_id)
+    VALUES (v_uid, l.item_id, r.qty, 'purchase', left('🚚 استلام طلبية' || coalesce(' — ' || v_sup, ''), 200), v_batch, r.line_id, v_receipt);
+    UPDATE public.inventory_order_lines SET qty_received = qty_received + r.qty,
+           unit_price = CASE WHEN r.price IS NOT NULL THEN r.price ELSE unit_price END
+     WHERE id = r.line_id;
+
+    IF v_price IS NOT NULL THEN
+      IF l.currency = 'USD' THEN v_usd := v_usd + r.qty * v_price; ELSE v_syp := v_syp + r.qty * v_price; END IF;
+    END IF;
+    v_out := v_out || jsonb_build_object('line_id', r.line_id, 'item_id', l.item_id, 'qty', r.qty,
+               'unit_price', v_price, 'currency', l.currency, 'priced', v_price IS NOT NULL);
+  END LOOP;
+
+  UPDATE public.inventory_receipts SET amount_syp = round(v_syp, 2), amount_usd = round(v_usd, 2) WHERE id = v_receipt;
+  RETURN jsonb_build_object('receipt_id', v_receipt, 'amount_syp', round(v_syp, 2), 'amount_usd', round(v_usd, 2), 'lines', v_out);
+END $$;
+
+
+ALTER FUNCTION "public"."inventory_receive"("p_order" "uuid", "p_lines" "jsonb", "p_allow_over" boolean) OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."is_platform_admin"() RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -659,6 +1347,72 @@ $$;
 
 
 ALTER FUNCTION "public"."is_platform_admin"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."lab_order_redo"("p_order" "uuid", "p_reason" "text" DEFAULT NULL::"text", "p_new_due" timestamp with time zone DEFAULT NULL::timestamp with time zone) RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE o public.lab_orders; r public.lab_order_redos;
+BEGIN
+  UPDATE public.lab_orders
+     SET status = 'redo', date_due = COALESCE(p_new_due, date_due)
+   WHERE id = p_order AND status IN ('received', 'checked')
+  RETURNING * INTO o;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'lab_redo_not_allowed' USING ERRCODE = 'P0001';
+  END IF;
+  UPDATE public.lab_order_redos
+     SET reason = NULLIF(btrim(left(COALESCE(p_reason, ''), 300)), '')
+   WHERE id = (SELECT id FROM public.lab_order_redos
+                WHERE lab_order_id = p_order AND resent_at IS NULL
+                ORDER BY redo_at DESC LIMIT 1)
+  RETURNING * INTO r;
+  RETURN jsonb_build_object('order', to_jsonb(o), 'redo', to_jsonb(r));
+END $$;
+
+
+ALTER FUNCTION "public"."lab_order_redo"("p_order" "uuid", "p_reason" "text", "p_new_due" timestamp with time zone) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."lab_order_redos_owner_guard"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.lab_orders o WHERE o.id = NEW.lab_order_id AND o.doctor_id = NEW.doctor_id) THEN
+    RAISE EXCEPTION 'lab_order_not_owned' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION "public"."lab_order_redos_owner_guard"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."lab_orders_redo_cycle"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF NEW.status = 'redo' AND OLD.status IS DISTINCT FROM 'redo' THEN
+    INSERT INTO public.lab_order_redos
+      (doctor_id, lab_order_id, prev_status, prev_date_received, prev_date_checked, prev_date_due, new_date_due)
+    VALUES
+      (OLD.doctor_id, OLD.id, OLD.status, OLD.date_received, OLD.date_checked, OLD.date_due, NEW.date_due);
+  ELSIF OLD.status = 'redo' AND NEW.status = 'sent' THEN
+    NEW.date_sent      := COALESCE(OLD.date_sent, NEW.date_sent);
+    NEW.date_received  := NULL;
+    NEW.date_checked   := NULL;
+    NEW.date_delivered := NULL;
+    UPDATE public.lab_order_redos SET resent_at = now()
+     WHERE lab_order_id = OLD.id AND resent_at IS NULL;
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION "public"."lab_orders_redo_cycle"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."my_access_level"() RETURNS "text"
@@ -776,6 +1530,44 @@ $$;
 
 
 ALTER FUNCTION "public"."normalize_phone"("p" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."patient_documents_lab_order_guard"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF NEW.lab_order_id IS NOT NULL AND NOT EXISTS (
+       SELECT 1 FROM public.lab_orders o
+        WHERE o.id = NEW.lab_order_id AND o.doctor_id = NEW.owner_id AND o.patient_id = NEW.patient_id) THEN
+    RAISE EXCEPTION 'lab_order_not_owned' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION "public"."patient_documents_lab_order_guard"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."patients_referrer_guard"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF NEW.referred_by_patient_id IS NOT NULL THEN
+    IF NEW.referred_by_patient_id = NEW.id THEN
+      RAISE EXCEPTION 'referrer_self' USING ERRCODE = '23514';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.patients p
+                    WHERE p.id = NEW.referred_by_patient_id AND p.doctor_id = NEW.doctor_id) THEN
+      RAISE EXCEPTION 'referrer_not_owned' USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION "public"."patients_referrer_guard"() OWNER TO "postgres";
 
 SET default_tablespace = '';
 
@@ -1470,6 +2262,24 @@ $$;
 ALTER FUNCTION "public"."touch_subscription_plans_updated_at"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."treatment_materials_guard"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.inventory_items i WHERE i.id = NEW.item_id AND i.owner_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'material_item_not_owned' USING ERRCODE = '42501';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.treatments t WHERE t.id = NEW.treatment_id AND t.doctor_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'material_treatment_not_owned' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION "public"."treatment_materials_guard"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."update_clinic_settings_timestamp"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public', 'pg_temp'
@@ -1580,6 +2390,9 @@ CREATE TABLE IF NOT EXISTS "public"."appointments" (
     "appointment_type_id" "uuid",
     "operatory_id" "uuid",
     "asap" boolean DEFAULT false NOT NULL,
+    "series_id" "uuid",
+    "series_index" smallint,
+    "series_total" smallint,
     CONSTRAINT "appointments_status_check" CHECK (("status" = ANY (ARRAY['scheduled'::"text", 'confirmed'::"text", 'pending'::"text", 'completed'::"text", 'cancelled'::"text", 'broken'::"text", 'no_show'::"text"]))),
     CONSTRAINT "confirmation_valid" CHECK (("confirmation_status" = ANY (ARRAY['pending'::"text", 'called'::"text", 'confirmed'::"text", 'not_reached'::"text", 'cancelled_by_pt'::"text"]))),
     CONSTRAINT "scheduled_has_date" CHECK ((("is_planned" = true) OR (("date" IS NOT NULL) AND ("time" IS NOT NULL))))
@@ -1587,6 +2400,10 @@ CREATE TABLE IF NOT EXISTS "public"."appointments" (
 
 
 ALTER TABLE "public"."appointments" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."appointments"."series_id" IS 'M157: معرّفُ سلسلة التكرار (المواعيدُ الأخوة تتشاركه)';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."audit_log" (
@@ -1752,8 +2569,16 @@ CREATE TABLE IF NOT EXISTS "public"."clinic_settings" (
     "report_unify_currency" "text",
     "no_show_fee_currency" "text",
     "patient_flag_defs" "jsonb",
+    "production_goal_syp" numeric,
+    "production_goal_usd" numeric,
+    "intake_note" "text",
+    "intake_signature" boolean DEFAULT true NOT NULL,
+    "intake_on_booking" boolean DEFAULT true NOT NULL,
+    "whatsapp_intake_template" "text",
     CONSTRAINT "clinic_settings_clinic_name_source_check" CHECK (("clinic_name_source" = ANY (ARRAY['derived'::"text", 'custom'::"text"]))),
     CONSTRAINT "clinic_settings_currency_chk" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))),
+    CONSTRAINT "clinic_settings_goal_syp_nonneg" CHECK ((("production_goal_syp" IS NULL) OR ("production_goal_syp" >= (0)::numeric))),
+    CONSTRAINT "clinic_settings_goal_usd_nonneg" CHECK ((("production_goal_usd" IS NULL) OR ("production_goal_usd" >= (0)::numeric))),
     CONSTRAINT "clinic_settings_no_show_fee_currency_check" CHECK ((("no_show_fee_currency" IS NULL) OR ("no_show_fee_currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"])))),
     CONSTRAINT "clinic_settings_patient_flag_defs_array" CHECK ((("patient_flag_defs" IS NULL) OR (("jsonb_typeof"("patient_flag_defs") = 'array'::"text") AND ("jsonb_array_length"("patient_flag_defs") <= 8)))),
     CONSTRAINT "clinic_settings_report_unify_currency_chk" CHECK ((("report_unify_currency" IS NULL) OR ("report_unify_currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"])))),
@@ -1818,6 +2643,30 @@ COMMENT ON COLUMN "public"."clinic_settings"."patient_flag_defs" IS 'تعريف 
 
 
 
+COMMENT ON COLUMN "public"."clinic_settings"."production_goal_syp" IS 'M159: هدف الإنتاج الشهري بالليرة (NULL = لا هدف) — اللوحة تشتق اليومي من أيام العمل.';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."production_goal_usd" IS 'M159: هدف الإنتاج الشهري بالدولار (NULL = لا هدف).';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."intake_note" IS 'نصٌّ يظهر للمريض أعلى الاستمارة (اختياري، ≤300 حرف).';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."intake_signature" IS 'إظهار حقل التوقيع (اختياريٌّ للمريض دائماً — قرار المالك 10/10/2026).';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."intake_on_booking" IS 'إرفاقُ رابط الاستمارة برسالة تأكيد الحجز الإلكتروني (المريض بلا استمارة حديثة).';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."whatsapp_intake_template" IS 'قالبُ رسالة استمارة المريض ({patient_first_name} {patient_name} {clinic_name} {clinic_phone} {intake_link}). NULL = الافتراضي. M178.';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."clinical_note_templates" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "owner_id" "uuid" NOT NULL,
@@ -1828,6 +2677,29 @@ CREATE TABLE IF NOT EXISTS "public"."clinical_note_templates" (
 
 
 ALTER TABLE "public"."clinical_note_templates" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."day_closings" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "owner_id" "uuid" NOT NULL,
+    "day" "date" NOT NULL,
+    "currency" "text" DEFAULT 'SYP'::"text" NOT NULL,
+    "expected" numeric NOT NULL,
+    "counted" numeric NOT NULL,
+    "variance" numeric GENERATED ALWAYS AS (("counted" - "expected")) STORED,
+    "note" "text",
+    "closed_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "day_closings_counted_nonneg" CHECK (("counted" >= (0)::numeric)),
+    CONSTRAINT "day_closings_currency_valid" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))),
+    CONSTRAINT "day_closings_note_len" CHECK ((("note" IS NULL) OR ("char_length"("note") <= 300)))
+);
+
+
+ALTER TABLE "public"."day_closings" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."day_closings" IS 'M158: إقفال درج النقد ليوم وعملة — expected لقطة كشف اليوم لحظة الإقفال، counted المعدود، variance مولَّد.';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."doctors" (
@@ -1890,6 +2762,10 @@ COMMENT ON COLUMN "public"."expenses"."expense_time" IS 'M153: وقت المصر
 
 
 
+COMMENT ON COLUMN "public"."expenses"."cash_source" IS 'M165: مصدرُ النقد — drawer (درج العيادة) | outside (خزنة/جيب الطبيب) | NULL = drawer. نقداً فقط.';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."implant_log" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "owner_id" "uuid" NOT NULL,
@@ -1936,11 +2812,59 @@ CREATE TABLE IF NOT EXISTS "public"."inventory_batches" (
     "is_finished" boolean DEFAULT false NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "received_qty" numeric,
+    "lot_no" "text",
+    CONSTRAINT "inventory_batches_lot_len" CHECK ((("lot_no" IS NULL) OR (("char_length"("btrim"("lot_no")) >= 1) AND ("char_length"("btrim"("lot_no")) <= 60)))),
     CONSTRAINT "inventory_batches_quantity_nonneg" CHECK ((("quantity" IS NULL) OR ("quantity" >= (0)::numeric)))
 );
 
 
 ALTER TABLE "public"."inventory_batches" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."inventory_batches"."received_qty" IS 'M169: الكمية المستلمة (quantity صارت المتبقّي)';
+
+
+
+COMMENT ON COLUMN "public"."inventory_batches"."lot_no" IS 'M173: رقمُ الدفعة (LOT) من العلبة — يُتتبَّع للمريض عبر حركات الاستهلاك';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."inventory_count_lines" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "owner_id" "uuid" NOT NULL,
+    "count_id" "uuid" NOT NULL,
+    "item_id" "uuid" NOT NULL,
+    "expected" numeric NOT NULL,
+    "counted" numeric NOT NULL,
+    "variance" numeric NOT NULL,
+    "unit_price" numeric,
+    "currency" "text",
+    CONSTRAINT "inventory_count_lines_counted_nonneg" CHECK (("counted" >= (0)::numeric)),
+    CONSTRAINT "inventory_count_lines_currency_valid" CHECK ((("currency" IS NULL) OR ("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))))
+);
+
+
+ALTER TABLE "public"."inventory_count_lines" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."inventory_count_lines" IS 'M171: سطرُ جرد — المتوقَّع (ما رآه العادّ) · المعدود · الفرقُ المطبَّق · السعرُ والعملةُ لحظةَ الجرد';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."inventory_counts" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "owner_id" "uuid" NOT NULL,
+    "note" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "inventory_counts_note_len" CHECK ((("note" IS NULL) OR ("char_length"("note") <= 300)))
+);
+
+
+ALTER TABLE "public"."inventory_counts" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."inventory_counts" IS 'M171: رأسُ جردٍ دوري';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."inventory_items" (
@@ -1966,34 +2890,8 @@ CREATE TABLE IF NOT EXISTS "public"."inventory_items" (
 ALTER TABLE "public"."inventory_items" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."inventory_counts" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "owner_id" "uuid" NOT NULL,
-    "note" "text",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "inventory_counts_note_len" CHECK ((("note" IS NULL) OR ("char_length"("note") <= 300)))
-);
+COMMENT ON COLUMN "public"."inventory_items"."reorder_qty" IS 'M170: كمية الطلب المعتادة (Order Qty) — «جهّز الطلبية» يقترح مضاعفاتها؛ NULL = غير محدّدة';
 
-
-ALTER TABLE "public"."inventory_counts" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."inventory_count_lines" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "owner_id" "uuid" NOT NULL,
-    "count_id" "uuid" NOT NULL,
-    "item_id" "uuid" NOT NULL,
-    "expected" numeric NOT NULL,
-    "counted" numeric NOT NULL,
-    "variance" numeric NOT NULL,
-    "unit_price" numeric,
-    "currency" "text",
-    CONSTRAINT "inventory_count_lines_counted_nonneg" CHECK (("counted" >= (0)::numeric)),
-    CONSTRAINT "inventory_count_lines_currency_valid" CHECK ((("currency" IS NULL) OR ("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))))
-);
-
-
-ALTER TABLE "public"."inventory_count_lines" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."inventory_movements" (
@@ -2009,11 +2907,139 @@ CREATE TABLE IF NOT EXISTS "public"."inventory_movements" (
     "provider_id" "uuid",
     "batch_id" "uuid",
     "count_id" "uuid",
+    "order_line_id" "uuid",
+    "receipt_id" "uuid",
     CONSTRAINT "inv_reason_valid" CHECK (("reason" = ANY (ARRAY['purchase'::"text", 'consume'::"text", 'adjust'::"text", 'return'::"text", 'count'::"text"])))
 );
 
 
 ALTER TABLE "public"."inventory_movements" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."inventory_movements"."session_id" IS 'M169: الجلسة التي استُهلكت لها المادة (ملكية: trg_inventory_movements_guard)';
+
+
+
+COMMENT ON COLUMN "public"."inventory_movements"."patient_id" IS 'M169: مريضُ الجلسة — يُشتقّ بالقاعدة داخل inventory_consume';
+
+
+
+COMMENT ON COLUMN "public"."inventory_movements"."provider_id" IS 'M169: طبيبُ الجلسة — يُشتقّ بالقاعدة داخل inventory_consume';
+
+
+
+COMMENT ON COLUMN "public"."inventory_movements"."batch_id" IS 'M169: الدفعة التي خرجت منها الشريحة (NULL = رصيدٌ بلا دفعة)';
+
+
+
+COMMENT ON COLUMN "public"."inventory_movements"."count_id" IS 'M171: الجردُ الذي سجّل هذا الفرق (reason = count)';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."inventory_order_lines" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "owner_id" "uuid" NOT NULL,
+    "order_id" "uuid" NOT NULL,
+    "item_id" "uuid" NOT NULL,
+    "qty_ordered" numeric NOT NULL,
+    "qty_received" numeric DEFAULT 0 NOT NULL,
+    "unit_price" numeric,
+    "currency" "text" DEFAULT 'SYP'::"text" NOT NULL,
+    CONSTRAINT "inventory_order_lines_currency_valid" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))),
+    CONSTRAINT "inventory_order_lines_price_nonneg" CHECK ((("unit_price" IS NULL) OR ("unit_price" >= (0)::numeric))),
+    CONSTRAINT "inventory_order_lines_qty_pos" CHECK ((("qty_ordered" > (0)::numeric) AND ("qty_ordered" <= (1000000)::numeric))),
+    CONSTRAINT "inventory_order_lines_recv_nonneg" CHECK (("qty_received" >= (0)::numeric))
+);
+
+
+ALTER TABLE "public"."inventory_order_lines" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."inventory_order_lines" IS 'M172: سطرُ طلبية — المطلوب والمستلَم والسعرُ بعملة الصنف';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."inventory_orders" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "owner_id" "uuid" NOT NULL,
+    "supplier_id" "uuid",
+    "note" "text",
+    "status" "text" DEFAULT 'open'::"text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "inventory_orders_note_len" CHECK ((("note" IS NULL) OR ("char_length"("note") <= 300))),
+    CONSTRAINT "inventory_orders_status_valid" CHECK (("status" = ANY (ARRAY['open'::"text", 'cancelled'::"text"])))
+);
+
+
+ALTER TABLE "public"."inventory_orders" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."inventory_orders" IS 'M172: طلبيةُ شراء — status ∈ open/cancelled، والحالةُ المعروضة تُشتقّ من الأسطر';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."inventory_receipts" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "owner_id" "uuid" NOT NULL,
+    "order_id" "uuid" NOT NULL,
+    "amount_syp" numeric DEFAULT 0 NOT NULL,
+    "amount_usd" numeric DEFAULT 0 NOT NULL,
+    "expense_syp_id" "uuid",
+    "expense_usd_id" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "inventory_receipts_amounts_nonneg" CHECK ((("amount_syp" >= (0)::numeric) AND ("amount_usd" >= (0)::numeric)))
+);
+
+
+ALTER TABLE "public"."inventory_receipts" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."inventory_receipts" IS 'M172: استلامٌ واحد — مجموعُه لكل عملة وربطُ مصروفه (لا تُسجَّل الفاتورةُ مرتين)';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."inventory_suppliers" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "owner_id" "uuid" NOT NULL,
+    "name" "text" NOT NULL,
+    "phone" "text",
+    "note" "text",
+    "is_active" boolean DEFAULT true NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "inventory_suppliers_name_len" CHECK ((("char_length"("btrim"("name")) >= 1) AND ("char_length"("btrim"("name")) <= 80))),
+    CONSTRAINT "inventory_suppliers_note_len" CHECK ((("note" IS NULL) OR ("char_length"("note") <= 300))),
+    CONSTRAINT "inventory_suppliers_phone_len" CHECK ((("phone" IS NULL) OR ("char_length"("phone") <= 30)))
+);
+
+
+ALTER TABLE "public"."inventory_suppliers" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."inventory_suppliers" IS 'M172: موردو المواد';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."lab_order_redos" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "doctor_id" "uuid" NOT NULL,
+    "lab_order_id" "uuid" NOT NULL,
+    "reason" "text",
+    "prev_status" "text" NOT NULL,
+    "prev_date_received" timestamp with time zone,
+    "prev_date_checked" timestamp with time zone,
+    "prev_date_due" timestamp with time zone,
+    "new_date_due" timestamp with time zone,
+    "redo_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "resent_at" timestamp with time zone,
+    CONSTRAINT "lab_order_redos_reason_len" CHECK ((("reason" IS NULL) OR ("char_length"("reason") <= 300)))
+);
+
+
+ALTER TABLE "public"."lab_order_redos" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."lab_order_redos" IS 'M160: دورات إعادة العمل للمخبر — لقطة الدورة المنتهية + السبب + الاستحقاق الجديد + وقت إعادة الإرسال.';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."lab_order_templates" (
@@ -2092,6 +3118,10 @@ CREATE TABLE IF NOT EXISTS "public"."lab_payments" (
 ALTER TABLE "public"."lab_payments" OWNER TO "postgres";
 
 
+COMMENT ON COLUMN "public"."lab_payments"."cash_source" IS 'M165: مصدرُ النقد — drawer | outside | NULL = drawer.';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."labs" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "doctor_id" "uuid",
@@ -2156,7 +3186,7 @@ CREATE TABLE IF NOT EXISTS "public"."ledger_sessions" (
     CONSTRAINT "ledger_sessions_plan_option_check" CHECK ((("plan_option" IS NULL) OR (("plan_option" >= 1) AND ("plan_option" <= 3)))),
     CONSTRAINT "ledger_sessions_quadrant_valid" CHECK ((("quadrant" IS NULL) OR ("quadrant" = ANY (ARRAY['UR'::"text", 'UL'::"text", 'LR'::"text", 'LL'::"text"])))),
     CONSTRAINT "ledger_sessions_status_check" CHECK (("status" = ANY (ARRAY['planned'::"text", 'completed'::"text", 'existing_current'::"text", 'existing_other'::"text", 'referred'::"text", 'condition'::"text"]))),
-    CONSTRAINT "ledger_sessions_surface_check" CHECK ((("surface" IS NULL) OR (("surface" ~ '^M?[OI]?D?B?L?V?$'::"text") AND ("surface" <> ''::"text")) OR ("surface" = ANY (ARRAY['WHOLE'::"text", 'PONTIC'::"text", 'CROWN_FULL'::"text", 'BRIDGE'::"text", 'SPACER'::"text", 'SOCKET'::"text", 'R1'::"text", 'R2'::"text", 'R3'::"text", 'R1R2'::"text", 'R1R3'::"text", 'R2R3'::"text", 'R1R2R3'::"text"])))),
+    CONSTRAINT "ledger_sessions_surface_check" CHECK ((("surface" IS NULL) OR (("surface" ~ '^M?[OI]?D?B?L?V?$'::"text") AND ("surface" <> ''::"text")) OR ("surface" = ANY (ARRAY['WHOLE'::"text", 'PONTIC'::"text", 'CROWN_FULL'::"text", 'BRIDGE'::"text", 'SPACER'::"text", 'SOCKET'::"text", 'SXM'::"text", 'SXD'::"text", 'R1'::"text", 'R2'::"text", 'R3'::"text", 'R1R2'::"text", 'R1R3'::"text", 'R2R3'::"text", 'R1R2R3'::"text"])))),
     CONSTRAINT "ledger_sessions_units_range" CHECK ((("units" IS NULL) OR (("units" >= 1) AND ("units" <= 99))))
 );
 
@@ -2238,11 +3268,45 @@ CREATE TABLE IF NOT EXISTS "public"."patient_documents" (
     "created_at" timestamp with time zone DEFAULT "now"(),
     "tooth_num" "text",
     "session_id" "uuid",
+    "lab_order_id" "uuid",
     CONSTRAINT "patient_documents_category_check" CHECK (("category" = ANY (ARRAY['xray'::"text", 'clinical_photo'::"text", 'document'::"text", 'receipt'::"text", 'other'::"text"])))
 );
 
 
 ALTER TABLE "public"."patient_documents" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."patient_documents"."lab_order_id" IS 'M162: مرفقُ طلب مخبر (صورة اللون/الحالة/المسح) — يبقى ملفاً للمريض إن حُذف الطلب.';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."patient_intakes" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "owner_id" "uuid" NOT NULL,
+    "patient_id" "uuid" NOT NULL,
+    "token" "text" DEFAULT "replace"((("gen_random_uuid"())::"text" || ("gen_random_uuid"())::"text"), '-'::"text", ''::"text") NOT NULL,
+    "status" "text" DEFAULT 'pending'::"text" NOT NULL,
+    "expires_at" timestamp with time zone DEFAULT ("now"() + '14 days'::interval) NOT NULL,
+    "created_by" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "submitted_at" timestamp with time zone,
+    "answers" "jsonb",
+    "signature" "text",
+    "reviewed_at" timestamp with time zone,
+    "reviewed_by" "text",
+    CONSTRAINT "patient_intakes_created_by_check" CHECK ((("created_by" IS NULL) OR ("char_length"("created_by") <= 80))),
+    CONSTRAINT "patient_intakes_reviewed_by_check" CHECK ((("reviewed_by" IS NULL) OR ("char_length"("reviewed_by") <= 80))),
+    CONSTRAINT "patient_intakes_signature_check" CHECK ((("signature" IS NULL) OR (("char_length"("signature") <= 120000) AND ("signature" ~~ 'data:image/png;base64,%'::"text")))),
+    CONSTRAINT "patient_intakes_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'submitted'::"text", 'reviewed'::"text", 'dismissed'::"text"]))),
+    CONSTRAINT "patient_intakes_token_hex" CHECK (("token" ~ '^[0-9a-f]{64}$'::"text"))
+);
+
+
+ALTER TABLE "public"."patient_intakes" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."patient_intakes" IS 'استمارة المريض الرقمية (M177): رابطٌ مرمَّز لكل مريض · إجاباتٌ مبيَّضة بالقاعدة · مراجعةٌ ودمجٌ بيد العيادة. توثيقي — لا أثر مالي.';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."patient_messages" (
@@ -2257,7 +3321,7 @@ CREATE TABLE IF NOT EXISTS "public"."patient_messages" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     CONSTRAINT "patient_messages_body_len" CHECK ((("char_length"("body") >= 1) AND ("char_length"("body") <= 6000))),
     CONSTRAINT "patient_messages_channel_check" CHECK (("channel" = ANY (ARRAY['whatsapp_link'::"text", 'copy'::"text", 'print'::"text"]))),
-    CONSTRAINT "patient_messages_kind_check" CHECK (("kind" = ANY (ARRAY['prescription'::"text", 'instructions'::"text", 'plan'::"text", 'installment'::"text", 'recall'::"text", 'birthday'::"text", 'review'::"text", 'referral'::"text", 'free'::"text", 'other'::"text"]))),
+    CONSTRAINT "patient_messages_kind_check" CHECK (("kind" = ANY (ARRAY['prescription'::"text", 'instructions'::"text", 'plan'::"text", 'installment'::"text", 'recall'::"text", 'birthday'::"text", 'review'::"text", 'referral'::"text", 'free'::"text", 'other'::"text", 'intake'::"text"]))),
     CONSTRAINT "patient_messages_sent_by_len" CHECK ((("sent_by" IS NULL) OR ("char_length"("sent_by") <= 80)))
 );
 
@@ -2314,8 +3378,11 @@ CREATE TABLE IF NOT EXISTS "public"."patients" (
     "medical_flags_other" "text",
     "family_id" "uuid",
     "flags" "jsonb",
+    "referred_by_patient_id" "uuid",
+    "referrer_name" "text",
     CONSTRAINT "patients_flags_array" CHECK ((("flags" IS NULL) OR (("jsonb_typeof"("flags") = 'array'::"text") AND ("jsonb_array_length"("flags") <= 8)))),
-    CONSTRAINT "patients_referral_source_check" CHECK ((("referral_source" IS NULL) OR ("referral_source" = ANY (ARRAY['friend'::"text", 'search'::"text", 'social'::"text", 'walk_in'::"text", 'doctor_referral'::"text", 'booking'::"text", 'other'::"text"]))))
+    CONSTRAINT "patients_referral_source_check" CHECK ((("referral_source" IS NULL) OR ("referral_source" = ANY (ARRAY['friend'::"text", 'search'::"text", 'social'::"text", 'walk_in'::"text", 'doctor_referral'::"text", 'booking'::"text", 'other'::"text"])))),
+    CONSTRAINT "patients_referrer_name_len" CHECK ((("referrer_name" IS NULL) OR ("char_length"("referrer_name") <= 120)))
 );
 
 
@@ -2327,6 +3394,14 @@ COMMENT ON COLUMN "public"."patients"."medical_flags" IS 'مصفوفة JSONB م�
 
 
 COMMENT ON COLUMN "public"."patients"."flags" IS 'أعلام إدارية ملوّنة: مصفوفة مفاتيح من clinic_settings.patient_flag_defs. عرضية بحتة — لا تدخل أي حساب.';
+
+
+
+COMMENT ON COLUMN "public"."patients"."referred_by_patient_id" IS 'M164: المريض الذي عرّف هذا المريض على العيادة (للمالك نفسه — trg_patients_referrer_guard)';
+
+
+
+COMMENT ON COLUMN "public"."patients"."referrer_name" IS 'M164: اسم المُحيل الحرّ — الطبيب المحوِّل أو مُعرِّف ليس مريضاً (≤120)';
 
 
 
@@ -2566,6 +3641,10 @@ CREATE TABLE IF NOT EXISTS "public"."provider_payouts" (
 ALTER TABLE "public"."provider_payouts" OWNER TO "postgres";
 
 
+COMMENT ON COLUMN "public"."provider_payouts"."cash_source" IS 'M165: مصدرُ النقد — drawer | outside | NULL = drawer. نقداً فقط.';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."reminder_logs" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "owner_id" "uuid" NOT NULL,
@@ -2619,28 +3698,6 @@ COMMENT ON TABLE "public"."schedule_blocks" IS 'M154: الحجوزات المغ�
 
 
 COMMENT ON COLUMN "public"."schedule_blocks"."date_to" IS 'M155: NULL = بلا نهاية (حجزٌ دائم)';
-
-
-CREATE TABLE IF NOT EXISTS "public"."day_closings" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "owner_id" "uuid" NOT NULL,
-    "day" "date" NOT NULL,
-    "currency" "text" DEFAULT 'SYP'::"text" NOT NULL,
-    "expected" numeric NOT NULL,
-    "counted" numeric NOT NULL,
-    "variance" numeric GENERATED ALWAYS AS (("counted" - "expected")) STORED,
-    "note" "text",
-    "closed_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "day_closings_counted_nonneg" CHECK (("counted" >= (0)::numeric)),
-    CONSTRAINT "day_closings_currency_valid" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))),
-    CONSTRAINT "day_closings_note_len" CHECK ((("note" IS NULL) OR ("char_length"("note") <= 300)))
-);
-
-
-ALTER TABLE "public"."day_closings" OWNER TO "postgres";
-
-
-COMMENT ON TABLE "public"."day_closings" IS 'M158: إقفال درج النقد ليوم وعملة — expected لقطة كشف اليوم لحظة الإقفال، counted المعدود، variance مولَّد.';
 
 
 
@@ -2805,9 +3862,6 @@ CREATE TABLE IF NOT EXISTS "public"."subscription_requests" (
     CONSTRAINT "subscription_requests_request_kind_check" CHECK (("request_kind" = ANY (ARRAY['upgrade'::"text", 'renew'::"text"]))),
     CONSTRAINT "subscription_requests_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'approved'::"text", 'rejected'::"text", 'cancelled'::"text"])))
 );
--- M167 (NOT VALID — الطلباتُ القديمة لا يُعاد فحصُها): إثباتُ شام كاش · مسارُ الإيصال بمجلد صاحب الطلب
-ALTER TABLE "public"."subscription_requests" ADD CONSTRAINT "subscription_requests_shamcash_proof" CHECK ((("payment_method" IS DISTINCT FROM 'sham_cash'::"text") OR ("receipt_path" IS NOT NULL) OR (NULLIF("btrim"("payment_ref"), ''::"text") IS NOT NULL))) NOT VALID;
-ALTER TABLE "public"."subscription_requests" ADD CONSTRAINT "subscription_requests_receipt_own_folder" CHECK ((("receipt_path" IS NULL) OR ("split_part"("receipt_path", '/'::"text", 1) = ("user_id")::"text"))) NOT VALID;
 
 
 ALTER TABLE "public"."subscription_requests" OWNER TO "postgres";
@@ -2827,8 +3881,10 @@ CREATE TABLE IF NOT EXISTS "public"."teeth_status" (
     "provider_id" "uuid",
     "review_at" "date",
     "unit_id" "uuid",
+    "dx_key" "text",
+    CONSTRAINT "teeth_status_dx_key_check" CHECK ((("dx_key" IS NULL) OR (("length"("dx_key") <= 400) AND ("dx_key" ~ '^[A-Z0-9]+:cond-[a-z-]+(,[A-Z0-9]+:cond-[a-z-]+)*$'::"text")))),
     CONSTRAINT "teeth_status_status_check" CHECK (("status" = ANY (ARRAY['planned'::"text", 'completed'::"text", 'existing_current'::"text", 'existing_other'::"text", 'referred'::"text", 'condition'::"text"]))),
-    CONSTRAINT "teeth_status_surface_check" CHECK (((("surface" ~ '^M?[OI]?D?B?L?V?$'::"text") AND ("surface" <> ''::"text")) OR ("surface" = ANY (ARRAY['WHOLE'::"text", 'PONTIC'::"text", 'CROWN_FULL'::"text", 'BRIDGE'::"text", 'SPACER'::"text", 'SOCKET'::"text", 'COND'::"text", 'R1'::"text", 'R2'::"text", 'R3'::"text", 'R1R2'::"text", 'R1R3'::"text", 'R2R3'::"text", 'R1R2R3'::"text"]))))
+    CONSTRAINT "teeth_status_surface_check" CHECK (((("surface" ~ '^M?[OI]?D?B?L?V?$'::"text") AND ("surface" <> ''::"text")) OR ("surface" = ANY (ARRAY['WHOLE'::"text", 'PONTIC'::"text", 'CROWN_FULL'::"text", 'BRIDGE'::"text", 'SPACER'::"text", 'SOCKET'::"text", 'COND'::"text", 'SXM'::"text", 'SXD'::"text", 'R1'::"text", 'R2'::"text", 'R3'::"text", 'R1R2'::"text", 'R1R3'::"text", 'R2R3'::"text", 'R1R2R3'::"text"]))))
 );
 
 
@@ -2840,6 +3896,10 @@ COMMENT ON COLUMN "public"."teeth_status"."review_at" IS 'Scheduled follow-up da
 
 
 COMMENT ON COLUMN "public"."teeth_status"."unit_id" IS 'Explicit prosthetic-unit membership (bridge v1): all rows written for one bridge share one uuid. NULL = legacy row, unit inferred by adjacency.';
+
+
+
+COMMENT ON COLUMN "public"."teeth_status"."dx_key" IS 'M179: diagnosis(es) this treatment row replaced on the same surface — "SURF:cond-key[,SURF:cond-key]". Kept through planned→completed; NULL on condition rows. Set by trg_teeth_status_dx; the client sends it only for composite saves that subsume component condition rows.';
 
 
 
@@ -2855,6 +3915,7 @@ CREATE TABLE IF NOT EXISTS "public"."teeth_status_history" (
     "review_at" "date",
     "op" character(1) NOT NULL,
     "changed_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "dx_key" "text",
     CONSTRAINT "teeth_status_history_op_check" CHECK (("op" = ANY (ARRAY['I'::"bpchar", 'U'::"bpchar", 'D'::"bpchar"])))
 );
 
@@ -2933,8 +3994,10 @@ CREATE TABLE IF NOT EXISTS "public"."treatments" (
     "currency" "text" NOT NULL,
     "dentition_scope" "text" DEFAULT 'all'::"text" NOT NULL,
     "accepts_units" boolean DEFAULT false NOT NULL,
+    "lab_days" smallint,
     CONSTRAINT "treatments_currency_valid" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))),
     CONSTRAINT "treatments_dentition_scope_check" CHECK (("dentition_scope" = ANY (ARRAY['all'::"text", 'primary'::"text", 'permanent'::"text"]))),
+    CONSTRAINT "treatments_lab_days_range" CHECK ((("lab_days" IS NULL) OR (("lab_days" >= 1) AND ("lab_days" <= 60)))),
     CONSTRAINT "treatments_layman_name_length" CHECK ((("layman_name" IS NULL) OR ("char_length"("layman_name") <= 100))),
     CONSTRAINT "treatments_target_part_check" CHECK (("target_part" = ANY (ARRAY['crown'::"text", 'root'::"text", 'whole'::"text", 'crown_full'::"text", 'bridge'::"text", 'extraction'::"text", 'implant'::"text", 'quadrant'::"text", 'arch'::"text", 'mouth'::"text"])))
 );
@@ -2948,6 +4011,10 @@ COMMENT ON COLUMN "public"."treatments"."dentition_scope" IS 'Which dentition th
 
 
 COMMENT ON COLUMN "public"."treatments"."accepts_units" IS 'يقبل عدد وحدات: يُظهر حقل «عدد الوحدات» بمودال العلاج (أشعة ×4، تقليح ×4 أرباع…). مفتاحٌ صريح بتعريف العلاج — لا يُستنتج من التصنيف (نمط Open Dental Unit Quantity · Denticon Charting flags). عرضيٌّ بحت: cost يبقى الإجمالي المخزَّن.';
+
+
+
+COMMENT ON COLUMN "public"."treatments"."lab_days" IS 'M161: أيام الدوام المعتادة لتصنيع هذا العلاج بالمخبر — مصدر الاستحقاق التلقائي بطلب المخبر.';
 
 
 
@@ -3064,6 +4131,16 @@ ALTER TABLE ONLY "public"."clinical_note_templates"
 
 
 
+ALTER TABLE ONLY "public"."day_closings"
+    ADD CONSTRAINT "day_closings_one_per_day" UNIQUE ("owner_id", "day", "currency");
+
+
+
+ALTER TABLE ONLY "public"."day_closings"
+    ADD CONSTRAINT "day_closings_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."doctors"
     ADD CONSTRAINT "doctors_email_key" UNIQUE ("email");
 
@@ -3099,6 +4176,21 @@ ALTER TABLE ONLY "public"."inventory_batches"
 
 
 
+ALTER TABLE ONLY "public"."inventory_count_lines"
+    ADD CONSTRAINT "inventory_count_lines_one_per_item" UNIQUE ("count_id", "item_id");
+
+
+
+ALTER TABLE ONLY "public"."inventory_count_lines"
+    ADD CONSTRAINT "inventory_count_lines_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."inventory_counts"
+    ADD CONSTRAINT "inventory_counts_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."inventory_items"
     ADD CONSTRAINT "inventory_items_pkey" PRIMARY KEY ("id");
 
@@ -3109,18 +4201,33 @@ ALTER TABLE ONLY "public"."inventory_movements"
 
 
 
-ALTER TABLE ONLY "public"."inventory_counts"
-    ADD CONSTRAINT "inventory_counts_pkey" PRIMARY KEY ("id");
+ALTER TABLE ONLY "public"."inventory_order_lines"
+    ADD CONSTRAINT "inventory_order_lines_one_per_item" UNIQUE ("order_id", "item_id");
 
 
 
-ALTER TABLE ONLY "public"."inventory_count_lines"
-    ADD CONSTRAINT "inventory_count_lines_pkey" PRIMARY KEY ("id");
+ALTER TABLE ONLY "public"."inventory_order_lines"
+    ADD CONSTRAINT "inventory_order_lines_pkey" PRIMARY KEY ("id");
 
 
 
-ALTER TABLE ONLY "public"."inventory_count_lines"
-    ADD CONSTRAINT "inventory_count_lines_one_per_item" UNIQUE ("count_id", "item_id");
+ALTER TABLE ONLY "public"."inventory_orders"
+    ADD CONSTRAINT "inventory_orders_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."inventory_receipts"
+    ADD CONSTRAINT "inventory_receipts_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."inventory_suppliers"
+    ADD CONSTRAINT "inventory_suppliers_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."lab_order_redos"
+    ADD CONSTRAINT "lab_order_redos_pkey" PRIMARY KEY ("id");
 
 
 
@@ -3176,6 +4283,16 @@ ALTER TABLE ONLY "public"."operatories"
 
 ALTER TABLE ONLY "public"."patient_documents"
     ADD CONSTRAINT "patient_documents_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."patient_intakes"
+    ADD CONSTRAINT "patient_intakes_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."patient_intakes"
+    ADD CONSTRAINT "patient_intakes_token_key" UNIQUE ("token");
 
 
 
@@ -3278,15 +4395,6 @@ ALTER TABLE ONLY "public"."schedule_blocks"
     ADD CONSTRAINT "schedule_blocks_pkey" PRIMARY KEY ("id");
 
 
-ALTER TABLE ONLY "public"."day_closings"
-    ADD CONSTRAINT "day_closings_pkey" PRIMARY KEY ("id");
-
-
-
-ALTER TABLE ONLY "public"."day_closings"
-    ADD CONSTRAINT "day_closings_one_per_day" UNIQUE ("owner_id", "day", "currency");
-
-
 
 ALTER TABLE ONLY "public"."staff_messages"
     ADD CONSTRAINT "staff_messages_pkey" PRIMARY KEY ("id");
@@ -3310,6 +4418,16 @@ ALTER TABLE ONLY "public"."subscription_plans"
 
 ALTER TABLE ONLY "public"."subscription_requests"
     ADD CONSTRAINT "subscription_requests_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE "public"."subscription_requests"
+    ADD CONSTRAINT "subscription_requests_receipt_own_folder" CHECK ((("receipt_path" IS NULL) OR ("split_part"("receipt_path", '/'::"text", 1) = ("user_id")::"text"))) NOT VALID;
+
+
+
+ALTER TABLE "public"."subscription_requests"
+    ADD CONSTRAINT "subscription_requests_shamcash_proof" CHECK ((("payment_method" IS DISTINCT FROM 'sham_cash'::"text") OR ("receipt_path" IS NOT NULL) OR (NULLIF("btrim"("payment_ref"), ''::"text") IS NOT NULL))) NOT VALID;
 
 
 
@@ -3412,6 +4530,10 @@ CREATE INDEX "idx_appointments_planned" ON "public"."appointments" USING "btree"
 
 
 CREATE INDEX "idx_appointments_provider" ON "public"."appointments" USING "btree" ("provider_id", "date");
+
+
+
+CREATE INDEX "idx_appointments_series" ON "public"."appointments" USING "btree" ("doctor_id", "series_id") WHERE ("series_id" IS NOT NULL);
 
 
 
@@ -3523,15 +4645,15 @@ CREATE INDEX "idx_implant_templates_owner" ON "public"."implant_templates" USING
 
 
 
+CREATE INDEX "idx_inv_batch_item_open" ON "public"."inventory_batches" USING "btree" ("item_id") WHERE ("is_finished" = false);
+
+
+
 CREATE INDEX "idx_inv_batches_item" ON "public"."inventory_batches" USING "btree" ("owner_id", "item_id", "is_finished");
 
 
 
-CREATE INDEX "idx_inv_items_owner" ON "public"."inventory_items" USING "btree" ("owner_id", "is_active", "name");
-
-
-
-CREATE INDEX "idx_inv_batch_item_open" ON "public"."inventory_batches" USING "btree" ("item_id") WHERE ("is_finished" = false);
+CREATE INDEX "idx_inv_batches_lot" ON "public"."inventory_batches" USING "btree" ("owner_id", "lot_no") WHERE ("lot_no" IS NOT NULL);
 
 
 
@@ -3547,7 +4669,7 @@ CREATE INDEX "idx_inv_counts_owner" ON "public"."inventory_counts" USING "btree"
 
 
 
-CREATE INDEX "idx_inv_mov_count" ON "public"."inventory_movements" USING "btree" ("count_id") WHERE ("count_id" IS NOT NULL);
+CREATE INDEX "idx_inv_items_owner" ON "public"."inventory_items" USING "btree" ("owner_id", "is_active", "name");
 
 
 
@@ -3555,7 +4677,15 @@ CREATE INDEX "idx_inv_mov_batch" ON "public"."inventory_movements" USING "btree"
 
 
 
+CREATE INDEX "idx_inv_mov_count" ON "public"."inventory_movements" USING "btree" ("count_id") WHERE ("count_id" IS NOT NULL);
+
+
+
 CREATE INDEX "idx_inv_mov_item" ON "public"."inventory_movements" USING "btree" ("item_id", "created_at" DESC);
+
+
+
+CREATE INDEX "idx_inv_mov_order_line" ON "public"."inventory_movements" USING "btree" ("order_line_id") WHERE ("order_line_id" IS NOT NULL);
 
 
 
@@ -3567,11 +4697,59 @@ CREATE INDEX "idx_inv_mov_patient" ON "public"."inventory_movements" USING "btre
 
 
 
+CREATE INDEX "idx_inv_mov_patient_consume" ON "public"."inventory_movements" USING "btree" ("patient_id", "created_at" DESC) WHERE (("patient_id" IS NOT NULL) AND ("reason" = 'consume'::"text"));
+
+
+
+CREATE INDEX "idx_inv_mov_receipt" ON "public"."inventory_movements" USING "btree" ("receipt_id") WHERE ("receipt_id" IS NOT NULL);
+
+
+
 CREATE INDEX "idx_inv_mov_session" ON "public"."inventory_movements" USING "btree" ("session_id") WHERE ("session_id" IS NOT NULL);
 
 
 
+CREATE INDEX "idx_inv_order_lines_item" ON "public"."inventory_order_lines" USING "btree" ("item_id");
+
+
+
+CREATE INDEX "idx_inv_order_lines_order" ON "public"."inventory_order_lines" USING "btree" ("order_id");
+
+
+
+CREATE INDEX "idx_inv_orders_owner" ON "public"."inventory_orders" USING "btree" ("owner_id", "created_at" DESC);
+
+
+
+CREATE INDEX "idx_inv_orders_supplier" ON "public"."inventory_orders" USING "btree" ("supplier_id") WHERE ("supplier_id" IS NOT NULL);
+
+
+
+CREATE INDEX "idx_inv_receipts_exp_syp" ON "public"."inventory_receipts" USING "btree" ("expense_syp_id") WHERE ("expense_syp_id" IS NOT NULL);
+
+
+
+CREATE INDEX "idx_inv_receipts_exp_usd" ON "public"."inventory_receipts" USING "btree" ("expense_usd_id") WHERE ("expense_usd_id" IS NOT NULL);
+
+
+
+CREATE INDEX "idx_inv_receipts_order" ON "public"."inventory_receipts" USING "btree" ("order_id");
+
+
+
+CREATE INDEX "idx_inv_suppliers_owner" ON "public"."inventory_suppliers" USING "btree" ("owner_id");
+
+
+
 CREATE INDEX "idx_inventory_batches_item_id" ON "public"."inventory_batches" USING "btree" ("item_id");
+
+
+
+CREATE INDEX "idx_lab_order_redos_doctor" ON "public"."lab_order_redos" USING "btree" ("doctor_id");
+
+
+
+CREATE INDEX "idx_lab_order_redos_order" ON "public"."lab_order_redos" USING "btree" ("lab_order_id", "redo_at");
 
 
 
@@ -3659,6 +4837,10 @@ CREATE INDEX "idx_patient_documents_appt" ON "public"."patient_documents" USING 
 
 
 
+CREATE INDEX "idx_patient_documents_lab_order" ON "public"."patient_documents" USING "btree" ("lab_order_id") WHERE ("lab_order_id" IS NOT NULL);
+
+
+
 CREATE INDEX "idx_patient_documents_patient" ON "public"."patient_documents" USING "btree" ("patient_id", "created_at" DESC);
 
 
@@ -3667,11 +4849,23 @@ CREATE INDEX "idx_patient_documents_session_id" ON "public"."patient_documents" 
 
 
 
+CREATE INDEX "idx_patient_intakes_owner_status" ON "public"."patient_intakes" USING "btree" ("owner_id", "status", "submitted_at" DESC);
+
+
+
+CREATE INDEX "idx_patient_intakes_patient" ON "public"."patient_intakes" USING "btree" ("owner_id", "patient_id", "created_at" DESC);
+
+
+
 CREATE INDEX "idx_patient_messages_patient" ON "public"."patient_messages" USING "btree" ("owner_id", "patient_id", "created_at" DESC);
 
 
 
 CREATE INDEX "idx_patients_family" ON "public"."patients" USING "btree" ("doctor_id", "family_id") WHERE ("family_id" IS NOT NULL);
+
+
+
+CREATE INDEX "idx_patients_referred_by" ON "public"."patients" USING "btree" ("referred_by_patient_id") WHERE ("referred_by_patient_id" IS NOT NULL);
 
 
 
@@ -3943,6 +5137,10 @@ CREATE UNIQUE INDEX "uq_clinic_employees_one_owner" ON "public"."clinic_employee
 
 
 
+CREATE UNIQUE INDEX "uq_patient_intakes_pending" ON "public"."patient_intakes" USING "btree" ("patient_id") WHERE ("status" = 'pending'::"text");
+
+
+
 CREATE UNIQUE INDEX "uq_sub_requests_one_pending" ON "public"."subscription_requests" USING "btree" ("user_id") WHERE ("status" = 'pending'::"text");
 
 
@@ -4047,11 +5245,55 @@ CREATE OR REPLACE TRIGGER "trg_expenses_updated_at" BEFORE UPDATE ON "public"."e
 
 
 
+CREATE OR REPLACE TRIGGER "trg_inventory_batches_guard" BEFORE INSERT OR UPDATE ON "public"."inventory_batches" FOR EACH ROW EXECUTE FUNCTION "public"."inventory_batches_guard"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_inventory_count_lines_guard" BEFORE INSERT OR UPDATE OF "owner_id", "count_id", "item_id" ON "public"."inventory_count_lines" FOR EACH ROW EXECUTE FUNCTION "public"."inventory_count_lines_guard"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_inventory_items_trim_batches" AFTER UPDATE OF "quantity" ON "public"."inventory_items" FOR EACH ROW EXECUTE FUNCTION "public"."inventory_items_trim_batches"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_inventory_movements_guard" BEFORE INSERT OR UPDATE OF "owner_id", "item_id", "session_id", "patient_id", "provider_id", "batch_id", "count_id", "order_line_id", "receipt_id" ON "public"."inventory_movements" FOR EACH ROW EXECUTE FUNCTION "public"."inventory_movements_guard"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_inventory_order_lines_guard" BEFORE INSERT OR UPDATE OF "owner_id", "order_id", "item_id" ON "public"."inventory_order_lines" FOR EACH ROW EXECUTE FUNCTION "public"."inventory_order_lines_guard"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_inventory_orders_guard" BEFORE INSERT OR UPDATE OF "owner_id", "supplier_id" ON "public"."inventory_orders" FOR EACH ROW EXECUTE FUNCTION "public"."inventory_orders_guard"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_inventory_receipts_guard" BEFORE INSERT OR UPDATE OF "owner_id", "order_id", "expense_syp_id", "expense_usd_id" ON "public"."inventory_receipts" FOR EACH ROW EXECUTE FUNCTION "public"."inventory_receipts_guard"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_lab_order_redos_owner_guard" BEFORE INSERT OR UPDATE OF "lab_order_id", "doctor_id" ON "public"."lab_order_redos" FOR EACH ROW EXECUTE FUNCTION "public"."lab_order_redos_owner_guard"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_lab_orders_redo_cycle" BEFORE UPDATE OF "status" ON "public"."lab_orders" FOR EACH ROW EXECUTE FUNCTION "public"."lab_orders_redo_cycle"();
+
+
+
 CREATE OR REPLACE TRIGGER "trg_notification_templates_updated_at" BEFORE UPDATE ON "public"."notification_templates" FOR EACH ROW EXECUTE FUNCTION "public"."set_notification_templates_updated_at"();
 
 
 
 CREATE OR REPLACE TRIGGER "trg_operatories_updated_at" BEFORE UPDATE ON "public"."operatories" FOR EACH ROW EXECUTE FUNCTION "public"."set_operatories_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_patient_documents_lab_order_guard" BEFORE INSERT OR UPDATE OF "lab_order_id", "owner_id", "patient_id" ON "public"."patient_documents" FOR EACH ROW EXECUTE FUNCTION "public"."patient_documents_lab_order_guard"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_patients_referrer_guard" BEFORE INSERT OR UPDATE OF "referred_by_patient_id", "doctor_id" ON "public"."patients" FOR EACH ROW EXECUTE FUNCTION "public"."patients_referrer_guard"();
 
 
 
@@ -4071,7 +5313,15 @@ CREATE OR REPLACE TRIGGER "trg_sync_doctor_card_active" AFTER INSERT OR UPDATE O
 
 
 
+CREATE OR REPLACE TRIGGER "trg_teeth_status_dx" BEFORE INSERT OR UPDATE ON "public"."teeth_status" FOR EACH ROW EXECUTE FUNCTION "public"."fn_teeth_status_dx"();
+
+
+
 CREATE OR REPLACE TRIGGER "trg_teeth_status_history" AFTER INSERT OR DELETE OR UPDATE ON "public"."teeth_status" FOR EACH ROW EXECUTE FUNCTION "public"."fn_teeth_status_history"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_treatment_materials_guard" BEFORE INSERT OR UPDATE OF "owner_id", "item_id", "treatment_id" ON "public"."treatment_materials" FOR EACH ROW EXECUTE FUNCTION "public"."treatment_materials_guard"();
 
 
 
@@ -4210,6 +5460,11 @@ ALTER TABLE ONLY "public"."clinical_note_templates"
 
 
 
+ALTER TABLE ONLY "public"."day_closings"
+    ADD CONSTRAINT "day_closings_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."doctors"
     ADD CONSTRAINT "doctors_id_fkey" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
@@ -4250,16 +5505,6 @@ ALTER TABLE ONLY "public"."inventory_batches"
 
 
 
-ALTER TABLE ONLY "public"."inventory_items"
-    ADD CONSTRAINT "inventory_items_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
-
-
-
-ALTER TABLE ONLY "public"."inventory_counts"
-    ADD CONSTRAINT "inventory_counts_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."inventory_count_lines"
     ADD CONSTRAINT "inventory_count_lines_count_id_fkey" FOREIGN KEY ("count_id") REFERENCES "public"."inventory_counts"("id") ON DELETE CASCADE;
 
@@ -4275,8 +5520,13 @@ ALTER TABLE ONLY "public"."inventory_count_lines"
 
 
 
-ALTER TABLE ONLY "public"."inventory_movements"
-    ADD CONSTRAINT "inventory_movements_count_id_fkey" FOREIGN KEY ("count_id") REFERENCES "public"."inventory_counts"("id") ON DELETE SET NULL;
+ALTER TABLE ONLY "public"."inventory_counts"
+    ADD CONSTRAINT "inventory_counts_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."inventory_items"
+    ADD CONSTRAINT "inventory_items_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
 
@@ -4286,7 +5536,17 @@ ALTER TABLE ONLY "public"."inventory_movements"
 
 
 ALTER TABLE ONLY "public"."inventory_movements"
+    ADD CONSTRAINT "inventory_movements_count_id_fkey" FOREIGN KEY ("count_id") REFERENCES "public"."inventory_counts"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."inventory_movements"
     ADD CONSTRAINT "inventory_movements_item_id_fkey" FOREIGN KEY ("item_id") REFERENCES "public"."inventory_items"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."inventory_movements"
+    ADD CONSTRAINT "inventory_movements_order_line_id_fkey" FOREIGN KEY ("order_line_id") REFERENCES "public"."inventory_order_lines"("id") ON DELETE SET NULL;
 
 
 
@@ -4306,7 +5566,72 @@ ALTER TABLE ONLY "public"."inventory_movements"
 
 
 ALTER TABLE ONLY "public"."inventory_movements"
+    ADD CONSTRAINT "inventory_movements_receipt_id_fkey" FOREIGN KEY ("receipt_id") REFERENCES "public"."inventory_receipts"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."inventory_movements"
     ADD CONSTRAINT "inventory_movements_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "public"."ledger_sessions"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."inventory_order_lines"
+    ADD CONSTRAINT "inventory_order_lines_item_id_fkey" FOREIGN KEY ("item_id") REFERENCES "public"."inventory_items"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."inventory_order_lines"
+    ADD CONSTRAINT "inventory_order_lines_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "public"."inventory_orders"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."inventory_order_lines"
+    ADD CONSTRAINT "inventory_order_lines_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."inventory_orders"
+    ADD CONSTRAINT "inventory_orders_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."inventory_orders"
+    ADD CONSTRAINT "inventory_orders_supplier_id_fkey" FOREIGN KEY ("supplier_id") REFERENCES "public"."inventory_suppliers"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."inventory_receipts"
+    ADD CONSTRAINT "inventory_receipts_expense_syp_id_fkey" FOREIGN KEY ("expense_syp_id") REFERENCES "public"."expenses"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."inventory_receipts"
+    ADD CONSTRAINT "inventory_receipts_expense_usd_id_fkey" FOREIGN KEY ("expense_usd_id") REFERENCES "public"."expenses"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."inventory_receipts"
+    ADD CONSTRAINT "inventory_receipts_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "public"."inventory_orders"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."inventory_receipts"
+    ADD CONSTRAINT "inventory_receipts_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."inventory_suppliers"
+    ADD CONSTRAINT "inventory_suppliers_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."lab_order_redos"
+    ADD CONSTRAINT "lab_order_redos_doctor_id_fkey" FOREIGN KEY ("doctor_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."lab_order_redos"
+    ADD CONSTRAINT "lab_order_redos_lab_order_id_fkey" FOREIGN KEY ("lab_order_id") REFERENCES "public"."lab_orders"("id") ON DELETE CASCADE;
 
 
 
@@ -4411,12 +5736,27 @@ ALTER TABLE ONLY "public"."patient_documents"
 
 
 ALTER TABLE ONLY "public"."patient_documents"
+    ADD CONSTRAINT "patient_documents_lab_order_id_fkey" FOREIGN KEY ("lab_order_id") REFERENCES "public"."lab_orders"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."patient_documents"
     ADD CONSTRAINT "patient_documents_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "public"."patients"("id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."patient_documents"
     ADD CONSTRAINT "patient_documents_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "public"."ledger_sessions"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."patient_intakes"
+    ADD CONSTRAINT "patient_intakes_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."patient_intakes"
+    ADD CONSTRAINT "patient_intakes_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "public"."patients"("id") ON DELETE CASCADE;
 
 
 
@@ -4442,6 +5782,11 @@ ALTER TABLE ONLY "public"."patient_seq"
 
 ALTER TABLE ONLY "public"."patients"
     ADD CONSTRAINT "patients_doctor_id_fkey" FOREIGN KEY ("doctor_id") REFERENCES "public"."doctors"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."patients"
+    ADD CONSTRAINT "patients_referred_by_patient_id_fkey" FOREIGN KEY ("referred_by_patient_id") REFERENCES "public"."patients"("id") ON DELETE SET NULL;
 
 
 
@@ -4582,11 +5927,6 @@ ALTER TABLE ONLY "public"."schedule_blocks"
 
 ALTER TABLE ONLY "public"."schedule_blocks"
     ADD CONSTRAINT "schedule_blocks_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "public"."clinic_doctors"("id") ON DELETE CASCADE;
-
-
-
-ALTER TABLE ONLY "public"."day_closings"
-    ADD CONSTRAINT "day_closings_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
 
@@ -4799,6 +6139,13 @@ CREATE POLICY "clinical_note_templates_owner_all" ON "public"."clinical_note_tem
 
 
 
+ALTER TABLE "public"."day_closings" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "day_closings_owner_all" ON "public"."day_closings" USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
 CREATE POLICY "doctor manages own lab payments" ON "public"."lab_payments" USING (("doctor_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("doctor_id" = ( SELECT "auth"."uid"() AS "uid")));
 
 
@@ -4866,14 +6213,6 @@ CREATE POLICY "implant_templates_owner_all" ON "public"."implant_templates" USIN
 
 
 
-CREATE POLICY "inventory_counts_owner_all" ON "public"."inventory_counts" USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
-
-
-
-CREATE POLICY "inventory_count_lines_owner_all" ON "public"."inventory_count_lines" USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
-
-
-
 CREATE POLICY "inv_items_owner_all" ON "public"."inventory_items" USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
 
 
@@ -4885,16 +6224,59 @@ CREATE POLICY "inv_mov_owner_all" ON "public"."inventory_movements" USING (("own
 ALTER TABLE "public"."inventory_batches" ENABLE ROW LEVEL SECURITY;
 
 
-ALTER TABLE "public"."inventory_items" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."inventory_count_lines" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "inventory_count_lines_owner_all" ON "public"."inventory_count_lines" USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
 
 
 ALTER TABLE "public"."inventory_counts" ENABLE ROW LEVEL SECURITY;
 
 
-ALTER TABLE "public"."inventory_count_lines" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "inventory_counts_owner_all" ON "public"."inventory_counts" USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."inventory_items" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."inventory_movements" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."inventory_order_lines" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "inventory_order_lines_owner_all" ON "public"."inventory_order_lines" USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."inventory_orders" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "inventory_orders_owner_all" ON "public"."inventory_orders" USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."inventory_receipts" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "inventory_receipts_owner_all" ON "public"."inventory_receipts" USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."inventory_suppliers" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "inventory_suppliers_owner_all" ON "public"."inventory_suppliers" USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."lab_order_redos" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "lab_order_redos_owner_all" ON "public"."lab_order_redos" USING (("doctor_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("doctor_id" = ( SELECT "auth"."uid"() AS "uid")));
+
 
 
 ALTER TABLE "public"."lab_order_templates" ENABLE ROW LEVEL SECURITY;
@@ -4997,6 +6379,13 @@ CREATE POLICY "p_sub_requests_tenant_update" ON "public"."subscription_requests"
 
 
 ALTER TABLE "public"."patient_documents" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."patient_intakes" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "patient_intakes_owner_all" ON "public"."patient_intakes" USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
 
 
 ALTER TABLE "public"."patient_messages" ENABLE ROW LEVEL SECURITY;
@@ -5140,13 +6529,6 @@ CREATE POLICY "schedule_blocks_owner_all" ON "public"."schedule_blocks" USING ((
 
 
 
-ALTER TABLE "public"."day_closings" ENABLE ROW LEVEL SECURITY;
-
-
-CREATE POLICY "day_closings_owner_all" ON "public"."day_closings" USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
-
-
-
 ALTER TABLE "public"."staff_messages" ENABLE ROW LEVEL SECURITY;
 
 
@@ -5194,6 +6576,10 @@ CREATE POLICY "sub_gate_delete" ON "public"."clinical_note_templates" AS RESTRIC
 
 
 
+CREATE POLICY "sub_gate_delete" ON "public"."day_closings" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
 CREATE POLICY "sub_gate_delete" ON "public"."doctors" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
@@ -5218,11 +6604,39 @@ CREATE POLICY "sub_gate_delete" ON "public"."inventory_batches" AS RESTRICTIVE F
 
 
 
+CREATE POLICY "sub_gate_delete" ON "public"."inventory_count_lines" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_delete" ON "public"."inventory_counts" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
 CREATE POLICY "sub_gate_delete" ON "public"."inventory_items" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
 CREATE POLICY "sub_gate_delete" ON "public"."inventory_movements" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_delete" ON "public"."inventory_order_lines" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_delete" ON "public"."inventory_orders" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_delete" ON "public"."inventory_receipts" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_delete" ON "public"."inventory_suppliers" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_delete" ON "public"."lab_order_redos" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
@@ -5255,6 +6669,10 @@ CREATE POLICY "sub_gate_delete" ON "public"."operatories" AS RESTRICTIVE FOR DEL
 
 
 CREATE POLICY "sub_gate_delete" ON "public"."patient_documents" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_delete" ON "public"."patient_intakes" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
@@ -5319,9 +6737,6 @@ CREATE POLICY "sub_gate_delete" ON "public"."reminder_logs" AS RESTRICTIVE FOR D
 
 
 CREATE POLICY "sub_gate_delete" ON "public"."schedule_blocks" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
-
-
-CREATE POLICY "sub_gate_delete" ON "public"."day_closings" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
@@ -5397,6 +6812,10 @@ CREATE POLICY "sub_gate_insert" ON "public"."clinical_note_templates" AS RESTRIC
 
 
 
+CREATE POLICY "sub_gate_insert" ON "public"."day_closings" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
 CREATE POLICY "sub_gate_insert" ON "public"."doctors" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
@@ -5421,11 +6840,39 @@ CREATE POLICY "sub_gate_insert" ON "public"."inventory_batches" AS RESTRICTIVE F
 
 
 
+CREATE POLICY "sub_gate_insert" ON "public"."inventory_count_lines" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_insert" ON "public"."inventory_counts" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
 CREATE POLICY "sub_gate_insert" ON "public"."inventory_items" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
 CREATE POLICY "sub_gate_insert" ON "public"."inventory_movements" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_insert" ON "public"."inventory_order_lines" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_insert" ON "public"."inventory_orders" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_insert" ON "public"."inventory_receipts" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_insert" ON "public"."inventory_suppliers" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_insert" ON "public"."lab_order_redos" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
@@ -5458,6 +6905,10 @@ CREATE POLICY "sub_gate_insert" ON "public"."operatories" AS RESTRICTIVE FOR INS
 
 
 CREATE POLICY "sub_gate_insert" ON "public"."patient_documents" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_insert" ON "public"."patient_intakes" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
@@ -5524,9 +6975,6 @@ CREATE POLICY "sub_gate_insert" ON "public"."reminder_logs" AS RESTRICTIVE FOR I
 CREATE POLICY "sub_gate_insert" ON "public"."schedule_blocks" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
-CREATE POLICY "sub_gate_insert" ON "public"."day_closings" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
-
-
 
 CREATE POLICY "sub_gate_insert" ON "public"."staff_messages" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
@@ -5588,6 +7036,10 @@ CREATE POLICY "sub_gate_select" ON "public"."clinical_note_templates" AS RESTRIC
 
 
 
+CREATE POLICY "sub_gate_select" ON "public"."day_closings" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
+
+
+
 CREATE POLICY "sub_gate_select" ON "public"."expense_categories" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
 
 
@@ -5608,11 +7060,39 @@ CREATE POLICY "sub_gate_select" ON "public"."inventory_batches" AS RESTRICTIVE F
 
 
 
+CREATE POLICY "sub_gate_select" ON "public"."inventory_count_lines" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
+
+
+
+CREATE POLICY "sub_gate_select" ON "public"."inventory_counts" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
+
+
+
 CREATE POLICY "sub_gate_select" ON "public"."inventory_items" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
 
 
 
 CREATE POLICY "sub_gate_select" ON "public"."inventory_movements" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
+
+
+
+CREATE POLICY "sub_gate_select" ON "public"."inventory_order_lines" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
+
+
+
+CREATE POLICY "sub_gate_select" ON "public"."inventory_orders" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
+
+
+
+CREATE POLICY "sub_gate_select" ON "public"."inventory_receipts" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
+
+
+
+CREATE POLICY "sub_gate_select" ON "public"."inventory_suppliers" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
+
+
+
+CREATE POLICY "sub_gate_select" ON "public"."lab_order_redos" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
 
 
 
@@ -5645,6 +7125,10 @@ CREATE POLICY "sub_gate_select" ON "public"."operatories" AS RESTRICTIVE FOR SEL
 
 
 CREATE POLICY "sub_gate_select" ON "public"."patient_documents" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
+
+
+
+CREATE POLICY "sub_gate_select" ON "public"."patient_intakes" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
 
 
 
@@ -5709,9 +7193,6 @@ CREATE POLICY "sub_gate_select" ON "public"."reminder_logs" AS RESTRICTIVE FOR S
 
 
 CREATE POLICY "sub_gate_select" ON "public"."schedule_blocks" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
-
-
-CREATE POLICY "sub_gate_select" ON "public"."day_closings" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
 
 
 
@@ -5787,6 +7268,10 @@ CREATE POLICY "sub_gate_update" ON "public"."clinical_note_templates" AS RESTRIC
 
 
 
+CREATE POLICY "sub_gate_update" ON "public"."day_closings" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
 CREATE POLICY "sub_gate_update" ON "public"."doctors" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
@@ -5811,11 +7296,39 @@ CREATE POLICY "sub_gate_update" ON "public"."inventory_batches" AS RESTRICTIVE F
 
 
 
+CREATE POLICY "sub_gate_update" ON "public"."inventory_count_lines" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_update" ON "public"."inventory_counts" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
 CREATE POLICY "sub_gate_update" ON "public"."inventory_items" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
 CREATE POLICY "sub_gate_update" ON "public"."inventory_movements" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_update" ON "public"."inventory_order_lines" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_update" ON "public"."inventory_orders" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_update" ON "public"."inventory_receipts" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_update" ON "public"."inventory_suppliers" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_update" ON "public"."lab_order_redos" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
@@ -5848,6 +7361,10 @@ CREATE POLICY "sub_gate_update" ON "public"."operatories" AS RESTRICTIVE FOR UPD
 
 
 CREATE POLICY "sub_gate_update" ON "public"."patient_documents" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_update" ON "public"."patient_intakes" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
@@ -5912,9 +7429,6 @@ CREATE POLICY "sub_gate_update" ON "public"."reminder_logs" AS RESTRICTIVE FOR U
 
 
 CREATE POLICY "sub_gate_update" ON "public"."schedule_blocks" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
-
-
-CREATE POLICY "sub_gate_update" ON "public"."day_closings" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
@@ -6028,6 +7542,14 @@ ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
 
 
 
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."patient_intakes";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."staff_messages";
 
 
 
@@ -6193,6 +7715,11 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
+REVOKE ALL ON FUNCTION "public"."_intake_clinic_open"("p_clinic" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."_intake_clinic_open"("p_clinic" "uuid") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."_login_resolve_bump"("p_bucket" "text", "p_limit" integer, "p_window" interval) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."_login_resolve_bump"("p_bucket" "text", "p_limit" integer, "p_window" interval) TO "service_role";
 
@@ -6264,6 +7791,11 @@ GRANT ALL ON FUNCTION "public"."enforce_patient_limit"() TO "service_role";
 
 
 
+REVOKE ALL ON FUNCTION "public"."fn_teeth_status_dx"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."fn_teeth_status_dx"() TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."fn_teeth_status_history"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."fn_teeth_status_history"() TO "service_role";
 
@@ -6279,10 +7811,120 @@ GRANT ALL ON FUNCTION "public"."handle_new_owner_doctor"() TO "service_role";
 
 
 
+REVOKE ALL ON FUNCTION "public"."intake_info"("p_token" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."intake_info"("p_token" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."intake_info"("p_token" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."intake_info"("p_token" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."intake_submit"("p_token" "text", "p_answers" "jsonb", "p_signature" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."intake_submit"("p_token" "text", "p_answers" "jsonb", "p_signature" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."intake_submit"("p_token" "text", "p_answers" "jsonb", "p_signature" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."intake_submit"("p_token" "text", "p_answers" "jsonb", "p_signature" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."inventory_apply_count"("p_lines" "jsonb", "p_note" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."inventory_apply_count"("p_lines" "jsonb", "p_note" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."inventory_apply_count"("p_lines" "jsonb", "p_note" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."inventory_batches_guard"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."inventory_batches_guard"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."inventory_batches_guard"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."inventory_consume"("p_lines" "jsonb", "p_note" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."inventory_consume"("p_lines" "jsonb", "p_note" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."inventory_consume"("p_lines" "jsonb", "p_note" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."inventory_count_lines_guard"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."inventory_count_lines_guard"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."inventory_count_lines_guard"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."inventory_create_order"("p_supplier" "uuid", "p_note" "text", "p_lines" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."inventory_create_order"("p_supplier" "uuid", "p_note" "text", "p_lines" "jsonb") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."inventory_create_order"("p_supplier" "uuid", "p_note" "text", "p_lines" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."inventory_fefo_take"("p_item" "uuid", "p_qty" numeric, "p_today" "date", "p_batches_only" boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."inventory_fefo_take"("p_item" "uuid", "p_qty" numeric, "p_today" "date", "p_batches_only" boolean) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."inventory_fefo_take"("p_item" "uuid", "p_qty" numeric, "p_today" "date", "p_batches_only" boolean) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."inventory_finish_batch"("p_batch" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."inventory_finish_batch"("p_batch" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."inventory_finish_batch"("p_batch" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."inventory_items_trim_batches"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."inventory_items_trim_batches"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."inventory_items_trim_batches"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."inventory_movements_guard"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."inventory_movements_guard"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."inventory_movements_guard"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."inventory_order_lines_guard"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."inventory_order_lines_guard"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."inventory_order_lines_guard"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."inventory_orders_guard"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."inventory_orders_guard"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."inventory_orders_guard"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."inventory_receipts_guard"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."inventory_receipts_guard"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."inventory_receipts_guard"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."inventory_receive"("p_order" "uuid", "p_lines" "jsonb", "p_allow_over" boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."inventory_receive"("p_order" "uuid", "p_lines" "jsonb", "p_allow_over" boolean) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."inventory_receive"("p_order" "uuid", "p_lines" "jsonb", "p_allow_over" boolean) TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."is_platform_admin"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."is_platform_admin"() TO "anon";
 GRANT ALL ON FUNCTION "public"."is_platform_admin"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."is_platform_admin"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."lab_order_redo"("p_order" "uuid", "p_reason" "text", "p_new_due" timestamp with time zone) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."lab_order_redo"("p_order" "uuid", "p_reason" "text", "p_new_due" timestamp with time zone) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."lab_order_redo"("p_order" "uuid", "p_reason" "text", "p_new_due" timestamp with time zone) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."lab_order_redos_owner_guard"() TO "anon";
+GRANT ALL ON FUNCTION "public"."lab_order_redos_owner_guard"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."lab_order_redos_owner_guard"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."lab_orders_redo_cycle"() TO "anon";
+GRANT ALL ON FUNCTION "public"."lab_orders_redo_cycle"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."lab_orders_redo_cycle"() TO "service_role";
 
 
 
@@ -6319,6 +7961,18 @@ GRANT ALL ON FUNCTION "public"."next_patient_seq"("n" integer) TO "service_role"
 GRANT ALL ON FUNCTION "public"."normalize_phone"("p" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."normalize_phone"("p" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."normalize_phone"("p" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."patient_documents_lab_order_guard"() TO "anon";
+GRANT ALL ON FUNCTION "public"."patient_documents_lab_order_guard"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."patient_documents_lab_order_guard"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."patients_referrer_guard"() TO "anon";
+GRANT ALL ON FUNCTION "public"."patients_referrer_guard"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."patients_referrer_guard"() TO "service_role";
 
 
 
@@ -6429,6 +8083,12 @@ GRANT ALL ON FUNCTION "public"."touch_subscription_plans_updated_at"() TO "servi
 
 
 
+REVOKE ALL ON FUNCTION "public"."treatment_materials_guard"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."treatment_materials_guard"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."treatment_materials_guard"() TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."update_clinic_settings_timestamp"() TO "anon";
 GRANT ALL ON FUNCTION "public"."update_clinic_settings_timestamp"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."update_clinic_settings_timestamp"() TO "service_role";
@@ -6516,6 +8176,12 @@ GRANT ALL ON TABLE "public"."clinical_note_templates" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."day_closings" TO "anon";
+GRANT ALL ON TABLE "public"."day_closings" TO "authenticated";
+GRANT ALL ON TABLE "public"."day_closings" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."doctors" TO "anon";
 GRANT ALL ON TABLE "public"."doctors" TO "authenticated";
 GRANT ALL ON TABLE "public"."doctors" TO "service_role";
@@ -6552,6 +8218,18 @@ GRANT ALL ON TABLE "public"."inventory_batches" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."inventory_count_lines" TO "anon";
+GRANT ALL ON TABLE "public"."inventory_count_lines" TO "authenticated";
+GRANT ALL ON TABLE "public"."inventory_count_lines" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."inventory_counts" TO "anon";
+GRANT ALL ON TABLE "public"."inventory_counts" TO "authenticated";
+GRANT ALL ON TABLE "public"."inventory_counts" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."inventory_items" TO "anon";
 GRANT ALL ON TABLE "public"."inventory_items" TO "authenticated";
 GRANT ALL ON TABLE "public"."inventory_items" TO "service_role";
@@ -6561,6 +8239,36 @@ GRANT ALL ON TABLE "public"."inventory_items" TO "service_role";
 GRANT ALL ON TABLE "public"."inventory_movements" TO "anon";
 GRANT ALL ON TABLE "public"."inventory_movements" TO "authenticated";
 GRANT ALL ON TABLE "public"."inventory_movements" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."inventory_order_lines" TO "anon";
+GRANT ALL ON TABLE "public"."inventory_order_lines" TO "authenticated";
+GRANT ALL ON TABLE "public"."inventory_order_lines" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."inventory_orders" TO "anon";
+GRANT ALL ON TABLE "public"."inventory_orders" TO "authenticated";
+GRANT ALL ON TABLE "public"."inventory_orders" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."inventory_receipts" TO "anon";
+GRANT ALL ON TABLE "public"."inventory_receipts" TO "authenticated";
+GRANT ALL ON TABLE "public"."inventory_receipts" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."inventory_suppliers" TO "anon";
+GRANT ALL ON TABLE "public"."inventory_suppliers" TO "authenticated";
+GRANT ALL ON TABLE "public"."inventory_suppliers" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."lab_order_redos" TO "anon";
+GRANT ALL ON TABLE "public"."lab_order_redos" TO "authenticated";
+GRANT ALL ON TABLE "public"."lab_order_redos" TO "service_role";
 
 
 
@@ -6619,6 +8327,12 @@ GRANT ALL ON TABLE "public"."operatories" TO "service_role";
 GRANT ALL ON TABLE "public"."patient_documents" TO "anon";
 GRANT ALL ON TABLE "public"."patient_documents" TO "authenticated";
 GRANT ALL ON TABLE "public"."patient_documents" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."patient_intakes" TO "anon";
+GRANT ALL ON TABLE "public"."patient_intakes" TO "authenticated";
+GRANT ALL ON TABLE "public"."patient_intakes" TO "service_role";
 
 
 
@@ -6727,13 +8441,6 @@ GRANT ALL ON TABLE "public"."reminder_logs" TO "service_role";
 GRANT ALL ON TABLE "public"."schedule_blocks" TO "anon";
 GRANT ALL ON TABLE "public"."schedule_blocks" TO "authenticated";
 GRANT ALL ON TABLE "public"."schedule_blocks" TO "service_role";
-
-
-
-
-GRANT ALL ON TABLE "public"."day_closings" TO "anon";
-GRANT ALL ON TABLE "public"."day_closings" TO "authenticated";
-GRANT ALL ON TABLE "public"."day_closings" TO "service_role";
 
 
 

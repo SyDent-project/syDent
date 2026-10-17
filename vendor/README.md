@@ -12,6 +12,7 @@
 | `supabase-2.110.8.min.js` | `@supabase/supabase-js@2.110.8` | `dist/umd/supabase.js` | `913f94db33b394a97d34c058347009053ac2d9534459c0990eb08594a108d2ee` | 2026-07-24 |
 | `chart-4.4.0.umd.min.js` | `chart.js@4.4.0` | `dist/chart.umd.js` | `321e3a3fa98da4aaa957d10be57cbb514de0989eed8f9d726b5d05902cd01904` | 2026-07-24 |
 | `xlsx-0.18.5.full.min.js` | `xlsx@0.18.5` | `dist/xlsx.full.min.js` | `c9506197caf809a075b6dee1da0d36fb19da7158ffe8a88e7b0c96c5d8623c99` | 2026-07-24 |
+| `dicom-parser-1.8.21.min.js` | `dicom-parser@1.8.21` (MIT — `dicom-parser-1.8.21.LICENSE`) | `dist/dicomParser.min.js` | `2b990e92de021a9c0d58f7dca693c95fa76be6398648b68441df9423de284a2b` | 2026-10-14 |
 
 **فحص السلامة المُجرى قبل الاعتماد (Node vm ببيئة تحاكي متصفحاً):**
 `window.supabase.createClient` = function · `window.Chart` = function · `window.XLSX.version` = 0.18.5
@@ -20,3 +21,4 @@
 - supabase-js كان محمَّلاً بوسم عائم `@2` — ثُبِّت على 2.110.8 (آخر 2.x وقت التثبيت = ما كان jsDelivr يخدمه فعلياً، أي صفر تغيير سلوكي).
 - `supabase-2.110.8.min.js` وحده يدخل `PRECACHE_URLS` بـ `sw.js` (حرج لكل الصفحات offline)؛
   chart وxlsx يكفيهما مسار SWR (صفحة واحدة لكل منهما: admin.html · patients.html).
+- **dicom-parser (v637):** يقرأ ملفَّ DICOM مفرداً (.dcm) لعارض الأشعة. **يُحمَّل كسولاً** من `xray-viewer.js` عند فتح أول ملف DICOM فقط (لا وسمَ ثابتاً بأي صفحة · لا يُسخَّن بالـSW — أوفلاين يُعرض ملفُّ DICOM بعد أول فتح من كاش المتصفح فقط). tarball متحقَّقٌ بـshasum السجل (`916fdc77…`) · النسخةُ منشورةٌ 2023-02-20 · فحصُ السلامة: `window.dicomParser.parseDicom` = function. الترميزاتُ المدعومة بالعارض: غير مضغوط (ضمني/صريح، صغير/كبير الطرف) + JPEG Baseline (يفكّه المتصفح)؛ غيرُها يُعلَن وينزَّل الملف.

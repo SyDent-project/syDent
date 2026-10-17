@@ -1521,10 +1521,15 @@
      الجلسات · الذمم…). هذا الجالبُ المشترك يصفّح بـorder('id').range بصفحات 1000 — يُبنى الاستعلامُ من جديد لكل صفحة
      (البنّاءُ قابلٌ للتغيير) — ويرجع الشكلَ نفسَه { data, error } فيبقى كلُّ فرعِ خطأٍ/هجرةٍ مفقودة عند المستدعي كما هو.
      الترتيبُ الأصلي للاستعلام يبقى أولاً و`id` كاسرُ تعادلٍ ثابت بين الصفحات. (#699) */
-  window.SyDentFetchAll = async function (build) {
+  window.SyDentFetchAll = async function (build, orderKeys) {
+    /* v590: الجداولُ بلا عمود id (مفتاحٌ مركّب — teeth_status) تمرّر أعمدةَ ترتيبها؛ order('id') عليها
+       كان خطأً صامتاً (42703) فاختفت مراقباتُ الأسنان من المتابعة كلياً منذ v548. */
     var PAGE = 1000, out = [], off = 0;
+    var keys = Array.isArray(orderKeys) ? orderKeys : [orderKeys || 'id'];
     for (;;) {
-      var res = await build().order('id').range(off, off + PAGE - 1);
+      var q = build();
+      for (var ki = 0; ki < keys.length; ki++) q = q.order(keys[ki]);
+      var res = await q.range(off, off + PAGE - 1);
       if (!res || res.error) return { data: null, error: (res && res.error) || { message: 'fetch_failed' } };
       var rows = res.data || [];
       out = out.concat(rows);
@@ -5335,6 +5340,11 @@
 (function(){
   'use strict';
   var BUCKET = 'patient-files';
+  /* M192 (v635) — الأشعة: أنواعُها · الحدود · الأنواعُ المقبولة. الحدُّ يطابق الحاوية (30MB) للأشعة وDICOM — تُرفع
+     كما هي بلا ضغط (القياسُ بالمليمتر يحتاج البكسلات الأصلية)؛ والباقي يُضغط كما كان وحدُّه 10MB بعد الضغط. */
+  var XRAY_TYPES = { periapical: 'ذروية', bitewing: 'مجنّحة', panoramic: 'بانوراما', cephalometric: 'سيفالومترية', other: 'أخرى' };
+  var LIMIT_XRAY = 30 * 1024 * 1024, LIMIT_STD = 10 * 1024 * 1024;
+  var OK_MIME = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
   var CAT_LABELS = {
     xray:           '🦷 أشعة',
     clinical_photo: '📷 صورة سريرية',
@@ -5388,21 +5398,114 @@
     } catch (e){ console.warn('[SyDentFiles] compress failed, using original', e); return file; }
   }
 
+  function isDicomName(n){ return /\.(dcm|dicom)$/i.test(String(n || '')); }
+  // DICOM Part 10: 128 بايت تمهيد ثم «DICM» — الامتدادُ وحده لا يكفي (ملفٌّ أُعيدت تسميته).
+  async function sniffDicom(file){
+    try {
+      var b = new Uint8Array(await file.slice(128, 132).arrayBuffer());
+      return b.length === 4 && b[0] === 68 && b[1] === 73 && b[2] === 67 && b[3] === 77;
+    } catch (e) { return false; }
+  }
+  // فحصُ الملف قبل أي رفع: { ok, mime, dicom } أو { ok:false, reason: 'type'|'size'|'empty', limit }
+  async function check(file, category){
+    if (!file) return { ok:false, reason:'type' };
+    var t = String(file.type || '').toLowerCase();
+    var dicom = (t === 'application/dicom' || isDicomName(file.name));
+    var mime;
+    if (dicom) {
+      if (!(await sniffDicom(file))) return { ok:false, reason:'type' };
+      mime = 'application/dicom';
+    } else if (OK_MIME.indexOf(t) > -1) mime = t;
+    else return { ok:false, reason:'type' };
+    if (!file.size) return { ok:false, reason:'empty' };
+    var lim = (dicom || category === 'xray') ? LIMIT_XRAY : null;   // غيرُ الأشعة يُقاس بعد الضغط
+    if (lim && file.size > lim) return { ok:false, reason:'size', limit: lim };
+    if (!lim && file.size > LIMIT_XRAY) return { ok:false, reason:'size', limit: LIMIT_STD };
+    return { ok:true, mime: mime, dicom: dicom };
+  }
+
+  // M192: استهلاكُ العيادة وسقفُ خطتها (بايت). null عند الفشل ⇒ الخادمُ يبقى الحدّ (سياسة pf_quota_insert).
+  async function usage(){
+    if (!window.sb) return null;
+    try {
+      var r = await window.sb.rpc('my_storage_usage');
+      if (r.error || !r.data) return null;
+      var d = r.data;
+      return { used: Number(d.used_bytes) || 0, cap: (d.cap_bytes == null ? null : Number(d.cap_bytes)),
+               files: Number(d.files) || 0, orphans: Number(d.orphans) || 0 };
+    } catch (e) { return null; }
+  }
+  function fits(u, size){ return !u || u.cap == null || (u.used + size) <= u.cap; }
+  // عدّادُ التخزين (أرقامٌ وثوابت فقط — صفرُ نصِّ مستخدم): تبويبُ الملفات وصفحةُ الاشتراك.
+  function usageHtml(u){
+    if (!u) return '';
+    var capped = u.cap != null && u.cap > 0;
+    var pct = capped ? Math.min(100, Math.round(u.used * 100 / u.cap)) : 0;
+    var cls = !capped ? '' : (u.used >= u.cap ? ' full' : (pct >= 85 ? ' warn' : ''));
+    return '<div class="sy-usage' + cls + '">' +
+      '<span class="sy-usage-lbl">💾 التخزين: <bdi dir="ltr">' + humanBytes(u.used) + '</bdi>' +
+        (capped ? ' من <bdi dir="ltr">' + humanBytes(u.cap) + '</bdi>' : ' (بلا سقف)') + '</span>' +
+      (capped ? '<span class="sy-usage-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><i style="width:' + pct + '%"></i></span>' : '') +
+      (cls === ' full' ? '<span class="sy-usage-msg">امتلأت المساحة — احذف ملفات لا تحتاجها أو <a href="subscription.html">رقِّ الخطة</a></span>'
+        : cls === ' warn' ? '<span class="sy-usage-msg">اقتربت من سقف خطتك</span>' : '') +
+      '</div>';
+  }
+
+  function humanBytes(b){
+    b = Number(b || 0);
+    if (b >= 1073741824) return (b / 1073741824).toFixed(b >= 10737418240 ? 0 : 1).replace(/\.0$/, '') + ' GB';
+    if (b >= 1048576) return (b / 1048576).toFixed(b >= 104857600 ? 0 : 1).replace(/\.0$/, '') + ' MB';
+    if (b >= 1024) return Math.round(b / 1024) + ' KB';
+    return b + ' B';
+  }
+
+  // رسالةٌ عربية واحدة لكل سبب رفض — كلُّ مسارات الرفع تعرضها (تبويب الملفات · نافذة الموعد · المخبر).
+  function message(r){
+    r = r || {};
+    switch (r.reason) {
+      case 'type':    return 'نوعُ الملف غير مدعوم — المسموح: صور JPG/PNG/WebP · PDF · ملف أشعة DICOM ‎(.dcm)';
+      case 'size':    return 'الملف أكبر من الحدّ (' + Math.round((r.limit || LIMIT_STD) / 1048576) + ' ميغابايت)';
+      case 'empty':   return 'الملف فارغ';
+      case 'quota':   return 'امتلأت مساحة التخزين لخطتك' + (r.usage && r.usage.cap != null ? ' (' + humanBytes(r.usage.used) + ' من ' + humanBytes(r.usage.cap) + ')' : '')
+                           + ' — احذف ملفات لا تحتاجها أو رقِّ الخطة من صفحة الاشتراك';
+      case 'offline': return 'لا يوجد اتصال بالإنترنت — أعد الرفع حين يعود الاتصال';
+      case 'read':    return 'اشتراكك منتهٍ — الحساب للقراءة فقط. جدّد الاشتراك لتتمكّن من الإضافة والتعديل';
+      case 'future':  return 'تاريخ التقاط الصورة في المستقبل';
+      default:        return 'تعذّر الرفع — حاول مجدداً';
+    }
+  }
+  function readOnly(){ try { return !!(window.SyDentSub && window.SyDentSub.isReadOnly()); } catch (e) { return false; } }
+  function offline(){ try { return navigator.onLine === false; } catch (e) { return false; } }
+
   async function ownerId(){
     try { var u = (await window.sb.auth.getUser()).data.user; return u ? u.id : null; }
     catch(e){ return null; }
   }
 
-  // opts: { appointmentId, category, note, toothNum, sessionId, labOrderId (M162) }
+  // opts: { appointmentId, category, note, toothNum, sessionId, labOrderId (M162),
+  //         M192: teeth[], xrayType, takenAt (YYYY-MM-DD), source ('clinic'|'center'), sourceName, cbctUrl,
+  //         usage (كائنٌ مشترك لدفعة رفع — يُحدَّث هنا فلا يُسأل الخادمُ لكل ملف) }
+  // الرفضُ: { ok:false, reason, limit?, usage? } — message(r) يحوّله لنصٍّ عربي واحد.
   async function upload(patientId, file, opts){
     opts = opts || {};
     if (!window.sb)   return { ok:false, reason:'no-sb' };
     if (!patientId)   return { ok:false, reason:'no-patient' };
+    if (readOnly())   return { ok:false, reason:'read' };
+    if (offline())    return { ok:false, reason:'offline' };
+    var chk = await check(file, opts.category);
+    if (!chk.ok)      return { ok:false, reason: chk.reason, limit: chk.limit };
+    var category = chk.dicom ? 'xray' : (opts.category || 'other');
     var oid = await ownerId();
     if (!oid)         return { ok:false, reason:'no-owner' };
 
-    var body = await compressImage(file);
-    var mime = (body && body.type) || file.type || 'application/octet-stream';
+    // الأشعة وDICOM كما هي (القياسُ يحتاج البكسلات الأصلية)؛ الباقي يُضغط كما كان.
+    var body = (category === 'xray') ? file : await compressImage(file);
+    var size = (body && body.size) || file.size || 0;
+    if (category !== 'xray' && size > LIMIT_STD) return { ok:false, reason:'size', limit: LIMIT_STD };
+    var u = opts.usage || await usage();
+    if (!fits(u, size)) return { ok:false, reason:'quota', usage: u };
+
+    var mime = (body !== file) ? ((body && body.type) || chk.mime) : chk.mime;
     var displayName = file.name || ('ملف-' + Date.now());
     var storeName   = sanitizeName(displayName);
     // If compression transcoded to JPEG, keep the stored extension honest.
@@ -5412,7 +5515,19 @@
     var path = oid + '/' + patientId + '/' + uuid() + '-' + storeName;
 
     var up = await window.sb.storage.from(BUCKET).upload(path, body, { contentType: mime, upsert:false });
-    if (up.error) return { ok:false, reason:'storage', error:up.error };
+    if (up.error) {
+      var em = String((up.error && (up.error.message || up.error.error)) || '') + ' ' + String((up.error && up.error.statusCode) || '');
+      if (offline()) return { ok:false, reason:'offline', error: up.error };
+      if (/mime|content.?type|not supported/i.test(em)) return { ok:false, reason:'type', error: up.error };
+      if (/too large|exceeded the maximum|413|payload/i.test(em)) return { ok:false, reason:'size', limit: LIMIT_XRAY, error: up.error };
+      if (/row-level security|42501|403|unauthori[sz]ed/i.test(em)) {
+        if (readOnly()) return { ok:false, reason:'read', error: up.error };
+        var u2 = await usage();                                   // السياسة pf_quota_insert رفضت؟ نسأل الاستهلاكَ الحقيقي
+        if (u2 && u2.cap != null && u2.used >= u2.cap) return { ok:false, reason:'quota', usage: u2, error: up.error };
+      }
+      return { ok:false, reason:'storage', error: up.error };
+    }
+    if (u) u.used += size;
 
     var docRow = {
       owner_id:       oid,
@@ -5421,34 +5536,46 @@
       storage_path:   path,
       file_name:      displayName,
       mime_type:      mime,
-      size_bytes:     (body && body.size) || file.size || null,
-      category:       opts.category || 'other',
+      size_bytes:     size || null,
+      category:       category,
       note:           opts.note || null,
       uploaded_by:    oid,
       tooth_num:      opts.toothNum || null,   // P2 (Migration 55): link image/doc to a specific tooth
       session_id:     opts.sessionId || null   // P2 (Migration 55): optional link to a ledger session
     };
     if (opts.labOrderId) docRow.lab_order_id = opts.labOrderId;   // M162: مرفقُ طلب مخبر (يُكتب فقط حين يُطلب)
+    // M192: وسمُ الأشعة — يُكتب فقط حين يُطلب (المساراتُ الأخرى كما هي؛ التريغر يملأ teeth من tooth_num)
+    if (opts.teeth && opts.teeth.length) docRow.teeth = opts.teeth.slice();
+    if (category === 'xray' && opts.xrayType) docRow.xray_type = opts.xrayType;
+    if (opts.takenAt)    docRow.taken_at = opts.takenAt;
+    if (opts.source)     docRow.source = opts.source;
+    if (opts.source === 'center' && opts.sourceName) docRow.source_name = String(opts.sourceName).slice(0, 120);
+    if (opts.cbctUrl)    docRow.cbct_url = opts.cbctUrl;
 
     var ins = await window.sb.from('patient_documents').insert(docRow).select().single();
-
-    // Graceful pre-Migration-55 fallback: if tooth_num/session_id columns are not
-    // present yet (PGRST204 = column missing from schema cache), retry the insert
-    // without them so file upload NEVER breaks before the migration is applied.
-    // Parity with the account_adjustments graceful fallback pattern (v70).
-    if (ins.error && (ins.error.code === 'PGRST204' ||
-        /tooth_num|session_id/i.test(ins.error.message || ''))) {
-      delete docRow.tooth_num;
-      delete docRow.session_id;
-      ins = await window.sb.from('patient_documents').insert(docRow).select().single();
-    }
 
     if (ins.error) {
       // Roll back the orphaned object so storage never drifts from the table.
       try { await window.sb.storage.from(BUCKET).remove([path]); } catch(e){}
-      return { ok:false, reason:'db', error:ins.error };
+      if (u) u.used -= size;
+      var reason = /xray_taken_in_future/.test(ins.error.message || '') ? 'future' : (readOnly() ? 'read' : 'db');
+      return { ok:false, reason: reason, error:ins.error };
     }
     return { ok:true, row: ins.data };
+  }
+
+  // M192: تعديلُ وسم ملفٍّ موجود (النوع · الأسنان · التاريخ · المصدر …) — الحقولُ المسموحة فقط.
+  var META_KEYS = ['category', 'note', 'xray_type', 'teeth', 'taken_at', 'source', 'source_name', 'calib_mm_per_px', 'annotations', 'cbct_url', 'portal_shared'];   // M193: المشاركة ببوابة المريض
+  async function updateMeta(id, fields){
+    if (!window.sb || !id || !fields) return { ok:false, reason:'no-row' };
+    if (readOnly()) return { ok:false, reason:'read' };
+    if (offline())  return { ok:false, reason:'offline' };
+    var patch = {};
+    META_KEYS.forEach(function(k){ if (Object.prototype.hasOwnProperty.call(fields, k)) patch[k] = fields[k]; });
+    if (!Object.keys(patch).length) return { ok:false, reason:'no-row' };
+    var r = await window.sb.from('patient_documents').update(patch).eq('id', id).select().single();
+    if (r.error) return { ok:false, reason: /xray_taken_in_future/.test(r.error.message || '') ? 'future' : 'db', error: r.error };
+    return { ok:true, row: r.data };
   }
 
   // opts: { appointmentId }  → scope to one appointment's files
@@ -5484,12 +5611,55 @@
   }
 
   // Storage object removed first, then the row — a row never silently points
-  // at a missing file. Non-fatal storage error still proceeds to row delete.
+  // at a missing file. M192 (v635): a failed object delete ABORTS (it used to fall through to the row
+  // and leave an orphan that silently eats the clinic's storage quota). A missing object is not a failure.
   async function remove(row){
     if (!window.sb || !row) return { ok:false, reason:'no-row' };
-    try { await window.sb.storage.from(BUCKET).remove([row.storage_path]); } catch(e){}
+    if (readOnly()) return { ok:false, reason:'read' };
+    if (offline())  return { ok:false, reason:'offline' };
+    try {
+      var st = await window.sb.storage.from(BUCKET).remove([row.storage_path]);
+      if (st && st.error) return { ok:false, reason:'storage', error: st.error };
+    } catch(e){ return { ok:false, reason:'storage', error: e }; }
     var del = await window.sb.from('patient_documents').delete().eq('id', row.id);
     return { ok: !del.error, error: del.error };
+  }
+
+  // M192: حذفُ مريض — مجلدُه بالتخزين يُمسح أولاً (الصفوفُ تُحذف بـCASCADE فلا تبقى ملفاتٌ يتيمة تستهلك الحصّة).
+  // { ok, removed, failed } — أيُّ فشلٍ يُعلَن فيوقف حذفَ المريض (ما يعيش خارج القاعدة يُمسح أولاً وفشلُه يُجهض).
+  async function purgePatient(patientId){
+    if (!window.sb || !patientId) return { ok:false, removed:0, failed:0, reason:'no-patient' };
+    var oid = await ownerId();
+    if (!oid) return { ok:false, removed:0, failed:0, reason:'no-owner' };
+    var st = window.sb.storage.from(BUCKET), dir = oid + '/' + patientId, paths = [];
+    try {
+      for (var off = 0; off < 100000; off += 1000) {
+        var r = await st.list(dir, { limit: 1000, offset: off });
+        if (r.error) return { ok:false, removed:0, failed:0, reason: r.error.message || 'list_failed' };
+        var got = (r.data || []).filter(function(f){ return f && f.id; });
+        got.forEach(function(f){ paths.push(dir + '/' + f.name); });
+        if ((r.data || []).length < 1000) break;
+      }
+    } catch (e) { return { ok:false, removed:0, failed:0, reason: (e && e.message) || 'list_failed' }; }
+    return removePaths(st, paths);
+  }
+  async function removePaths(st, paths){
+    var removed = 0, failed = 0;
+    for (var j = 0; j < paths.length; j += 100) {
+      var batch = paths.slice(j, j + 100);
+      try { var r = await st.remove(batch); if (r.error) failed += batch.length; else removed += batch.length; }
+      catch (e) { failed += batch.length; }
+    }
+    return { ok: failed === 0, removed: removed, failed: failed };
+  }
+  // M192: الملفاتُ اليتيمة (كائنٌ بلا صفّ، أقدمُ من ساعة) — تُعرض بعدّاد التخزين ويمسحها المالك بزرّ.
+  async function cleanOrphans(){
+    if (!window.sb) return { ok:false, removed:0, failed:0 };
+    if (readOnly()) return { ok:false, removed:0, failed:0, reason:'read' };
+    var r = await window.sb.rpc('my_storage_orphans');
+    if (r.error) return { ok:false, removed:0, failed:0, reason:'rpc' };
+    var paths = (r.data || []).map(function(x){ return typeof x === 'string' ? x : (x && (x.my_storage_orphans || x.name)); }).filter(Boolean);
+    return removePaths(window.sb.storage.from(BUCKET), paths);
   }
 
   function humanSize(bytes){
@@ -5537,11 +5707,13 @@
   }
 
   window.SyDentFiles = {
-    BUCKET: BUCKET, CAT_LABELS: CAT_LABELS,
+    BUCKET: BUCKET, CAT_LABELS: CAT_LABELS, XRAY_TYPES: XRAY_TYPES, LIMIT_XRAY: LIMIT_XRAY, LIMIT_STD: LIMIT_STD,
     upload: upload, list: list, countFor: countFor,
     signedUrl: signedUrl, signedUrls: signedUrls,
     remove: remove, purgeOwner: purgeOwner, compressImage: compressImage,
-    isImage: isImage, humanSize: humanSize
+    isImage: isImage, humanSize: humanSize,
+    check: check, isDicomName: isDicomName, usage: usage, fits: fits, humanBytes: humanBytes, message: message, usageHtml: usageHtml,
+    updateMeta: updateMeta, purgePatient: purgePatient, cleanOrphans: cleanOrphans
   };
 })();
 
@@ -6026,3 +6198,129 @@ window.SySlots = {
     return html.replace(/ data-span-if="(\d)"/g, function (_, n) { return used[n] ? ' data-span="2"' : ''; });
   }
 };
+
+/* ═══════════════ SyLive — التحديثُ اللحظي لكل التطبيق (M185 · v623) ═══════════════
+   طلبُ المالك: «أي شي بدو تحديث صلحه وخليه لحظي». مصدرٌ واحد: كلُّ صفحةٍ تعلن الجداولَ التي تهمّها ودالّةَ
+   إعادة التحميل التي ترسم بنفسها؛ SyLive يفتح قناةَ Realtime واحدة مفلترةً بالعيادة (أو بالمريض) ويستدعيها.
+   • التجميع: تغييراتٌ متتالية ⇒ إعادةُ تحميلٍ واحدة بعد هدوء DEBOUNCE_MS.
+   • لا يُعاد الرسمُ أبداً والمستخدمُ يكتب أو نافذةٌ/حوارٌ مفتوح أو سحبٌ جارٍ — التحديثُ يُحفظ ويُطبَّق عند الإغلاق.
+   • الحذف: Supabase لا يفلتر أحداثَ DELETE ولا تحمل إلا المعرّف ⇒ لا إعادةَ تحميل إلا إن كان المعرّفُ معروضاً.
+   • الأرضية: انقطاعُ القناة ⇒ فحصٌ كل POLL_MS؛ العودةُ للتبويب بعد غياب ⇒ لحاق؛ عودةُ الشبكة ⇒ لحاق (نمطُ v585).
+   • العزلُ بين العيادات: RLS لكل مشترك + فلترُ عمود المالك (tenantOf) — الجداولُ مضافةٌ للنشر بـMigration 185. */
+(function () {
+  /* عمودُ العزل: doctor_id افتراضياً؛ هنا الاستثناءاتُ وحدها. (لا تُسمّى الجداولُ المالية بهذا الملف — جدارُ الأوفلاين المالي،
+     check-offline-guard؛ prove-live يتحقّق من عمود كل جدولٍ مُراقَب مقابل db/schema.sql.) */
+  var TENANT_EXC = {
+    booking_requests: 'clinic_id',
+    patient_portals: 'owner_id', patient_intakes: 'owner_id', inventory_items: 'owner_id', inventory_movements: 'owner_id',
+    expenses: 'owner_id', provider_payouts: 'owner_id',
+    clinic_doctors: 'owner_id', clinic_employees: 'owner_id', audit_log: 'owner_id',   /* M186 · v626 */
+    patient_documents: 'owner_id',   /* M192 · v635 */
+    portal_requests: 'owner_id'   /* M187 · v628 */
+  };
+  function tenantOf(t) { return TENANT_EXC[t] || 'doctor_id'; }
+  var DEBOUNCE_MS = 700, HOLD_RETRY_MS = 1000, POLL_MS = 60000, AWAY_MS = 20000;
+  var watchers = [], globalsWired = false;
+
+  /* المستخدمُ مشغول ⇒ لا رسم: نافذةٌ/حوارٌ مفتوح · كتابةٌ بنصٍّ حرّ · حقلٌ داخل نافذةٍ أو نموذج · سحبٌ بالتقويم · قفلٌ صريح */
+  function held() {
+    var d = document;
+    if (d.querySelector('.modal-overlay.open, .modal-overlay.show, .k3-dragging')) return true;
+    /* v626: سحبُ الترتيب بـHTML5 (بطاقاتُ الموظفين — `.dragging` على عنصرٍ قابلٍ للسحب) */
+    if (d.querySelector('[draggable="true"].dragging')) return true;
+    /* v623 مراجعة: نوافذُ تُفتح بـstyle.display لا بالصنف (طبقتا ربط العائلة وفحص اللثة ببطاقة المريض — data-live-hold) */
+    var ovs = d.querySelectorAll ? d.querySelectorAll('.modal-overlay, [data-live-hold]') : [];
+    for (var i = 0; i < ovs.length; i++) {
+      var st = ovs[i].style;
+      if (st && st.display && st.display !== 'none') return true;
+    }
+    if (d.body && d.body.classList.contains('sy-live-hold')) return true;
+    var a = d.activeElement;
+    if (a && (a.tagName === 'TEXTAREA' || a.isContentEditable)) return true;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'SELECT') && a.closest && a.closest('.modal-overlay, form')) return true;
+    return false;
+  }
+  function knowsByDom(table, id) {
+    try { return document.body.innerHTML.indexOf(String(id)) > -1; } catch (e) { return true; }
+  }
+  function schedule(w) {
+    w.dirty = true;
+    clearTimeout(w.timer);
+    w.timer = setTimeout(function () { flush(w); }, DEBOUNCE_MS);
+  }
+  async function flush(w) {
+    if (!w.dirty || w.stopped) return;
+    if (document.hidden) return;                                   /* يُطبَّق عند العودة للتبويب */
+    if (w.running || (w.hold !== false && held())) {
+      clearTimeout(w.timer);
+      w.timer = setTimeout(function () { flush(w); }, HOLD_RETRY_MS);
+      return;
+    }
+    w.dirty = false; w.running = true;
+    try { await w.refresh(); } catch (e) { console.warn('SyLive refresh (' + w.name + '):', e); }
+    w.running = false; w.lastRun = Date.now(); w.runs = (w.runs || 0) + 1;
+    if (w.dirty) schedule(w);
+  }
+  function onEvent(w, table, payload) {
+    if (!payload) return;
+    if (payload.eventType === 'DELETE') {
+      var id = payload.old && payload.old.id;
+      if (!id) return;
+      if (!(w.knows || knowsByDom)(table, id)) return;            /* حذفٌ لعيادةٍ أخرى أو لصفٍّ غيرِ معروض */
+    }
+    schedule(w);
+  }
+  function subscribe(w) {
+    if (!window.sb || !w.uid) return;
+    var ch = window.sb.channel('live-' + w.name + '-' + w.uid + '-' + Math.random().toString(36).slice(2, 8));
+    w.tables.forEach(function (spec) {
+      var t = typeof spec === 'string' ? spec : spec.t;
+      var col = tenantOf(t);
+      var filter = (typeof spec === 'object' && spec.filter) ? spec.filter : (col + '=eq.' + w.uid);
+      var cb = function (p) { onEvent(w, t, p); };
+      ch = ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: t, filter: filter }, cb)
+             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: t, filter: filter }, cb)
+             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: t }, cb);
+    });
+    w.chan = ch.subscribe(function (status) {
+      if (status === 'SUBSCRIBED') {
+        if (w.wasDown) schedule(w);                                 /* لحاقُ ما فات أثناء الانقطاع */
+        w.live = true; w.wasDown = false;
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        w.live = false; w.wasDown = true;
+      }
+    });
+  }
+  function wireGlobals() {
+    if (globalsWired) return; globalsWired = true;
+    document.addEventListener('visibilitychange', function () {
+      watchers.forEach(function (w) {
+        if (document.hidden) { w.hiddenAt = Date.now(); return; }
+        if (w.dirty || (w.hiddenAt && Date.now() - w.hiddenAt > AWAY_MS)) schedule(w);   /* الهاتفُ يقطع المقبس بالخلفية */
+      });
+    });
+    window.addEventListener('online', function () { watchers.forEach(function (w) { schedule(w); }); });
+    setInterval(function () {
+      watchers.forEach(function (w) { if (!w.live && !w.stopped && !document.hidden) schedule(w); });   /* أرضيةٌ حين تسقط القناة */
+    }, POLL_MS);
+  }
+  /* opts: { name, uid, tables: ['appointments', {t:'patients', filter:'id=eq.<pid>'}], refresh: async fn, knows?: fn(table,id), hold?: false } */
+  function watch(opts) {
+    if (!opts || !opts.uid || typeof opts.refresh !== 'function' || !Array.isArray(opts.tables)) return null;
+    var prev = watchers.filter(function (x) { return x.name === opts.name; })[0];
+    if (prev) stop(prev);
+    var w = { name: opts.name || 'page', uid: opts.uid, tables: opts.tables, refresh: opts.refresh, knows: opts.knows || null,
+              hold: opts.hold, dirty: false, live: false, wasDown: false, running: false, stopped: false, timer: null, runs: 0 };
+    watchers.push(w);
+    wireGlobals();
+    subscribe(w);
+    return w;
+  }
+  function stop(w) {
+    w.stopped = true; clearTimeout(w.timer);
+    try { if (w.chan && window.sb) window.sb.removeChannel(w.chan); } catch (e) {}
+    watchers = watchers.filter(function (x) { return x !== w; });
+  }
+  window.SyLive = { watch: watch, stop: stop, held: held, tenantOf: tenantOf, _watchers: function () { return watchers; },
+                    _consts: { DEBOUNCE_MS: DEBOUNCE_MS, POLL_MS: POLL_MS, AWAY_MS: AWAY_MS } };
+})();

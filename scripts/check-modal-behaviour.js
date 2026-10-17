@@ -27,7 +27,7 @@ const MIGRATED = ['appointments.html', 'patients.html', 'patient-profile.html',
                   'provider-reports.html', 'audit-log.html',
                   'settings.html', 'learn.html', 'subscription.html', 'auth.html',
                   'admin.html'];
-const SCRIPTS = { 'appointments.html': ['appt-booking.js', 'appt-modal.js', 'appt-time.js', 'appt-views.js', 'appt-wa.js'], 'patients.html': [], 'patient-profile.html': ['pp-appt.js', 'pp-clinical.js', 'pp-core.js', 'pp-dental.js', 'pp-extras.js', 'pp-modules.js', 'pp-plan.js', 'pp-timeline.js', 'pp-wa.js'], 'treatments.html': [], 'doctors.html': [], 'employees.html': [], 'payouts.html': [], 'expenses.html': [], 'inventory.html': [], 'labs.html': [], 'provider-reports.html': [], 'audit-log.html': [], 'settings.html': [], 'learn.html': [], 'subscription.html': [], 'auth.html': [], 'admin.html': ['admin-render.js'] };
+const SCRIPTS = { 'appointments.html': ['appt-booking.js', 'appt-modal.js', 'appt-time.js', 'appt-views.js', 'appt-wa.js'], 'patients.html': [], 'patient-profile.html': ['pp-appt.js', 'pp-clinical.js', 'pp-core.js', 'pp-dental.js', 'pp-extras.js', 'pp-intake.js', 'pp-modules.js', 'pp-plan.js', 'pp-portal.js', 'pp-timeline.js', 'pp-wa.js', 'pp-xray.js'], 'treatments.html': [], 'doctors.html': [], 'employees.html': [], 'payouts.html': [], 'expenses.html': [], 'inventory.html': [], 'labs.html': [], 'provider-reports.html': [], 'audit-log.html': [], 'settings.html': [], 'learn.html': [], 'subscription.html': [], 'auth.html': [], 'admin.html': ['admin-render.js'] };
 
 for (const page of MIGRATED) {
   const html = R(page);

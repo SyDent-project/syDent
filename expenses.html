@@ -17,7 +17,7 @@
 /* ── Modal ── v448: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261002d"></script>
+<script src="theme.js?v=20261016a"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -511,13 +511,13 @@ button:disabled { opacity: .6; cursor: wait; }
 html[data-sub-level="read"] :is([onclick*="openExpenseModal("],[onclick*="openCatModal("],[onclick*="saveExpense("],[onclick*="saveCategory("],[onclick*="editExpense("],[onclick*="deleteExpense("],[onclick*="editCategory("],[onclick*="toggleCategoryActive("],[onclick*="deleteCategory("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261002d">
+<link rel="stylesheet" href="theme.css?v=20261016a">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261002d"></script>
-<script src="sy-modal.js?v=20261002d"></script>
-<script src="pay-methods.js?v=20261002d"></script>
-<script src="sidebar.js?v=20261002d"></script>
-<script src="timepicker.js?v=20261002d"></script>
+<script src="supabase-init.js?v=20261016a"></script>
+<script src="sy-modal.js?v=20261016a"></script>
+<script src="pay-methods.js?v=20261016a"></script>
+<script src="sidebar.js?v=20261016a"></script>
+<script src="timepicker.js?v=20261016a"></script>
 </head>
 <body>
 
@@ -888,6 +888,7 @@ async function init() {
     populateCategoryDropdown();
     renderIconGrid();
     $('eDate').value = todayISO();
+    await maybeOpenFromReceipt();   /* M172 */
   } catch (e) {
     console.error('init failed:', e);
     showToast('⚠️ خطأ في تحميل الصفحة', true);
@@ -1214,6 +1215,7 @@ function openCatColorPicker() {
 // ─── Expense modal ─────────────────────────────────────────────────────────
 function openExpenseModal() {
   editingExpId = null;
+  _invReceiptLink = null;
   $('expModalTitle').textContent = '+ مصروف جديد';
   $('eDate').value = todayISO();
   $('eTime').value = SyDT.nowHM();   // v476: الوقتُ افتراضياً الآن (SyDT — v477)
@@ -1263,6 +1265,41 @@ function editExpense(id) {
 function closeExpModal() {
   $('expModal').classList.remove('show');
   editingExpId = null;
+  _invReceiptLink = null;   /* M172: الإغلاقُ بلا حفظ يفكّ الربط */
+}
+
+/* M172 — رابطٌ عميق من «استلام طلبية» بالمخزون: يعبّي النافذة ولا يحفظ (#690). الحفظُ هو مسارُ saveExpense
+   القائم نفسه؛ بعده فقط يُربط الاستلامُ بالمصروف (عمودُ عملته) ⇒ «✓ مسجّلة مصروف» فلا تُسجَّل الفاتورةُ مرتين.
+   المبلغُ والمورّدُ يُقرآن من القاعدة لا من الرابط. */
+var _invReceiptLink = null;   // { id, cur }
+async function maybeOpenFromReceipt() {
+  var q = new URLSearchParams(location.search);
+  var rid = q.get('inv_receipt');
+  if (!rid) return;
+  var cur = q.get('cur') === 'USD' ? 'USD' : 'SYP';
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  var r = await window.sb.from('inventory_receipts')
+    .select('id, order_id, amount_syp, amount_usd, expense_syp_id, expense_usd_id')
+    .eq('id', rid).eq('owner_id', currentUser.id).maybeSingle();
+  if (r.error || !r.data) { showToast('⚠️ ما لقيت الاستلام', true); return; }
+  var rec = r.data;
+  var amount = Number(cur === 'USD' ? rec.amount_usd : rec.amount_syp) || 0;
+  if (cur === 'USD' ? rec.expense_usd_id : rec.expense_syp_id) { showToast('✓ هالاستلام مسجّل مصروف من قبل'); return; }
+  if (!(amount > 0)) { showToast('⚠️ ما في مبلغ بهالعملة لهالاستلام', true); return; }
+  var sup = '';
+  try {
+    var o = await window.sb.from('inventory_orders').select('supplier_id, inventory_suppliers(name)')
+      .eq('id', rec.order_id).eq('owner_id', currentUser.id).maybeSingle();
+    sup = (o && o.data && o.data.inventory_suppliers && o.data.inventory_suppliers.name) || '';
+  } catch (e) {}
+  openExpenseModal();
+  $('eAmount').value = amount;
+  try { window.SyDentCurPick.set('eAmount', cur); } catch (e) {}
+  $('eVendor').value = sup;
+  $('eDescription').value = 'استلام طلبية مواد';
+  var cat = categories.find(function(c){ return c.is_active !== false && /مواد/.test(c.name || ''); });
+  if (cat) $('eCategory').value = cat.id;
+  _invReceiptLink = { id: rec.id, cur: cur };
 }
 
 // Phase post-X10 B1 fix: module-level in-flight flag prevents double-
@@ -1367,6 +1404,15 @@ async function saveExpense() {
       });
     }
 
+    // M172: مصروفٌ جديد من رابط استلام ⇒ يُربط الاستلامُ به (بعمودِ عملة المصروف، وفقط لو ما زال فارغاً)
+    if (_invReceiptLink && !editingExpId && res.data && res.data.id) {
+      var _lk = _invReceiptLink, _col = row.currency === 'USD' ? 'expense_usd_id' : 'expense_syp_id', _u = {};
+      _u[_col] = res.data.id;
+      try {
+        var _lr = await window.sb.from('inventory_receipts').update(_u).eq('id', _lk.id).eq('owner_id', currentUser.id).is(_col, null);
+        if (_lr.error) console.warn('link receipt → expense:', _lr.error);
+      } catch (e) { console.warn('link receipt → expense:', e); }
+    }
     showToast(editingExpId ? '✓ تم التعديل' : '✓ تمت الإضافة');
     closeExpModal();
     await loadExpenses();

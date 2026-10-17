@@ -6,7 +6,9 @@
        الافتراضية — بالمئات (خطوةُ الحقل 0.01) وبطريقة أكبر الباقي ⇒ المجموعُ يطابق المُدخَل حرفياً.
      • buildLines(rows): صفوفُ النافذة ⇒ [{item_id, qty, session_id}] للقاعدة.
      • run(sb, lines, note) ⇒ {ok, lines} أو {ok:false, error}.
-     • message(res, names): نصُّ التوست — والنقصُ يُعلَن باسم الصنف (#689). */
+     • message(res, names): نصُّ التوست — والنقصُ يُعلَن باسم الصنف (#689).
+     M173 (البند 5): رقمُ الدفعة — loadLots يجلب دفعاتِ الأصناف المرقّمة المفتوحة، وlotSelectHtml يعرض «الدفعة»
+     بالنافذة (تلقائي = الأقرب انتهاءً)، والدفعةُ المختارة (LOT الزرعة الفعلي) تمرّ batch_id فتُؤخذ أولاً بالقاعدة. */
 (function () {
   'use strict';
 
@@ -35,7 +37,9 @@
     (rows || []).forEach(function (r) {
       if (!r || !r.item_id) return;
       split(r.qty, r.contribs).forEach(function (s) {
-        out.push({ item_id: r.item_id, qty: s.qty, session_id: s.session_id });
+        var ln = { item_id: r.item_id, qty: s.qty, session_id: s.session_id };
+        if (r.batch_id) ln.batch_id = r.batch_id;
+        out.push(ln);
       });
     });
     return out;
@@ -87,5 +91,45 @@
     return '⚠️ ' + (full ? 'تم خصم ' + full + ' مادة · ' : '') + notes.join(' · ');
   }
 
-  window.SyDentInvConsume = { split: split, buildLines: buildLines, run: run, byItem: byItem, message: message };
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function dmy(d) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || '')); return m ? (m[3] + '/' + m[2] + '/' + m[1]) : ''; }
+  /* «LOT 123 · صلاحية 27/10/2026 · متبقٍّ 4» — نصٌّ خام (المستدعي يهرّبه) */
+  function lotLabel(b) {
+    var p = [];
+    if (b && b.lot_no) p.push('LOT ' + b.lot_no);
+    if (b && b.expiry_date) p.push('صلاحية ' + dmy(b.expiry_date));
+    if (b && b.quantity != null) p.push('متبقٍّ ' + fmt(b.quantity));
+    return p.join(' · ') || 'دفعة';
+  }
+  /* الدفعاتُ المرقّمة المفتوحة لأصنافٍ ⇒ { item_id: [batch…] } بترتيب FEFO — فشلُها لا يكسر النافذة (تلقائي) */
+  async function loadLots(sb, ownerId, itemIds) {
+    var out = {};
+    var ids = (itemIds || []).filter(Boolean);
+    if (!ids.length) return out;
+    try {
+      for (var i = 0; i < ids.length; i += 150) {
+        var r = await sb.from('inventory_batches').select('id, item_id, lot_no, expiry_date, quantity')
+          .eq('owner_id', ownerId).eq('is_finished', false).not('lot_no', 'is', null)
+          .in('item_id', ids.slice(i, i + 150)).order('expiry_date', { ascending: true, nullsFirst: false }).limit(1000);
+        if (r.error) return {};
+        (r.data || []).forEach(function (b) { if (num(b.quantity) > 0) (out[b.item_id] = out[b.item_id] || []).push(b); });
+      }
+    } catch (e) { return {}; }
+    return out;
+  }
+  function lotSelectHtml(cls, idx, lots) {
+    if (!lots || !lots.length) return '';
+    return '<label style="display:block;margin-top:6px;font-size:11px;color:var(--text2);">الدفعة (LOT)'
+      + '<select class="' + esc(cls) + '" data-idx="' + esc(idx) + '" style="display:block;width:100%;margin-top:3px;padding:7px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);font-family:Cairo,sans-serif;font-size:12px;">'
+      + '<option value="">تلقائي — الأقرب انتهاءً</option>'
+      + lots.map(function (b) { return '<option value="' + esc(b.id) + '">' + esc(lotLabel(b)) + '</option>'; }).join('')
+      + '</select></label>';
+  }
+
+  window.SyDentInvConsume = { split: split, buildLines: buildLines, run: run, byItem: byItem, message: message,
+    lotLabel: lotLabel, loadLots: loadLots, lotSelectHtml: lotSelectHtml };
 })();

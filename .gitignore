@@ -139,3 +139,7 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 SyDent_Context_md_*.md
 __pycache__/
+
+# مخلّفات بوابة validate.sh (لقطات مراجعة أزرار الصفوف) — لا تُكومَت (#725)
+_ra/
+_pp/

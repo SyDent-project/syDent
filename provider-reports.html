@@ -17,16 +17,17 @@
 /* ── Modal ── v451: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261002d"></script>
+<script src="theme.js?v=20261016a"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261002d"></script>
-<script src="sy-modal.js?v=20261002d"></script>
-<script src="sidebar.js?v=20261002d"></script>
-<script src="rpt-treat.js?v=20261002d"></script>
-<script src="rpt-newpt.js?v=20261002d"></script>
-<script src="rpt-att.js?v=20261002d"></script>
-<script src="rpt-ret.js?v=20261002d"></script>
-<script src="rpt-sum.js?v=20261002d"></script>
+<script src="supabase-init.js?v=20261016a"></script>
+<script src="sy-modal.js?v=20261016a"></script>
+<script src="sidebar.js?v=20261016a"></script>
+<script src="rpt-treat.js?v=20261016a"></script>
+<script src="rpt-newpt.js?v=20261016a"></script>
+<script src="rpt-att.js?v=20261016a"></script>
+<script src="rpt-ret.js?v=20261016a"></script>
+<script src="rpt-sum.js?v=20261016a"></script>
+<script src="mat-cost.js?v=20261016a"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -429,7 +430,7 @@ a.rt-row:hover{background:rgba(var(--green-rgb),0.04);}
 html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutModal("],[onclick*="deletePayout("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261002d">
+<link rel="stylesheet" href="theme.css?v=20261016a">
 </head>
 <body>
 <div class="main" id="sbMainContent">
@@ -455,6 +456,7 @@ html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutMo
     <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="att" onclick="setRptTab('att')">📅 الحضور والغياب</button>
     <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="ret" onclick="setRptTab('ret')">🔁 الاحتفاظ</button>
     <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="sum" onclick="setRptTab('sum')">📄 ملخّص الفترة</button>
+    <button type="button" class="rpt-tab" role="tab" aria-selected="false" data-rpt-tab="mat" onclick="setRptTab('mat')">🧪 المواد</button>
   </div></div>
 
   <!-- Date presets (v307: مولَّدة من جدول PRESETS — المفتاح بسمة data-preset) -->
@@ -488,7 +490,7 @@ html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutMo
       <select id="providerTypeFilter" onchange="onFilterChange()">
         <option value="all">شامل</option>
         <option value="doctor">أطباء فقط</option>
-        <option value="hygienist">متدربين/مساعدين فقط</option>
+        <option value="hygienist">متدرّبون/مساعدون فقط</option>
         <option value="assistant">مساعدات كرسي فقط</option>
         <option value="secretary">سكرتيرات فقط</option>
         <option value="other">موظفون آخرون فقط</option>
@@ -538,6 +540,9 @@ html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutMo
 
   <!-- v545: ملخّصُ الفترة — للطباعة والإرسال (rpt-sum.js) -->
   <div id="sumHost" class="rt-host" hidden></div>
+
+  <!-- جولة المخزون 6: كلفةُ المواد واستهلاكُها (mat-cost.js — الدالّةُ نفسُها بالمحاسبة) -->
+  <div id="matHost" class="rt-host" hidden></div>
 
 </div>
 </div>
@@ -748,13 +753,13 @@ var PRESETS = [
   { key: 'this_month',   label: 'هذا الشهر',     range: function(n){ return { from: _mStart(n.getFullYear(), n.getMonth()), to: n }; } },
   { key: 'last_month',   label: 'الشهر الماضي',  range: function(n){ return { from: _mStart(n.getFullYear(), n.getMonth() - 1), to: _mEnd(n.getFullYear(), n.getMonth() - 1) }; } },
   { key: 'this_week',    label: 'هذا الأسبوع',   range: function(n){ var f = new Date(n); f.setDate(n.getDate() - n.getDay()); return { from: f, to: n }; } },
-  { key: 'last_30',      label: 'آخر 30 يوم',    range: function(n){ var f = new Date(n); f.setDate(n.getDate() - 30); return { from: f, to: n }; } },
+  { key: 'last_30',      label: 'آخر 30 يوماً',  range: function(n){ var f = new Date(n); f.setDate(n.getDate() - 30); return { from: f, to: n }; } },
   { key: 'last_3m',      label: 'آخر 3 أشهر',    range: function(n){ return { from: _mStart(n.getFullYear(), n.getMonth() - 2), to: n }; } },
   { key: 'this_quarter', label: 'هذا الربع',     range: function(n){ var q = Math.floor(n.getMonth() / 3) * 3; return { from: _mStart(n.getFullYear(), q), to: n }; } },
   { key: 'last_quarter', label: 'الربع الماضي',  range: function(n){ var q = Math.floor(n.getMonth() / 3) * 3 - 3; return { from: _mStart(n.getFullYear(), q), to: _mEnd(n.getFullYear(), q + 2) }; } },
   { key: 'last_6m',      label: 'آخر 6 أشهر',    range: function(n){ return { from: _mStart(n.getFullYear(), n.getMonth() - 5), to: n }; } },
   { key: 'this_year',    label: 'هذه السنة',     range: function(n){ return { from: new Date(n.getFullYear(), 0, 1), to: n }; } },
-  { key: 'last_12m',     label: 'آخر 12 شهر',    range: function(n){ return { from: _mStart(n.getFullYear(), n.getMonth() - 11), to: n }; } },
+  { key: 'last_12m',     label: 'آخر 12 شهراً',  range: function(n){ return { from: _mStart(n.getFullYear(), n.getMonth() - 11), to: n }; } },
   { key: 'last_year',    label: 'السنة الماضية', range: function(n){ return { from: new Date(n.getFullYear() - 1, 0, 1), to: new Date(n.getFullYear() - 1, 11, 31) }; } },
   { key: 'all',          label: 'كل الفترات',    range: function(n){ return { from: new Date(2020, 0, 1), to: n }; } }
 ];
@@ -1056,6 +1061,8 @@ async function _loadFilteredDataCore(gate) {
   renderAtt();     // v541
   renderRet();     // v542
   renderSum();     // v545
+  _matData = null;   // جولة المخزون 6 — بياناتُ المواد تتبع الفترة
+  renderMat();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1073,6 +1080,56 @@ async function _loadFilteredDataCore(gate) {
 /* DeepCode #1 (v552): وعدٌ ⇒ {r}|{e} فلا يصير رفضاً غير ملتقَط وهو ينتظر دوره، ثم يُرمى خطؤه بدوره. */
 function _prSettle(p) { return Promise.resolve(p).then(function (r) { return { r: r }; }, function (e) { return { e: e }; }); }
 function _prTake(x) { if (x.e) throw x.e; return x.r; }
+/* جولة المخزون 6 — تبويب «🧪 المواد»: كسولٌ بأول فتح وبحارس تسلسل (#705)، والقراءاتُ مصفّحة (#706) بنافذة UTC موسّعة
+   تُقصّ محلياً بـinLocalRange (نمطُ المحاسبة نفسُه). الحسابُ كلُّه بـSyDentMatCost.cost — لا معادلةَ ثانية (#684).
+   نطاقُ الطبيب: وضعُ الطبيب أو فلترُ طبيبٍ ⇒ حركاتُ أطبائه وحدها (provider_id من M169). */
+var _matData = null, _matSeq = 0, _matLast = null;
+function _matMoney(n, c) { var v = Math.round((Number(n) || 0) * 100) / 100; return v.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' ' + (c === 'USD' ? '$' : 'ل.س'); }
+async function loadMatData(key) {
+  var seq = ++_matSeq;
+  var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+  var d = { key: key, loading: true, items: [], movs: [], failed: false };
+  _matData = d;
+  try {
+    var r = await Promise.all([
+      _fetchAllPR(function(){ return window.sb.from('inventory_items').select('id, name, unit, purchase_price, currency').eq('owner_id', currentUser.id); }),
+      _fetchAllPR(function(){ return window.sb.from('inventory_movements')
+        .select('id, item_id, change, reason, created_at, session_id, provider_id, session:ledger_sessions(type)')
+        .eq('owner_id', currentUser.id).eq('reason', 'consume')
+        .gte('created_at', widenStartUtc(from)).lte('created_at', widenEndUtc(to)); })
+    ]);
+    d.items = r[0]; d.movs = r[1];
+  } catch (e) { console.warn('materials report:', e); d.failed = true; }
+  d.loading = false;
+  if (seq === _matSeq) renderMat();
+}
+function renderMat() {
+  var host = document.getElementById('matHost');
+  if (!host || rptTab !== 'mat') return;
+  if (!window.SyDentMatCost) { host.innerHTML = '<div class="empty-state"><div class="ic">⚠️</div><div class="ttl">تعذّر تحميل التقرير — حدّث الصفحة</div></div>'; return; }
+  var loading = '<div class="empty-state"><div class="ic">⏳</div><div class="ttl">جارٍ التحميل…</div></div>';
+  if (!_prLoaded || !currentUser) { host.innerHTML = loading; return; }
+  var key = _newKey();
+  if (!_matData || _matData.key !== key) { host.innerHTML = loading; loadMatData(key); return; }
+  if (_matData.loading) { host.innerHTML = loading; return; }
+  if (_matData.failed) { host.innerHTML = '<div class="empty-state"><div class="ic">⚠️</div><div class="ttl">تعذّر تحميل حركات المخزون — حدّث الصفحة</div></div>'; return; }
+  var inScope = _newInScope(), clinic = _newClinicScope();
+  var movs = clinic ? _matData.movs : _matData.movs.filter(function(m){ return inScope(m.provider_id); });
+  var from = document.getElementById('fromDate').value, to = document.getElementById('toDate').value;
+  var m = window.SyDentMatCost.cost(_matData.items, movs, from, to, inLocalRange);
+  _matLast = m;
+  var names = {}; (doctors || []).forEach(function(dd){ names[dd.id] = dd.name; });
+  host.innerHTML = (clinic ? '' : '<div class="rt-note" style="margin:0 0 14px;">👨‍⚕️ معروضٌ للطبيب المختار وحده — حركاتُ «بلا طبيب» (اليدوية والقديمة) تظهر بـ«كل الأطباء».</div>')
+    + window.SyDentMatCost.render(m, { money: _matMoney, docName: function(id){ return names[id] || 'طبيب محذوف'; } })
+    + (m.count ? '<div style="margin-top:14px;"><button type="button" class="btn" onclick="exportMat()">⬇️ Excel — حسب الصنف</button></div>' : '');
+}
+function exportMat() {
+  if (!_matLast || !_matLast.count) return;
+  window.SyDentXlsx.save({ filename: 'sydent-materials-' + document.getElementById('fromDate').value + '_' + document.getElementById('toDate').value,
+    sheetName: 'المواد', headers: window.SyDentMatCost.XLSX_HEADERS, rows: window.SyDentMatCost.xlsxRows(_matLast) })
+    .then(function(){ showToast('⬇️ تم تنزيل تقرير المواد'); }, function(){ showToast('⚠️ تعذّر التصدير'); });
+}
+
 async function _fetchAllPR(buildQuery) {
   var PAGE = 1000, out = [], off = 0;
   for (;;) {
@@ -2055,7 +2112,7 @@ function _printSlipCore(provId) {
 
   // Open in new window for printing
   var w = window.open('', '_blank', 'width=900,height=700');
-  if (!w) { showToast('⚠️ افتح صلاحيات النوافذ المنبثقة'); return; }
+  if (!w) { showToast('⚠️ اسمح بالنوافذ المنبثقة في المتصفح'); return; }
   w.document.write('<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">'
     + '<title>كشف ' + escapeHtml(d.name) + '</title>'
     + '<link href="/fonts/plex-arabic.css" rel="stylesheet">'
@@ -2243,7 +2300,7 @@ function printLedger() {
       + '</div>';
   } finally { _renderCur = prev; }
   var w = window.open('', '_blank', 'width=900,height=700');
-  if (!w) { showToast('⚠️ افتح صلاحيات النوافذ المنبثقة'); return; }
+  if (!w) { showToast('⚠️ اسمح بالنوافذ المنبثقة في المتصفح'); return; }
   w.document.write('<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>كشف حساب ' + escapeHtml(L.d.name) + '</title>'
     + '<link href="/fonts/plex-arabic.css" rel="stylesheet">'
     + '<style>body{margin:0;font-family:Cairo,sans-serif;}</style></head><body>' + html + '</body></html>');
@@ -2621,10 +2678,11 @@ var _prLoaded = false;        // أوّلُ تحميلٍ للفترة انتهى
 var RPT_SUB = {
   prov:  'إنتاج وتحصيلات ومستحقات كل طبيب في العيادة',
   treat: 'العلاجات المُجراة: عددها وإنتاجها ونصيبها — للعيادة كلها أو لطبيب',
-  new:   'المرضى الجدد: كم ومنين إجوا ومين استقبلهم وقدّيش جابوا — ومَن سجّل وما بلّش',
-  att:   'الحضور والغياب: كم موعد ضاع وعند مين وبأي يوم وساعة — ومين المكرّرين',
-  ret:   'الاحتفاظ: كم مريض نشط وعم يكبر العدد ولا يصغر — ومين فقدنا ومين طلع بلا موعد جاي',
-  sum:   'ملخّص الفترة: صفحةٌ واحدة مقابل السابقة ونفس الفترة من السنة الماضية — للطباعة أو الواتساب'
+  new:   'المرضى الجدد: عددهم ومصادرهم ومن استقبلهم وإنتاجهم — ومن سُجّل ولم يبدأ العلاج',
+  att:   'الحضور والغياب: كم موعداً ضاع، ولدى أيّ طبيب، وفي أيّ يوم وساعة — ومن يتكرّر غيابهم',
+  ret:   'الاحتفاظ: كم مريضاً نشطاً لدينا، وهل يزداد العدد أم يتناقص — ومن فقدنا، ومن غادر بلا موعد قادم',
+  sum:   'ملخّص الفترة: صفحةٌ واحدة مقابل السابقة ونفس الفترة من السنة الماضية — للطباعة أو الواتساب',
+  mat:   'المواد: ما استُهلك من كل صنف وكلفته — شهرياً، ولكل علاج ولكل طبيب'
 };
 function setRptTab(t, noSync) {
   if (!Object.prototype.hasOwnProperty.call(RPT_SUB, t)) t = 'prov';
@@ -2645,6 +2703,8 @@ function setRptTab(t, noSync) {
   if (rHost) rHost.hidden = (t !== 'ret');
   var sHost = document.getElementById('sumHost');
   if (sHost) sHost.hidden = (t !== 'sum');
+  var mHost = document.getElementById('matHost');
+  if (mHost) mHost.hidden = (t !== 'mat');
   var sub = document.getElementById('rptSub');
   if (sub) sub.textContent = RPT_SUB[t];
   renderTreat();
@@ -2652,6 +2712,7 @@ function setRptTab(t, noSync) {
   renderAtt();
   renderRet();
   renderSum();
+  renderMat();
   if (!noSync) syncUrl();
 }
 async function loadTrtCatalog() {
@@ -2938,7 +2999,7 @@ function buildNewRows() {
   rows.push(['المجموع', m.n, m.prevN === null ? '' : m.prevN, '', _csvNum(m.total.SYP), _csvNum(m.total.USD)]);
   if (_newLast.reg) {
     rows.push([]);
-    rows.push(['سُجّلوا بالفترة', _newLast.reg.n, 'بدأوا العلاج', _newLast.reg.started, '', '']);
+    rows.push(['سُجّلوا بالفترة', _newLast.reg.n, 'بدؤوا العلاج', _newLast.reg.started, '', '']);
     _newLast.reg.waiting.forEach(function(w){ rows.push([w.name, N.srcLabel(w.src), w.created, 'لم يبدأ', '', '']); });
   }
   rows.push([]);
@@ -3132,7 +3193,7 @@ function renderRet() {
   var need = m.noNext.concat(m.lost).map(function(r){ return r.id; }).filter(function(id){ return !(id in _retData.names); });
   if (need.length && !_retData.fetching) _retFetchNames(need, _retData);
   var names = _retData.names;
-  host.innerHTML = (_retData.failed ? '<div class="rt-note" style="margin:0 0 14px;">⚠️ تعذّر تحميل المواعيد — «حجزوا الخطوة الجاية» وقائمةُ «بلا موعد جاي» غيرُ دقيقتين الآن.</div>' : '')
+  host.innerHTML = (_retData.failed ? '<div class="rt-note" style="margin:0 0 14px;">⚠️ تعذّر تحميل المواعيد — «حجزوا الخطوة التالية» وقائمةُ «بلا موعد قادم» غيرُ دقيقتين الآن.</div>' : '')
     + window.SyRptRet.render(m, {
       name: function(id){ return names[id] === undefined ? '…' : names[id]; },
       prof: function(id){ return 'patient-profile.html?id=' + encodeURIComponent(id); },
@@ -3146,12 +3207,12 @@ function buildRetRows() {
   rows.push(['المرضى النشطون (آخر 12 شهراً)', m.activeEnd, 'بداية الفترة', m.activeStart]);
   rows.push(['زاروا بالفترة', m.visited, 'جدد / راجعون', m.newN + ' / ' + m.returning]);
   rows.push(['فقدناهم بالفترة', m.lost.length, 'صافي النمو', m.newN - m.lost.length]);
-  rows.push(['حجزوا الخطوة الجاية', m.booked, 'من', m.visited]);
+  rows.push(['حجزوا الخطوة التالية', m.booked, 'من', m.visited]);
   rows.push([]);
   rows.push(['الشهر','النشطون','جدد','فقدنا']);
   m.trend.forEach(function(t){ rows.push([t.label, t.active, t.fresh, t.lost]); });
   rows.push([]);
-  rows.push(['زاروا بلا موعد جاي','آخر زيارة','جديد','']);
+  rows.push(['زاروا بلا موعد قادم','آخر زيارة','جديد','']);
   m.noNext.forEach(function(r){ rows.push([names[r.id] || r.id, r.last, r.isNew ? 'نعم' : '', '']); });
   rows.push([]);
   rows.push(['فقدناهم','آخر علاج','','']);
@@ -3512,7 +3573,7 @@ function applyDoctorModeFilter() {
     inactiveSel.disabled = true;
     inactiveSel.style.opacity = '0.7';
     inactiveSel.style.cursor = 'not-allowed';
-    inactiveSel.title = 'مقفول في وضع الطبيب';
+    inactiveSel.title = 'مُقفَل في وضع الطبيب';
   }
 
   // Ensure the option exists (in case the filter dropdown was repopulated)
@@ -3525,7 +3586,7 @@ function applyDoctorModeFilter() {
     sel.disabled = true;
     sel.style.opacity = '0.7';
     sel.style.cursor = 'not-allowed';
-    sel.title = 'الفلتر مقفول على إنتاجك في وضع الطبيب';
+    sel.title = 'الفلتر مُقفَل على إنتاجك في وضع الطبيب';
     onFilterChange();
   } else {
     // Doctor id not found in clinic_doctors list (deactivated or deleted).

@@ -61,13 +61,15 @@
     } catch (e) { out.error = e; return out; }
   }
 
-  /* صفوفُ الأخوة من الصفّ الأساس المحفوظ (الحقولُ الجدولية فقط — لا أختامَ ولا asap ولا ربطَ طلب حجز) */
+  /* صفوفُ الأخوة من الصفّ الأساس المحفوظ (الحقولُ الجدولية + ختمُ التأكيد — لا أختامَ حضور ولا asap ولا ربطَ طلب حجز) */
   function siblingRows(saved, dates, seriesId, total) {
     return dates.map(function (ds, i) {
       return {
         doctor_id: saved.doctor_id, patient_id: saved.patient_id || null, patient_name: saved.patient_name || '',
         date: ds, time: saved.time, duration: saved.duration || 30, type: saved.type || null,
-        status: 'scheduled',   /* الأخوةُ غيرُ مؤكَّدة بعد — التأكيدُ فعلٌ لكل موعدٍ عند اقترابه */
+        /* v617 (قرار المالك 12/10/2026): كلُّ موعدٍ يُنشأ مؤكداً حتى يغيّره الطبيب — الأخوةُ كالموعد الأساس،
+           بالأختام الثلاثة التي يكتبها المودال عند «مؤكد» (كان scheduled) */
+        status: 'confirmed', confirmation_status: 'confirmed', confirmed_at: new Date().toISOString(),
         notes: saved.notes || null, color: saved.color || null, stroke: saved.stroke || null,
         provider_id: saved.provider_id || null, operatory_id: saved.operatory_id || null,
         appointment_type_id: saved.appointment_type_id || null, is_planned: false,

@@ -226,7 +226,7 @@
     }
 
     if (m.n || hp) {
-      html += '<section class="rt-card"><h3 class="rt-h">منين إجوا؟ <small class="rt-hs">«كيف سمع عنّا؟» بملف المريض</small></h3><div class="rt-cats">';
+      html += '<section class="rt-card"><h3 class="rt-h">من أين جاؤوا؟ <small class="rt-hs">«كيف سمع عنّا؟» بملف المريض</small></h3><div class="rt-cats">';
       m.sources.forEach(function (s) {
         var sh = pct(s.n, m.n);
         html += '<div class="rt-cat" data-src="' + esc(s.key) + '">'
@@ -246,7 +246,7 @@
 
     if (m.referrers && m.referrers.length) {
       var kinds = [['patient', '👥 مرضى عرّفوا غيرهم'], ['doctor', '🩺 أطباء حوّلوا'], ['name', '✍️ أسماء أخرى']];
-      html += '<section class="rt-card"><h3 class="rt-h">مين عرّفهم علينا؟ <small class="rt-hs">من «كيف سمع عنّا؟» بملف المريض</small></h3>';
+      html += '<section class="rt-card"><h3 class="rt-h">من عرّفهم بنا؟ <small class="rt-hs">من «كيف سمع عنّا؟» بملف المريض</small></h3>';
       kinds.forEach(function (k) {
         var list = m.referrers.filter(function (r) { return r.kind === k[0]; });
         if (!list.length) return;
@@ -263,7 +263,7 @@
     if (m.doctors.length > 1 || m.months.length > 1) {
       html += '<div class="rt-2col">';
       if (m.doctors.length > 1) {
-        html += '<section class="rt-card"><h3 class="rt-h">مين استقبلهم أولاً؟</h3><div class="rt-mini">';
+        html += '<section class="rt-card"><h3 class="rt-h">من استقبلهم أولاً؟</h3><div class="rt-mini">';
         m.doctors.forEach(function (d) {
           html += '<div class="rt-mini-row"><span>' + esc(doc(d.provider_id)) + '</span><b>' + d.n + '</b>'
             + '<i class="rt-bar"><i style="width:' + pct(d.n, m.n) + '%"></i></i></div>';
@@ -297,7 +297,7 @@
     }
 
     if (reg && reg.waiting.length) {
-      html += '<section class="rt-card"><h3 class="rt-h">سجّلوا وما بلّشوا <small class="rt-hs">' + ptWord(reg.waiting.length) + ' بلا أي علاجٍ منجز لليوم</small></h3>'
+      html += '<section class="rt-card"><h3 class="rt-h">سُجّلوا ولم يبدؤوا العلاج <small class="rt-hs">' + ptWord(reg.waiting.length) + ' بلا أي علاجٍ منجز لليوم</small></h3>'
         + '<div class="rt-chips">';
       reg.waiting.slice(0, LIST_MAX).forEach(function (w) {
         html += '<a class="rt-chip" href="' + esc(prof(w.id)) + '"><b>' + esc(w.name || '—') + '</b><small>'

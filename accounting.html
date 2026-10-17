@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <title>SyDent — المحاسبة</title>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261002d"></script>
+<script src="theme.js?v=20261016a"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -466,19 +466,20 @@ table.providers tr:hover td { background: var(--bg3); }
 html[data-sub-level="read"] :is([onclick*="digestGenerate("],[onclick*="setAccUnifyCur("],[onclick*="saveAccUsdRate("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261002d">
+<link rel="stylesheet" href="theme.css?v=20261016a">
 <!-- CRITICAL: Supabase CDN MUST load BEFORE supabase-init.js. The init
      script accesses window.supabase synchronously to expose sbGetUser and
      window.sb on the global. If the CDN loads later (e.g. at end of body),
      init() will throw "sbGetUser is not a function". This 3-line block
      matches the exact pattern used in expenses.html, payouts.html, etc. -->
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261002d"></script>
-<script src="sy-modal.js?v=20261002d"></script>
-<script src="sidebar.js?v=20261002d"></script>
-<script src="acc-aging.js?v=20261002d"></script>
-<script src="pay-methods.js?v=20261002d"></script>
-<script src="acc-daysheet.js?v=20261002d"></script>
+<script src="supabase-init.js?v=20261016a"></script>
+<script src="sy-modal.js?v=20261016a"></script>
+<script src="sidebar.js?v=20261016a"></script>
+<script src="mat-cost.js?v=20261016a"></script>
+<script src="acc-aging.js?v=20261016a"></script>
+<script src="pay-methods.js?v=20261016a"></script>
+<script src="acc-daysheet.js?v=20261016a"></script>
 </head>
 <body>
 
@@ -783,6 +784,15 @@ async function init() {
     if (!u) { window.location.href = 'auth.html'; return; }
     if (_blocked()) return;
     currentUser = u;
+    if (window.SyLive) window.SyLive.watch({ name: 'accounting', uid: currentUser.id,
+      tables: ['ledger_sessions', 'ledger_payments', 'payment_splits', 'account_adjustments', 'expenses', 'lab_payments', 'provider_payouts', 'inventory_movements', 'lab_orders'],
+      refresh: async function () {   /* v623 SyLive: لحظيّ بلا تحديث (M185) — يعيد التقرير المفتوح بصمت */
+        var from = $('fromDate') && $('fromDate').value, to = $('toDate') && $('toDate').value;
+        if (!from || !to || from > to || _applyInFlight || _blocked()) return;
+        await loadAllInRange(from, to);
+        if (_blocked()) return;
+        render(from, to);
+      } });
 
     // Page guard: Owner-only. Defense in depth (rule #16):
     //   1. Sidebar BLOCKED hides the link for non-owners.
@@ -1250,8 +1260,6 @@ async function loadMaterialCost(from, to) {
       .select('id, purchase_price, currency')
       .eq('owner_id', currentUser.id); });
     if (itemsRes.error || !itemsRes.data) return;  // graceful
-    var priceById = {};
-    itemsRes.data.forEach(function(it){ priceById[it.id] = { p: Number(it.purchase_price) || 0, cur: _rowCur(it) }; });
 
     // 2) حركات الاستهلاك: created_at من نوع TIMESTAMPTZ — نجلب نافذة UTC موسّعة (±يوم)
     //    ثم نقصّ محلياً بـ inLocalRange (نفس نمط loadPayouts/loadLabOrders). التقييد يمنع
@@ -1265,13 +1273,8 @@ async function loadMaterialCost(from, to) {
       .lte('created_at', hiUtc); });
     if (movRes.error || !movRes.data) return;  // graceful
 
-    movRes.data.forEach(function(m){
-      if (!inLocalRange(m.created_at, from, to)) return;
-      var qty = Math.abs(Number(m.change) || 0);
-      var it = priceById[m.item_id];
-      if (!it) return;
-      materialCostBag[it.cur] += qty * it.p;   // M125: التكلفة بعملة الصنف — صفر جمع عابر
-    });
+    // جولة المخزون 6: الحسابُ من mat-cost.js — الدالّةُ نفسُها التي يرسم منها تبويب «🧪 المواد» بالتقارير (#684)
+    materialCostBag = window.SyDentMatCost.cost(itemsRes.data, movRes.data, from, to, inLocalRange).bag;   // M125: بعملة الصنف
   } catch (e) {
     console.warn('loadMaterialCost (non-critical):', e);
     materialCost = 0;  // أي خطأ → 0، لا يؤثّر على أي رقم مالي آخر

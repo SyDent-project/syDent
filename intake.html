@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<script>
+/* ── v618 mobile/network: MIRROR intake.html ↔ portal.html ↔ book.html byte-for-byte (prove-portal · prove-public-mobile) ──
+   (1) Sentry loads async (a slow/blocked CDN no longer holds the page) and never receives the
+       link token (any 64-hex run is scrubbed from events and breadcrumbs) nor the page (replays off).
+   (2) withTimeout: a hanging request on a weak mobile link ends in the retry screen, not an endless spinner. */
+window.sentryOnLoad = function(){
+  try {
+    var scrub = function(o){ try { return JSON.parse(JSON.stringify(o).replace(/[0-9a-fA-F]{64}/g, '[token]')); } catch (e) { return null; } };
+    Sentry.init({ sendDefaultPii: false, replaysSessionSampleRate: 0, replaysOnErrorSampleRate: 0,
+      beforeSend: function(ev){ return scrub(ev); }, beforeBreadcrumb: function(b){ return scrub(b); } });
+  } catch (e) {}
+};
+window.withTimeout = function(p, ms){
+  return Promise.race([p, new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('timeout')); }, ms); })]);
+};
+</script>
+<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous" async></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">   <!-- v632: the link token lives in this URL — never sent onward, even to the same site -->
+<title>استمارة المريض</title>
+<link href="/fonts/plex-arabic.css" rel="stylesheet">
+<!--
+  M177 — Digital Patient Intake Form (استمارة المريض الرقمية)
+  STANDALONE by design, exactly like book.html: loads NO shared SyDent files
+  (supabase-init.js / sidebar.js / theme.js / theme.css) and carries NO cache-bust
+  tokens — it is a public anon surface reached by a per-patient tokenised link
+  (?t=<64 hex>). Anonymous surface = 2 SECURITY DEFINER RPCs only (Migration 177):
+    intake_info(token) / intake_submit(token, answers, signature)
+  Every answer key is whitelisted again server-side; the page only shapes UX.
+  The two flag key lists below MUST mirror MEDICAL_FLAGS_DEFS / ALLERGY_FLAGS_DEFS
+  (huddle-flags.js) and INTAKE_EXTRA_DEFS (pp-intake.js) — guarded by prove-intake.js.
+-->
+<style>
+:root{
+  /* SyDent LIGHT palette — mirrors theme.css :root[data-theme="light"] (as book.html) */
+  --bg:#ffffff; --card:#f8f7f2; --card2:#efeee9; --line:rgba(28,25,23,0.10);
+  --text:#1c1917; --text2:#57534e; --green:#16a085; --green2:#138a72;
+  --red:#dc2626; --radius:14px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:'IBM Plex Sans Arabic','Cairo',system-ui,sans-serif; font-size:15px;
+  min-height:100vh; padding:16px 14px 40px;
+}
+.wrap{max-width:560px;margin:0 auto;}
+.brand{text-align:center; color:var(--text2); font-size:12px; font-weight:600; letter-spacing:.5px; margin-bottom:14px;}
+.brand b{color:var(--green);}
+.card{
+  background:var(--card); border:1px solid var(--line);
+  border-radius:var(--radius); padding:18px 16px; margin-bottom:14px;
+  box-shadow:0 1px 3px rgba(28,25,23,0.06);
+}
+h1{font-size:21px; font-weight:800; margin:0 0 4px; text-align:center;}
+.sub{color:var(--text2); font-size:13px; text-align:center; margin:0 0 4px;}
+.note{
+  background:rgba(22,160,133,0.08); border:1px solid rgba(22,160,133,0.30);
+  border-radius:10px; padding:10px 12px; font-size:13px; color:var(--text);
+  margin-top:12px; white-space:pre-wrap;
+}
+.step-title{font-size:14.5px; font-weight:800; margin:0 0 4px; color:var(--text); display:flex; align-items:center;}
+.step-title .n{
+  display:inline-flex; align-items:center; justify-content:center; flex:none;
+  width:22px; height:22px; border-radius:50%; background:var(--green);
+  color:var(--btn-ink); font-size:14px; font-weight:800; margin-inline-end:7px;   /* v620: was #fff 12px — 1.6:1 on the dark-mode green; 14px bold = large text */
+}
+.step-hint{color:var(--text2); font-size:12.5px; margin:0 0 12px;}
+.chips{display:flex; flex-wrap:wrap; gap:8px;}
+.chip{
+  display:inline-flex; align-items:center; gap:7px; padding:9px 13px; border-radius:999px;
+  background:var(--card2); border:1.5px solid var(--line); color:var(--text);
+  font-size:14px; font-weight:700; cursor:pointer; user-select:none; min-height:44px;
+  font-family:inherit;
+}
+.chip .bx{
+  width:18px; height:18px; border-radius:5px; border:1.5px solid var(--line); background:var(--bg);
+  display:inline-flex; align-items:center; justify-content:center; font-size:12px; color:var(--btn-ink); flex:none;
+}
+.chip.on{border-color:var(--green); background:rgba(22,160,133,0.12); color:var(--green2);}
+.chip.on .bx{background:var(--green); border-color:var(--green);}
+label{display:block; font-size:13px; color:var(--text2); font-weight:600; margin:12px 0 5px;}
+label .opt{font-weight:500; opacity:.8;}
+input[type=text],input[type=date],textarea{
+  width:100%; background:var(--card2); border:1.5px solid var(--line);
+  border-radius:10px; color:var(--text); font-family:inherit;
+  font-size:15px; padding:11px 12px; outline:none;
+}
+input:focus,textarea:focus{border-color:var(--green);}
+textarea{resize:vertical; min-height:64px;}
+input[type=date]{min-height:48px; display:block;}   /* v620: an empty iOS date field collapses without it */
+input[type=date]::-webkit-date-and-time-value{text-align:right;}
+.ro{
+  background:var(--card2); border:1.5px dashed var(--line); border-radius:10px;
+  padding:11px 12px; font-size:15px; font-weight:700; color:var(--text);
+}
+.cnt{display:block; text-align:left; font-size:11px; color:var(--text2); margin-top:4px; direction:ltr;}
+.consent{
+  display:flex; align-items:flex-start; gap:10px; padding:12px; border-radius:10px;
+  background:var(--card2); border:1.5px solid var(--line); cursor:pointer; margin-top:4px;
+}
+.consent.on{border-color:var(--green); background:rgba(22,160,133,0.10);}
+.consent .bx{
+  margin-top:2px; width:20px; height:20px; border-radius:5px; border:1.5px solid var(--line); background:var(--bg);
+  display:inline-flex; align-items:center; justify-content:center; font-size:12px; color:var(--btn-ink); flex:none;
+}
+.consent.on .bx{background:var(--green); border-color:var(--green);}
+.consent span.t{font-size:14px; font-weight:700; line-height:1.6;}
+.sig-wrap{position:relative; margin-top:8px;}
+.sig{
+  display:block; width:100%; height:170px; background:#ffffff; border:1.5px dashed var(--line);
+  border-radius:10px; touch-action:none; cursor:crosshair;
+}
+.sig-wrap.has .sig{border-style:solid; border-color:var(--green);}
+.sig-ph{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  color:var(--text2); font-size:13px; pointer-events:none; opacity:.7;}
+.sig-wrap.has .sig-ph{display:none;}
+.sig-tools{display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:12px; color:var(--text2);}
+.lnk{background:none; border:none; color:var(--green2); font-weight:800; font-family:inherit; font-size:14px; cursor:pointer; padding:4px 8px; min-height:44px; touch-action:manipulation;}   /* v620: was 27px tall at 3:1 */
+.btn{
+  display:block; width:100%; border:none; border-radius:12px; padding:13px;
+  font-family:inherit; font-size:16px; font-weight:800; cursor:pointer; margin-top:16px;
+}
+.btn-go{background:var(--green); color:var(--btn-ink);}
+.btn-go:disabled{opacity:.5; cursor:not-allowed;}
+.btn-wa{background:#075E54;   /* v631: WhatsApp dark green — white 7.7:1 (teal #128C7E was 4.1:1 · #25D366 1.98:1) */ color:#fff; text-decoration:none; text-align:center; display:block;}
+.center{text-align:center;}
+.big-icon{font-size:52px; text-align:center; margin:6px 0 10px;}
+.err{
+  background:rgba(220,38,38,0.08); border:1px solid rgba(220,38,38,0.35);
+  color:#b91c1c; border-radius:10px; padding:10px 12px; font-size:13.5px;
+  margin-top:12px; display:none;
+}
+:root[data-theme="dark"] .err{color:var(--red);}   /* v620: #b91c1c is unreadable on the dark card */
+.spin{
+  width:34px; height:34px; border:3px solid var(--line);
+  border-top-color:var(--green); border-radius:50%;
+  animation:sp 0.8s linear infinite; margin:34px auto;
+}
+@keyframes sp{to{transform:rotate(360deg)}}
+/* honeypot: visually gone, still fillable by naive bots */
+.hp-field{position:absolute; left:-9999px; top:-9999px; height:1px; width:1px; opacity:0;}
+.foot{color:var(--text2); font-size:11px; text-align:center; margin-top:18px; line-height:1.7;}
+/* ── M181: dark palette for the public pages (mirrors theme.css :root[data-theme="dark"]); MIRROR intake.html ↔ portal.html byte-for-byte ── */
+:root{ --btn-ink:#ffffff; --yellow:#b45309; --blue:#1d4ed8; }
+:root[data-theme="dark"]{
+  --bg:#0a1628; --card:#0f2038; --card2:#132840; --line:rgba(46,232,158,0.15);
+  --text:#e1f4ee; --text2:#8a9ab5; --green:#2ee89e; --green2:#26d48e;
+  --red:#f28b82; --yellow:#f6c177; --blue:#7fb3ff; --btn-ink:#0a1628;
+}
+.theme-btn{
+  position:absolute; top:calc(8px + env(safe-area-inset-top, 0px)); left:calc(10px + env(safe-area-inset-left, 0px)); z-index:5; width:44px; height:44px; border-radius:50%;
+  border:1px solid var(--line); background:var(--card); color:var(--text); font-size:17px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,0.12);
+}
+.theme-btn:active{transform:scale(0.95);}
+@media print{ .theme-btn{display:none !important;} }
+/* ── /M181 ── */
+/* ── v618: mobile — safe areas (notch / home bar / floating Safari bar) · long words never zoom the page out · no iOS focus-zoom; MIRROR intake.html ↔ portal.html ↔ book.html ── */
+html{-webkit-text-size-adjust:100%; text-size-adjust:100%;}
+body{padding-top:calc(16px + env(safe-area-inset-top, 0px)); padding-bottom:calc(72px + env(safe-area-inset-bottom, 0px));
+  padding-left:calc(14px + env(safe-area-inset-left, 0px)); padding-right:calc(14px + env(safe-area-inset-right, 0px));}
+.card,.item,.note,.warn,.txt,.sub,.meta,h1,.rx-item,.foot,.brand{overflow-wrap:anywhere; word-break:break-word;}
+table th,table td{overflow-wrap:normal; word-break:normal;}   /* a cell never splits «36» or «المرحلة» — the table scrolls inside .tbl instead */
+input[type=text],input[type=date],input[type=tel],textarea{font-size:16px;}
+button,a.btn,.theme-btn{touch-action:manipulation;}
+.brand{min-height:44px; display:flex; flex-wrap:wrap; align-items:center; justify-content:center; column-gap:.3em; padding:0 50px;}   /* the row the 44px theme button sits in — cards always start below it */
+/* ── /v618 ── */
+</style>
+<script>
+/* M181: theme — same key as the app (sydent_theme) so the owner's phone follows his choice; the patient's own choice persists on his phone */
+(function(){
+  var KEY = 'sydent_theme';
+  function apply(t){
+    document.documentElement.setAttribute('data-theme', t);
+    document.documentElement.style.colorScheme = t;
+    var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'dark' ? '#0a1628' : '#ffffff');
+    var b = document.getElementById('themeBtn'); if (b) { b.textContent = t === 'dark' ? '☀️' : '🌙'; b.setAttribute('aria-label', t === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'); }
+  }
+  var saved = null; try { saved = localStorage.getItem(KEY); } catch (e) {}
+  apply(saved === 'dark' ? 'dark' : 'light');
+  window.toggleTheme = function(){
+    var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+    apply(next);
+  };
+  document.addEventListener('DOMContentLoaded', function(){ apply(document.documentElement.getAttribute('data-theme') || 'light'); });
+})();
+</script>
+</head>
+<body>
+<button type="button" class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+<div class="wrap">
+  <div class="brand">استمارة المريض · بواسطة <b>SyDent</b></div>
+  <div id="app"><div class="spin"></div></div>
+  <div class="foot">🔒 معلوماتك تصل إلى عيادتك مباشرة ولا تُشارك مع أي جهة أخرى.</div>
+</div>
+
+<script src="/vendor/supabase-2.110.8.min.js"></script>
+<script>
+'use strict';
+// ── Standalone client: must NOT touch the tenant app's auth storage ──
+var SUPABASE_URL = 'https://rycqzpdhxabpqrdgtdzg.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_7LjceYIlrRrHt86sLpCwPg_TlMO8VJu';
+var sb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+}) : null;   /* v618: vendor failed to load ⇒ retry screen, not an endless spinner */
+
+/* ── Key lists — mirror huddle-flags.js (MEDICAL/ALLERGY) + pp-intake.js (EXTRA) ── */
+var MEDICAL_FLAGS_DEFS = [
+  { key:'diabetes',           label:'سكري' },
+  { key:'hypertension',       label:'ضغط دم' },
+  { key:'cardiac',            label:'أمراض قلب' },
+  { key:'anticoagulants',     label:'مميعات دم' },
+  { key:'pregnancy',          label:'حمل / إرضاع' },
+  { key:'asthma',             label:'ربو' }
+];
+var ALLERGY_FLAGS_DEFS = [
+  { key:'penicillin_allergy', label:'بنسلين' },
+  { key:'latex_allergy',      label:'لاتكس' },
+  { key:'anesthetic_allergy', label:'مخدر موضعي' },
+  { key:'nsaid_allergy',      label:'أسبرين / مسكنات' }
+];
+var INTAKE_EXTRA_DEFS = [
+  { key:'bisphosphonates', label:'أدوية هشاشة العظام (بيسفوسفونات)' },
+  { key:'bleeding',        label:'نزيف يصعب إيقافه' },
+  { key:'infectious',      label:'مرض معدٍ (التهاب كبد وغيره)' },
+  { key:'epilepsy',        label:'صرع' },
+  { key:'thyroid',         label:'غدة درقية' },
+  { key:'kidney_liver',    label:'أمراض كلى / كبد' },
+  { key:'smoker',          label:'مدخّن' }
+];
+var LIMITS = { med_other:500, alg_other:300, meds:500, complaint:500 };
+
+var ERR_MAP = {
+  bad_token:         'هذا الرابط غير صالح — اطلب رابطاً جديداً من العيادة.',
+  unavailable:       'الاستمارة غير متاحة حالياً لدى هذه العيادة.',
+  already_submitted: 'سبق أن استلمنا استمارتك — شكراً لك.',
+  expired:           'انتهت صلاحية هذا الرابط — اطلب رابطاً جديداً من العيادة.',
+  bad_answers:       'تحقق من الإجابات ثم أعد المحاولة.',
+  rate_clinic:       'وصلت العيادة للحد اليومي من الاستمارات — جرّب لاحقاً.'
+};
+
+var INFO = null, TOKEN = null, SIG = null;
+
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function pad2(n){ return (n < 10 ? '0' : '') + n; }
+function fmtDate(iso){
+  if (!iso) return '';
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return pad2(d.getDate()) + '/' + pad2(d.getMonth()+1) + '/' + d.getFullYear() + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+function errOf(e){
+  var m = (e && (e.message || e.error_description || e.details)) || '';
+  var k = Object.keys(ERR_MAP).find(function(key){ return m.indexOf(key) !== -1; });
+  return k ? ERR_MAP[k] : 'تعذّر الإرسال — تحقق من الاتصال ثم أعد المحاولة.';
+}
+function app(h){ document.getElementById('app').innerHTML = h; }
+function waHref(){
+  var p = (INFO && INFO.clinic_phone) ? String(INFO.clinic_phone).replace(/[^0-9+]/g,'') : '';
+  if (!p) return '';
+  if (p.charAt(0) === '0' && p.length === 10) p = '963' + p.slice(1);
+  p = p.replace(/^\+/, '');
+  return /^[0-9]{8,15}$/.test(p) ? 'https://wa.me/' + p : '';
+}
+
+/* ── Screens ── */
+function screenDead(title, text, icon){
+  var wa = waHref();
+  app('<div class="card center"><div class="big-icon">' + icon + '</div><h1>' + esc(title) + '</h1>'
+    + '<p class="sub" style="margin-top:8px;">' + esc(text) + '</p>'
+    + (wa ? '<a class="btn btn-wa" href="' + wa + '" target="_blank" rel="noopener">📱 تواصل مع العيادة</a>' : '')
+    + '</div>');
+}
+function screenDone(when){
+  app('<div class="card center"><div class="big-icon">✅</div><h1>استلمنا استمارتك</h1>'
+    + '<p class="sub" style="margin-top:8px;">شكراً لك' + (INFO && INFO.patient_name ? ' ' + esc(INFO.patient_name) : '') + ' — سيراجعها فريق '
+    + esc((INFO && INFO.clinic_name) || 'العيادة') + ' قبل زيارتك.' + (when ? '<br><small>' + esc(fmtDate(when)) + '</small>' : '') + '</p>'
+    + portalBackBtn() + '</div>');
+}
+/* v620: opened from «تعبئة الاستمارة الآن» in the patient portal ⇒ a way back to it (a fresh load, so it shows «مستلمة ✓») */
+function portalBackBtn(){
+  try {
+    var r = new URL(document.referrer);
+    if (r.origin !== location.origin || !/^\/portal(\.html)?$/.test(r.pathname)) return '';
+    var m = r.search.match(/[?&]t=([0-9a-f]{64})(?:&|$)/);
+    return m ? '<a class="btn btn-go" href="/portal?t=' + m[1] + '">↩ العودة إلى صفحتي</a>' : '';
+  } catch (e) { return ''; }
+}
+function chipHtml(group, d){
+  return '<button type="button" class="chip" data-g="' + group + '" data-k="' + esc(d.key) + '" aria-pressed="false" onclick="toggleChip(this)">'
+    + '<span class="bx" aria-hidden="true">✓</span>' + esc(d.label) + '</button>';
+}
+function toggleChip(el){
+  el.classList.toggle('on');
+  el.setAttribute('aria-pressed', el.classList.contains('on') ? 'true' : 'false');
+}
+function toggleConsent(el){
+  var on = el.classList.toggle('on');
+  el.setAttribute('aria-checked', on ? 'true' : 'false');
+  if (on) showErr('');   /* the «confirm the declaration first» notice clears the moment the box is ticked */
+}
+function countSync(id){
+  var ta = document.getElementById(id), c = document.getElementById(id + 'Cnt');
+  if (ta && c) c.textContent = (ta.value || '').length + ' / ' + ta.maxLength;
+}
+function screenForm(){
+  var hasDob = !!(INFO && INFO.patient_dob);
+  var h = '<div class="card"><h1>استمارة المريض</h1>'
+    + '<p class="sub">' + esc((INFO && INFO.clinic_name) || 'العيادة') + '</p>'
+    + '<p class="sub">تأخذ دقيقتين — تساعد الطبيب على علاجك بأمان.</p>'
+    + (INFO && INFO.intake_note ? '<div class="note">' + esc(INFO.intake_note) + '</div>' : '')
+    + '</div>';
+
+  h += '<div class="card"><div class="step-title"><span class="n">1</span>بياناتك</div>'
+    + '<label>الاسم</label><div class="ro">' + esc((INFO && INFO.patient_name) || '—') + '</div>'
+    + (hasDob
+        ? '<label>تاريخ الميلاد</label><div class="ro" dir="ltr" style="text-align:right;">' + esc(String(INFO.patient_dob).split('-').reverse().join('/')) + '</div>'
+        : '<label for="fDob">تاريخ الميلاد <span class="opt">(اختياري)</span></label><input type="date" id="fDob" max="' + todayYmd() + '" min="1900-01-01">')
+    + '</div>';
+
+  h += '<div class="card"><div class="step-title"><span class="n">2</span>الحالات الصحية</div>'
+    + '<p class="step-hint">اختر كل ما ينطبق عليك.</p>'
+    + '<div class="chips">' + MEDICAL_FLAGS_DEFS.map(function(d){ return chipHtml('med', d); }).join('')
+    + INTAKE_EXTRA_DEFS.map(function(d){ return chipHtml('extra', d); }).join('') + '</div>'
+    + '<label for="fMedOther">حالات أخرى <span class="opt">(اختياري)</span></label>'
+    + '<textarea id="fMedOther" maxlength="' + LIMITS.med_other + '" rows="2" placeholder="مثال: عملية قلب مفتوح 2024، فقر دم…" oninput="countSync(\'fMedOther\')"></textarea><span class="cnt" id="fMedOtherCnt"></span>'
+    + '</div>';
+
+  h += '<div class="card"><div class="step-title"><span class="n">3</span>الحساسية</div>'
+    + '<p class="step-hint">هل لديك حساسية تجاه أيٍّ مما يلي؟</p>'
+    + '<div class="chips">' + ALLERGY_FLAGS_DEFS.map(function(d){ return chipHtml('alg', d); }).join('') + '</div>'
+    + '<label for="fAlgOther">حساسية أخرى <span class="opt">(أدوية · أطعمة · مواد)</span></label>'
+    + '<textarea id="fAlgOther" maxlength="' + LIMITS.alg_other + '" rows="2" placeholder="اكتب اسم الدواء أو المادة…" oninput="countSync(\'fAlgOther\')"></textarea><span class="cnt" id="fAlgOtherCnt"></span>'
+    + '</div>';
+
+  h += '<div class="card"><div class="step-title"><span class="n">4</span>الأدوية الحالية</div>'
+    + '<p class="step-hint">كل دواء تأخذه بانتظام الآن (الاسم والجرعة إن أمكن).</p>'
+    + '<textarea id="fMeds" maxlength="' + LIMITS.meds + '" rows="3" placeholder="مثال: ميتفورمين 500 مرتين يومياً…" oninput="countSync(\'fMeds\')"></textarea><span class="cnt" id="fMedsCnt"></span>'
+    + '</div>';
+
+  h += '<div class="card"><div class="step-title"><span class="n">5</span>سبب الزيارة</div>'
+    + '<p class="step-hint">ما الذي يزعجك؟ منذ متى؟</p>'
+    + '<textarea id="fComplaint" maxlength="' + LIMITS.complaint + '" rows="3" placeholder="مثال: ألم في الضرس السفلي الأيسر منذ أسبوع، يزداد مع البارد…" oninput="countSync(\'fComplaint\')"></textarea><span class="cnt" id="fComplaintCnt"></span>'
+    + '</div>';
+
+  h += '<div class="card"><div class="step-title"><span class="n">6</span>الإقرار' + (INFO && INFO.ask_signature ? ' والتوقيع' : '') + '</div>'
+    + '<div class="consent" id="fConsent" role="checkbox" aria-checked="false" tabindex="0" onclick="toggleConsent(this)" onkeydown="if(event.key===\' \'||event.key===\'Enter\'){event.preventDefault();toggleConsent(this);}">'
+    + '<span class="bx" aria-hidden="true">✓</span>'
+    + '<span class="t">أقرّ بأن المعلومات أعلاه صحيحة وكاملة حسب علمي، وأتعهد بإبلاغ العيادة بأي تغيير في حالتي الصحية.</span></div>'
+    + (INFO && INFO.ask_signature
+        ? '<label>التوقيع <span class="opt">(اختياري — ارسم بإصبعك)</span></label>'
+          + '<div class="sig-wrap" id="sigWrap"><canvas class="sig" id="sigPad" aria-label="لوحة التوقيع"></canvas><div class="sig-ph">وقّع هنا</div></div>'
+          + '<div class="sig-tools"><span>يمكنك تخطّي التوقيع.</span><button type="button" class="lnk" onclick="sigClear()">مسح التوقيع</button></div>'
+        : '')
+    + '<div class="hp-field" aria-hidden="true"><label>website</label><input type="text" id="hpWeb" tabindex="-1" autocomplete="off"></div>'
+    + '<div class="err" id="errBox"></div>'
+    + '<button type="button" class="btn btn-go" id="btnSend" onclick="submitForm()">إرسال الاستمارة</button>'
+    + '</div>';
+  app(h);
+  ['fMedOther','fAlgOther','fMeds','fComplaint'].forEach(countSync);
+  if (INFO && INFO.ask_signature) sigInit();
+}
+function todayYmd(){ var d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
+
+/* ── Signature pad (optional) ── */
+var _sig = { c:null, ctx:null, drawing:false, has:false, last:null };
+function sigInit(){
+  var c = document.getElementById('sigPad');
+  if (!c) return;
+  _sig.c = c; _sig.ctx = c.getContext('2d');
+  sigResize();
+  c.addEventListener('pointerdown', sigDown);
+  c.addEventListener('pointermove', sigMove);
+  c.addEventListener('pointerup', sigUp);
+  c.addEventListener('pointercancel', sigUp);
+  c.addEventListener('pointerleave', sigUp);
+  window.addEventListener('resize', sigResize);
+}
+function sigResize(){
+  var c = _sig.c; if (!c) return;
+  var ratio = Math.min(2, window.devicePixelRatio || 1);
+  var w = c.clientWidth || 300, hgt = c.clientHeight || 170;
+  var keep = _sig.has ? c.toDataURL('image/png') : null;
+  c.width = Math.round(w * ratio); c.height = Math.round(hgt * ratio);
+  var ctx = _sig.ctx;
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1c1917';
+  if (keep) { var img = new Image(); img.onload = function(){ ctx.drawImage(img, 0, 0, w, hgt); }; img.src = keep; }
+}
+function sigPos(e){
+  var r = _sig.c.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+function sigDown(e){
+  e.preventDefault();
+  _sig.drawing = true; _sig.last = sigPos(e);
+  try { _sig.c.setPointerCapture(e.pointerId); } catch(_e) {}
+}
+function sigMove(e){
+  if (!_sig.drawing) return;
+  e.preventDefault();
+  var p = sigPos(e), ctx = _sig.ctx;
+  ctx.beginPath(); ctx.moveTo(_sig.last.x, _sig.last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+  _sig.last = p;
+  if (!_sig.has) { _sig.has = true; var w = document.getElementById('sigWrap'); if (w) w.classList.add('has'); }
+}
+function sigUp(){ _sig.drawing = false; }
+function sigClear(){
+  if (!_sig.c) return;
+  _sig.has = false;
+  _sig.ctx.save(); _sig.ctx.setTransform(1,0,0,1,0,0); _sig.ctx.clearRect(0, 0, _sig.c.width, _sig.c.height); _sig.ctx.restore();
+  var w = document.getElementById('sigWrap'); if (w) w.classList.remove('has');
+}
+function sigData(){
+  if (!_sig.c || !_sig.has) return null;
+  try {
+    /* downscale to a small white-background PNG — keeps the payload well under the DB cap.
+       v620: the pad's own proportions (a phone pad is ~2:1, not 3:1) — a forced 600×200 stretched every
+       phone signature 1.55× wide. Width 600, height follows the pad (100–400). */
+    var cw = _sig.c.clientWidth || 300, ch = _sig.c.clientHeight || 170;
+    var H = Math.max(100, Math.min(400, Math.round(600 * ch / cw)));
+    var out = document.createElement('canvas'); out.width = 600; out.height = H;
+    var o = out.getContext('2d'); o.fillStyle = '#ffffff'; o.fillRect(0, 0, 600, H);
+    o.drawImage(_sig.c, 0, 0, 600, H);
+    var d = out.toDataURL('image/png');
+    return d.length <= 120000 ? d : null;
+  } catch(_e) { return null; }
+}
+
+/* ── Submit ── */
+function chipsOf(g){
+  return Array.prototype.slice.call(document.querySelectorAll('.chip.on[data-g="' + g + '"]')).map(function(el){ return el.getAttribute('data-k'); });
+}
+function showErr(msg){
+  var e = document.getElementById('errBox'); if (!e) return;
+  e.textContent = msg; e.style.display = msg ? 'block' : 'none';
+  if (msg) e.scrollIntoView({ block:'center', behavior:'smooth' });
+}
+async function submitForm(){
+  var btn = document.getElementById('btnSend');
+  showErr('');
+  // honeypot: bots that fill it get a silent "success" with zero RPC traffic
+  var hp = document.getElementById('hpWeb');
+  if (hp && hp.value) { screenDone(new Date().toISOString()); return; }
+  var consent = document.getElementById('fConsent');
+  if (!consent || !consent.classList.contains('on')) { showErr('يرجى تأكيد الإقرار أولاً.'); return; }
+  var dobEl = document.getElementById('fDob');
+  var dob = dobEl ? (dobEl.value || '') : '';
+  if (dob && (dob < '1900-01-01' || dob > todayYmd())) { showErr('تاريخ الميلاد غير صحيح.'); return; }
+  var answers = {
+    consent: true,
+    med: chipsOf('med'), alg: chipsOf('alg'), extra: chipsOf('extra'),
+    med_other: (document.getElementById('fMedOther').value || '').trim().slice(0, LIMITS.med_other),
+    alg_other: (document.getElementById('fAlgOther').value || '').trim().slice(0, LIMITS.alg_other),
+    meds:      (document.getElementById('fMeds').value || '').trim().slice(0, LIMITS.meds),
+    complaint: (document.getElementById('fComplaint').value || '').trim().slice(0, LIMITS.complaint),
+    dob: dob || null
+  };
+  btn.disabled = true; btn.textContent = 'جارٍ الإرسال…';
+  try {
+    if (!sb) throw new Error('vendor');   /* v618: a hanging send ends in the retry message; re-sending is safe (already_submitted ⇒ done) */
+    var res = await withTimeout(sb.rpc('intake_submit', { p_token: TOKEN, p_answers: answers, p_signature: sigData() }), 30000);
+    if (res.error) throw res.error;
+    screenDone(new Date().toISOString());
+    try { window.scrollTo({ top:0, behavior:'smooth' }); } catch(_e) {}
+  } catch (e) {
+    var m = (e && e.message) || '';
+    if (m.indexOf('already_submitted') !== -1) { screenDone(null); return; }
+    if (m.indexOf('expired') !== -1) { screenDead('انتهت صلاحية الرابط', ERR_MAP.expired, '⌛'); return; }
+    if (m.indexOf('bad_token') !== -1 || m.indexOf('unavailable') !== -1) { screenDead('الرابط غير متاح', errOf(e), '🔗'); return; }
+    showErr(errOf(e));
+    btn.disabled = false; btn.textContent = 'إرسال الاستمارة';
+  }
+}
+
+/* ── Boot ── */
+(async function boot(){
+  var m = (location.search || '').match(/[?&]t=([0-9a-fA-F]{64})/);
+  TOKEN = m ? m[1].toLowerCase() : null;
+  if (!TOKEN) { screenDead('الرابط غير صالح', ERR_MAP.bad_token, '🔗'); return; }
+  try {
+    if (!sb) throw new Error('vendor');   /* v618 */
+    var res = await withTimeout(sb.rpc('intake_info', { p_token: TOKEN }), 25000);
+    if (res.error) throw res.error;
+    var row = Array.isArray(res.data) ? res.data[0] : res.data;
+    if (!row) { screenDead('الرابط غير متاح', ERR_MAP.bad_token + ' أو أن الاستمارة غير متاحة حالياً لدى العيادة.', '🔗'); return; }
+    INFO = row;
+    document.title = 'استمارة المريض — ' + (row.clinic_name || '');
+    if (row.status !== 'pending') { screenDone(row.submitted_at); return; }
+    if (row.expired) { screenDead('انتهت صلاحية الرابط', ERR_MAP.expired, '⌛'); return; }
+    screenForm();
+  } catch (e) {
+    app('<div class="card center"><div class="big-icon">⚠️</div><h1>تعذّر التحميل</h1><p class="sub" style="margin-top:8px;">تحقق من الاتصال بالإنترنت ثم أعد تحميل الصفحة.</p>'
+      + '<button type="button" class="btn btn-go" onclick="location.reload()">إعادة المحاولة</button></div>');
+  }
+})();
+</script>
+</body>
+</html>

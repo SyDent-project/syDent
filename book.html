@@ -2,7 +2,23 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous"></script>
+<script>
+/* ── v618 mobile/network: MIRROR intake.html ↔ portal.html ↔ book.html byte-for-byte (prove-portal · prove-public-mobile) ──
+   (1) Sentry loads async (a slow/blocked CDN no longer holds the page) and never receives the
+       link token (any 64-hex run is scrubbed from events and breadcrumbs) nor the page (replays off).
+   (2) withTimeout: a hanging request on a weak mobile link ends in the retry screen, not an endless spinner. */
+window.sentryOnLoad = function(){
+  try {
+    var scrub = function(o){ try { return JSON.parse(JSON.stringify(o).replace(/[0-9a-fA-F]{64}/g, '[token]')); } catch (e) { return null; } };
+    Sentry.init({ sendDefaultPii: false, replaysSessionSampleRate: 0, replaysOnErrorSampleRate: 0,
+      beforeSend: function(ev){ return scrub(ev); }, beforeBreadcrumb: function(b){ return scrub(b); } });
+  } catch (e) {}
+};
+window.withTimeout = function(p, ms){
+  return Promise.race([p, new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('timeout')); }, ms); })]);
+};
+</script>
+<script src="https://js-de.sentry-cdn.com/6cdd92ae975b03d5b4b86e0406b91ebc.min.js" crossorigin="anonymous" async></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
 <meta name="robots" content="noindex">
@@ -86,14 +102,14 @@ h1{font-size:21px; font-weight:800; margin:0 0 4px; text-align:center;}
   content:''; position:absolute; bottom:5px; width:4px; height:4px;
   border-radius:50%; background:var(--green);
 }
-.cal-cell.sel{border-color:var(--green); background:rgba(22,160,133,0.12); color:var(--green);}
+.cal-cell.sel{border-color:var(--green); background:rgba(22,160,133,0.12); color:var(--green2);}
 .cal-hint{
   display:flex; align-items:center; justify-content:center; gap:6px;
   font-size:11px; color:var(--text2); font-weight:600; margin-top:10px;
 }
 .cal-hint .dot-ok{width:11px; height:11px; border-radius:4px; background:var(--card2); border:1.5px solid var(--line); display:inline-block;}
 .cal-hint .dot-today{width:5px; height:5px; border-radius:50%; background:var(--green); display:inline-block;}
-.day-lbl{color:var(--green); font-weight:700; font-size:12.5px;}
+.day-lbl{color:var(--green2); font-weight:700; font-size:14px;}
 .slots{
   display:grid; grid-template-columns:repeat(auto-fill,minmax(86px,1fr));
   gap:8px; margin-top:4px;
@@ -104,7 +120,7 @@ h1{font-size:21px; font-weight:800; margin:0 0 4px; text-align:center;}
   color:var(--text); cursor:pointer; user-select:none;
 }
 .slot.busy{opacity:.40; cursor:not-allowed; text-decoration:line-through;}
-.slot.sel{border-color:var(--green); background:rgba(22,160,133,0.12); color:var(--green);}
+.slot.sel{border-color:var(--green2); background:rgba(22,160,133,0.12); color:var(--green2);}
 .empty-slots{color:var(--text2); font-size:13px; text-align:center; padding:18px 6px;}
 label{display:block; font-size:13px; color:var(--text2); font-weight:600; margin:12px 0 5px;}
 input[type=text],input[type=tel],textarea{
@@ -127,7 +143,7 @@ textarea{resize:vertical; min-height:64px;}
 .btn-go{background:var(--green); color:#ffffff;}
 .btn-go:disabled{opacity:.5; cursor:not-allowed;}
 .btn-ghost{background:transparent; border:1.5px solid var(--line); color:var(--text); font-weight:700;}
-.btn-wa{background:#25D366; color:#fff; text-decoration:none; text-align:center; display:block;}
+.btn-wa{background:#075E54;   /* v631: WhatsApp dark green — white 7.7:1 (teal #128C7E was 4.1:1 · #25D366 1.98:1) */ color:#fff; text-decoration:none; text-align:center; display:block;}
 .center{text-align:center;}
 .big-icon{font-size:52px; text-align:center; margin:6px 0 10px;}
 .err{
@@ -144,6 +160,21 @@ textarea{resize:vertical; min-height:64px;}
 /* honeypot: visually gone, still fillable by naive bots */
 .hp-field{position:absolute; left:-9999px; top:-9999px; height:1px; width:1px; opacity:0;}
 .foot{color:var(--text2); font-size:11px; text-align:center; margin-top:18px;}
+/* ── v618: mobile — safe areas (notch / home bar / floating Safari bar) · long words never zoom the page out · no iOS focus-zoom; MIRROR intake.html ↔ portal.html ↔ book.html ── */
+html{-webkit-text-size-adjust:100%; text-size-adjust:100%;}
+body{padding-top:calc(16px + env(safe-area-inset-top, 0px)); padding-bottom:calc(72px + env(safe-area-inset-bottom, 0px));
+  padding-left:calc(14px + env(safe-area-inset-left, 0px)); padding-right:calc(14px + env(safe-area-inset-right, 0px));}
+.card,.item,.note,.warn,.txt,.sub,.meta,h1,.rx-item,.foot,.brand{overflow-wrap:anywhere; word-break:break-word;}
+table th,table td{overflow-wrap:normal; word-break:normal;}   /* a cell never splits «36» or «المرحلة» — the table scrolls inside .tbl instead */
+input[type=text],input[type=date],input[type=tel],textarea{font-size:16px;}
+button,a.btn,.theme-btn{touch-action:manipulation;}
+.brand{min-height:44px; display:flex; flex-wrap:wrap; align-items:center; justify-content:center; column-gap:.3em; padding:0 50px;}   /* the row the 44px theme button sits in — cards always start below it */
+/* ── /v618 ── */
+/* v619: booking-page tap targets — month arrows · day cells · time slots ≥44px (v620: selected day/slot text on --green2 for contrast) */
+.cal-nav{width:44px; height:44px;}
+.cal-cell{height:44px;}
+.slot{min-height:44px; display:flex; align-items:center; justify-content:center;}
+.btn{min-height:48px;}
 </style>
 </head>
 <body>
@@ -159,9 +190,9 @@ textarea{resize:vertical; min-height:64px;}
 // ── Standalone client: must NOT touch the tenant app's auth storage ──
 var SUPABASE_URL = 'https://rycqzpdhxabpqrdgtdzg.supabase.co';
 var SUPABASE_KEY = 'sb_publishable_7LjceYIlrRrHt86sLpCwPg_TlMO8VJu';
-var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+var sb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-});
+}) : null;   /* v619: vendor failed to load ⇒ retry screen, not an endless spinner */
 
 var DAYS_AR = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 var MONTHS_AR = ['كانون الثاني','شباط','آذار','نيسان','أيار','حزيران','تموز','آب','أيلول','تشرين الأول','تشرين الثاني','كانون الأول'];
@@ -214,7 +245,7 @@ function normalizePhone(raw){
   // guess the country → return null; callers show the "add country code" hint instead
   // of silently messaging a wrong Syrian number.
   if (!raw) return null;
-  var p = String(raw).replace(/\D/g, '');
+  var p = String(raw).replace(/[\u0660-\u0669]/g, function(d){ return String(d.charCodeAt(0) - 0x0660); }).replace(/[\u06F0-\u06F9]/g, function(d){ return String(d.charCodeAt(0) - 0x06F0); }).replace(/\D/g, '');   // v622: Arabic-Indic (٠-٩) and Persian (۰-۹) digits — an Arabic keyboard's default
   if (!p) return null;
   if (p.indexOf('00') === 0) p = p.substring(2);
   if (p.indexOf('0') === 0) {
@@ -227,6 +258,27 @@ function normalizePhone(raw){
   return p;
 }
 function app(){ return document.getElementById('app'); }
+function toLatinDigits(s){
+  return String(s == null ? '' : s)
+    .replace(/[\u0660-\u0669]/g, function(d){ return String(d.charCodeAt(0) - 0x0660); })
+    .replace(/[\u06F0-\u06F9]/g, function(d){ return String(d.charCodeAt(0) - 0x06F0); });
+}
+
+/* v619: the clinic's clock is Damascus. A phone abroad (or set to a wrong zone) must not be offered
+   today's slots that are already past for the clinic (the server would reject them as past_time),
+   nor see the wrong «today». Returns a Date whose local fields are Damascus wall time. */
+function damNow(){
+  try {
+    var parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Damascus', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+    var g = {}; parts.forEach(function(x){ g[x.type] = x.value; });
+    var d = new Date(+g.year, +g.month - 1, +g.day, parseInt(g.hour, 10) % 24, +g.minute, 0, 0);
+    if (!isNaN(d.getTime())) return d;
+  } catch (e) {}
+  return new Date();
+}
+function damToday(){ var n = damNow(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
+/* calendar-safe «+i days» (a DST change on the phone must not shift the date key) */
+function addDays(d, i){ return new Date(d.getFullYear(), d.getMonth(), d.getDate() + i); }
 
 function showUnavailable(msg){
   app().innerHTML =
@@ -242,14 +294,14 @@ function buildDays(){
   var workDays = String(CLINIC.work_days || '').split(',')
     .map(function(x){ return parseInt(String(x).trim(),10); })
     .filter(function(x){ return !isNaN(x); });
-  var out = [], today = new Date(); today.setHours(0,0,0,0);
+  var now = damNow(), out = [], today = damToday();
   var maxD = Math.min(CLINIC.max_days_ahead || 30, 365);
   for (var i = 0; i <= maxD; i++){
-    var d = new Date(today.getTime() + i*86400000);
+    var d = addDays(today, i);
     if (workDays.indexOf(d.getDay()) === -1) continue;
     // skip today entirely if the working day is already over
     if (i === 0){
-      var nowMin = new Date().getHours()*60 + new Date().getMinutes();
+      var nowMin = now.getHours()*60 + now.getMinutes();
       var endMin = timeToMin(CLINIC.work_end);
       if (endMin === null || nowMin >= endMin) continue;
     }
@@ -285,7 +337,7 @@ function renderCalendar(){
   if (!calMonth || monthIdx(calMonth) < monthIdx(minM) || monthIdx(calMonth) > monthIdx(maxM)) calMonth = minM;
 
   var y = calMonth.getFullYear(), mo = calMonth.getMonth();
-  var todayKey = dateKey(new Date());
+  var todayKey = dateKey(damToday());
 
   // RTL nav, outward-pointing: prev (right side) = › · next (left side) = ‹.
   // .cal-nav has direction:ltr because U+2039/U+203A are Bidi-Mirrored —
@@ -324,10 +376,10 @@ function buildSlots(dayKey, offset){
   if (startMin === null || endMin === null || slot <= 0) return [];
   var busy = BUSY[dayKey] || [];
   var nowMin = -1;
-  if (offset === 0) nowMin = new Date().getHours()*60 + new Date().getMinutes();
+  if (offset === 0){ var dn = damNow(); nowMin = dn.getHours()*60 + dn.getMinutes(); }   /* v619: Damascus time */
   var out = [];
   for (var t = startMin; (endMin - t) >= slot; t += slot){
-    if (t <= nowMin) continue;                       // past (device time)
+    if (t <= nowMin) continue;                       // past (clinic time — v619)
     var taken = false;
     for (var b = 0; b < busy.length; b++){
       if (busy[b].s < t + slot && t < busy[b].e){ taken = true; break; }
@@ -438,7 +490,11 @@ window.submitBooking = async function(ev){
   }
 
   var name  = (document.getElementById('bName').value || '').trim();
-  var phone = (document.getElementById('bPhone').value || '').trim();
+  /* v622: a phone typed on an Arabic keyboard (٠٩٣٣…) — JS \D treats those digits as non-digits, so it was rejected
+     as «رقم غير صحيح» and the patient could not book. Convert to Latin digits before validating and sending. */
+  var phEl = document.getElementById('bPhone');
+  var phone = toLatinDigits((phEl.value || '').trim());
+  if (phEl.value !== phone) phEl.value = phone;
   var note  = (document.getElementById('bNote').value || '').trim();
   if (name.length < 2){ showErr(ERR_MAP.bad_name); return; }
   if (phone.replace(/\D/g,'').length < 8){ showErr(ERR_MAP.bad_phone); return; }
@@ -446,14 +502,15 @@ window.submitBooking = async function(ev){
   var btn = document.getElementById('bGo');
   btn.disabled = true; btn.textContent = 'جارٍ الإرسال…';
   try {
-    var res = await sb.rpc('booking_create_request', {
+    if (!sb) throw new Error('vendor');   /* v619: re-sending after a timeout is safe — the server returns the same pending request for the same phone + slot */
+    var res = await withTimeout(sb.rpc('booking_create_request', {
       p_clinic: clinicId,
       p_name:   name,
       p_phone:  phone,
       p_date:   selDate,
       p_time:   minToHHMM(selTime),
       p_note:   note || null
-    });
+    }), 30000);
     if (res.error){
       var em = res.error.message || '';
       var key = Object.keys(ERR_MAP).find(function(k){ return em.indexOf(k) !== -1; });
@@ -506,12 +563,13 @@ window.restart = async function(){
 async function loadBusy(){
   BUSY = {};
   try {
-    var today = new Date(); today.setHours(0,0,0,0);
+    var today = damToday();
     var maxD = Math.min(CLINIC.max_days_ahead || 30, 365);
-    var to = new Date(today.getTime() + maxD*86400000);
-    var res = await sb.rpc('booking_busy_slots', {
+    var to = addDays(today, maxD);
+    if (!sb) throw new Error('vendor');
+    var res = await withTimeout(sb.rpc('booking_busy_slots', {
       p_clinic: clinicId, p_from: dateKey(today), p_to: dateKey(to)
-    });
+    }), 20000);
     (res.data || []).forEach(function(r){
       var s = timeToMin(r.t);
       if (s === null) return;
@@ -527,20 +585,28 @@ async function loadBusy(){
     showUnavailable('رابط الحجز غير صحيح — اطلب الرابط من العيادة.');
     return;
   }
+  var slowT = setTimeout(function(){ var a = app(); if (a && a.querySelector('.spin')) a.insertAdjacentHTML('beforeend', '<p class="sub center" id="slowNote">الاتصال بطيء — لحظات من فضلك…</p>'); }, 6000);
   try {
-    var res = await sb.rpc('booking_clinic_info', { p_clinic: clinicId });
+    if (!sb) throw new Error('vendor');
+    var res = await withTimeout(sb.rpc('booking_clinic_info', { p_clinic: clinicId }), 25000);
     if (res.error || !res.data || res.data.length === 0){
+      clearTimeout(slowT);
       if (res.error) console.warn('clinic info:', res.error);
       showUnavailable();
       return;
     }
     CLINIC = res.data[0];
+    clearTimeout(slowT);
     document.title = 'حجز موعد — ' + (CLINIC.clinic_name || 'عيادة الأسنان');
     await loadBusy();
     renderMain();
   } catch (e){
+    clearTimeout(slowT);
     console.warn('init:', e);
-    showUnavailable('تعذّر الاتصال — تأكد من الإنترنت وحدّث الصفحة.');
+    /* v619: a connection failure is not «booking unavailable» — offer a retry */
+    app().innerHTML = '<div class="card center"><div class="big-icon">⚠️</div><h1>تعذّر التحميل</h1>'
+      + '<p class="sub">تحقق من الاتصال بالإنترنت ثم أعد المحاولة.</p>'
+      + '<button type="button" class="btn btn-go" onclick="location.reload()">إعادة المحاولة</button></div>';
   }
 })();
 </script>

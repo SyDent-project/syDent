@@ -14,10 +14,10 @@
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <title>SyDent — الاشتراك</title>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261002d"></script>
+<script src="theme.js?v=20261016a"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261002d"></script>
-<link rel="stylesheet" href="theme.css?v=20261002d">
+<script src="supabase-init.js?v=20261016a"></script>
+<link rel="stylesheet" href="theme.css?v=20261016a">
 <!-- ── Cloudflare Turnstile (CAPTCHA) — M142: لإعادة التحقق قبل حذف الحساب (نسخةٌ حرفية
      من الإعدادات؛ check-mirrors يطابقها). -->
 <script>
@@ -275,6 +275,9 @@ body {
 }
 .sub-card-permo { font-size: 12px; color: var(--text2); font-weight: 600; margin-top: 2px; }
 .sub-card-na    { font-size: 14px; color: var(--text2); font-weight: 700; margin-top: 6px; }
+.sub-storage { margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg2); }
+.sub-storage .sy-usage { font-size: 13px; }
+.sub-storage-hint { margin-top: 6px; font-size: 12px; color: var(--text2); }
 .sub-card-features { list-style: none; margin: 12px 0; display: flex; flex-direction: column; gap: 7px; }
 .sub-card-features li { font-size: 13px; color: var(--text); padding-inline-start: 20px; position: relative; }
 .sub-card-features li::before { content: '✓'; position: absolute; inset-inline-start: 0; color: var(--green); font-weight: 800; }
@@ -384,8 +387,8 @@ button:disabled { opacity: .6; cursor: wait; }
 </head>
 <body>
 
-<script src="sy-modal.js?v=20261002d"></script>
-<script src="sidebar.js?v=20261002d"></script>
+<script src="sy-modal.js?v=20261016a"></script>
+<script src="sidebar.js?v=20261016a"></script>
 
 <div class="main" id="sbMainContent">
 
@@ -398,6 +401,9 @@ button:disabled { opacity: .6; cursor: wait; }
 
       <!-- current plan card -->
       <div id="subCurrent" class="sub-current" style="display:none;"></div>
+
+      <!-- M192 (v635): استهلاكُ التخزين (الأشعة والملفات) مقابل سقف الخطة -->
+      <div id="subStorage" class="sub-storage" hidden></div>
 
       <!-- pending request banner -->
       <div id="subPending" class="sub-pending" style="display:none;"></div>
@@ -1027,6 +1033,11 @@ button:disabled { opacity: .6; cursor: wait; }
       } else {
         limits += '<span class="sub-card-limit">🦷 مرضى بلا حدود</span>';
       }
+      /* M192 (v635): سقفُ تخزين الملفات والأشعة — قيمةُ الكتالوج داخل entitlements نفسِه */
+      var _smb = p.entitlements && typeof p.entitlements === 'object' ? p.entitlements.storage_mb : null;
+      if (typeof _smb === 'number' && isFinite(_smb) && _smb > 0) {
+        limits += '<span class="sub-card-limit">💾 تخزين الأشعة والملفات ' + (_smb >= 1024 ? (Math.round(_smb / 102.4) / 10) + ' GB' : Math.round(_smb) + ' MB') + '</span>';
+      }
 
       // ---- price block (cycle × currency aware) ----
       var priceHtml, offered = true;
@@ -1440,6 +1451,16 @@ window._subCancelPendingInner = async function () {
     try {
       var ok = await loadAll();
       if (ok) renderAll();
+      /* M192: عدّادُ التخزين ثانويّ — لا يؤخّر الخطط (#687) */
+      (async function () {
+        var box = document.getElementById('subStorage');
+        if (!box || !window.SyDentFiles || !window.SyDentFiles.usage) return;
+        var u = await window.SyDentFiles.usage();
+        if (!u) return;
+        box.innerHTML = window.SyDentFiles.usageHtml(u) +
+          '<div class="sub-storage-hint">يشمل صور الأشعة والصور السريرية والمستندات ومرفقات المخابر لكل المرضى.</div>';
+        box.hidden = false;
+      })();
     } catch (e) {
       console.error('subscription boot error:', e);
       document.getElementById('subPlans').innerHTML =

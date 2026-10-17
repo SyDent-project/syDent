@@ -133,7 +133,7 @@
       +   '<div class="sub">جدد ' + m.newN + ' · راجعون ' + m.returning + '</div></div>'
       + '<div class="stat-card ' + (net < 0 ? 'orange' : 'blue') + '"><div class="lbl">صافي النمو</div><div class="val">' + signed(net) + '</div>'
       +   '<div class="sub">جدد ' + m.newN + ' − فقدناهم ' + m.lost.length + '</div></div>'
-      + '<div class="stat-card"><div class="lbl">حجزوا الخطوة الجاية</div><div class="val">' + (m.visited >= MIN_RATE ? pctB(m.booked, m.visited) : '—') + '</div>'
+      + '<div class="stat-card"><div class="lbl">حجزوا الخطوة التالية</div><div class="val">' + (m.visited >= MIN_RATE ? pctB(m.booked, m.visited) : '—') + '</div>'
       +   '<div class="sub">' + (m.visited ? m.booked + ' من ' + ptWord(m.visited) + ' لهم موعدٌ بعد آخر زيارة' : 'لا زيارات بالفترة') + '</div></div>'
       + '</div>';
 
@@ -153,7 +153,7 @@
       return h + '</div>' + (list.length > LIST_MAX ? '<div class="rt-note">… و' + ptWord(list.length - LIST_MAX) + ' غيرهم — القائمةُ كاملةً بملف Excel.</div>' : '');
     };
     if (m.noNext.length) {
-      html += '<section class="rt-card"><h3 class="rt-h">زاروا وطلعوا بلا موعد جاي <small class="rt-hs">' + ptWord(m.noNext.length) + ' — الأسهلُ استرجاعاً</small></h3>'
+      html += '<section class="rt-card"><h3 class="rt-h">زاروا وغادروا بلا موعد قادم <small class="rt-hs">' + ptWord(m.noNext.length) + ' — الأسهلُ استرجاعاً</small></h3>'
         + chips(m.noNext, function (r) { return 'آخر زيارة ' + esc(nd(r.last)) + (r.isNew ? ' · جديد' : ''); }) + '</section>';
     }
     if (m.lost.length) {

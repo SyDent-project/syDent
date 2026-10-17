@@ -22,27 +22,28 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261002d"></script>
-<link rel="stylesheet" href="appointments.css?v=20261002d">
+<script src="theme.js?v=20261016a"></script>
+<link rel="stylesheet" href="appointments.css?v=20261016a">
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261002d">
+<link rel="stylesheet" href="theme.css?v=20261016a">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261002d"></script>
-<script src="sy-modal.js?v=20261002d"></script>
-<script src="appt-conflict.js?v=20261002d"></script>
-<script src="pt-reliability.js?v=20261002d"></script>
-<script src="sched-blocks.js?v=20261002d"></script>
-<script src="appt-blocks.js?v=20261002d"></script>
-<script src="appt-series.js?v=20261002d"></script>
-<script src="appt-family.js?v=20261002d"></script>
-<script src="sidebar.js?v=20261002d"></script>
-<script src="inv-consume.js?v=20261002d"></script>
-<script src="timepicker.js?v=20261002d"></script>
-<script src="appt-booking.js?v=20261002d"></script>
-<script src="appt-wa.js?v=20261002d"></script>
-<script src="appt-time.js?v=20261002d"></script>
-<script src="appt-views.js?v=20261002d"></script>
-<script src="appt-modal.js?v=20261002d"></script>
+<script src="supabase-init.js?v=20261016a"></script>
+<script src="sy-modal.js?v=20261016a"></script>
+<script src="appt-conflict.js?v=20261016a"></script>
+<script src="pt-reliability.js?v=20261016a"></script>
+<script src="sched-blocks.js?v=20261016a"></script>
+<script src="appt-blocks.js?v=20261016a"></script>
+<script src="appt-series.js?v=20261016a"></script>
+<script src="appt-family.js?v=20261016a"></script>
+<script src="sidebar.js?v=20261016a"></script>
+<script src="inv-consume.js?v=20261016a"></script>
+<script src="timepicker.js?v=20261016a"></script>
+<script src="appt-booking.js?v=20261016a"></script>
+<script src="appt-portal.js?v=20261016a"></script>
+<script src="appt-wa.js?v=20261016a"></script>
+<script src="appt-time.js?v=20261016a"></script>
+<script src="appt-views.js?v=20261016a"></script>
+<script src="appt-modal.js?v=20261016a"></script>
 </head>
 <body>
 <script>
@@ -372,7 +373,7 @@
              style="border:2px dashed var(--purple-bd);border-radius:10px;padding:14px;text-align:center;cursor:pointer;color:var(--text2);font-size:13px;margin-bottom:10px;">
           انقر أو اسحب لرفع صورة أشعة / مستند لهذا الموعد
         </div>
-        <input type="file" id="apptFileInput" accept="image/jpeg,image/png,image/webp,application/pdf" multiple
+        <input type="file" id="apptFileInput" accept="image/jpeg,image/png,image/webp,application/pdf,.dcm,application/dicom" multiple
                style="display:none;" onchange="apptOnFilesPicked(this.files); this.value='';">
         <div id="apptFileStatus" style="display:none;font-size:12px;color:var(--purple);text-align:center;margin-bottom:8px;"></div>
         <div id="apptFileList" style="display:flex;flex-direction:column;gap:6px;"></div>
@@ -521,14 +522,22 @@ function _sanHex(h) {
   return /^#[0-9A-Fa-f]{6}$/.test(s) ? s.toLowerCase() : '#0d8577';
 }
 
-async function loadTreatmentsFromSupabase() {
-  if (!window.sb) return;
+/* v593: الكتالوج يُجلب مرةً واحدة لعمر الصفحة (كان يُعاد جلبُه مع كل فتح نافذة — جولةٌ بلا داعٍ من سوريا):
+   الوعدُ الجاري يُشارَك، والفشلُ يصفّره فتُعاد المحاولة بالفتح التالي. `force` يجدّده قسراً. */
+var _treatmentsLoad = null;
+function loadTreatmentsFromSupabase(force) {
+  if (!window.sb) return Promise.resolve();
+  if (_treatmentsLoad && !force) return _treatmentsLoad;
+  _treatmentsLoad = _loadTreatmentsOnce().catch(function(e){ console.error(e); _treatmentsLoad = null; });
+  return _treatmentsLoad;
+}
+async function _loadTreatmentsOnce() {
   try {
     const { data, error } = await window.sb
       .from('treatments')
       .select('*')
       .order('sort_order', { ascending: true });
-    if (error) { console.error('treatments load:', error); return; }
+    if (error) { console.error('treatments load:', error); _treatmentsLoad = null; return; }
     // map to UI format - use treatment_key as id for compatibility
     TREATMENTS = (data || []).map(function(t){
       return {
@@ -549,12 +558,13 @@ async function loadTreatmentsFromSupabase() {
         // الكاش فتُعبَّأ الأسعار الأساسية بدل المخصصة لحين اكتمال الجلب الطازج.
         // نفس شكل pp-core حرفياً (كائن دائماً).
         price_overrides: t.price_overrides || {},
+        target_part: t.target_part || 'crown',   /* v600: نفسُ شكل pp-core — مسندا القلع/الزرعة بإنجاز الموعد */
         builtin: t.builtin
       };
     });
     // Cache to localStorage so legacy code still works as fallback
     localStorage.setItem('sydent_treatments', JSON.stringify(TREATMENTS));
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error(e); _treatmentsLoad = null; }
 }
 
 function getTreatment(id) {
@@ -693,7 +703,15 @@ const MEDICAL_FLAGS_DEFS = [
   { key:'cardiac',            label:'أمراض قلب' },
   { key:'anticoagulants',     label:'مميعات دم' },
   { key:'pregnancy',          label:'حمل / إرضاع' },
-  { key:'asthma',             label:'ربو' }
+  { key:'asthma',             label:'ربو' },
+  /* v621: the seven conditions the patient intake asks about (intake.html INTAKE_EXTRA_DEFS — same keys, same labels · prove-intake) */
+  { key:'bisphosphonates',    label:'أدوية هشاشة العظام (بيسفوسفونات)' },
+  { key:'bleeding',           label:'نزيف يصعب إيقافه' },
+  { key:'infectious',         label:'مرض معدٍ (التهاب كبد وغيره)' },
+  { key:'epilepsy',           label:'صرع' },
+  { key:'thyroid',            label:'غدة درقية' },
+  { key:'kidney_liver',       label:'أمراض كلى / كبد' },
+  { key:'smoker',             label:'مدخّن' }
 ];
 /* فصل التحذيرات عن الحساسيات (قرار المالك 19/07/2026): مفتاحا الحساسية يبقيان
    مخزَّنين داخل medical_flags نفسها (صفر ترحيل بيانات) لكن يُعرَضان تحت الحساسيات. */
@@ -759,8 +777,16 @@ function fmtCost(n) {
   return v.toLocaleString('en-US');
 }
 
-async function loadClinicDoctors() {
-  if (!currentUser) return;
+/* v593: الأطباءُ يُجلبون بالإقلاع (دفعة init) — منتقي النافذة كان يعيد جلبَهم مع كل فتح؛ الآن الوعدُ الناجح يُشارَك
+   لعمر الصفحة والفشلُ يصفّره فتُعاد المحاولة. */
+var _clinicDoctorsLoad = null;
+function loadClinicDoctors() {
+  if (!currentUser) return Promise.resolve();
+  if (_clinicDoctorsLoad) return _clinicDoctorsLoad;
+  _clinicDoctorsLoad = _loadClinicDoctorsOnce();
+  return _clinicDoctorsLoad;
+}
+async function _loadClinicDoctorsOnce() {
   try {
     // Phase 6 R: include provider_type so the picker can render the
     // 🩺/🤝 prefix. Migration 13 fallback: if the column doesn't exist
@@ -781,9 +807,9 @@ async function loadClinicDoctors() {
       data = legacy.data;
       error = legacy.error;
     }
-    if (error) { console.warn('clinic_doctors load:', error); CLINIC_DOCTORS = []; return; }
+    if (error) { console.warn('clinic_doctors load:', error); CLINIC_DOCTORS = []; _clinicDoctorsLoad = null; return; }
     CLINIC_DOCTORS = data || [];
-  } catch(e) { console.warn('clinic_doctors fetch:', e); CLINIC_DOCTORS = []; }
+  } catch(e) { console.warn('clinic_doctors fetch:', e); CLINIC_DOCTORS = []; _clinicDoctorsLoad = null; }
 }
 
 // Phase 6 K (Migration 12): Load operatories. Best-effort — failures degrade
@@ -1961,6 +1987,9 @@ async function apptPromptMaterialDeductionBulk(completedSessions) {
     });
   });
   if (!_apptMatDeductList.length) return;
+  // M173: الدفعاتُ المرقّمة (LOT) — نفسُ اختيار بطاقة المريض
+  var _lots = await window.SyDentInvConsume.loadLots(window.sb, currentUser.id, _apptMatDeductList.map(function(m){ return m.item_id; }));
+  _apptMatDeductList.forEach(function(m){ m.lots = _lots[m.item_id] || []; });
   // 4) ابنِ الصفوف واعرض المودال (نفس صفوف patient-profile)
   var rowsEl = document.getElementById('apptMatDeductRows');
   if (!rowsEl) return;
@@ -1969,6 +1998,7 @@ async function apptPromptMaterialDeductionBulk(completedSessions) {
       + '<div style="flex:1;min-width:0;">'
         + '<div style="font-weight:700;">' + escapeHtml(m.name) + '</div>'
         + '<div style="font-size:11px;color:var(--text2,#8da0bd);margin-top:2px;">المتوفّر: ' + (Math.round(m.current*100)/100).toLocaleString('en-US') + (m.unit ? ' ' + escapeHtml(m.unit) : '') + '</div>'
+        + window.SyDentInvConsume.lotSelectHtml('appt-mat-deduct-lot', idx, m.lots)
       + '</div>'
       + '<input type="number" class="appt-mat-deduct-qty" data-idx="' + idx + '" value="' + m.qty + '" min="0" step="0.01" inputmode="decimal" style="width:80px;padding:8px;border:1px solid var(--border,#1e3556);border-radius:8px;background:var(--bg3,#13284a);color:var(--text,#e8eefc);font-family:Cairo,sans-serif;font-size:13px;">'
       + (m.unit ? '<span style="font-size:12px;color:var(--text2,#8da0bd);min-width:38px;">' + escapeHtml(m.unit) + '</span>' : '')
@@ -1997,7 +2027,8 @@ async function apptConfirmMaterialDeduction() {
     var m = _apptMatDeductList[idx];
     if (!m) return;
     names[m.item_id] = m.name;
-    rows.push({ item_id: m.item_id, qty: q, contribs: m.contribs || [] });
+    var lotSel = document.querySelector('#apptMatDeductRows .appt-mat-deduct-lot[data-idx="' + idx + '"]');
+    rows.push({ item_id: m.item_id, qty: q, contribs: m.contribs || [], batch_id: (lotSel && lotSel.value) || null });
   });
   if (!rows.length) { closeApptMatDeductModal(); return; }
   if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الخصم…'; }
@@ -2137,7 +2168,10 @@ async function openModal(prefillDate) {
   document.getElementById('fDate').value     = prefillDate || dateStr(new Date());
   document.getElementById('fTime').value     = '';
   document.getElementById('fDuration').value = '60';
-  populateApptTypes();
+  /* v593: القراءاتُ الثلاث للنافذة (الكتالوج · الأطباء · أسماءُ المرضى) كانت متسلسلة — تنطلق معاً الآن، والأولان
+     مخزّنان من الإقلاع؛ أسماءُ المرضى قد تكون مجلوبةً سلفاً برابطٍ عميق (`_apptNamesPrefetch`). */
+  var _namesP = window._apptNamesPrefetch || loadPatientNames(); window._apptNamesPrefetch = null;
+  var _typesP = populateApptTypes();
   if (TREATMENTS.length > 0) document.getElementById('fType').value = TREATMENTS[0].id;
   document.getElementById('fStatus').value   = 'confirmed';
   document.getElementById('fStatus').dataset.orig = '';
@@ -2185,12 +2219,12 @@ async function openModal(prefillDate) {
   updateColorPreview();
 
   // Populate provider picker (uses OpenDental 3-tier default)
-  await populateApptProviderPicker(null);
+  await Promise.all([_typesP, populateApptProviderPicker(null)]);
   // Phase 6 K: operatory picker — no preselect in create mode
   populateOperatoryPicker(null);
 
   // تعبئة قائمة المرضى من Supabase
-  const names = await loadPatientNames();
+  const names = await _namesP;
   _fpNames = names;   // تغذّي قائمة الاقتراحات المخصصة (بديل datalist)
 
   // P5+: a fresh (non-booking) appointment must never show the resolution box.
@@ -2580,6 +2614,36 @@ async function _apptSyncUnitRowsOnComplete(s, providerOverride) {
     .eq('unit_id', uid).eq('treatment_key', key).eq('status', 'planned');
   if (u.error) console.warn('unit rows complete warn:', u.error);
 }
+/* v600: نوعُ المفتاح (extraction/implant/bridge) — مرآةُ isExtractionKey/isImplantKey/isBridgeKey بـpp-dental */
+function _apptKeyPart(key) {
+  if (!key) return null;
+  if (key === 'extracted') return 'extraction';
+  if (key === 'implant') return 'implant';
+  if (key === 'bridge') return 'bridge';
+  var tr = getTreatment(key);
+  return tr ? (tr.target_part || 'crown') : null;
+}
+/* v600 — مرآةُ drawPendingImplantAfterExtraction: أُنجز القلع وعلى السن جلسةُ زرعةٍ مخطّطة واحدة غيرُ موسومة
+   بخيار (لا منطقَ خيارات هنا ⇒ الموسومةُ تُترك لملف المريض) ولا جسرَ مرسوم ⇒ تُرسم مخطّطةً على الموقع. */
+async function _apptDrawPendingImplant(s, tn) {
+  var rs = await window.sb.from('teeth_status').select('surface,treatment_key')
+    .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('tooth_num', tn);
+  if (rs.error) return;
+  var rows = rs.data || [];
+  if (rows.some(function(r){ var p = _apptKeyPart(r.treatment_key); return p === 'implant' || (r.surface === 'PONTIC' && p === 'bridge'); })) return;
+  var ls = await window.sb.from('ledger_sessions').select('id,treatment_key,type,provider_id,plan_option,status')
+    .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('tooth_num', tn).eq('status', 'planned');
+  if (ls.error) return;
+  var imps = (ls.data || []).filter(function(x){ return _apptKeyPart(_apptSessionTreatmentKey(x)) === 'implant'; });
+  if (imps.length !== 1 || imps[0].plan_option != null) return;
+  var w = await window.sb.from('teeth_status').delete().eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('tooth_num', tn);
+  if (w.error) { console.warn('_apptDrawPendingImplant wipe:', w.error); return; }
+  var r = await window.sb.from('teeth_status').upsert({
+    doctor_id: currentUser.id, patient_id: s.patient_id, tooth_num: tn, surface: 'WHOLE',
+    treatment_key: _apptSessionTreatmentKey(imps[0]), status: 'planned', provider_id: imps[0].provider_id || null
+  }, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
+  if (r.error) console.warn('_apptDrawPendingImplant row:', r.error);
+}
 async function _apptSyncToothStatusOnComplete(s, providerOverride) {
   if (!s || !s.tooth_num) return;
   var tn = String(s.tooth_num);
@@ -2611,9 +2675,29 @@ async function _apptSyncToothStatusOnComplete(s, providerOverride) {
       .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('tooth_num', tn)
       .eq('surface', sf).eq('treatment_key', key).eq('status', 'planned');
     if (u2.error) console.warn('teeth_status complete warn:', u2.error);
+    /* v600 — مرآةُ drawPendingImplantAfterExtraction بملف المريض */
+    if (!u2.error && sf === 'WHOLE' && _apptKeyPart(key) === 'extraction') {
+      try { await _apptDrawPendingImplant(s, tn); } catch (e) { console.warn('_apptDrawPendingImplant:', e); }
+    }
     return;
   }
   if (rowKey === key) return;                                   // already completed
+  /* v600 — مرآةُ ملف المريض: زرعةٌ أُنجزت وموقعُها مقلوعٌ منجز (لا جسرَ مرسوم) ⇒ الزرعة تأخذ الموقع */
+  if (sf === 'WHOLE' && _apptKeyPart(key) === 'implant' && _apptKeyPart(rowKey) === 'extraction'
+      && rowSt !== 'planned' && rowSt !== 'referred') {
+    var rp = await window.sb.from('teeth_status').select('treatment_key')
+      .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('tooth_num', tn).eq('surface', 'PONTIC').maybeSingle();
+    if (!rp.error && !(rp.data && _apptKeyPart(rp.data.treatment_key) === 'bridge')) {
+      var wI = await window.sb.from('teeth_status').delete().eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('tooth_num', tn);
+      if (wI.error) { console.warn('implant-complete wipe warn:', wI.error); return; }
+      var rI = await window.sb.from('teeth_status').upsert({
+        doctor_id: currentUser.id, patient_id: s.patient_id, tooth_num: tn, surface: 'WHOLE',
+        treatment_key: key, status: 'completed', provider_id: providerOverride || s.provider_id || null, review_at: null
+      }, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
+      if (rI.error) console.warn('implant-complete row warn:', rI.error);
+    }
+    return;
+  }
   if (rowKey && (rowSt === 'planned' || rowSt === 'completed')) return;   // another treatment holds the surface — leave it
   var up = await window.sb.from('teeth_status').upsert({
     doctor_id: currentUser.id, patient_id: s.patient_id, tooth_num: tn, surface: sf,
@@ -3036,7 +3120,7 @@ async function deleteApptFromModal() {
   await loadAppointments();
 }
 
-function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); window._bookingConfirmCtx = null; window._rebookCtx = null; var _brBox = document.getElementById('bookingResolveBox'); if (_brBox) { _brBox.style.display = 'none'; _brBox.innerHTML = ''; } }
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); window._bookingConfirmCtx = null; window._rebookCtx = null; window._portalApproveCtx = null; var _brBox = document.getElementById('bookingResolveBox'); if (_brBox) { _brBox.style.display = 'none'; _brBox.innerHTML = ''; } }
 /* v439: النقر خارج مودال الموعد كان يغلقه ويمحو نموذجاً معبّأً بلا إنذار.
    أُزيل — الإغلاق بـ✕ أو «إلغاء» أو Escape (عُدّة النوافذ). قاعدة الجولة:
    نافذةٌ فيها بيانات لا تُغلق بنقرة خارجية؛ القراءة فقط (قائمة الانتظار) تُغلق. */
@@ -3094,7 +3178,7 @@ async function apptCreateSeriesSiblings(saved, dates) {
   var rows = S.siblingRows(saved, use, saved.series_id, saved.series_total);
   var r = await window.sb.from('appointments').insert(rows).select('id, patient_id, patient_name, date, time, status');
   if (r.error) { console.warn('series insert:', r.error); showToast('⚠️ حُفظ الموعد الأول وتعذّر إنشاء بقية السلسلة'); return; }
-  _apptAuditBatch(r.data, 'ضمن سلسلة متكررة (غير مؤكد)');
+  _apptAuditBatch(r.data, 'ضمن سلسلة متكررة (مؤكد)');
   showToast('🔁 أُنشئت سلسلة من ' + (use.length + 1) + ' مواعيد' + (use.length < dates.length ? ' (تُخطّي ' + (dates.length - use.length) + ')' : ''));
 }
 /* v506: أفرادُ الأسرة متتابعين — فحصٌ مسبق واحد ثم إدخالٌ دفعةً واحدة */
@@ -3122,7 +3206,7 @@ async function apptCreateFamilyAppts(saved, picked) {
   if (!use.length) { showToast('حُفظ موعد المريض وحده'); return; }
   var r = await window.sb.from('appointments').insert(F.rows(saved, use)).select('id, patient_id, patient_name, date, time, status');
   if (r.error) { console.warn('family insert:', r.error); showToast('⚠️ حُفظ موعد المريض وتعذّر حجز أفراد الأسرة'); return; }
-  _apptAuditBatch(r.data, 'حجز أسرة بعد ' + (getPatientName(saved.patient_id) || saved.patient_name || 'المريض') + ' (غير مؤكد)');
+  _apptAuditBatch(r.data, 'حجز أسرة بعد ' + (getPatientName(saved.patient_id) || saved.patient_name || 'المريض') + ' (مؤكد)');
   showToast('👨‍👩‍👧 حُجز ' + use.length + ' من أفراد الأسرة بعده' + (use.length < plan.length ? ' (تُخطّي ' + (plan.length - use.length) + ')' : ''));
 }
 /* v495: أسماءُ الموارد لحوار التعارض — من الكاشين المحمّلين (كل الأطباء والكراسي بما فيها غير النشطة) */
@@ -3573,6 +3657,10 @@ async function submitAppt(e) {
           && (apptData.status === 'cancelled' || apptData.status === 'no_show')) {
         waitlistNudge(_wlOrig.date);
       }
+      /* M189: approving a portal slot request — offer the WhatsApp confirmation (must run BEFORE closeModal clears the ctx) */
+      if (editingId && window._portalApproveCtx && window._portalApproveCtx.apptId === editingId && typeof portalApproveSaved === 'function') {
+        portalApproveSaved(window._portalApproveCtx, apptData);
+      }
       closeModal();
       // Gap 7: if user just scheduled a planned appt, jump them to schedule tab
       if (prevWasPlanned && !isPlannedNow && apptData.date) {
@@ -3887,22 +3975,26 @@ async function apptOnFilesPicked(fileList){
   var cat = (document.getElementById('apptFileCategory') || {}).value || 'other';
   var status = document.getElementById('apptFileStatus');
   var files = Array.prototype.slice.call(fileList);
-  var done = 0, failed = 0;
+  var done = 0, failed = 0, firstFail = null, usage = await window.SyDentFiles.usage();   /* M192: حصّةٌ مشتركة للدفعة */
   if (status) status.style.display = 'block';
   for (var i = 0; i < files.length; i++){
     if (status) status.textContent = 'جارٍ الرفع… (' + (i+1) + '/' + files.length + ')';
     var r = await window.SyDentFiles.upload(_apptFilesCtx.patientId, files[i], {
-      category: cat, appointmentId: _apptFilesCtx.apptId
+      category: cat, appointmentId: _apptFilesCtx.apptId, usage: usage
     });
     if (r.ok){
       done++;
       if (window.logAudit){ try { window.logAudit('patient.file_upload', { patientId:_apptFilesCtx.patientId, entityId:_apptFilesCtx.apptId, description:'رفع ملف للموعد: ' + (files[i].name || '') + ' (' + cat + ')' }); } catch(e){} }
-    } else { failed++; console.error('appt upload failed', r); }
+    } else {
+      failed++; if (!firstFail) firstFail = r; console.error('appt upload failed', r);
+      if (r.reason === 'quota' || r.reason === 'offline' || r.reason === 'read') { failed += files.length - i - 1; break; }
+    }
   }
   if (status){
-    status.textContent = failed ? ('تم رفع ' + done + ' — فشل ' + failed) : ('تم رفع ' + done + ' ملف ✓');
-    setTimeout(function(){ status.style.display = 'none'; }, 2600);
+    status.textContent = failed ? ('تم رفع ' + done + ' — فشل ' + failed + ': ' + window.SyDentFiles.message(firstFail)) : ('تم رفع ' + done + ' ملف ✓');
+    setTimeout(function(){ status.style.display = 'none'; }, failed ? 7000 : 2600);
   }
+  if (failed) showToast('⚠️ ' + window.SyDentFiles.message(firstFail), true);
   _apptFiles = await window.SyDentFiles.list(_apptFilesCtx.patientId, { appointmentId:_apptFilesCtx.apptId });
   var imgPaths = _apptFiles.filter(function(f){ return window.SyDentFiles.isImage(f.mime_type); }).map(function(f){ return f.storage_path; });
   _apptFileUrls = imgPaths.length ? await window.SyDentFiles.signedUrls(imgPaths, 3600) : {};
@@ -3942,11 +4034,18 @@ async function apptDeleteFile(id){
   const { data } = await window.sb.auth.getUser();
   if (!data || !data.user) { window.location.href = 'auth.html'; return; }
   currentUser = data.user;
+  if (window.SyLive) window.SyLive.watch({ name: 'appointments', uid: currentUser.id,
+    tables: ['appointments', 'patients', 'ledger_sessions', 'lab_orders', 'booking_requests', 'portal_requests'], refresh: apptLiveRefresh });   /* v623 SyLive: لحظيّ بلا تحديث (M185) */
+  /* v593: رابطٌ عميق يفتح موعداً جديداً (قالبُ اللوحة · فجوة · «بلا موعد تركيب») ⇒ أسماءُ المرضى تُجلب مع دفعة الإقلاع
+     لا بعد الرسم؛ تستهلكها openModal مرةً واحدة. */
+  (function(){ var q = new URLSearchParams(window.location.search);
+    if (q.get('newWithTemplate') || q.get('slot') || q.get('newFor')) window._apptNamesPrefetch = loadPatientNames().catch(function(e){ console.warn('names prefetch:', e); return []; }); })();
   /* DeepCode #1 (v551): كانت القراءاتُ الثماني تُنتظر واحدةً واحدة (12 جولة شبكة من سوريا — المواعيدُ نفسها
      تبدأ بعد 3.7 ث). كلُّها مستقلة وتكتب متغيّراتها فقط، فصارت دفعةً متوازية واحدة، والمواعيدُ معها؛
      و**أولُ رسمٍ ينتظر الدفعةَ كلها** (`_apptAux` داخل loadAppointments) فلا رسمَ ناقص الأطباء/الكراسي/الحجوزات
      المغلقة. كلُّ دالةٍ بجسمها ومعالجة أخطائها حرفياً؛ استثناءُ واحدةٍ يُسجَّل ولا يُسقط الإقلاع. */
   loadBookingRequests().catch(function(e){ console.warn('P5 booking requests:', e); });   /* غير حاجب — يبدأ مع الدفعة */
+  if (typeof loadPortalRequests === 'function') loadPortalRequests().catch(function(e){ console.warn('portal requests:', e); });   /* M187 */
   _apptAux = Promise.all([
     loadClinicDoctors(),
     loadOperatoriesCache(),    // Phase 6 K (Migration 12)
@@ -4167,6 +4266,14 @@ window.onPTRRefresh = async function() {
   try { await loadReminderLogs(); }     catch(e) {}
   await loadAppointments();
 };
+/* v623 SyLive: لحظيّ بلا تحديث (M185) */
+async function apptLiveRefresh() {
+  try { if (typeof loadPatientNames === 'function') await loadPatientNames(); } catch (e) {}
+  try { await loadPatientPhones(); } catch (e) {}
+  await loadAppointments();
+  try { if (typeof loadBookingRequests === 'function') await loadBookingRequests(); } catch (e) {}
+  try { if (typeof loadPortalRequests === 'function') await loadPortalRequests(); } catch (e) {}   /* M187 */
+}
 
 document.addEventListener('DOMContentLoaded', function() {
   var btn = document.createElement('button');

@@ -30,8 +30,8 @@ function suite(F) {
   ok(F.slots('10:00', null, [P('a')])[0].time === '10:30' && F.slots('10:00', 'x', [P('a')])[0].time === '10:30', 'slots: missing duration → 30');
   ok(F.slots('', 30, [P('a')]).length === 0 && F.slots('10:00', 30, []).length === 0, 'slots: no time / nobody → []');
   const r = F.rows({ doctor_id: 'D', date: '2026-10-05', duration: 30, type: 'كشف', color: 'g', stroke: 's', provider_id: 'PR', operatory_id: 'OP', appointment_type_id: 'AT', notes: 'private', status: 'confirmed', asap: true, series_id: 'S' }, F.slots('10:00', 30, [P('a'), P('b')]));
-  ok(r.length === 2 && r[0].patient_id === 'a' && r[0].patient_name === 'Na' && r[0].time === '10:30' && r[1].time === '11:00' && r.every(x => x.status === 'scheduled' && x.is_planned === false && x.date === '2026-10-05' && x.provider_id === 'PR' && x.operatory_id === 'OP' && x.appointment_type_id === 'AT' && x.type === 'كشف'), 'rows: scheduling fields copied, scheduled, own patient');
-  ok(r.every(x => x.notes === null && !('asap' in x) && !('series_id' in x) && !('id' in x) && !('confirmed_at' in x)), 'rows: no notes/asap/series/stamps carried over');
+  ok(r.length === 2 && r[0].patient_id === 'a' && r[0].patient_name === 'Na' && r[0].time === '10:30' && r[1].time === '11:00' && r.every(x => x.status === 'confirmed' && x.confirmation_status === 'confirmed' && /^\d{4}-\d{2}-\d{2}T/.test(x.confirmed_at) && x.is_planned === false && x.date === '2026-10-05' && x.provider_id === 'PR' && x.operatory_id === 'OP' && x.appointment_type_id === 'AT' && x.type === 'كشف'), 'rows: scheduling fields copied, confirmed from birth (v617), own patient');
+  ok(r.every(x => x.notes === null && !('asap' in x) && !('series_id' in x) && !('id' in x) && !('arrived_at' in x)), 'rows: no notes/asap/series/arrival stamps carried over');
 }
 suite(load(SRC));
 
@@ -86,7 +86,7 @@ suite(load(SRC));
     const muts = [
       ['var t = s + d * (i + 1);', 'var t = s + d * i;', 'first member on the base slot'],
       ['if (t + d > 1440) break;', '', 'past midnight allowed'],
-      ["status: 'scheduled', notes: null,", "status: 'confirmed', notes: saved.notes,", 'confirmed + notes leaked'],
+      ["status: 'confirmed', confirmation_status: 'confirmed', confirmed_at: new Date().toISOString(),\n        notes: null,", "status: 'scheduled', notes: saved.notes,", 'unconfirmed again + notes leaked'],
       ["return (r.data || []).filter(function (p) { return p.id !== patientId; });", 'return (r.data || []);', 'self included']
     ];
     let red = 0;

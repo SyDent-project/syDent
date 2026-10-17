@@ -28,7 +28,7 @@ const ROOT = path.resolve(__dirname, '..');
 const BASE = path.join(__dirname, 'color-baseline.json');
 const UPDATE = process.argv.includes('--update');
 
-const SKIP = new Set(['book.html', 'sw.js', 'theme.css']);
+const SKIP = new Set(['book.html', 'intake.html', 'portal.html', 'sw.js', 'theme.css']);   /* portal.html (M180): كـintake.html */   /* intake.html (M177): سطحٌ عامٌّ مستقلّ بلوحة الفاتح الثابتة كـbook.html */
 const RGB = new RegExp('rgba?\\(\\s*(' + [
   '239,83,80', '245,200,66', '255,167,38', '245,158,11', '251,146,60', '239,68,68',
   '249,115,22', '99,179,237', '167,139,250', '77,208,225', '46,232,158', '59,130,246',

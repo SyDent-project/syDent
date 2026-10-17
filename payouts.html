@@ -17,7 +17,7 @@
 /* ── Modal ── v447: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261002d"></script>
+<script src="theme.js?v=20261016a"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -403,13 +403,13 @@ button:disabled { opacity: .6; cursor: wait; }
 html[data-sub-level="read"] :is([onclick*="openModal("],[onclick*="deleteCurrent("],[onclick*="savePayout("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261002d">
+<link rel="stylesheet" href="theme.css?v=20261016a">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261002d"></script>
-<script src="sy-modal.js?v=20261002d"></script>
-<script src="pay-methods.js?v=20261002d"></script>
-<script src="sidebar.js?v=20261002d"></script>
-<script src="timepicker.js?v=20261002d"></script>
+<script src="supabase-init.js?v=20261016a"></script>
+<script src="sy-modal.js?v=20261016a"></script>
+<script src="pay-methods.js?v=20261016a"></script>
+<script src="sidebar.js?v=20261016a"></script>
+<script src="timepicker.js?v=20261016a"></script>
 </head>
 <body>
 
@@ -780,10 +780,27 @@ async function init() {
     renderEmployeeFilters();
     renderStats();
     renderPayouts();
+
+    /* v626 (M186): لحظيٌّ — نافذةُ الدفعة المفتوحة تؤجّل الرسم حتى تُغلق */
+    if (window.SyLive) window.SyLive.watch({ name: 'payouts', uid: currentUser.id,
+      tables: ['provider_payouts', 'clinic_doctors', 'clinic_employees', 'ledger_sessions'], refresh: payLiveRefresh });
   } catch (e) {
     console.error('init failed:', e);
     showToast('⚠️ خطأ في تحميل الصفحة', true);
   }
+}
+
+/* v626 (M186): إعادةُ التحميل اللحظية — دفعةٌ/طبيبٌ/موظفٌ/جلسةٌ تتغيّر من جهازٍ آخر تظهر بلا تحديث، بفلاترك كما هي.
+   فشلُ أيّ قراءة ⇒ تُستعاد اللقطةُ المعروضة كاملةً بلا رسالة (لا قائمةَ فارغة كاذبة) — اللحاقُ التالي يكملها. */
+var _payLive = false, _payLiveFail = false;
+async function payLiveRefresh() {
+  var snap = { d: doctors, p: payouts, s: sessions };
+  _payLive = true; _payLiveFail = false;
+  try { await loadAll(); } finally { _payLive = false; }
+  if (_payLiveFail) { doctors = snap.d; payouts = snap.p; sessions = snap.s; return; }
+  renderEmployeeFilters();
+  renderStats();
+  renderPayouts();
 }
 
 // Load all required data in parallel for speed
@@ -836,6 +853,7 @@ async function loadDoctors() {
       .order('name', { ascending: true });
   }
 
+  if (empRes.error && _payLive) { _payLiveFail = true; return; }   /* v626: فشلٌ عابر بالتحديث اللحظي ⇒ يبقى المعروض */
   if (empRes.error) {
     if (isMigrationMissing(empRes.error)) {
       console.warn('[payouts] clinic_employees missing — falling back to doctors-only mode');
@@ -874,6 +892,7 @@ async function loadDoctors() {
       .order('name');
   }
 
+  if (docRes.error && _payLive) { _payLiveFail = true; return; }
   if (docRes.error) {
     if (isMigrationMissing(docRes.error)) {
       doctors = [];
@@ -1048,6 +1067,7 @@ async function loadPayouts() {
       .order('paid_at', { ascending: false }); });
   }
 
+  if (res.error && _payLive) { _payLiveFail = true; return; }
   if (res.error) {
     if (isMigrationMissing(res.error)) {
       showToast('⚠️ شغّل Migration 17 في Supabase', true);
@@ -1100,6 +1120,7 @@ async function loadSessions() {
     });
   }
 
+  if (res.error && _payLive) { _payLiveFail = true; return; }
   if (res.error) {
     console.warn('loadSessions:', res.error);
     sessions = [];

@@ -35,8 +35,8 @@ function suite(S) {
   const saved = { id: 'A', doctor_id: 'DOC', patient_id: 'P', patient_name: 'سامر', time: '10:00:00', duration: 45, type: 'تقويم', notes: 'n', color: 'green', stroke: 'x', provider_id: 'PR', operatory_id: 'OP', appointment_type_id: 'AT', status: 'confirmed', asap: true, confirmed_at: 'now', series_id: 'S', series_total: 3, booking_request_id: 'B' };
   const rows = S.siblingRows(saved, ['2026-10-12', '2026-10-19'], 'S', 3);
   ok(rows.length === 2 && rows[0].series_index === 2 && rows[1].series_index === 3 && rows.every(r => r.series_id === 'S' && r.series_total === 3), 'siblings: index from 2, shared series');
-  ok(rows.every(r => r.status === 'scheduled' && r.is_planned === false && r.time === '10:00:00' && r.duration === 45 && r.provider_id === 'PR' && r.operatory_id === 'OP' && r.appointment_type_id === 'AT' && r.patient_id === 'P'), 'siblings: scheduling fields copied, unconfirmed');
-  ok(rows.every(r => !('asap' in r) && !('confirmed_at' in r) && !('id' in r) && !('booking_request_id' in r) && !('arrived_at' in r)), 'siblings: no id / stamps / asap / booking link');
+  ok(rows.every(r => r.status === 'confirmed' && r.confirmation_status === 'confirmed' && /^\d{4}-\d{2}-\d{2}T/.test(r.confirmed_at) && r.is_planned === false && r.time === '10:00:00' && r.duration === 45 && r.provider_id === 'PR' && r.operatory_id === 'OP' && r.appointment_type_id === 'AT' && r.patient_id === 'P'), 'siblings: scheduling fields copied, confirmed from birth with the modal\'s three stamps (v617)');
+  ok(rows.every(r => !('asap' in r) && !('id' in r) && !('booking_request_id' in r) && !('arrived_at' in r)), 'siblings: no id / stamps / asap / booking link');
   ok(S.siblingRows({ doctor_id: 'D', time: '09:00' }, ['2026-10-12'], 'S', 2)[0].duration === 30, 'siblings: missing duration → 30');
   ok(/tone-blue/.test(S.badgeHtml({ series_id: 'S', series_index: 3, series_total: 12 })) && /\u20663\/12\u2069/.test(S.badgeHtml({ series_id: 'S', series_index: 3, series_total: 12 })) && S.badgeHtml({}) === '' && S.badgeHtml(null) === '', 'badge');
   const ids = new Set([S.newId(), S.newId(), S.newId()]);
@@ -94,7 +94,7 @@ suite(load(SRC));
   if (process.argv.includes('--self-test')) {
     const muts = [
       ['Math.min(d, last)', 'd', 'no month-end clamp'],
-      ["status: 'scheduled',", "status: saved.status,", 'siblings inherit confirmed'],
+      ["status: 'confirmed', confirmation_status: 'confirmed', confirmed_at: new Date().toISOString(),", "status: 'scheduled',", 'siblings unconfirmed again'],
       ['for (var k = 1; k < count; k++)', 'for (var k = 0; k < count; k++)', 'base date duplicated'],
       ['count < MIN_COUNT || count > MAX_COUNT', 'count < MIN_COUNT', 'no upper bound'],
       ['series_index: i + 2', 'series_index: i + 1', 'index off by one']

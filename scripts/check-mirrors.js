@@ -96,6 +96,8 @@ try {
     '991234567', '011 2345678', '0212345678', '+90 532 123 4567',
     '05321234567', '0101234567890', '1234', 'abc', '', null, undefined,
     '  0991-234-567  ', '+1 (415) 555-2671',
+    /* v622: an Arabic keyboard's default digits — Arabic-Indic and Persian — must normalise like Latin ones in all six copies */
+    '٠٩٩١٢٣٤٥٦٧', '۰۹۹۱۲۳۴۵۶۷', '+٩٦٣ ٩٩ ١٢٣ ٤٥٦٧', '٠٠٩٦٣٩٩١٢٣٤٥٦٧', '٩٩١٢٣٤٥٦٧', '٠٩٩١-٢٣٤-٥٦٧',
   ];
   const names = Object.keys(impls);
   let mism = 0;
@@ -128,6 +130,8 @@ tplSet('الاستدعاء الدوري', [['settings.html', 'DEFAULT_RECALL_TEM
 tplSet('عيد الميلاد', [['settings.html', 'DEFAULT_BIRTHDAY_TEMPLATE'], ['patients.html', 'DEFAULT_BDAY_TPL']]);
 tplSet('تذكير القسط', [['settings.html', 'DEFAULT_INSTALLMENT_TEMPLATE'], ['patients.html', 'DEFAULT_INST_TPL'], ['pp-plan.js', 'PP_DEFAULT_INST_TPL']]);
 tplSet('التقييم', [['settings.html', 'DEFAULT_REVIEW_TEMPLATE'], ['pp-wa.js', 'PP_DEFAULT_REVIEW_TPL']]);
+tplSet('استمارة المريض', [['settings.html', 'DEFAULT_INTAKE_TEMPLATE'], ['pp-intake.js', 'PP_DEFAULT_INTAKE_TPL'], ['appt-booking.js', 'BK_DEFAULT_INTAKE_TPL']]);   /* M178 */
+tplSet('بوابة المريض', [['settings.html', 'DEFAULT_PORTAL_TEMPLATE'], ['pp-portal.js', 'PP_DEFAULT_PORTAL_TPL']]);   /* M180 */
 
 /* ═══ C) أدوات ذيل المراجعات prm↔pp ═══ */
 console.log('C) أدوات ذيل المراجعات (prm↔pp):');
@@ -889,9 +893,9 @@ try {
   if (KIT.indexOf(KPAR + ' > :is(.modal-box, .modal, .modal-card)') === -1) {
     stMism++; bad('theme.css (عُدّة النوافذ): قاعدة تراجع/تعطيل الأب (:has) مفقودة');
   }
-  [['appointments.html', 5] /* v501: نافذةُ الحجوزات تُحقن من appt-blocks.js */, ['patients.html', 4], ['patient-profile.html', 34],
+  [['appointments.html', 5] /* v501: نافذةُ الحجوزات تُحقن من appt-blocks.js */, ['patients.html', 4], ['patient-profile.html', 38]   /* v595: +ppIntakeModal (M177) · v635: +xrUpModal (M192) · v637: +xrGalModal · v642: +xrCamModal */,
    ['treatments.html', 2], ['doctors.html', 1], ['employees.html', 2], ['payouts.html', 1],
-   ['expenses.html', 2], ['inventory.html', 5], ['labs.html', 3],
+   ['expenses.html', 2], ['inventory.html', 8], ['labs.html', 3],
    ['provider-reports.html', 3], ['audit-log.html', 1],
    ['settings.html', 5], ['learn.html', 1], ['subscription.html', 2], ['auth.html', 1], ['admin.html', 6]].forEach(([f, n]) => {
     const h = read(f);
@@ -1774,7 +1778,7 @@ try {
   const miss = m => { dfMis = true; bad('مسودة الشرح: ' + m); };
   const ppm = read('pp-modules.js'), ppd = read('pp-dental.js'), pph = read('patient-profile.html'), ppc = read('patient-profile.css');
   const GATE = /if \(window\.__draftMode\) \{ showToast\('✏️ أغلق المسودة أولاً'\); return; \}/;
-  ['openToothModal', 'endToothWatch', 'openNewSessionEntry', 'openRegionalTreatmentPicker'].forEach(fn => {
+  ['openToothModal', 'endToothWatch', 'renewToothWatch', 'openNewSessionEntry', 'openRegionalTreatmentPicker'].forEach(fn => {
     const body = extractFunction(ppd, fn);
     if (!body) { miss('الدالة ' + fn + ' غير موجودة بـpp-dental.js'); return; }
     const g = body.search(GATE);
@@ -2295,7 +2299,7 @@ try {
      خامل)، وسطرُ CSS بـpatient-profile.css مولَّدٌ من قائمة الكتابة ويُقارَن حرفياً،
      ومعالجٌ جديد بلا تصنيف يُسقط الحارس فيُجبر صاحبه على القرار. */
   // سجلُّ معالجات بطاقة المريض لوضع القراءة — مصدرٌ واحد يُنسخ حرفياً إلى check-mirrors (V11)
-  const PP_FILES = ['patient-profile.html', 'pp-core.js', 'pp-clinical.js', 'pp-dental.js', 'pp-modules.js', 'pp-plan.js', 'pp-timeline.js', 'pp-appt.js', 'pp-extras.js', 'pp-wa.js'];
+  const PP_FILES = ['patient-profile.html', 'pp-core.js', 'pp-clinical.js', 'pp-dental.js', 'pp-modules.js', 'pp-plan.js', 'pp-timeline.js', 'pp-appt.js', 'pp-extras.js', 'pp-wa.js', 'pp-intake.js', 'pp-portal.js', 'pp-xray.js'];
   const PP_WRITE = ['openApptModal', 'openNewSessionEntry', 'openModal', 'openWaHub', 'openPayModal', 'openEditModal', 'unlinkFromFamily', 'openFamilyLinkModal',
     'openPlannedApptModal', 'toggleBatchMode', 'toggleExamMode', 'toggleDraftMode', 'examUndo', 'batchApply', 'draftUndo', 'draftClearAll', 'draftSave',
     'draftSetWidth', 'draftSetEraser', 'perioDeleteExam', 'perioNewExam', 'perioSave', 'perioCreateExam', 'openObModal', 'openAdjustmentModal',
@@ -2308,25 +2312,33 @@ try {
     'labTplDeleteSelected', 'ppOpenLabModal', 'labClearDateSent', 'labAiDraftOrder', 'labAiSaveAndSend', 'saveLabOrder', 'ppSaveLab', 'revertToFifo',
     'saveManualSplits', 'ppSendWaReminder', 'waTplSaveCurrent', 'waTplDeleteSelected', 'ppWaAiDraft', 'ppWaComposeSend', 'savePaymentPlan',
     'openRxTemplatesModal', 'rxAddItemRow', 'savePrescription', 'openPostOpTemplatesModal', 'ppPostOpAiSuggest', 'savePostOpNote',
-    'openPostOpTemplateEdit', 'savePostOpTemplate', 'confirmMaterialDeduction', 'setSessionPhase', 'setSessionOption', 'adoptPlanOption', 'openAltBridgePicker', 'aiPlanOptPick', 'completeSessionFromProfile', 'ppSessionOpenLab',
+    'openPostOpTemplateEdit', 'savePostOpTemplate', 'confirmMaterialDeduction', 'setSessionPhase', 'setSessionOption', 'adoptPlanOption', 'removeDxNote', 'openAltBridgePicker', 'openImplantAltBridgePicker', 'aiPlanOptPick', 'completeSessionFromProfile', 'ppSessionOpenLab',
     'delSession', 'openSplitEditor', 'delPayment', 'delAdjustment', 'advanceLabOrder', 'redoLabOrder', 'editLabOrder', 'delLabOrder',
     'deletePrescription', 'rxEditTemplate', 'deleteRxTemplate', 'deletePostOpNote', 'deletePostOpTemplate', 'removeImplant', 'undoExtraction',
-    'clearToothStatus', 'removeSpacerUnit', 'removeSocket', 'removeCondition', 'deleteImplantLog', 'linkToFamily', 'deleteImplantTemplate', 'batchSetStatus',
+    'clearToothStatus', 'removeSpacerUnit', 'removeSocket', 'removeCondition', 'sxCancelExtraction', 'deleteImplantLog', 'linkToFamily', 'deleteImplantTemplate', 'batchSetStatus',
     'batchPickTx', 'examSetStatus', 'examSetMonths', 'examPick', 'planWa', 'planSetStatus', 'removePendingPP', 'unlinkSessionFromApptPP',
-    'quickSchedulePlannedFromProfile', 'editPlannedFromProfile', 'deletePlannedFromProfile', 'pfDeleteFile', 'planNewVisit', 'planLinkVisitPick', 'planLinkVisit', 'ppFlagsToggleEdit', 'ppFlagToggle'];
+    'quickSchedulePlannedFromProfile', 'editPlannedFromProfile', 'deletePlannedFromProfile', 'pfDeleteFile', 'planNewVisit', 'planLinkVisitPick', 'planLinkVisit', 'ppIntakeSend', 'ppIntakeCopyLink', 'ppIntakeDismiss', 'ppIntakeApprove',   /* M177: إنشاءُ رابط الاستمارة وختمُها كتابة */
+    'ppPortalSend', 'ppPortalCopyLink', 'ppPortalRenew', 'ppPortalRevoke',   /* M180: إنشاءُ رابط البوابة وتجديدُه وإيقافُه كتابة */
+    'pfCamPick', 'pfEditXray', 'pfCleanOrphans',   /* M192: كاميرا الرفع · وسمُ الأشعة · تنظيفُ الملفات اليتيمة */
+    'xrGalAttach',   /* v637: «📎 أضف صورة» من معرض السن */
+    'pfToggleShare',   /* M193: مشاركةُ صورةٍ مع المريض ببوابته */
+    'pfLiveCam', 'xrGalCam',   /* v642: كاميرا الفم بالمتصفح (من التبويب ومن معرض السن) */
+    'ppFlagsToggleEdit', 'ppFlagToggle', 'renewToothWatch'];
   // عناصرُ تحمل بيانات (سنٌّ بالمخطط · نقطةُ نزف · شريحةُ مراقبة · سجلُّ زرعة) — تبقى ظاهرة ويحرسها أولُ سطرٍ بالدالة
   const PP_GUARD = ['openToothModal', 'openImplantLog', 'perioBop', 'endToothWatch'];
   const PP_READ = ['switchTab', 'switchTabByName', 'famFilter', 'printChart', 'showDentSeg', 'toggleHistoryMode', 'historyStep', 'historyGo',
-    'historyToday', 'onTlTypeChip', 'onTlDateRangeChange', 'onTlSearchInput', 'onTlLoadMore', 'perioPickExam', 'perioToggleCompare', 'perioPrint',
-    'pfApplyToothFilter', 'closeModal', 'openPrintChoice', 'doPrintRecord', 'openStatementModal', 'printTreatmentPlan', 'copyTreatmentPlan',
+    'historyToday', 'onTlTypeChip', 'onTlDateRangeChange', 'onTlSearchInput', 'onTlLoadMore', 'perioPickExam', 'perioToggleCompare', 'perioRunCompare', 'perioPrint',
+    'pfApplyToothFilter', 'pfSetSeg', 'xrOpenGallery', 'xrGalView', 'xrGalPick', 'xrGalCompare', 'xrGalToFiles', 'xrGalClose', 'closeModal', 'openPrintChoice', 'doPrintRecord', 'openStatementModal', 'printTreatmentPlan', 'copyTreatmentPlan',
     'stmtSetPreset', 'printStatement', 'copyStatement', 'printPrescription', 'copyPrescription', 'printPostOp', 'copyPostOp',
-    'resetTimelineFilters', 'pfOpenFile', 'aiPlanCopy', 'aiPlanPrint', 'aiReferralCopy', 'aiReferralPrint', 'aiSeqCopy', 'ppWaComposeCopy', 'labAiCopy', 'labSlipPrint', 'ppApptOpenInCalendar', 'ppMsgSetFilter', 'ppMsgToggle'];
+    'resetTimelineFilters', 'pfOpenFile', 'aiPlanCopy', 'aiPlanPrint', 'aiReferralCopy', 'aiReferralPrint', 'aiSeqCopy', 'ppWaComposeCopy', 'labAiCopy', 'labSlipPrint', 'ppApptOpenInCalendar', 'ppMsgSetFilter', 'ppMsgToggle', 'ppIntakeOpenReview', 'ppIntakePrint', 'planRowCtlToggle'];   /* v597: فتحُ لوحة المرحلة/البديل — عرضٌ بحت */
   // حقولٌ وأزرارٌ تعيش داخل نوافذ/أوضاع كتابةٍ مداخلُها مخفية أو محروسة (أو حقول اللثة المقفلة بـreadOnly)
   const PP_INERT = ['toothUnitsChanged', 'draftSetEraserSize', 'pfOnFilesPicked', 'onAdjKindChange', 'sessApptChanged', 'snTplApply', 'snTplGlowSync', 'refTplApply',
     'onApptPlannedToggle', 'onProviderChange', 'implantApplyTemplate', 'labTplApply', 'onLabApptChange', 'labTplGlowSync', 'waTplApply', 'planRecalc',
     'rxApplyTemplate', 'postOpApplyTemplate', 'postOpApplyLibrary', 'onSplitInputChange', 'backToStep1', 'switchTxTab', 'toggleSurfaceChip', 'toggleRootChip',
     'selectAllRootChips', 'pickToothTreatment', 'regQuadToggle', 'regQuadAll', 'regArchToggle', 'regArchAll', 'bridgeExtraAdj', 'nsePick',
-    'perioPdInput', 'perioPdKey', 'perioRecInput', 'perioMobInput'];
+    'perioPdInput', 'perioPdKey', 'perioRecInput', 'perioMobInput',
+    'xrUpClose', 'xrUpSubmit', 'xrToggleTooth', 'xrTeethQuick', 'xrTogglePrimary', 'xrSetType', 'xrSetSource', 'xrUpRemoveFile', 'xrUpAddFiles',
+    'xrCamClose', 'xrCamStart', 'xrCamMirror', 'xrCamShot', 'xrCamRemove', 'xrCamDone'];   /* v642: داخل نافذة الكاميرا (مدخلاها محروسان) */   /* M192: داخل ورقة رفع الأشعة (مداخلُها محروسة) */
   const PP_ACT_WRITE = ['new', 'remind', 'rebook', 'stage', 'schedule', 'editplanned', 'delplanned'];
   const PP_ACT_READ = ['open', 'more'];
   const PP_SPECIAL = { openModal: '[onclick*="openModal(\'aiHubModal\')"]' };
@@ -2437,10 +2449,10 @@ try {
       "extra": []
     },
     "inventory.html": {
-      "write": ["openItemModal", "saveItem", "saveMovement", "finishBatch", "openMoveModal", "deleteItem", "finishBatchFromItem", "ivoSetQty", "applyCount"],
+      "write": ["openItemModal", "saveItem", "saveMovement", "finishBatch", "openMoveModal", "deleteItem", "finishBatchFromItem", "ivoSetQty", "applyCount", "saveSupplier", "editSupplier", "hideSupplier", "ivoSaveOrder", "poOpenReceive", "poCancel", "poReceive"],
       "guard": ["invRowOpen"],
-      "read": ["closeModal", "openHistory", "openOrderModal", "openCountModal"],
-      "inert": ["mgFillExample", "itemExpiryUiRefresh", "onMoveReasonChange"],
+      "read": ["closeModal", "openHistory", "openOrderModal", "openCountModal", "openSuppliersModal", "openPO", "poShare", "openBatchTrace", "traceExport", "exportItems", "loadOrders"],
+      "inert": ["mgFillExample", "itemExpiryUiRefresh", "onMoveReasonChange", "ivoPickSupplier"],
       "extra": []
     },
     "labs.html": {
@@ -2457,20 +2469,20 @@ try {
     "provider-reports.html": {
       "write": ["savePayout", "openPayoutModal", "deletePayout"],
       "guard": [],
-      "read": ["exportExcel", "refresh", "clearPresetHighlight", "onFilterChange", "setBasis", "closeModal", "printLedger", "goToFullPayoutsPage", "setPreset", "showDetails", "printSlip", "openLedger", "setRptTab"],
+      "read": ["exportExcel", "refresh", "clearPresetHighlight", "onFilterChange", "setBasis", "closeModal", "printLedger", "goToFullPayoutsPage", "setPreset", "showDetails", "printSlip", "openLedger", "setRptTab", "exportMat"],
       "inert": [], "extra": []
     },
     "audit-log.html": {
       "write": ["openArchiveModal", "doArchive", "restoreAll", "restoreOne"],
       "guard": [],
-      "read": ["exportCSV", "dismissAlerts", "applyFilters", "loadMore", "closeArchiveModal", "filterByAlert"],
+      "read": ["exportCSV", "dismissAlerts", "applyFilters", "loadMore", "closeArchiveModal", "filterByAlert", "liveJumpTop"   /* v626: حبّةُ «↑ سجلات جديدة» — تمريرٌ للأعلى فقط */],
       "inert": [], "extra": []
     },
     "settings.html": {
-      "write": ["saveProfile", "saveLicenseNo", "applyDerivedClinicName", "keepCustomClinicName", "saveClinicIdentity", "saveMultiCurrency", "saveProductionGoal", "saveAppointmentSettings", "openApptTypeModal", "openOperatoryModal", "toggleWaEnabled", "insertPlaceholder", "insertPlaceholderInto", "saveClinicSettings", "resetTemplate", "saveBookingSettings", "saveStaffMsgPresets", "pfdAdd", "pfdRemove", "pfdReset", "savePatientFlagDefs", "resetStaffMsgPresets", "saveAiSettings", "runBackfill", "saveApptType", "saveOperatory", "duplicateApptType", "editApptType", "deleteApptType", "editOperatory", "deleteOperatory", "openBlockModal"],
+      "write": ["saveProfile", "saveLicenseNo", "applyDerivedClinicName", "keepCustomClinicName", "saveClinicIdentity", "saveMultiCurrency", "saveProductionGoal", "saveAppointmentSettings", "openApptTypeModal", "openOperatoryModal", "toggleWaEnabled", "insertPlaceholder", "insertPlaceholderInto", "saveClinicSettings", "resetTemplate", "restorePortalMsgs"   /* M187: يملأ حقول رسائل البوابة — الحفظُ بزرّه */, "saveBookingSettings", "saveStaffMsgPresets", "pfdAdd", "pfdRemove", "pfdReset", "savePatientFlagDefs", "resetStaffMsgPresets", "saveAiSettings", "runBackfill", "saveApptType", "saveOperatory", "duplicateApptType", "editApptType", "deleteApptType", "editOperatory", "deleteOperatory", "openBlockModal", "saveIntakeSettings", "savePortalSettings"],
       "guard": [],
       "read": ["settingsGo", "changeEmail", "changePassword", "previewTemplate", "copyBookingLink", "scanOrphanedPayments", "openDeleteModal", "closeApptTypeModal", "closeOperatoryModal", "closeDeleteModal", "confirmDelete", "closeClinicNameSync", "closeWaPreview"],
-      "inert": ["pfdPreview", "autoSizeTextarea", "onApptTypeNameInput", "onApptTypeTreatmentChange", "onApptTypeProviderChange", "onApptTypeOperatoryChange", "openOpColorPicker"],
+      "inert": ["pfdPreview", "autoSizeTextarea", "portalChangesUi", "onApptTypeNameInput", "onApptTypeTreatmentChange", "onApptTypeProviderChange", "onApptTypeOperatoryChange", "openOpColorPicker"],
       "extra": []
     },
     "learn.html": {
@@ -2524,7 +2536,7 @@ try {
     const LISTENERS = {
       'index.html': 3, 'patients.html': 16   /* v442: عدّاد أحرف نص الرسالة (input) — قراءة بحتة */, 'appointments.html': 3   /* v439: مستمع إغلاق modalOverlay بنقرةٍ خارجية حُذف — كان يمحو نموذجاً معبّأً · v565: مستمعُ «+N» انتقل إلى SyDentBadgeCap بـtheme.js (قراءةٌ بحتة) */, 'appt-views.js': 7   /* v498: نقرُ فترةٍ محجوزة ⇒ openBlockModal (محروسة) */, 'appt-blocks.js': 0, 'appt-time.js': 0, 'appt-wa.js': 1   /* v443: عدّاد أحرف نص التذكير (input) — قراءة بحتة */,
       'appt-booking.js': 0, 'appt-modal.js': 0, 'patient-profile.html': 10, 'pp-core.js': 0, 'pp-clinical.js': 0, 'pp-dental.js': 2,
-      'pp-modules.js': 5, 'pp-plan.js': 0, 'pp-timeline.js': 0, 'pp-appt.js': 3, 'pp-extras.js': 2, 'pp-wa.js': 1,   /* v408: عدّاد أحرف نص الرسالة (input) — قراءة بحتة */
+      'pp-modules.js': 5, 'pp-plan.js': 2   /* v611: إغلاقُ لوحة «المرحلة/بديل» بنقرةٍ خارجية أو Escape — قراءة بحتة */, 'pp-timeline.js': 0, 'pp-appt.js': 3, 'pp-extras.js': 2, 'pp-wa.js': 1, 'pp-intake.js': 0, 'pp-portal.js': 0, 'pp-xray.js': 1 /* v635: «paste» (خارج القائمة) · v642: keydown للالتقاط — يعمل فقط ونافذةُ الكاميرا مفتوحة (مدخلاها محروسان) */,   /* v408: عدّاد أحرف نص الرسالة (input) — قراءة بحتة */
       'treatments.html': 16, 'doctors.html': 1, 'employees.html': 5, 'payouts.html': 1, 'expenses.html': 4, 'inventory.html': 5   /* v569: نافذةُ «جهّز الطلبية» (نقرٌ + إدخال) — قراءة بحتة · v570: نافذةُ الجرد (نقرٌ + إدخال) — الاعتمادُ وحده كتابة وزرُّه مخفيٌّ بالقراءة ومحروس */,
       'labs.html': 4, 'accounting.html': 11   /* v546: تصديرُ Excel — قراءة بحتة */, 'provider-reports.html': 3   /* v539: نقرُ تبويب العلاجات (ترتيبٌ · تفاصيلُ جلسات) · v545: طباعةُ الملخّص ونسخُه — قراءة بحتة */, 'audit-log.html': 6, 'settings.html': 2, 'learn.html': 1
     };
@@ -2536,7 +2548,7 @@ try {
     });
     const regFiles = new Set(Object.keys(RO_REG).concat(PP_FILES, Object.keys(RO_PAGES).filter(k => !/سجل/.test(k))));
     regFiles.forEach(f => { if (!(f in LISTENERS)) miss(f + ': ملفٌّ مراجَع بلا عدِّ مستمعات'); });
-    if (nListeners !== 112) miss('مجموع المستمعات المراجَعة ' + nListeners + ' (المسجَّل 112)');   /* v569: +2 نافذةُ الطلبية بالمخزون */   /* v565: مستمعُ شارات الموعد انتقل لـtheme.js المشترك */
+    if (nListeners !== 115) miss('مجموع المستمعات المراجَعة ' + nListeners + ' (المسجَّل 115)');   /* v642: +1 keydown كاميرا الفم */   /* v611: +2 إغلاقُ لوحة الخطة */   /* v569: +2 نافذةُ الطلبية بالمخزون */   /* v565: مستمعُ شارات الموعد انتقل لـtheme.js المشترك */
     const tr = extractFunction(read('treatments.html'), 'wireDragAndDrop');
     if (!/\|\| !!\(window\.SyDentSub && window\.SyDentSub\.isReadOnly\(\)\);/.test(tr)) miss('treatments.html: الترتيب بالسحب متاح بوضع القراءة');
     const em = extractFunction(read('employees.html'), 'wireDragAndDrop');
@@ -2662,5 +2674,5 @@ if (failures) {
   console.log(`⛔ ${failures} كسر بالمرايا — أي تغيير دلالي يجب تعميمه على كل النسخ (Rule #211).`);
   process.exit(1);
 }
-console.log('✅ كل المرايا متطابقة (هواتف ×6 · قوالب 2/3/2/3/2 · أدوات الذيل ×3 · YmdLocal ×2 · اشتقاق الأقساط ×3 · theme-color ×2 · تحذيرات طبية ×4 · مصدر المريض ×2 · ميزات الخطة ×3 · عناصر الواتساب النائبة ورابط الحجز ×2 · خيارات القوالب ×2 · قوالب طلب المخبر ×2 · صياغة أمر المخبر AI ×2 · تعتيم المُكدَّس ×3 · فروع النقابة ×2 · الحارس المتزامن ×5 · تلميح الأدمن ×6 · تصدير إكسل من مصدر واحد · أرقام العرض لاتينية بالأسطول · تركيب مبدّل مودال السن بكل مساراته · حالات المخبر وعقد المسودّة · منتقي اللقب المهني ×2 · مفاتيح تفعيل الإعدادات ×5 · بوابة اليوم بأزرار تتبّع الوقت · تبويب المواعيد ببطاقة المريض وأزرار حضوره · مسودة الشرح فوق المخطط · مفتاح التخزين ASCII · نغمات ألوان الحالات · بوابة الاشتراك · وضع القراءة · دورة حياة الاشتراك).');
+console.log('✅ كل المرايا متطابقة (هواتف ×6 · قوالب 2/3/2/3/2/3 · أدوات الذيل ×3 · YmdLocal ×2 · اشتقاق الأقساط ×3 · theme-color ×2 · تحذيرات طبية ×4 · مصدر المريض ×2 · ميزات الخطة ×3 · عناصر الواتساب النائبة ورابط الحجز ×2 · خيارات القوالب ×2 · قوالب طلب المخبر ×2 · صياغة أمر المخبر AI ×2 · تعتيم المُكدَّس ×3 · فروع النقابة ×2 · الحارس المتزامن ×5 · تلميح الأدمن ×6 · تصدير إكسل من مصدر واحد · أرقام العرض لاتينية بالأسطول · تركيب مبدّل مودال السن بكل مساراته · حالات المخبر وعقد المسودّة · منتقي اللقب المهني ×2 · مفاتيح تفعيل الإعدادات ×5 · بوابة اليوم بأزرار تتبّع الوقت · تبويب المواعيد ببطاقة المريض وأزرار حضوره · مسودة الشرح فوق المخطط · مفتاح التخزين ASCII · نغمات ألوان الحالات · بوابة الاشتراك · وضع القراءة · دورة حياة الاشتراك).');
 });

@@ -132,7 +132,7 @@ async function suite(F) {
   ok(dr && dr.n === 2 && dr.name === 'د. نبيل' && nr && nr.n === 1, 'referrers: doctor names grouped after trimming; other free names apart');
   ok(m.list.find(r => r.id === 'c').ref.kind === 'doctor' && m.list.find(r => r.id === 'a').ref.kind === 'patient', 'each new patient carries its referrer');
   const html = N.render(m, { bag: b => String(b.SYP), doc: () => '' });
-  ok(/مين عرّفهم علينا؟/.test(html) && /href="patient-profile\.html\?id=old"><b>قديم &lt;b&gt;x&lt;\/b&gt;<\/b><small>عرّف مريضان · إنتاجهم 150/.test(html), 'render: referring patient links to the profile, escaped');
+  ok(/من عرّفهم بنا؟/.test(html) && /href="patient-profile\.html\?id=old"><b>قديم &lt;b&gt;x&lt;\/b&gt;<\/b><small>عرّف مريضان · إنتاجهم 150/.test(html), 'render: referring patient links to the profile, escaped');
   ok(html.indexOf('<img src=x>') === -1 && /&lt;img src=x&gt;/.test(html), 'render: free names escaped');
   const PR = F['provider-reports.html'];
   ok(/select\('id,name,referral_source,created_at,referred_by_patient_id,referrer_name'\)/.test(fnSrc(PR, 'async function _newFetchPatients(ids) {')), 'report loads the two columns');
