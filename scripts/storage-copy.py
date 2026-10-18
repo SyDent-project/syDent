@@ -33,10 +33,18 @@ def mgmt(token, path, body=None):
 def service_key(token, ref):
     keys = mgmt(token, '/projects/%s/api-keys?reveal=true' % ref) or []
     for k in keys:
-        if k.get('name') == 'service_role' and k.get('api_key'): return k['api_key']
+        v = k.get('api_key') or ''
+        if k.get('name') == 'service_role' and v.startswith('eyJ'): return v, 'legacy service_role'
     for k in keys:
-        if k.get('type') == 'secret' and k.get('api_key'): return k['api_key']
-    raise RuntimeError('no service key readable on %s' % ref)
+        v = k.get('api_key') or ''
+        if k.get('type') == 'secret' and v.startswith('sb_secret_'): return v, 'secret key'
+    raise RuntimeError('no service key readable on %s (key types seen: %s)' % (ref, ', '.join(sorted(set(
+        '%s/%s%s' % (k.get('type'), k.get('name'), '' if k.get('api_key') else ' (hidden)') for k in keys)))))
+
+
+def auth_headers(key):
+    # a legacy JWT goes in Authorization; an sb_secret_ key is sent as apikey only (it is not a JWT)
+    return {'apikey': key, 'Authorization': 'Bearer ' + key} if key.startswith('eyJ') else {'apikey': key}
 
 
 def main(argv):
@@ -62,7 +70,8 @@ def main(argv):
     if missing: print('⛔ target has no bucket: ' + ', '.join(missing)); return 1
     if '--dry-run' in argv: print('dry run — nothing written · %.1f MB' % (total / 1048576)); return 0
 
-    skey, dkey = service_key(token, src), service_key(token, dst)
+    (skey, skind), (dkey, dkind) = service_key(token, src), service_key(token, dst)
+    print('keys: source %s · target %s' % (skind, dkind))
     surl, durl = 'https://%s.supabase.co' % src, 'https://%s.supabase.co' % dst
     ok = 0
     for o in objs:
@@ -70,10 +79,10 @@ def main(argv):
         step = 'download from the source'
         try:
             body = http('GET', '%s/storage/v1/object/%s/%s' % (surl, o['bucket_id'], path),
-                        {'Authorization': 'Bearer ' + skey, 'apikey': skey})
+                        auth_headers(skey))
             step = 'upload to the target'
             http('POST', '%s/storage/v1/object/%s/%s' % (durl, o['bucket_id'], path),
-                 {'Authorization': 'Bearer ' + dkey, 'apikey': dkey, 'Content-Type': o['mime'], 'x-upsert': 'true'}, body)
+                 dict(auth_headers(dkey), **{'Content-Type': o['mime'], 'x-upsert': 'true'}), body)
             ok += 1
         except Exception as e:
             print('⛔ file %d of %d — %s failed: %s' % (objs.index(o) + 1, len(objs), step, str(e)[:300])); return 1
