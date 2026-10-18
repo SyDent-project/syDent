@@ -6,6 +6,9 @@ the rows that point at them, this moves the files. The service keys of both proj
 Management API with SUPABASE_ACCESS_TOKEN and stay inside the runner; the log shows counts and sizes only.
 
     python3 scripts/storage-copy.py --from <ref> --to <ref> --ids <uuid,uuid> [--dry-run]
+    python3 scripts/storage-copy.py --from <ref> --to <ref> --ids <uuid,uuid> --drop-missing [--dry-run]
+        removes, in the TARGET only, the patient_documents rows of those accounts whose file is in
+        neither project (the owner's call for files lost in the old project), so they don't show broken.
 
 Upload is an upsert (x-upsert), so a re-run is safe.
 """
@@ -56,6 +59,14 @@ def main(argv):
     token = os.environ.get('SUPABASE_ACCESS_TOKEN')
     if not token: print('⛔ SUPABASE_ACCESS_TOKEN is not set'); return 2
     q = lambda s: "'%s'" % s.replace("'", "''")
+    if '--drop-missing' in argv:
+        cond = ("owner_id in (%s) and not exists (select 1 from storage.objects o where o.bucket_id = 'patient-files' "
+                "and o.name = d.storage_path)" % ','.join(map(q, ids)))
+        n = (mgmt(token, '/projects/%s/database/query' % dst, {'query': 'select count(*)::int as n from public.patient_documents d where ' + cond}) or [{}])[0].get('n', 0)
+        print('patient_documents rows without a file in the target: %d' % n)
+        if '--dry-run' in argv or not n: return 0
+        gone = mgmt(token, '/projects/%s/database/query' % dst, {'query': 'delete from public.patient_documents d where %s returning d.id' % cond}) or []
+        print('✅ removed %d rows' % len(gone)); return 0
     sql = ("select bucket_id, name, coalesce(metadata->>'mimetype', 'application/octet-stream') as mime, "
            "coalesce((metadata->>'size')::bigint, 0) as size from storage.objects where bucket_id in (%s) "
            "and split_part(name, '/', 1) in (%s) order by bucket_id, name" % (','.join(map(q, BUCKETS)), ','.join(map(q, ids))))

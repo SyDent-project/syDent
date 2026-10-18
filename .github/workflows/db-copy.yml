@@ -34,6 +34,10 @@ on:
         description: 'Copy the Storage files of the ids instead of their rows (run after the rows)'
         type: boolean
         default: false
+      drop_missing:
+        description: 'With files: remove the target document rows whose file exists nowhere'
+        type: boolean
+        default: false
       ids:
         description: 'Accounts to copy: uuids from the list, comma separated'
         required: false
@@ -77,11 +81,17 @@ jobs:
           IDS: ${{ inputs.ids }}
           LIST: ${{ inputs.list }}
           FILES: ${{ inputs.files }}
+          DROP: ${{ inputs.drop_missing }}
           DRY: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
           if [ "$LIST" = "true" ]; then python3 scripts/db-copy.py --from "$FROM" --to "$TO" --list; exit 0; fi
           if [ "$FILES" = "true" ]; then
+            if [ "$DROP" = "true" ]; then
+              if [ "$DRY" = "true" ]; then python3 scripts/storage-copy.py --from "$FROM" --to "$TO" --ids "$IDS" --drop-missing --dry-run
+              else python3 scripts/storage-copy.py --from "$FROM" --to "$TO" --ids "$IDS" --drop-missing; fi
+              exit 0
+            fi
             if [ "$DRY" = "true" ]; then python3 scripts/storage-copy.py --from "$FROM" --to "$TO" --ids "$IDS" --dry-run
             else python3 scripts/storage-copy.py --from "$FROM" --to "$TO" --ids "$IDS"; fi
             exit 0
