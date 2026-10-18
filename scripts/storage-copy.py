@@ -73,7 +73,7 @@ def main(argv):
     (skey, skind), (dkey, dkind) = service_key(token, src), service_key(token, dst)
     print('keys: source %s · target %s' % (skind, dkind))
     surl, durl = 'https://%s.supabase.co' % src, 'https://%s.supabase.co' % dst
-    ok = 0
+    ok, fails = 0, []
     for o in objs:
         path = '/'.join(urllib.parse.quote(p) for p in o['name'].split('/'))
         step = 'download from the source'
@@ -85,9 +85,11 @@ def main(argv):
                  dict(auth_headers(dkey), **{'Content-Type': o['mime'], 'x-upsert': 'true'}), body)
             ok += 1
         except Exception as e:
-            print('⛔ file %d of %d — %s failed: %s' % (objs.index(o) + 1, len(objs), step, str(e)[:300])); return 1
-    print('✅ copied %d of %d files · %.1f MB' % (ok, len(objs), total / 1048576))
-    return 0
+            fails.append(step)
+            print('⚠️  file %d of %d (%s, %s) — %s failed: %s' % (objs.index(o) + 1, len(objs), o['mime'],
+                  o['name'].rsplit('.', 1)[-1] if '.' in o['name'] else '—', step, str(e)[:200]))
+    print('%s copied %d of %d files · %.1f MB' % ('✅' if not fails else '⚠️ ', ok, len(objs), total / 1048576))
+    return 0 if not fails else 1
 
 
 if __name__ == '__main__':
