@@ -67,14 +67,16 @@ def main(argv):
     ok = 0
     for o in objs:
         path = '/'.join(urllib.parse.quote(p) for p in o['name'].split('/'))
+        step = 'download from the source'
         try:
             body = http('GET', '%s/storage/v1/object/%s/%s' % (surl, o['bucket_id'], path),
                         {'Authorization': 'Bearer ' + skey, 'apikey': skey})
+            step = 'upload to the target'
             http('POST', '%s/storage/v1/object/%s/%s' % (durl, o['bucket_id'], path),
                  {'Authorization': 'Bearer ' + dkey, 'apikey': dkey, 'Content-Type': o['mime'], 'x-upsert': 'true'}, body)
             ok += 1
         except Exception as e:
-            print('⛔ file %d of %d failed: %s' % (objs.index(o) + 1, len(objs), str(e)[:300])); return 1
+            print('⛔ file %d of %d — %s failed: %s' % (objs.index(o) + 1, len(objs), step, str(e)[:300])); return 1
     print('✅ copied %d of %d files · %.1f MB' % (ok, len(objs), total / 1048576))
     return 0
 
