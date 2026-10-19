@@ -101,7 +101,8 @@ function xrPaintFiles() {
   }).join('') + addTile;
   var go = document.getElementById('xrUpGo');
   var left = _xrUp.files.filter(function (f, i) { return !(_xrUp.results[i] && _xrUp.results[i].ok); }).length;
-  if (go) { go.textContent = _xrUp.busy ? 'جارٍ الرفع…' : ('⬆️ رفع ' + left + (left === 1 ? ' صورة' : ' صور')); go.disabled = _xrUp.busy || !left; }
+  if (go && _xrUp.request) { go.textContent = _xrUp.busy ? 'جارٍ الإرسال…' : '📡 إرسال للجهاز'; go.disabled = _xrUp.busy; }
+  else if (go) { go.textContent = _xrUp.busy ? 'جارٍ الرفع…' : ('⬆️ رفع ' + left + (left === 1 ? ' صورة' : ' صور')); go.disabled = _xrUp.busy || !left; }
 }
 function xrUpRemoveFile(i) {
   if (_xrUp.busy) return;
@@ -133,6 +134,7 @@ async function xrOpenUpload(fileList, row, preset) {
   _xrUp.results = {}; _xrUp.editRow = row || null; _xrUp.primary = false;
   _xrUp.sessionId = (preset && preset.sessionId) || null;   // v637: صورةُ جلسة «أشعة» تُربط بها
   _xrUp.category = row ? (row.category === 'clinical_photo' ? 'clinical_photo' : 'xray') : ((preset && preset.category === 'clinical_photo') ? 'clinical_photo' : 'xray');   // v642
+  _xrUp.request = !!(preset && preset.request);   // v643: طلبُ التقاطٍ للجهاز — بلا ملفات
   if (row) {
     _xrUp.files = [];
     _xrUp.type = row.xray_type || 'periapical';
@@ -155,10 +157,13 @@ async function xrOpenUpload(fileList, row, preset) {
     _xrUp.type = (ok.length && await xrGuessType(ok[0], _xrUp.urls[0])) || 'periapical';
   }
   var photo = _xrUp.category === 'clinical_photo';
-  document.getElementById('xrUpTitle').textContent = photo ? (row ? '✏️ وسم الصورة السريرية' : '📷 صور سريرية') : (row ? '✏️ وسم صورة الأشعة' : '🩻 رفع أشعة');
+  document.getElementById('xrUpTitle').textContent = _xrUp.request ? '📡 التقاط من الجهاز' : photo ? (row ? '✏️ وسم الصورة السريرية' : '📷 صور سريرية') : (row ? '✏️ وسم صورة الأشعة' : '🩻 رفع أشعة');
+  document.getElementById('xrUpFiles').style.display = _xrUp.request ? 'none' : '';
+  document.getElementById('xrUpReqHint').hidden = !_xrUp.request;
   document.getElementById('xrUpTypeGroup').style.display = photo ? 'none' : '';
-  document.getElementById('xrUpSrcGroup').style.display = photo ? 'none' : '';
-  document.getElementById('xrUpCbctWrap').style.display = photo ? 'none' : '';
+  document.getElementById('xrUpSrcGroup').style.display = (photo || _xrUp.request) ? 'none' : '';
+  document.getElementById('xrUpCbctWrap').style.display = (photo || _xrUp.request) ? 'none' : '';
+  var dg = document.getElementById('xrUpDate').closest('.form-group'); if (dg) dg.style.display = _xrUp.request ? 'none' : '';   /* الطلبُ: الخادمُ يختم تاريخَ اليوم والمصدرَ «العيادة» */
   var d = document.getElementById('xrUpDate');
   d.max = xrDamToday();
   d.value = row ? (row.taken_at || String(row.created_at || '').slice(0, 10)) : xrDamToday();
@@ -176,7 +181,7 @@ async function xrOpenUpload(fileList, row, preset) {
 function xrUpClose() {
   if (_xrUp.busy) return;
   closeModal('xrUpModal');
-  xrRevokeUrls(); _xrUp.files = []; _xrUp.results = {}; _xrUp.editRow = null; _xrUp.sessionId = null;
+  xrRevokeUrls(); _xrUp.files = []; _xrUp.results = {}; _xrUp.editRow = null; _xrUp.sessionId = null; _xrUp.request = false;
 }
 /* v637: إضافةُ صورٍ من داخل الورقة (منتقٍ بنقرةٍ حقيقية ⇒ يعمل بسفاري الآيفون بعد حوار التأكيد) */
 async function xrUpAddFiles(list) {
@@ -262,6 +267,12 @@ function xrGalAttach() {
   closeModal('xrGalModal');
   xrOpenUpload(null, null, { teeth: [_xrGal.tooth] });
 }
+function xrGalCapture() {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  var tooth = _xrGal.tooth;
+  closeModal('xrGalModal');
+  xrCapture({ teeth: tooth ? [tooth] : [] });
+}
 function xrGalCam() {
   if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
   var tooth = _xrGal.tooth;
@@ -313,6 +324,7 @@ async function xrUpSubmit() {
     await loadPatientFiles();
     return;
   }
+  if (_xrUp.request) { await xrSendCaptureRequest(m); return; }   // v643
   if (!_xrUp.files.length) { showToast('اختر صورة واحدة على الأقل', true); return; }
   _xrUp.busy = true; xrPaintFiles();
   var usage = await SyDentFiles.usage();   // مرةً للدفعة — upload يحدّثها بعد كل ملف
@@ -358,6 +370,7 @@ async function xrUsageRefresh() {
   if (!u) { el.style.display = 'none'; return; }
   var owner = !window.SyDentLock || !window.SyDentLock.isOwner || window.SyDentLock.isOwner();
   el.innerHTML = SyDentFiles.usageHtml(u) +
+    (u.inbox ? '<button type="button" class="sy-act" onclick="xrInboxOpen()" title="صورٌ وصلت من جهازٍ بلا طلبٍ مفتوح — أسندها لمريض أو تجاهلها">📥 وارد الأجهزة (' + u.inbox + ')</button>' : '') +
     (u.orphans && owner ? '<button type="button" class="sy-act" onclick="pfCleanOrphans()" title="ملفاتٌ بالتخزين لا يشير إليها أي سجل (من مرضى محذوفين سابقاً)">🧹 تنظيف ' + u.orphans + (u.orphans === 1 ? ' ملفٍ يتيم' : ' ملفاتٍ يتيمة') + '</button>' : '');
   el.style.display = '';
 }
@@ -537,3 +550,135 @@ function pfLiveCam() {
   var tooth = (document.getElementById('pfUploadTooth') || {}).value || '';
   xrCamOpen({ teeth: tooth ? [tooth] : [] });
 }
+
+/* ── v643 (M194): «التقاط من الجهاز» — طلبٌ مفتوح 15 دقيقة يملؤه SyDent Bridge بأول صورةٍ تصل ──
+   الطبيبُ يختار المريضَ والأسنانَ والنوع (ورقةُ الوسم بلا ملفات) ⇒ صفٌّ بـcapture_requests ⇒ شريطُ انتظارٍ بالتبويب يعدّ
+   تنازلياً ويُلغى بزر ⇒ الصورةُ تصل لحظياً (SyLive على patient_documents/capture_requests). بلا جهازٍ مقترن ⇒ إرشادٌ للإعدادات. */
+var _xrReqs = [], _xrReqTimer = null;
+/* v645: لا تخزينَ للنتيجة — جهازٌ اقترن للتوّ من الإعدادات بتبويبٍ آخر يُرى فوراً (الاستعلامُ عدٌّ خفيف) */
+async function xrHasDevice() {
+  try {
+    var r = await window.sb.from('bridge_devices').select('id', { count: 'exact', head: true }).is('revoked_at', null);
+    return !r.error && (r.count || 0) > 0;
+  } catch (e) { return false; }
+}
+async function xrCapture(preset) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  if (!await xrHasDevice()) {
+    var go = await SyDialog.confirm({ title: '📡 لا جهاز مقترن', message: 'لم يُقترن أي كمبيوتر بعد. اقرن كمبيوتر العيادة الموصول بالحساس من الإعدادات (قسم الأجهزة — SyDent Bridge) ثم عد إلى هنا.', confirmText: 'فتح الإعدادات', cancelText: 'لاحقاً' });
+    if (go) location.href = 'settings.html#bridgeSection';
+    return;
+  }
+  xrOpenUpload(null, null, { request: true, teeth: (preset && preset.teeth) || [], sessionId: preset && preset.sessionId });
+}
+async function xrSendCaptureRequest(m) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  _xrUp.busy = true; xrPaintFiles();
+  var row = { owner_id: currentUser.id, patient_id: patientId, category: 'xray', xray_type: m.type, teeth: m.teeth, session_id: _xrUp.sessionId || null };
+  var r = await window.sb.from('capture_requests').insert(row).select().single();
+  _xrUp.busy = false;
+  if (r.error) { showToast('❌ تعذّر إرسال الطلب — تحقّق من الاتصال', true); console.error('capture request', r.error); xrPaintFiles(); return; }
+  if (window.logAudit) { try { window.logAudit('patient.file_upload', { patientId: patientId, patientName: (patient && patient.name) || null, description: 'طلب التقاط من الجهاز: ' + xrTypeLabel(m.type) + (m.teeth.length ? ' · السن ' + m.teeth.join('،') : '') }); } catch (e) {} }
+  xrUpClose();
+  showToast('📡 أُرسل الطلب — صوّر الآن بالحساس، والصورة تصل هنا تلقائياً');
+  await xrLoadRequests();
+}
+async function xrLoadRequests() {
+  var bar = document.getElementById('pfCaptureBar');
+  if (!bar || !window.sb) return;
+  try {
+    var r = await window.sb.from('capture_requests').select('id,teeth,xray_type,category,status,created_at,expires_at,done_at').eq('patient_id', patientId).in('status', ['open']).order('created_at', { ascending: false }).limit(10);
+    _xrReqs = (r.error || !r.data) ? [] : r.data.filter(function (q) { return new Date(q.expires_at).getTime() > Date.now(); });
+  } catch (e) { _xrReqs = []; }
+  xrPaintRequests();
+}
+function xrPaintRequests() {
+  var bar = document.getElementById('pfCaptureBar');
+  if (!bar) return;
+  clearInterval(_xrReqTimer); _xrReqTimer = null;
+  _xrReqs = _xrReqs.filter(function (q) { return new Date(q.expires_at).getTime() > Date.now(); });
+  if (!_xrReqs.length) { bar.hidden = true; bar.innerHTML = ''; return; }
+  bar.hidden = false;
+  bar.innerHTML = _xrReqs.map(function (q) {
+    var left = Math.max(0, Math.round((new Date(q.expires_at).getTime() - Date.now()) / 1000));
+    return '<div class="pf-capreq" data-id="' + escapeHtml(q.id) + '"><span class="pf-capreq-dot"></span>' +
+      '<span class="pf-capreq-txt">⏳ بانتظار الصورة من الجهاز — ' + escapeHtml(xrTypeLabel(q.xray_type) || 'أشعة') + ((q.teeth || []).length ? ' · السن ' + escapeHtml(q.teeth.join('، ')) : '') + '</span>' +
+      '<span class="pf-capreq-ttl" dir="ltr">' + String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0') + '</span>' +
+      '<button type="button" class="sy-act" onclick="xrCancelRequest(\'' + q.id + '\')">إلغاء</button></div>';
+  }).join('');
+  _xrReqTimer = setInterval(function () {
+    var any = false;
+    _xrReqs.forEach(function (q) {
+      var left = Math.max(0, Math.round((new Date(q.expires_at).getTime() - Date.now()) / 1000));
+      var el = bar.querySelector('[data-id="' + q.id + '"] .pf-capreq-ttl'); if (el) el.textContent = String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
+      if (left > 0) any = true;
+    });
+    if (!any) xrPaintRequests();
+  }, 1000);
+}
+async function xrCancelRequest(id) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  var r = await window.sb.from('capture_requests').update({ status: 'cancelled' }).eq('id', id).eq('status', 'open');
+  if (r.error) { showToast('تعذّر الإلغاء', true); return; }
+  _xrReqs = _xrReqs.filter(function (q) { return q.id !== id; }); xrPaintRequests();
+}
+/* تحديثٌ لحظي (SyLive): إعادةُ تحميل الطلبات، والإعلامُ فقط إن صار طلبٌ كان مفتوحاً هنا «done» (لا عند انتهائه أو إلغائه) — v645 */
+async function xrRequestsSync() {
+  var wereOpen = _xrReqs.map(function (q) { return q.id; });
+  await xrLoadRequests();
+  if (!wereOpen.length || !window.sb) return;
+  try {
+    var r = await window.sb.from('capture_requests').select('id,status').in('id', wereOpen).eq('status', 'done');
+    if (!r.error && r.data && r.data.length && typeof showToast === 'function') showToast('📥 وصلت صورة الجهاز إلى ملفات المريض');
+  } catch (e) {}
+}
+
+/* ── v643: واردُ الأجهزة — صورٌ بلا طلبٍ مفتوح: إسنادٌ لهذا المريض (مع الوسم) أو تجاهل ── */
+var _xrInbox = { items: [], urls: {} };
+async function xrInboxOpen() {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  _xrInbox.items = await SyDentFiles.inboxList();
+  var imgs = _xrInbox.items.filter(function (i) { return SyDentFiles.isImage(i.mime_type); }).map(function (i) { return i.storage_path; });
+  _xrInbox.urls = imgs.length ? (await SyDentFiles.signedUrls(imgs, 1800)) : {};
+  xrInboxPaint();
+  openModal('xrInboxModal');
+}
+function xrInboxPaint() {
+  var box = document.getElementById('xrInboxGrid');
+  if (!box) return;
+  if (!_xrInbox.items.length) { box.innerHTML = '<div class="xr-gal-empty">لا صور في الوارد.</div>'; return; }
+  box.innerHTML = _xrInbox.items.map(function (it) {
+    var url = _xrInbox.urls[it.storage_path];
+    var thumb = url ? '<img src="' + escapeHtml(url) + '" alt="" loading="lazy">' : '<span class="xr-dcm">' + (it.mime_type === 'application/dicom' ? 'DICOM' : '📄') + '</span>';
+    return '<div class="xr-gal-card"><div class="xr-gal-thumb">' + thumb + '</div>' +
+      '<div class="xr-gal-meta"><b>' + escapeHtml(SyDT.numDate(it.captured_at)) + '</b>' + (SyDT.time12(it.captured_at) ? ' ' + escapeHtml(SyDT.time12(it.captured_at)) : '') + '<br>' + escapeHtml(it.file_name || '') + '</div>' +
+      '<div class="sy-acts" style="flex-wrap:wrap;margin-top:4px;">' +
+        '<button class="sy-act" onclick="xrInboxAssign(\'' + it.id + '\')">📎 لهذا المريض</button>' +
+        '<button class="sy-act sy-act-danger" onclick="xrInboxDismiss(\'' + it.id + '\')">🗑️ تجاهل</button>' +
+      '</div></div>';
+  }).join('');
+}
+async function xrInboxAssign(id) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  var it = _xrInbox.items.find(function (x) { return x.id === id; }); if (!it) return;
+  var tooth = (document.getElementById('pfUploadTooth') || {}).value || '';
+  var r = await SyDentFiles.assignInbox(it, patientId, { category: 'xray', teeth: tooth ? [tooth] : [] });
+  if (!r.ok) { showToast('❌ ' + (r.reason === 'db' || r.reason === 'storage' ? 'تعذّر الإسناد — حاول مجدداً' : SyDentFiles.message(r)), true); return; }
+  if (window.logAudit) { try { window.logAudit('patient.file_upload', { patientId: patientId, patientName: (patient && patient.name) || null, description: 'إسناد صورة من وارد الأجهزة: ' + (it.file_name || '') }); } catch (e) {} }
+  _xrInbox.items = _xrInbox.items.filter(function (x) { return x.id !== id; }); xrInboxPaint();
+  showToast('✓ أُسندت الصورة لهذا المريض — عدّل وسمها من «✏️ وسم» إن لزم');
+  await loadPatientFiles();
+  if (!_xrInbox.items.length) closeModal('xrInboxModal');
+}
+async function xrInboxDismiss(id) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  var it = _xrInbox.items.find(function (x) { return x.id === id; }); if (!it) return;
+  if (!await SyDialog.confirm({ message: 'حذف هذه الصورة من الوارد نهائياً؟', danger: true })) return;
+  var r = await SyDentFiles.dismissInbox(it);
+  if (!r.ok) { showToast('❌ تعذّر الحذف', true); return; }
+  _xrInbox.items = _xrInbox.items.filter(function (x) { return x.id !== id; }); xrInboxPaint();
+  xrUsageRefresh();
+  if (!_xrInbox.items.length) closeModal('xrInboxModal');
+}
+function xrInboxClose() { closeModal('xrInboxModal'); _xrInbox.items = []; _xrInbox.urls = {}; }
+

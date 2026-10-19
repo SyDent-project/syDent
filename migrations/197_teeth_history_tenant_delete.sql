@@ -1,4 +1,4 @@
--- 195 — Deleting a clinic with tooth-chart data failed (admin «🗑️ حذف»)
+-- 197 — Deleting a clinic with tooth-chart data failed (admin «🗑️ حذف»)
 --
 -- auth.admin.deleteUser cascades every clinic table from auth.users. On the way, an
 -- ON DELETE SET NULL foreign key UPDATEs teeth_status rows (e.g. provider_id), and
@@ -9,7 +9,7 @@
 -- The DELETE branch already skipped history when the owner is gone; the INSERT/UPDATE
 -- branch now does the same. Nothing else changes. Idempotent.
 --
--- (Was 179 on dental-dev/prod. After merging upstream v642 it runs after 179_teeth_status_dx,
+-- (Was 179, then 195, on dental-dev/prod. After merging upstream v642 it runs after 179_teeth_status_dx,
 -- so the body below is that migration's function — dx_key carried into history — plus the guard.)
 
 CREATE OR REPLACE FUNCTION public.fn_teeth_status_history()

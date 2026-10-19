@@ -520,7 +520,7 @@ function aiPlanWaSend() {
     showToast('⚠️ لا يوجد رقم هاتف صالح. أضِف رقماً في معلومات المريض أولاً.');
     return;
   }
-  window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(txt), '_blank');
+  window.SyDentWA.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(txt));   /* v651 */
   if (typeof ppMsgLog === 'function') ppMsgLog('plan', txt, phone);   /* v421 (M149): سجلّ المراسلات — غير حاجب */
 }
 
@@ -1014,6 +1014,7 @@ async function loadPatientFiles(){
     if (window.SyXrayViewer) window.SyXrayViewer.sync(_pfFiles);   // v636: صورةٌ حُذفت/تغيّرت والعارضُ مفتوح
     if (typeof addPhotoBadges === 'function') addPhotoBadges();
     if (typeof xrUsageRefresh === 'function') xrUsageRefresh();
+    if (typeof xrLoadRequests === 'function') xrLoadRequests();   /* M194: شريطُ انتظار الجهاز */
     var imgPaths = _pfFiles.filter(function(f){ return window.SyDentFiles.isImage(f.mime_type); })
                            .map(function(f){ return f.storage_path; });
     _pfUrls = imgPaths.length ? await window.SyDentFiles.signedUrls(imgPaths, 3600) : {};
@@ -1112,6 +1113,13 @@ function renderPatientFiles(){
 }
 
 // v636: صورُ القسم/الفلتر الظاهر بترتيب العرض نفسه (الخطُّ الزمني بتاريخ الالتقاط) — قائمةُ تنقّل العارض.
+/* M194 · v643: التقاطٌ من الجهاز (SyDent Bridge) — مدخلُ تبويب الملفات */
+function pfCapture(){
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  var tooth = (document.getElementById('pfUploadTooth') || {}).value || '';
+  if (typeof xrCapture === 'function') xrCapture({ teeth: tooth ? [tooth] : [] });
+}
+
 /* M193 · v638: المشاركةُ مع المريض — صورُ المتصفح فقط (البوابةُ بلا قارئ DICOM)، الأصلُ وحده، صورةً صورة. */
 function pfShareable(f){ return ['image/jpeg', 'image/png', 'image/webp'].indexOf(f.mime_type) > -1; }
 async function pfToggleShare(id){

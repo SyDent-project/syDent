@@ -495,7 +495,7 @@ function sendTplTest() {
     if (body.indexOf(needle) !== -1) body = body.split(needle).join(val);
   });
   var url = 'https://wa.me/' + num + '?text=' + encodeURIComponent(body);
-  window.open(url, '_blank', 'noopener');
+  window.SyDentWA.open(url);   /* v651 */
 }
 
 async function saveTplEdits() {
@@ -882,7 +882,7 @@ async function waReminderLink(phone, name, daysLeft, trialEndIso, planName) {
 function openWaReminder(phone, name, daysLeft, trialEndIso, planName, ev) {
   if (ev) { try { ev.preventDefault(); } catch(_){} }
   waReminderLink(phone, name, daysLeft, trialEndIso, planName).then(function(url){
-    window.open(url, '_blank', 'noopener');
+    window.SyDentWA.open(url);   /* v651 */
   }).catch(function(e){
     console.error('openWaReminder failed:', e);
     SyDialog.alert('❌ تعذّر بناء رسالة التذكير: ' + (e && e.message ? e.message : e));
@@ -936,7 +936,7 @@ async function waWelcomeLink(phone, name, email) {
 function openWaWelcome(phone, name, email, ev) {
   if (ev) { try { ev.preventDefault(); } catch(_){} }
   waWelcomeLink(phone, name, email).then(function(url){
-    window.open(url, '_blank', 'noopener');
+    window.SyDentWA.open(url);   /* v651 */
   }).catch(function(e){
     console.error('openWaWelcome failed:', e);
     SyDialog.alert('❌ تعذّر بناء رسالة الترحيب: ' + (e && e.message ? e.message : e));
@@ -963,7 +963,7 @@ async function waSuspendedLink(phone, name) {
 function openWaSuspended(phone, name, ev) {
   if (ev) { try { ev.preventDefault(); } catch(_){} }
   waSuspendedLink(phone, name).then(function(url){
-    window.open(url, '_blank', 'noopener');
+    window.SyDentWA.open(url);   /* v651 */
   }).catch(function(e){
     console.error('openWaSuspended failed:', e);
     SyDialog.alert('❌ تعذّر بناء رسالة الإيقاف: ' + (e && e.message ? e.message : e));
@@ -1013,7 +1013,7 @@ async function waRenewedLink(phone, name, planName, trialEndIso, price, currency
 function openWaRenewed(phone, name, planName, trialEndIso, price, ev, currency) {
   if (ev) { try { ev.preventDefault(); } catch(_){} }
   waRenewedLink(phone, name, planName, trialEndIso, price, currency).then(function(url){
-    window.open(url, '_blank', 'noopener');
+    window.SyDentWA.open(url);   /* v651 */
   }).catch(function(e){
     console.error('openWaRenewed failed:', e);
     SyDialog.alert('❌ تعذّر بناء رسالة التجديد: ' + (e && e.message ? e.message : e));

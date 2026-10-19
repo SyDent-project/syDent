@@ -893,7 +893,7 @@ try {
   if (KIT.indexOf(KPAR + ' > :is(.modal-box, .modal, .modal-card)') === -1) {
     stMism++; bad('theme.css (عُدّة النوافذ): قاعدة تراجع/تعطيل الأب (:has) مفقودة');
   }
-  [['appointments.html', 5] /* v501: نافذةُ الحجوزات تُحقن من appt-blocks.js */, ['patients.html', 4], ['patient-profile.html', 39] /* C3b: المواد ورقم الدفعة · v595: +ppIntakeModal (M177) · v635: +xrUpModal (M192) · v637: +xrGalModal · v642: +xrCamModal */,
+  [['appointments.html', 5] /* v501: نافذةُ الحجوزات تُحقن من appt-blocks.js */, ['patients.html', 4], ['patient-profile.html', 40] /* C3b: المواد ورقم الدفعة · v595: +ppIntakeModal (M177) · v635: +xrUpModal (M192) · v637: +xrGalModal · v642: +xrCamModal · v643: +xrInboxModal */,
    ['treatments.html', 2], ['doctors.html', 1], ['employees.html', 2], ['payouts.html', 1],
    ['expenses.html', 2], ['inventory.html', 7] /* C3: نافذةُ الطلبيات والموردين · C3b: تتبّعُ الدفعة */, ['labs.html', 3],
    ['provider-reports.html', 3], ['audit-log.html', 1],
@@ -2323,6 +2323,7 @@ try {
     'xrGalAttach',   /* v637: «📎 أضف صورة» من معرض السن */
     'pfToggleShare',   /* M193: مشاركةُ صورةٍ مع المريض ببوابته */
     'pfLiveCam', 'xrGalCam',   /* v642: كاميرا الفم بالمتصفح (من التبويب ومن معرض السن) */
+    'pfCapture', 'xrGalCapture', 'xrCancelRequest', 'xrInboxOpen',   /* M194: التقاطٌ من الجهاز · إلغاءُ الطلب · واردُ الأجهزة */
     'ppFlagsToggleEdit', 'ppFlagToggle', 'renewToothWatch'];
   // عناصرُ تحمل بيانات (سنٌّ بالمخطط · نقطةُ نزف · شريحةُ مراقبة · سجلُّ زرعة) — تبقى ظاهرة ويحرسها أولُ سطرٍ بالدالة
   const PP_GUARD = ['openToothModal', 'openImplantLog', 'perioBop', 'endToothWatch'];
@@ -2338,7 +2339,8 @@ try {
     'selectAllRootChips', 'pickToothTreatment', 'regQuadToggle', 'regQuadAll', 'regArchToggle', 'regArchAll', 'bridgeExtraAdj', 'nsePick',
     'perioPdInput', 'perioPdKey', 'perioRecInput', 'perioMobInput',
     'xrUpClose', 'xrUpSubmit', 'xrToggleTooth', 'xrTeethQuick', 'xrTogglePrimary', 'xrSetType', 'xrSetSource', 'xrUpRemoveFile', 'xrUpAddFiles',
-    'xrCamClose', 'xrCamStart', 'xrCamMirror', 'xrCamShot', 'xrCamRemove', 'xrCamDone'];   /* v642: داخل نافذة الكاميرا (مدخلاها محروسان) */   /* M192: داخل ورقة رفع الأشعة (مداخلُها محروسة) */
+    'xrCamClose', 'xrCamStart', 'xrCamMirror', 'xrCamShot', 'xrCamRemove', 'xrCamDone',   /* v642: داخل نافذة الكاميرا (مدخلاها محروسان) */
+    'xrInboxClose', 'xrInboxAssign', 'xrInboxDismiss'];   /* M194: داخل نافذة الوارد (مدخلُها محروس) */   /* M192: داخل ورقة رفع الأشعة (مداخلُها محروسة) */
   const PP_ACT_WRITE = ['new', 'remind', 'rebook', 'stage', 'schedule', 'editplanned', 'delplanned'];
   const PP_ACT_READ = ['open', 'more'];
   const PP_SPECIAL = { openModal: '[onclick*="openModal(\'aiHubModal\')"]' };
@@ -2481,7 +2483,7 @@ try {
       "inert": [], "extra": []
     },
     "settings.html": {
-      "write": ["saveProfile", "saveLicenseNo", "applyDerivedClinicName", "keepCustomClinicName", "saveClinicIdentity", "saveMultiCurrency", "saveProductionGoal", "saveAppointmentSettings", "openApptTypeModal", "openOperatoryModal", "toggleWaEnabled", "insertPlaceholder", "insertPlaceholderInto", "saveClinicSettings", "resetTemplate", "restorePortalMsgs"   /* M187: يملأ حقول رسائل البوابة — الحفظُ بزرّه */, "saveBookingSettings", "saveStaffMsgPresets", "pfdAdd", "pfdRemove", "pfdReset", "savePatientFlagDefs", "resetStaffMsgPresets", "saveAiSettings", "runBackfill", "saveApptType", "saveOperatory", "duplicateApptType", "editApptType", "deleteApptType", "editOperatory", "deleteOperatory", "openBlockModal", "saveIntakeSettings", "savePortalSettings"],
+      "write": ["saveProfile", "saveLicenseNo", "applyDerivedClinicName", "keepCustomClinicName", "saveClinicIdentity", "saveMultiCurrency", "saveProductionGoal", "saveAppointmentSettings", "openApptTypeModal", "openOperatoryModal", "toggleWaEnabled", "insertPlaceholder", "insertPlaceholderInto", "saveClinicSettings", "resetTemplate", "restorePortalMsgs"   /* M187: يملأ حقول رسائل البوابة — الحفظُ بزرّه */, "saveBookingSettings", "saveStaffMsgPresets", "pfdAdd", "pfdRemove", "pfdReset", "savePatientFlagDefs", "resetStaffMsgPresets", "saveAiSettings", "runBackfill", "saveApptType", "saveOperatory", "duplicateApptType", "editApptType", "deleteApptType", "editOperatory", "deleteOperatory", "openBlockModal", "saveIntakeSettings", "brPair", "brRevoke"   /* M194: اقترانُ جهاز Bridge وإيقافُه */, "savePortalSettings"],
       "guard": [],
       "read": ["settingsGo", "changeEmail", "changePassword", "previewTemplate", "copyBookingLink", "scanOrphanedPayments", "openDeleteModal", "closeApptTypeModal", "closeOperatoryModal", "closeDeleteModal", "confirmDelete", "closeClinicNameSync", "closeWaPreview"],
       "inert": ["pfdPreview", "autoSizeTextarea", "portalChangesUi", "onApptTypeNameInput", "onApptTypeTreatmentChange", "onApptTypeProviderChange", "onApptTypeOperatoryChange", "openOpColorPicker"],
