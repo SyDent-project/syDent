@@ -140,6 +140,7 @@
     color: var(--text-secondary);
   }
   .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  #dashBackupBtn[hidden] { display: none; }
 
   .stats-grid {
     display: grid;
@@ -947,6 +948,7 @@
       <form class="dash-search" onsubmit="return dashSearchGo(event)" role="search">
         <input class="search-bar" id="dashSearch" type="search" placeholder="🔍  بحث عن مريض…" autocomplete="off" enterkeyhint="search" aria-label="بحث عن مريض" />
       </form>
+      <button type="button" class="btn btn-outline" id="dashBackupBtn" onclick="dashBackup()" hidden title="تنزيل نسخة احتياطية من بيانات العيادة إلى هذا الجهاز (ملف Excel)">💾 نسخة احتياطية</button>
       <a href="patients.html?open=new" class="btn btn-primary" data-doctor-inactive-block data-sub-write>＋ مريض جديد</a>
     </div>
   </div>
@@ -4441,7 +4443,106 @@ async function nlAsk(){
 })();
 // ── NL-ANALYTICS-END ──────────────────────────────────────────────────
 
+// ═══ نسخة احتياطية محلية (زر «💾 نسخة احتياطية» بالهيدر — للمالك حصراً) ═══
+// قراءة بحتة: كل جدول من بيانات العيادة بورقة Excel (SyDentXlsx)، مصفّى بعمود
+// المالك ومقسوم على صفحات 1000 صف. أعمدة الأسرار (رموز القفل وتجزئاتها) لا
+// تُصدَّر. جدولٌ يتعذّر قراءته يُذكر بورقة «ملاحظات» بدل إسقاط النسخة كلها.
+var DASH_BACKUP_TABLES = [
+  ['clinic_settings', 'owner_id', 'إعدادات العيادة'],
+  ['clinic_doctors', 'owner_id', 'الأطباء'],
+  ['clinic_employees', 'owner_id', 'الموظفون'],
+  ['patients', 'doctor_id', 'المرضى'],
+  ['appointments', 'doctor_id', 'المواعيد'],
+  ['treatments', 'doctor_id', 'كتالوج العلاجات'],
+  ['ledger_sessions', 'doctor_id', 'الجلسات'],
+  ['ledger_payments', 'doctor_id', 'الدفعات'],
+  ['payment_splits', 'doctor_id', 'توزيع الدفعات'],
+  ['payment_plans', 'doctor_id', 'خطط التقسيط'],
+  ['account_adjustments', 'doctor_id', 'تسويات الحسابات'],
+  ['teeth_status', 'doctor_id', 'حالة الأسنان'],
+  ['teeth_status_history', 'doctor_id', 'سجل الأسنان'],
+  ['perio_exams', 'doctor_id', 'فحوص اللثة'],
+  ['perio_measurements', 'doctor_id', 'قياسات اللثة'],
+  ['prescriptions', 'owner_id', 'الوصفات'],
+  ['prescription_items', 'owner_id', 'بنود الوصفات'],
+  ['post_op_notes', 'owner_id', 'تعليمات ما بعد العلاج'],
+  ['implant_log', 'owner_id', 'سجل الزرعات'],
+  ['patient_recalls', 'owner_id', 'الاستدعاءات'],
+  ['patient_documents', 'owner_id', 'ملفات المرضى'],
+  ['labs', 'doctor_id', 'المخابر'],
+  ['lab_orders', 'doctor_id', 'طلبات المخابر'],
+  ['lab_payments', 'doctor_id', 'دفعات المخابر'],
+  ['expense_categories', 'owner_id', 'فئات المصاريف'],
+  ['expenses', 'owner_id', 'المصاريف'],
+  ['provider_payouts', 'owner_id', 'مستحقات الأطباء'],
+  ['day_closings', 'owner_id', 'إغلاقات اليوم'],
+  ['inventory_items', 'owner_id', 'أصناف المخزون'],
+  ['inventory_batches', 'owner_id', 'دفعات المخزون'],
+  ['inventory_movements', 'owner_id', 'حركات المخزون']
+];
+var DASH_BACKUP_SECRET = /pin|hash|token|secret|password/i;
+var _dashBackupBusy = false;
+function dashBackupInit() {
+  var btn = document.getElementById('dashBackupBtn');
+  if (btn) btn.hidden = !nlIsOwner();
+}
+function _dashBackupCell(v) {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'object') v = JSON.stringify(v);
+  return (typeof v === 'string' && v.length > 32000) ? v.slice(0, 32000) : v;   // حدّ خلية Excel
+}
+async function _dashBackupRead(table, col, uid) {
+  var out = [], from = 0, PAGE = 1000, ordered = true;
+  for (;;) {
+    var q = window.sb.from(table).select('*').eq(col, uid);
+    if (ordered) q = q.order('id', { ascending: true });
+    var r = await q.range(from, from + PAGE - 1);
+    if (r.error && ordered && from === 0) { ordered = false; continue; }   // جدول بلا عمود id
+    if (r.error) throw r.error;
+    var rows = r.data || [];
+    out = out.concat(rows);
+    if (rows.length < PAGE) return out;
+    from += PAGE;
+  }
+}
+async function dashBackup() {
+  if (_dashBackupBusy || !nlIsOwner()) return;
+  var btn = document.getElementById('dashBackupBtn');
+  var oldLabel = btn ? btn.textContent : '';
+  _dashBackupBusy = true;
+  if (btn) btn.disabled = true;
+  try {
+    var u = await window.sb.auth.getUser();
+    var uid = (u && u.data && u.data.user) ? u.data.user.id : null;
+    if (!uid) throw new Error('no user');
+    var sheets = [], notes = [];
+    for (var i = 0; i < DASH_BACKUP_TABLES.length; i++) {
+      var t = DASH_BACKUP_TABLES[i];
+      if (btn) btn.textContent = '⏳ ' + (i + 1) + '/' + DASH_BACKUP_TABLES.length;
+      try {
+        var rows = await _dashBackupRead(t[0], t[1], uid);
+        var cols = [];
+        rows.forEach(function (r) { Object.keys(r).forEach(function (k) { if (cols.indexOf(k) < 0 && !DASH_BACKUP_SECRET.test(k)) cols.push(k); }); });
+        sheets.push({ name: t[2], headers: cols, rows: rows.map(function (r) { return cols.map(function (k) { return _dashBackupCell(r[k]); }); }) });
+        notes.push([t[2], t[0], rows.length, '']);
+      } catch (e) {
+        notes.push([t[2], t[0], '', 'تعذّرت القراءة']);
+      }
+    }
+    sheets.unshift({ name: 'ملاحظات', headers: ['الورقة', 'الجدول', 'عدد الصفوف', 'ملاحظة'],
+      rows: [['تاريخ النسخة', '', '', window.SyDentXlsx.stamp(new Date())]].concat(notes) });
+    await window.SyDentXlsx.save({ filename: 'sydent-backup-' + window.SyDentXlsx.today(), sheets: sheets });
+    showToast('💾 نزّلت النسخة الاحتياطية — احفظ الملف بمكان آمن');
+  } catch (e) {
+    showToast('⚠️ تعذّر إنشاء النسخة الاحتياطية — حاول مجدداً', true);
+  } finally {
+    _dashBackupBusy = false;
+    if (btn) { btn.disabled = false; btn.textContent = oldLabel || '💾 نسخة احتياطية'; }
+  }
+}
+
 loadDashboard();
+dashBackupInit();
 (async function () {   /* v623 SyLive: لحظيّ بلا تحديث (M185) */
   await new Promise(function (r) { setTimeout(r, 300); });
   if (!window.sb || !window.SyLive) return;
