@@ -1,4 +1,4 @@
--- 194 — Supabase advisor follow-ups (task B3)
+-- 196 — Supabase advisor follow-ups (task B3)
 --
 -- Performance: cover the five foreign keys the advisor reports without an
 -- index, so deletes on the parent rows and joins on these columns don't

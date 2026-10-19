@@ -60,8 +60,10 @@ AFTER_SNAPSHOT = [
     'migrations/191_portal_rejected_notice.sql',
     'migrations/192_xray_core.sql',
     'migrations/193_portal_xrays.sql',
-    'migrations/194_fk_indexes_and_grants.sql',
-    'migrations/195_teeth_history_tenant_delete.sql',
+    'migrations/194_bridge_core.sql',
+    'migrations/195_inventory_return_supplier.sql',
+    'migrations/196_fk_indexes_and_grants.sql',
+    'migrations/197_teeth_history_tenant_delete.sql',
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',

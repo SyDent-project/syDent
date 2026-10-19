@@ -237,7 +237,7 @@ function waitlistWa(apptId) {
   var msg = 'مرحباً ' + (a.patient_name || '') + '،\n'
     + 'تحرّر لدينا موعد أبكر في ' + clinic + ' — هل يناسبك تقديم موعدك؟ 🦷\n'
     + 'يرجى الرد لتأكيد الحجز 🙏';
-  window.open('https://wa.me/' + n + '?text=' + encodeURIComponent(msg), '_blank');
+  window.SyDentWA.open('https://wa.me/' + n + '?text=' + encodeURIComponent(msg));   /* v651: التطبيقُ مباشرةً على الحاسوب */
 }
 function openWaitlistModal() {
   renderWaitlist();
@@ -394,9 +394,9 @@ async function sendWaReminder() {
   const sendBtn = document.getElementById('waSendBtn');
   sendBtn.disabled = true;
 
-  // wa.me universal link — works on WhatsApp Web, mobile app, and desktop app
+  // v651: SyDentWA — الحاسوبُ يفتح تطبيقَ WhatsApp Desktop مباشرةً (whatsapp://)، الجوالُ wa.me كما كان
   const url = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message);
-  window.open(url, '_blank');
+  window.SyDentWA.open(url);
 
   // Audit log (best-effort) — patient_id is FK NOT NULL so we resolve it first.
   try {

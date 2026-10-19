@@ -16,17 +16,17 @@
 /* ── Modal ── v453: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261017a"></script>
+<script src="theme.js?v=20261019a"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261017a"></script>
-<script src="pwd-policy.js?v=20261017a"></script>
+<script src="supabase-init.js?v=20261019a"></script>
+<script src="pwd-policy.js?v=20261019a"></script>
 <!-- ── Cloudflare Turnstile (CAPTCHA) ── Axis 3 / Item 2. Helper defined BEFORE the API
      script so window.onSyDentTurnstileLoad exists when the (async) script fires. -->
 <style>.cf-turnstile-box{margin:2px 0 14px;min-height:65px;display:flex;justify-content:center}/* v304: press feedback */
 button:active:not(:disabled) { transform: scale(.97); }
 button:disabled { opacity: .6; cursor: wait; }
 /* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
-html[data-sub-level="read"] :is([onsubmit*="saveProfile("] [type="submit"],[onclick*="saveLicenseNo("],[onclick*="applyDerivedClinicName("],[onclick*="keepCustomClinicName("],[onsubmit*="saveClinicIdentity("] [type="submit"],[onsubmit*="saveMultiCurrency("] [type="submit"],[onsubmit*="saveProductionGoal("] [type="submit"],[onsubmit*="saveAppointmentSettings("] [type="submit"],[onclick*="openApptTypeModal("],[onclick*="openOperatoryModal("],[onclick*="toggleWaEnabled("],[onclick*="insertPlaceholder("],[onclick*="insertPlaceholderInto("],[onclick*="saveClinicSettings("],[onclick*="resetTemplate("],[onclick*="restorePortalMsgs("],[onclick*="saveBookingSettings("],[onclick*="saveStaffMsgPresets("],[onclick*="pfdAdd("],[onclick*="pfdRemove("],[onclick*="pfdReset("],[onclick*="savePatientFlagDefs("],[onclick*="resetStaffMsgPresets("],[onclick*="saveAiSettings("],[onclick*="runBackfill("],[onclick*="saveApptType("],[onclick*="saveOperatory("],[onclick*="duplicateApptType("],[onclick*="editApptType("],[onclick*="deleteApptType("],[onclick*="editOperatory("],[onclick*="deleteOperatory("],[onclick*="openBlockModal("],[onclick*="saveIntakeSettings("],[onclick*="savePortalSettings("]){display:none !important;}
+html[data-sub-level="read"] :is([onsubmit*="saveProfile("] [type="submit"],[onclick*="saveLicenseNo("],[onclick*="applyDerivedClinicName("],[onclick*="keepCustomClinicName("],[onsubmit*="saveClinicIdentity("] [type="submit"],[onsubmit*="saveMultiCurrency("] [type="submit"],[onsubmit*="saveProductionGoal("] [type="submit"],[onsubmit*="saveAppointmentSettings("] [type="submit"],[onclick*="openApptTypeModal("],[onclick*="openOperatoryModal("],[onclick*="toggleWaEnabled("],[onclick*="insertPlaceholder("],[onclick*="insertPlaceholderInto("],[onclick*="saveClinicSettings("],[onclick*="resetTemplate("],[onclick*="restorePortalMsgs("],[onclick*="saveBookingSettings("],[onclick*="saveStaffMsgPresets("],[onclick*="pfdAdd("],[onclick*="pfdRemove("],[onclick*="pfdReset("],[onclick*="savePatientFlagDefs("],[onclick*="resetStaffMsgPresets("],[onclick*="saveAiSettings("],[onclick*="runBackfill("],[onclick*="saveApptType("],[onclick*="saveOperatory("],[onclick*="duplicateApptType("],[onclick*="editApptType("],[onclick*="deleteApptType("],[onclick*="editOperatory("],[onclick*="deleteOperatory("],[onclick*="openBlockModal("],[onclick*="saveIntakeSettings("],[onclick*="brPair("],[onclick*="brRevoke("],[onclick*="savePortalSettings("]){display:none !important;}
 </style>
 <script>
 (function(){
@@ -414,6 +414,22 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
 /* v503: بطاقةُ الحجز الإلكتروني على الجوال (لقطة المالك: شرائحُ الأيام والوقتان يخرجون عن البطاقة) —
    input العامّ هنا width:100% + حشوة، فكان مربّعُ كل يومٍ يتمدّد، وحقلا الوقت بعرضهما الذاتي على iOS
    يفيضان عن flex. الحلّ: شرائحُ بمربّعٍ مخفيٍّ يغطّيها (نفس نافذة «حجز وقت») + شبكةُ عمودين minmax(0,1fr). */
+/* M194: الأجهزة — SyDent Bridge */
+.br-devices{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+.br-dev{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--bg2);}
+.br-dev.off{opacity:.6;}
+.br-dev-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.br-dev-sub{font-size:12px;color:var(--text2);}
+.br-dot{width:10px;height:10px;border-radius:50%;background:var(--border2);flex:0 0 auto;}
+.br-dot.on{background:var(--green);box-shadow:0 0 0 3px var(--green-soft);}
+.br-empty{font-size:13px;color:var(--text2);padding:6px 2px;}
+.br-pair{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.br-pair input{flex:1;min-width:180px;}
+.br-code{margin-top:12px;padding:14px;border:1px dashed var(--green-bd);border-radius:12px;background:var(--green-soft);text-align:center;}
+.br-code-val{font-size:30px;font-weight:800;letter-spacing:4px;color:var(--text);font-family:ui-monospace,monospace;}
+.br-code-hint{font-size:12.5px;color:var(--text2);margin-top:6px;}
+.br-note{font-size:12.5px;color:var(--text2);margin-top:12px;line-height:1.7;}
+.br-dl{margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);}
 #bookingSection .bk-toggle-row { flex-direction: row; align-items: center; gap: 10px; }
 #bookingSection .bk-toggle-row label { margin: 0; cursor: pointer; font-weight: 700; color: var(--text); }
 #intakeSection .bk-toggle-row { flex-direction: row; align-items: center; gap: 10px; }   /* M177: نفسُ طقم الحجز */
@@ -535,11 +551,11 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
 .pwd-toggle svg{display:block;width:20px;height:20px;flex-shrink:0;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261017a">
-<script src="sy-modal.js?v=20261017a"></script>
-<script src="sched-blocks.js?v=20261017a"></script>
-<script src="appt-blocks.js?v=20261017a"></script>
-<script src="sidebar.js?v=20261017a"></script>
+<link rel="stylesheet" href="theme.css?v=20261019a">
+<script src="sy-modal.js?v=20261019a"></script>
+<script src="sched-blocks.js?v=20261019a"></script>
+<script src="appt-blocks.js?v=20261019a"></script>
+<script src="sidebar.js?v=20261019a"></script>
 </head>
 <body>
 
@@ -1207,6 +1223,25 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
       <button type="button" class="btn btn-primary" id="btnSavePortal" onclick="savePortalSettings()">حفظ إعدادات البوابة</button>
     </div>
 
+    <!-- ═══ M194: الأجهزة — SyDent Bridge (كمبيوتر العيادة الموصول بالحساس) ═══ -->
+    <div class="section" id="bridgeSection">
+      <div class="section-title">🩻 الأجهزة — SyDent Bridge</div>
+      <div class="section-sub">برنامج صغير على كمبيوتر العيادة الموصول بحساس الأشعة أو جهاز البانوراما: تختار المريض والسن بالمنصة وتضغط «التقاط من الجهاز»، فتصل الصورة إلى ملفه خلال ثوانٍ. الاقتران مرة واحدة برمزٍ يصلح 10 دقائق، ويمكن إيقاف أي جهاز بزر.</div>
+      <div id="brDevices" class="br-devices"></div>
+      <div class="br-pair">
+        <input type="text" id="brDeviceName" maxlength="80" placeholder="اسم الكمبيوتر (مثلاً: غرفة 1)" autocomplete="off">
+        <button type="button" class="btn btn-primary" id="brPairBtn" onclick="brPair()">➕ رمز اقتران جديد</button>
+      </div>
+      <div id="brCodeBox" class="br-code" hidden>
+        <div class="br-code-val" id="brCodeVal" dir="ltr"></div>
+        <div class="br-code-hint">أدخل هذا الرمز في برنامج SyDent Bridge على الكمبيوتر خلال <b id="brCodeTtl">10:00</b>. يصلح لمرة واحدة، وطلب رمز جديد يلغي السابق.</div>
+      </div>
+      <div class="br-dl">
+        <a class="btn btn-secondary" href="/downloads/SyDentBridge-1.2.3.zip" download>⬇️ تنزيل SyDent Bridge لويندوز (1.2.3)</a>
+        <div class="br-note">فكّ الملف المضغوط على كمبيوتر العيادة وشغّل <b dir="ltr">install.bat</b> (أو <b dir="ltr">SyDentBridge.exe</b> مباشرة). تُفتح صفحة محلية لإدخال رمز الاقتران واختيار مجلد حفظ صور الحساس. عند أول تشغيل قد يحذّر ويندوز «ناشر غير معروف»: اختر «مزيد من المعلومات» ثم «تشغيل على أي حال». الصور التي تصل بلا طلب مفتوح تنتظر في «📥 وارد الأجهزة» بتبويب الملفات لأي مريض. <b>الحساس بلا برنامج الشركة (TWAIN):</b> في صفحة البرنامج اضغط «اكتشاف الأجهزة» واختر الحساس وفعّل «تسليح تلقائياً»، فيصير «التقاط من الجهاز» هنا يسلّح الحساس مباشرةً. <b>للبانوراما وCBCT عبر الشبكة:</b> فعّل «استقبال DICOM» بصفحة البرنامج، ثم أدخل في إعدادات جهاز الأشعة عنوان IP الكمبيوتر والمنفذ 4242 وعنوان AE «SYDENT».</div>
+      </div>
+    </div>
+
     <!-- 1.9 الرسائل الداخلية — الأزرار الجاهزة (Migration 81) -->
     <!-- OpenDental parity: Message Elements are owner-customizable (their
          "Setup" permission = our structural owner-only settings page).
@@ -1555,6 +1590,67 @@ async function saveIntakeSettings() {
   if (typeof CLINIC_SETTINGS_WA !== 'undefined' && CLINIC_SETTINGS_WA) Object.assign(CLINIC_SETTINGS_WA, payload);
   showToast('✅ تم حفظ إعدادات الاستمارة');
   if (typeof window.logAudit === 'function') window.logAudit('settings.update', { description: 'تحديث إعدادات استمارة المريض' });
+}
+
+/* ═══ M194: الأجهزة — SyDent Bridge: الاقترانُ برمزٍ من الخادم · قائمةُ الأجهزة · الإيقافُ النهائي ═══ */
+var _brTtlTimer = null;
+function brAgo(ts) {
+  if (!ts) return 'لم يتصل بعد';
+  var m = Math.round((Date.now() - new Date(ts).getTime()) / 60000);
+  if (m < 2) return 'متصل الآن'; if (m < 60) return 'قبل ' + m + ' دقيقة';
+  var h = Math.round(m / 60); if (h < 48) return 'قبل ' + h + ' ساعة';
+  return 'قبل ' + Math.round(h / 24) + ' يوماً';
+}
+async function loadBridgeDevices() {
+  var box = document.getElementById('brDevices');
+  if (!box || !currentUser) return;
+  try {
+    var res = await window.sb.from('bridge_devices').select('id,name,mode,version,created_at,last_seen_at,revoked_at').eq('owner_id', currentUser.id).order('created_at', { ascending: false }).limit(50);
+    if (res.error) { if (/42P01|PGRST205/.test((res.error.message || '') + (res.error.code || ''))) { box.innerHTML = ''; return; } throw res.error; }
+    var rows = res.data || [];
+    if (!rows.length) { box.innerHTML = '<div class="br-empty">لا أجهزة مقترنة بعد.</div>'; return; }
+    var MODES = { folder: 'مراقبة مجلد', twain: 'TWAIN', dicom: 'DICOM', manual: 'يدوي' };
+    box.innerHTML = rows.map(function (d) {
+      var live = !d.revoked_at && d.last_seen_at && (Date.now() - new Date(d.last_seen_at).getTime()) < 120000;
+      return '<div class="br-dev' + (d.revoked_at ? ' off' : '') + '">' +
+        '<span class="br-dot' + (live ? ' on' : '') + '"></span>' +
+        '<div class="br-dev-main"><b>' + escapeHtml(d.name) + '</b>' +
+          '<span class="br-dev-sub">' + (d.revoked_at ? 'موقوف' : escapeHtml(brAgo(d.last_seen_at))) + ' · ' + (MODES[d.mode] || d.mode) + (d.version ? ' · v' + escapeHtml(d.version) : '') + '</span></div>' +
+        (d.revoked_at ? '' : '<button type="button" class="sy-act sy-act-danger" onclick="brRevoke(\'' + d.id + '\')" title="إيقاف نهائي — الاقتران من جديد يعيده">⛔ إيقاف</button>') +
+        '</div>';
+    }).join('');
+  } catch (e) { console.warn('bridge devices:', e); box.innerHTML = ''; }
+}
+async function brPair() {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  var name = (document.getElementById('brDeviceName').value || '').trim();
+  var btn = document.getElementById('brPairBtn'); btn.disabled = true;
+  try {
+    var r = await window.sb.rpc('bridge_pairing_code', { p_device_name: name });
+    if (r.error) throw r.error;
+    var d = r.data || {};
+    document.getElementById('brCodeVal').textContent = String(d.code || '').replace(/(.{4})(.{4})/, '$1 $2');
+    document.getElementById('brCodeBox').hidden = false;
+    var exp = new Date(d.expires_at).getTime();
+    clearInterval(_brTtlTimer);
+    _brTtlTimer = setInterval(function () {
+      var left = Math.max(0, Math.round((exp - Date.now()) / 1000)), el = document.getElementById('brCodeTtl');
+      if (el) el.textContent = String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
+      if (!left) { clearInterval(_brTtlTimer); document.getElementById('brCodeBox').hidden = true; showToast('انتهى رمز الاقتران — اطلب رمزاً جديداً'); }
+    }, 1000);
+    if (window.logAudit) { try { window.logAudit('settings.update', { description: 'رمز اقتران جهاز جديد: ' + (d.device_name || '') }); } catch (e) {} }
+  } catch (e) {
+    showToast(/subscription_read_only/.test(e.message || '') ? 'اشتراكك للقراءة فقط — جدّده لاقتران جهاز' : 'تعذّر إنشاء رمز الاقتران', true);
+  } finally { btn.disabled = false; }
+}
+async function brRevoke(id) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  if (!await SyDialog.confirm({ title: 'إيقاف الجهاز', message: 'يتوقف هذا الكمبيوتر عن إرسال الصور فوراً، والإيقاف نهائي (الاقتران من جديد يعيده). متابعة؟', danger: true, confirmText: 'إيقاف' })) return;
+  var r = await window.sb.from('bridge_devices').update({ revoked_at: new Date().toISOString() }).eq('id', id).select().maybeSingle();
+  if (r.error) { showToast('تعذّر الإيقاف', true); return; }
+  showToast('⛔ أُوقف الجهاز');
+  if (window.logAudit) { try { window.logAudit('settings.update', { description: 'إيقاف جهاز Bridge: ' + ((r.data && r.data.name) || id) }); } catch (e) {} }
+  loadBridgeDevices();
 }
 
 /* ═══ M180: بوابة المريض — نفسُ عقد قسم الاستمارة (بوابة الخطة booking · أعمدةٌ مسمّاة · graceful pre-M180) ═══ */
@@ -1946,6 +2042,7 @@ function stgApplyNameFields(nm) {
   await loadBookingSettings();
   await loadIntakeSettings();
   await loadPortalSettings();   /* M180 */
+  loadBridgeDevices();          /* M194 — ثانويّ، لا يؤخّر الصفحة */
   await loadAiSettings();
   // Bug #2: auto-scan for orphaned payment splits (fault-tolerant)
   await scanOrphanedPayments();
