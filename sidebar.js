@@ -180,6 +180,15 @@ const css = `
   .sb-install[hidden] { display: none; }
   .sb-install:hover { background: rgba(var(--green-rgb), .14); }
 
+  /* ─── «🤖 المساعد الذكي» — on every page, shown only when the plan + clinic opt-in allow it ─── */
+  .sb-ai {
+    margin: 8px 12px 0; padding: 9px 12px; border-radius: 10px;
+    background: rgba(var(--green-rgb), .12); border: 1px solid rgba(var(--green-rgb), .35);
+    color: var(--green); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-align: center;
+  }
+  .sb-ai[hidden] { display: none; }
+  .sb-ai:hover { background: rgba(var(--green-rgb), .2); }
+
   /* ─── Footer: doctor identity + theme toggle on one row ─── */
   .sb-footer {
     padding: 12px 20px;
@@ -685,6 +694,7 @@ l44 -30 346 -5 c376 -5 376 -6 411 -63 19 -30 20 -53 20 -372 0 -252 3 -344
         </div>
       </a>
       <nav class="sb-nav">${navHTML}</nav>
+      <button type="button" class="sb-ai" id="sbAiBtn" hidden>🤖 المساعد الذكي</button>
       <button type="button" class="sb-install" id="sbInstallBtn" hidden>📲 ثبّت التطبيق على هاتفك</button>
       <div class="sb-footer" id="sbDoctorFooter">
         <div class="sb-footer-name" id="sbDoctorName">جارٍ التحميل…</div>
@@ -695,6 +705,43 @@ l44 -30 346 -5 c376 -5 376 -6 411 -63 19 -30 20 -53 20 -372 0 -252 3 -344
         </button>
       </div>
     </aside>`;
+}
+
+// «🤖 المساعد الذكي» بالشريط على كل صفحة. البوابة نفسها التي تحرس أزرار المساعد
+// بالصفحات: opt-in العيادة (clinic_settings.ai_features_enabled) + بوابة الخطة
+// (SyDentPlan.can('ai_features')) — والفرض النهائي سيرفر-سايد بالـEdge Function.
+// ببطاقة المريض يفتح نافذة مساعد المريض؛ وبغيرها يفتح مركز المساعد بالرئيسية
+// (للمالك حصراً، كقرار 15/9/2026).
+async function sbAiSync(optIn, planP) {
+  const btn = document.getElementById('sbAiBtn');
+  if (!btn) return;
+  let on = optIn;
+  if (on && window.SyDentPlan) {
+    try { await planP; } catch (e) {}
+    if (window.SyDentPlan.can('ai_features') === false) on = false;
+  }
+  const L = window.SyDentLock;
+  const isOwner = !L || (typeof L.isOwner === 'function' && L.isOwner());
+  const hasPatientHub = !!document.getElementById('aiHubModal');
+  btn.hidden = !(on && (isOwner || hasPatientHub));
+  if (!btn.dataset.wired) {
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', sbAiOpen);
+  }
+}
+function sbAiOpen() {
+  if (document.getElementById('aiHubModal') && typeof window.openModal === 'function') {
+    window.openModal('aiHubModal');
+  } else if (document.getElementById('aiHubCard') && typeof window.aiHubOpen === 'function') {
+    const card = document.getElementById('aiHubCard');
+    window.aiHubOpen('digest');
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    location.href = 'index.html#ai';
+    return;
+  }
+  const sb = document.getElementById('sbSidebar');
+  if (sb && sb.classList.contains('open') && typeof window.sbToggle === 'function') window.sbToggle();
 }
 
 // تحديث اسم الدكتور وعدد مواعيد اليوم بشكل ديناميكي
@@ -716,7 +763,7 @@ async function refreshSidebarDynamic() {
     .eq('user_id', uid)
     .maybeSingle());
   const _sbCsP = _sbSettle(window.sb.from('clinic_settings')
-    .select('clinic_name, currency').eq('owner_id', uid).maybeSingle());
+    .select('clinic_name, currency, ai_features_enabled').eq('owner_id', uid).maybeSingle());
   const _sbPlanP = _sbSettle(window.SyDentPlan ? window.SyDentPlan.load() : null);
   /* v558: الحالةُ مع المعرّف لتعريف «مواعيد اليوم» الموحّد (#11) */
   const _sbApptsP = _sbSettle(window.sb.from('appointments').select('id,status')
@@ -845,6 +892,7 @@ async function refreshSidebarDynamic() {
       if (subEl && cn && String(cn).trim()) subEl.textContent = String(cn).trim();
       const cur = csRes && csRes.data && csRes.data.currency;
       if (cur && window.SyDentCurrency) window.SyDentCurrency.set(cur);
+      sbAiSync(!!(csRes && csRes.data && csRes.data.ai_features_enabled), _sbPlanP);
     }
   } catch (e) { /* keep default subtitle on any error */ }
 

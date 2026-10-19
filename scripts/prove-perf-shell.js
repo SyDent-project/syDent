@@ -30,7 +30,7 @@ async function suite(F) {
   ok(pos.every(p => p > -1) && pos.every((p, i) => i === 0 || p > pos[i - 1]), 'sidebar: consumed at the original spots in the original order');
   const iRej = SB.indexOf("trialData.status === 'rejected'"), iNew = SB.indexOf("trialData.status === 'new'"), iName = SB.indexOf("document.getElementById('sbDoctorName')");
   ok(iRej > pos[0] && iNew > iRej && iName > iNew, 'sidebar: the block decision (suspended / pending) still comes before anything is painted');
-  ok(/\.from\('trial_requests'\)\s*\.select\('status'\)\s*\.eq\('user_id', uid\)\s*\.maybeSingle\(\)/.test(SB) && /\.from\('clinic_settings'\)\s*\.select\('clinic_name, currency'\)\.eq\('owner_id', uid\)\.maybeSingle\(\)/.test(SB)
+  ok(/\.from\('trial_requests'\)\s*\.select\('status'\)\s*\.eq\('user_id', uid\)\s*\.maybeSingle\(\)/.test(SB) && /\.from\('clinic_settings'\)\s*\.select\('clinic_name, currency, ai_features_enabled'\)\.eq\('owner_id', uid\)\.maybeSingle\(\)/.test(SB)
      && /\.from\('appointments'\)\.select\('id,status'\)\s*\.eq\('doctor_id', uid\)\.eq\('date', _sbTodayStr\)/.test(SB) && /\.select\('id', \{ count: 'exact', head: true \}\)\s*\.eq\('clinic_id', uid\)\.eq\('status', 'pending'\)/.test(SB), 'sidebar: the same five queries verbatim');
   ok(!/await window\.sb\.from\(|await window\.sb\s*\n\s*\.from\(|await window\.SyDentPlan\.load\(\)/.test(SB.slice(iFirst, SB.indexOf("platform_settings")) + SB.slice(SB.indexOf("// اسم الدكتور"))), 'sidebar: no read is fetched late any more');
   /* ── (٢) ── */
@@ -72,7 +72,7 @@ const MUTANTS = [
   ['sidebar block decided after painting', F0 => { const F = Object.assign({}, F0); let s = F['sidebar.js'];
     const a = s.indexOf("  // اسم الدكتور\n"), b = s.indexOf("  // Clinic name in the brand sub-line."); const blk = s.slice(a, b); s = s.slice(0, a) + s.slice(b);
     const k = s.indexOf("  if (trialData && trialData.status === 'rejected') {"); F['sidebar.js'] = s.slice(0, k) + blk + s.slice(k); return F; }],
-  ['sidebar settings query drift', rep('sidebar.js', ".select('clinic_name, currency').eq('owner_id', uid).maybeSingle());", ".select('clinic_name').eq('owner_id', uid).maybeSingle());")],
+  ['sidebar settings query drift', rep('sidebar.js', ".select('clinic_name, currency, ai_features_enabled').eq('owner_id', uid).maybeSingle());", ".select('clinic_name').eq('owner_id', uid).maybeSingle());")],
   ['plan catalogue after the trial row', rep('supabase-init.js', "        var _plansP = Promise.resolve(window.sb.from('subscription_plans')", "        var _trFirst = await window.sb.from('trial_requests').select('plan').eq('user_id', user.id).maybeSingle();\n        var _plansP = Promise.resolve(window.sb.from('subscription_plans')")],
   ['plan picks the wrong row', rep('supabase-init.js', "if (_pls.data[_pi] && _pls.data[_pi].code === code) { row = _pls.data[_pi]; break; }", "if (_pls.data[_pi]) { row = _pls.data[_pi]; break; }")],
   ['plan exception unhandled', rep('supabase-init.js', "          .then(function (r) { return r; }, function (e) { return { data: null, error: e }; });", "          .then(function (r) { return r; });")],
