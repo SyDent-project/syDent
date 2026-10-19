@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	Version     = "1.2.3"
+	Version     = "1.3.0"
 	UIPort      = "4816"
 	DefaultAPI  = "https://nxkalpjrqvpglphmiuui.supabase.co/functions/v1/bridge"
 	PollEvery   = 3 * time.Second
@@ -121,6 +121,12 @@ func main() {
 	}
 	b.info("تشغيل SyDent Bridge v" + Version)
 
+	// v1.3.0: run from anywhere (Downloads) ⇒ install into %LOCALAPPDATA% and hand over to the installed copy
+	if selfInstall() {
+		b.info("ثُبّت البرنامج في " + installDir())
+		return
+	}
+
 	ln, err := net.Listen("tcp", "127.0.0.1:"+UIPort)
 	if err != nil {
 		// نسخةٌ أخرى تعمل: نفتح واجهتها ونخرج
@@ -138,7 +144,8 @@ func main() {
 	go b.pollLoop()
 	go b.scanLoop()
 	if b.cfg.DeviceID == "" {
-		openBrowser("http://127.0.0.1:" + UIPort + "/")
+		// v1.3.0: SyDent's settings page pairs this computer by itself (no code to type)
+		openBrowser(SiteURL + "/settings.html#bridge-link")
 	}
 	srv := &http.Server{Handler: b.routes(), ReadHeaderTimeout: 5 * time.Second}
 	if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -608,13 +615,14 @@ func autostartEnabled() bool {
 	autoAt = time.Now()
 	return autoVal
 }
-func setAutostart(on bool) error {
+func setAutostart(on bool) error { return setAutostartPath(on, exePath()) }
+func setAutostartPath(on bool, path string) error {
 	if runtime.GOOS != "windows" {
 		return errors.New("التشغيلُ التلقائي خاصٌّ بويندوز")
 	}
 	var c *exec.Cmd
 	if on {
-		c = exec.Command("schtasks", "/Create", "/F", "/TN", "SyDentBridge", "/SC", "ONLOGON", "/RL", "LIMITED", "/TR", `"`+exePath()+`"`)
+		c = exec.Command("schtasks", "/Create", "/F", "/TN", "SyDentBridge", "/SC", "ONLOGON", "/RL", "LIMITED", "/TR", `"`+path+`"`)
 	} else {
 		c = exec.Command("schtasks", "/Delete", "/F", "/TN", "SyDentBridge")
 	}
@@ -692,6 +700,7 @@ func suggestDirs() []string {
 // ── الواجهةُ المحلية ─────────────────────────────────────────────
 func (b *Bridge) routes() http.Handler {
 	mux := http.NewServeMux()
+	b.linkRoutes(mux) // v1.3.0: the only endpoints a web page (SyDent's own origin) may call
 	guard := func(h http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			// الواجهةُ محليةٌ فقط: لا طلباتٍ من صفحاتٍ أخرى (Origin) ولا من غير 127.0.0.1

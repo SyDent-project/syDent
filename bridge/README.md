@@ -23,7 +23,7 @@ gofmt -l . && go vet ./... && GOOS=windows GOARCH=386 go vet ./... && go test ./
 GOOS=windows GOARCH=386 go build -trimpath -ldflags "-s -w -H=windowsgui -buildid=" -o SyDentBridge.exe .
 ```
 (32-bit منذ 1.2.0 — يعمل على ويندوز 64-bit ويحمّل تعريفات TWAIN الـ32-bit.)
-الحزمةُ المنشورة: `downloads/SyDentBridge-<version>.zip` = `SyDentBridge.exe` + `install.bat` (نسخٌ إلى `%LOCALAPPDATA%\SyDent Bridge` + مهمةُ تشغيلٍ عند الدخول + تشغيل) + `اقرأني.txt`.
+الحزمةُ المنشورة (منذ 1.3.0): `downloads/SyDentBridge-<version>.exe` — ملفٌّ واحد يثبّت نفسه: يُنسخ إلى `%LOCALAPPDATA%\SyDent Bridge` · مهمةُ تشغيلٍ عند الدخول · يشغّل النسخة المثبّتة ويخرج (ويطلب من نسخةٍ قديمة تعمل أن تُغلق أولاً). عند أول تشغيلٍ بلا اقتران يفتح `https://www.sydent.app/settings.html#bridge-link` فتربطه الصفحةُ بنفسها عبر `/link/state` و`/link/pair` (لأصلَي SyDent وحدهما · CORS + Private Network Access · يُرفض الاقترانُ وهو مقترن). `install.bat` و`README-user.txt` باقيان للنسخ اليدوي.
 **غير موقَّع بعد** (شهادةُ توقيع البرمجيات مؤجَّلة بقرار المالك 16/10/2026 — تُضاف لاحقاً)؛ ويندوز يُظهر «ناشر غير معروف» ⇒ «مزيد من المعلومات» ⇒ «تشغيل على أي حال».
 
 ## الاختبار
@@ -35,7 +35,8 @@ GOOS=windows GOARCH=386 go build -trimpath -ldflags "-s -w -H=windowsgui -buildi
 ## الإصدارات
 | الإصدار | الملف | SHA-256 (zip) | SHA-256 (exe) |
 |---|---|---|---|
-| 1.2.3 | `downloads/SyDentBridge-1.2.3.zip` | `3b86bcb8bd52390a11b2edfec8d152d546e2b579f75db4661c2fafdf3537e1c6` | `a0150b403584c840e5547cff101afca25ef65c0610f35a70d5fcefe57f9f003b` |
+| 1.3.0 | `downloads/SyDentBridge-1.3.0.exe` | `f6a07048e2a24170268f79c9abb19ea75eca9d663dd0735caf6127df54252f1a` | `f6a07048e2a24170268f79c9abb19ea75eca9d663dd0735caf6127df54252f1a` |
+| 1.2.3 | (zip with install.bat — replaced by the self-installing 1.3.0 exe) | `3b86bcb8bd52390a11b2edfec8d152d546e2b579f75db4661c2fafdf3537e1c6` | `a0150b403584c840e5547cff101afca25ef65c0610f35a70d5fcefe57f9f003b` |
 | 1.2.2 | (upstream build — pointed at the previous owner's Supabase project; replaced by 1.2.3) | `3e06270d3955304e6beafc9bc70028240b3ea2821a824cc5daaaf9f5bb4d18d9` | `42c48b6049fccddd9abce556ecc19d084993a88124e4d4b2da7c36ff9a1f08b2` |
 | 1.2.1 | (استُبدلت بـ1.2.2 — مراجعةُ المالك: `runtime.KeepAlive` للمخازن الممرَّرة إلى DSM_Entry/Win32 كـuintptr، وأقنعةُ BITFIELDS داخل ترويسات V4/V5) | `c7d46480329dae5a906da28021fc13be1b30f0c9e6764db3d1b885a0e767d304` | `c9293e6c2051d2785f8fb8d47a77bdbf4556e14ccff99cff69e735c2678647ba` |
 | 1.2.0 | (استُبدلت بـ1.2.1: بطاقةُ الاقتران كانت تُعاد رسمُها كل ثانيتين فتمسح الرمزَ أثناء كتابته — السببُ الفعلي لتعذّر الاقتران عند المالك؛ + زرُّ «اختبار الاتصال بالخادم») | `c45d2202eef526668aab3f5ea820128370814cbad63ca121b25f9a64e63f9c08` | `029d5135fa46aef632c878f30225ad636c8ef3fb0fbc4b6b7e1e5610328a0884` |
