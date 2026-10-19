@@ -26,7 +26,7 @@
 button:active:not(:disabled) { transform: scale(.97); }
 button:disabled { opacity: .6; cursor: wait; }
 /* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
-html[data-sub-level="read"] :is([onsubmit*="saveProfile("] [type="submit"],[onclick*="saveLicenseNo("],[onclick*="applyDerivedClinicName("],[onclick*="keepCustomClinicName("],[onsubmit*="saveClinicIdentity("] [type="submit"],[onsubmit*="saveMultiCurrency("] [type="submit"],[onsubmit*="saveProductionGoal("] [type="submit"],[onsubmit*="saveAppointmentSettings("] [type="submit"],[onclick*="openApptTypeModal("],[onclick*="openOperatoryModal("],[onclick*="toggleWaEnabled("],[onclick*="insertPlaceholder("],[onclick*="insertPlaceholderInto("],[onclick*="saveClinicSettings("],[onclick*="resetTemplate("],[onclick*="restorePortalMsgs("],[onclick*="saveBookingSettings("],[onclick*="saveStaffMsgPresets("],[onclick*="pfdAdd("],[onclick*="pfdRemove("],[onclick*="pfdReset("],[onclick*="savePatientFlagDefs("],[onclick*="resetStaffMsgPresets("],[onclick*="saveAiSettings("],[onclick*="runBackfill("],[onclick*="saveApptType("],[onclick*="saveOperatory("],[onclick*="duplicateApptType("],[onclick*="editApptType("],[onclick*="deleteApptType("],[onclick*="editOperatory("],[onclick*="deleteOperatory("],[onclick*="openBlockModal("],[onclick*="saveIntakeSettings("],[onclick*="brPair("],[onclick*="brRevoke("],[onclick*="savePortalSettings("]){display:none !important;}
+html[data-sub-level="read"] :is([onsubmit*="saveProfile("] [type="submit"],[onclick*="saveLicenseNo("],[onclick*="applyDerivedClinicName("],[onclick*="keepCustomClinicName("],[onsubmit*="saveClinicIdentity("] [type="submit"],[onsubmit*="saveMultiCurrency("] [type="submit"],[onsubmit*="saveProductionGoal("] [type="submit"],[onsubmit*="saveAppointmentSettings("] [type="submit"],[onclick*="openApptTypeModal("],[onclick*="openOperatoryModal("],[onclick*="toggleWaEnabled("],[onclick*="insertPlaceholder("],[onclick*="insertPlaceholderInto("],[onclick*="saveClinicSettings("],[onclick*="resetTemplate("],[onclick*="restorePortalMsgs("],[onclick*="saveBookingSettings("],[onclick*="saveStaffMsgPresets("],[onclick*="pfdAdd("],[onclick*="pfdRemove("],[onclick*="pfdReset("],[onclick*="savePatientFlagDefs("],[onclick*="resetStaffMsgPresets("],[onclick*="saveAiSettings("],[onclick*="runBackfill("],[onclick*="saveApptType("],[onclick*="saveOperatory("],[onclick*="duplicateApptType("],[onclick*="editApptType("],[onclick*="deleteApptType("],[onclick*="editOperatory("],[onclick*="deleteOperatory("],[onclick*="openBlockModal("],[onclick*="saveIntakeSettings("],[onclick*="brPair("],[onclick*="brRevoke("],[onclick*="brLinkThisPC("],[onclick*="savePortalSettings("]){display:none !important;}
 </style>
 <script>
 (function(){
@@ -430,6 +430,13 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
 .br-code-hint{font-size:12.5px;color:var(--text2);margin-top:6px;}
 .br-note{font-size:12.5px;color:var(--text2);margin-top:12px;line-height:1.7;}
 .br-dl{margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);}
+/* v1.3.0: ربطُ هذا الكمبيوتر بنقرة (بلا رمز) */
+.br-link{margin-bottom:14px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--bg2);}
+.br-link-steps{margin:8px 0 12px;padding-inline-start:20px;font-size:13px;color:var(--text2);line-height:1.8;}
+.br-link-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.br-link-st{font-size:13px;font-weight:700;margin-top:10px;}
+.br-link-st.ok{color:var(--green);} .br-link-st.bad{color:var(--red);}
+.br-manual{margin-top:12px;} .br-manual summary{cursor:pointer;font-size:13px;color:var(--text2);font-weight:700;}
 #bookingSection .bk-toggle-row { flex-direction: row; align-items: center; gap: 10px; }
 #bookingSection .bk-toggle-row label { margin: 0; cursor: pointer; font-weight: 700; color: var(--text); }
 #intakeSection .bk-toggle-row { flex-direction: row; align-items: center; gap: 10px; }   /* M177: نفسُ طقم الحجز */
@@ -1228,6 +1235,20 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
       <div class="section-title">🩻 الأجهزة — SyDent Bridge</div>
       <div class="section-sub">برنامج صغير على كمبيوتر العيادة الموصول بحساس الأشعة أو جهاز البانوراما: تختار المريض والسن بالمنصة وتضغط «التقاط من الجهاز»، فتصل الصورة إلى ملفه خلال ثوانٍ. الاقتران مرة واحدة برمزٍ يصلح 10 دقائق، ويمكن إيقاف أي جهاز بزر.</div>
       <div id="brDevices" class="br-devices"></div>
+      <!-- v1.3.0: خطوتان بدل ست — ملفٌّ واحد يثبّت نفسه، وهذه الصفحة تربط الكمبيوتر بلا رمز -->
+      <div class="br-link" id="brLink">
+        <b>ربط كمبيوتر العيادة بخطوتين</b>
+        <ol class="br-link-steps">
+          <li>من كمبيوتر العيادة الموصول بالحساس: نزّل البرنامج وافتح الملف مرة واحدة. يثبّت نفسه ويعمل تلقائياً مع كل تشغيل للكمبيوتر.</li>
+          <li>تُفتح هذه الصفحة وحدها ويُربط الكمبيوتر بعيادتك تلقائياً. إن لم يحدث ذلك، اضغط «ربط هذا الكمبيوتر الآن».</li>
+        </ol>
+        <div class="br-link-row">
+          <a class="btn btn-primary" href="/downloads/SyDentBridge-1.3.0.exe" download>⬇️ تنزيل SyDent Bridge لويندوز</a>
+          <button type="button" class="btn btn-secondary" id="brLinkBtn" onclick="brLinkThisPC()">🔗 ربط هذا الكمبيوتر الآن</button>
+        </div>
+        <div class="br-link-st" id="brLinkSt" hidden></div>
+      </div>
+      <details class="br-manual"><summary>ربط يدوي برمز (لكمبيوتر آخر)</summary>
       <div class="br-pair">
         <input type="text" id="brDeviceName" maxlength="80" placeholder="اسم الكمبيوتر (مثلاً: غرفة 1)" autocomplete="off">
         <button type="button" class="btn btn-primary" id="brPairBtn" onclick="brPair()">➕ رمز اقتران جديد</button>
@@ -1236,9 +1257,10 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
         <div class="br-code-val" id="brCodeVal" dir="ltr"></div>
         <div class="br-code-hint">أدخل هذا الرمز في برنامج SyDent Bridge على الكمبيوتر خلال <b id="brCodeTtl">10:00</b>. يصلح لمرة واحدة، وطلب رمز جديد يلغي السابق.</div>
       </div>
+      <div class="br-note">صفحة البرنامج على كمبيوتر العيادة: <span dir="ltr">http://127.0.0.1:4816</span> — منها تُدخل الرمز يدوياً وتختار مجلدات الصور.</div>
+      </details>
       <div class="br-dl">
-        <a class="btn btn-secondary" href="/downloads/SyDentBridge-1.2.3.zip" download>⬇️ تنزيل SyDent Bridge لويندوز (1.2.3)</a>
-        <div class="br-note">فكّ الملف المضغوط على كمبيوتر العيادة وشغّل <b dir="ltr">install.bat</b> (أو <b dir="ltr">SyDentBridge.exe</b> مباشرة). تُفتح صفحة محلية لإدخال رمز الاقتران واختيار مجلد حفظ صور الحساس. عند أول تشغيل قد يحذّر ويندوز «ناشر غير معروف»: اختر «مزيد من المعلومات» ثم «تشغيل على أي حال». الصور التي تصل بلا طلب مفتوح تنتظر في «📥 وارد الأجهزة» بتبويب الملفات لأي مريض. <b>الحساس بلا برنامج الشركة (TWAIN):</b> في صفحة البرنامج اضغط «اكتشاف الأجهزة» واختر الحساس وفعّل «تسليح تلقائياً»، فيصير «التقاط من الجهاز» هنا يسلّح الحساس مباشرةً. <b>للبانوراما وCBCT عبر الشبكة:</b> فعّل «استقبال DICOM» بصفحة البرنامج، ثم أدخل في إعدادات جهاز الأشعة عنوان IP الكمبيوتر والمنفذ 4242 وعنوان AE «SYDENT».</div>
+        <div class="br-note">بعد الربط يبحث البرنامج وحده عن مجلدات برامج الأشعة، ويمكن تعديلها من صفحته على <span dir="ltr">http://127.0.0.1:4816</span>. عند أول تشغيل قد يحذّر ويندوز «ناشر غير معروف»: اختر «مزيد من المعلومات» ثم «تشغيل على أي حال». الصور التي تصل بلا طلب مفتوح تنتظر في «📥 وارد الأجهزة» بتبويب الملفات لأي مريض. <b>الحساس بلا برنامج الشركة (TWAIN):</b> في صفحة البرنامج اضغط «اكتشاف الأجهزة» واختر الحساس وفعّل «تسليح تلقائياً»، فيصير «التقاط من الجهاز» هنا يسلّح الحساس مباشرةً. <b>للبانوراما وCBCT عبر الشبكة:</b> فعّل «استقبال DICOM» بصفحة البرنامج، ثم أدخل في إعدادات جهاز الأشعة عنوان IP الكمبيوتر والمنفذ 4242 وعنوان AE «SYDENT».</div>
       </div>
     </div>
 
@@ -1643,6 +1665,52 @@ async function brPair() {
     showToast(/subscription_read_only/.test(e.message || '') ? 'اشتراكك للقراءة فقط — جدّده لاقتران جهاز' : 'تعذّر إنشاء رمز الاقتران', true);
   } finally { btn.disabled = false; }
 }
+/* v1.3.0: ربطُ هذا الكمبيوتر بلا رمز — البرنامجُ المثبَّت يجيب صفحاتِ SyDent وحدها على 127.0.0.1:4816 (/link/*).
+   لا يُسأل البرنامجُ إلا بنقرة أو حين يفتح الصفحةَ بنفسه (#bridge-link) — فلا طلبَ شبكةٍ محليّة على كل كمبيوتر. */
+var BR_LOCAL = 'http://127.0.0.1:4816';
+function brLinkStatus(msg, cls) {
+  var el = document.getElementById('brLinkSt'); if (!el) return;
+  el.hidden = !msg; el.className = 'br-link-st' + (cls ? ' ' + cls : ''); el.textContent = msg || '';
+}
+async function brLocalState() {
+  var ctl = new AbortController(), t = setTimeout(function () { ctl.abort(); }, 2500);
+  try {
+    var r = await fetch(BR_LOCAL + '/link/state', { signal: ctl.signal, cache: 'no-store' });
+    return r.ok ? await r.json() : null;
+  } catch (e) { return null; } finally { clearTimeout(t); }
+}
+async function brLinkThisPC() {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  var btn = document.getElementById('brLinkBtn'); if (btn) btn.disabled = true;
+  try {
+    brLinkStatus('جارٍ البحث عن البرنامج على هذا الكمبيوتر…');
+    var st = await brLocalState();
+    if (!st) { brLinkStatus('لم أجد البرنامج على هذا الكمبيوتر — نزّله وافتح الملف مرة واحدة، ثم أعد المحاولة.', 'bad'); return; }
+    if (st.paired) { brLinkStatus('✓ هذا الكمبيوتر مربوط بالفعل (' + (st.device_name || '') + ')', 'ok'); loadBridgeDevices(); return; }
+    brLinkStatus('جارٍ الربط…');
+    var r = await window.sb.rpc('bridge_pairing_code', { p_device_name: st.device_name || '' });
+    if (r.error) throw r.error;
+    var code = String((r.data || {}).code || '');
+    var res = await fetch(BR_LOCAL + '/link/pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code }) });
+    var out = res.ok ? await res.json() : { ok: false, error: 'HTTP ' + res.status };
+    if (!out.ok) {
+      brLinkStatus(out.error === 'already_paired' ? '✓ هذا الكمبيوتر مربوط بالفعل' : ('تعذّر الربط: ' + (out.error || '')), out.error === 'already_paired' ? 'ok' : 'bad');
+      return;
+    }
+    brLinkStatus('✓ رُبط هذا الكمبيوتر (' + (st.device_name || '') + ') — الصور التي يلتقطها تصل الآن إلى ملفات المرضى', 'ok');
+    showToast('✓ رُبط كمبيوتر الأشعة');
+    if (window.logAudit) { try { window.logAudit('settings.update', { description: 'ربط جهاز Bridge تلقائياً: ' + (st.device_name || '') }); } catch (e) {} }
+    loadBridgeDevices();
+  } catch (e) {
+    brLinkStatus(/subscription_read_only/.test((e && e.message) || '') ? 'اشتراكك للقراءة فقط — جدّده لربط جهاز' : 'تعذّر الربط — أعد المحاولة', 'bad');
+  } finally { if (btn) btn.disabled = false; }
+}
+function brLinkFromHash() {
+  if (location.hash !== '#bridge-link') return;
+  var sec = document.getElementById('bridgeSection'); if (sec) sec.scrollIntoView({ block: 'start' });
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+  brLinkThisPC();
+}
 async function brRevoke(id) {
   if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
   if (!await SyDialog.confirm({ title: 'إيقاف الجهاز', message: 'يتوقف هذا الكمبيوتر عن إرسال الصور فوراً، والإيقاف نهائي (الاقتران من جديد يعيده). متابعة؟', danger: true, confirmText: 'إيقاف' })) return;
@@ -2043,6 +2111,7 @@ function stgApplyNameFields(nm) {
   await loadIntakeSettings();
   await loadPortalSettings();   /* M180 */
   loadBridgeDevices();          /* M194 — ثانويّ، لا يؤخّر الصفحة */
+  brLinkFromHash();             /* v1.3.0: البرنامجُ فتح الصفحة بنفسه ⇒ نربطه بلا رمز */
   await loadAiSettings();
   // Bug #2: auto-scan for orphaned payment splits (fault-tolerant)
   await scanOrphanedPayments();

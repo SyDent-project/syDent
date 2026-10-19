@@ -64,19 +64,23 @@ function suite(F) {
   ok((F['bridge/twain_windows.go'].match(/runtime\.KeepAlive\(/g) || []).length >= 7 && /if comp == 3 && hdr < 52 \{/.test(TW) && /BITMAPV4HEADER/.test(TWT), 'twain: buffers handed to Win32 as uintptr are kept alive across the call; BITFIELDS masks located per header version (v1.2.2)');
   ok(/GOOS=windows GOARCH=386 go build/.test(R) && /pRtlMoveMemory/.test(F['bridge/twain_windows.go']) && /syscall\.LoadDLL\(n\)/.test(F['bridge/twain_windows.go']), 'twain: 32-bit build documented; Windows memory copied via RtlMoveMemory (vet-clean); DSM DLL loaded at runtime only');
   /* (٤) الحزمة */
-  const m = R.match(/\| (\d+\.\d+\.\d+) \| `downloads\/(SyDentBridge-[\d.]+\.zip)` \| `([0-9a-f]{64})` \| `([0-9a-f]{64})` \|/);
-  ok(!!m && m && m[1] === G.match(/Version     = "([\d.]+)"/)[1] && m[2] === 'SyDentBridge-' + m[1] + '.zip', 'release: the first README table row (current) matches the binary version constant and the zip name');
+  const m = R.match(/\| (\d+\.\d+\.\d+) \| `downloads\/(SyDentBridge-[\d.]+\.exe)` \| `([0-9a-f]{64})` \| `([0-9a-f]{64})` \|/);
+  ok(!!m && m && m[1] === G.match(/Version     = "([\d.]+)"/)[1] && m[2] === 'SyDentBridge-' + m[1] + '.exe', 'release: the first README table row (current) matches the binary version constant and the exe name');
   ok(/if hh := strings\.ToLower\(r\.Host\); hh != "127\.0\.0\.1:"\+UIPort && hh != "localhost:"\+UIPort/.test(G), 'agent UI: Host header checked (DNS rebinding)');
   if (m) {
     const zipPath = path.join(ROOT, 'downloads', m[2]);
-    ok(fs.existsSync(zipPath) && crypto.createHash('sha256').update(fs.readFileSync(zipPath)).digest('hex') === m[3], 'release: the published zip exists and its SHA-256 matches the README');
-    ok(new RegExp('href="/downloads/' + m[2].replace('.', '\\.') + '" download').test(F['settings.html']), 'settings: the download link points at the published zip');
+    ok(fs.existsSync(zipPath) && crypto.createHash('sha256').update(fs.readFileSync(zipPath)).digest('hex') === m[3], 'release: the published exe exists and its SHA-256 matches the README');
+    ok(new RegExp('href="/downloads/' + m[2].replace('.', '\\.') + '" download').test(F['settings.html']), 'settings: the download link points at the published exe');
   }
   ok(/if \(url\.pathname\.indexOf\('\/downloads\/'\) === 0\) return;/.test(F['sw.js']), 'service worker: /downloads/ passes straight to the network');
-  ok(/schtasks \/Create \/F \/TN SyDentBridge \/SC ONLOGON/.test(F['bridge/install.bat']) && /copy \/Y "%~dp0SyDentBridge\.exe"/.test(F['bridge/install.bat']), 'installer: copies the exe to the user profile and registers the logon task');
+  const L = F['bridge/link.go'];
+  ok(/if selfInstall\(\) \{/.test(G) && /setAutostartPath\(true, target\)/.test(L) && /quitRunning\(\)/.test(L) && /strings\.EqualFold\(filepath\.Clean\(filepath\.Dir\(me\)\), filepath\.Clean\(dest\)\)/.test(L), 'installer (1.3.0): the exe installs itself into %LOCALAPPDATA%, registers the logon task, replaces a running copy, and runs normally once installed');
+  ok(/var linkOrigins = map\[string\]bool\{"https:\/\/www\.sydent\.app": true, "https:\/\/sydent\.app": true\}/.test(L) && /if !linkOrigins\[o\] \{/.test(L) && /Access-Control-Allow-Private-Network/.test(L), 'link: only SyDent origins may call /link/* (CORS + Private Network Access preflight)');
+  ok(/if paired \{\n\t\t\twriteJSON\(w, map\[string\]any\{"ok": false, "error": "already_paired"\}\)/.test(L), 'link: a page cannot re-pair an already paired computer');
+  ok(/openBrowser\(SiteURL \+ "\/settings\.html#bridge-link"\)/.test(G) && /brLinkFromHash\(\);/.test(F['settings.html']) && /http:\/\/127\.0\.0\.1:4816/.test(F['vercel.json']), 'link: an unpaired start opens SyDent settings, which pairs it; the CSP allows the local call');
 }
 
-const FILES = ['bridge/main.go', 'bridge/ui.go', 'bridge/dicom.go', 'bridge/exec_windows.go', 'bridge/twain.go', 'bridge/twain_worker.go', 'bridge/twain_windows.go', 'bridge/twain_test.go', 'bridge/README.md', 'bridge/install.bat', 'settings.html', 'sw.js'];
+const FILES = ['bridge/main.go', 'bridge/link.go', 'vercel.json', 'bridge/ui.go', 'bridge/dicom.go', 'bridge/exec_windows.go', 'bridge/twain.go', 'bridge/twain_worker.go', 'bridge/twain_windows.go', 'bridge/twain_test.go', 'bridge/README.md', 'bridge/install.bat', 'settings.html', 'sw.js'];
 const base = {}; FILES.forEach(f => { base[f] = read(f); });
 const rep = (f, a, b) => F => Object.assign({}, F, { [f]: F[f].replace(a, b) });
 const MUTANTS = [
@@ -88,7 +92,9 @@ const MUTANTS = [
   ['UI open to the network', rep('bridge/main.go', 'net.Listen("tcp", "127.0.0.1:"+UIPort)', 'net.Listen("tcp", ":"+UIPort)')],
   ['foreign origin accepted', rep('bridge/main.go', 'if o := r.Header.Get("Origin"); o != "" && !strings.HasPrefix(o, "http://127.0.0.1:"+UIPort) && !strings.HasPrefix(o, "http://localhost:"+UIPort) {\n\t\t\t\thttp.Error(w, "forbidden", 403)\n\t\t\t\treturn\n\t\t\t}\n', '')],
   ['DICM not checked', rep('bridge/main.go', 'if mime == "application/dicom" && !(len(data) > 132 && string(data[128:132]) == "DICM") {', 'if false {')],
-  ['zip hash drifted', rep('bridge/README.md', '3b86bcb8bd52390a11b2edfec8d152d546e2b579f75db4661c2fafdf3537e1c6', '0000000000000000000000000000000000000000000000000000000000000000')],
+  ['any origin may pair', rep('bridge/link.go', 'if !linkOrigins[o] {', 'if false {')],
+  ['re-pair allowed', rep('bridge/link.go', 'if paired {\n\t\t\twriteJSON(w, map[string]any{"ok": false, "error": "already_paired"})', 'if false {\n\t\t\twriteJSON(w, map[string]any{"ok": false, "error": "already_paired"})')],
+  ['exe hash drifted', rep('bridge/README.md', 'f6a07048e2a24170268f79c9abb19ea75eca9d663dd0735caf6127df54252f1a', '0000000000000000000000000000000000000000000000000000000000000000')],
   ['source left enabled on error', rep('bridge/twain.go', '\tdefer disable()\n', '')],
   ['sensor armed while busy', rep('bridge/twain_worker.go', 'if fresh != nil && !busy {', 'if fresh != nil {')],
   ['pairing card wiped while typing', rep('bridge/ui.go', "if(!typing)document.getElementById('cardPair').innerHTML=pairHTML;", "document.getElementById('cardPair').innerHTML=pairHTML;")],
