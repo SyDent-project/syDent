@@ -10,7 +10,7 @@ if (first < 0) throw new Error('لا نوافذ بـpatient-profile.html');
 const end = html.indexOf('<script', first);
 const modals = html.slice(first, end);
 const ids = [...modals.matchAll(/<div class="modal-overlay[^"]*" id="([^"]+)"/g)].map(m => m[1]);
-if (ids.length !== 38) throw new Error('عدد النوافذ تغيّر: ' + ids.length + ' (المنتظَر 38) — حدّث المثبت');   /* v635: +xrUpModal (M192) · v637: +xrGalModal · v642: +xrCamModal */
+if (ids.length !== 39) throw new Error('عدد النوافذ تغيّر: ' + ids.length + ' (المنتظَر 39) — حدّث المثبت');   /* v635: +xrUpModal (M192) · v637: +xrGalModal · v642: +xrCamModal · v643: +xrInboxModal */
 const sb = R('sy-modal.js');
 const kit = sb.slice(sb.indexOf('/* SYDENT_MODAL_KIT_START'));
 const stubs = `<script>

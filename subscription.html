@@ -14,10 +14,10 @@
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <title>SyDent — الاشتراك</title>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261016a"></script>
+<script src="theme.js?v=20261019c"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261016a"></script>
-<link rel="stylesheet" href="theme.css?v=20261016a">
+<script src="supabase-init.js?v=20261019c"></script>
+<link rel="stylesheet" href="theme.css?v=20261019c">
 <!-- ── Cloudflare Turnstile (CAPTCHA) — M142: لإعادة التحقق قبل حذف الحساب (نسخةٌ حرفية
      من الإعدادات؛ check-mirrors يطابقها). -->
 <script>
@@ -387,8 +387,8 @@ button:disabled { opacity: .6; cursor: wait; }
 </head>
 <body>
 
-<script src="sy-modal.js?v=20261016a"></script>
-<script src="sidebar.js?v=20261016a"></script>
+<script src="sy-modal.js?v=20261019c"></script>
+<script src="sidebar.js?v=20261019c"></script>
 
 <div class="main" id="sbMainContent">
 
@@ -1380,7 +1380,7 @@ button:disabled { opacity: .6; cursor: wait; }
       // hand-off, not part of the write. With no public number configured we
       // simply skip it rather than opening a wa.me link to a dead number.
       if (ST.support) {
-        window.open('https://wa.me/' + ST.support + '?text=' + encodeURIComponent(msg), '_blank', 'noopener');
+        window.SyDentWA.open('https://wa.me/' + ST.support + '?text=' + encodeURIComponent(msg));   /* v651 */
       }
 
       ST.inFlight = false;

@@ -45,6 +45,22 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 
 
 
+CREATE OR REPLACE FUNCTION "public"."_bridge_devices_lock"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF auth.uid() IS NULL OR current_setting('sydent.bridge', true) = '1' THEN RETURN NEW; END IF;
+  NEW.key_hash := OLD.key_hash; NEW.owner_id := OLD.owner_id; NEW.created_at := OLD.created_at;
+  NEW.last_seen_at := OLD.last_seen_at; NEW.version := OLD.version; NEW.mode := OLD.mode;
+  IF OLD.revoked_at IS NOT NULL THEN NEW.revoked_at := OLD.revoked_at; END IF;
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION "public"."_bridge_devices_lock"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."_intake_clinic_open"("p_clinic" "uuid") RETURNS boolean
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -89,6 +105,117 @@ END $$;
 
 
 ALTER FUNCTION "public"."_login_resolve_bump"("p_bucket" "text", "p_limit" integer, "p_window" interval) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."_patient_documents_share_stamp"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF NEW.portal_shared AND (TG_OP = 'INSERT' OR OLD.portal_shared IS DISTINCT FROM true) THEN NEW.portal_shared_at := now();
+  ELSIF NOT NEW.portal_shared THEN NEW.portal_shared_at := NULL;
+  ELSE NEW.portal_shared_at := OLD.portal_shared_at; END IF;
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION "public"."_patient_documents_share_stamp"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."_pf_cap_bytes"("p_uid" "uuid") RETURNS bigint
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  SELECT CASE WHEN EXISTS (SELECT 1 FROM public.platform_admins pa WHERE pa.user_id = p_uid) THEN NULL
+              WHEN jsonb_typeof(sp.entitlements->'storage_mb') = 'number' AND (sp.entitlements->>'storage_mb')::numeric > 0
+              THEN floor((sp.entitlements->>'storage_mb')::numeric * 1048576)::bigint
+              ELSE NULL END
+    FROM (SELECT 1) AS one
+    LEFT JOIN public.trial_requests tr ON tr.user_id = p_uid
+    LEFT JOIN public.subscription_plans sp ON sp.code = COALESCE(tr.plan, 'trial');
+$$;
+
+
+ALTER FUNCTION "public"."_pf_cap_bytes"("p_uid" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."_pf_used_bytes"("p_uid" "uuid") RETURNS bigint
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'storage'
+    AS $$
+  SELECT COALESCE(sum(COALESCE((o.metadata->>'size')::bigint, 0)), 0)::bigint
+    FROM storage.objects o
+   WHERE o.bucket_id = 'patient-files'
+     AND o.name LIKE (p_uid::text || '/%')
+     AND o.archived_at IS NULL AND COALESCE(o.is_delete_marker, false) = false;
+$$;
+
+
+ALTER FUNCTION "public"."_pf_used_bytes"("p_uid" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."_portal_free_slots"("p_owner" "uuid", "p_appt" "uuid", "p_dur" integer, "p_from" "date", "p_to" "date") RETURNS TABLE("d" "date", "t" time without time zone)
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $_$
+  WITH info AS (SELECT * FROM public.booking_clinic_info(p_owner)),
+  wd AS (SELECT ARRAY(SELECT btrim(x)::int FROM info i, unnest(string_to_array(COALESCE(i.work_days, ''), ',')) x
+                       WHERE btrim(x) ~ '^[0-6]$') AS days),
+  days AS (
+    SELECT g::date AS d FROM generate_series(p_from, p_to, interval '1 day') g, wd
+     WHERE EXTRACT(DOW FROM g)::int = ANY (wd.days)
+  ),
+  slots AS (
+    SELECT dd.d, (i.work_start + (n * i.slot_minutes) * interval '1 minute')::time AS t
+      FROM days dd CROSS JOIN info i
+      CROSS JOIN LATERAL generate_series(0, GREATEST(0, (EXTRACT(EPOCH FROM (i.work_end - i.work_start)) / 60 / i.slot_minutes)::int - 1)) AS n
+  ),
+  fits AS (
+    SELECT s.d, s.t FROM slots s CROSS JOIN info i
+     WHERE s.t::interval + make_interval(mins => p_dur) <= i.work_end::interval
+       AND ((s.d + s.t) AT TIME ZONE 'Asia/Damascus') > now() + interval '2 hours'
+  ),
+  busy AS (
+    SELECT a.date AS d, a.time AS t, COALESCE(a.duration, 30) AS dur FROM public.appointments a
+     WHERE a.doctor_id = p_owner AND a.id <> p_appt AND a.is_planned IS NOT TRUE AND a.date BETWEEN p_from AND p_to
+       AND a.time IS NOT NULL AND COALESCE(a.status, 'pending') NOT IN ('cancelled', 'broken', 'no_show')
+    UNION ALL
+    SELECT br.requested_date, br.requested_time, COALESCE(br.duration, 30) FROM public.booking_requests br
+     WHERE br.clinic_id = p_owner AND br.status = 'pending' AND br.requested_date BETWEEN p_from AND p_to
+    UNION ALL
+    SELECT r.requested_date, r.requested_time, COALESCE(x.duration, 30) FROM public.portal_requests r
+      LEFT JOIN public.appointments x ON x.id = r.appointment_id
+     WHERE r.owner_id = p_owner AND r.status = 'new' AND r.applied = false AND r.kind = 'change'
+       AND r.requested_date BETWEEN p_from AND p_to AND r.requested_time IS NOT NULL
+       AND r.appointment_id IS DISTINCT FROM p_appt
+    UNION ALL
+    SELECT b.d, b.t, b.dur FROM public.booking_blocked_slots(p_owner, p_from, p_to) b
+  )
+  SELECT f.d, f.t FROM fits f
+   WHERE NOT EXISTS (SELECT 1 FROM busy b WHERE b.d = f.d AND b.t IS NOT NULL
+                       AND b.t::interval < f.t::interval + make_interval(mins => p_dur)
+                       AND f.t::interval < b.t::interval + make_interval(mins => b.dur))
+     AND NOT EXISTS (SELECT 1 FROM public.appointments c WHERE c.id = p_appt AND c.date = f.d AND c.time = f.t)
+   ORDER BY 1, 2;
+$_$;
+
+
+ALTER FUNCTION "public"."_portal_free_slots"("p_owner" "uuid", "p_appt" "uuid", "p_dur" integer, "p_from" "date", "p_to" "date") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."_portal_requests_close"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  UPDATE public.portal_requests
+     SET status = 'handled', handled_at = now()
+   WHERE appointment_id = NEW.id AND owner_id = NEW.doctor_id AND status = 'new' AND applied = false;
+  RETURN NEW;
+END; $$;
+
+
+ALTER FUNCTION "public"."_portal_requests_close"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."_sub_guard_table"("p_table" "regclass", "p_read_open" boolean DEFAULT false) RETURNS "void"
@@ -281,7 +408,9 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'booking_disabled'; END IF;
 
   v_name  := btrim(COALESCE(p_name, ''));
-  v_phone := regexp_replace(COALESCE(p_phone,''), '[^0-9+]', '', 'g');
+  -- M184 (v622): Arabic-Indic (٠-٩) and Persian (۰-۹) digits → Latin before stripping; an Arabic keyboard's default
+  -- digits were stripped as non-digits ⇒ bad_phone, so the patient could not book.
+  v_phone := regexp_replace(translate(COALESCE(p_phone,''), '٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', '01234567890123456789'), '[^0-9+]', '', 'g');
   IF char_length(v_name) < 2 OR char_length(v_name) > 80 THEN RAISE EXCEPTION 'bad_name'; END IF;
   IF v_phone !~ '^\+?[0-9]{8,15}$' THEN RAISE EXCEPTION 'bad_phone'; END IF;
   IF p_note IS NOT NULL AND char_length(p_note) > 300 THEN RAISE EXCEPTION 'bad_note'; END IF;
@@ -369,6 +498,183 @@ END; $_$;
 
 
 ALTER FUNCTION "public"."booking_create_request"("p_clinic" "uuid", "p_name" "text", "p_phone" "text", "p_date" "date", "p_time" time without time zone, "p_note" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."bridge_auth"("p_device" "uuid", "p_key_hash" "text", "p_version" "text" DEFAULT NULL::"text") RETURNS "uuid"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $_$
+DECLARE v_owner uuid;
+BEGIN
+  IF p_device IS NULL OR p_key_hash !~ '^[0-9a-f]{64}$' THEN RETURN NULL; END IF;
+  PERFORM set_config('sydent.bridge', '1', true);
+  UPDATE public.bridge_devices SET last_seen_at = now(), version = COALESCE(left(p_version, 40), version)
+   WHERE id = p_device AND key_hash = p_key_hash AND revoked_at IS NULL RETURNING owner_id INTO v_owner;
+  RETURN v_owner;
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."bridge_auth"("p_device" "uuid", "p_key_hash" "text", "p_version" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."bridge_complete"("p_owner" "uuid", "p_device" "uuid", "p_request" "uuid", "p_path" "text", "p_name" "text", "p_mime" "text", "p_size" bigint) RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE v_req RECORD; v_doc uuid; v_inbox uuid;
+BEGIN
+  PERFORM set_config('sydent.bridge', '1', true);
+  IF public.tenant_access_level(p_owner) <> 'full' THEN RETURN jsonb_build_object('ok', false, 'reason', 'subscription'); END IF;
+  IF p_path IS NULL OR p_path NOT LIKE (p_owner::text || '/%') THEN RETURN jsonb_build_object('ok', false, 'reason', 'path'); END IF;
+  IF p_mime NOT IN ('image/jpeg', 'image/png', 'image/webp', 'application/dicom') THEN RETURN jsonb_build_object('ok', false, 'reason', 'type'); END IF;
+  IF p_request IS NOT NULL THEN
+    SELECT * INTO v_req FROM public.capture_requests WHERE id = p_request AND owner_id = p_owner AND status = 'open' FOR UPDATE;
+    IF FOUND AND p_path LIKE (p_owner::text || '/' || v_req.patient_id::text || '/%') THEN
+      INSERT INTO public.patient_documents(owner_id, patient_id, storage_path, file_name, mime_type, size_bytes, category, uploaded_by,
+                                           teeth, xray_type, taken_at, source, session_id, note)
+        VALUES (p_owner, v_req.patient_id, p_path, left(COALESCE(p_name, 'capture'), 200), p_mime, p_size, v_req.category, p_owner,
+                v_req.teeth, v_req.xray_type, (now() AT TIME ZONE 'Asia/Damascus')::date, 'clinic', v_req.session_id, 'التقاطٌ من الجهاز (SyDent Bridge)')
+        RETURNING id INTO v_doc;
+      UPDATE public.capture_requests SET status = 'done', done_at = now(), document_id = v_doc, device_id = COALESCE(device_id, p_device) WHERE id = v_req.id;
+      RETURN jsonb_build_object('ok', true, 'document_id', v_doc, 'patient_id', v_req.patient_id);
+    END IF;
+  END IF;
+  IF p_path NOT LIKE (p_owner::text || '/_inbox/%') THEN RETURN jsonb_build_object('ok', false, 'reason', 'path'); END IF;
+  INSERT INTO public.bridge_inbox(owner_id, device_id, storage_path, file_name, mime_type, size_bytes)
+    VALUES (p_owner, p_device, p_path, left(COALESCE(p_name, 'capture'), 200), p_mime, p_size) RETURNING id INTO v_inbox;
+  RETURN jsonb_build_object('ok', true, 'inbox_id', v_inbox);
+END;
+$$;
+
+
+ALTER FUNCTION "public"."bridge_complete"("p_owner" "uuid", "p_device" "uuid", "p_request" "uuid", "p_path" "text", "p_name" "text", "p_mime" "text", "p_size" bigint) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."bridge_open_requests"("p_owner" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  PERFORM set_config('sydent.bridge', '1', true);
+  UPDATE public.capture_requests SET status = 'expired' WHERE owner_id = p_owner AND status = 'open' AND expires_at < now();
+  RETURN COALESCE((SELECT jsonb_agg(jsonb_build_object('id', r.id, 'patient_id', r.patient_id, 'patient_name', p.name, 'teeth', to_jsonb(r.teeth),
+                                   'category', r.category, 'xray_type', r.xray_type, 'device_id', r.device_id, 'created_at', r.created_at, 'expires_at', r.expires_at)
+                                   ORDER BY r.created_at)
+                     FROM public.capture_requests r JOIN public.patients p ON p.id = r.patient_id
+                    WHERE r.owner_id = p_owner AND r.status = 'open'), '[]'::jsonb);
+END;
+$$;
+
+
+ALTER FUNCTION "public"."bridge_open_requests"("p_owner" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."bridge_pair"("p_code" "text", "p_key_hash" "text", "p_version" "text", "p_mode" "text") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $_$
+DECLARE v RECORD; v_id uuid;
+BEGIN
+  IF p_code IS NULL OR upper(p_code) !~ '^[A-HJ-NP-Z2-9]{8}$' OR p_key_hash !~ '^[0-9a-f]{64}$' THEN RETURN jsonb_build_object('ok', false, 'reason', 'bad_code'); END IF;
+  SELECT * INTO v FROM public.bridge_pairings WHERE code = upper(p_code) FOR UPDATE;
+  IF NOT FOUND OR v.used_at IS NOT NULL OR v.expires_at < now() THEN RETURN jsonb_build_object('ok', false, 'reason', 'bad_code'); END IF;
+  IF public.tenant_access_level(v.owner_id) <> 'full' THEN RETURN jsonb_build_object('ok', false, 'reason', 'subscription'); END IF;
+  INSERT INTO public.bridge_devices(owner_id, name, key_hash, version, mode)
+    VALUES (v.owner_id, v.device_name, p_key_hash, left(p_version, 40), CASE WHEN p_mode IN ('folder','twain','dicom','manual') THEN p_mode ELSE 'folder' END)
+    RETURNING id INTO v_id;
+  UPDATE public.bridge_pairings SET used_at = now() WHERE code = v.code;
+  RETURN jsonb_build_object('ok', true, 'device_id', v_id, 'owner_id', v.owner_id, 'device_name', v.device_name);
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."bridge_pair"("p_code" "text", "p_key_hash" "text", "p_version" "text", "p_mode" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."bridge_pairing_code"("p_device_name" "text") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE v_uid uuid := auth.uid(); v_code text; v_alpha text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; i int; v_name text; v_exp timestamptz;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'auth required' USING ERRCODE = '42501'; END IF;
+  IF public.tenant_access_level(v_uid) <> 'full' THEN RAISE EXCEPTION 'subscription_read_only' USING ERRCODE = '42501'; END IF;
+  v_name := left(btrim(COALESCE(p_device_name, '')), 80);
+  IF v_name = '' THEN v_name := 'كمبيوتر العيادة'; END IF;
+  DELETE FROM public.bridge_pairings WHERE owner_id = v_uid;
+  LOOP
+    v_code := '';
+    FOR i IN 1..8 LOOP v_code := v_code || substr(v_alpha, 1 + floor(random() * 32)::int, 1); END LOOP;
+    EXIT WHEN NOT EXISTS (SELECT 1 FROM public.bridge_pairings WHERE code = v_code);
+  END LOOP;
+  INSERT INTO public.bridge_pairings(code, owner_id, device_name) VALUES (v_code, v_uid, v_name) RETURNING expires_at INTO v_exp;
+  RETURN jsonb_build_object('code', v_code, 'expires_at', v_exp, 'device_name', v_name);
+END;
+$$;
+
+
+ALTER FUNCTION "public"."bridge_pairing_code"("p_device_name" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."bridge_upload_path"("p_owner" "uuid", "p_request" "uuid", "p_mime" "text", "p_name" "text") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE v_req RECORD; v_used bigint; v_cap bigint; v_clean text;
+BEGIN
+  IF public.tenant_access_level(p_owner) <> 'full' THEN RETURN jsonb_build_object('ok', false, 'reason', 'subscription'); END IF;
+  IF p_mime NOT IN ('image/jpeg', 'image/png', 'image/webp', 'application/dicom') THEN RETURN jsonb_build_object('ok', false, 'reason', 'type'); END IF;
+  v_used := public._pf_used_bytes(p_owner); v_cap := public._pf_cap_bytes(p_owner);
+  IF v_cap IS NOT NULL AND v_used >= v_cap THEN RETURN jsonb_build_object('ok', false, 'reason', 'quota'); END IF;
+  v_clean := regexp_replace(COALESCE(p_name, 'capture'), '[^A-Za-z0-9._-]+', '-', 'g');
+  v_clean := left(btrim(v_clean, '-.'), 80); IF v_clean = '' THEN v_clean := 'capture'; END IF;
+  IF p_request IS NOT NULL THEN
+    SELECT * INTO v_req FROM public.capture_requests WHERE id = p_request AND owner_id = p_owner AND status = 'open' AND expires_at >= now();
+    IF FOUND THEN RETURN jsonb_build_object('ok', true, 'path', p_owner::text || '/' || v_req.patient_id::text || '/' || gen_random_uuid()::text || '-' || v_clean, 'request_id', v_req.id); END IF;
+  END IF;
+  RETURN jsonb_build_object('ok', true, 'path', p_owner::text || '/_inbox/' || gen_random_uuid()::text || '-' || v_clean, 'request_id', NULL);
+END;
+$$;
+
+
+ALTER FUNCTION "public"."bridge_upload_path"("p_owner" "uuid", "p_request" "uuid", "p_mime" "text", "p_name" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."capture_requests_guard"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  NEW.teeth := ARRAY(SELECT DISTINCT t FROM unnest(COALESCE(NEW.teeth, '{}'::text[])) AS t WHERE t IS NOT NULL AND t <> '' ORDER BY t);
+  IF NEW.category <> 'xray' THEN NEW.xray_type := NULL; END IF;
+  IF TG_OP = 'INSERT' OR NEW.patient_id IS DISTINCT FROM OLD.patient_id OR NEW.owner_id IS DISTINCT FROM OLD.owner_id THEN
+    IF NOT EXISTS (SELECT 1 FROM public.patients p WHERE p.id = NEW.patient_id AND p.doctor_id = NEW.owner_id) THEN
+      RAISE EXCEPTION 'capture_requests: patient not owned' USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  IF NEW.session_id IS NOT NULL AND (TG_OP = 'INSERT' OR NEW.session_id IS DISTINCT FROM OLD.session_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM public.ledger_sessions s WHERE s.id = NEW.session_id AND s.doctor_id = NEW.owner_id AND s.patient_id = NEW.patient_id) THEN
+      RAISE EXCEPTION 'capture_requests: session not owned' USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  IF NEW.device_id IS NOT NULL AND (TG_OP = 'INSERT' OR NEW.device_id IS DISTINCT FROM OLD.device_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM public.bridge_devices d WHERE d.id = NEW.device_id AND d.owner_id = NEW.owner_id) THEN
+      RAISE EXCEPTION 'capture_requests: device not owned' USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  IF auth.uid() IS NOT NULL AND current_setting('sydent.bridge', true) IS DISTINCT FROM '1' THEN
+    IF TG_OP = 'INSERT' THEN NEW.status := 'open'; NEW.done_at := NULL; NEW.document_id := NULL; NEW.created_at := now(); NEW.expires_at := now() + interval '15 minutes';
+    ELSE
+      IF NEW.status NOT IN ('open', 'cancelled') OR OLD.status <> 'open' THEN NEW.status := OLD.status; END IF;
+      NEW.done_at := OLD.done_at; NEW.document_id := OLD.document_id;
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION "public"."capture_requests_guard"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."delete_my_account"() RETURNS "void"
@@ -1445,6 +1751,47 @@ $$;
 ALTER FUNCTION "public"."my_storage_object_count"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."my_storage_orphans"() RETURNS SETOF "text"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'storage'
+    AS $$
+  SELECT o.name FROM storage.objects o
+   WHERE auth.uid() IS NOT NULL
+     AND o.bucket_id = 'patient-files' AND o.name LIKE (auth.uid()::text || '/%')
+     AND o.archived_at IS NULL AND COALESCE(o.is_delete_marker, false) = false
+     AND o.created_at < now() - interval '1 hour'
+     AND NOT EXISTS (SELECT 1 FROM public.patient_documents d WHERE d.storage_path = o.name)
+     AND NOT EXISTS (SELECT 1 FROM public.bridge_inbox b WHERE b.storage_path = o.name)
+   ORDER BY o.name
+   LIMIT 1000;
+$$;
+
+
+ALTER FUNCTION "public"."my_storage_orphans"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."my_storage_usage"() RETURNS "jsonb"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'storage'
+    AS $$
+  SELECT CASE WHEN auth.uid() IS NULL THEN NULL ELSE jsonb_build_object(
+    'used_bytes', public._pf_used_bytes(auth.uid()),
+    'cap_bytes',  public._pf_cap_bytes(auth.uid()),
+    'files',      (SELECT count(*) FROM storage.objects o WHERE o.bucket_id = 'patient-files' AND o.name LIKE (auth.uid()::text || '/%')
+                     AND o.archived_at IS NULL AND COALESCE(o.is_delete_marker, false) = false),
+    'orphans',    (SELECT count(*) FROM storage.objects o WHERE o.bucket_id = 'patient-files' AND o.name LIKE (auth.uid()::text || '/%')
+                     AND o.archived_at IS NULL AND COALESCE(o.is_delete_marker, false) = false
+                     AND o.created_at < now() - interval '1 hour'
+                     AND NOT EXISTS (SELECT 1 FROM public.patient_documents d WHERE d.storage_path = o.name)
+                     AND NOT EXISTS (SELECT 1 FROM public.bridge_inbox b WHERE b.storage_path = o.name)),
+    'inbox',      (SELECT count(*) FROM public.bridge_inbox b WHERE b.owner_id = auth.uid())
+  ) END;
+$$;
+
+
+ALTER FUNCTION "public"."my_storage_usage"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."my_subscription_state"() RETURNS "jsonb"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -1549,6 +1896,53 @@ END $$;
 ALTER FUNCTION "public"."patient_documents_lab_order_guard"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."patient_documents_xray_guard"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF cardinality(COALESCE(NEW.teeth, '{}')) = 0 AND NEW.tooth_num IS NOT NULL AND NEW.tooth_num <> '' THEN
+      NEW.teeth := ARRAY[NEW.tooth_num];
+    END IF;
+  ELSIF NEW.teeth IS NOT DISTINCT FROM OLD.teeth AND NEW.tooth_num IS DISTINCT FROM OLD.tooth_num THEN
+    NEW.teeth := CASE WHEN NEW.tooth_num IS NULL OR NEW.tooth_num = '' THEN '{}'::text[] ELSE ARRAY[NEW.tooth_num] END;
+  END IF;
+  NEW.teeth := ARRAY(SELECT DISTINCT t FROM unnest(COALESCE(NEW.teeth, '{}'::text[])) AS t WHERE t IS NOT NULL AND t <> '' ORDER BY t);
+  NEW.tooth_num := NEW.teeth[1];
+  IF NEW.category IS DISTINCT FROM 'xray' THEN NEW.xray_type := NULL; END IF;
+  IF NEW.source IS DISTINCT FROM 'center' THEN NEW.source_name := NULL; END IF;
+  IF NEW.taken_at IS NOT NULL AND NEW.taken_at > (now() AT TIME ZONE 'Asia/Damascus')::date THEN
+    RAISE EXCEPTION 'xray_taken_in_future' USING ERRCODE = '22023';
+  END IF;
+
+  IF TG_OP = 'INSERT' OR NEW.patient_id IS DISTINCT FROM OLD.patient_id OR NEW.owner_id IS DISTINCT FROM OLD.owner_id
+     OR NEW.storage_path IS DISTINCT FROM OLD.storage_path THEN
+    IF NOT EXISTS (SELECT 1 FROM public.patients p WHERE p.id = NEW.patient_id AND p.doctor_id = NEW.owner_id) THEN
+      RAISE EXCEPTION 'patient_documents: patient not owned' USING ERRCODE = '42501';
+    END IF;
+    IF NEW.storage_path NOT LIKE (NEW.owner_id::text || '/' || NEW.patient_id::text || '/%') THEN
+      RAISE EXCEPTION 'patient_documents: storage path outside the patient folder' USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  IF NEW.session_id IS NOT NULL AND (TG_OP = 'INSERT' OR NEW.session_id IS DISTINCT FROM OLD.session_id OR NEW.patient_id IS DISTINCT FROM OLD.patient_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM public.ledger_sessions s WHERE s.id = NEW.session_id AND s.doctor_id = NEW.owner_id AND s.patient_id = NEW.patient_id) THEN
+      RAISE EXCEPTION 'patient_documents: session not owned' USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  IF NEW.appointment_id IS NOT NULL AND (TG_OP = 'INSERT' OR NEW.appointment_id IS DISTINCT FROM OLD.appointment_id OR NEW.patient_id IS DISTINCT FROM OLD.patient_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM public.appointments a WHERE a.id = NEW.appointment_id AND a.doctor_id = NEW.owner_id AND a.patient_id = NEW.patient_id) THEN
+      RAISE EXCEPTION 'patient_documents: appointment not owned' USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."patient_documents_xray_guard"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."patients_referrer_guard"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public'
@@ -1568,6 +1962,614 @@ END $$;
 
 
 ALTER FUNCTION "public"."patients_referrer_guard"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."pf_quota_ok"() RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  SELECT CASE WHEN auth.uid() IS NULL THEN false
+              ELSE COALESCE(public._pf_used_bytes(auth.uid()) < public._pf_cap_bytes(auth.uid()), true) END;
+$$;
+
+
+ALTER FUNCTION "public"."pf_quota_ok"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."portal_appt_change"("p_token" "text", "p_appt" "uuid", "p_kind" "text", "p_reason" "text", "p_pref" "text", "p_note" "text", "p_date" "date" DEFAULT NULL::"date", "p_time" time without time zone DEFAULT NULL::time without time zone) RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $_$
+DECLARE
+  v        RECORD;
+  a        RECORD;
+  cs       RECORD;
+  v_start  TIMESTAMPTZ;
+  v_reason TEXT;
+  v_note   TEXT;
+  v_pref   TEXT;
+  v_n      INT;
+  v_when   TEXT;
+  v_direct BOOLEAN;
+  v_body   TEXT;
+  bi       RECORD;
+  v_today  DATE := (now() AT TIME ZONE 'Asia/Damascus')::date;
+  v_rd     DATE;
+  v_rt     TIME;
+BEGIN
+  IF p_token IS NULL OR p_token !~ '^[0-9a-f]{64}$' OR p_appt IS NULL OR p_kind IS NULL OR p_kind NOT IN ('cancel', 'change') THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'unavailable');
+  END IF;
+  SELECT pp.owner_id, pp.patient_id, p.name AS patient_name INTO v
+    FROM public.patient_portals pp
+    JOIN public.patients p ON p.id = pp.patient_id AND p.doctor_id = pp.owner_id
+   WHERE pp.token = p_token AND pp.revoked_at IS NULL AND pp.expires_at >= now()
+   LIMIT 1;
+  IF NOT FOUND OR NOT public._intake_clinic_open(v.owner_id) THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'unavailable');
+  END IF;
+  SELECT COALESCE(c.portal_show_appts, true) AS show_appts, COALESCE(c.portal_allow_changes, false) AS allow_changes,
+         COALESCE(c.portal_cancel_mode, 'direct') AS cancel_mode, COALESCE(c.portal_cutoff_hours, 24) AS cutoff_hours
+    INTO cs FROM public.clinic_settings c WHERE c.owner_id = v.owner_id;
+  IF NOT FOUND OR cs.allow_changes IS DISTINCT FROM true OR cs.show_appts IS DISTINCT FROM true THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'disabled');
+  END IF;
+
+  SELECT x.id, x.status, x.confirmation_status, x.date, x.time, x.duration INTO a
+    FROM public.appointments x
+   WHERE x.id = p_appt AND x.doctor_id = v.owner_id AND x.patient_id = v.patient_id AND x.is_planned = false
+   FOR UPDATE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('ok', false, 'reason', 'not_found'); END IF;
+  IF p_kind = 'cancel' AND (a.status = 'cancelled' OR a.confirmation_status = 'cancelled_by_pt') THEN
+    RETURN jsonb_build_object('ok', true, 'reason', 'already', 'applied', true);
+  END IF;
+  IF COALESCE(a.status, 'pending') IN ('cancelled', 'completed', 'broken', 'no_show') OR a.confirmation_status = 'cancelled_by_pt' THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'not_changeable');
+  END IF;
+  v_start := (a.date + COALESCE(a.time, '00:00'::time)) AT TIME ZONE 'Asia/Damascus';
+  IF v_start - now() < make_interval(hours => cs.cutoff_hours) THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'too_late', 'cutoff_hours', cs.cutoff_hours);
+  END IF;
+  v_direct := (p_kind = 'cancel' AND cs.cancel_mode = 'direct');
+  IF NOT v_direct AND EXISTS (SELECT 1 FROM public.portal_requests r
+                               WHERE r.appointment_id = a.id AND r.kind = p_kind AND r.status = 'new' AND r.applied = false) THEN
+    RETURN jsonb_build_object('ok', true, 'reason', 'already', 'applied', false);
+  END IF;
+  SELECT count(*) INTO v_n FROM public.portal_requests r
+   WHERE r.owner_id = v.owner_id AND r.patient_id = v.patient_id AND r.created_at > now() - interval '24 hours';
+  IF v_n >= 3 THEN RETURN jsonb_build_object('ok', false, 'reason', 'rate_limited'); END IF;
+
+  -- free text: control characters out, trimmed, ≤300; empty ⇒ NULL
+  v_reason := NULLIF(left(btrim(regexp_replace(COALESCE(p_reason, ''), '[[:cntrl:]]+', ' ', 'g')), 300), '');
+  v_note   := NULLIF(left(btrim(regexp_replace(COALESCE(p_note, ''), '[[:cntrl:]]+', ' ', 'g')), 300), '');
+  -- v630: a chosen slot makes a time-of-day preference meaningless; no preference ⇒ no «يفضّل» (was «أي وقت» on NULL)
+  v_pref   := CASE WHEN p_kind = 'change' AND p_date IS NULL AND p_pref IN ('any', 'morning', 'evening') THEN p_pref END;
+  v_when   := to_char(a.date, 'DD/MM/YYYY') || COALESCE(' ' || to_char(a.time, 'HH24:MI'), '');
+
+  -- M189: a chosen slot (change only) — both or neither; re-validated against the live free slots under a
+  -- per-clinic-and-day lock, so two patients asking for one slot at the same moment cannot both get it
+  IF (p_date IS NULL) <> (p_time IS NULL) THEN RETURN jsonb_build_object('ok', false, 'reason', 'unavailable'); END IF;
+  IF p_kind = 'change' AND p_date IS NOT NULL THEN
+    SELECT * INTO bi FROM public.booking_clinic_info(v.owner_id) LIMIT 1;
+    IF NOT FOUND OR p_date < v_today OR p_date > v_today + LEAST(GREATEST(COALESCE(bi.max_days_ahead, 30), 1), 60) THEN
+      RETURN jsonb_build_object('ok', false, 'reason', 'slot_taken');
+    END IF;
+    PERFORM pg_advisory_xact_lock(hashtext('portal-slot:' || v.owner_id::text || ':' || p_date::text));
+    IF NOT EXISTS (SELECT 1 FROM public._portal_free_slots(v.owner_id, a.id, COALESCE(a.duration, bi.slot_minutes, 30), p_date, p_date) f
+                    WHERE f.d = p_date AND f.t = p_time) THEN
+      RETURN jsonb_build_object('ok', false, 'reason', 'slot_taken');
+    END IF;
+    v_rd := p_date; v_rt := p_time;
+  END IF;
+
+  IF v_direct THEN
+    UPDATE public.appointments
+       SET status = 'cancelled',
+           confirmation_status = 'cancelled_by_pt',
+           notes = concat_ws(E'\n', NULLIF(notes, ''), '[أُلغي من بوابة المريض' || COALESCE(' — السبب: ' || v_reason, '') || ']')
+     WHERE id = a.id;
+  END IF;
+
+  INSERT INTO public.portal_requests (owner_id, patient_id, appointment_id, kind, applied, reason, preference, note, appt_date, appt_time, patient_name_snapshot,
+                                      requested_date, requested_time)
+  VALUES (v.owner_id, v.patient_id, a.id, p_kind, v_direct, v_reason, v_pref, v_note, a.date, a.time, v.patient_name, v_rd, v_rt);
+
+  v_body := CASE
+    WHEN v_direct          THEN 'ألغى المريض موعده من بوابة المريض — ' || v_when
+    WHEN p_kind = 'cancel' THEN 'طلب المريض إلغاء موعده من بوابة المريض — ' || v_when
+    ELSE                        'طلب المريض تغيير موعده من بوابة المريض — ' || v_when
+                                || COALESCE(' — يطلب نقله إلى ' || to_char(v_rd, 'DD/MM/YYYY') || ' ' || to_char(v_rt, 'HH24:MI'), '')
+                                || COALESCE(' — يفضّل: ' || CASE v_pref WHEN 'morning' THEN 'صباحاً' WHEN 'evening' THEN 'مساءً' WHEN 'any' THEN 'أي وقت' END, '')
+  END || COALESCE(' — السبب: ' || v_reason, '') || COALESCE(' — ملاحظة: ' || v_note, '');
+
+  INSERT INTO public.audit_log (owner_id, employee_id, employee_name_snapshot, employee_role_snapshot, action_type, entity_type, entity_id,
+                                patient_id, patient_name_snapshot, description, old_value, new_value)
+  VALUES (v.owner_id, NULL, 'المريض (بوابة المريض)', 'patient',
+          CASE WHEN v_direct THEN 'appointment.status_change' ELSE 'appointment.portal_request' END, 'appointment', a.id,
+          v.patient_id, v.patient_name, v_body,
+          jsonb_build_object('status', a.status, 'confirmation_status', a.confirmation_status),
+          jsonb_build_object('source', 'portal', 'kind', p_kind, 'applied', v_direct)
+            || CASE WHEN v_direct THEN jsonb_build_object('status', 'cancelled', 'confirmation_status', 'cancelled_by_pt') ELSE '{}'::jsonb END);
+
+  INSERT INTO public.patient_messages (owner_id, patient_id, kind, channel, body, sent_by)
+  VALUES (v.owner_id, v.patient_id, 'portal', 'portal', v_body, 'المريض (البوابة)');
+
+  RETURN jsonb_build_object('ok', true, 'applied', v_direct, 'kind', p_kind);
+END; $_$;
+
+
+ALTER FUNCTION "public"."portal_appt_change"("p_token" "text", "p_appt" "uuid", "p_kind" "text", "p_reason" "text", "p_pref" "text", "p_note" "text", "p_date" "date", "p_time" time without time zone) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."portal_confirm"("p_token" "text", "p_appt" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $_$
+DECLARE
+  v       RECORD;
+  a       RECORD;
+  v_today DATE := (now() AT TIME ZONE 'Asia/Damascus')::date;
+  v_show  BOOLEAN;
+BEGIN
+  IF p_token IS NULL OR p_token !~ '^[0-9a-f]{64}$' OR p_appt IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'unavailable');
+  END IF;
+  SELECT pp.owner_id, pp.patient_id, p.name AS patient_name INTO v
+    FROM public.patient_portals pp
+    JOIN public.patients p ON p.id = pp.patient_id AND p.doctor_id = pp.owner_id
+   WHERE pp.token = p_token AND pp.revoked_at IS NULL AND pp.expires_at >= now()
+   LIMIT 1;
+  IF NOT FOUND OR NOT public._intake_clinic_open(v.owner_id) THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'unavailable');
+  END IF;
+  SELECT COALESCE(c.portal_show_appts, true) INTO v_show FROM public.clinic_settings c WHERE c.owner_id = v.owner_id;
+  IF v_show IS DISTINCT FROM true AND FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'unavailable');
+  END IF;
+
+  SELECT x.id, x.status, x.confirmation_status, x.confirmed_at, x.date, x.time INTO a
+    FROM public.appointments x
+   WHERE x.id = p_appt AND x.doctor_id = v.owner_id AND x.patient_id = v.patient_id AND x.is_planned = false
+   FOR UPDATE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('ok', false, 'reason', 'not_found'); END IF;
+  IF a.status = 'confirmed' OR a.confirmation_status = 'confirmed' THEN
+    RETURN jsonb_build_object('ok', true, 'reason', 'already');
+  END IF;
+  IF a.date < v_today OR COALESCE(a.status, 'pending') NOT IN ('scheduled', 'pending')
+     OR a.confirmation_status = 'cancelled_by_pt' THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'not_confirmable');
+  END IF;
+
+  UPDATE public.appointments
+     SET status = 'confirmed',
+         confirmation_status = 'confirmed',
+         confirmed_at = COALESCE(confirmed_at, now())
+   WHERE id = a.id;
+
+  INSERT INTO public.audit_log (owner_id, employee_id, employee_name_snapshot, employee_role_snapshot, action_type, entity_type, entity_id,
+                                patient_id, patient_name_snapshot, description, old_value, new_value)
+  VALUES (v.owner_id, NULL, 'المريض (بوابة المريض)', 'patient', 'appointment.status_change', 'appointment', a.id,
+          v.patient_id, v.patient_name,
+          'أكّد المريض موعده من بوابة المريض — ' || to_char(a.date, 'DD/MM/YYYY') || ' ' || COALESCE(to_char(a.time, 'HH24:MI'), ''),
+          jsonb_build_object('status', a.status, 'confirmation_status', a.confirmation_status),
+          jsonb_build_object('status', 'confirmed', 'confirmation_status', 'confirmed', 'source', 'portal'));
+
+  RETURN jsonb_build_object('ok', true);
+END; $_$;
+
+
+ALTER FUNCTION "public"."portal_confirm"("p_token" "text", "p_appt" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."portal_info"("p_token" "text") RETURNS "jsonb"
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $_$
+DECLARE
+  v        RECORD;
+  cs       RECORD;
+  v_today  DATE := (now() AT TIME ZONE 'Asia/Damascus')::date;
+  v_out    JSONB;
+  v_appts  JSONB;
+  v_plan   JSONB;
+  v_bal    JSONB;
+  v_notes  JSONB;
+  v_intake TEXT;
+  v_ik     JSONB;
+  v_opts   INT;
+  v_hist   JSONB;
+  v_htot   INT;
+BEGIN
+  IF p_token IS NULL OR p_token !~ '^[0-9a-f]{64}$' THEN RETURN NULL; END IF;
+  SELECT pp.id, pp.owner_id, pp.patient_id, pp.expires_at, pp.revoked_at, p.name AS patient_name
+    INTO v
+    FROM public.patient_portals pp
+    JOIN public.patients p ON p.id = pp.patient_id AND p.doctor_id = pp.owner_id
+   WHERE pp.token = p_token LIMIT 1;
+  IF NOT FOUND THEN RETURN NULL; END IF;
+  IF NOT public._intake_clinic_open(v.owner_id) THEN RETURN NULL; END IF;
+
+  SELECT c.clinic_name, c.clinic_phone,
+         COALESCE(c.portal_show_appts, true)    AS show_appts,
+         COALESCE(c.portal_show_plan, true)     AS show_plan,
+         COALESCE(c.portal_show_balance, false) AS show_balance,
+         COALESCE(c.portal_show_notes, true)    AS show_notes,
+         COALESCE(c.portal_show_history, true)  AS show_history,
+         COALESCE(c.portal_allow_changes, false) AS allow_changes,
+         COALESCE(c.portal_cancel_mode, 'direct') AS cancel_mode,
+         COALESCE(c.portal_cutoff_hours, 24)    AS cutoff_hours,
+         c.portal_msg_cancelled AS msg_cancelled, c.portal_msg_requested AS msg_requested, c.portal_msg_too_late AS msg_too_late,
+         c.portal_msg_rejected AS msg_rejected
+    INTO cs FROM public.clinic_settings c WHERE c.owner_id = v.owner_id;
+  IF NOT FOUND THEN
+    SELECT NULL::text AS clinic_name, NULL::text AS clinic_phone,
+           true AS show_appts, true AS show_plan, false AS show_balance, true AS show_notes,
+           true AS show_history, false AS allow_changes, 'direct'::text AS cancel_mode, 24 AS cutoff_hours,
+           NULL::text AS msg_cancelled, NULL::text AS msg_requested, NULL::text AS msg_too_late, NULL::text AS msg_rejected INTO cs;
+  END IF;
+
+  IF v.revoked_at IS NOT NULL THEN
+    RETURN jsonb_build_object('status', 'revoked', 'clinic_name', cs.clinic_name, 'clinic_phone', cs.clinic_phone);
+  END IF;
+  IF v.expires_at < now() THEN
+    RETURN jsonb_build_object('status', 'expired', 'clinic_name', cs.clinic_name, 'clinic_phone', cs.clinic_phone);
+  END IF;
+
+  v_out := jsonb_build_object(
+    'status', 'ok',
+    'clinic_name', cs.clinic_name, 'clinic_phone', cs.clinic_phone,
+    'patient_name', v.patient_name,
+    'expires_at', v.expires_at,
+    'show', jsonb_build_object('appts', cs.show_appts, 'plan', cs.show_plan, 'balance', cs.show_balance, 'notes', cs.show_notes,
+                               'history', cs.show_history, 'changes', (cs.allow_changes AND cs.show_appts))
+  );
+
+  -- ── appointments: upcoming (today onward, still live) + past 12 months ──
+  IF cs.show_appts THEN
+    SELECT jsonb_build_object(
+      'upcoming', COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+                 'id', a.id, 'date', a.date, 'time', to_char(a.time, 'HH24:MI'), 'duration', a.duration,
+                 -- M187: the cutoff is decided here (clinic clock · Asia/Damascus); portal_appt_change re-checks it on write
+                 'can_change', (((a.date + COALESCE(a.time, '00:00'::time)) AT TIME ZONE 'Asia/Damascus') - now()) >= make_interval(hours => cs.cutoff_hours),
+                 'open_request', (SELECT r.kind FROM public.portal_requests r
+                                   WHERE r.appointment_id = a.id AND r.owner_id = v.owner_id AND r.status = 'new' AND r.applied = false
+                                   ORDER BY r.created_at DESC LIMIT 1),
+                 -- M189: the slot the patient asked for (shown back to him as «طلبك نقله إلى …»)
+                 'open_request_at', (SELECT to_char(r.requested_date, 'YYYY-MM-DD') || ' ' || to_char(r.requested_time, 'HH24:MI')
+                                       FROM public.portal_requests r
+                                      WHERE r.appointment_id = a.id AND r.owner_id = v.owner_id AND r.status = 'new' AND r.applied = false
+                                        AND r.kind = 'change' AND r.requested_date IS NOT NULL AND r.requested_time IS NOT NULL
+                                      ORDER BY r.created_at DESC LIMIT 1),
+                 -- M191: the clinic rejected his latest request on this appointment (last 7 days, nothing open now) ⇒ the page says so
+                 'last_rejected', (SELECT r.kind FROM public.portal_requests r
+                                    WHERE r.appointment_id = a.id AND r.owner_id = v.owner_id AND r.status = 'dismissed'
+                                      AND r.handled_at > now() - interval '7 days'
+                                      AND NOT EXISTS (SELECT 1 FROM public.portal_requests q
+                                                       WHERE q.appointment_id = a.id AND q.status = 'new' AND q.applied = false)
+                                      AND NOT EXISTS (SELECT 1 FROM public.portal_requests q2
+                                                       WHERE q2.appointment_id = a.id AND q2.created_at > r.created_at)
+                                    ORDER BY r.created_at DESC LIMIT 1),
+                 'type', a.type, 'status', a.status, 'confirmation', a.confirmation_status,
+                 'doctor', d.name) ORDER BY a.date, a.time)
+          FROM (SELECT * FROM public.appointments x
+                 WHERE x.doctor_id = v.owner_id AND x.patient_id = v.patient_id AND x.is_planned = false
+                   AND x.date >= v_today AND COALESCE(x.status, 'pending') NOT IN ('cancelled','broken','completed','no_show')
+                 ORDER BY x.date, x.time LIMIT 20) a
+          LEFT JOIN public.clinic_doctors d ON d.id = a.provider_id AND d.owner_id = v.owner_id), '[]'::jsonb),
+      'past', COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+                 'date', a.date, 'time', to_char(a.time, 'HH24:MI'), 'duration', a.duration,
+                 'type', a.type, 'status', a.status, 'confirmation', a.confirmation_status,
+                 'doctor', d.name) ORDER BY a.date DESC, a.time DESC)
+          FROM (SELECT * FROM public.appointments x
+                 WHERE x.doctor_id = v.owner_id AND x.patient_id = v.patient_id AND x.is_planned = false
+                   AND x.date < v_today AND x.date >= v_today - 365
+                 ORDER BY x.date DESC, x.time DESC LIMIT 20) a
+          LEFT JOIN public.clinic_doctors d ON d.id = a.provider_id AND d.owner_id = v.owner_id), '[]'::jsonb)
+    ) INTO v_appts;
+    v_out := v_out || jsonb_build_object('appts', v_appts);
+  END IF;
+
+  -- ── M187: cancel / change requests — config only when the clinic switched it on (and appointments are shown) ──
+  IF cs.allow_changes AND cs.show_appts THEN
+    v_out := v_out || jsonb_build_object('changes', jsonb_build_object(
+      'mode', cs.cancel_mode, 'cutoff_hours', cs.cutoff_hours,
+      -- M189: the clinic's online-booking hours exist ⇒ the patient picks a real free slot (else morning/evening)
+      'slots', EXISTS (SELECT 1 FROM public.booking_clinic_info(v.owner_id)),
+      'tpl', jsonb_build_object('cancelled', cs.msg_cancelled, 'requested', cs.msg_requested, 'too_late', cs.msg_too_late, 'rejected', cs.msg_rejected)));
+  END IF;
+
+  -- ── M187: past treatments (CareStack «Past Treatment») — completed sessions only, last 24 months, 60 rows;
+  --    amounts ride ONLY with the balance switch (no money leaks through history); internal notes never leave ──
+  IF cs.show_history THEN
+    SELECT count(*) INTO v_htot FROM public.ledger_sessions s
+     WHERE s.doctor_id = v.owner_id AND s.patient_id = v.patient_id AND COALESCE(s.status, 'completed') = 'completed';
+    SELECT COALESCE(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+             'date', h.d, 'type', h.type, 'tooth', h.tooth_num, 'units', h.units, 'doctor', d.name,
+             'cost', CASE WHEN cs.show_balance THEN h.cost END,
+             'currency', CASE WHEN cs.show_balance THEN (CASE WHEN h.currency = 'USD' THEN 'USD' ELSE 'SYP' END) END))
+             ORDER BY h.d DESC, h.created_at DESC), '[]'::jsonb)
+      INTO v_hist
+      FROM (SELECT s.type, s.tooth_num, s.units, s.cost, s.currency, s.provider_id, s.created_at,
+                   COALESCE(s.date, (s.created_at AT TIME ZONE 'Asia/Damascus')::date) AS d
+              FROM public.ledger_sessions s
+             WHERE s.doctor_id = v.owner_id AND s.patient_id = v.patient_id
+               AND COALESCE(s.status, 'completed') = 'completed'
+               AND COALESCE(s.date, (s.created_at AT TIME ZONE 'Asia/Damascus')::date) >= v_today - 730
+             ORDER BY 8 DESC, s.created_at DESC LIMIT 60) h
+      LEFT JOIN public.clinic_doctors d ON d.id = h.provider_id AND d.owner_id = v.owner_id;
+    v_out := v_out || jsonb_build_object('history', jsonb_build_object('items', v_hist, 'more', v_htot > jsonb_array_length(v_hist)));
+  END IF;
+
+  -- ── plan: the ADOPTED plan only (planned rows). >1 alternative option
+  --    still open ⇒ no items, just the pending flag (M145 semantics). ──
+  IF cs.show_plan THEN
+    SELECT count(DISTINCT s.plan_option) INTO v_opts
+      FROM public.ledger_sessions s
+     WHERE s.doctor_id = v.owner_id AND s.patient_id = v.patient_id
+       AND COALESCE(s.status, 'completed') = 'planned' AND s.plan_option BETWEEN 1 AND 3;
+    IF v_opts > 1 THEN
+      v_plan := jsonb_build_object('pending_options', true, 'items', '[]'::jsonb, 'totals', '[]'::jsonb);
+    ELSE
+      SELECT jsonb_build_object(
+        'pending_options', false,
+        'items', COALESCE((
+          SELECT jsonb_agg(jsonb_build_object(
+                   'type', s.type, 'tooth', s.tooth_num, 'phase', s.phase, 'units', s.units,
+                   'cost', s.cost, 'currency', CASE WHEN s.currency = 'USD' THEN 'USD' ELSE 'SYP' END)
+                 ORDER BY COALESCE(s.phase, 9), s.date NULLS LAST, s.created_at)
+            FROM public.ledger_sessions s
+           WHERE s.doctor_id = v.owner_id AND s.patient_id = v.patient_id
+             AND COALESCE(s.status, 'completed') = 'planned'), '[]'::jsonb),
+        'totals', COALESCE((
+          SELECT jsonb_agg(jsonb_build_object('currency', t.cur, 'total', t.tot) ORDER BY t.cur DESC)
+            FROM (SELECT CASE WHEN s.currency = 'USD' THEN 'USD' ELSE 'SYP' END cur, sum(COALESCE(s.cost, 0)) tot
+                    FROM public.ledger_sessions s
+                   WHERE s.doctor_id = v.owner_id AND s.patient_id = v.patient_id
+                     AND COALESCE(s.status, 'completed') = 'planned'
+                   GROUP BY 1) t), '[]'::jsonb)
+      ) INTO v_plan;
+    END IF;
+    v_out := v_out || jsonb_build_object('plan', v_plan);
+  END IF;
+
+  -- ── balance: computeFinancials per currency layer, literally ──────────
+  --   completed = Σ cost of every non-planned session · paid = Σ payments
+  --   a split is EARNED only if is_unearned=false AND it sits on a session whose
+  --   status is exactly 'completed'; otherwise it is mobile credit (unearned).
+  --   no splits in a layer ⇒ allocated = paid (legacy). refund eats unearned
+  --   credit first, the rest re-opens earned balance. discount/write_off reduce.
+  --   A layer is reported only when it carries money (bagMoney — v337).
+  IF cs.show_balance THEN
+    WITH ses AS (
+      SELECT s.id, CASE WHEN s.currency = 'USD' THEN 'USD' ELSE 'SYP' END cur, COALESCE(s.cost, 0) cost,
+             COALESCE(s.status, 'completed') st
+        FROM public.ledger_sessions s WHERE s.doctor_id = v.owner_id AND s.patient_id = v.patient_id
+    ), pay AS (
+      SELECT CASE WHEN p.currency = 'USD' THEN 'USD' ELSE 'SYP' END cur, COALESCE(p.amount, 0) amount
+        FROM public.ledger_payments p WHERE p.doctor_id = v.owner_id AND p.patient_id = v.patient_id
+    ), spl AS (
+      SELECT CASE WHEN sp.currency = 'USD' THEN 'USD' ELSE 'SYP' END cur, COALESCE(sp.amount, 0) amount,
+             (COALESCE(sp.is_unearned, false) OR sp.session_id IS NULL OR COALESCE(se.st, '') <> 'completed') AS mobile
+        FROM public.payment_splits sp
+        LEFT JOIN ses se ON se.id = sp.session_id
+       WHERE sp.doctor_id = v.owner_id AND sp.patient_id = v.patient_id
+    ), adj AS (
+      SELECT CASE WHEN a.currency = 'USD' THEN 'USD' ELSE 'SYP' END cur, a.kind, a.amount
+        FROM public.account_adjustments a
+       WHERE a.doctor_id = v.owner_id AND a.patient_id = v.patient_id AND a.amount > 0
+    ), layers AS (
+      SELECT c.cur,
+        COALESCE((SELECT sum(cost) FROM ses WHERE cur = c.cur AND st <> 'planned'), 0) completed,
+        COALESCE((SELECT sum(amount) FROM pay WHERE cur = c.cur), 0) paid,
+        EXISTS (SELECT 1 FROM spl WHERE cur = c.cur) has_splits,
+        COALESCE((SELECT sum(amount) FROM spl WHERE cur = c.cur AND NOT mobile), 0) allocated_raw,
+        COALESCE((SELECT sum(amount) FROM spl WHERE cur = c.cur AND mobile), 0) unearned_raw,
+        COALESCE((SELECT sum(amount) FROM adj WHERE cur = c.cur AND kind = 'refund'), 0) refunds,
+        COALESCE((SELECT sum(amount) FROM adj WHERE cur = c.cur AND kind IN ('discount','write_off')), 0) reductions
+      FROM (VALUES ('SYP'), ('USD')) c(cur)
+    ), fin AS (
+      SELECT l.cur, l.completed, l.paid, l.refunds, l.reductions, l.has_splits,
+             CASE WHEN l.has_splits THEN l.allocated_raw ELSE l.paid END AS allocated,
+             l.unearned_raw - LEAST(l.refunds, l.unearned_raw) AS unearned,
+             (l.completed - l.reductions) - (CASE WHEN l.has_splits THEN l.allocated_raw ELSE l.paid END)
+               + (l.refunds - LEAST(l.refunds, l.unearned_raw)) AS true_balance
+        FROM layers l
+    )
+    SELECT COALESCE(jsonb_agg(jsonb_build_object(
+             'currency', f.cur, 'completed', f.completed, 'paid', f.paid, 'reductions', f.reductions,
+             'refunds', f.refunds, 'unearned', f.unearned, 'true_balance', f.true_balance) ORDER BY f.cur DESC), '[]'::jsonb)
+      INTO v_bal
+      FROM fin f
+     WHERE f.completed <> 0 OR f.paid <> 0 OR f.allocated <> 0 OR f.unearned <> 0 OR f.reductions <> 0 OR f.refunds <> 0 OR f.has_splits;
+
+    -- installment plans (ppPlanCalc, literally): covered = Σ same-currency
+    -- payments dated on/after start_date, capped at total; k = floor(covered/inst);
+    -- next due = start + k periods (monthly clamps to month end; weekly 7·k; biweekly 14·k).
+    v_out := v_out || jsonb_build_object('balance', v_bal, 'installments', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+               'title', q.title, 'currency', q.cur, 'total', q.total, 'installment', q.inst, 'frequency', q.frequency,
+               'covered', q.covered, 'remaining', GREATEST(0, q.total - q.covered),
+               'count', CASE WHEN q.inst > 0 THEN ceil(q.total / q.inst) ELSE 0 END,
+               'done', (q.covered >= q.total - 0.5),
+               'next_due', CASE WHEN q.covered >= q.total - 0.5 OR q.inst <= 0 THEN NULL
+                                WHEN q.frequency = 'weekly'   THEN q.start_date + (7  * floor(q.covered / q.inst))::int
+                                WHEN q.frequency = 'biweekly' THEN q.start_date + (14 * floor(q.covered / q.inst))::int
+                                ELSE (q.start_date + (floor(q.covered / q.inst)::int || ' months')::interval)::date END,
+               'today', v_today) ORDER BY q.created_at)
+        FROM (SELECT pl.title, pl.frequency, pl.start_date, pl.created_at,
+                     CASE WHEN pl.currency = 'USD' THEN 'USD' ELSE 'SYP' END cur,
+                     pl.total::numeric total, pl.installment_amount::numeric inst,
+                     LEAST(pl.total::numeric, COALESCE((
+                       SELECT sum(p.amount) FROM public.ledger_payments p
+                        WHERE p.doctor_id = v.owner_id AND p.patient_id = v.patient_id
+                          AND (CASE WHEN p.currency = 'USD' THEN 'USD' ELSE 'SYP' END) = (CASE WHEN pl.currency = 'USD' THEN 'USD' ELSE 'SYP' END)
+                          AND COALESCE(p.date, (p.created_at AT TIME ZONE 'UTC')::date) >= pl.start_date), 0)) covered
+                FROM public.payment_plans pl
+               WHERE pl.doctor_id = v.owner_id AND pl.patient_id = v.patient_id AND pl.status = 'active') q), '[]'::jsonb));
+  END IF;
+
+  -- ── post-op instructions + prescriptions (what the two tabs hold) ──────
+  IF cs.show_notes THEN
+    SELECT jsonb_build_object(
+      'postop', COALESCE((
+        SELECT jsonb_agg(jsonb_build_object('body', n.body, 'created_at', n.created_at) ORDER BY n.created_at DESC)
+          FROM (SELECT * FROM public.post_op_notes x WHERE x.owner_id = v.owner_id AND x.patient_id = v.patient_id
+                 ORDER BY x.created_at DESC LIMIT 20) n), '[]'::jsonb),
+      'rx', COALESCE((
+        SELECT jsonb_agg(jsonb_build_object('created_at', r.created_at, 'notes', r.notes, 'doctor', d.name,
+                 'items', COALESCE((SELECT jsonb_agg(jsonb_build_object('drug', i.drug_name, 'dosage', i.dosage, 'frequency', i.frequency,
+                                      'duration', i.duration, 'instructions', i.instructions) ORDER BY i.sort_order, i.id)
+                                      FROM public.prescription_items i WHERE i.prescription_id = r.id AND i.owner_id = v.owner_id), '[]'::jsonb))
+               ORDER BY r.created_at DESC)
+          FROM (SELECT * FROM public.prescriptions x WHERE x.owner_id = v.owner_id AND x.patient_id = v.patient_id
+                 ORDER BY x.created_at DESC LIMIT 20) r
+          LEFT JOIN public.clinic_doctors d ON d.id = r.provider_id AND d.owner_id = v.owner_id), '[]'::jsonb)
+    ) INTO v_notes;
+    v_out := v_out || jsonb_build_object('notes', v_notes);
+  END IF;
+
+  -- ── intake (M177) in three states (M181): a live pending link ⇒ fill it; the latest
+  --    submitted/reviewed one ⇒ «received ✓» (no answers are exposed); otherwise nothing ──
+  SELECT i.token INTO v_intake FROM public.patient_intakes i
+   WHERE i.owner_id = v.owner_id AND i.patient_id = v.patient_id
+     AND i.status = 'pending' AND i.expires_at > now()
+   ORDER BY i.created_at DESC LIMIT 1;
+  IF v_intake IS NOT NULL THEN
+    v_out := v_out || jsonb_build_object('intake_token', v_intake, 'intake', jsonb_build_object('status', 'pending', 'token', v_intake));
+  ELSE
+    SELECT jsonb_build_object('status', 'submitted', 'submitted_at', i.submitted_at) INTO v_ik
+      FROM public.patient_intakes i
+     WHERE i.owner_id = v.owner_id AND i.patient_id = v.patient_id AND i.status IN ('submitted', 'reviewed')
+     ORDER BY COALESCE(i.submitted_at, i.created_at) DESC LIMIT 1;
+    IF FOUND THEN v_out := v_out || jsonb_build_object('intake', v_ik); END IF;
+  END IF;
+
+  RETURN v_out;
+END; $_$;
+
+
+ALTER FUNCTION "public"."portal_info"("p_token" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."portal_request_cancel_approve"("p_req" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  r RECORD;
+  a RECORD;
+BEGIN
+  IF p_req IS NULL OR auth.uid() IS NULL THEN RETURN jsonb_build_object('ok', false, 'reason', 'unavailable'); END IF;
+  SELECT * INTO r FROM public.portal_requests
+   WHERE id = p_req AND owner_id = auth.uid() FOR UPDATE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('ok', false, 'reason', 'not_found'); END IF;
+  IF r.kind <> 'cancel' OR r.applied THEN RETURN jsonb_build_object('ok', false, 'reason', 'not_a_request'); END IF;
+  IF r.status <> 'new' THEN RETURN jsonb_build_object('ok', false, 'reason', 'already_closed', 'status', r.status); END IF;
+  SELECT id, status, confirmation_status, date, time INTO a FROM public.appointments
+   WHERE id = r.appointment_id AND doctor_id = auth.uid() FOR UPDATE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('ok', false, 'reason', 'appointment_gone'); END IF;
+  IF COALESCE(a.status, 'pending') IN ('cancelled', 'completed', 'broken', 'no_show') THEN
+    UPDATE public.portal_requests SET status = 'handled', handled_at = now() WHERE id = r.id;
+    RETURN jsonb_build_object('ok', false, 'reason', 'appointment_not_live', 'status', a.status);
+  END IF;
+  UPDATE public.appointments
+     SET status = 'cancelled',
+         confirmation_status = 'cancelled_by_pt',
+         notes = concat_ws(E'\n', NULLIF(notes, ''), '[أُلغي بطلب المريض من البوابة' || COALESCE(' — السبب: ' || r.reason, '') || ']')
+   WHERE id = a.id;
+  -- the M187 trigger closed the request (status change to cancelled); make it explicit and idempotent
+  UPDATE public.portal_requests SET status = 'handled', handled_at = COALESCE(handled_at, now()) WHERE id = r.id;
+  RETURN jsonb_build_object('ok', true, 'appointment_id', a.id, 'patient_id', r.patient_id, 'patient_name', r.patient_name_snapshot,
+                            'date', a.date, 'time', to_char(a.time, 'HH24:MI'), 'prev_status', a.status, 'reason', r.reason);
+END; $$;
+
+
+ALTER FUNCTION "public"."portal_request_cancel_approve"("p_req" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."portal_slots"("p_token" "text", "p_appt" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $_$
+DECLARE
+  v       RECORD;
+  a       RECORD;
+  cs      RECORD;
+  bi      RECORD;
+  v_today DATE := (now() AT TIME ZONE 'Asia/Damascus')::date;
+  v_dur   INT;
+  v_days  JSONB;
+BEGIN
+  IF p_token IS NULL OR p_token !~ '^[0-9a-f]{64}$' OR p_appt IS NULL THEN RETURN jsonb_build_object('ok', false, 'reason', 'unavailable'); END IF;
+  SELECT pp.owner_id, pp.patient_id INTO v FROM public.patient_portals pp
+    JOIN public.patients p ON p.id = pp.patient_id AND p.doctor_id = pp.owner_id
+   WHERE pp.token = p_token AND pp.revoked_at IS NULL AND pp.expires_at >= now() LIMIT 1;
+  IF NOT FOUND OR NOT public._intake_clinic_open(v.owner_id) THEN RETURN jsonb_build_object('ok', false, 'reason', 'unavailable'); END IF;
+  SELECT COALESCE(c.portal_show_appts, true) AS show_appts, COALESCE(c.portal_allow_changes, false) AS allow_changes,
+         COALESCE(c.portal_cutoff_hours, 24) AS cutoff_hours
+    INTO cs FROM public.clinic_settings c WHERE c.owner_id = v.owner_id;
+  IF NOT FOUND OR cs.allow_changes IS DISTINCT FROM true OR cs.show_appts IS DISTINCT FROM true THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'disabled');
+  END IF;
+  SELECT x.id, x.status, x.confirmation_status, x.date, x.time, x.duration INTO a FROM public.appointments x
+   WHERE x.id = p_appt AND x.doctor_id = v.owner_id AND x.patient_id = v.patient_id AND x.is_planned = false;
+  IF NOT FOUND THEN RETURN jsonb_build_object('ok', false, 'reason', 'not_found'); END IF;
+  IF COALESCE(a.status, 'pending') IN ('cancelled', 'completed', 'broken', 'no_show') OR a.confirmation_status = 'cancelled_by_pt' THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'not_changeable');
+  END IF;
+  IF ((a.date + COALESCE(a.time, '00:00'::time)) AT TIME ZONE 'Asia/Damascus') - now() < make_interval(hours => cs.cutoff_hours) THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'too_late', 'cutoff_hours', cs.cutoff_hours);
+  END IF;
+  SELECT * INTO bi FROM public.booking_clinic_info(v.owner_id) LIMIT 1;
+  IF NOT FOUND THEN RETURN jsonb_build_object('ok', true, 'days', '[]'::jsonb); END IF;
+  v_dur := COALESCE(a.duration, bi.slot_minutes, 30);
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('d', q.d, 'times', q.times) ORDER BY q.d), '[]'::jsonb) INTO v_days
+    FROM (SELECT f.d, jsonb_agg(to_char(f.t, 'HH24:MI') ORDER BY f.t) AS times
+            FROM public._portal_free_slots(v.owner_id, a.id, v_dur, v_today, v_today + LEAST(GREATEST(COALESCE(bi.max_days_ahead, 30), 1), 60)) f
+           GROUP BY f.d) q;
+  RETURN jsonb_build_object('ok', true, 'dur', v_dur, 'days', v_days);
+END; $_$;
+
+
+ALTER FUNCTION "public"."portal_slots"("p_token" "text", "p_appt" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."portal_xray_list"("p_token" "text") RETURNS "jsonb"
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $_$
+DECLARE
+  v RECORD;
+  v_on BOOLEAN;
+  v_items JSONB;
+BEGIN
+  IF p_token IS NULL OR p_token !~ '^[0-9a-f]{64}$' THEN RETURN jsonb_build_object('ok', false, 'reason', 'unavailable'); END IF;
+  SELECT pp.owner_id, pp.patient_id INTO v FROM public.patient_portals pp
+    JOIN public.patients p ON p.id = pp.patient_id AND p.doctor_id = pp.owner_id
+   WHERE pp.token = p_token AND pp.revoked_at IS NULL AND pp.expires_at >= now() LIMIT 1;
+  IF NOT FOUND OR NOT public._intake_clinic_open(v.owner_id) THEN RETURN jsonb_build_object('ok', false, 'reason', 'unavailable'); END IF;
+  SELECT COALESCE(c.portal_show_xrays, false) INTO v_on FROM public.clinic_settings c WHERE c.owner_id = v.owner_id;
+  IF v_on IS DISTINCT FROM true THEN RETURN jsonb_build_object('ok', false, 'reason', 'disabled'); END IF;
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'id', d.id, 'path', d.storage_path, 'kind', CASE WHEN d.category = 'xray' THEN 'xray' ELSE 'photo' END,
+           'type', d.xray_type, 'date', COALESCE(d.taken_at, (d.created_at AT TIME ZONE 'Asia/Damascus')::date),
+           'teeth', COALESCE(to_jsonb(d.teeth), '[]'::jsonb)
+         ) ORDER BY COALESCE(d.taken_at, (d.created_at AT TIME ZONE 'Asia/Damascus')::date) DESC, d.created_at DESC), '[]'::jsonb)
+    INTO v_items
+    FROM (SELECT * FROM public.patient_documents x
+           WHERE x.owner_id = v.owner_id AND x.patient_id = v.patient_id AND x.portal_shared
+             AND x.mime_type IN ('image/jpeg', 'image/png', 'image/webp')
+             AND x.storage_path LIKE (v.owner_id::text || '/' || v.patient_id::text || '/%')
+           ORDER BY COALESCE(x.taken_at, (x.created_at AT TIME ZONE 'Asia/Damascus')::date) DESC, x.created_at DESC
+           LIMIT 40) d;
+  RETURN jsonb_build_object('ok', true, 'items', v_items);
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."portal_xray_list"("p_token" "text") OWNER TO "postgres";
 
 SET default_tablespace = '';
 
@@ -2455,6 +3457,97 @@ CREATE TABLE IF NOT EXISTS "public"."booking_requests" (
 ALTER TABLE "public"."booking_requests" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."bridge_devices" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "owner_id" "uuid" NOT NULL,
+    "name" "text" NOT NULL,
+    "key_hash" "text" NOT NULL,
+    "mode" "text" DEFAULT 'folder'::"text" NOT NULL,
+    "version" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "last_seen_at" timestamp with time zone,
+    "revoked_at" timestamp with time zone,
+    CONSTRAINT "bridge_devices_key_hash_check" CHECK (("key_hash" ~ '^[0-9a-f]{64}$'::"text")),
+    CONSTRAINT "bridge_devices_mode_check" CHECK (("mode" = ANY (ARRAY['folder'::"text", 'twain'::"text", 'dicom'::"text", 'manual'::"text"]))),
+    CONSTRAINT "bridge_devices_name_check" CHECK ((("char_length"("name") >= 1) AND ("char_length"("name") <= 80))),
+    CONSTRAINT "bridge_devices_version_check" CHECK ((("version" IS NULL) OR ("char_length"("version") <= 40)))
+);
+
+
+ALTER TABLE "public"."bridge_devices" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."bridge_devices" IS 'SyDent Bridge (M194): أجهزةُ العيادة المقترنة — يُخزَّن SHA-256 لمفتاح الجهاز فقط؛ الإيقافُ نهائي.';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."bridge_inbox" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "owner_id" "uuid" NOT NULL,
+    "device_id" "uuid",
+    "storage_path" "text" NOT NULL,
+    "file_name" "text" NOT NULL,
+    "mime_type" "text" NOT NULL,
+    "size_bytes" bigint,
+    "captured_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "bridge_inbox_file_name_check" CHECK (("char_length"("file_name") <= 200)),
+    CONSTRAINT "bridge_inbox_mime_type_check" CHECK (("mime_type" = ANY (ARRAY['image/jpeg'::"text", 'image/png'::"text", 'image/webp'::"text", 'application/dicom'::"text"]))),
+    CONSTRAINT "bridge_inbox_path_check" CHECK (("storage_path" ~~ (("owner_id")::"text" || '/_inbox/%'::"text"))),
+    CONSTRAINT "bridge_inbox_size_bytes_check" CHECK ((("size_bytes" IS NULL) OR ("size_bytes" >= 0)))
+);
+
+
+ALTER TABLE "public"."bridge_inbox" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."bridge_inbox" IS 'SyDent Bridge (M194): صورةٌ وصلت من جهازٍ بلا طلبٍ مفتوح — تنتظر إسنادَها لمريض (نقلُ الملف + صف) أو تجاهلَها.';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."bridge_pairings" (
+    "code" "text" NOT NULL,
+    "owner_id" "uuid" NOT NULL,
+    "device_name" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "expires_at" timestamp with time zone DEFAULT ("now"() + '00:10:00'::interval) NOT NULL,
+    "used_at" timestamp with time zone,
+    CONSTRAINT "bridge_pairings_code_check" CHECK (("code" ~ '^[A-HJ-NP-Z2-9]{8}$'::"text")),
+    CONSTRAINT "bridge_pairings_device_name_check" CHECK ((("char_length"("device_name") >= 1) AND ("char_length"("device_name") <= 80)))
+);
+
+
+ALTER TABLE "public"."bridge_pairings" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."capture_requests" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "owner_id" "uuid" NOT NULL,
+    "patient_id" "uuid" NOT NULL,
+    "device_id" "uuid",
+    "category" "text" DEFAULT 'xray'::"text" NOT NULL,
+    "xray_type" "text",
+    "teeth" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "session_id" "uuid",
+    "status" "text" DEFAULT 'open'::"text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "expires_at" timestamp with time zone DEFAULT ("now"() + '00:15:00'::interval) NOT NULL,
+    "done_at" timestamp with time zone,
+    "document_id" "uuid",
+    CONSTRAINT "capture_requests_category_check" CHECK (("category" = ANY (ARRAY['xray'::"text", 'clinical_photo'::"text"]))),
+    CONSTRAINT "capture_requests_status_check" CHECK (("status" = ANY (ARRAY['open'::"text", 'done'::"text", 'cancelled'::"text", 'expired'::"text"]))),
+    CONSTRAINT "capture_requests_teeth_check" CHECK ((("cardinality"("teeth") <= 52) AND ("array_to_string"("teeth", ','::"text") ~ '^(([1-4][1-8]|[5-8][1-5])(,([1-4][1-8]|[5-8][1-5]))*)?$'::"text"))),
+    CONSTRAINT "capture_requests_xray_type_check" CHECK ((("xray_type" IS NULL) OR ("xray_type" = ANY (ARRAY['periapical'::"text", 'bitewing'::"text", 'panoramic'::"text", 'cephalometric'::"text", 'other'::"text"]))))
+);
+
+
+ALTER TABLE "public"."capture_requests" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."capture_requests" IS 'SyDent Bridge (M194): طلبُ التقاطٍ مفتوح 15 دقيقة — المريضُ والأسنانُ والنوع؛ الجهازُ يملؤه بأول صورةٍ تصل.';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."clinic_doctors" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "owner_id" "uuid" NOT NULL,
@@ -2575,12 +3668,34 @@ CREATE TABLE IF NOT EXISTS "public"."clinic_settings" (
     "intake_signature" boolean DEFAULT true NOT NULL,
     "intake_on_booking" boolean DEFAULT true NOT NULL,
     "whatsapp_intake_template" "text",
+    "portal_show_appts" boolean DEFAULT true NOT NULL,
+    "portal_show_plan" boolean DEFAULT true NOT NULL,
+    "portal_show_balance" boolean DEFAULT false NOT NULL,
+    "portal_show_notes" boolean DEFAULT true NOT NULL,
+    "whatsapp_portal_template" "text",
+    "portal_show_history" boolean DEFAULT true NOT NULL,
+    "portal_allow_changes" boolean DEFAULT false NOT NULL,
+    "portal_cancel_mode" "text" DEFAULT 'direct'::"text" NOT NULL,
+    "portal_cutoff_hours" integer DEFAULT 24 NOT NULL,
+    "portal_msg_cancelled" "text",
+    "portal_msg_requested" "text",
+    "portal_msg_too_late" "text",
+    "portal_msg_moved" "text",
+    "portal_msg_cancel_ok" "text",
+    "portal_msg_rejected" "text",
+    "portal_show_xrays" boolean DEFAULT false NOT NULL,
     CONSTRAINT "clinic_settings_clinic_name_source_check" CHECK (("clinic_name_source" = ANY (ARRAY['derived'::"text", 'custom'::"text"]))),
     CONSTRAINT "clinic_settings_currency_chk" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))),
     CONSTRAINT "clinic_settings_goal_syp_nonneg" CHECK ((("production_goal_syp" IS NULL) OR ("production_goal_syp" >= (0)::numeric))),
     CONSTRAINT "clinic_settings_goal_usd_nonneg" CHECK ((("production_goal_usd" IS NULL) OR ("production_goal_usd" >= (0)::numeric))),
     CONSTRAINT "clinic_settings_no_show_fee_currency_check" CHECK ((("no_show_fee_currency" IS NULL) OR ("no_show_fee_currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"])))),
     CONSTRAINT "clinic_settings_patient_flag_defs_array" CHECK ((("patient_flag_defs" IS NULL) OR (("jsonb_typeof"("patient_flag_defs") = 'array'::"text") AND ("jsonb_array_length"("patient_flag_defs") <= 8)))),
+    CONSTRAINT "clinic_settings_portal_cancel_mode_check" CHECK (("portal_cancel_mode" = ANY (ARRAY['direct'::"text", 'request'::"text"]))),
+    CONSTRAINT "clinic_settings_portal_cutoff_check" CHECK (("portal_cutoff_hours" = ANY (ARRAY[12, 24, 48, 72]))),
+    CONSTRAINT "clinic_settings_portal_msg_cancel_ok_len" CHECK ((("portal_msg_cancel_ok" IS NULL) OR ("char_length"("portal_msg_cancel_ok") <= 1000))),
+    CONSTRAINT "clinic_settings_portal_msg_moved_len" CHECK ((("portal_msg_moved" IS NULL) OR ("char_length"("portal_msg_moved") <= 1000))),
+    CONSTRAINT "clinic_settings_portal_msg_rejected_len" CHECK ((("portal_msg_rejected" IS NULL) OR ("char_length"("portal_msg_rejected") <= 600))),
+    CONSTRAINT "clinic_settings_portal_msgs_len" CHECK (((("portal_msg_cancelled" IS NULL) OR ("char_length"("portal_msg_cancelled") <= 600)) AND (("portal_msg_requested" IS NULL) OR ("char_length"("portal_msg_requested") <= 600)) AND (("portal_msg_too_late" IS NULL) OR ("char_length"("portal_msg_too_late") <= 600)))),
     CONSTRAINT "clinic_settings_report_unify_currency_chk" CHECK ((("report_unify_currency" IS NULL) OR ("report_unify_currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"])))),
     CONSTRAINT "clinic_settings_syndicate_branch_len" CHECK ((("syndicate_branch" IS NULL) OR ("char_length"("syndicate_branch") <= 40))),
     CONSTRAINT "clinic_settings_usd_report_rate_chk" CHECK ((("usd_report_rate" IS NULL) OR ("usd_report_rate" > (0)::numeric))),
@@ -2664,6 +3779,54 @@ COMMENT ON COLUMN "public"."clinic_settings"."intake_on_booking" IS 'إرفاق�
 
 
 COMMENT ON COLUMN "public"."clinic_settings"."whatsapp_intake_template" IS 'قالبُ رسالة استمارة المريض ({patient_first_name} {patient_name} {clinic_name} {clinic_phone} {intake_link}). NULL = الافتراضي. M178.';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."portal_show_appts" IS 'البوابة: عرضُ المواعيد القادمة والسابقة للمريض (M180).';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."portal_show_plan" IS 'البوابة: عرضُ خطة العلاج المعتمدة (البنود · المراحل · الإجمالي) (M180).';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."portal_show_balance" IS 'البوابة: عرضُ الرصيد (إجمالي · مدفوع · متبقٍّ · القسط القادم) — مطفأ افتراضياً كـCareStack (M180).';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."portal_show_notes" IS 'البوابة: عرضُ تعليمات ما بعد العلاج والروشتات (M180).';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."whatsapp_portal_template" IS 'قالبُ رسالة بوابة المريض ({patient_first_name} {patient_name} {clinic_name} {clinic_phone} {portal_link}). NULL = الافتراضي. M180.';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."portal_show_history" IS 'البوابة: العلاجاتُ المنجزة سابقاً (آخر 24 شهراً · المبالغُ فقط مع مفتاح الرصيد) (M187).';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."portal_allow_changes" IS 'البوابة: السماحُ للمريض بإلغاء موعده أو طلب تغييره — مطفأ افتراضياً (M187).';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."portal_cancel_mode" IS 'البوابة: direct = الإلغاءُ يسري فوراً · request = يصل طلباً تقرّره العيادة (M187).';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."portal_cutoff_hours" IS 'البوابة: أقلُّ مهلةٍ (ساعات) قبل الموعد يُسمح فيها بالإلغاء/الطلب من البوابة (M187).';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."portal_msg_moved" IS 'البوابة: رسالةُ واتساب للمريض بعد اعتماد الوقت الذي طلبه (M189).';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."portal_msg_cancel_ok" IS 'البوابة: رسالةُ واتساب للمريض بعد اعتماد طلب إلغائه (M190).';
+
+
+
+COMMENT ON COLUMN "public"."clinic_settings"."portal_msg_rejected" IS 'البوابة: رسالةٌ للمريض حين ترفض العيادةُ طلبه الأخير (M191).';
 
 
 
@@ -2909,7 +4072,7 @@ CREATE TABLE IF NOT EXISTS "public"."inventory_movements" (
     "count_id" "uuid",
     "order_line_id" "uuid",
     "receipt_id" "uuid",
-    CONSTRAINT "inv_reason_valid" CHECK (("reason" = ANY (ARRAY['purchase'::"text", 'consume'::"text", 'adjust'::"text", 'return'::"text", 'count'::"text"])))
+    CONSTRAINT "inv_reason_valid" CHECK (("reason" = ANY (ARRAY['purchase'::"text", 'consume'::"text", 'adjust'::"text", 'return'::"text", 'count'::"text", 'return_supplier'::"text"])))
 );
 
 
@@ -3269,7 +4432,24 @@ CREATE TABLE IF NOT EXISTS "public"."patient_documents" (
     "tooth_num" "text",
     "session_id" "uuid",
     "lab_order_id" "uuid",
-    CONSTRAINT "patient_documents_category_check" CHECK (("category" = ANY (ARRAY['xray'::"text", 'clinical_photo'::"text", 'document'::"text", 'receipt'::"text", 'other'::"text"])))
+    "xray_type" "text",
+    "teeth" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "taken_at" "date",
+    "source" "text",
+    "source_name" "text",
+    "calib_mm_per_px" numeric,
+    "annotations" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    "cbct_url" "text",
+    "portal_shared" boolean DEFAULT false NOT NULL,
+    "portal_shared_at" timestamp with time zone,
+    CONSTRAINT "patient_documents_annotations_check" CHECK ((("jsonb_typeof"("annotations") = 'array'::"text") AND ("pg_column_size"("annotations") <= 65536))),
+    CONSTRAINT "patient_documents_calib_check" CHECK ((("calib_mm_per_px" IS NULL) OR (("calib_mm_per_px" > (0)::numeric) AND ("calib_mm_per_px" < (10)::numeric)))),
+    CONSTRAINT "patient_documents_category_check" CHECK (("category" = ANY (ARRAY['xray'::"text", 'clinical_photo'::"text", 'document'::"text", 'receipt'::"text", 'other'::"text"]))),
+    CONSTRAINT "patient_documents_cbct_url_check" CHECK ((("cbct_url" IS NULL) OR (("cbct_url" ~ '^https://[^\s<>"]+$'::"text") AND ("char_length"("cbct_url") <= 2000)))),
+    CONSTRAINT "patient_documents_portal_shared_check" CHECK ((("portal_shared" = false) OR ("mime_type" = ANY (ARRAY['image/jpeg'::"text", 'image/png'::"text", 'image/webp'::"text"])))),
+    CONSTRAINT "patient_documents_source_check" CHECK (((("source" IS NULL) OR ("source" = ANY (ARRAY['clinic'::"text", 'center'::"text"]))) AND (("source_name" IS NULL) OR (("source" = 'center'::"text") AND ("char_length"("source_name") <= 120))))),
+    CONSTRAINT "patient_documents_teeth_check" CHECK ((("cardinality"("teeth") <= 52) AND ("array_to_string"("teeth", ','::"text") ~ '^(([1-4][1-8]|[5-8][1-5])(,([1-4][1-8]|[5-8][1-5]))*)?$'::"text"))),
+    CONSTRAINT "patient_documents_xray_type_check" CHECK ((("xray_type" IS NULL) OR (("category" = 'xray'::"text") AND ("xray_type" = ANY (ARRAY['periapical'::"text", 'bitewing'::"text", 'panoramic'::"text", 'cephalometric'::"text", 'other'::"text"])))))
 );
 
 
@@ -3277,6 +4457,26 @@ ALTER TABLE "public"."patient_documents" OWNER TO "postgres";
 
 
 COMMENT ON COLUMN "public"."patient_documents"."lab_order_id" IS 'M162: مرفقُ طلب مخبر (صورة اللون/الحالة/المسح) — يبقى ملفاً للمريض إن حُذف الطلب.';
+
+
+
+COMMENT ON COLUMN "public"."patient_documents"."teeth" IS 'M192: أسنانُ الصورة (FDI) — المصدر؛ tooth_num مرآةٌ لأولها للقرّاء القدامى (تريغر).';
+
+
+
+COMMENT ON COLUMN "public"."patient_documents"."taken_at" IS 'M192: تاريخُ التقاط الأشعة (لا تاريخ الرفع) — ترتيبُ الخط الزمني.';
+
+
+
+COMMENT ON COLUMN "public"."patient_documents"."annotations" IS 'M192: تعليقاتُ العارض المرسومة بإحداثيات الصورة — منفصلةٌ عن الأصل الذي لا يُعاد كتابته.';
+
+
+
+COMMENT ON COLUMN "public"."patient_documents"."cbct_url" IS 'M192: رابطُ عارض CBCT لدى الشركة/المركز (https فقط) — الحجمُ ثلاثيُّ الأبعاد خارج المنصة.';
+
+
+
+COMMENT ON COLUMN "public"."patient_documents"."portal_shared" IS 'M193: الطبيب شارك هذه الصورة مع المريض ببوابته (تظهر فقط إن كان portal_show_xrays مفعّلاً) — الأصل وحده بلا تعليقات.';
 
 
 
@@ -3320,8 +4520,8 @@ CREATE TABLE IF NOT EXISTS "public"."patient_messages" (
     "sent_by" "text",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     CONSTRAINT "patient_messages_body_len" CHECK ((("char_length"("body") >= 1) AND ("char_length"("body") <= 6000))),
-    CONSTRAINT "patient_messages_channel_check" CHECK (("channel" = ANY (ARRAY['whatsapp_link'::"text", 'copy'::"text", 'print'::"text"]))),
-    CONSTRAINT "patient_messages_kind_check" CHECK (("kind" = ANY (ARRAY['prescription'::"text", 'instructions'::"text", 'plan'::"text", 'installment'::"text", 'recall'::"text", 'birthday'::"text", 'review'::"text", 'referral'::"text", 'free'::"text", 'other'::"text", 'intake'::"text"]))),
+    CONSTRAINT "patient_messages_channel_check" CHECK (("channel" = ANY (ARRAY['whatsapp_link'::"text", 'copy'::"text", 'print'::"text", 'portal'::"text"]))),
+    CONSTRAINT "patient_messages_kind_check" CHECK (("kind" = ANY (ARRAY['prescription'::"text", 'instructions'::"text", 'plan'::"text", 'installment'::"text", 'recall'::"text", 'birthday'::"text", 'review'::"text", 'referral'::"text", 'free'::"text", 'other'::"text", 'intake'::"text", 'portal'::"text"]))),
     CONSTRAINT "patient_messages_sent_by_len" CHECK ((("sent_by" IS NULL) OR ("char_length"("sent_by") <= 80)))
 );
 
@@ -3330,6 +4530,28 @@ ALTER TABLE "public"."patient_messages" OWNER TO "postgres";
 
 
 COMMENT ON TABLE "public"."patient_messages" IS 'سجلّ مراسلات المريض (غير التذكيرات): ما فُتح به واتساب/نُسخ/طُبع من النظام. توثيقي بحت — لا يدخل أي حساب.';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."patient_portals" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "owner_id" "uuid" NOT NULL,
+    "patient_id" "uuid" NOT NULL,
+    "token" "text" DEFAULT "replace"((("gen_random_uuid"())::"text" || ("gen_random_uuid"())::"text"), '-'::"text", ''::"text") NOT NULL,
+    "expires_at" timestamp with time zone DEFAULT ("now"() + '30 days'::interval) NOT NULL,
+    "revoked_at" timestamp with time zone,
+    "created_by" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "renewed_at" timestamp with time zone,
+    CONSTRAINT "patient_portals_created_by_check" CHECK ((("created_by" IS NULL) OR ("char_length"("created_by") <= 80))),
+    CONSTRAINT "patient_portals_token_hex" CHECK (("token" ~ '^[0-9a-f]{64}$'::"text"))
+);
+
+
+ALTER TABLE "public"."patient_portals" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."patient_portals" IS 'بوابة المريض الخفيفة (M180): رابطٌ مرمَّز لكل مريض · قراءةٌ فقط عبر portal_info · تجديدٌ وإيقافٌ بيد العيادة. توثيقي — لا أثر مالي.';
 
 
 
@@ -3389,7 +4611,7 @@ CREATE TABLE IF NOT EXISTS "public"."patients" (
 ALTER TABLE "public"."patients" OWNER TO "postgres";
 
 
-COMMENT ON COLUMN "public"."patients"."medical_flags" IS 'مصفوفة JSONB من مفاتيح تحذيرات طبية ثابتة (diabetes/hypertension/cardiac/anticoagulants/pregnancy/asthma/penicillin_allergy/drug_allergy). المصدر الوحيد للتسميات = MEDICAL_FLAGS_DEFS بالعميل (مرآة ×3). NULL أو [] = لا تحذيرات. M87.';
+COMMENT ON COLUMN "public"."patients"."medical_flags" IS 'مصفوفة JSONB من مفاتيح تحذيرات طبية ثابتة (MEDICAL_FLAGS_DEFS ×4 + الحساسيات): diabetes/hypertension/cardiac/anticoagulants/pregnancy/asthma/bisphosphonates/bleeding/infectious/epilepsy/thyroid/kidney_liver/smoker + penicillin_allergy/latex_allergy/anesthetic_allergy/nsaid_allergy. التسمياتُ بالواجهة وحدها (M87 · v621/M183).';
 
 
 
@@ -3542,6 +4764,39 @@ CREATE TABLE IF NOT EXISTS "public"."platform_settings_audit" (
 
 
 ALTER TABLE "public"."platform_settings_audit" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."portal_requests" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "owner_id" "uuid" NOT NULL,
+    "patient_id" "uuid" NOT NULL,
+    "appointment_id" "uuid",
+    "kind" "text" NOT NULL,
+    "applied" boolean DEFAULT false NOT NULL,
+    "status" "text" DEFAULT 'new'::"text" NOT NULL,
+    "reason" "text",
+    "preference" "text",
+    "note" "text",
+    "appt_date" "date",
+    "appt_time" time without time zone,
+    "patient_name_snapshot" "text",
+    "handled_at" timestamp with time zone,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "requested_date" "date",
+    "requested_time" time without time zone,
+    CONSTRAINT "portal_requests_kind_check" CHECK (("kind" = ANY (ARRAY['cancel'::"text", 'change'::"text"]))),
+    CONSTRAINT "portal_requests_note_check" CHECK ((("note" IS NULL) OR ("char_length"("note") <= 300))),
+    CONSTRAINT "portal_requests_preference_check" CHECK ((("preference" IS NULL) OR ("preference" = ANY (ARRAY['any'::"text", 'morning'::"text", 'evening'::"text"])))),
+    CONSTRAINT "portal_requests_reason_check" CHECK ((("reason" IS NULL) OR ("char_length"("reason") <= 300))),
+    CONSTRAINT "portal_requests_status_check" CHECK (("status" = ANY (ARRAY['new'::"text", 'handled'::"text", 'dismissed'::"text"])))
+);
+
+
+ALTER TABLE "public"."portal_requests" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."portal_requests" IS 'بوابة المريض (M187): إلغاءٌ/طلبُ تغيير موعد أرسله المريض من بوابته — صندوقُ العيادة بصفحة المواعيد وتنبيهٌ لحظي باسم المريض. توثيقي — لا أثر مالي.';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."post_op_notes" (
@@ -4106,6 +5361,36 @@ ALTER TABLE ONLY "public"."booking_requests"
 
 
 
+ALTER TABLE ONLY "public"."bridge_devices"
+    ADD CONSTRAINT "bridge_devices_key_hash_key" UNIQUE ("key_hash");
+
+
+
+ALTER TABLE ONLY "public"."bridge_devices"
+    ADD CONSTRAINT "bridge_devices_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."bridge_inbox"
+    ADD CONSTRAINT "bridge_inbox_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."bridge_inbox"
+    ADD CONSTRAINT "bridge_inbox_storage_path_key" UNIQUE ("storage_path");
+
+
+
+ALTER TABLE ONLY "public"."bridge_pairings"
+    ADD CONSTRAINT "bridge_pairings_pkey" PRIMARY KEY ("code");
+
+
+
+ALTER TABLE ONLY "public"."capture_requests"
+    ADD CONSTRAINT "capture_requests_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."clinic_doctors"
     ADD CONSTRAINT "clinic_doctors_pkey" PRIMARY KEY ("id");
 
@@ -4301,6 +5586,16 @@ ALTER TABLE ONLY "public"."patient_messages"
 
 
 
+ALTER TABLE ONLY "public"."patient_portals"
+    ADD CONSTRAINT "patient_portals_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."patient_portals"
+    ADD CONSTRAINT "patient_portals_token_key" UNIQUE ("token");
+
+
+
 ALTER TABLE ONLY "public"."patient_recalls"
     ADD CONSTRAINT "patient_recalls_pkey" PRIMARY KEY ("id");
 
@@ -4353,6 +5648,11 @@ ALTER TABLE ONLY "public"."platform_settings_audit"
 
 ALTER TABLE ONLY "public"."platform_settings"
     ADD CONSTRAINT "platform_settings_pkey" PRIMARY KEY ("key");
+
+
+
+ALTER TABLE ONLY "public"."portal_requests"
+    ADD CONSTRAINT "portal_requests_pkey" PRIMARY KEY ("id");
 
 
 
@@ -4589,7 +5889,27 @@ CREATE INDEX "idx_booking_requests_appointment_id" ON "public"."booking_requests
 
 
 
+CREATE INDEX "idx_bridge_devices_owner" ON "public"."bridge_devices" USING "btree" ("owner_id", "revoked_at");
+
+
+
+CREATE INDEX "idx_bridge_inbox_owner" ON "public"."bridge_inbox" USING "btree" ("owner_id", "captured_at" DESC);
+
+
+
+CREATE INDEX "idx_bridge_pairings_owner" ON "public"."bridge_pairings" USING "btree" ("owner_id", "created_at" DESC);
+
+
+
 CREATE INDEX "idx_bundles_parent" ON "public"."treatment_bundles" USING "btree" ("parent_id", "sort_order");
+
+
+
+CREATE INDEX "idx_capture_requests_open" ON "public"."capture_requests" USING "btree" ("owner_id", "created_at") WHERE ("status" = 'open'::"text");
+
+
+
+CREATE INDEX "idx_capture_requests_patient" ON "public"."capture_requests" USING "btree" ("patient_id", "created_at" DESC);
 
 
 
@@ -4845,7 +6165,15 @@ CREATE INDEX "idx_patient_documents_patient" ON "public"."patient_documents" USI
 
 
 
+CREATE INDEX "idx_patient_documents_portal_shared" ON "public"."patient_documents" USING "btree" ("patient_id") WHERE "portal_shared";
+
+
+
 CREATE INDEX "idx_patient_documents_session_id" ON "public"."patient_documents" USING "btree" ("session_id");
+
+
+
+CREATE INDEX "idx_patient_documents_storage_path" ON "public"."patient_documents" USING "btree" ("storage_path");
 
 
 
@@ -4858,6 +6186,10 @@ CREATE INDEX "idx_patient_intakes_patient" ON "public"."patient_intakes" USING "
 
 
 CREATE INDEX "idx_patient_messages_patient" ON "public"."patient_messages" USING "btree" ("owner_id", "patient_id", "created_at" DESC);
+
+
+
+CREATE INDEX "idx_patient_portals_patient" ON "public"."patient_portals" USING "btree" ("owner_id", "patient_id", "created_at" DESC);
 
 
 
@@ -4918,6 +6250,22 @@ CREATE INDEX "idx_perio_meas_exam" ON "public"."perio_measurements" USING "btree
 
 
 CREATE INDEX "idx_platform_admins_granted_by" ON "public"."platform_admins" USING "btree" ("granted_by");
+
+
+
+CREATE INDEX "idx_portal_requests_appt" ON "public"."portal_requests" USING "btree" ("appointment_id");
+
+
+
+CREATE INDEX "idx_portal_requests_inbox" ON "public"."portal_requests" USING "btree" ("owner_id", "status", "created_at" DESC);
+
+
+
+CREATE INDEX "idx_portal_requests_patient" ON "public"."portal_requests" USING "btree" ("patient_id");
+
+
+
+CREATE INDEX "idx_portal_requests_rate" ON "public"."portal_requests" USING "btree" ("owner_id", "patient_id", "created_at" DESC);
 
 
 
@@ -5141,7 +6489,23 @@ CREATE UNIQUE INDEX "uq_patient_intakes_pending" ON "public"."patient_intakes" U
 
 
 
+CREATE UNIQUE INDEX "uq_patient_portals_live" ON "public"."patient_portals" USING "btree" ("patient_id") WHERE ("revoked_at" IS NULL);
+
+
+
+CREATE UNIQUE INDEX "uq_portal_requests_open" ON "public"."portal_requests" USING "btree" ("appointment_id", "kind") WHERE (("status" = 'new'::"text") AND ("applied" = false));
+
+
+
 CREATE UNIQUE INDEX "uq_sub_requests_one_pending" ON "public"."subscription_requests" USING "btree" ("user_id") WHERE ("status" = 'pending'::"text");
+
+
+
+CREATE OR REPLACE TRIGGER "trg_bridge_devices_lock" BEFORE UPDATE ON "public"."bridge_devices" FOR EACH ROW EXECUTE FUNCTION "public"."_bridge_devices_lock"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_capture_requests_guard" BEFORE INSERT OR UPDATE ON "public"."capture_requests" FOR EACH ROW EXECUTE FUNCTION "public"."capture_requests_guard"();
 
 
 
@@ -5293,11 +6657,23 @@ CREATE OR REPLACE TRIGGER "trg_patient_documents_lab_order_guard" BEFORE INSERT 
 
 
 
+CREATE OR REPLACE TRIGGER "trg_patient_documents_share_stamp" BEFORE INSERT OR UPDATE OF "portal_shared", "portal_shared_at" ON "public"."patient_documents" FOR EACH ROW EXECUTE FUNCTION "public"."_patient_documents_share_stamp"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_patient_documents_xray_guard" BEFORE INSERT OR UPDATE ON "public"."patient_documents" FOR EACH ROW EXECUTE FUNCTION "public"."patient_documents_xray_guard"();
+
+
+
 CREATE OR REPLACE TRIGGER "trg_patients_referrer_guard" BEFORE INSERT OR UPDATE OF "referred_by_patient_id", "doctor_id" ON "public"."patients" FOR EACH ROW EXECUTE FUNCTION "public"."patients_referrer_guard"();
 
 
 
 CREATE OR REPLACE TRIGGER "trg_platform_settings_updated_at" BEFORE UPDATE ON "public"."platform_settings" FOR EACH ROW EXECUTE FUNCTION "public"."set_platform_settings_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_portal_requests_close" AFTER UPDATE OF "date", "time", "status" ON "public"."appointments" FOR EACH ROW WHEN ((("old"."date" IS DISTINCT FROM "new"."date") OR ("old"."time" IS DISTINCT FROM "new"."time") OR (("old"."status" IS DISTINCT FROM "new"."status") AND ("new"."status" = ANY (ARRAY['cancelled'::"text", 'completed'::"text", 'broken'::"text", 'no_show'::"text"]))))) EXECUTE FUNCTION "public"."_portal_requests_close"();
 
 
 
@@ -5427,6 +6803,51 @@ ALTER TABLE ONLY "public"."booking_requests"
 
 ALTER TABLE ONLY "public"."booking_requests"
     ADD CONSTRAINT "booking_requests_clinic_fk" FOREIGN KEY ("clinic_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."bridge_devices"
+    ADD CONSTRAINT "bridge_devices_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."bridge_inbox"
+    ADD CONSTRAINT "bridge_inbox_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "public"."bridge_devices"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."bridge_inbox"
+    ADD CONSTRAINT "bridge_inbox_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."bridge_pairings"
+    ADD CONSTRAINT "bridge_pairings_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."capture_requests"
+    ADD CONSTRAINT "capture_requests_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "public"."bridge_devices"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."capture_requests"
+    ADD CONSTRAINT "capture_requests_document_id_fkey" FOREIGN KEY ("document_id") REFERENCES "public"."patient_documents"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."capture_requests"
+    ADD CONSTRAINT "capture_requests_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."capture_requests"
+    ADD CONSTRAINT "capture_requests_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "public"."patients"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."capture_requests"
+    ADD CONSTRAINT "capture_requests_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "public"."ledger_sessions"("id") ON DELETE SET NULL;
 
 
 
@@ -5770,6 +7191,16 @@ ALTER TABLE ONLY "public"."patient_messages"
 
 
 
+ALTER TABLE ONLY "public"."patient_portals"
+    ADD CONSTRAINT "patient_portals_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."patient_portals"
+    ADD CONSTRAINT "patient_portals_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "public"."patients"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."patient_recalls"
     ADD CONSTRAINT "patient_recalls_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
@@ -5842,6 +7273,21 @@ ALTER TABLE ONLY "public"."platform_admins"
 
 ALTER TABLE ONLY "public"."platform_admins"
     ADD CONSTRAINT "platform_admins_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."portal_requests"
+    ADD CONSTRAINT "portal_requests_appointment_id_fkey" FOREIGN KEY ("appointment_id") REFERENCES "public"."appointments"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."portal_requests"
+    ADD CONSTRAINT "portal_requests_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."portal_requests"
+    ADD CONSTRAINT "portal_requests_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "public"."patients"("id") ON DELETE CASCADE;
 
 
 
@@ -6109,6 +7555,50 @@ CREATE POLICY "booking_owner_all" ON "public"."booking_requests" USING (("clinic
 
 
 ALTER TABLE "public"."booking_requests" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."bridge_devices" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "bridge_devices_owner_delete" ON "public"."bridge_devices" FOR DELETE USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "bridge_devices_owner_select" ON "public"."bridge_devices" FOR SELECT USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "bridge_devices_owner_update" ON "public"."bridge_devices" FOR UPDATE USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."bridge_inbox" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "bridge_inbox_owner_delete" ON "public"."bridge_inbox" FOR DELETE USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "bridge_inbox_owner_select" ON "public"."bridge_inbox" FOR SELECT USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."bridge_pairings" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "bridge_pairings_owner_delete" ON "public"."bridge_pairings" FOR DELETE USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "bridge_pairings_owner_select" ON "public"."bridge_pairings" FOR SELECT USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+ALTER TABLE "public"."capture_requests" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "capture_requests_owner_all" ON "public"."capture_requests" USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
 
 
 ALTER TABLE "public"."clinic_doctors" ENABLE ROW LEVEL SECURITY;
@@ -6395,6 +7885,13 @@ CREATE POLICY "patient_messages_owner_all" ON "public"."patient_messages" USING 
 
 
 
+ALTER TABLE "public"."patient_portals" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "patient_portals_owner_all" ON "public"."patient_portals" USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
 ALTER TABLE "public"."patient_recalls" ENABLE ROW LEVEL SECURITY;
 
 
@@ -6459,6 +7956,13 @@ ALTER TABLE "public"."platform_settings" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."platform_settings_audit" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."portal_requests" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "portal_requests_owner_all" ON "public"."portal_requests" USING (("owner_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("owner_id" = ( SELECT "auth"."uid"() AS "uid")));
+
 
 
 ALTER TABLE "public"."post_op_notes" ENABLE ROW LEVEL SECURITY;
@@ -6557,6 +8061,22 @@ CREATE POLICY "sub_gate_delete" ON "public"."audit_log" AS RESTRICTIVE FOR DELET
 
 
 CREATE POLICY "sub_gate_delete" ON "public"."booking_requests" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_delete" ON "public"."bridge_devices" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_delete" ON "public"."bridge_inbox" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_delete" ON "public"."bridge_pairings" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_delete" ON "public"."capture_requests" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
@@ -6680,6 +8200,10 @@ CREATE POLICY "sub_gate_delete" ON "public"."patient_messages" AS RESTRICTIVE FO
 
 
 
+CREATE POLICY "sub_gate_delete" ON "public"."patient_portals" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
 CREATE POLICY "sub_gate_delete" ON "public"."patient_recalls" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
@@ -6705,6 +8229,10 @@ CREATE POLICY "sub_gate_delete" ON "public"."perio_exams" AS RESTRICTIVE FOR DEL
 
 
 CREATE POLICY "sub_gate_delete" ON "public"."perio_measurements" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_delete" ON "public"."portal_requests" AS RESTRICTIVE FOR DELETE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
@@ -6793,6 +8321,22 @@ CREATE POLICY "sub_gate_insert" ON "public"."audit_log" AS RESTRICTIVE FOR INSER
 
 
 CREATE POLICY "sub_gate_insert" ON "public"."booking_requests" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_insert" ON "public"."bridge_devices" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_insert" ON "public"."bridge_inbox" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_insert" ON "public"."bridge_pairings" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_insert" ON "public"."capture_requests" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
@@ -6916,6 +8460,10 @@ CREATE POLICY "sub_gate_insert" ON "public"."patient_messages" AS RESTRICTIVE FO
 
 
 
+CREATE POLICY "sub_gate_insert" ON "public"."patient_portals" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
 CREATE POLICY "sub_gate_insert" ON "public"."patient_recalls" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
@@ -6941,6 +8489,10 @@ CREATE POLICY "sub_gate_insert" ON "public"."perio_exams" AS RESTRICTIVE FOR INS
 
 
 CREATE POLICY "sub_gate_insert" ON "public"."perio_measurements" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_insert" ON "public"."portal_requests" AS RESTRICTIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
@@ -7029,6 +8581,22 @@ CREATE POLICY "sub_gate_select" ON "public"."audit_log" AS RESTRICTIVE FOR SELEC
 
 
 CREATE POLICY "sub_gate_select" ON "public"."booking_requests" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
+
+
+
+CREATE POLICY "sub_gate_select" ON "public"."bridge_devices" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
+
+
+
+CREATE POLICY "sub_gate_select" ON "public"."bridge_inbox" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
+
+
+
+CREATE POLICY "sub_gate_select" ON "public"."bridge_pairings" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
+
+
+
+CREATE POLICY "sub_gate_select" ON "public"."capture_requests" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
 
 
 
@@ -7136,6 +8704,10 @@ CREATE POLICY "sub_gate_select" ON "public"."patient_messages" AS RESTRICTIVE FO
 
 
 
+CREATE POLICY "sub_gate_select" ON "public"."patient_portals" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
+
+
+
 CREATE POLICY "sub_gate_select" ON "public"."patient_recalls" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
 
 
@@ -7161,6 +8733,10 @@ CREATE POLICY "sub_gate_select" ON "public"."perio_exams" AS RESTRICTIVE FOR SEL
 
 
 CREATE POLICY "sub_gate_select" ON "public"."perio_measurements" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
+
+
+
+CREATE POLICY "sub_gate_select" ON "public"."portal_requests" AS RESTRICTIVE FOR SELECT TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") <> 'none'::"text"));
 
 
 
@@ -7249,6 +8825,22 @@ CREATE POLICY "sub_gate_update" ON "public"."audit_log" AS RESTRICTIVE FOR UPDAT
 
 
 CREATE POLICY "sub_gate_update" ON "public"."booking_requests" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_update" ON "public"."bridge_devices" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_update" ON "public"."bridge_inbox" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_update" ON "public"."bridge_pairings" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_update" ON "public"."capture_requests" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
@@ -7372,6 +8964,10 @@ CREATE POLICY "sub_gate_update" ON "public"."patient_messages" AS RESTRICTIVE FO
 
 
 
+CREATE POLICY "sub_gate_update" ON "public"."patient_portals" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
 CREATE POLICY "sub_gate_update" ON "public"."patient_recalls" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
@@ -7397,6 +8993,10 @@ CREATE POLICY "sub_gate_update" ON "public"."perio_exams" AS RESTRICTIVE FOR UPD
 
 
 CREATE POLICY "sub_gate_update" ON "public"."perio_measurements" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
+
+
+
+CREATE POLICY "sub_gate_update" ON "public"."portal_requests" AS RESTRICTIVE FOR UPDATE TO "authenticated" USING ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text")) WITH CHECK ((( SELECT "public"."my_access_level"() AS "my_access_level") = 'full'::"text"));
 
 
 
@@ -7545,7 +9145,103 @@ ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
 
 
 
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."account_adjustments";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."appointments";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."audit_log";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."booking_requests";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."bridge_devices";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."bridge_inbox";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."capture_requests";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."clinic_doctors";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."clinic_employees";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."expenses";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."inventory_items";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."inventory_movements";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."lab_orders";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."lab_payments";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."labs";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."ledger_payments";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."ledger_sessions";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."patient_documents";
+
+
+
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."patient_intakes";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."patient_portals";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."patients";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."payment_plans";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."payment_splits";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."portal_requests";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."provider_payouts";
 
 
 
@@ -7554,6 +9250,10 @@ ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."staff_messages";
 
 
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."subscription_requests";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."teeth_status";
 
 
 
@@ -7715,6 +9415,12 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
+REVOKE ALL ON FUNCTION "public"."_bridge_devices_lock"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."_bridge_devices_lock"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."_bridge_devices_lock"() TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."_intake_clinic_open"("p_clinic" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."_intake_clinic_open"("p_clinic" "uuid") TO "service_role";
 
@@ -7722,6 +9428,32 @@ GRANT ALL ON FUNCTION "public"."_intake_clinic_open"("p_clinic" "uuid") TO "serv
 
 REVOKE ALL ON FUNCTION "public"."_login_resolve_bump"("p_bucket" "text", "p_limit" integer, "p_window" interval) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."_login_resolve_bump"("p_bucket" "text", "p_limit" integer, "p_window" interval) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."_patient_documents_share_stamp"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."_patient_documents_share_stamp"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."_patient_documents_share_stamp"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."_pf_cap_bytes"("p_uid" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."_pf_cap_bytes"("p_uid" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."_pf_used_bytes"("p_uid" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."_pf_used_bytes"("p_uid" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."_portal_free_slots"("p_owner" "uuid", "p_appt" "uuid", "p_dur" integer, "p_from" "date", "p_to" "date") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."_portal_free_slots"("p_owner" "uuid", "p_appt" "uuid", "p_dur" integer, "p_from" "date", "p_to" "date") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."_portal_requests_close"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."_portal_requests_close"() TO "service_role";
 
 
 
@@ -7761,6 +9493,43 @@ REVOKE ALL ON FUNCTION "public"."booking_create_request"("p_clinic" "uuid", "p_n
 GRANT ALL ON FUNCTION "public"."booking_create_request"("p_clinic" "uuid", "p_name" "text", "p_phone" "text", "p_date" "date", "p_time" time without time zone, "p_note" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."booking_create_request"("p_clinic" "uuid", "p_name" "text", "p_phone" "text", "p_date" "date", "p_time" time without time zone, "p_note" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."booking_create_request"("p_clinic" "uuid", "p_name" "text", "p_phone" "text", "p_date" "date", "p_time" time without time zone, "p_note" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."bridge_auth"("p_device" "uuid", "p_key_hash" "text", "p_version" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."bridge_auth"("p_device" "uuid", "p_key_hash" "text", "p_version" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."bridge_complete"("p_owner" "uuid", "p_device" "uuid", "p_request" "uuid", "p_path" "text", "p_name" "text", "p_mime" "text", "p_size" bigint) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."bridge_complete"("p_owner" "uuid", "p_device" "uuid", "p_request" "uuid", "p_path" "text", "p_name" "text", "p_mime" "text", "p_size" bigint) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."bridge_open_requests"("p_owner" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."bridge_open_requests"("p_owner" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."bridge_pair"("p_code" "text", "p_key_hash" "text", "p_version" "text", "p_mode" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."bridge_pair"("p_code" "text", "p_key_hash" "text", "p_version" "text", "p_mode" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."bridge_pairing_code"("p_device_name" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."bridge_pairing_code"("p_device_name" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."bridge_pairing_code"("p_device_name" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."bridge_upload_path"("p_owner" "uuid", "p_request" "uuid", "p_mime" "text", "p_name" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."bridge_upload_path"("p_owner" "uuid", "p_request" "uuid", "p_mime" "text", "p_name" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."capture_requests_guard"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."capture_requests_guard"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."capture_requests_guard"() TO "service_role";
 
 
 
@@ -7940,6 +9709,18 @@ GRANT ALL ON FUNCTION "public"."my_storage_object_count"() TO "service_role";
 
 
 
+REVOKE ALL ON FUNCTION "public"."my_storage_orphans"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."my_storage_orphans"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."my_storage_orphans"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."my_storage_usage"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."my_storage_usage"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."my_storage_usage"() TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."my_subscription_state"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."my_subscription_state"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."my_subscription_state"() TO "service_role";
@@ -7970,9 +9751,60 @@ GRANT ALL ON FUNCTION "public"."patient_documents_lab_order_guard"() TO "service
 
 
 
+REVOKE ALL ON FUNCTION "public"."patient_documents_xray_guard"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."patient_documents_xray_guard"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."patient_documents_xray_guard"() TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."patients_referrer_guard"() TO "anon";
 GRANT ALL ON FUNCTION "public"."patients_referrer_guard"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."patients_referrer_guard"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."pf_quota_ok"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."pf_quota_ok"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."pf_quota_ok"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."portal_appt_change"("p_token" "text", "p_appt" "uuid", "p_kind" "text", "p_reason" "text", "p_pref" "text", "p_note" "text", "p_date" "date", "p_time" time without time zone) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."portal_appt_change"("p_token" "text", "p_appt" "uuid", "p_kind" "text", "p_reason" "text", "p_pref" "text", "p_note" "text", "p_date" "date", "p_time" time without time zone) TO "anon";
+GRANT ALL ON FUNCTION "public"."portal_appt_change"("p_token" "text", "p_appt" "uuid", "p_kind" "text", "p_reason" "text", "p_pref" "text", "p_note" "text", "p_date" "date", "p_time" time without time zone) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."portal_appt_change"("p_token" "text", "p_appt" "uuid", "p_kind" "text", "p_reason" "text", "p_pref" "text", "p_note" "text", "p_date" "date", "p_time" time without time zone) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."portal_confirm"("p_token" "text", "p_appt" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."portal_confirm"("p_token" "text", "p_appt" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."portal_confirm"("p_token" "text", "p_appt" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."portal_confirm"("p_token" "text", "p_appt" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."portal_info"("p_token" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."portal_info"("p_token" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."portal_info"("p_token" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."portal_info"("p_token" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."portal_request_cancel_approve"("p_req" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."portal_request_cancel_approve"("p_req" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."portal_request_cancel_approve"("p_req" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."portal_slots"("p_token" "text", "p_appt" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."portal_slots"("p_token" "text", "p_appt" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."portal_slots"("p_token" "text", "p_appt" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."portal_slots"("p_token" "text", "p_appt" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."portal_xray_list"("p_token" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."portal_xray_list"("p_token" "text") TO "service_role";
 
 
 
@@ -8149,6 +9981,30 @@ GRANT ALL ON TABLE "public"."audit_log" TO "service_role";
 GRANT ALL ON TABLE "public"."booking_requests" TO "anon";
 GRANT ALL ON TABLE "public"."booking_requests" TO "authenticated";
 GRANT ALL ON TABLE "public"."booking_requests" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."bridge_devices" TO "anon";
+GRANT ALL ON TABLE "public"."bridge_devices" TO "authenticated";
+GRANT ALL ON TABLE "public"."bridge_devices" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."bridge_inbox" TO "anon";
+GRANT ALL ON TABLE "public"."bridge_inbox" TO "authenticated";
+GRANT ALL ON TABLE "public"."bridge_inbox" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."bridge_pairings" TO "anon";
+GRANT ALL ON TABLE "public"."bridge_pairings" TO "authenticated";
+GRANT ALL ON TABLE "public"."bridge_pairings" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."capture_requests" TO "anon";
+GRANT ALL ON TABLE "public"."capture_requests" TO "authenticated";
+GRANT ALL ON TABLE "public"."capture_requests" TO "service_role";
 
 
 
@@ -8342,6 +10198,12 @@ GRANT ALL ON TABLE "public"."patient_messages" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."patient_portals" TO "anon";
+GRANT ALL ON TABLE "public"."patient_portals" TO "authenticated";
+GRANT ALL ON TABLE "public"."patient_portals" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."patient_recalls" TO "anon";
 GRANT ALL ON TABLE "public"."patient_recalls" TO "authenticated";
 GRANT ALL ON TABLE "public"."patient_recalls" TO "service_role";
@@ -8393,6 +10255,12 @@ GRANT ALL ON TABLE "public"."platform_settings" TO "service_role";
 GRANT ALL ON TABLE "public"."platform_settings_audit" TO "anon";
 GRANT ALL ON TABLE "public"."platform_settings_audit" TO "authenticated";
 GRANT ALL ON TABLE "public"."platform_settings_audit" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."portal_requests" TO "anon";
+GRANT ALL ON TABLE "public"."portal_requests" TO "authenticated";
+GRANT ALL ON TABLE "public"."portal_requests" TO "service_role";
 
 
 

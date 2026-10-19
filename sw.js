@@ -23,7 +23,7 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 'use strict';
 
-var SW_VERSION  = 'v642';   /* v257: سجلّ الإصدارات انتقل إلى CHANGELOG.md (كان 430KB بهذا السطر). كل رفع نسخة يُسجَّل هناك — لا هنا. */
+var SW_VERSION  = 'v653';   /* v257: سجلّ الإصدارات انتقل إلى CHANGELOG.md (كان 430KB بهذا السطر). كل رفع نسخة يُسجَّل هناك — لا هنا. */
 var KILL_SWITCH = false;
 
 var PRECACHE = 'sydent-precache-' + SW_VERSION;
@@ -444,6 +444,7 @@ self.addEventListener('fetch', function (event) {
   }
 
   if (url.pathname === '/sw.js') return;
+  if (url.pathname.indexOf('/downloads/') === 0) return;   /* v644: حزمُ البرامج (SyDent Bridge) — تنزيلٌ مباشر، لا كاش ولا صفحة أوفلاين */
 
   if (isNavigation(req)) {
     event.respondWith(handleNavigation(event, url));

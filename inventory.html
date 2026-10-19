@@ -17,7 +17,7 @@
 /* ── Modal ── v448: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261016a"></script>
+<script src="theme.js?v=20261019c"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -234,16 +234,16 @@ button:disabled { opacity:.6; cursor:wait; }
 /* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
 html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem("],[onclick*="saveMovement("],[onclick*="finishBatch("],[onclick*="openMoveModal("],[onclick*="deleteItem("],[onclick*="finishBatchFromItem("],[onclick*="ivoSetQty("],[onclick*="applyCount("],[onclick*="saveSupplier("],[onclick*="editSupplier("],[onclick*="hideSupplier("],[onclick*="ivoSaveOrder("],[onclick*="poOpenReceive("],[onclick*="poCancel("],[onclick*="poReceive("]){display:none !important;}
 </style>
-<link rel="stylesheet" href="theme.css?v=20261016a">
+<link rel="stylesheet" href="theme.css?v=20261019c">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261016a"></script>
-<script src="sy-modal.js?v=20261016a"></script>
-<script src="sidebar.js?v=20261016a"></script>
-<script src="inv-consume.js?v=20261016a"></script>
-<script src="inv-order.js?v=20261016a"></script>
-<script src="inv-count.js?v=20261016a"></script>
-<script src="inv-po.js?v=20261016a"></script>
-<script src="inv-trace.js?v=20261016a"></script>
+<script src="supabase-init.js?v=20261019c"></script>
+<script src="sy-modal.js?v=20261019c"></script>
+<script src="sidebar.js?v=20261019c"></script>
+<script src="inv-consume.js?v=20261019c"></script>
+<script src="inv-order.js?v=20261019c"></script>
+<script src="inv-count.js?v=20261019c"></script>
+<script src="inv-po.js?v=20261019c"></script>
+<script src="inv-trace.js?v=20261019c"></script>
 </head>
 <body>
 
@@ -445,7 +445,7 @@ html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem(
   </div>
 </div>
 
-<!-- Modal: حركة (شراء/استهلاك/جرد) -->
+<!-- Modal: حركة (شراء/استهلاك/مرتجع إلى المخزون/مرتجع للمورّد/جرد) — M195: المرتجعُ نوعان بإشارتين -->
 <div class="modal-overlay sy-m" id="moveModal">
   <div class="modal-box">
     <div class="modal-head"><h3 id="moveModalTitle">حركة مخزون</h3><button class="modal-close" onclick="closeModal('moveModal')">✕</button></div>
@@ -456,13 +456,19 @@ html[data-sub-level="read"] :is([onclick*="openItemModal("],[onclick*="saveItem(
         <select id="moveReason" onchange="onMoveReasonChange()">
           <option value="purchase">شراء / إضافة وارد</option>
           <option value="consume">استهلاك / صرف</option>
-          <option value="return">مرتجع</option>
+          <option value="return">مرتجع إلى المخزون (إضافة +)</option>
+          <option value="return_supplier">مرتجع للمورّد (خصم −)</option>
           <option value="adjust">تعديل جرد (تصحيح الكمية)</option>
         </select>
       </div>
       <div class="form-group" id="moveQtyGroup">
         <label id="moveQtyLabel">الكمية</label>
         <input type="number" id="moveQty" placeholder="0" min="0" inputmode="decimal">
+        <div id="moveReasonHint" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+      </div>
+      <div class="form-group" id="moveBatchGroup" style="display:none;">   <!-- M195: الدفعةُ التي تُعاد للمورّد -->
+        <label>الدفعة المُرجَعة <span style="color:var(--text2);font-weight:400;">(اختياري)</span></label>
+        <select id="moveBatch"><option value="">تلقائي — الأقرب انتهاءً أولاً</option></select>
       </div>
       <div class="form-group" id="moveAdjustGroup" style="display:none;">
         <label>الكمية الصحيحة الجديدة (بعد الجرد)</label>
@@ -1106,26 +1112,74 @@ function openMoveModal(itemId, presetReason) {
   document.getElementById('moveAdjustTo').value = '';
   var _me = document.getElementById('moveExpiry'); if (_me) _me.value = '';
   var _ml = document.getElementById('moveLot'); if (_ml) _ml.value = '';   /* M173 */
+  var _mb = document.getElementById('moveBatch'); if (_mb) { _mb.innerHTML = '<option value="">تلقائي — الأقرب انتهاءً أولاً</option>'; }   /* M195 */
+  _moveBatchesFor = null;
   document.getElementById('moveNote').value = '';
   onMoveReasonChange();
   openModal('moveModal');
 }
 
+/* M195: الإشارةُ بالاسم — المرتجعُ إلى المخزون يضيف، والمرتجعُ للمورّد يخصم (ولا يدخل كلفةَ المواد) */
+var MOVE_REASON_HINT = {
+  purchase: 'تُضاف الكمية إلى المخزون (+).',
+  consume: 'تُخصم الكمية من المخزون (−) وتدخل كلفةَ المواد.',
+  return: 'مادةٌ رجعت إلى عندك (مثلاً علبة لم تُفتح) — تُضاف إلى المخزون (+).',
+  return_supplier: 'مادةٌ أعدتَها للمورّد — تُخصم من المخزون (−) ولا تُحسب استهلاكاً.',
+  adjust: ''
+};
 function onMoveReasonChange() {
   var reason = document.getElementById('moveReason').value;
   var qtyGroup = document.getElementById('moveQtyGroup');
   var adjGroup = document.getElementById('moveAdjustGroup');
   var lbl = document.getElementById('moveQtyLabel');
   var expGroup = document.getElementById('moveExpiryGroup');
+  var batchGroup = document.getElementById('moveBatchGroup');
+  var hint = document.getElementById('moveReasonHint');
   if (expGroup) expGroup.style.display = (reason === 'purchase') ? 'block' : 'none';
+  if (batchGroup) batchGroup.style.display = (reason === 'return_supplier') ? 'block' : 'none';
+  if (hint) hint.textContent = MOVE_REASON_HINT[reason] || '';
   if (reason === 'adjust') {
     qtyGroup.style.display = 'none';
     adjGroup.style.display = 'block';
   } else {
     qtyGroup.style.display = 'block';
     adjGroup.style.display = 'none';
-    lbl.textContent = (reason === 'consume') ? 'الكمية المصروفة' : 'الكمية';
+    lbl.textContent = (reason === 'consume') ? 'الكمية المصروفة' : (reason === 'return_supplier' ? 'الكمية المُرجَعة للمورّد' : 'الكمية');
   }
+  if (reason === 'return_supplier') loadMoveBatches();
+}
+/* M195: الدفعاتُ المفتوحة للصنف (LOT · صلاحية · متبقٍّ) — الاختيارُ اختياري، والفشلُ يُبقي «تلقائي» */
+var _moveBatchesFor = null;
+async function loadMoveBatches() {
+  var sel = document.getElementById('moveBatch');
+  if (!sel || !moveItemId || _moveBatchesFor === moveItemId) return;
+  _moveBatchesFor = moveItemId;
+  sel.innerHTML = '<option value="">تلقائي — الأقرب انتهاءً أولاً</option>';
+  try {
+    var r = await window.sb.from('inventory_batches').select('id, lot_no, expiry_date, quantity')
+      .eq('owner_id', currentUser.id).eq('item_id', moveItemId).eq('is_finished', false)
+      .order('expiry_date', { ascending: true, nullsFirst: false }).limit(200);
+    if (r.error || _moveBatchesFor !== moveItemId) return;
+    (r.data || []).forEach(function (b) {
+      if (!(Number(b.quantity) > 0)) return;
+      var opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = window.SyDentInvConsume ? window.SyDentInvConsume.lotLabel(b) : (b.lot_no || b.expiry_date || 'دفعة');
+      sel.appendChild(opt);
+    });
+  } catch (e) { console.warn('loadMoveBatches:', e); }
+}
+
+/* M195: رسائلُ القاعدة بأسمائها (#689) */
+function returnSupplierErr(err, it) {
+  var msg = String((err && (err.message || err.code)) || '');
+  var m = /insufficient_stock:([0-9.]+)/.exec(msg);
+  if (m) return '⚠️ الكمية المُرجَعة أكبر من المتوفّر (' + fmtNum(Number(m[1])) + ') — ما انخصم شي';
+  if (/batch_not_available/.test(msg)) return '⚠️ الدفعة المختارة لم تعد متاحة — أعد فتح النافذة واختر غيرها';
+  if (/item_inactive/.test(msg)) return '⚠️ الصنف محذوف من المخزون';
+  if (/read_only/.test(msg)) return '⚠️ الحساب بوضع القراءة فقط — ما انخصم شي من المخزون';
+  if (/Failed to fetch|NetworkError|network|offline/i.test(msg)) return '⚠️ ما في اتصال — ما انخصم شي، جرّب لما يرجع النت';
+  return '⚠️ تعذّر تسجيل المرتجع' + (it && it.name ? ' لـ«' + it.name + '»' : '') + ' — ما انخصم شي';
 }
 
 async function saveMovement() {
@@ -1157,6 +1211,9 @@ async function saveMovement() {
     if (reason === 'consume' && (cur - q) < 0) {
       if (!await SyDialog.confirm({ message: 'الكمية المصروفة أكبر من المتوفّر (' + fmtNum(cur) + '). ستُخصم حتى الصفر فقط. متابعة؟' })) { return; }
     }
+    if (reason === 'return_supplier' && q > cur) {   /* M195: المرتجعُ كميةٌ محدَّدة — لا يُقصّ */
+      showToast('⚠️ الكمية المُرجَعة أكبر من المتوفّر (' + fmtNum(cur) + ')', true); return;
+    }
   }
 
   _saveMoveInFlight = true;
@@ -1172,6 +1229,19 @@ async function saveMovement() {
       if (!cres.ok) { console.error('saveMovement consume:', cres.error); showToast(window.SyDentInvConsume.message(cres, names), true); return; }
       closeModal('moveModal');
       showToast(window.SyDentInvConsume.message(cres, names));
+      await loadItems();
+      return;
+    }
+    /* M195: المرتجعُ للمورّد بالطريق الذرّي نفسه (RPC) — الدفعةُ المختارة أولاً ثم FEFO؛ لا يتجاوز المتوفّر (يُرفض بالقاعدة) */
+    if (reason === 'return_supplier') {
+      var _bsel = document.getElementById('moveBatch');
+      var rres = await window.sb.rpc('inventory_return_supplier', {
+        p_item: moveItemId, p_qty: q, p_note: note || null, p_batch: (_bsel && _bsel.value) || null
+      });
+      if (rres.error) { console.error('saveMovement return_supplier:', rres.error); showToast(returnSupplierErr(rres.error, it), true); return; }
+      closeModal('moveModal');
+      var rem = rres.data && rres.data.remaining != null ? rres.data.remaining : null;
+      showToast('تم تسجيل المرتجع للمورّد ✓ — خُصم ' + fmtNum(q) + (rem != null ? ' · المتبقّي ' + fmtNum(rem) : ''));
       await loadItems();
       return;
     }
@@ -1314,7 +1384,7 @@ document.addEventListener('click', function(e){
   if (act === 'wa') {   /* M172: لمورّدٍ محفوظ برقمه ⇒ محادثتُه مباشرة */
     var u = window.SyDentInvOrder.waUrl(order), sp = ivoSelSupplier(), n = sp ? window.SyDentInvPO.waNumber(sp.phone) : '';
     if (n) u = u.replace('https://wa.me/', 'https://wa.me/' + n);
-    window.open(u, '_blank', 'noopener'); return;
+    window.SyDentWA.open(u); return;   /* v651 */
   }
   if (act === 'copy') { ivoCopy(window.SyDentInvOrder.text(order)).then(function(ok){ showToast(ok ? '📋 نُسخت الطلبية — الصقها بالواتساب' : '⚠️ تعذّر النسخ', !ok); }); return; }
   if (act === 'xlsx') {
@@ -1552,7 +1622,7 @@ function poShare(act) {
   if (act === 'wa') {
     var sp = x.o.supplier_id ? supplierById(x.o.supplier_id) : null, n = sp ? window.SyDentInvPO.waNumber(sp.phone) : '';
     var u = window.SyDentInvOrder.waUrl(order); if (n) u = u.replace('https://wa.me/', 'https://wa.me/' + n);
-    window.open(u, '_blank', 'noopener'); return;
+    window.SyDentWA.open(u); return;   /* v651 */
   }
   if (act === 'xlsx') {
     window.SyDentXlsx.save({ filename: 'sydent-po-' + window.SyDentXlsx.ymd(new Date(x.o.created_at)), sheetName: 'الطلبية',
@@ -1868,7 +1938,7 @@ function histNote(m) {
     + (m.batch_id ? ' <button type="button" class="sy-act" onclick="openBatchTrace(\'' + escapeHtml(m.batch_id) + '\')" title="مين استلم من هالدفعة">👥 المرضى</button>' : ''));   /* v575: الدفعةُ المنتهية تُتتبَّع من السجل */
   return parts.length ? parts.join(' · ') : '—';
 }
-var REASON_AR = { purchase: '🟢 شراء', consume: '🔴 استهلاك', return: '↩️ مرتجع', adjust: '⚖️ تعديل', count: '📋 جرد' };   /* M171 */
+var REASON_AR = { purchase: '🟢 شراء', consume: '🔴 استهلاك', return: '↩️ مرتجع إلى المخزون', return_supplier: '📤 مرتجع للمورّد', adjust: '⚖️ تعديل', count: '📋 جرد' };   /* M171 · M195 */
 async function openHistory(itemId) {
   var it = null;
   for (var i=0;i<ITEMS.length;i++) if (ITEMS[i].id === itemId) { it = ITEMS[i]; break; }

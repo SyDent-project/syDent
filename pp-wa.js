@@ -257,7 +257,7 @@ async function ppSendWaReminder() {
   sendBtn.disabled = true;
 
   var url = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
-  window.open(url, '_blank');
+  window.SyDentWA.open(url);   /* v651 */
 
   try {
     var ins = await window.sb.from('reminder_logs').insert({
@@ -876,7 +876,7 @@ function ppWaComposeSend() {
   var msg = (document.getElementById('ppWaComposeMsg').value || '').trim();
   if (!msg) { showToast('⚠️ الرسالة فارغة'); return; }
   var url = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
-  window.open(url, '_blank');
+  window.SyDentWA.open(url);   /* v651 */
   ppMsgLog(_ppWaComposeKind, msg, phone);   /* v421: بعد الفتح وغير حاجب — التسجيل لا يعطّل الإرسال أبداً */
   showToast('✅ تم فتح WhatsApp');
   closeModal('ppWaComposeModal');

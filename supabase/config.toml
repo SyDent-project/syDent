@@ -15,3 +15,6 @@ verify_jwt = false
 
 [functions.portal-xray]
 verify_jwt = false
+
+[functions.bridge]
+verify_jwt = false

@@ -2758,8 +2758,7 @@ async function labAiSaveAndSend() {
   var saved = !(modal && modal.classList && modal.classList.contains('open'));
   if (saved) {
     var url = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(txt);
-    if (w) { w.location.href = url; }
-    else { window.open(url, '_blank'); }
+    window.SyDentWA.open(url, w);   /* v651: النافذةُ المفتوحة مسبقاً تُوجَّه للتطبيق على الحاسوب وتُغلق */
   } else {
     if (w) w.close();
   }

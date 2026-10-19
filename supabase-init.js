@@ -5432,7 +5432,7 @@
       if (r.error || !r.data) return null;
       var d = r.data;
       return { used: Number(d.used_bytes) || 0, cap: (d.cap_bytes == null ? null : Number(d.cap_bytes)),
-               files: Number(d.files) || 0, orphans: Number(d.orphans) || 0 };
+               files: Number(d.files) || 0, orphans: Number(d.orphans) || 0, inbox: Number(d.inbox) || 0 };   /* M194: inbox */
     } catch (e) { return null; }
   }
   function fits(u, size){ return !u || u.cap == null || (u.used + size) <= u.cap; }
@@ -5706,6 +5706,47 @@
     return { ok: failed === 0, removed: removed, failed: failed };
   }
 
+  /* ── M194 (v643): واردُ الأجهزة (SyDent Bridge) — صورٌ وصلت بلا طلبٍ مفتوح تحت {owner}/_inbox/… ── */
+  async function inboxList(){
+    if (!window.sb) return [];
+    var r = await window.sb.from('bridge_inbox').select('*').order('captured_at', { ascending: false }).limit(100);
+    return (r.error || !r.data) ? [] : r.data;
+  }
+  // إسنادٌ لمريض: نقلُ الكائن إلى مجلد المريض ثم صفُّ patient_documents ثم حذفُ صفِّ الوارد (الكائنُ أولاً — فشلُه يُجهض)
+  async function assignInbox(item, patientId, opts){
+    opts = opts || {};
+    if (!window.sb || !item || !patientId) return { ok:false, reason:'no-row' };
+    if (readOnly()) return { ok:false, reason:'read' };
+    if (offline())  return { ok:false, reason:'offline' };
+    var oid = await ownerId(); if (!oid) return { ok:false, reason:'no-owner' };
+    var base = String(item.storage_path || '').split('/').pop() || ('capture-' + Date.now());
+    var dest = oid + '/' + patientId + '/' + base;
+    var mv = await window.sb.storage.from(BUCKET).move(item.storage_path, dest);
+    if (mv.error) return { ok:false, reason:'storage', error: mv.error };
+    var row = { owner_id: oid, patient_id: patientId, storage_path: dest, file_name: item.file_name || base, mime_type: item.mime_type,
+                size_bytes: item.size_bytes || null, category: opts.category || (item.mime_type === 'application/dicom' ? 'xray' : 'xray'), uploaded_by: oid,
+                source: 'clinic', note: 'التقاطٌ من الجهاز (SyDent Bridge) — أُسند من الوارد',
+                taken_at: String(item.captured_at || '').slice(0, 10) || null };
+    if (opts.teeth && opts.teeth.length) row.teeth = opts.teeth.slice();
+    if (row.category === 'xray' && opts.xrayType) row.xray_type = opts.xrayType;
+    var ins = await window.sb.from('patient_documents').insert(row).select().single();
+    if (ins.error) {
+      try { await window.sb.storage.from(BUCKET).move(dest, item.storage_path); } catch(e){}   // نعيده للوارد
+      return { ok:false, reason: readOnly() ? 'read' : 'db', error: ins.error };
+    }
+    var del = await window.sb.from('bridge_inbox').delete().eq('id', item.id);
+    return { ok:true, row: ins.data, inboxDeleted: !del.error };
+  }
+  async function dismissInbox(item){
+    if (!window.sb || !item) return { ok:false, reason:'no-row' };
+    if (readOnly()) return { ok:false, reason:'read' };
+    if (offline())  return { ok:false, reason:'offline' };
+    try { var st = await window.sb.storage.from(BUCKET).remove([item.storage_path]); if (st && st.error) return { ok:false, reason:'storage', error: st.error }; }
+    catch(e){ return { ok:false, reason:'storage', error: e }; }
+    var del = await window.sb.from('bridge_inbox').delete().eq('id', item.id);
+    return { ok: !del.error, error: del.error };
+  }
+
   window.SyDentFiles = {
     BUCKET: BUCKET, CAT_LABELS: CAT_LABELS, XRAY_TYPES: XRAY_TYPES, LIMIT_XRAY: LIMIT_XRAY, LIMIT_STD: LIMIT_STD,
     upload: upload, list: list, countFor: countFor,
@@ -5713,7 +5754,8 @@
     remove: remove, purgeOwner: purgeOwner, compressImage: compressImage,
     isImage: isImage, humanSize: humanSize,
     check: check, isDicomName: isDicomName, usage: usage, fits: fits, humanBytes: humanBytes, message: message, usageHtml: usageHtml,
-    updateMeta: updateMeta, purgePatient: purgePatient, cleanOrphans: cleanOrphans
+    updateMeta: updateMeta, purgePatient: purgePatient, cleanOrphans: cleanOrphans,
+    inboxList: inboxList, assignInbox: assignInbox, dismissInbox: dismissInbox
   };
 })();
 
@@ -6216,6 +6258,8 @@ window.SySlots = {
     expenses: 'owner_id', provider_payouts: 'owner_id',
     clinic_doctors: 'owner_id', clinic_employees: 'owner_id', audit_log: 'owner_id',   /* M186 · v626 */
     patient_documents: 'owner_id',   /* M192 · v635 */
+    capture_requests: 'owner_id',    /* M194 · v643 */
+    bridge_inbox: 'owner_id',        /* M194 · v643 */
     portal_requests: 'owner_id'   /* M187 · v628 */
   };
   function tenantOf(t) { return TENANT_EXC[t] || 'doctor_id'; }
@@ -6323,4 +6367,73 @@ window.SySlots = {
   }
   window.SyLive = { watch: watch, stop: stop, held: held, tenantOf: tenantOf, _watchers: function () { return watchers; },
                     _consts: { DEBOUNCE_MS: DEBOUNCE_MS, POLL_MS: POLL_MS, AWAY_MS: AWAY_MS } };
+})();
+
+/* ═══════════════ SyDentWA — فتحُ واتساب من الحاسوب بالتطبيق مباشرة (v652 · v653: المغادرةُ تُراقَب على النافذة المسبقة) ═══════════════
+   طلبُ المالك 19/10/2026: على الكمبيوتر يفتح زرُّ الإرسال تطبيقَ WhatsApp Desktop مباشرةً — لا صفحةَ wa.me الوسيطة التي تسأل بعدها.
+   - حاسوب: `whatsapp://send?phone=…&text=…` من التبويب الحالي (لا تبويبَ جديداً). المتصفحُ يسأل مرةً «فتح WhatsApp؟» وله «تذكّر اختياري».
+     إن لم يغادر التركيزُ الصفحةَ خلال FALLBACK_MS (لا تطبيقَ مثبّت ⇒ لا حوارَ ولا blur) ⇒ احتياطٌ: wa.me بتبويبٍ جديد كما كان
+     (ما زلنا داخل مهلة تفعيل المستخدم — 5 ث بكروم/فايرفوكس — فلا يحجبه مانعُ النوافذ).
+   - جوال وآيباد: wa.me بتبويبٍ جديد كما كان (يفتح التطبيقَ مباشرةً أصلاً).
+   - نافذةٌ فُتحت مسبقاً داخل النقرة (`pre` — نمطُ المخبر: فتحٌ قبل await ثم توجيه): على الحاسوب تُوجَّه هي للمخطّط،
+     وتُغلق عند النجاح أو تُوجَّه لـwa.me احتياطاً؛ فلا يُفتح تبويبٌ ثانٍ.
+   - روابطُ `<a href="https://wa.me/…">` بكل الصفحات تُلتقط بمستمعٍ واحد على المستند (مرحلةُ الالتقاط — قبل stopPropagation الداخلي)؛
+     Ctrl/⌘/Shift/Alt والزرُّ الأوسط تُترك للمتصفح (المستخدم يريد تبويباً).
+   - الفتحُ الجماعي بالأدمن (حتى 5 تبويبات) خارجَه عمداً — مخطّطٌ واحد لا يحمل أكثرَ من محادثة.
+   الصفحاتُ العامة (book · intake · portal · landing · privacy) لا تحمّل هذا الملف (#735) وتبقى على wa.me. المثبت: prove-wa-desktop. */
+window.SyDentWA = (function () {
+  'use strict';
+  var FALLBACK_MS = 1600;
+  function isDesktop() {
+    var ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+    if (/Android|iPhone|iPad|iPod|IEMobile|Windows Phone|Mobile/i.test(ua)) return false;
+    if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return false;   /* iPadOS يتنكّر حاسوباً */
+    return true;
+  }
+  function toScheme(url) {
+    var m = /^https:\/\/wa\.me\/(\d*)\/?(?:\?text=([^#&]*))?/.exec(String(url || ''));
+    if (!m) return '';
+    var q = [];
+    if (m[1]) q.push('phone=' + m[1]);
+    if (m[2]) q.push('text=' + m[2]);
+    return 'whatsapp://send' + (q.length ? '?' + q.join('&') : '');
+  }
+  /* open(url, pre?) — url رابطُ wa.me الجاهز؛ pre نافذةٌ فُتحت داخل النقرة (أو null إن حُجبت). يعيد النافذةَ إن وُجدت. */
+  function open(url, pre) {
+    url = String(url || '');
+    var scheme = toScheme(url);
+    if (!scheme || !isDesktop()) {
+      if (pre) { try { pre.location.href = url; } catch (e) {} return pre; }
+      return window.open(url, '_blank', 'noopener');
+    }
+    var left = false;
+    function onLeave() { left = true; }
+    var tab = pre || null;
+    /* v653: مع نافذةٍ مسبقة (المخبر) تكون هي الأماميةَ — فالصفحةُ الأصلية فقدت التركيزَ عند فتحها قبل هذا النداء، والتطبيقُ
+       حين يُفتح يأخذ التركيزَ من النافذةِ المسبقة. فتُراقَب المغادرةُ عليها أيضاً، وإلا ذهب الاحتياطُ إلى wa.me دائماً (فتحٌ مزدوج). */
+    function track(m) {
+      window[m]('blur', onLeave); document[m]('visibilitychange', onLeave);
+      if (tab) { try { tab[m]('blur', onLeave); } catch (e) {} try { tab.document[m]('visibilitychange', onLeave); } catch (e) {} }
+    }
+    track('addEventListener');
+    try { if (tab) tab.location.href = scheme; else window.location.href = scheme; } catch (e) {}
+    setTimeout(function () {
+      track('removeEventListener');
+      if (tab && tab.closed) return;   /* أغلقها المستخدم بنفسه ⇒ لا شيء */
+      if (left) { if (tab) { try { tab.close(); } catch (e) {} } return; }
+      if (tab) { try { tab.location.href = url; } catch (e) {} return; }
+      window.open(url, '_blank', 'noopener');
+    }, FALLBACK_MS);
+    return tab;
+  }
+  if (typeof document !== 'undefined') {   /* الحُرّاس تحمّل الملفَ بـvm بلا مستند */
+    document.addEventListener('click', function (e) {
+      if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+      var t = e.target, a = t && t.closest ? t.closest('a[href^="https://wa.me/"]') : null;
+      if (!a || !isDesktop()) return;
+      e.preventDefault();
+      open(a.getAttribute('href'));
+    }, true);
+  }
+  return { open: open, toScheme: toScheme, isDesktop: isDesktop, _consts: { FALLBACK_MS: FALLBACK_MS } };
 })();
