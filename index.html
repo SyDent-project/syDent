@@ -4444,16 +4444,30 @@ async function nlAsk(){
 // ── NL-ANALYTICS-END ──────────────────────────────────────────────────
 
 // ═══ نسخة احتياطية محلية (زر «💾 نسخة احتياطية» بالهيدر — للمالك حصراً) ═══
-// قراءة بحتة: كل جدول من بيانات العيادة بورقة Excel (SyDentXlsx)، مصفّى بعمود
-// المالك ومقسوم على صفحات 1000 صف. أعمدة الأسرار (رموز القفل وتجزئاتها) لا
-// تُصدَّر. جدولٌ يتعذّر قراءته يُذكر بورقة «ملاحظات» بدل إسقاط النسخة كلها.
+// BACKUP-BEGIN — صيغة sydent-backup/2 قابلةٌ للاسترجاع (scripts/backup-restore.js):
+// • ورقة «ملاحظات» أولاً: الصيغة + معرّف الحساب + التاريخ، ثم صفٌّ لكل ورقة بيانات
+//   بنفس ترتيب الأوراق (اسم الورقة · اسم الجدول · عدد الصفوف) — الاسترجاع يقرأ الجدول من هنا.
+// • القيمة الفارغة null تبقى خليةً فارغة، والنص الفارغ '' يبقى نصاً — فلا يختلطان عند الاسترجاع.
+// • قراءة بحتة مصفّاة بعمود المالك ومقسومة على صفحات 1000 صف. أعمدة الأسرار (رموز القفل
+//   وتجزئاتها والتوكنات) لا تُصدَّر. جدولٌ يتعذّر قراءته يُذكر بالملاحظات بدل إسقاط النسخة.
+// • الصور والملفات (الأشعة والمستندات) ليست بالملف — تبقى بالتخزين السحابي.
+var DASH_BACKUP_FORMAT = 'sydent-backup/2';
 var DASH_BACKUP_TABLES = [
   ['clinic_settings', 'owner_id', 'إعدادات العيادة'],
   ['clinic_doctors', 'owner_id', 'الأطباء'],
   ['clinic_employees', 'owner_id', 'الموظفون'],
-  ['patients', 'doctor_id', 'المرضى'],
-  ['appointments', 'doctor_id', 'المواعيد'],
+  ['operatories', 'doctor_id', 'الكراسي'],
+  ['appointment_types', 'doctor_id', 'أنواع المواعيد'],
   ['treatments', 'doctor_id', 'كتالوج العلاجات'],
+  ['treatment_bundles', 'owner_id', 'حزم العلاجات'],
+  ['treatment_price_history', 'owner_id', 'سجل الأسعار'],
+  ['patient_seq', 'owner_id', 'ترقيم المرضى'],
+  ['patients', 'doctor_id', 'المرضى'],
+  ['patient_intakes', 'owner_id', 'استمارات المرضى'],
+  ['appointments', 'doctor_id', 'المواعيد'],
+  ['schedule_blocks', 'doctor_id', 'حجوزات الجدول'],
+  ['booking_requests', 'clinic_id', 'طلبات الحجز'],
+  ['portal_requests', 'owner_id', 'طلبات البوابة'],
   ['ledger_sessions', 'doctor_id', 'الجلسات'],
   ['ledger_payments', 'doctor_id', 'الدفعات'],
   ['payment_splits', 'doctor_id', 'توزيع الدفعات'],
@@ -4463,33 +4477,66 @@ var DASH_BACKUP_TABLES = [
   ['teeth_status_history', 'doctor_id', 'سجل الأسنان'],
   ['perio_exams', 'doctor_id', 'فحوص اللثة'],
   ['perio_measurements', 'doctor_id', 'قياسات اللثة'],
+  ['clinical_note_templates', 'owner_id', 'قوالب الملاحظات'],
+  ['prescription_templates', 'owner_id', 'قوالب الوصفات'],
   ['prescriptions', 'owner_id', 'الوصفات'],
   ['prescription_items', 'owner_id', 'بنود الوصفات'],
+  ['post_op_templates', 'owner_id', 'قوالب ما بعد العلاج'],
   ['post_op_notes', 'owner_id', 'تعليمات ما بعد العلاج'],
+  ['implant_templates', 'owner_id', 'قوالب الزرعات'],
   ['implant_log', 'owner_id', 'سجل الزرعات'],
   ['patient_recalls', 'owner_id', 'الاستدعاءات'],
+  ['patient_messages', 'owner_id', 'رسائل المرضى'],
   ['patient_documents', 'owner_id', 'ملفات المرضى'],
+  ['wa_message_templates', 'owner_id', 'قوالب واتساب'],
+  ['staff_messages', 'owner_id', 'رسائل الفريق'],
   ['labs', 'doctor_id', 'المخابر'],
+  ['lab_order_templates', 'owner_id', 'قوالب طلبات المخابر'],
   ['lab_orders', 'doctor_id', 'طلبات المخابر'],
+  ['lab_order_redos', 'doctor_id', 'إعادات المخابر'],
   ['lab_payments', 'doctor_id', 'دفعات المخابر'],
   ['expense_categories', 'owner_id', 'فئات المصاريف'],
   ['expenses', 'owner_id', 'المصاريف'],
   ['provider_payouts', 'owner_id', 'مستحقات الأطباء'],
   ['day_closings', 'owner_id', 'إغلاقات اليوم'],
+  ['inventory_suppliers', 'owner_id', 'الموردون'],
   ['inventory_items', 'owner_id', 'أصناف المخزون'],
   ['inventory_batches', 'owner_id', 'دفعات المخزون'],
-  ['inventory_movements', 'owner_id', 'حركات المخزون']
+  ['inventory_movements', 'owner_id', 'حركات المخزون'],
+  ['inventory_orders', 'owner_id', 'طلبيات المخزون'],
+  ['inventory_order_lines', 'owner_id', 'بنود الطلبيات'],
+  ['inventory_receipts', 'owner_id', 'استلامات المخزون'],
+  ['inventory_receipt_lines', 'owner_id', 'بنود الاستلامات'],
+  ['inventory_counts', 'owner_id', 'جرد المخزون'],
+  ['inventory_count_lines', 'owner_id', 'بنود الجرد'],
+  ['treatment_materials', 'owner_id', 'مواد العلاجات']
 ];
 var DASH_BACKUP_SECRET = /pin|hash|token|secret|password/i;
+function _dashBackupCell(v) {
+  if (v === null || v === undefined) return null;                    // خلية فارغة = null
+  if (typeof v === 'object') v = JSON.stringify(v);                  // jsonb ومصفوفات
+  return (typeof v === 'string' && v.length > 32000) ? v.slice(0, 32000) : v;   // حدّ خلية Excel
+}
+// صرفة: (معرّف الحساب، الطابع، نتائج القراءة [{ t, rows | error }]) ⇒ أوراق المصنّف
+function dashBackupBuild(uid, stamp, results) {
+  var sheets = [], notes = [];
+  results.forEach(function (res) {
+    var t = res.t;
+    if (res.error) { notes.push([t[2], t[0], '', 'تعذّرت القراءة']); return; }
+    var rows = res.rows || [], cols = [];
+    rows.forEach(function (r) { Object.keys(r).forEach(function (k) { if (cols.indexOf(k) < 0 && !DASH_BACKUP_SECRET.test(k)) cols.push(k); }); });
+    sheets.push({ name: t[2], headers: cols, rows: rows.map(function (r) { return cols.map(function (k) { return _dashBackupCell(r[k]); }); }) });
+    notes.push([t[2], t[0], rows.length, '']);
+  });
+  sheets.unshift({ name: 'ملاحظات', headers: ['الورقة', 'الجدول', 'عدد الصفوف', 'ملاحظة'],
+    rows: [['الصيغة', DASH_BACKUP_FORMAT, '', ''], ['الحساب', uid, '', ''], ['تاريخ النسخة', stamp, '', '']].concat(notes) });
+  return sheets;
+}
+// BACKUP-END
 var _dashBackupBusy = false;
 function dashBackupInit() {
   var btn = document.getElementById('dashBackupBtn');
   if (btn) btn.hidden = !nlIsOwner();
-}
-function _dashBackupCell(v) {
-  if (v === null || v === undefined) return '';
-  if (typeof v === 'object') v = JSON.stringify(v);
-  return (typeof v === 'string' && v.length > 32000) ? v.slice(0, 32000) : v;   // حدّ خلية Excel
 }
 async function _dashBackupRead(table, col, uid) {
   var out = [], from = 0, PAGE = 1000, ordered = true;
@@ -4515,22 +4562,14 @@ async function dashBackup() {
     var u = await window.sb.auth.getUser();
     var uid = (u && u.data && u.data.user) ? u.data.user.id : null;
     if (!uid) throw new Error('no user');
-    var sheets = [], notes = [];
+    var results = [];
     for (var i = 0; i < DASH_BACKUP_TABLES.length; i++) {
       var t = DASH_BACKUP_TABLES[i];
       if (btn) btn.textContent = '⏳ ' + (i + 1) + '/' + DASH_BACKUP_TABLES.length;
-      try {
-        var rows = await _dashBackupRead(t[0], t[1], uid);
-        var cols = [];
-        rows.forEach(function (r) { Object.keys(r).forEach(function (k) { if (cols.indexOf(k) < 0 && !DASH_BACKUP_SECRET.test(k)) cols.push(k); }); });
-        sheets.push({ name: t[2], headers: cols, rows: rows.map(function (r) { return cols.map(function (k) { return _dashBackupCell(r[k]); }); }) });
-        notes.push([t[2], t[0], rows.length, '']);
-      } catch (e) {
-        notes.push([t[2], t[0], '', 'تعذّرت القراءة']);
-      }
+      try { results.push({ t: t, rows: await _dashBackupRead(t[0], t[1], uid) }); }
+      catch (e) { results.push({ t: t, error: true }); }
     }
-    sheets.unshift({ name: 'ملاحظات', headers: ['الورقة', 'الجدول', 'عدد الصفوف', 'ملاحظة'],
-      rows: [['تاريخ النسخة', '', '', window.SyDentXlsx.stamp(new Date())]].concat(notes) });
+    var sheets = dashBackupBuild(uid, window.SyDentXlsx.stamp(new Date()), results);
     await window.SyDentXlsx.save({ filename: 'sydent-backup-' + window.SyDentXlsx.today(), sheets: sheets });
     showToast('💾 نزّلت النسخة الاحتياطية — احفظ الملف بمكان آمن');
   } catch (e) {
