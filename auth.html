@@ -2,6 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://challenges.cloudflare.com">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -23,11 +24,13 @@
 <script src="pwd-policy.js?v=20261019b"></script>
 <!-- ── Cloudflare Turnstile (CAPTCHA) ── Axis 3 / Item 2. Helper is defined BEFORE the
      API script so window.onSyDentTurnstileLoad exists when the (async) script fires. -->
-<style>.cf-turnstile-box{margin:2px 0 14px;min-height:65px;display:flex;justify-content:center}</style>
+<style>.cf-turnstile-box{margin:2px 0 14px;display:flex;justify-content:center}.cf-turnstile-box:empty{margin:0}</style>
 <script>
 (function(){
   var SITEKEY = '0x4AAAAAAFXnC1T1zKo_VYCS';   // public site key — safe in client by design
   var widgets = {};   // name -> widgetId
+  var tokens  = {};   // name -> latest token (from the widget callback)
+  var waiters = {};   // name -> [resolve] waiting for a token
   var wanted  = {};   // name -> containerId (render intent recorded before API is ready)
   var ready   = false;
   function whenDomReady(fn){
@@ -39,7 +42,13 @@
     if (widgets[name] !== undefined) return;            // already rendered — no double render
     var el = document.getElementById(containerId);
     if (!el) return;
-    try { widgets[name] = window.turnstile.render(el, { sitekey: SITEKEY, theme: 'auto', action: name }); }
+    // interaction-only: the check runs in the background and the box shows only when Cloudflare
+    // needs a click, so most people never wait on it.
+    try { widgets[name] = window.turnstile.render(el, { sitekey: SITEKEY, theme: 'auto', action: name,
+      appearance: 'interaction-only',
+      callback: function(t){ tokens[name] = t; (waiters[name] || []).splice(0).forEach(function(r){ r(t); }); },
+      'expired-callback': function(){ tokens[name] = ''; },
+      'error-callback': function(){ tokens[name] = ''; } }); }
     catch(e){ console.warn('[turnstile] render failed:', name, e); }
   }
   // Invoked by the Turnstile API once loaded (onload param in the script URL below).
@@ -53,7 +62,18 @@
     try { var id = widgets[name]; return (id !== undefined && window.turnstile) ? (window.turnstile.getResponse(id) || '') : ''; }
     catch(e){ return ''; }
   };
+  // A submit before the background check finished waits for its token instead of failing.
+  window.waitTurnstileToken = function(name, ms){
+    var now = window.getTurnstileToken(name) || tokens[name];
+    if (now) return Promise.resolve(now);
+    return new Promise(function(resolve){
+      var done = false, finish = function(t){ if (!done) { done = true; resolve(t || window.getTurnstileToken(name) || ''); } };
+      (waiters[name] = waiters[name] || []).push(finish);
+      setTimeout(function(){ finish(''); }, ms || 15000);
+    });
+  };
   window.resetTurnstile = function(name){
+    tokens[name] = '';
     try { var id = widgets[name]; if (id !== undefined && window.turnstile) window.turnstile.reset(id); } catch(e){}
   };
   // The login widget is visible at page load → seed its render intent now.
@@ -795,7 +815,7 @@ async function sendResetEmail() {
   try {
     await window.sb.auth.resetPasswordForEmail(target, {
       redirectTo: window.location.origin + '/reset-password.html',
-      captchaToken: getTurnstileToken('forgot')
+      captchaToken: await waitTurnstileToken('forgot')
     });
   } catch (err) {
     // Log silently — do NOT surface to user (would reveal email existence)
@@ -858,7 +878,7 @@ async function doLogin(e) {
   btn.innerHTML = 'جارٍ التحقق<span class="spinner"></span>';
   var signedIn = false;
   try {
-    const { data, error } = await window.sb.auth.signInWithPassword({ email, password, options: { captchaToken: getTurnstileToken('login') } });
+    const { data, error } = await window.sb.auth.signInWithPassword({ email, password, options: { captchaToken: await waitTurnstileToken('login') } });
     if (error) throw error;
 
     // Phase 7.6F: check admin role first (admins bypass the trial_request gate).
@@ -1089,7 +1109,7 @@ async function doRegister(e) {
       // «رقم النقابة» منذ M51، المطبوع على الروشتة) لا عموداً جديداً.
       options: { data: { full_name: name, phone: phoneForRow || '', currency: currency,
                          syndicate_branch: city || '', syndicate_no: syndicateNo || '' },
-                 captchaToken: getTurnstileToken('register') }
+                 captchaToken: await waitTurnstileToken('register') }
     });
     if (error) throw error;
     if (!data || !data.user) throw new Error('تعذّر إنشاء الحساب');
