@@ -49,7 +49,7 @@
 | `SUPABASE_ACCESS_TOKEN` | ✅ | `edge-deploy`. محصور بـ `dental-dev` و `dental-prod`، وصلاحياتو Project Settings (قراءة) و Edge Functions (قراءة وكتابة) |
 | `E2E_EMAIL` و `E2E_SUPABASE_SECRET_KEY` | ⏳ | اختبارات E2E، بعد الخطط (A8) |
 | `SUPABASE_DB_URL` | ⏳ | `backup` و `finance-integrity` و `schema-snapshot` |
-| `BACKUP_PAT` و `SUPABASE_S3_*` و `R2_*` | ⏳ | النسخ الاحتياطي (E1) |
+| `BACKUP_PASSPHRASE` و `SUPABASE_S3_*` و `R2_*` | ⏳ | النسخ الاحتياطي (E1): كله على R2، ونسخ القاعدة مشفّرة |
 
 **Variables** (اختيارية، والافتراضي `dental-dev`):
 `SUPABASE_PROJECT_REF` و `SUPABASE_PUBLISHABLE_KEY` و `SUPABASE_REGION` و `SUPABASE_PROD_REF` و `BACKUP_ENABLED`.
