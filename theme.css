@@ -104,6 +104,8 @@
      lives in --green-fg/-bg/-bd/-soft below and is sky blue: the owner
      wants no green in the UI (WhatsApp keeps its own brand green). */
   --green:     #3f4fc4;
+  --logo:      #0d8577;   /* the logo keeps its original green (owner, Oct 2026) */
+  --logo-rgb:  13,133,119;
   --green2:    #2f3c9e;
   --green-dim: rgba(63,79,196,0.10);
 
@@ -176,6 +178,8 @@
   --border2:   rgba(139,151,255,0.30);
 
   --green:     #8b97ff;   /* C1: brand indigo (see light block) */
+  --logo:      #2ee89e;
+  --logo-rgb:  46,232,158;
   --green2:    #7a86f0;
   --green-dim: rgba(139,151,255,0.12);
 
