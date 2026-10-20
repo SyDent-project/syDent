@@ -143,3 +143,8 @@ __pycache__/
 # مخلّفات بوابة validate.sh (لقطات مراجعة أزرار الصفوف) — لا تُكومَت (#725)
 _ra/
 _pp/
+
+# Clinic backups and restore output hold patient data — never commit them
+sydent-backup-*.xlsx
+sydent-backup-*.tsv
+restore-out/
