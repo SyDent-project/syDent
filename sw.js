@@ -23,7 +23,7 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 'use strict';
 
-var SW_VERSION  = 'v659';   /* v257: سجلّ الإصدارات انتقل إلى CHANGELOG.md (كان 430KB بهذا السطر). كل رفع نسخة يُسجَّل هناك — لا هنا. */
+var SW_VERSION  = 'v660';   /* v257: سجلّ الإصدارات انتقل إلى CHANGELOG.md (كان 430KB بهذا السطر). كل رفع نسخة يُسجَّل هناك — لا هنا. */
 var KILL_SWITCH = false;
 
 var PRECACHE = 'sydent-precache-' + SW_VERSION;
@@ -33,7 +33,7 @@ var FONTS    = 'sydent-fonts-'    + SW_VERSION;
 var CURRENT  = [PRECACHE, PAGES, ASSETS, FONTS];
 
 var OFFLINE_URL   = '/offline.html';
-var PRECACHE_URLS = [OFFLINE_URL, '/favicon.svg?v=4', '/manifest.json'];
+var PRECACHE_URLS = [OFFLINE_URL, '/favicon.svg?v=5', '/manifest.json'];
 /* مكتبات vendor الحرجة: تُسخَّن بكاش ASSETS عند install (لا PRECACHE — مسار
    الجلب handleSWR يطابق داخل ASSETS حصراً، فوضعها بـPRECACHE لن يخدمها أبداً).
    اسم الملف مُرقَّم بالنسخة ⇒ محتواه لا يتغير ⇒ SWR آمن تماماً. */
