@@ -183,6 +183,29 @@ def list_accounts(src, dst, token):
     return 0
 
 
+def copy_plans(src, dst, token, dry):
+    """The subscription plans of the source replace the target's, row for row by code (upsert).
+    Target plans the source does not have are switched off, not deleted (subscribers may point at them)."""
+    rows = one(api(src, token, "select coalesce(jsonb_agg(to_jsonb(p) order by p.sort_order, p.code), '[]'::jsonb) as j "
+                                "from public.subscription_plans p")).get('j') or []
+    if not rows: print('⛔ the source has no plans'); return 1
+    have = [r['code'] for r in (api(dst, token, 'select code from public.subscription_plans') or [])]
+    for r in rows:
+        print('%-10s %-12s active=%-5s monthly=%s quarterly=%s yearly=%s USD · %s' % (
+            r.get('code'), r.get('display_name'), r.get('is_active'), r.get('price_monthly_usd'),
+            r.get('price_quarterly_usd'), r.get('price_yearly_usd'), json.dumps(r.get('entitlements'), ensure_ascii=False)))
+    extra = [c for c in have if c not in {r['code'] for r in rows}]
+    if extra: print('target-only plans (will be switched off): ' + ', '.join(extra))
+    if dry: print('dry run — nothing written · %d plans' % len(rows)); return 0
+    payload = json.dumps({'table': 'public.subscription_plans', 'rows': rows}, ensure_ascii=False)
+    if '$json$' in payload: print('⛔ plans contain the quoting tag'); return 1
+    api(dst, token, UPSERT.replace('__DATA__', payload))
+    if extra:
+        api(dst, token, 'update public.subscription_plans set is_active = false where code in (%s)' % ','.join(q(c) for c in extra))
+    print('✅ %d plans copied%s' % (len(rows), (' · %d switched off' % len(extra)) if extra else ''))
+    return 0
+
+
 def main(argv):
     src, dst = arg(argv, '--from'), arg(argv, '--to')
     if not src or not dst or src == dst:
@@ -190,6 +213,7 @@ def main(argv):
     token = os.environ.get('SUPABASE_ACCESS_TOKEN')
     if not token: print('⛔ SUPABASE_ACCESS_TOKEN is not set'); return 2
     if '--list' in argv: return list_accounts(src, dst, token)
+    if '--plans' in argv: return copy_plans(src, dst, token, '--dry-run' in argv)
 
     ids = [i.strip() for i in (arg(argv, '--ids') or '').split(',') if i.strip()]
     emails = [e.strip().lower() for e in (arg(argv, '--emails') or '').split(',') if e.strip()]
