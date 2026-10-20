@@ -30,6 +30,10 @@ on:
         description: 'Only list the source accounts (masked emails, counts) — writes nothing'
         type: boolean
         default: false
+      plans:
+        description: 'Copy the subscription plans (source replaces target, by code) instead of accounts'
+        type: boolean
+        default: false
       files:
         description: 'Copy the Storage files of the ids instead of their rows (run after the rows)'
         type: boolean
@@ -83,8 +87,14 @@ jobs:
           FILES: ${{ inputs.files }}
           DROP: ${{ inputs.drop_missing }}
           DRY: ${{ inputs.dry_run }}
+          PLANS: ${{ inputs.plans }}
         run: |
           set -euo pipefail
+          if [ "$PLANS" = "true" ]; then
+            if [ "$DRY" = "true" ]; then python3 scripts/db-copy.py --from "$FROM" --to "$TO" --plans --dry-run
+            else python3 scripts/db-copy.py --from "$FROM" --to "$TO" --plans; fi
+            exit 0
+          fi
           if [ "$LIST" = "true" ]; then python3 scripts/db-copy.py --from "$FROM" --to "$TO" --list; exit 0; fi
           if [ "$FILES" = "true" ]; then
             if [ "$DROP" = "true" ]; then
