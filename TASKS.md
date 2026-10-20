@@ -25,7 +25,7 @@
 
 **أولاً، شغلات إلك (قبل الإطلاق):**
 1. [ ] 🧑 أسرار المساعد الذكي على `dental-prod`: `CF_ACCOUNT_ID` و `CF_AI_API_TOKEN` و `CF_AI_MODEL`.
-2. [ ] 🧑🤖 النسخ الاحتياطي اليومي: bucket `sydent-backups` على Cloudflare R2 + أسراره + `BACKUP_ENABLED`، وتجربة استرجاع.
+2. [ ] 🧑🤖 النسخ الاحتياطي اليومي، كله على R2 ونسخ القاعدة مشفّرة: bucket `sydent-backups` + الأسرار (`SUPABASE_DB_URL` و `BACKUP_PASSPHRASE` و `SUPABASE_S3_*` و `R2_*`) + `BACKUP_ENABLED`، وتجربة استرجاع (`dr-restore-test`).
 3. [ ] 🧑 د. أيهم ود. أحمد يجرّبوا يفوتوا بحساباتهم القديمة.
 4. [ ] 🧑🤖 الإيميلات: Resend على `mail.sydent.app` كـ Custom SMTP (A11).
 5. [ ] 🧑🤖 Turnstile: تجربة بمفاتيح Cloudflare التجريبية، وبعدين نرجّعه أو منتركه مطفي.

@@ -1,34 +1,31 @@
 name: Supabase Backup
 
 # ─────────────────────────────────────────────────────────────────────────────
-# الهدف: نسخة احتياطية يومية تلقائية لقاعدة بيانات Supabase (الخطة المجانية بلا
-#   backups تلقائية — هذا بديلها المجاني، مبني على التوصية الرسمية من Supabase
-#   عبر Supabase CLI: supabase db dump).
+# الهدف: نسخة احتياطية يومية تلقائية لقاعدة بيانات Supabase وملفات المرضى،
+#   كلّها على Cloudflare R2 (bucket: sydent-backups) — بلا ريبو نسخ ولا PAT.
 #
-# أين تُخزَّن النسخ؟ في ريبو خاص منفصل (<owner>/SyDent-backups) — لا تُخزَّن
-#   أبداً في الريبو العام (بيانات مرضى = حسّاسة). التوثيق الرسمي يحذّر صراحةً من
-#   النسخ إلى ريبو عام.
+#   • قاعدة البيانات: supabase db dump (الأدوار + المخطّط + البيانات، بما فيها
+#     مخطّط auth) → tar.gz → تشفير AES-256 (openssl، PBKDF2) بكلمة سرّ لا يعرفها
+#     إلا أسرار GitHub → db/<STAMP>.tar.gz.enc على R2. النسخ الأقدم من 30 يوماً
+#     تُحذف تلقائياً. بلا كلمة السرّ لا يُفتح الملف — حتى لو تسرّب الـ bucket.
+#   • ملفات المرضى (bucket patient-files): نسخ إضافي فقط إلى patient-files/
+#     على R2 — لا يُحذف منها شيء أبداً.
+#   • الاستعادة المجرَّبة آلياً: .github/workflows/dr-restore-test.yml.
 #
-# ⚠️ مقفول افتراضياً: الـ job لا يعمل إطلاقاً ما لم يكن متغيّر المستودع
-#   BACKUP_ENABLED = 'true'. هذا يسمح برفع الملف بأمان قبل اكتمال الإعداد، بلا
-#   أي تشغيل فاشل. لتفعيله بعد إتمام الخطوات: Settings → Secrets and variables
-#   → Actions → Variables → New variable → BACKUP_ENABLED = true.
+# ⚠️ مقفول افتراضياً: لا يعمل إطلاقاً ما لم يكن متغيّر المستودع
+#   BACKUP_ENABLED = 'true' (Settings → Secrets and variables → Actions → Variables).
 #
 # الأسرار المطلوبة (Settings → Secrets and variables → Actions → Secrets):
-#   • SUPABASE_DB_URL  — سلسلة اتصال الـ Session pooler (IPv4، لأن runners الـ
-#       GitHub بلا IPv6؛ الاتصال المباشر db.<ref>.supabase.co صار IPv6-only).
-#       الشكل: postgresql://postgres.<ref>:<PASSWORD>@aws-1-<region>.pooler.supabase.com:5432/postgres
-#   • BACKUP_PAT       — fine-grained PAT صلاحيته على ريبو SyDent-backups فقط،
-#       بصلاحية Contents: Read and write (للـ push).
-#
-#   ── أسرار نسخ ملفات الـ Storage (bucket: patient-files) إلى Cloudflare R2 ──
+#   • SUPABASE_DB_URL  — Session pooler (IPv4):
+#       postgresql://postgres.<ref>:<PASSWORD>@aws-1-<region>.pooler.supabase.com:5432/postgres
+#   • BACKUP_PASSPHRASE — كلمة سرّ طويلة عشوائية لتشفير نسخ قاعدة البيانات.
+#       احفظ نسخة منها خارج GitHub: بدونها لا تُستعاد أي نسخة.
 #   • SUPABASE_S3_ACCESS_KEY_ID / SUPABASE_S3_SECRET_ACCESS_KEY
-#       مفتاحا S3 من: Supabase → Storage → Configuration → S3 → Access keys.
-#       (المصدر الذي ننسخ منه ملفات المرضى الفعلية.)
+#       من: Supabase → Storage → Configuration → S3 → Access keys.
 #   • R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ACCOUNT_ID
 #       من: Cloudflare → R2 → Manage API Tokens (Object Read & Write على bucket
 #       sydent-backups فقط). R2_ACCOUNT_ID = الجزء قبل .r2.cloudflarestorage.com.
-#       (الوجهة التي ننسخ إليها — bucket R2 اسمه: sydent-backups.)
+#   • BETTERSTACK_HEARTBEAT_URL (اختياري) — نبضة نجاح يومية.
 # ─────────────────────────────────────────────────────────────────────────────
 
 on:
@@ -36,11 +33,9 @@ on:
   schedule:
     - cron: '0 2 * * *'     # كل يوم 02:00 UTC
 
-# لا نكتب على هذا الريبو إطلاقاً — الكتابة تذهب لريبو النسخ عبر BACKUP_PAT.
 permissions:
   contents: read
 
-# منع تراكب التشغيلات
 concurrency:
   group: supabase-backup
   cancel-in-progress: false
@@ -52,101 +47,109 @@ jobs:
     if: ${{ vars.BACKUP_ENABLED == 'true' }}
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      KEEP_DAYS: '30'
+      # المصدر: Supabase Storage عبر نقطته المتوافقة مع S3
+      RCLONE_CONFIG_SUPABASE_TYPE: s3
+      RCLONE_CONFIG_SUPABASE_PROVIDER: Other
+      RCLONE_CONFIG_SUPABASE_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
+      RCLONE_CONFIG_SUPABASE_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
+      RCLONE_CONFIG_SUPABASE_ENDPOINT: https://${{ vars.SUPABASE_PROJECT_REF || 'nxkalpjrqvpglphmiuui' }}.storage.supabase.co/storage/v1/s3
+      RCLONE_CONFIG_SUPABASE_REGION: ${{ vars.SUPABASE_REGION || 'eu-central-1' }}
+      RCLONE_CONFIG_SUPABASE_NO_CHECK_BUCKET: "true"
+      # الوجهة: Cloudflare R2 (bucket: sydent-backups)
+      RCLONE_CONFIG_R2_TYPE: s3
+      RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+      RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      RCLONE_CONFIG_R2_REGION: auto
+      RCLONE_CONFIG_R2_NO_CHECK_BUCKET: "true"
     steps:
-      - name: Checkout private backup repo
-        uses: actions/checkout@v5
-        with:
-          repository: ${{ github.repository_owner }}/SyDent-backups
-          token: ${{ secrets.BACKUP_PAT }}
-          path: backups-repo
+      - name: Check secrets
+        env:
+          S3_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
+          S3_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
+          R2_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACC: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          missing=""
+          [ -n "$SUPABASE_DB_URL" ]   || missing="$missing SUPABASE_DB_URL"
+          [ -n "$BACKUP_PASSPHRASE" ] || missing="$missing BACKUP_PASSPHRASE"
+          [ -n "$S3_ID" ]  || missing="$missing SUPABASE_S3_ACCESS_KEY_ID"
+          [ -n "$S3_KEY" ] || missing="$missing SUPABASE_S3_SECRET_ACCESS_KEY"
+          [ -n "$R2_ID" ]  || missing="$missing R2_ACCESS_KEY_ID"
+          [ -n "$R2_KEY" ] || missing="$missing R2_SECRET_ACCESS_KEY"
+          [ -n "$R2_ACC" ] || missing="$missing R2_ACCOUNT_ID"
+          if [ -n "$missing" ]; then echo "::error::missing secrets:$missing"; exit 1; fi
+          [ "${#BACKUP_PASSPHRASE}" -ge 20 ] || { echo "::error::BACKUP_PASSPHRASE must be at least 20 characters"; exit 1; }
 
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v3
         with:
           version: latest
 
-      - name: Create dump (roles + schema + data)
-        run: |
-          set -euo pipefail
-          STAMP="$(date -u +%Y-%m-%d_%H%M)"
-          DIR="backups-repo/${STAMP}"
-          mkdir -p "$DIR"
-          supabase db dump --db-url "$SUPABASE_DB_URL" -f "$DIR/roles.sql"  --role-only
-          supabase db dump --db-url "$SUPABASE_DB_URL" -f "$DIR/schema.sql"
-          supabase db dump --db-url "$SUPABASE_DB_URL" -f "$DIR/data.sql"   --data-only --use-copy
-          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
-          echo "Backup written to $DIR"
-          ls -la "$DIR"
-
-      - name: Commit & push to backup repo
-        run: |
-          set -euo pipefail
-          cd backups-repo
-          git config user.name  "sydent-backup-bot"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "No changes to commit (empty diff)."
-          else
-            git commit -m "Supabase backup ${STAMP}"
-            git push
-            echo "Pushed backup ${STAMP} to SyDent-backups."
-          fi
-
-      # ───────────────────────────────────────────────────────────────────────
-      # نسخ ملفات الـ Storage (أشعة/صور/PDF المرضى) إلى Cloudflare R2.
-      # هذه الملفات ليست داخل db dump (الـ dump يحوي صفوف الميتاداتا فقط، لا
-      # بايتات الملفات)، فهذه الخطوة تسدّ تلك الفجوة. تأتي بعد رفع نسخة قاعدة
-      # البيانات، فحتى لو فشلت هنا تكون نسخة DB قد حُفظت بالفعل.
-      # ───────────────────────────────────────────────────────────────────────
-      - name: Backup Storage files (patient-files) to Cloudflare R2
-        env:
-          # المصدر: Supabase Storage عبر نقطته المتوافقة مع S3
-          RCLONE_CONFIG_SUPABASE_TYPE: s3
-          RCLONE_CONFIG_SUPABASE_PROVIDER: Other
-          RCLONE_CONFIG_SUPABASE_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
-          RCLONE_CONFIG_SUPABASE_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
-          RCLONE_CONFIG_SUPABASE_ENDPOINT: https://${{ vars.SUPABASE_PROJECT_REF || 'nxkalpjrqvpglphmiuui' }}.storage.supabase.co/storage/v1/s3
-          RCLONE_CONFIG_SUPABASE_REGION: ${{ vars.SUPABASE_REGION || 'eu-central-1' }}
-          RCLONE_CONFIG_SUPABASE_NO_CHECK_BUCKET: "true"
-          # الوجهة: Cloudflare R2 (bucket: sydent-backups)
-          RCLONE_CONFIG_R2_TYPE: s3
-          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
-          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
-          RCLONE_CONFIG_R2_REGION: auto
-          RCLONE_CONFIG_R2_NO_CHECK_BUCKET: "true"
+      - name: Install rclone
         run: |
           set -euo pipefail
           # rclone: الأداة الموصى بها رسمياً من Supabase لنسخ كائنات Storage بالجملة.
           curl -fsSL https://rclone.org/install.sh | sudo bash
           rclone version
 
+      - name: Create dump (roles + schema + data)
+        run: |
+          set -euo pipefail
+          STAMP="$(date -u +%Y-%m-%d_%H%M)"
+          DIR="work/${STAMP}"
+          mkdir -p "$DIR"
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f "$DIR/roles.sql"  --role-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f "$DIR/schema.sql"
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f "$DIR/data.sql"   --data-only --use-copy
+          for f in roles.sql schema.sql data.sql; do [ -s "$DIR/$f" ] || { echo "::error::$f is empty"; exit 1; }; done
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          ls -la "$DIR"
+
+      - name: Encrypt and upload to R2
+        run: |
+          set -euo pipefail
+          OUT="work/${STAMP}.tar.gz.enc"
+          tar -C work -czf - "$STAMP" \
+            | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_PASSPHRASE -out "$OUT"
+          # the file must decrypt and list before it counts as a backup
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:BACKUP_PASSPHRASE -in "$OUT" | tar -tzf - > /dev/null
+          rclone copyto "$OUT" "r2:sydent-backups/db/${STAMP}.tar.gz.enc" --s3-no-check-bucket -v
+          rclone check work "r2:sydent-backups/db" --one-way --size-only --include "${STAMP}.tar.gz.enc"
+          rm -rf "work/${STAMP}"
+          echo "✅ db/${STAMP}.tar.gz.enc ($(du -h "$OUT" | cut -f1))"
+
+      - name: Remove database backups older than ${{ env.KEEP_DAYS }} days
+        run: |
+          set -euo pipefail
+          rclone delete "r2:sydent-backups/db" --min-age "${KEEP_DAYS}d" --include "*.tar.gz.enc" -v
+          echo "database backups kept:"; rclone lsf "r2:sydent-backups/db" | sort
+
+      # ───────────────────────────────────────────────────────────────────────
+      # ملفات الـ Storage (أشعة/صور/PDF المرضى) ليست داخل db dump (الـ dump يحوي
+      # صفوف الميتاداتا فقط)، فهذه الخطوة تسدّ تلك الفجوة.
+      # ───────────────────────────────────────────────────────────────────────
+      - name: Backup Storage files (patient-files) to Cloudflare R2
+        run: |
+          set -euo pipefail
           SRC="supabase:patient-files"
           DST="r2:sydent-backups/patient-files"
-
           # copy (وليس sync): إضافي فقط — لا يحذف أبداً من R2 إن حُذف ملف من
           #   المصدر. حماية ضد الحذف العرضي/الكيدي لملفات المرضى.
-          # --size-only: ملفات المرضى تُكتب مرة ولا تتغيّر، فمقارنة الحجم تكفي
-          #   وتتجنّب مشاكل ETag/modtime مع Supabase S3.
+          # --size-only: ملفات المرضى تُكتب مرة ولا تتغيّر، فمقارنة الحجم تكفي.
           rclone copy "$SRC" "$DST" \
             --size-only --transfers 4 --checkers 8 --fast-list --stats-one-line -v
-
-          # تحقّق: كل ملف بالمصدر موجود بالوجهة (one-way) — يفشل الـ job إن نقص شيء.
           echo "Verifying every source object exists in R2…"
           rclone check "$SRC" "$DST" --one-way --size-only --fast-list
-
           echo "Storage backup to R2 complete:"
           rclone size "$DST"
 
-      # ───────────────────────────────────────────────────────────────────────
       # نبضة نجاح (BetterStack Heartbeat): تُرسل فقط إذا نجحت كل الخطوات أعلاه.
-      # BetterStack يتوقع نبضة كل 24 ساعة — إن غابت (فشل الباكب، تعطّل الجدولة،
-      # انتهاء PAT…) يصلك تنبيه تلقائياً بدل الفحص اليدوي من تبويب Actions.
-      # الرابط سرّ (من يملكه يستطيع تزييف النبضة) → يُخزَّن في Actions secrets.
       # آمنة قبل الإعداد: إن كان السرّ فارغاً تُتخطّى الخطوة بصمت بلا فشل.
-      # ───────────────────────────────────────────────────────────────────────
       - name: Success heartbeat (BetterStack)
         if: ${{ success() }}
         env:

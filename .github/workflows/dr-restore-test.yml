@@ -1,7 +1,7 @@
 name: DR Restore Test
 
 # ─────────────────────────────────────────────────────────────────────────────
-# الهدف: إثبات أن النسخة الاحتياطية اليومية (SyDent-backups) قابلة للاستعادة فعلاً —
+# الهدف: إثبات أن النسخة الاحتياطية اليومية (R2: sydent-backups/db) قابلة للاستعادة فعلاً —
 #   لا نسخةٌ تُكتب بلا أن يقرأها أحد. يستعيد آخر نسخة إلى قاعدة هدفٍ مستقلّة ويتحقّق
 #   آلياً، ويفشل بصوتٍ مسموع عند أي انحراف.
 #
@@ -12,7 +12,8 @@ name: DR Restore Test
 #   يدفع، ثم شهرياً أو بعد أي هجرة تلمس البنية.
 #
 # الأسرار المطلوبة (Settings → Secrets → Actions):
-#   • BACKUP_PAT        — القائم أصلاً (قراءة SyDent-backups).
+#   • BACKUP_PASSPHRASE و R2_ACCESS_KEY_ID و R2_SECRET_ACCESS_KEY و R2_ACCOUNT_ID
+#                       — نفس أسرار backup.yml (قراءة النسخة المشفّرة من R2 وفكّها).
 #   • DR_TARGET_DB_URL  — Session pooler للمشروع الهدف (sydent-dr):
 #       postgresql://postgres.<target-ref>:<PASSWORD>@aws-1-<region>.pooler.supabase.com:5432/postgres
 #
@@ -26,7 +27,7 @@ on:
   workflow_dispatch:
     inputs:
       backup_dir:
-        description: 'اسم مجلد النسخة (فارغ = الأحدث)، مثل 2026-09-02_0200'
+        description: 'طابع النسخة (فارغ = الأحدث)، مثل 2026-09-02_0200'
         required: false
         default: ''
 
@@ -44,6 +45,13 @@ jobs:
       TARGET: ${{ secrets.DR_TARGET_DB_URL }}
       # Production project ref (repo variable); the guard refuses to restore onto it.
       PROD_REF: ${{ vars.SUPABASE_PROD_REF || 'nxkalpjrqvpglphmiuui' }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      RCLONE_CONFIG_R2_TYPE: s3
+      RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+      RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      RCLONE_CONFIG_R2_REGION: auto
     steps:
       - name: Guard — target must exist and must not be production
         run: |
@@ -54,29 +62,26 @@ jobs:
           fi
           echo "target ok (host masked): $(sed -E 's#://[^@]+@#://***@#' <<< "$TARGET")"
 
-      - name: Checkout backup repo
-        uses: actions/checkout@v5
-        with:
-          repository: ${{ github.repository_owner }}/SyDent-backups
-          token: ${{ secrets.BACKUP_PAT }}
-          path: backups-repo
-
-      - name: Pick backup directory
+      - name: Fetch and decrypt the backup from R2
         id: pick
+        env:
+          WANT: ${{ github.event.inputs.backup_dir }}
         run: |
           set -euo pipefail
-          cd backups-repo
-          if [ -n "${{ github.event.inputs.backup_dir }}" ]; then
-            DIR="${{ github.event.inputs.backup_dir }}"
-          else
-            DIR="$(ls -1d 20*_* 2>/dev/null | sort | tail -1)"
-          fi
-          [ -d "$DIR" ] || { echo "::error::backup dir not found: $DIR"; exit 1; }
+          [ -n "$BACKUP_PASSPHRASE" ] || { echo "::error::BACKUP_PASSPHRASE secret is missing"; exit 1; }
+          curl -fsSL https://rclone.org/install.sh | sudo bash > /dev/null
+          if [ -n "$WANT" ]; then FILE="${WANT}.tar.gz.enc"
+          else FILE="$(rclone lsf r2:sydent-backups/db --files-only --include '*.tar.gz.enc' | sort | tail -1)"; fi
+          [ -n "$FILE" ] || { echo "::error::no backups in r2:sydent-backups/db"; exit 1; }
+          rclone copyto "r2:sydent-backups/db/$FILE" "$FILE"
+          mkdir -p backups-repo
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:BACKUP_PASSPHRASE -in "$FILE" | tar -xzf - -C backups-repo
+          DIR="${FILE%.tar.gz.enc}"
           for f in roles.sql schema.sql data.sql; do
-            [ -s "$DIR/$f" ] || { echo "::error::$DIR/$f missing or empty"; exit 1; }
+            [ -s "backups-repo/$DIR/$f" ] || { echo "::error::$DIR/$f missing or empty"; exit 1; }
           done
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
-          echo "Restoring from: $DIR"; ls -la "$DIR"
+          echo "Restoring from: $DIR"; ls -la "backups-repo/$DIR"
 
       - name: Install psql 17
         run: |
