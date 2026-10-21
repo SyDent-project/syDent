@@ -162,7 +162,9 @@ async function suite(S) {
 async function auditSuite(S) {
   const { JSDOM, VirtualConsole } = require('jsdom'); const vcon = new VirtualConsole();   /* صامت: تحذيراتُ الصفحة المقصودة (فشلٌ محاكى) */
   const html = S.aud.replace(/<script[^>]*\bsrc=[^>]*><\/script>/g, '').replace(/<link[^>]*>/g, '');
-  const iso = n => new Date(Date.UTC(2026, 9, 13, 8, 0, 0) + n * 60000).toISOString();
+  /* relative to now: the page shows the last week by default, so fixed dates age out of view */
+  const BASE = Date.now() - 6 * 3600000;
+  const iso = n => new Date(BASE + n * 60000).toISOString();
   let rows = []; for (let i = 0; i < 120; i++) rows.push({ id: 'r' + String(i).padStart(3, '0'), owner_id: 'U1', employee_id: i % 2 ? 'E1' : 'E2', employee_name_snapshot: 'سارة', employee_role_snapshot: 'secretary', action_type: 'patient.edit', description: 'تعديل مريض ' + i, patient_id: 'P' + i, patient_name_snapshot: 'مريض ' + i, is_alert: i % 7 === 0, alert_reason: null, is_archived: false, created_at: iso(i) });
   let emps = [{ id: 'E1', name: 'سارة', role: 'secretary' }, { id: 'E2', name: 'رامي', role: 'doctor' }];
   const db = { fail: false, defer: null, calls: [] };
