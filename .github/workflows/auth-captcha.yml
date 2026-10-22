@@ -1,0 +1,64 @@
+# ════════════════════════════════════════════════════════════════════════
+# SyDent — auth-captcha.yml · حالة Turnstile على Supabase Auth (قراءة أو تفعيل)
+# ════════════════════════════════════════════════════════════════════════
+# action=show   يقرأ إعداد الكابتشا بالمشروع عبر Management API ويطبع: مفعّل؟
+#               المزوّد؟ السرّ موجود؟ — لا يطبع أي قيمة سرية.
+# action=enable يفعّل Turnstile بالسرّ TURNSTILE_SECRET_KEY (GitHub Secret).
+# action=disable يطفئ الكابتشا (للطوارئ: دخولٌ معطّل بسبب Cloudflare).
+#
+# Manual only. Secrets: SUPABASE_ACCESS_TOKEN (+ TURNSTILE_SECRET_KEY for enable).
+# ════════════════════════════════════════════════════════════════════════
+name: Auth Captcha
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'show | enable | disable'
+        required: true
+        default: 'show'
+      project_ref:
+        description: 'Project ref'
+        required: true
+        default: 'nxkalpjrqvpglphmiuui'
+
+permissions:
+  contents: read
+
+jobs:
+  captcha:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Captcha config
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          TS_SECRET: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          REF: ${{ inputs.project_ref }}
+          ACTION: ${{ inputs.action }}
+        run: |
+          set -euo pipefail
+          [ -n "$TOKEN" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is missing"; exit 1; }
+          API="https://api.supabase.com/v1/projects/$REF/config/auth"
+          show() {
+            curl -fsS -H "Authorization: Bearer $TOKEN" "$API" | python3 -c '
+          import json, sys
+          c = json.load(sys.stdin)
+          print("captcha enabled :", c.get("security_captcha_enabled"))
+          print("captcha provider:", c.get("security_captcha_provider"))
+          print("secret set      :", bool(c.get("security_captcha_secret")))
+          print("site url        :", c.get("site_url"))'
+          }
+          case "$ACTION" in
+            show) show ;;
+            enable)
+              [ -n "$TS_SECRET" ] || { echo "::error::TURNSTILE_SECRET_KEY secret is missing"; exit 1; }
+              python3 -c 'import json, os; print(json.dumps({"security_captcha_enabled": True, "security_captcha_provider": "turnstile", "security_captcha_secret": os.environ["TS_SECRET"]}))' \
+                | curl -fsS -X PATCH -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" --data @- "$API" > /dev/null
+              echo "✅ Turnstile enabled"; show ;;
+            disable)
+              curl -fsS -X PATCH -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+                --data '{"security_captcha_enabled": false}' "$API" > /dev/null
+              echo "✅ captcha disabled"; show ;;
+            *) echo "::error::action must be show, enable or disable"; exit 1 ;;
+          esac
