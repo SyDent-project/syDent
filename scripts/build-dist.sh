@@ -32,23 +32,17 @@ done
 # يمسك عناصر الجذر فقط — ننظّفها من dist لتبقى سياسة «لا *.md يُنشر» كاملة.
 find "$DIST" -name '*.md' -type f -delete
 
-# تصغير ملفات JS وCSS الخاصة بنا (جذر dist فقط — vendor/ مصغَّرة أصلاً): حذف التعليقات
-# والفراغات بلا إعادة تسمية (الصفحات تستدعي الدوال العليا من onclick) ولا تجميع ولا هزّ شجرة،
-# فكل دالة عامة تبقى. يقارب نصف ما يُنزَّل ويُحلَّل. ملفات المستودع تبقى بتعليقاتها.
-# إن تعذّر جلب esbuild تبقى النسخ غير المصغّرة — موقعٌ أبطأ لا نشرٌ مكسور. SYDENT_NO_MINIFY=1 يتخطّاه.
+# تصغير أصولنا (scripts/minify-dist.js): ملفات JS/CSS بجذر dist (vendor/ مصغَّرة أصلاً) وكتل
+# <script>/<style> المضمّنة بالصفحات. حذف التعليقات والفراغات بلا إعادة تسمية (الصفحات تستدعي الدوال
+# العليا من onclick) ولا تجميع ولا هزّ شجرة، فكل دالة عامة تبقى. ملفات المستودع تبقى بتعليقاتها.
+# إن تعذّر جلب esbuild يبقى dist غير مصغّر — موقعٌ أبطأ لا نشرٌ مكسور. SYDENT_NO_MINIFY=1 يتخطّاه.
 if [ "${SYDENT_NO_MINIFY:-}" != "1" ]; then
-  shopt -s nullglob
-  assets=("$DIST"/*.js "$DIST"/*.css)
-  if [ ${#assets[@]} -gt 0 ]; then
-    before=$(cat "${assets[@]}" | wc -c)
-    if npx --yes esbuild@0.24.0 "${assets[@]}" --outdir="$DIST" --allow-overwrite \
-         --minify-whitespace --minify-syntax --legal-comments=none --charset=utf8 --log-level=warning; then
-      after=$(cat "${assets[@]}" | wc -c)
-      echo "── صُغِّر ${#assets[@]} ملفاً: $((before / 1024))KB → $((after / 1024))KB ──"
-    else
-      echo "⚠️  تعذّر esbuild — dist يبقى بالملفات غير المصغّرة" >&2
-      for f in "${assets[@]}"; do cp "${f#"$DIST"/}" "$f"; done
-    fi
+  ESB="${TMPDIR:-/tmp}/sydent-esbuild-0.24.0"
+  if [ -d "$ESB/node_modules/esbuild" ] || npm install --prefix "$ESB" --no-save --no-audit --no-fund --silent esbuild@0.24.0 >/dev/null 2>&1; then
+    NODE_PATH="$ESB/node_modules" node scripts/minify-dist.js "$DIST" \
+      || echo "⚠️  تعذّر التصغير — dist يبقى بالملفات غير المصغّرة" >&2
+  else
+    echo "⚠️  تعذّر جلب esbuild — dist يبقى بالملفات غير المصغّرة" >&2
   fi
 fi
 
