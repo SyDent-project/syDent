@@ -17,11 +17,11 @@
 <!-- Theme system: MUST load before inline <style>
 /* ── Modal ── v453: التعريف المحلي حُذف — النافذة على عُدّة SyDent الموحّدة. */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261023a"></script>
+<script src="theme.js?v=20261023b"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261023a"></script>
-<script src="sy-modal.js?v=20261023a"></script>
-<script src="pwd-policy.js?v=20261023a"></script>
+<script src="supabase-init.js?v=20261023b"></script>
+<script src="sy-modal.js?v=20261023b"></script>
+<script src="pwd-policy.js?v=20261023b"></script>
 <!-- ── Cloudflare Turnstile (CAPTCHA) ── Axis 3 / Item 2. Helper is defined BEFORE the
      API script so window.onSyDentTurnstileLoad exists when the (async) script fires. -->
 <style>.cf-turnstile-box{margin:2px 0 14px;display:flex;justify-content:center}.cf-turnstile-box:empty{margin:0}</style>
@@ -45,7 +45,7 @@
     // interaction-only: the check runs in the background and the box shows only when Cloudflare
     // needs a click, so most people never wait on it.
     try { widgets[name] = window.turnstile.render(el, { sitekey: SITEKEY, theme: 'auto', action: name,
-      appearance: 'interaction-only',
+      appearance: 'interaction-only', language: 'ar',
       callback: function(t){ tokens[name] = t; (waiters[name] || []).splice(0).forEach(function(r){ r(t); }); },
       'expired-callback': function(){ tokens[name] = ''; },
       'error-callback': function(){ tokens[name] = ''; } }); }
@@ -76,6 +76,9 @@
     tokens[name] = '';
     try { var id = widgets[name]; if (id !== undefined && window.turnstile) window.turnstile.reset(id); } catch(e){}
   };
+  // Shown when a submit found no token (the check is still running or waits for a click):
+  // nothing is sent to the server, so the user just completes the box and presses again.
+  window.TS_PENDING_MSG = 'لم يكتمل التحقق «أنا إنسان» بعد. أكمل المربع أعلى الزر إن ظهر، ثم أعد المحاولة';
   // The login widget is visible at page load → seed its render intent now.
   wanted['login'] = 'ts-login';
 })();
@@ -253,7 +256,7 @@ body{
 }
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261023a">
+<link rel="stylesheet" href="theme.css?v=20261023b">
 </head>
 <body>
 
@@ -810,12 +813,24 @@ async function sendResetEmail() {
     return;
   }
 
+  // No token yet ⇒ the request would be refused while the page still claimed «sent».
+  // Says nothing about the email, so the anti-enumeration rule below still holds.
+  const forgotCaptcha = await waitTurnstileToken('forgot');
+  if (!forgotCaptcha) {
+    showForgotMsg(TS_PENDING_MSG, 'error');
+    btn.disabled = false;
+    cancelBtn.disabled = false;
+    btn.textContent = 'إرسال الرابط';
+    _forgotInFlight = false;
+    return;
+  }
+
   // Fire the reset request — but ALWAYS show same message regardless of outcome.
   // This prevents email enumeration (OWASP). Errors are logged to console only.
   try {
     await window.sb.auth.resetPasswordForEmail(target, {
       redirectTo: window.location.origin + '/reset-password.html',
-      captchaToken: await waitTurnstileToken('forgot')
+      captchaToken: forgotCaptcha
     });
   } catch (err) {
     // Log silently — do NOT surface to user (would reveal email existence)
@@ -876,9 +891,11 @@ async function doLogin(e) {
   }
   btn.disabled = true;
   btn.innerHTML = 'جارٍ التحقق<span class="spinner"></span>';
-  var signedIn = false;
+  var signedIn = false, captchaPending = false;
   try {
-    const { data, error } = await window.sb.auth.signInWithPassword({ email, password, options: { captchaToken: await waitTurnstileToken('login') } });
+    const captchaToken = await waitTurnstileToken('login');
+    if (!captchaToken) { captchaPending = true; throw new Error(TS_PENDING_MSG); }
+    const { data, error } = await window.sb.auth.signInWithPassword({ email, password, options: { captchaToken } });
     if (error) throw error;
 
     // Phase 7.6F: check admin role first (admins bypass the trial_request gate).
@@ -944,7 +961,8 @@ async function doLogin(e) {
   } catch (err) {
     let msg = err.message || 'فشل تسجيل الدخول';
     var low = msg.toLowerCase();
-    if (low.includes('captcha')) msg = 'تعذّر التحقق من الحماية، يرجى إعادة المحاولة';
+    if (captchaPending) msg = TS_PENDING_MSG;
+    else if (low.includes('captcha')) msg = 'تعذّر التحقق من الحماية، يرجى إعادة المحاولة';
     else if (low.includes('banned') || (err && err.code === 'user_banned')) msg = 'هذا الحساب موقوف. تواصل مع الدعم لإعادة التفعيل';
     else if (low.includes('not confirmed')) msg = 'البريد غير مؤكَّد بعد. تحقّق من بريدك أو تواصل مع الدعم';
     else if (low.includes('rate limit') || low.includes('too many')) msg = 'محاولات كثيرة. انتظر بضع دقائق ثم أعد المحاولة';
@@ -956,7 +974,8 @@ async function doLogin(e) {
     // Turnstile tokens are single-use → refresh for any subsequent attempt.
     // Skipped on success: the page is redirecting, and a reset would make the
     // widget visibly re-run its challenge during the redirect delay.
-    if (!signedIn) { try { resetTurnstile('login'); } catch(e){} }
+    // Also skipped when no token was sent: the check is still running or waits for a click.
+    if (!signedIn && !captchaPending) { try { resetTurnstile('login'); } catch(e){} }
   }
 }
 
@@ -1098,6 +1117,15 @@ async function doRegister(e) {
     }
   } catch (_pe) { /* pre-check unavailable → proceed; DB unique indexes still guard */ }
 
+  // No token yet ⇒ send nothing (a captcha-less signUp is refused anyway) and keep the widget as is.
+  const regCaptcha = await waitTurnstileToken('register');
+  if (!regCaptcha) {
+    showMsg('❌ ' + TS_PENDING_MSG, 'error');
+    btn.disabled = false;
+    btn.textContent = 'إنشاء حساب التجربة';
+    return;
+  }
+
   try {
     // Step 1: create the auth.users row (self-signup with trader-chosen password)
     const { data, error } = await window.sb.auth.signUp({
@@ -1109,7 +1137,7 @@ async function doRegister(e) {
       // «رقم النقابة» منذ M51، المطبوع على الروشتة) لا عموداً جديداً.
       options: { data: { full_name: name, phone: phoneForRow || '', currency: currency,
                          syndicate_branch: city || '', syndicate_no: syndicateNo || '' },
-                 captchaToken: await waitTurnstileToken('register') }
+                 captchaToken: regCaptcha }
     });
     if (error) throw error;
     if (!data || !data.user) throw new Error('تعذّر إنشاء الحساب');
