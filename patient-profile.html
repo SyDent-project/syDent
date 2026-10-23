@@ -294,11 +294,12 @@
       <div class="exam-bar" id="examBar">
         <div class="exam-bar-head">
           <span class="exam-bar-title">🩺 وضع الفحص الأولي — انقر السطح لوسمه، ونقرة ثانية لإزالته</span>
-          <span class="exam-count">وُسم: <b id="examCountEl">0</b></span>
+          <span class="exam-count">وُسم: <b id="examCountEl">0</b> · أسنان: <b id="examTeethEl">0</b></span>
           <span class="spacer"></span>
           <button type="button" class="exam-btn" onclick="examUndo()">↩️ تراجع</button>
           <button type="button" class="exam-btn exit" onclick="toggleExamMode()">✕ إنهاء</button>
         </div>
+        <ol class="mode-steps" id="examSteps"></ol>
         <div class="exam-chips" id="examStatusChips"></div>
         <div class="exam-chips" id="examMonthsRow" style="display:none;"></div>
         <div class="exam-cond-note" id="examCondNote" style="display:none;">🩺 حالة سريرية — توثيق بلا تكلفة ولا سطر بالحساب، وتُسجَّل <b>حيث تنقر</b>: السطح المنقور للقلح والحساسية والارتداد والبقعة، والجذر المنقور للكسر، والإنسي/الوحشي للتماس المفتوح.</div>
@@ -313,11 +314,13 @@
       <div class="batch-bar" id="batchBar">
         <div class="exam-bar-head">
           <span class="batch-bar-title">☑️ تحديد متعدد — اختر الحالة والعلاج ثم انقر المواضع (أسطح/جذور السن الواحد تُدمج بجلسة واحدة)</span>
-          <span class="exam-count">محدد: <b id="batchCountEl">0</b></span>
+          <span class="exam-count">أسنان: <b id="batchTeethEl">0</b> · جلسات: <b id="batchCountEl">0</b></span>
           <span class="spacer"></span>
+          <button type="button" class="exam-btn" onclick="batchUndo()">↩️ تراجع</button>
           <button type="button" class="exam-btn" style="border-color:var(--green);color:var(--green);" onclick="batchApply()">✔ تطبيق</button>
           <button type="button" class="exam-btn exit" onclick="toggleBatchMode()">✕ إنهاء</button>
         </div>
+        <ol class="mode-steps" id="batchSteps"></ol>
         <div class="exam-chips" id="batchStatusChips"></div>
         <div class="exam-palette" id="batchPalette"></div>
         <div id="batchSelSummary" style="display:none;font-size:12px;color:var(--text2);padding:4px 2px 0;line-height:1.9;"></div>

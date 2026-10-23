@@ -488,6 +488,14 @@ async function _snTplDeleteSelected_inner(selId) {
    crown_full); surface/root/bridge/spacer/socket/regional keep their dedicated
    flows (matches OpenDental: tooth-range units are excluded from the loop). */
 /* [الجذع المُستبقى بالكتلة الرئيسية: تهيئة علم الوضع window.__batchMode] */
+/* شريط الخطوات المشترك بين الفحص الأولي والتحديد المتعدد: ما قبل `now` منجز، و`now` الحالية. */
+function renderModeSteps(elId, labels, now) {
+  var el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = labels.map(function(l, i){
+    return '<li class="' + (i < now ? 'done' : (i === now ? 'now' : '')) + '">' + l + '</li>';
+  }).join('');
+}
 var batchSel = [];                      // مواضع محددة {n, s} — السطح محلول لحظة النقر عبر examRouteSurface
 var batchSelectedKey = null;            // العلاج المختار من اللوحة (العلاج أولاً — تكافؤ الفحص الأولي)
 var batchDefaultStatus = 'completed';   // chips الشريط (منجز/مخطط) — المودال يبقى الكلمة الأخيرة
@@ -562,7 +570,7 @@ function toggleBatchMode() {
     pendingProviderId = _pool.length ? getDefaultProviderId(_pool) : null;
     document.body.classList.add('batch-on');
     var tb = document.getElementById('batchToggleBtn'); if (tb) tb.style.display = 'none';
-    var ce = document.getElementById('batchCountEl'); if (ce) ce.textContent = '0';
+    batchSyncUI();
     showToast('☑️ وضع التحديد المتعدد — اختر علاجاً ثم انقر المواضع على المخطط');
   } else {
     batchClearSelection();
@@ -577,6 +585,14 @@ function toggleBatchMode() {
 function batchClearSelection() {
   batchSel = [];
   batchSyncUI();
+}
+
+/* تراجع بوضع التحديد المتعدد: يُلغي آخر موضع حُدِّد (لا شيء محفوظ بعد — التحديد بالذاكرة حتى «تطبيق»). */
+function batchUndo() {
+  if (!batchSel.length) { showToast('لا شيء للتراجع عنه'); return; }
+  var last = batchSel.pop();
+  batchSyncUI();
+  showToast('↩️ أُلغي تحديد السن ' + last.n + ' (' + _batchPosLbl(last.n, last.s) + ')');
 }
 
 /* مزامنة الواجهة من batchSel: إبراز خلايا الأسنان + العدّاد + سطر الملخّص */
@@ -605,6 +621,11 @@ function batchSyncUI() {
   }
   var units = _batchMergedUnits();
   var ce = document.getElementById('batchCountEl'); if (ce) ce.textContent = units.length;
+  var _bTeeth = {};
+  for (var t2 = 0; t2 < batchSel.length; t2++) _bTeeth[batchSel[t2].n] = true;
+  var cte = document.getElementById('batchTeethEl'); if (cte) cte.textContent = Object.keys(_bTeeth).length;
+  renderModeSteps('batchSteps', ['اختر العلاج', 'انقر المواضع على المخطط', 'اضغط «تطبيق»'],
+    !batchSelectedKey ? 0 : (batchSel.length ? 2 : 1));
   var sm = document.getElementById('batchSelSummary');
   if (sm) {
     if (!units.length) { sm.style.display = 'none'; sm.textContent = ''; }
@@ -823,6 +844,17 @@ var examReviewMonths = 3;
 var examSelectedKey = null;
 var examCount = 0;
 var examUndoStack = [];
+var examTeeth = {};   // سن → صافي ما وُسم عليه بهذه الجلسة (لعدّاد «أسنان»)
+/* عدّادا الشريط: المواضع الموسومة والأسنان التي بقي عليها وسمٌ من هذه الجلسة */
+function examTouch(n, d) {
+  var k = String(n);
+  examTeeth[k] = (examTeeth[k] || 0) + d;
+  if (examTeeth[k] <= 0) delete examTeeth[k];
+}
+function examSyncCount() {
+  var ce = document.getElementById('examCountEl'); if (ce) ce.textContent = examCount;
+  var te = document.getElementById('examTeethEl'); if (te) te.textContent = Object.keys(examTeeth).length;
+}
 var EXAM_STATUSES = [
   { v: 'existing_other',   l: 'موجود — من عيادة أخرى' },
   { v: 'existing_current', l: 'موجود — من عيادتنا' },
@@ -844,6 +876,7 @@ async function toggleExamMode() {
     examSelectedKey = null;
     examCount = 0;
     examUndoStack = [];
+    examTeeth = {};
     // Provider: same OpenDental-style default resolver as the modal (silent).
     var _pool = (CLINIC_DOCTORS || []).filter(function(d){ return d.is_active !== false; });
     if (!_pool.length) _pool = CLINIC_DOCTORS || [];
@@ -927,7 +960,9 @@ function renderExamBar() {
     }).join('');
     if (crow) crow.style.display = '';
   } else if (crow) { crow.style.display = 'none'; }
-  var ce = document.getElementById('examCountEl'); if (ce) ce.textContent = examCount;
+  examSyncCount();
+  renderModeSteps('examSteps', ['اختر الحالة (موجود / مراقبة)', 'اختر العلاج أو الحالة السريرية', 'انقر الأسطح على المخطط'],
+    examSelectedKey ? 2 : 1);
 }
 function examSetStatus(s) { examStatus = s; renderExamBar(); }
 function examSetMonths(m) { examReviewMonths = m; renderExamBar(); }
@@ -1031,8 +1066,9 @@ async function _examStamp_inner(n, clickedSurface) {
     else if (typeof dxSet === 'function') dxSet(n, s, null);
     examUndoStack.push({ type: 'unstamp', n: tn, s: s, key: examSelectedKey, st: prevStX, rv: prevRvX });
     examCount = Math.max(0, examCount - 1);
+    examTouch(tn, -1);
     renderTeeth(); renderStats();
-    var ce1 = document.getElementById('examCountEl'); if (ce1) ce1.textContent = examCount;
+    examSyncCount();
     return;
   }
 
@@ -1055,8 +1091,9 @@ async function _examStamp_inner(n, clickedSurface) {
       if (_eRes === false) return;
       examUndoStack.push({ type: 'note', n: tn, s: _ecf, prevDx: _ePrev });
       examCount++;
+      examTouch(tn, 1);
       renderTeeth(); renderStats();
-      var _ceN = document.getElementById('examCountEl'); if (_ceN) _ceN.textContent = examCount;
+      examSyncCount();
       showToast('🩺 «' + t.name + '» ' + (_eRes === true ? 'ملاحظةً على ' : 'تشخيصاً تحت ') + (_ecfT ? _ecfT.name : _ecf) + ' (' + surfLabelFor(s, n) + ')');
       return;
     }
@@ -1076,8 +1113,9 @@ async function _examStamp_inner(n, clickedSurface) {
     if (sp.blocked) return;
     if (sp.handled) {   // bridge unit fully written (no ledger — status is non-billable)
       examCount++;
+      examTouch(n, 1);
       renderTeeth(); renderStats();
-      var ce2 = document.getElementById('examCountEl'); if (ce2) ce2.textContent = examCount;
+      examSyncCount();
       showToast('✓ جسر — للتراجع عنه استخدم الوضع العادي');
       return;
     }
@@ -1107,8 +1145,9 @@ async function _examStamp_inner(n, clickedSurface) {
   if (!implantWiped) examUndoStack.push({ type: 'stamp', n: tn, s: s, prevKey: prevKey, prevSt: prevSt, prevRv: prevRv });
   else showToast('✓ زراعة — للتراجع عنها استخدم الوضع العادي');
   examCount++;
+  examTouch(tn, 1);
   renderTeeth(); renderStats();
-  var ce3 = document.getElementById('examCountEl'); if (ce3) ce3.textContent = examCount;
+  examSyncCount();
 }
 
 var examUndo = ppGuarded('examUndo', _examUndo_inner, '⏳');   /* v284: قفل + انشغال */
@@ -1121,8 +1160,9 @@ async function _examUndo_inner() {
     if (uN.error) { showToast('⚠️ ' + uN.error.message); examUndoStack.push(a); return; }
     dxSet(a.n, a.s, a.prevDx || null);
     examCount = Math.max(0, examCount - 1);
+    examTouch(a.n, -1);
     renderTeeth(); renderStats();
-    var _ceU = document.getElementById('examCountEl'); if (_ceU) _ceU.textContent = examCount;
+    examSyncCount();
     showToast('↩️ أُلغيت الملاحظة');
     return;
   }
@@ -1155,6 +1195,7 @@ async function _examUndo_inner() {
       }
     }
     examCount = Math.max(0, examCount - 1);
+    examTouch(a.n, -1);
   } else {             // 'unstamp' → put the removed row back
     var rB = await upsertTeethStatusWithFallback({
       doctor_id: currentUser.id, patient_id: patientId,
@@ -1169,9 +1210,10 @@ async function _examUndo_inner() {
     teethMap[a.n].__status[a.s] = a.st || examStatus;
     if (a.rv) { teethMap[a.n].__review = teethMap[a.n].__review || {}; teethMap[a.n].__review[a.s] = a.rv; }
     examCount++;
+    examTouch(a.n, 1);
   }
   renderTeeth(); renderStats();
-  var ce = document.getElementById('examCountEl'); if (ce) ce.textContent = examCount;
+  examSyncCount();
 }
 /* [الجذع المُستبقى بالكتلة الرئيسية: مستمع ESC للخروج من الوضع — حفاظاً على ترتيب التسجيل] */
 /* ═══════════════ end exam mode ═══════════════ */
