@@ -854,6 +854,13 @@ function examTouch(n, d) {
 function examSyncCount() {
   var ce = document.getElementById('examCountEl'); if (ce) ce.textContent = examCount;
   var te = document.getElementById('examTeethEl'); if (te) te.textContent = Object.keys(examTeeth).length;
+  // تأطير الأسنان التي وُسمت بهذه الجلسة (يظهر فقط والوضع مفعّل — body.exam-on بالـCSS)
+  var old = document.querySelectorAll('.tooth-cell.exam-touch');
+  for (var i = 0; i < old.length; i++) old[i].classList.remove('exam-touch');
+  Object.keys(examTeeth).forEach(function (k) {
+    var c = document.querySelector('.tooth-cell[data-tooth-cell="' + k + '"]');
+    if (c) c.classList.add('exam-touch');
+  });
 }
 var EXAM_STATUSES = [
   { v: 'existing_other',   l: 'موجود — من عيادة أخرى' },
