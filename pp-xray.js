@@ -8,6 +8,16 @@
    • عدّادُ التخزين بالتبويب + تنظيفُ الملفات اليتيمة (للمالك).
    القاعدة: لا كتابةَ بوضع القراءة (blockReadOnly أولَ سطر بكل مدخل كتابة) · لا نوافذَ أصلية · النصوصُ مهرَّبة.
    ════════════════════════════════════════════════════════════════════ */
+/* التصوير الشعاعي مقفل مؤقتاً «قريباً» (طلب المالك، تشرين الأول 2026): رفعُ الأشعة والتقاطُها من الجهاز
+   ومعرضُها ومقارنتُها تُظهر «قريباً» بدل أن تفتح. الصورُ السريرية والمستندات تبقى كما هي، وملفات الأشعة
+   المرفوعة سابقاً تبقى ظاهرة بقائمة الملفات. لإعادة الفتح: XRAY_SOON = false هنا، وخيار «أشعة» بـpatient-profile.html،
+   مع radiology.html و soon: true بالشريط الجانبي. */
+var XRAY_SOON = true;
+function xrSoon() {
+  if (!XRAY_SOON) return false;
+  if (typeof showToast === 'function') showToast('🔒 التصوير الشعاعي — قريباً');
+  return true;
+}
 var XR_TYPE_ORDER = ['periapical', 'bitewing', 'panoramic', 'cephalometric', 'other'];
 var XR_PERM = { ur: [18, 17, 16, 15, 14, 13, 12, 11], ul: [21, 22, 23, 24, 25, 26, 27, 28],
                 lr: [48, 47, 46, 45, 44, 43, 42, 41], ll: [31, 32, 33, 34, 35, 36, 37, 38] };
@@ -130,6 +140,8 @@ async function xrOpenUpload(fileList, row, preset) {
   if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
   if (!window.SyDentFiles) { showToast('الميزة غير متاحة', true); return; }
   if (_xrUp.busy) return;
+  var _isPhoto = row ? row.category === 'clinical_photo' : !!(preset && preset.category === 'clinical_photo');
+  if (!_isPhoto && xrSoon()) return;
   xrRevokeUrls();
   _xrUp.results = {}; _xrUp.editRow = row || null; _xrUp.primary = false;
   _xrUp.sessionId = (preset && preset.sessionId) || null;   // v637: صورةُ جلسة «أشعة» تُربط بها
@@ -203,6 +215,7 @@ async function xrUpAddFiles(list) {
 var _xrGal = { tooth: null, all: false, list: [], pick: [] };
 async function xrOpenGallery(o) {
   o = o || {};
+  if ((o.all || (o.tooth && typeof _toothXrayTeeth !== 'undefined' && _toothXrayTeeth[o.tooth])) && xrSoon()) return;
   if (!_pfLoaded) await loadPatientFiles();
   _xrGal.tooth = o.tooth ? String(o.tooth) : null; _xrGal.all = !!o.all; _xrGal.pick = [];
   document.getElementById('xrGalTitle').textContent = _xrGal.tooth ? ('🦷 صور السن ' + _xrGal.tooth) : '⚖️ اختر صورتين للمقارنة';
@@ -288,6 +301,7 @@ function xrGalToFiles() {
 function xrGalClose() { closeModal('xrGalModal'); _xrGal.list = []; _xrGal.tooth = null; _xrGal.pick = []; }
 /* v637: بعد جلسة «أشعة» منجزةٍ على سن — عرضُ إرفاق صورتها (مربوطةً بالسن وبالجلسة). حوارٌ لا إلزام. */
 async function xrAttachForSession(tooth, sessionId) {
+  if (XRAY_SOON) return;   // «قريباً»: لا عرضَ إرفاق بعد جلسة أشعة
   if (!tooth || !sessionId || (window.SyDentSub && window.SyDentSub.isReadOnly && window.SyDentSub.isReadOnly())) return;
   var yes = await SyDialog.confirm({ title: '🩻 إرفاق صورة الأشعة', message: 'سُجّلت جلسة أشعة للسن ' + tooth + '.\nأترفق صورتها الآن؟ تُربط بالسن وبالجلسة.', confirmText: '📎 إرفاق الآن', cancelText: 'لاحقاً' });
   if (yes) xrOpenUpload(null, null, { teeth: [String(tooth)], sessionId: sessionId });
@@ -564,6 +578,7 @@ async function xrHasDevice() {
 }
 async function xrCapture(preset) {
   if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  if (xrSoon()) return;
   if (!await xrHasDevice()) {
     var go = await SyDialog.confirm({ title: '📡 لا جهاز مقترن', message: 'لم يُقترن أي كمبيوتر بعد. اقرن كمبيوتر العيادة الموصول بالحساس من الإعدادات (قسم الأجهزة — SyDent Bridge) ثم عد إلى هنا.', confirmText: 'فتح الإعدادات', cancelText: 'لاحقاً' });
     if (go) location.href = 'settings.html#bridgeSection';
