@@ -87,27 +87,27 @@
 /* ---------- LIGHT MODE (default — Clinical cool, SyDent Redesign v1) ------ */
 :root,
 :root[data-theme="light"] {
-  --bg:        #eef0f7;
+  --bg:        #eef4fb;
   --bg2:       #ffffff;
-  --bg3:       #e4e7f2;
-  --bg4:       #f7f8fc;
+  --bg3:       #e3ebf5;
+  --bg4:       #f7fafd;
 
-  --text:      #171a33;
-  --text2:     #5d6382;
-  --text3:     #64698a;   /* ≥4.5:1 on cards */
+  --text:      #0f2340;
+  --text2:     #55698a;
+  --text3:     #5a6e8c;   /* ≥4.5:1 on cards */
 
-  --border:    #d1d5e6;   /* v282: was #d8e1eb (1.2:1 on white — grid lines and card edges vanished); now ~1.5:1, Google Calendar's grid line weight */
-  --border2:   #b8bed6;   /* v282: was #cbd8e3 */
+  --border:    #d3e0f0;   /* v282: was #d8e1eb (1.2:1 on white — grid lines and card edges vanished); now ~1.5:1, Google Calendar's grid line weight */
+  --border2:   #b6c7dd;   /* v282: was #cbd8e3 */
 
-  /* C1 (Oct 2026): brand is clinical indigo. The --green* names are kept
+  /* C1 (Oct 2026): brand is medical blue (owner picked palette 3 «الأزرق الطبي», Oct 2026; was clinical indigo). The --green* names are kept
      (863 call sites) but now carry the brand colour. Semantic "success"
      lives in --green-fg/-bg/-bd/-soft below and is sky blue: the owner
      wants no green in the UI (WhatsApp keeps its own brand green). */
-  --green:     #3f4fc4;
+  --green:     #1d6fd1;
   --logo:      #0d8577;   /* the logo keeps its original green (owner, Oct 2026) */
   --logo-rgb:  13,133,119;
-  --green2:    #2f3c9e;
-  --green-dim: rgba(63,79,196,0.10);
+  --green2:    #1759a8;
+  --green-dim: rgba(29,111,209,0.10);
 
   /* v347 status palette: the three warm tokens are TEXT colours with hues
      spread 354° / 21° / 46° (was 0° / 21° / 26° — "yellow" #b45309 was a
@@ -158,30 +158,30 @@
   --text-secondary:var(--text2);
   --text-muted:    var(--text3);
 
-  --shadow-card:   0 1px 2px rgba(23,26,51,0.06), 0 1px 3px rgba(23,26,51,0.05);
-  --shadow-modal:  0 20px 50px rgba(23,26,51,0.18);
+  --shadow-card:   0 1px 2px rgba(15,35,64,0.06), 0 1px 3px rgba(15,35,64,0.05);
+  --shadow-modal:  0 20px 50px rgba(15,35,64,0.18);
 }
 
 /* ---------- DARK MODE (existing platform look, preserved) ------------------ */
 :root[data-theme="dark"] {
   /* Standard naming */
-  --bg:        #0e1020;
-  --bg2:       #161a30;
-  --bg3:       #1c2140;
-  --bg4:       #12152a;
+  --bg:        #09121f;
+  --bg2:       #0c1726;
+  --bg3:       #132235;
+  --bg4:       #0e1a2a;
 
-  --text:      #e5e7f6;
-  --text2:     #959bbd;
-  --text3:     #6f76a0;
+  --text:      #e4edf8;
+  --text2:     #8fa5c2;
+  --text3:     #6b84a3;
 
-  --border:    rgba(139,151,255,0.16);
-  --border2:   rgba(139,151,255,0.30);
+  --border:    rgba(106,168,255,0.16);
+  --border2:   rgba(106,168,255,0.30);
 
-  --green:     #8b97ff;   /* C1: brand indigo (see light block) */
+  --green:     #6aa8ff;   /* brand medical blue (see light block) */
   --logo:      #2ee89e;
   --logo-rgb:  46,232,158;
-  --green2:    #7a86f0;
-  --green-dim: rgba(139,151,255,0.12);
+  --green2:    #5596ee;
+  --green-dim: rgba(106,168,255,0.12);
 
   /* v347: calmer warm tokens (saturation 90–100% read as neon on navy).
      Brand green untouched. */
@@ -197,7 +197,7 @@
   --amber:     #fdd663;   /* v347: alias of --yellow */
   --cyan:      #4dd0e1;
   --wa:        #25d366;
-  --on-accent: #0e1020;   /* text on --green surfaces (Phase1 contrast) */
+  --on-accent: #09121f;   /* text on --green surfaces (Phase1 contrast) */
 
   --red-bg:     rgba(229,83,75,0.16);    --red-bd:     rgba(242,139,130,0.45);  --red-fill:    rgba(229,83,75,0.36);   /* surfaces use a deeper red than the pastel text: pastel-on-navy tints were too close to the yellow ones */
   --orange-bg:  rgba(252,173,112,0.14);  --orange-bd:  rgba(252,173,112,0.40);  --orange-fill: rgba(252,173,112,0.30);
@@ -270,7 +270,7 @@
 /* RTL: in light mode knob sits on the right (sun side); in dark on the left */
 :root[data-theme="light"] .sydent-theme-toggle .stt-knob { right: 2px; }
 :root[data-theme="dark"]  .sydent-theme-toggle .stt-knob { right: calc(100% - 26px); }
-:root[data-theme="dark"]  .sydent-theme-toggle           { background: #272c4a; }
+:root[data-theme="dark"]  .sydent-theme-toggle           { background: #1e3350; }
 
 .sydent-theme-toggle .stt-icon-sun,
 .sydent-theme-toggle .stt-icon-moon {
@@ -831,7 +831,7 @@ body:has(#sbMainContent)::before {
 
 
 /* ════════ Redesign v1 additions (12 Jun 2026) ════════ */
-:root, :root[data-theme="light"] { --green-rgb: 63,79,196; }
+:root, :root[data-theme="light"] { --green-rgb: 29,111,209; }
 /* v279: rgb companions for the semantic colors — pages build their tints as
    rgba(var(--x-rgb), .12) instead of hardcoding a dark-palette hex, so every
    badge/dot resolves per theme. Values mirror --blue/--red/… of each theme. */
@@ -839,7 +839,7 @@ body:has(#sbMainContent)::before {
    darkened text colour; red/orange keep the saturated hue for the same reason. */
 :root, :root[data-theme="light"] { --blue-rgb: 37,99,235; --red-rgb: 220,38,38; --yellow-rgb: 234,179,8; --purple-rgb: 124,58,237; --orange-rgb: 234,88,12; --wa-rgb: 18,140,62; --cyan-rgb: 14,116,144; }
 :root[data-theme="dark"]        { --blue-rgb: 99,179,237; --red-rgb: 229,83,75; --yellow-rgb: 253,214,99; --purple-rgb: 167,139,250; --orange-rgb: 252,173,112; --wa-rgb: 37,211,102; --cyan-rgb: 77,208,225; }
-:root[data-theme="dark"]         { --green-rgb: 139,151,255; }
+:root[data-theme="dark"]         { --green-rgb: 106,168,255; }
 
 /* Universal typeface — overrides 147 inline 'Cairo' declarations. */
 html, body, body * {
@@ -1110,12 +1110,12 @@ body:has(.modal-overlay.show) #syFabDock { display: none !important; }
   @page { size: A4; margin: 12mm; }
 }
 .lsl-page { direction: rtl; font-family: 'Noto Kufi Arabic', Cairo, Tahoma, sans-serif; color: #111; background: #fff; max-width: 780px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 8px 4px; font-size: 13.5px; }
-.lsl-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 3px solid #3f4fc4; padding-bottom: 12px; }
+.lsl-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 3px solid #1d6fd1; padding-bottom: 12px; }
 .lsl-clinic { font-size: 22px; font-weight: 800; }
 .lsl-dr { font-size: 14px; color: #333; margin-top: 3px; }
 .lsl-muted { font-size: 12px; color: #666; margin-top: 2px; }
 .lsl-headside { text-align: left; font-size: 13px; color: #444; line-height: 1.7; }
-.lsl-title { font-size: 26px; font-weight: 800; color: #3f4fc4; margin: 12px 0 10px; }
+.lsl-title { font-size: 26px; font-weight: 800; color: #1d6fd1; margin: 12px 0 10px; }
 .lsl-no { font-size: 14px; color: #555; font-weight: 700; letter-spacing: .5px; }
 .lsl-boxes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
 .lsl-box { border: 1px solid #d0d0d0; border-radius: 10px; padding: 10px 12px; background: #f7f7f7; }
@@ -1127,10 +1127,10 @@ body:has(.modal-overlay.show) #syFabDock { display: none !important; }
 .lsl-due { font-size: 16px; font-weight: 800; color: #b3261e; }
 .lsl-chart { border-collapse: collapse; margin: 4px auto 14px; direction: ltr; width: auto; table-layout: fixed; }
 .lsl-chart td.lsl-t { width: 28px; height: 26px; padding: 0; line-height: 26px; box-sizing: border-box; border: 1px solid #c8c8c8; text-align: center; font-size: 11.5px; color: #777; }
-.lsl-chart td.lsl-t.on { background: #3f4fc4; color: #fff; font-weight: 800; border-color: #3f4fc4; }
+.lsl-chart td.lsl-t.on { background: #1d6fd1; color: #fff; font-weight: 800; border-color: #1d6fd1; }
 .lsl-chart td.lsl-t.mid { border-right: 3px solid #555; }
 .lsl-chart tr:first-child td { border-bottom: 3px solid #555; }
-.lsl-notes { border-right: 3px solid #3f4fc4; padding: 4px 12px 4px 0; margin-bottom: 12px; }
+.lsl-notes { border-right: 3px solid #1d6fd1; padding: 4px 12px 4px 0; margin-bottom: 12px; }
 .lsl-pre { white-space: pre-wrap; line-height: 1.8; }
 .lsl-redo { border: 1.5px solid #c2410c; background: #fff4ec; color: #9a3412; border-radius: 10px; padding: 9px 12px; margin-bottom: 12px; }
 .lsl-sign { display: flex; justify-content: space-between; gap: 16px; margin-top: 40px; font-size: 13px; color: #444; }

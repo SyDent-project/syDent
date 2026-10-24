@@ -1131,7 +1131,7 @@ function initSidebar(activeId) {
         // Update mobile status bar tint if a theme-color meta exists
         try {
           const meta = document.querySelector('meta[name="theme-color"]');
-          if (meta) meta.setAttribute('content', m === 'dark' ? '#161a30' : '#3f4fc4');
+          if (meta) meta.setAttribute('content', m === 'dark' ? '#0c1726' : '#1d6fd1');
         } catch (e) {}
         // Notify other widgets (e.g. Chart.js) — same event name as theme.js
         try {

@@ -1748,7 +1748,7 @@
         for (var j = 0; j < row.__pills.length; j++) {
           var on = (row.__pills[j].dataset.curval === c);
           row.__pills[j].setAttribute('aria-pressed', on ? 'true' : 'false');
-          row.__pills[j].style.background = on ? 'var(--green,#3f4fc4)' : 'transparent';
+          row.__pills[j].style.background = on ? 'var(--green,#1d6fd1)' : 'transparent';
           row.__pills[j].style.color = on ? 'var(--on-green,#062018)' : 'var(--text2,#8aa)';
           row.__pills[j].style.fontWeight = on ? '800' : '600';
         }

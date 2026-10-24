@@ -1073,7 +1073,7 @@ header{
 .btn-revert-tpl:hover:not(:disabled){background:var(--bg);}
 .btn-revert-tpl:disabled{opacity:.5;cursor:not-allowed;}
 .btn-save-tpl{background:var(--green);color:#fff;font-weight:700;}
-.btn-save-tpl:hover:not(:disabled){background:#2f3c9e;}
+.btn-save-tpl:hover:not(:disabled){background:#1759a8;}
 .btn-save-tpl:disabled{background:var(--bg3);color:var(--text3);cursor:not-allowed;}
 .btn-save-tpl.dirty{background:var(--orange-solid);color:var(--on-orange-solid);}
 .btn-save-tpl.dirty:hover{filter:brightness(0.94);}
