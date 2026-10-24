@@ -62,7 +62,7 @@
       }
       var nm = (names && names[l.item_id]) || {};
       rows.push({ item_id: l.item_id, name: nm.name || '—', unit: nm.unit || '', expected: r2(l.expected), counted: r2(l.counted),
-                  variance: v, value: value, currency: cur, unpriced: v !== 0 && value == null });
+                  variance: v, price: price, value: value, currency: cur, unpriced: v !== 0 && value == null });
     });
     rows.sort(function (a, b) { return (Math.abs(b.value || 0) - Math.abs(a.value || 0)) || (Math.abs(b.variance) - Math.abs(a.variance)) || String(a.name).localeCompare(String(b.name), 'ar'); });
     return { rows: rows, totals: tot, counted: rows.length, diffs: diffs, unpriced: rows.filter(function (r) { return r.unpriced; }).length };
@@ -90,10 +90,11 @@
     var rep = model.rep, money = model.money || function (n, c) { return fmt(n) + ' ' + c; };
     var h = '<div class="ivo-page" dir="rtl">' + head(model, 'تقرير الجرد — الفروق');
     h += '<div class="ivo-muted" style="margin-bottom:8px;">عُدّ ' + rep.counted + ' صنف · فروق ' + rep.diffs + '</div>';
-    h += '<table class="ivo-grid"><thead><tr><th>الصنف</th><th>بالنظام</th><th>المعدود</th><th>الفرق</th><th>القيمة</th></tr></thead><tbody>';
+    h += '<table class="ivo-grid"><thead><tr><th>الصنف</th><th>بالنظام</th><th>المعدود</th><th>الفرق</th><th>سعر الوحدة</th><th>القيمة</th></tr></thead><tbody>';
     rep.rows.forEach(function (r) {
       h += '<tr><td>' + esc(r.name) + '</td><td>' + esc(fmt(r.expected)) + '</td><td>' + esc(fmt(r.counted)) + '</td>'
         + '<td class="ivo-q"><bdi dir="ltr">' + esc(sfmt(r.variance)) + '</bdi></td>'
+        + '<td>' + (r.price == null ? '—' : esc(money(r.price, r.currency))) + '</td>'
         + '<td>' + (r.value == null ? (r.unpriced ? 'بلا سعر' : '—') : '<bdi dir="ltr">' + esc((r.value > 0 ? '+' : '') + money(r.value, r.currency)) + '</bdi>') + '</td></tr>';
     });
     h += '</tbody></table>';
@@ -107,10 +108,11 @@
     return h;
   }
 
-  var REPORT_HEADERS = ['الصنف', 'الوحدة', 'بالنظام', 'المعدود', 'الفرق', 'القيمة', 'العملة'];
+  var REPORT_HEADERS = ['الصنف', 'الوحدة', 'بالنظام', 'المعدود', 'الفرق', 'سعر الوحدة', 'القيمة', 'العملة'];
   function reportRows(rep) {
     return rep.rows.map(function (r) {
-      return [r.name, r.unit, r.expected, r.counted, r.variance, r.value == null ? '' : r.value, r.value == null ? '' : r.currency];
+      return [r.name, r.unit, r.expected, r.counted, r.variance, r.price == null ? '' : r.price, r.value == null ? '' : r.value,
+              (r.value == null && r.price == null) ? '' : r.currency];
     });
   }
 
