@@ -170,6 +170,11 @@ const css = `
      أول شارة وتأخذ auto تلقائياً — CSS بحت بلا منطق JS إضافي. */
   .sb-badge ~ .sb-badge { margin-right: 6px; }
   .sb-badge--req { background: var(--red, #e85d5d); }
+  .sb-item.sb-soon { cursor: not-allowed; }
+  .sb-item.sb-soon .sb-icon, .sb-item.sb-soon .sb-label { opacity: .5; }
+  .sb-item.sb-soon:hover { background: transparent; color: inherit; }
+  .sb-item.sb-soon:hover .sb-icon { transform: none; }
+  :root .sb-item.sb-soon .sb-badge--soon { background: var(--bg3); color: var(--text); border: 1px solid var(--border2); font-weight: 800; font-size: 10.5px; padding: 0 7px; height: 20px; flex-shrink: 0; }
 
   /* ─── «📲 ثبّت التطبيق» — shown only where SyDent can be installed (theme.js: SyDentInstall) ─── */
   .sb-install {
@@ -322,8 +327,8 @@ const navItems = [
   { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M11 2v2" /><path d="M5 2v2" /><path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1" /><path d="M8 15a6 6 0 0 0 12 0v-3" /><circle cx="20" cy="10" r="2" /></svg>', label: 'أطباء العيادة', href: 'doctors.html', id: 'doctors' },
   { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2" /><path d="M6.453 15h11.094" /><path d="M8.5 2h7" /></svg>', label: 'المخابر',     href: 'labs.html',     id: 'labs'      },
   { section: 'التصوير الشعاعي', key: 'imaging' },
-  { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M9 7.5c0 1.5.8 2 .8 3.5S9 13 9 15c0 1 .6 1.6 1.4 1.6.9 0 1-.9 1.6-.9s.7.9 1.6.9c.8 0 1.4-.6 1.4-1.6 0-2-.8-2.5-.8-4s.8-2 .8-3.5C15 6.4 14.1 6 13.2 6c-.6 0-.8.4-1.2.4S11.4 6 10.8 6C9.9 6 9 6.4 9 7.5z" /></svg>', label: 'أرشيف الأشعة', href: 'radiology.html', id: 'radiology' },
-  { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></svg>', label: 'الصور السريرية', href: 'radiology.html?cat=clinical_photo', id: 'radiology-photos' },
+  { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M9 7.5c0 1.5.8 2 .8 3.5S9 13 9 15c0 1 .6 1.6 1.4 1.6.9 0 1-.9 1.6-.9s.7.9 1.6.9c.8 0 1.4-.6 1.4-1.6 0-2-.8-2.5-.8-4s.8-2 .8-3.5C15 6.4 14.1 6 13.2 6c-.6 0-.8.4-1.2.4S11.4 6 10.8 6C9.9 6 9 6.4 9 7.5z" /></svg>', label: 'أرشيف الأشعة', href: 'radiology.html', id: 'radiology', soon: true },
+  { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></svg>', label: 'الصور السريرية', href: 'radiology.html?cat=clinical_photo', id: 'radiology-photos', soon: true },
   { section: 'المحاسبة', key: 'finance' },
   { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><rect width="16" height="20" x="4" y="2" rx="2" /><line x1="8" x2="16" y1="6" y2="6" /><line x1="16" x2="16" y1="14" y2="18" /><path d="M16 10h.01" /><path d="M12 10h.01" /><path d="M8 10h.01" /><path d="M12 14h.01" /><path d="M8 14h.01" /><path d="M12 18h.01" /><path d="M8 18h.01" /></svg>', label: 'المحاسبة',       href: 'accounting.html', id: 'accounting' },
   { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M12 17V7" /><path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8" /><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z" /></svg>', label: 'المصاريف',    href: 'expenses.html', id: 'expenses'  },
@@ -392,6 +397,13 @@ function buildHTML(activeId) {
   var collapsed = sbCollapsedGroups();
 
   const itemHTML = item => {
+    // soon: القسم ظاهر ليعرف المستخدم أنه قادم، لكنه مقفل — لا رابط ولا نقر (طلب المالك، تشرين الأول 2026)
+    if (item.soon) return `
+      <a class="sb-item sb-soon" role="link" aria-disabled="true" tabindex="-1" title="قريباً — هذا القسم قيد التجهيز">
+        <span class="sb-icon">${item.icon}</span>
+        <span class="sb-label">${item.label/* xss-ok: nav ثابت */}</span>
+        <span class="sb-badge sb-badge--soon">قريباً</span>
+      </a>`;
     const isActive = item.id === activeId ? 'active' : '';
     const badge = item.badge ? `<span class="sb-badge">${item.badge}</span>` : '';
     const clickAttr = item.onClick ? `onclick="event.preventDefault();window.${item.onClick}();"` : '';

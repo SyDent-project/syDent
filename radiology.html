@@ -14,7 +14,7 @@
 <title>SyDent — التصوير الشعاعي</title>
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261024g"></script>
+<script src="theme.js?v=20261024h"></script>
 <style>
 /* C1: كتلة التصوير الشعاعي — أرشيف موحّد لصور الأشعة والصور السريرية لكل المرضى.
    المصدر جدول patient_documents نفسه (تبويب «الملفات» بملف المريض)، فما في
@@ -95,6 +95,20 @@ body { font-family:'Noto Kufi Arabic','Cairo',sans-serif; background:var(--bg); 
 </head>
 <body>
 <div class="main" id="sbMainContent">
+  <!-- قسم التصوير الشعاعي مقفل مؤقتاً (طلب المالك، تشرين الأول 2026): يظهر بالقائمة «قريباً»، ومن يصل
+       الصفحة برابط مباشر يرى هذه البطاقة فقط. لإعادة فتحه: احذف هذه البطاقة وقاعدة الـCSS تحتها،
+       و soon: true من بندَي radiology في sidebar.js. -->
+  <style>#sbMainContent > :not(.rx-soon){display:none !important;}
+  .rx-soon{max-width:460px;margin:12vh auto 0;padding:32px 24px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-card);}
+  .rx-soon-ic{font-size:44px;margin-bottom:10px;} .rx-soon h1{font-size:20px;font-weight:800;margin:0 0 8px;color:var(--text);}
+  .rx-soon p{font-size:14px;color:var(--text2);line-height:1.8;margin:0 0 18px;}
+  .rx-soon a{display:inline-block;padding:10px 22px;border-radius:10px;background:var(--green);color:var(--on-accent);font-weight:800;text-decoration:none;}</style>
+  <div class="rx-soon" role="status">
+    <div class="rx-soon-ic">🔒</div>
+    <h1>التصوير الشعاعي — قريباً</h1>
+    <p>أرشيف الأشعة والصور السريرية قيد التجهيز، وسيُفتح قريباً.</p>
+    <a href="index.html">العودة إلى الرئيسية</a>
+  </div>
   <div class="topbar sd-page-head">
     <div class="sd-page-head__text">
       <h1 class="topbar-title">التصوير الشعاعي</h1>
@@ -152,11 +166,11 @@ body { font-family:'Noto Kufi Arabic','Cairo',sans-serif; background:var(--bg); 
   </div>
 </div>
 
-<link rel="stylesheet" href="theme.css?v=20261024g">
+<link rel="stylesheet" href="theme.css?v=20261024h">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261024g"></script>
-<script src="sy-modal.js?v=20261024g"></script>
-<script src="sidebar.js?v=20261024g"></script>
+<script src="supabase-init.js?v=20261024h"></script>
+<script src="sy-modal.js?v=20261024h"></script>
+<script src="sidebar.js?v=20261024h"></script>
 <script>
 var RX_CATS = { xray: 'أشعة', clinical_photo: 'صور سريرية' };
 var rxCat = (new URLSearchParams(location.search).get('cat') === 'clinical_photo') ? 'clinical_photo' : 'xray';
