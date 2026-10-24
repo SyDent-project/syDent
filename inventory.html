@@ -1947,11 +1947,12 @@ function openPastCount(id) {
     + '<div style="font-weight:700;margin-bottom:6px;">جرد ' + SyDT.cell(k.created_at) /* يُهرّب داخلياً */ + (k.note ? ' — ' + escapeHtml(k.note) : '') + '</div>'
     + '<div class="ivc-sum">معدود ' + rep.counted + ' · فروق ' + rep.diffs + ' · ' + ivcTotalsText(rep)
     + (rep.unpriced ? ' · ' + rep.unpriced + ' فرق بلا سعر شراء' : '') + ' — القيمة بسعر الشراء وقت الجرد</div>'
-    + '<div class="ivc-tbl"><table class="data-table"><thead><tr><th>الصنف</th><th>بالنظام</th><th>المعدود</th><th>الفرق</th><th>القيمة</th></tr></thead><tbody>'
+    + '<div class="ivc-tbl"><table class="data-table"><thead><tr><th>الصنف</th><th>بالنظام</th><th>المعدود</th><th>الفرق</th><th>سعر الوحدة</th><th>القيمة</th></tr></thead><tbody>'
     + rep.rows.map(function(r){
         var cls = r.variance < 0 ? 'ivc-neg' : (r.variance > 0 ? 'ivc-pos' : 'ivc-zero');
         return '<tr><td><strong>' + escapeHtml(r.name) + '</strong></td><td>' + escapeHtml(fmtNum(r.expected)) + '</td><td>' + escapeHtml(fmtNum(r.counted)) + '</td>'
           + '<td class="ivc-var ' + cls + '"><bdi dir="ltr">' + escapeHtml(r.variance === 0 ? '✓' : window.SyDentInvCount.sfmt(r.variance)) + '</bdi></td>'
+          + '<td>' + (r.price == null ? '<span style="color:var(--text2);">بلا سعر</span>' : '<bdi dir="ltr">' + escapeHtml(ivcMoney(r.price, r.currency)) + '</bdi>') + '</td>'
           + '<td>' + (r.value == null ? (r.unpriced ? '<span style="color:var(--text2);">بلا سعر</span>' : '—') : '<bdi dir="ltr" class="' + cls + '">' + escapeHtml((r.value > 0 ? '+' : '') + ivcMoney(r.value, r.currency)) + '</bdi>') + '</td></tr>';
       }).join('')
     + '</tbody></table></div>';
