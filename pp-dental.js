@@ -3647,6 +3647,8 @@ function renderTeeth() {
   if (window.__batchMode && typeof batchSyncUI === 'function' && typeof batchSel !== 'undefined' && batchSel.length) {
     batchSyncUI();   // يعيد إبراز الخلايا (WHOLE) والمواضع السطحية/الجذرية معاً بعد إعادة الرسم
   }
+  // وضع الفحص الأولي: يعيد تأطير الأسنان الموسومة بهذه الجلسة بعد إعادة الرسم
+  if (window.__examMode && typeof examSyncCount === 'function') examSyncCount();
 }
 
 /* A: due-watch banner — lists 'condition' rows whose review_at has arrived.
