@@ -52,7 +52,7 @@ function updateBookingBadge() {
   }
   n += (typeof portalReqNewCount === 'function') ? portalReqNewCount() : 0;   /* M187: + طلباتُ بوابة المريض */
   b.textContent = n;
-  b.style.display = n > 0 ? 'inline-block' : 'none';
+  b.style.display = n > 0 ? 'inline-flex' : 'none';   // .sd-count centres its number with flex — inline-block left it off-centre
   b.title = (typeof portalReqNamesTitle === 'function') ? portalReqNamesTitle() : '';
 }
 
