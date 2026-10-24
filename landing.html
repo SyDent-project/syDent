@@ -34,7 +34,7 @@
 <meta name="twitter:image" content="https://www.sydent.app/favicon.svg">
 
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261024e"></script>
+<script src="theme.js?v=20261024f"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -395,6 +395,7 @@ nav{
 }
 .feature-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;}
 .feature-desc{font-size:13px;color:var(--text2);line-height:1.7;}
+.feature-card-wide{grid-column:1/-1;}   /* بوابة المريض: بعرض الشبكة فتبقى البطاقات التسع بثلاثة صفوف كاملة */
 .feature-card-ai{
   grid-column:1/-1;
   background:linear-gradient(135deg,var(--green-dim),var(--bg2));
@@ -749,9 +750,9 @@ footer{
 .cta-band p{color:var(--text2);margin:0 0 26px;font-size:15px;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261024e">
+<link rel="stylesheet" href="theme.css?v=20261024f">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261024e"></script>
+<script src="supabase-init.js?v=20261024f"></script>
 </head>
 <body>
 
@@ -1575,6 +1576,11 @@ l44 -30 346 -5 c376 -5 376 -6 411 -63 19 -30 20 -53 20 -372 0 -252 3 -344
       <div class="feature-title">مدعوم بالذكاء الاصطناعي في كل خطوة</div>
       <div class="feature-desc">يتقن العربية ويعمل داخل المنصة: يلخّص ملف المريض قبل الجلوس على الكرسي، ويشرح خطة العلاج بلغة المريض، ويصيغ رسائل الاستدعاء والتعليمات، ويلخّص حسابات عيادتك — وميزات أخرى تكتشفها مع أول أسبوع استخدام. كل مخرجاته قابلة للتعديل، واسم المريض لا يغادر متصفّحك، والقرار النهائي لك.</div>
     </div>
+    <div class="feature-card feature-card-wide">
+      <div class="feature-icon">📱</div>
+      <div class="feature-title">بوابة المريض</div>
+      <div class="feature-desc">رابط شخصي لكل مريض يفتحه من هاتفه بلا حساب ولا كلمة سر: يرى مواعيده القادمة ويؤكّدها، ويطلب إلغاءها أو تغيير وقتها، ويتابع خطة علاجه ورصيده وأقساطه، وتعليماتك وروشتاته، وصور الأشعة التي تختار مشاركتها، ويملأ استمارة التاريخ الطبي قبل زيارته. وأنت تحدّد ما يظهر له.</div>
+    </div>
     <div class="feature-card">
       <div class="feature-icon">💰</div>
       <div class="feature-title">محاسبة عيادة احترافية</div>
@@ -1683,6 +1689,10 @@ l44 -30 346 -5 c376 -5 376 -6 411 -63 19 -30 20 -53 20 -372 0 -252 3 -344
     <details class="faq-item">
       <summary>كيف تعمل بوابة الحجز الإلكترونية؟</summary>
       <div class="faq-body">لكل عيادة رابط حجز خاص تشاركه مع مرضاك (واتساب، إنستغرام، بطاقة العيادة…). المريض يختار اليوم والوقت المناسبين، ويصلك الطلب داخل النظام لتأكيده أو تعديله بنقرة واحدة.</div>
+    </details>
+    <details class="faq-item">
+      <summary>ما هي بوابة المريض؟</summary>
+      <div class="faq-body">صفحة خاصة بكل مريض تُرسلها له برابط عبر واتساب، فيفتحها من هاتفه دون تسجيل دخول. فيها مواعيده مع زر تأكيد الحضور وطلب الإلغاء أو التغيير، وخطة علاجه، ورصيده وأقساطه، وتعليمات ما بعد العلاج والروشتات، وصور الأشعة التي تشاركها معه، واستمارة التاريخ الطبي. تختار من الإعدادات ما يظهر للمريض وهل يُسمح له بالإلغاء والتغيير، وكل ما يرسله يظهر لك أعلى صفحة المواعيد.</div>
     </details>
     <details class="faq-item">
       <summary>هل يمكن لأكثر من طبيب العمل على نفس الحساب؟</summary>
