@@ -457,6 +457,15 @@ body.batch-on .jaw-wrap .crown-surface, body.batch-on .jaw-wrap .root-part{curso
 /* إبراز الموضع المنقور نفسه (سطح/جذر) بوضع الدفعة — تلوين مباشر متل دمغة الفحص الأولي */
 .tooth-shape .crown-surface.batch-pos-sel{fill:#6366f1 !important;fill-opacity:0.5 !important;stroke:#4338ca !important;stroke-width:1.5 !important;}
 .tooth-shape .root-part.batch-pos-sel{fill:#6366f1 !important;fill-opacity:0.55 !important;stroke:#4338ca !important;stroke-width:1.5 !important;}
+/* تمييز أوضح للوضعين (طلب المالك): شريط بخلفية ملوّنة خفيفة وعنوان أكبر، وإطار بلون الوضع حول
+   المخطط نفسه، فيُعرف من أول نظرة أن النقر على الأسنان الآن يَسِم/يحدّد لا يفتح نافذة السن. */
+.exam-bar{border-width:2px;background:color-mix(in srgb, var(--green) 7%, var(--bg2));}
+.batch-bar{border-width:2px;background:color-mix(in srgb, var(--purple) 7%, var(--bg2));}
+.exam-bar-title,.batch-bar-title{font-size:14.5px;}
+:root body.exam-on .jaw-wrap{box-shadow:0 0 0 3px var(--green), 0 0 0 7px color-mix(in srgb, var(--green) 18%, transparent);border-radius:14px;background:color-mix(in srgb, var(--green) 5%, var(--bg3));}
+:root body.batch-on .jaw-wrap{box-shadow:0 0 0 3px var(--purple), 0 0 0 7px color-mix(in srgb, var(--purple) 18%, transparent);border-radius:14px;background:color-mix(in srgb, var(--purple) 5%, var(--bg3));}
+body.exam-on .tooth-cell.exam-touch{outline:2.5px dashed var(--green);outline-offset:2px;border-radius:10px;background:color-mix(in srgb, var(--green) 9%, transparent);}
+body.batch-on .tooth-cell.batch-sel{outline-width:3px;box-shadow:0 0 0 6px color-mix(in srgb, var(--purple) 22%, transparent);}
 /* Batch apply-modal: financial statuses only — the non-billable multi-stamp is exam mode's job.
    While batch-on, toothModal can ONLY open via batchOpenApplyModal (the funnel intercepts all
    chart clicks), so this scoping never leaks into the normal modal. */
