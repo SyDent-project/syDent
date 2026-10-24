@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SyDent">
-<meta name="theme-color" content="#3f4fc4">
+<meta name="theme-color" content="#1d6fd1">
 <link rel="icon" type="image/svg+xml" href="favicon.svg?v=5">
 <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=5">
@@ -2022,7 +2022,7 @@ function _printSlipCore(provId) {
       + '</div>'
     + '</div>'
 
-    + '<div style="background:#eef0fb;border:2px solid #0284c7;padding:14px;border-radius:8px;margin-bottom:22px;">'
+    + '<div style="background:#eef4fb;border:2px solid #0284c7;padding:14px;border-radius:8px;margin-bottom:22px;">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;">'
         + '<div>'
           + '<div style="font-size:12px;color:#666;">المستحق (' + sharePct + '% من ' + basisLabel + ')</div>'
@@ -2238,7 +2238,7 @@ function printLedger() {
             .replace(/<td class="num[^"]*">/g, '<td style="padding:6px;border:1px solid #ccc;text-align:left;font-variant-numeric:tabular-nums;">')
             .replace(/<td>/g, '<td style="padding:6px;border:1px solid #ccc;">')
             .replace(/<div class="sub">/g, '<div style="font-size:9.5px;color:#666;">')
-            .replace(/<tr class="(open|close)">/g, '<tr style="font-weight:800;background:#eef0fb;">')
+            .replace(/<tr class="(open|close)">/g, '<tr style="font-weight:800;background:#eef4fb;">')
         + '</tbody></table>'
       + '<div style="margin-top:14px;padding:10px;border:2px solid #0284c7;border-radius:8px;display:flex;justify-content:space-between;font-size:14px;font-weight:800;">'
         + '<span>' + cs.txt + '</span><span>' + fmtSY(cs.val) + '</span></div>'
