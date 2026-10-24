@@ -695,7 +695,7 @@ l44 -30 346 -5 c376 -5 376 -6 411 -63 19 -30 20 -53 20 -372 0 -252 3 -344
       </a>
       <nav class="sb-nav">${navHTML}</nav>
       <button type="button" class="sb-ai" id="sbAiBtn" hidden>🤖 المساعد الذكي</button>
-      <button type="button" class="sb-install" id="sbInstallBtn" hidden>📲 ثبّت التطبيق على هاتفك</button>
+      <button type="button" class="sb-install" id="sbInstallBtn" hidden>📲 ثبّت التطبيق على جهازك</button>
       <div class="sb-footer" id="sbDoctorFooter">
         <div class="sb-footer-name" id="sbDoctorName">جارٍ التحميل…</div>
         <button type="button" class="sb-theme-switch" id="sbThemeSwitch" role="switch" aria-label="تبديل الوضع الفاتح/الداكن" title="تبديل الوضع الفاتح/الداكن">
@@ -1131,7 +1131,7 @@ function initSidebar(activeId) {
         // Update mobile status bar tint if a theme-color meta exists
         try {
           const meta = document.querySelector('meta[name="theme-color"]');
-          if (meta) meta.setAttribute('content', m === 'dark' ? '#161a30' : '#3f4fc4');
+          if (meta) meta.setAttribute('content', m === 'dark' ? '#0c1726' : '#1d6fd1');
         } catch (e) {}
         // Notify other widgets (e.g. Chart.js) — same event name as theme.js
         try {

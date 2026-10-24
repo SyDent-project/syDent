@@ -72,7 +72,7 @@
     try {
       var meta = document.querySelector('meta[name="theme-color"]');
       if (meta) {
-        meta.setAttribute('content', mode === 'dark' ? '#161a30' : '#3f4fc4');
+        meta.setAttribute('content', mode === 'dark' ? '#0c1726' : '#1d6fd1');
       }
     } catch (e) {}
   }
@@ -391,7 +391,7 @@
   }
 
   var DESC = {
-    prompt: 'افتحه بلمسة واحدة من الشاشة الرئيسية لهاتفك مثل أي تطبيق، بشاشة كاملة ودون شريط المتصفح.',
+    prompt: 'افتحه بلمسة واحدة من الشاشة الرئيسية لجهازك مثل أي تطبيق، بشاشة كاملة ودون شريط المتصفح.',
     ios: 'اضغط زرّ المشاركة <b>⬆️</b> في شريط سفاري، ثم اختر <b>«إضافة إلى الشاشة الرئيسية»</b>.',
     menu: 'افتح قائمة المتصفح <b>⋮</b>، ثم اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>.',
     samsung: 'متصفح سامسونج يثبّت نسخةً يحظرها Google Play Protect. افتح SyDent في <b>Chrome</b> وثبّته من هناك.'
@@ -407,7 +407,7 @@
     box.setAttribute('data-mode', m);
     box.innerHTML =
       '<div class="syic-head"><img src="/icons/icon-192.png" alt="" aria-hidden="true">' +
-      '<span class="syic-title">' + (m === 'samsung' ? 'ثبّت SyDent عبر Chrome' : 'ثبّت SyDent كتطبيق على هاتفك') + '</span></div>' +
+      '<span class="syic-title">' + (m === 'samsung' ? 'ثبّت SyDent عبر Chrome' : 'ثبّت SyDent كتطبيق على جهازك') + '</span></div>' +
       '<div class="syic-desc">' + DESC[m] + '</div>' +
       '<div class="syic-actions">' +
       (m === 'samsung'

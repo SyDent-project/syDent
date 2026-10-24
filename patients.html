@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SyDent">
-<meta name="theme-color" content="#3f4fc4">
+<meta name="theme-color" content="#1d6fd1">
 <link rel="icon" type="image/svg+xml" href="favicon.svg?v=5">
 <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=5">
@@ -20,7 +20,7 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261024a"></script>
+<script src="theme.js?v=20261024e"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -509,13 +509,13 @@ textarea { resize: vertical; min-height: 80px; }
 }
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261024a">
+<link rel="stylesheet" href="theme.css?v=20261024e">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261024a"></script>
-<script src="sy-modal.js?v=20261024a"></script>
-<script src="pt-reliability.js?v=20261024a"></script>
-<script src="sidebar.js?v=20261024a"></script>
-<script src="ref-pick.js?v=20261024a"></script>
+<script src="supabase-init.js?v=20261024e"></script>
+<script src="sy-modal.js?v=20261024e"></script>
+<script src="pt-reliability.js?v=20261024e"></script>
+<script src="sidebar.js?v=20261024e"></script>
+<script src="ref-pick.js?v=20261024e"></script>
 </head>
 <body>
 <script>
@@ -3597,7 +3597,7 @@ function renderPrmRecall(){
     var _exLine = !_exN ? '' :
       '<div style="margin-top:10px;font-size:12.5px;color:var(--text2,#8da0bd);">🔎 '
       + (_exN === 1 ? 'مريض واحد متأخر عن المراجعة لكنه مستثنى' : _exN + ' مرضى متأخرون عن المراجعة لكنهم مستثنون')
-      + ' — <b style="color:var(--green,#3f4fc4);">عنده موعد قادم محجوز ✓</b></div>';
+      + ' — <b style="color:var(--green,#1d6fd1);">عنده موعد قادم محجوز ✓</b></div>';
     el.innerHTML = '<div style="text-align:center;padding:36px 16px;color:var(--text2,#8da0bd);">'
       + '<div style="font-size:38px;">🔁</div>'
       + '<div style="margin-top:8px;font-size:14px;">لا مرضى متأخّرين عن المراجعة (أكثر من ' + (PRM_RECALL_MONTHS||6) + ' أشهر) ولا مراقبات.</div>'
@@ -4022,7 +4022,7 @@ function renderSrcModal(){
       + '<span style="font-weight:700;color:var(--text,#e8eefc);">' + r.label + '</span>'
       + '<span style="color:var(--text2,#8da0bd);">' + r.n + ' (' + pct + '%)</span></div>'
       + '<div style="background:var(--bg3,#0e2038);border-radius:6px;height:9px;overflow:hidden;">'
-      + '<div style="width:' + pct + '%;height:100%;background:var(--green,#3f4fc4);"></div></div></div>';
+      + '<div style="width:' + pct + '%;height:100%;background:var(--green,#1d6fd1);"></div></div></div>';
   });
   if (d.unknown > 0) {
     html += '<div style="font-size:12px;color:var(--text2,#8da0bd);margin-top:12px;border-top:1px solid var(--border,#1e3556);padding-top:8px;">غير محدد: ' + d.unknown + ' مريض</div>';

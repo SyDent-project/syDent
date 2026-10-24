@@ -2552,7 +2552,7 @@ function buildPostOpHtml(note) {
   h += '<div style="margin-top:4px;">' + escapeHtml(dateStr) + '</div>';
   h += '</div>';
   h += '</div>';
-  h += '<div style="font-size:20px;font-weight:800;color:#2f3c9e;margin:12px 0 4px;">📋 تعليمات بعد الجلسة' + (tl ? (' — ' + escapeHtml(tl)) : '') + '</div>';
+  h += '<div style="font-size:20px;font-weight:800;color:#1759a8;margin:12px 0 4px;">📋 تعليمات بعد الجلسة' + (tl ? (' — ' + escapeHtml(tl)) : '') + '</div>';
   h += '<div style="background:#f6f6f6;border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:14px;color:#222;">';
   h += '<strong>المريض:</strong> ' + escapeHtml(pName);
   if (pGender) h += ' &nbsp;•&nbsp; ' + escapeHtml(pGender);

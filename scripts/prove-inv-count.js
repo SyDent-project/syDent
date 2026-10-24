@@ -61,8 +61,10 @@ async function suite(F) {
   const rs = C.reportSheet({ clinic: 'ع', rep, money: (n, c) => n + ' ' + c });
   ok(rs.indexOf('بنج &lt;x&gt;') > -1 && /<bdi dir="ltr">-2<\/bdi>/.test(rs) && /<bdi dir="ltr">\+3<\/bdi>/.test(rs), 'report sheet: escaped, signed numbers isolated LTR (#704)');
   ok(/بلا سعر/.test(rs) && /بالليرة: نقص 10000 SYP · زيادة 1000 SYP · الصافي <bdi dir="ltr">-9000 SYP<\/bdi>/.test(rs), 'report sheet: totals per currency');
+  ok(rep.rows.find(r => r.item_id === 'd').price === 100 && rep.rows.find(r => r.item_id === 'c').price === null && /<td>100 SYP<\/td>/.test(rs),
+    'unit price shown on every priced row, even with no difference (it used to show only through the value)');
   const xr = C.reportRows(rep);
-  ok(xr.length === 5 && xr[0].length === C.REPORT_HEADERS.length && xr[0][4] === -2 && xr[0][5] === -10000 && xr.find(r => r[0] === '—' && r[4] === -1)[5] === '', 'Excel rows aligned, unpriced left blank');
+  ok(xr.length === 5 && xr[0].length === C.REPORT_HEADERS.length && xr[0][4] === -2 && xr[0][5] === 5000 && xr[0][6] === -10000 && xr.find(r => r[0] === '—' && r[4] === -1)[6] === '', 'Excel rows aligned, unpriced left blank');
 
   const INV = F['inventory.html'];
   const ap = fnSrc(INV, 'async function _applyCount_inner() {');
