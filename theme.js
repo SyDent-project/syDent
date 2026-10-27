@@ -46,6 +46,132 @@
   } catch (e) {}
 })();
 
+/* ── SyI18n: خيار اللغة الإنجليزية (طلب المالك، تشرين الأول 2026) ────────────────────
+   المفتاح sydent.lang ∈ {'ar','en'} (وأيضاً ?lang=en|ar بالرابط). العربية هي الأصل وتبقى بلا أي
+   عمل. بالإنجليزية: <html lang="en" dir="ltr">، ويُحمَّل i18n-en.js (القاموس) متزامناً من هنا،
+   ثم تُترجَم عُقد النص والسمات (placeholder · title · aria-label · alt) عند الجاهزية وكل ما يُضاف
+   لاحقاً عبر MutationObserver. النص الذي لا يطابق القاموس يبقى كما هو — فأسماء المرضى وبياناتهم
+   لا تُمسّ. الترجمة على مراحل: تُفعَّل فقط على الصفحات المترجَمة كاملةً (EN_PAGES)، والباقي يبقى
+   عربياً كي لا يظهر خليط. ما يذهب للمريض (واتساب · طباعة · الحجز · البوابة) يبقى عربياً. */
+(function () {
+  var KEY = 'sydent.lang';
+  var EN_PAGES = ['landing', 'auth', 'pending', 'reset-password'];   // المرحلة 1
+  var lang = 'ar';
+  try {
+    var q = (location.search.match(/[?&]lang=(en|ar)\b/) || [])[1];
+    if (q) localStorage.setItem(KEY, q);
+    lang = localStorage.getItem(KEY) === 'en' ? 'en' : 'ar';
+  } catch (e) {}
+  var page = (String(location.pathname).split('/').pop() || '').replace(/\.html$/, '');
+  var ready = EN_PAGES.indexOf(page) > -1;
+  var on = lang === 'en' && ready;
+
+  function set(l) {
+    try { localStorage.setItem(KEY, l === 'en' ? 'en' : 'ar'); } catch (e) {}
+    location.reload();
+  }
+  /* زر اللغة: يُظهر اللغة الأخرى («English» بالعربية · «عربي» بالإنجليزية). */
+  function buildButton(cls) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sy-lang-btn' + (cls ? ' ' + cls : '');
+    b.setAttribute('data-i18n-skip', '');
+    b.lang = lang === 'en' ? 'ar' : 'en';
+    b.textContent = lang === 'en' ? 'عربي' : 'English';
+    b.title = lang === 'en' ? 'التبديل إلى العربية' : 'Switch to English';
+    b.addEventListener('click', function () { set(lang === 'en' ? 'ar' : 'en'); });
+    return b;
+  }
+  window.SyI18n = { lang: on ? 'en' : 'ar', chosen: lang, ready: ready, set: set, buildButton: buildButton, t: function (s) { return s; }, missing: [] };
+  /* الصفحات المترجَمة بلا مكان للزر (انتظار المراجعة · إعادة كلمة المرور): زرٌّ عائم صغير. */
+  if (ready) window.addEventListener('load', function () {
+    if (document.querySelector('.sy-lang-btn') || !document.body) return;
+    document.body.appendChild(buildButton('sy-lang-float'));
+  });
+  if (!on) return;
+
+  var root = document.documentElement;
+  root.lang = 'en'; root.dir = 'ltr'; root.classList.add('lang-en');
+  /* لا وميض عربي قبل الترجمة: الجسم مخفي حتى المرور الأول (وبحدٍّ أقصى ثانيتان). */
+  document.write('<style id="syI18nHold">html.lang-en body{visibility:hidden}</style>');
+  var tok = '';
+  try {
+    var tag = document.querySelector('script[src*="theme.js?v="]');
+    if (tag) tok = (String(tag.getAttribute('src')).split('?v=')[1] || '').split('&')[0];
+  } catch (e) {}
+  document.write('<script src="i18n-en.js' + (tok ? '?v=' + tok : '') + '"><\/script>');
+
+  var AR = /[؀-ۿ]/, ATTRS = ['placeholder', 'title', 'aria-label', 'alt'];
+  var SKIP = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, NOSCRIPT: 1 };
+  function dict() { return window.SyI18nDict || {}; }
+  function leftovers(s) {   // كلماتٌ عربية معروفة بقيت داخل ناتج نمط (مثل «ل.س»)
+    var D = dict();
+    return s.replace(/[؀-ۿ][؀-ۿ.\s]*[؀-ۿ.]|[؀-ۿ]/g, function (m) { var k = m.trim(); return D[k] != null ? m.replace(k, D[k]) : m; });
+  }
+  function flip(s) { return s.replace(/[←→]/g, function (c) { return c === '←' ? '→' : '←'; }); }   // سهم «التالي» يتبع اتجاه القراءة
+  function tr(raw) {
+    if (!raw || !AR.test(raw)) return null;
+    var norm = raw.replace(/\s+/g, ' ').trim(), D = dict();
+    if (D[norm] != null) return D[norm];
+    var m = norm.match(/^([^؀-ۿ]*?)([؀-ۿ][\s\S]*[؀-ۿ.)»؟:،]|[؀-ۿ])([^؀-ۿ]*)$/);
+    if (m && D[m[2]] != null) return flip(m[1]) + D[m[2]] + flip(m[3]);
+    var P = window.SyI18nPatterns || [];
+    for (var i = 0; i < P.length; i++) {
+      if (P[i][0].test(norm)) return leftovers(norm.replace(P[i][0], P[i][1]));
+      if (m && P[i][0].test(m[2])) return flip(m[1]) + leftovers(m[2].replace(P[i][0], P[i][1])) + flip(m[3]);
+    }
+    if (window.SyI18n.missing.indexOf(norm) < 0 && window.SyI18n.missing.length < 500) window.SyI18n.missing.push(norm);
+    return null;
+  }
+  function skipped(el) { return el && el.closest && el.closest('[data-i18n-skip]'); }
+  function textNode(n) {
+    var p = n.parentNode;
+    if (!p || SKIP[p.nodeName] || skipped(p)) return;
+    var v = n.nodeValue, out = tr(v);
+    if (out == null) return;
+    var lead = v.match(/^\s*/)[0], trail = v.match(/\s*$/)[0];
+    n.nodeValue = lead + out + trail;
+  }
+  function element(el) {
+    if (skipped(el)) return;
+    for (var i = 0; i < ATTRS.length; i++) {
+      var a = el.getAttribute && el.getAttribute(ATTRS[i]);
+      if (a && AR.test(a)) { var o = tr(a); if (o != null) el.setAttribute(ATTRS[i], o); }
+    }
+    if (el.nodeName === 'INPUT' && /^(button|submit)$/i.test(el.type) && AR.test(el.value)) { var ov = tr(el.value); if (ov != null) el.value = ov; }
+  }
+  function walk(node) {
+    if (!node) return;
+    if (node.nodeType === 3) return textNode(node);
+    if (node.nodeType !== 1) return;
+    if (node.nodeName === 'TEXTAREA') return element(node);   // محتواه مدخل المستخدم؛ placeholder فقط
+    if (SKIP[node.nodeName]) return;
+    element(node);
+    var w = document.createTreeWalker(node, 5 /* ELEMENT | TEXT */);
+    var cur;
+    while ((cur = w.nextNode())) {
+      if (cur.nodeType === 3) textNode(cur);
+      else if (!SKIP[cur.nodeName] || cur.nodeName === 'TEXTAREA') element(cur);
+    }
+  }
+  function title() { var t = tr(document.title); if (t != null) document.title = t; }
+  window.SyI18n.t = function (s) { var o = tr(s); return o == null ? s : o; };
+  function release() { var h = document.getElementById('syI18nHold'); if (h) h.remove(); }
+  setTimeout(release, 2000);
+  function start() {
+    walk(document.body); title(); release();
+    new MutationObserver(function (list) {
+      for (var i = 0; i < list.length; i++) {
+        var r = list[i];
+        if (r.type === 'childList') { for (var j = 0; j < r.addedNodes.length; j++) walk(r.addedNodes[j]); if (r.target.nodeName === 'TITLE') title(); }
+        else if (r.type === 'characterData') textNode(r.target);
+        else if (r.type === 'attributes') element(r.target);
+      }
+    }).observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+
 (function(){
   'use strict';
 
@@ -179,6 +305,8 @@
     if (!host) return null;
     var t = buildToggle(opts);
     host.appendChild(t);
+    /* زر اللغة بجانب زر الوضع، على الصفحات المترجَمة فقط */
+    if (window.SyI18n && window.SyI18n.ready) host.insertBefore(window.SyI18n.buildButton(), t);
     return t;
   }
 
