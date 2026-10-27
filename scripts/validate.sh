@@ -131,6 +131,7 @@ fi
 node "$S/prove-ai-note-faith.js" --self-test | tail -1 || FAIL=1   # v641: أمانةُ ملاحظة الجلسة بالمساعد الذكي — اسمُ العلاج حرفياً · لا إجراءَ ولا سنَّ غير مسجّل · إعادةُ كتابةٍ ثم رفضٌ قبل الحقل · نموذجٌ أدقّ برجوعٍ آمن
 node "$S/prove-backup-restore.js" --self-test | tail -1 || FAIL=1   # النسخة الاحتياطية المحلية ↔ الاسترجاع — ذهابٌ وإيابٌ عبر xlsx حقيقي · null≠'' · لا أسرار · إضافةٌ بلا كتابةٍ فوق
 node "$S/prove-mode-steps.js" --self-test | tail -1 || FAIL=1   # شريط خطوات وضعَي التحديد المتعدد والفحص الأولي · عدّاد الأسنان · تراجع التحديد
+node "$S/prove-landing-colors.js" --self-test | tail -1 || FAIL=1   # صفحة التعريف بألوان اللوغو (بعد theme.css) والتطبيق بلونه
 python3 "$S/dom-smoke/perf-budget/run.py" | tail -1 || FAIL=1   # v555: حارسُ ميزانية الأداء — جولاتُ كل صفحة بمتصفحٍ حقيقي (400ms/طلب) ضمن ميزانيتها
 python3 "$S/dom-smoke/perf-budget/run.py" --self-test | tail -1 || FAIL=1   # v555: … ويحمرّ بسلسلةٍ متتالية محقونة
 node "$S/prove-dash-nextday.js" --self-test | tail -1 || FAIL=1   # v520: تبديلُ اليوم/يوم العمل القادم — التأكيد · التذكير · الهدلُ بيوم ذلك اليوم

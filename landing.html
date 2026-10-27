@@ -751,6 +751,12 @@ footer{
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
 <link rel="stylesheet" href="theme.css?v=20261024j">
+<style>
+/* صفحة التعريف بألوان اللوغو (طلب المالك، تشرين الأول 2026): الأخضر الأصلي بدل أزرق التطبيق.
+   بعد theme.css وبنفس محدِّداته فيغلبه؛ التطبيق نفسه يبقى على لونه. */
+:root[data-theme="light"]{--green:#0d8577;--green2:#0a6b60;--green-rgb:13,133,119;--green-dim:rgba(13,133,119,0.10);--on-accent:#ffffff;--on-green:#ffffff;}
+:root[data-theme="dark"]{--green:#2ee89e;--green2:#26d48e;--green-rgb:46,232,158;--green-dim:rgba(46,232,158,0.10);--on-accent:#062018;--on-green:#062018;}
+</style>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
 <script src="supabase-init.js?v=20261024j"></script>
 </head>
