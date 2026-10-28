@@ -86,8 +86,9 @@
   /* الصفحات المترجَمة بلا مكان للزر (انتظار المراجعة · إعادة كلمة المرور): زرٌّ عائم صغير. */
   if (ready) window.addEventListener('load', function () {
     if (document.querySelector('.sy-lang-btn') || !document.body) return;
-    var foot = document.getElementById('sbDoctorFooter');   // صفحات التطبيق: أسفل القائمة الجانبية
-    if (foot) foot.appendChild(buildButton('sy-lang-sb'));
+    /* صفحات التطبيق: لصق زر الوضع النهاري/الليلي بأسفل القائمة الجانبية (طلب المالك) */
+    var sw = document.getElementById('sbThemeSwitch');
+    if (sw && sw.parentNode) sw.parentNode.insertBefore(buildButton('sy-lang-sb'), sw);
     else document.body.appendChild(buildButton('sy-lang-float'));
   });
   if (!on) return;

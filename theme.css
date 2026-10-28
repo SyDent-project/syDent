@@ -234,14 +234,15 @@
 /* زر اللغة (SyI18n بـtheme.js): بجانب زر الوضع، أو عائماً على الصفحات بلا مكانٍ له */
 .sy-lang-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  height: 32px; padding: 0 12px; border-radius: 999px;
+  height: 30px; padding: 0 12px; border-radius: 999px;
   border: 1px solid var(--border2); background: var(--bg2); color: var(--text);
   font: 700 12.5px/1 inherit; font-family: inherit; cursor: pointer; white-space: nowrap;
-  margin-inline: 6px; vertical-align: middle;
+  margin-inline-end: 6px; vertical-align: middle; flex-shrink: 0;
 }
 .sy-lang-btn:hover { border-color: var(--green); color: var(--green); }
 .sy-lang-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-.sy-lang-sb { height: 28px; padding: 0 10px; font-size: 12px; }
+#sbDoctorName { overflow: hidden; overflow-wrap: anywhere; }   /* إيميلٌ طويل لا يركب على زرّي اللغة والوضع */
+.sy-lang-sb { padding: 0 10px; font-size: 12px; margin-inline-end: 0; }
 .sy-lang-float { position: fixed; bottom: 16px; inset-inline-start: 16px; z-index: 60; box-shadow: var(--shadow-card); }
 /* بالإنجليزية: حقول الإدخال تكتب من اليسار (الصفحات تثبّت direction:rtl عليها) — ومعها تنقلب
    padding-inline-end وزر إظهار كلمة السر إلى الطرف الصحيح تلقائياً. */
