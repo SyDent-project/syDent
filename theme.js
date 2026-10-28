@@ -55,7 +55,7 @@
    عربياً كي لا يظهر خليط. ما يذهب للمريض (واتساب · طباعة · الحجز · البوابة) يبقى عربياً. */
 (function () {
   var KEY = 'sydent.lang';
-  var EN_PAGES = ['landing', 'auth', 'pending', 'reset-password', 'index'];   // المرحلة 1 · 2 (الرئيسية)
+  var EN_PAGES = ['landing', 'auth', 'pending', 'reset-password', 'index', 'patients'];   // المرحلة 1 · 2 (الرئيسية) · 3 (المرضى)
   var lang = 'ar';
   try {
     var q = (location.search.match(/[?&]lang=(en|ar)\b/) || [])[1];
@@ -122,15 +122,6 @@
     var m = norm.match(/^([^؀-ۿ]*?)([؀-ۿ][\s\S]*[؀-ۿ.)»؟:،]|[؀-ۿ])([^؀-ۿ]*)$/);
     if (m && D[m[2]] != null) return flip(m[1]) + D[m[2]] + flip(m[3]);
     for (i = 0; m && i < P.length; i++) if (P[i][0].test(m[2])) return flip(m[1]) + leftovers(m[2].replace(P[i][0], P[i][1])) + flip(m[3]);
-    /* نصٌّ مركّب من قطعٍ معروفة وأرقام (مثل «لديك 3 مواعيد · 2 متبقية»): كل قطعةٍ عربية تُترجَم وحدها —
-       فقط إن عُرفت كلها، وإلا يبقى النص كما هو (لا خليط، واسم المريض لا يُمسّ). */
-    var flat = norm.replace(/،/g, ',').replace(/؛/g, ';').replace(/؟/g, '?');
-    var parts = flat.split(/([\u0600-\u06FF][\u0600-\u06FF\s]*[\u0600-\u06FF]|[\u0600-\u06FF])/);
-    if (parts.length > 1) {
-      var all = true;
-      for (var k = 1; k < parts.length; k += 2) { var v = D[parts[k]]; if (v == null) { all = false; break; } parts[k] = v; }
-      if (all) return flip(parts.join(''));
-    }
     /* نصٌّ مركّب من قطعٍ معروفة وأرقام (مثل «لديك 3 مواعيد · 2 متبقية»): كل قطعةٍ عربية تُترجَم وحدها —
        فقط إن عُرفت كلها، وإلا يبقى النص كما هو (لا خليط، واسم المريض لا يُمسّ). */
     var flat = norm.replace(/،/g, ',').replace(/؛/g, ';').replace(/؟/g, '?');
