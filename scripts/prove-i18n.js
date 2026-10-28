@@ -8,7 +8,7 @@
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const R = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const PAGES = ['landing.html', 'auth.html', 'pending.html', 'reset-password.html', 'index.html'];
+const PAGES = ['landing.html', 'auth.html', 'pending.html', 'reset-password.html', 'index.html', 'patients.html'];
 const AR = /[؀-ۿ]/;
 
 function staticStrings(html) {
@@ -64,7 +64,7 @@ function run(F) {
   ok(t('❌ البريد أو كلمة المرور غير صحيحة') === '❌ Incorrect email or password', 'a prefixed message is translated by its core');
   ok(t('وفّر ~17%') === 'Save ~17%' && t('🦷 حتى 150 مريض') === '🦷 Up to 150 patients' && t('≈ 25 ل.س / شهر') === '≈ 25 SYP / month', 'runtime patterns: savings, limits, per-month price with the currency');
   ok(t('أحمد الخطيب') === 'أحمد الخطيب', 'text with no entry (a patient name) is left as is');
-  const A = engine(F['theme.js'], F['i18n-en.js'], 'patients.html', 'en');
+  const A = engine(F['theme.js'], F['i18n-en.js'], 'appointments.html', 'en');
   ok(A.window.SyI18n.lang === 'ar' && A.window.SyI18n.chosen === 'en', 'pages not translated yet stay Arabic even when English is chosen');
   return out;
 }
