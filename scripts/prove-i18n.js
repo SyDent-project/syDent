@@ -8,7 +8,7 @@
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const R = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const PAGES = ['landing.html', 'auth.html', 'pending.html', 'reset-password.html'];
+const PAGES = ['landing.html', 'auth.html', 'pending.html', 'reset-password.html', 'index.html'];
 const AR = /[؀-ۿ]/;
 
 function staticStrings(html) {

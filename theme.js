@@ -55,7 +55,7 @@
    عربياً كي لا يظهر خليط. ما يذهب للمريض (واتساب · طباعة · الحجز · البوابة) يبقى عربياً. */
 (function () {
   var KEY = 'sydent.lang';
-  var EN_PAGES = ['landing', 'auth', 'pending', 'reset-password'];   // المرحلة 1
+  var EN_PAGES = ['landing', 'auth', 'pending', 'reset-password', 'index'];   // المرحلة 1 · 2 (الرئيسية)
   var lang = 'ar';
   try {
     var q = (location.search.match(/[?&]lang=(en|ar)\b/) || [])[1];
@@ -86,7 +86,9 @@
   /* الصفحات المترجَمة بلا مكان للزر (انتظار المراجعة · إعادة كلمة المرور): زرٌّ عائم صغير. */
   if (ready) window.addEventListener('load', function () {
     if (document.querySelector('.sy-lang-btn') || !document.body) return;
-    document.body.appendChild(buildButton('sy-lang-float'));
+    var foot = document.getElementById('sbDoctorFooter');   // صفحات التطبيق: أسفل القائمة الجانبية
+    if (foot) foot.appendChild(buildButton('sy-lang-sb'));
+    else document.body.appendChild(buildButton('sy-lang-float'));
   });
   if (!on) return;
 
@@ -110,6 +112,7 @@
   }
   function flip(s) { return s.replace(/[←→]/g, function (c) { return c === '←' ? '→' : '←'; }); }   // سهم «التالي» يتبع اتجاه القراءة
   function tr(raw) {
+    if (raw && /^\s*←\s*$/.test(raw)) return raw.replace('←', '→');   // سهمٌ وحده بجانب نص
     if (!raw || !AR.test(raw)) return null;
     var norm = raw.replace(/\s+/g, ' ').trim(), D = dict();
     if (D[norm] != null) return D[norm];
@@ -119,6 +122,15 @@
     for (var i = 0; i < P.length; i++) {
       if (P[i][0].test(norm)) return leftovers(norm.replace(P[i][0], P[i][1]));
       if (m && P[i][0].test(m[2])) return flip(m[1]) + leftovers(m[2].replace(P[i][0], P[i][1])) + flip(m[3]);
+    }
+    /* نصٌّ مركّب من قطعٍ معروفة وأرقام (مثل «لديك 3 مواعيد · 2 متبقية»): كل قطعةٍ عربية تُترجَم وحدها —
+       فقط إن عُرفت كلها، وإلا يبقى النص كما هو (لا خليط، واسم المريض لا يُمسّ). */
+    var flat = norm.replace(/،/g, ',').replace(/؛/g, ';').replace(/؟/g, '?');
+    var parts = flat.split(/([\u0600-\u06FF][\u0600-\u06FF\s]*[\u0600-\u06FF]|[\u0600-\u06FF])/);
+    if (parts.length > 1) {
+      var all = true;
+      for (var k = 1; k < parts.length; k += 2) { var v = D[parts[k]]; if (v == null) { all = false; break; } parts[k] = v; }
+      if (all) return flip(parts.join(''));
     }
     if (window.SyI18n.missing.indexOf(norm) < 0 && window.SyI18n.missing.length < 500) window.SyI18n.missing.push(norm);
     return null;
