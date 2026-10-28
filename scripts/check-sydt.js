@@ -36,7 +36,7 @@ eq(/02:32 PM/.test(T.cellRec('2026-09-21T11:32:00+00:00','2026-09-25T08:00:00+00
 //       toLocaleDateString / toLocaleString('ar…'|'en-GB') ممنوعان، وأسماءُ الأشهر محصورةٌ بعناوين التقويم والتنقّل
 //       (المواعيد · صفحة الحجز العامة · تسميات فترات اللوحة · مربّعات تبويب المواعيد) — كلُّ تاريخِ بيانٍ عبر SyDT.
 { const path = require('path'), root = path.join(__dirname, '..');
-  const MONTH_OK = { 'appointments.html': 'عناوين التقويم', 'book.html': 'صفحة الحجز العامة', 'index.html': 'تسميات فترات اللوحة', 'pp-wa.js': 'مربّعات تبويب المواعيد' };
+  const MONTH_OK = { 'appointments.html': 'عناوين التقويم', 'book.html': 'صفحة الحجز العامة', 'index.html': 'تسميات فترات اللوحة', 'pp-wa.js': 'مربّعات تبويب المواعيد', 'i18n-en.js': 'قاموس الترجمة الإنجليزية' };
   const files = fs.readdirSync(root).filter(f => /\.(html|js)$/.test(f));
   const bad = [];
   for (const f of files) {
