@@ -8,11 +8,12 @@
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const R = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const PAGES = ['landing.html', 'auth.html', 'pending.html', 'reset-password.html', 'index.html', 'patients.html', 'patient-profile.html', 'appointments.html'];
+const PAGES = ['landing.html', 'auth.html', 'pending.html', 'reset-password.html', 'index.html', 'patients.html', 'patient-profile.html', 'appointments.html', 'treatments.html', 'doctors.html', 'labs.html', 'radiology.html'];
 const AR = /[؀-ۿ]/;
 
 function staticStrings(html) {
   let s = html.replace(/<script\b[\s\S]*?<\/script>/gi, '').replace(/<style\b[\s\S]*?<\/style>/gi, '').replace(/<!--[\s\S]*?-->/g, '');
+  s = s.replace(/<(\w+)\b[^>]*\sdata-i18n-skip\b[^>]*>[^<]*<\/\1>/g, '');   // a leaf the engine skips (data, or a placeholder JS clears)
   const out = new Set();
   for (const m of s.matchAll(/>([^<>]+)</g)) { const t = m[1].replace(/\s+/g, ' ').trim(); if (AR.test(t)) out.add(t); }
   for (const m of s.matchAll(/\s(?:placeholder|title|aria-label|alt)="([^"]*)"/g)) { const t = m[1].replace(/\s+/g, ' ').trim(); if (AR.test(t)) out.add(t); }
