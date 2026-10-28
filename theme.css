@@ -360,7 +360,7 @@ body:has(#sbMainContent)::before {
   z-index: -1;
   pointer-events: none;
   background: url('bg-pattern-light.webp') 0 0 / 420px auto repeat;
-  filter: blur(.6px);
+  filter: blur(1.2px);
   opacity: .55;
 }
 :root[data-theme="dark"] body:has(#sbMainContent)::before { background-image: url('bg-pattern-dark.webp'); opacity: .8; }
