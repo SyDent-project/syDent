@@ -55,7 +55,7 @@
    عربياً كي لا يظهر خليط. ما يذهب للمريض (واتساب · طباعة · الحجز · البوابة) يبقى عربياً. */
 (function () {
   var KEY = 'sydent.lang';
-  var EN_PAGES = ['landing', 'auth', 'pending', 'reset-password', 'index'];   // المرحلة 1 · 2 (الرئيسية)
+  var EN_PAGES = ['landing', 'auth', 'pending', 'reset-password', 'index', 'patients'];   // المرحلة 1 · 2 (الرئيسية) · 3 (المرضى)
   var lang = 'ar';
   try {
     var q = (location.search.match(/[?&]lang=(en|ar)\b/) || [])[1];
@@ -117,13 +117,11 @@
     if (!raw || !AR.test(raw)) return null;
     var norm = raw.replace(/\s+/g, ' ').trim(), D = dict();
     if (D[norm] != null) return D[norm];
+    var P = window.SyI18nPatterns || [], i;
+    for (i = 0; i < P.length; i++) if (P[i][0].test(norm)) return leftovers(norm.replace(P[i][0], P[i][1]));   // النمط الكامل أدقّ من قلب النص («8 مريض» ← «8 patients» لا «8 patient»)
     var m = norm.match(/^([^؀-ۿ]*?)([؀-ۿ][\s\S]*[؀-ۿ.)»؟:،]|[؀-ۿ])([^؀-ۿ]*)$/);
     if (m && D[m[2]] != null) return flip(m[1]) + D[m[2]] + flip(m[3]);
-    var P = window.SyI18nPatterns || [];
-    for (var i = 0; i < P.length; i++) {
-      if (P[i][0].test(norm)) return leftovers(norm.replace(P[i][0], P[i][1]));
-      if (m && P[i][0].test(m[2])) return flip(m[1]) + leftovers(m[2].replace(P[i][0], P[i][1])) + flip(m[3]);
-    }
+    for (i = 0; m && i < P.length; i++) if (P[i][0].test(m[2])) return flip(m[1]) + leftovers(m[2].replace(P[i][0], P[i][1])) + flip(m[3]);
     /* نصٌّ مركّب من قطعٍ معروفة وأرقام (مثل «لديك 3 مواعيد · 2 متبقية»): كل قطعةٍ عربية تُترجَم وحدها —
        فقط إن عُرفت كلها، وإلا يبقى النص كما هو (لا خليط، واسم المريض لا يُمسّ). */
     var flat = norm.replace(/،/g, ',').replace(/؛/g, ';').replace(/؟/g, '?');
