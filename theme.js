@@ -55,7 +55,7 @@
    عربياً كي لا يظهر خليط. ما يذهب للمريض (واتساب · طباعة · الحجز · البوابة) يبقى عربياً. */
 (function () {
   var KEY = 'sydent.lang';
-  var EN_PAGES = ['landing', 'auth', 'pending', 'reset-password', 'index', 'patients', 'patient-profile'];   // المرحلة 1 · 2 (الرئيسية) · 3 (المرضى) · 4 (بطاقة المريض)
+  var EN_PAGES = ['landing', 'auth', 'pending', 'reset-password', 'index', 'patients'];   // المرحلة 1 · 2 (الرئيسية) · 3 (المرضى)
   var lang = 'ar';
   try {
     var q = (location.search.match(/[?&]lang=(en|ar)\b/) || [])[1];
