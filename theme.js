@@ -55,7 +55,7 @@
    عربياً كي لا يظهر خليط. ما يذهب للمريض (واتساب · طباعة · الحجز · البوابة) يبقى عربياً. */
 (function () {
   var KEY = 'sydent.lang';
-  var EN_PAGES = ['landing', 'auth', 'pending', 'reset-password', 'index', 'patients', 'patient-profile'];   // المرحلة 1 · 2 (الرئيسية) · 3 (المرضى) · 4 (بطاقة المريض)
+  var EN_PAGES = ['landing', 'auth', 'pending', 'reset-password', 'index', 'patients', 'patient-profile', 'appointments'];   // المرحلة 1 · 2 (الرئيسية) · 3 (المرضى) · 4 (بطاقة المريض) · 5 (المواعيد)
   var lang = 'ar';
   try {
     var q = (location.search.match(/[?&]lang=(en|ar)\b/) || [])[1];
@@ -138,7 +138,7 @@
   function textNode(n) {
     var p = n.parentNode;
     if (!p || SKIP[p.nodeName] || skipped(p)) return;
-    var v = n.nodeValue, out = tr(v);
+    var v = n.nodeValue, out = p.getAttribute && p.getAttribute('data-en') && AR.test(v) ? p.getAttribute('data-en') : tr(v);   // data-en: نصٌّ إنجليزي صريح حين تختلف الكلمة بموضعها («يوم» زرّاً = Day)
     if (out == null) return;
     var lead = v.match(/^\s*/)[0], trail = v.match(/\s*$/)[0];
     n.nodeValue = lead + out + trail;
