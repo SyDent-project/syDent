@@ -8,15 +8,16 @@
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const R = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const PAGES = ['landing.html', 'auth.html', 'pending.html', 'reset-password.html', 'index.html', 'patients.html', 'patient-profile.html', 'appointments.html', 'treatments.html', 'doctors.html', 'labs.html', 'radiology.html', 'inventory.html', 'accounting.html', 'expenses.html', 'payouts.html'];
+const PAGES = ['landing.html', 'auth.html', 'pending.html', 'reset-password.html', 'index.html', 'patients.html', 'patient-profile.html', 'appointments.html', 'treatments.html', 'doctors.html', 'labs.html', 'radiology.html', 'inventory.html', 'accounting.html', 'expenses.html', 'payouts.html', 'settings.html', 'subscription.html', 'employees.html', 'audit-log.html', 'provider-reports.html'];
 const AR = /[؀-ۿ]/;
 
 function staticStrings(html) {
   let s = html.replace(/<script\b[\s\S]*?<\/script>/gi, '').replace(/<style\b[\s\S]*?<\/style>/gi, '').replace(/<!--[\s\S]*?-->/g, '');
-  s = s.replace(/<(\w+)\b[^>]*\sdata-(?:i18n-skip|en)\b[^>]*>[^<]*<\/\1>/g, '');   // a leaf the engine skips (data, or a placeholder JS clears) or one that carries its own English (data-en)
+  s = s.replace(/<(\w+)\b[^>]*\sdata-(?:i18n-skip|en)\b[^>]*>[^<]*<\/\1>/g, '<x></x>');   // a leaf the engine skips (data, or a placeholder JS clears) or one that carries its own English (data-en)
+  s = s.replace(/<[^>]*\sdata-i18n-skip\b[^>]*>/g, '<x>');   // a skipped element's own attributes (e.g. a phrase the user must type in Arabic)
   const out = new Set();
   for (const m of s.matchAll(/>([^<>]+)</g)) { const t = m[1].replace(/\s+/g, ' ').trim(); if (AR.test(t)) out.add(t); }
-  for (const m of s.matchAll(/\s(?:placeholder|title|aria-label|alt)="([^"]*)"/g)) { const t = m[1].replace(/\s+/g, ' ').trim(); if (AR.test(t)) out.add(t); }
+  for (const m of s.matchAll(/\s(?:placeholder|title|aria-label|alt)="([^"]*)"/g)) { const t = m[1].replace(/&#10;/g, '\n').replace(/\s+/g, ' ').trim(); if (AR.test(t)) out.add(t); }
   return [...out];
 }
 
@@ -65,7 +66,7 @@ function run(F) {
   ok(t('❌ البريد أو كلمة المرور غير صحيحة') === '❌ Incorrect email or password', 'a prefixed message is translated by its core');
   ok(t('وفّر ~17%') === 'Save ~17%' && t('🦷 حتى 150 مريض') === '🦷 Up to 150 patients' && t('≈ 25 ل.س / شهر') === '≈ 25 SYP / month', 'runtime patterns: savings, limits, per-month price with the currency');
   ok(t('أحمد الخطيب') === 'أحمد الخطيب', 'text with no entry (a patient name) is left as is');
-  const A = engine(F['theme.js'], F['i18n-en.js'], 'settings.html', 'en');
+  const A = engine(F['theme.js'], F['i18n-en.js'], 'learn.html', 'en');
   ok(A.window.SyI18n.lang === 'ar' && A.window.SyI18n.chosen === 'en', 'pages not translated yet stay Arabic even when English is chosen');
   return out;
 }

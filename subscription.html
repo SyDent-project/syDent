@@ -13,10 +13,10 @@
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=5">
 <title>SyDent — الاشتراك</title>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261029a"></script>
+<script src="theme.js?v=20261029c"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261029a"></script>
-<link rel="stylesheet" href="theme.css?v=20261029a">
+<script src="supabase-init.js?v=20261029c"></script>
+<link rel="stylesheet" href="theme.css?v=20261029c">
 <!-- ── Cloudflare Turnstile (CAPTCHA) — M142: لإعادة التحقق قبل حذف الحساب (نسخةٌ حرفية
      من الإعدادات؛ check-mirrors يطابقها). -->
 <script>
@@ -305,6 +305,7 @@ body {
   content: "⚠️ منطقة الخطر"; position: absolute; top: -34px; inset-inline: 0;
   font-size: 12px; font-weight: 800; color: var(--red-ink); padding-top: 10px; border-top: 1px dashed var(--red-bd);
 }
+html.lang-en .sub-danger::before { content: "⚠️ Danger zone"; }
 .sub-danger-title { font-size: 14px; font-weight: 800; color: var(--red-ink); margin-bottom: 4px; }
 .sub-danger-sub { font-size: 12.5px; color: var(--text2); line-height: 1.7; }
 .sub-danger-btn {
@@ -386,8 +387,8 @@ button:disabled { opacity: .6; cursor: wait; }
 </head>
 <body>
 
-<script src="sy-modal.js?v=20261029a"></script>
-<script src="sidebar.js?v=20261029a"></script>
+<script src="sy-modal.js?v=20261029c"></script>
+<script src="sidebar.js?v=20261029c"></script>
 
 <div class="main" id="sbMainContent">
 
@@ -445,7 +446,7 @@ button:disabled { opacity: .6; cursor: wait; }
           <div class="sub-danger-title">🗑 حذف الحساب نهائياً</div>
           <div class="sub-danger-sub">لا تريد المتابعة؟ يمكنك حذف حسابك وكل بيانات عيادتك من المنصة.</div>
         </div>
-        <button type="button" class="sub-danger-btn" onclick="window.subOpenDelete()">حذف حسابي</button>
+        <button type="button" class="sub-danger-btn" onclick="window.subOpenDelete()" data-en="Delete my account">حذف حسابي</button>
       </div>
 
     </div>
@@ -467,8 +468,8 @@ button:disabled { opacity: .6; cursor: wait; }
         <li>حسابك بالكامل</li>
       </ul>
     </div>
-    <div class="sub-field-label">اكتب <strong style="color:var(--red)">حذف حسابي</strong> للتأكيد</div>
-    <input type="text" id="subDelPhrase" class="sub-del-input" placeholder="حذف حسابي" autocomplete="off">
+    <div class="sub-field-label">اكتب <strong style="color:var(--red)" data-i18n-skip>حذف حسابي</strong> للتأكيد</div>
+    <input type="text" id="subDelPhrase" class="sub-del-input" placeholder="حذف حسابي" autocomplete="off" data-i18n-skip>
     <div class="sub-field-label">كلمة المرور الحالية</div>
     <input type="password" id="subDelPass" class="sub-del-input" placeholder="••••••••" autocomplete="current-password">
     <div id="ts-delete" class="cf-turnstile-box"></div>
