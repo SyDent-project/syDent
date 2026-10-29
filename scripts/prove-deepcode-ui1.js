@@ -36,7 +36,7 @@ function suite(F) {
   const C = F['patient-profile.css'];
   ok(/#toothModal\.open\.pp-dock > \.modal-box \{ max-height: 60dvh; \}/.test(C) && /html\.pp-dock-room #ppPage \{ padding-bottom: 62dvh; \}/.test(C), '#20 CSS: side panel · shorter sheet · scroll room');
   const S = F['subscription.html'];
-  ok(/<div class="sub-danger" id="subDangerCard" hidden>/.test(S) && /margin-top: 64px;/.test(S) && /\.sub-danger::before \{[^}]*content: "⚠️ منطقة الخطر";/.test(S) && /onclick="window\.subOpenDelete\(\)">حذف حسابي<\/button>/.test(S), '#14 delete card inside a labelled, separated danger zone; behaviour unchanged');
+  ok(/<div class="sub-danger" id="subDangerCard" hidden>/.test(S) && /margin-top: 64px;/.test(S) && /\.sub-danger::before \{[^}]*content: "⚠️ منطقة الخطر";/.test(S) && /onclick="window\.subOpenDelete\(\)"(?: data-en="[^"]*")?>حذف حسابي<\/button>/.test(S), '#14 delete card inside a labelled, separated danger zone; behaviour unchanged');
 }
 const rep = (f, a, b) => F0 => { const F = Object.assign({}, F0); F[f] = F[f].split(a).join(b); return F; };
 const MUTANTS = [
