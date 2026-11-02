@@ -42,10 +42,10 @@
     if (widgets[name] !== undefined) return;            // already rendered — no double render
     var el = document.getElementById(containerId);
     if (!el) return;
-    // interaction-only: the check runs in the background and the box shows only when Cloudflare
-    // needs a click, so most people never wait on it.
+    // The box is always shown (owner request): people see the check run and tick it themselves
+    // when Cloudflare asks, instead of a hidden check that left «not verified yet» with no box.
     try { widgets[name] = window.turnstile.render(el, { sitekey: SITEKEY, theme: 'auto', action: name,
-      appearance: 'interaction-only', language: 'ar',
+      appearance: 'always', language: (window.SyI18n && window.SyI18n.lang === 'en') ? 'en' : 'ar',
       callback: function(t){ tokens[name] = t; (waiters[name] || []).splice(0).forEach(function(r){ r(t); }); },
       'expired-callback': function(){ tokens[name] = ''; },
       'error-callback': function(){ tokens[name] = ''; } }); }
@@ -83,6 +83,7 @@
   wanted['login'] = 'ts-login';
 })();
 </script>
+<link rel="preconnect" href="https://challenges.cloudflare.com" crossorigin>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onSyDentTurnstileLoad" async defer></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
