@@ -1655,6 +1655,8 @@ Object.assign(window.SyI18nDict, {
   "قبل سنتين": "2 years ago",
   "بعد يوم": "In a day",
   "قبل يوم": "A day ago",
+  "📌 الحالة": "📌 Status",
+  "🦷 علاجات العيادة": "🦷 Clinic treatments",
   "مثال: • اعضض على الشاش نصف ساعة. • تجنّب المضمضة القوية اليوم. • مسكّن عند اللزوم. • راجع العيادة عند نزف مستمر.": "e.g. • Bite on the gauze for half an hour. • Avoid vigorous rinsing today. • A painkiller if needed. • Contact the clinic if bleeding continues.",
   "المتبقي": "Balance",
   "· جلسات:": "· Sessions:",

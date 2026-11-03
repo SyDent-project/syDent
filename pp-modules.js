@@ -908,7 +908,8 @@ function renderExamBar() {
   if (_ecn) _ecn.style.display = _examCond ? '' : 'none';
   // Status chips
   var sc = document.getElementById('examStatusChips');
-  if (sc) sc.style.display = _examCond ? 'none' : 'flex';
+  var scRow = document.getElementById('examStatusRow');   // الصفّ مع عنوانه يختفي مع الشرائح
+  if (scRow) scRow.style.display = _examCond ? 'none' : '';
   if (sc) {
     sc.innerHTML = EXAM_STATUSES.map(function(s){
       return '<button type="button" class="exam-chip' + (examStatus === s.v ? ' selected' : '') + '" '
