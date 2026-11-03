@@ -2408,6 +2408,8 @@ function draftSvgImage(svg, rect) {
   var tx = rect.left + (rect.width - vw * s) / 2 - vx * s;
   var ty = rect.top + (rect.height - vh * s) / 2 - vy * s;
   var clone = svg.cloneNode(true);
+  /* أسنان المخطط تشير لتدرّجات مشتركة بـ#toothSharedDefs خارجها — الصورة المستقلّة تحتاج نسختها */
+  var _sd = svg.classList && svg.classList.contains('tooth-shape') && document.querySelector('#toothSharedDefs defs');
   var src = [svg].concat(Array.prototype.slice.call(svg.querySelectorAll('*')));
   var dst = [clone].concat(Array.prototype.slice.call(clone.querySelectorAll('*')));
   for (var i = 0; i < src.length && i < dst.length; i++) {
@@ -2427,6 +2429,7 @@ function draftSvgImage(svg, rect) {
     dst[i].setAttribute('style', st);
   }
   clone.removeAttribute('class');
+  if (_sd) clone.insertBefore(_sd.cloneNode(true), clone.firstChild);
   clone.setAttribute('viewBox', ux + ' ' + uy + ' ' + (ux2 - ux) + ' ' + (uy2 - uy));
   clone.setAttribute('width', String((ux2 - ux) * s));
   clone.setAttribute('height', String((uy2 - uy) * s));
