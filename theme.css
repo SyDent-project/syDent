@@ -242,8 +242,8 @@
 }
 .sy-lang-btn:hover { border-color: var(--green); color: var(--green); }
 .sy-lang-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-#sbDoctorName { overflow: hidden; overflow-wrap: anywhere; }   /* إيميلٌ طويل لا يركب على زرّي اللغة والوضع */
-.sy-lang-sb { padding: 0 10px; font-size: 12px; margin-inline-end: 0; }
+#sbDoctorName { overflow: hidden; overflow-wrap: break-word; }   /* إيميلٌ طويل ينكسر ولا يركب على زرّي اللغة والوضع — والاسم العادي لا يتقطّع كلمةً كلمة */
+.sy-lang-sb { padding: 0 10px; font-size: 12px; margin-inline-end: 0; min-width: 56px; }
 .sy-lang-float { position: fixed; bottom: 16px; inset-inline-start: 16px; z-index: 60; box-shadow: var(--shadow-card); }
 /* بالإنجليزية: حقول الإدخال تكتب من اليسار (الصفحات تثبّت direction:rtl عليها) — ومعها تنقلب
    padding-inline-end وزر إظهار كلمة السر إلى الطرف الصحيح تلقائياً. */

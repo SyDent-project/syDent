@@ -204,6 +204,8 @@ const css = `
     justify-content: space-between;
     gap: 10px;
   }
+  /* زرّ اللغة (يضيفه theme.js قبل المبدّل) فوق مبدّل الوضع — عمودٌ ضيّق يترك للاسم عرضه */
+  .sb-footer-ctl { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
   .sb-footer-name {
     font-size: 12px;
     color: var(--text2);
@@ -710,11 +712,13 @@ l44 -30 346 -5 c376 -5 376 -6 411 -63 19 -30 20 -53 20 -372 0 -252 3 -344
       <button type="button" class="sb-install" id="sbInstallBtn" hidden>📲 ثبّت التطبيق على جهازك</button>
       <div class="sb-footer" id="sbDoctorFooter">
         <div class="sb-footer-name" id="sbDoctorName">جارٍ التحميل…</div>
+        <div class="sb-footer-ctl">
         <button type="button" class="sb-theme-switch" id="sbThemeSwitch" role="switch" aria-label="تبديل الوضع الفاتح/الداكن" title="تبديل الوضع الفاتح/الداكن">
           <svg class="sb-theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
           <svg class="sb-theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <span class="sb-theme-switch-knob" aria-hidden="true"></span>
         </button>
+        </div>
       </div>
     </aside>`;
 }
