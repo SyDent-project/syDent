@@ -209,7 +209,7 @@
     try {
       var meta = document.querySelector('meta[name="theme-color"]');
       if (meta) {
-        meta.setAttribute('content', mode === 'dark' ? '#0c1726' : '#1d6fd1');
+        meta.setAttribute('content', mode === 'dark' ? '#0c1726' : '#0e7a8c');
       }
     } catch (e) {}
   }
