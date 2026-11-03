@@ -2370,7 +2370,83 @@ function sessionTipRows(num, sm) {
   return out;
 }
 
+/* Shared tooth gradients (perf): identical for every tooth, so they live once in a hidden
+   0×0 <svg> on <body> instead of 32 copies inside each tooth (~1,400 fewer DOM nodes on the chart).
+   Gradients use objectBoundingBox units, so one definition fits every tooth; the per-tooth defs
+   keep only the clip-paths, which follow each tooth's own outline. printChart and the draft export
+   copy this block into their clones so a detached SVG still resolves the ids. */
+var TOOTH_SHARED_DEFS = ''
+    // Crown gradient: A1 enamel shade (bright cream-white, slightly warm)
+    // Vita A1: light cream with subtle ivory tones — preserve gradient depth
+    + '<linearGradient id="cgS" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop offset="0%" stop-color="#fdfaf2"/>'         // bright enamel tip (A1 light)
+      + '<stop offset="25%" stop-color="#faf4e2"/>'         // upper enamel (A1 mid)
+      + '<stop offset="60%" stop-color="#f5edd8"/>'         // mid-crown (A1 base)
+      + '<stop offset="92%" stop-color="#ede1c4"/>'         // dentin warmth showing through near cervical
+      + '<stop offset="100%" stop-color="#e3d3aa"/>'        // cervical (warm transition to root)
+    + '</linearGradient>'
+    // Root gradient: natural dentin color (warm yellowish-ivory) with depth
+    + '<linearGradient id="rgS" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop offset="0%" stop-color="#e8d2a0"/>'          // pale dentin at cervical
+      + '<stop offset="55%" stop-color="#dcc28a"/>'         // mid-root dentin
+      + '<stop offset="100%" stop-color="#c8aa6e"/>'        // apex — deeper dentin
+    + '</linearGradient>'
+    // Side shadow on roots (light from upper-left → right side darker)
+    + '<linearGradient id="rsS" x1="0" y1="0" x2="1" y2="0">'
+      + '<stop offset="0%" stop-color="rgba(80,50,20,0.16)"/>'
+      + '<stop offset="32%" stop-color="rgba(255,255,255,0.12)"/>'
+      + '<stop offset="62%" stop-color="rgba(0,0,0,0)"/>'
+      + '<stop offset="100%" stop-color="rgba(80,50,20,0.26)"/>'
+    + '</linearGradient>'
+    // Lateral crown shading (cylindrical body: both proximal edges recede)
+    + '<linearGradient id="csS" x1="0" y1="0" x2="1" y2="0">'
+      + '<stop offset="0%" stop-color="rgba(120,80,40,0.16)"/>'
+      + '<stop offset="28%" stop-color="rgba(255,255,255,0.05)"/>'
+      + '<stop offset="65%" stop-color="rgba(0,0,0,0)"/>'
+      + '<stop offset="100%" stop-color="rgba(120,80,40,0.20)"/>'
+    + '</linearGradient>'
+    // Incisal/occlusal enamel translucency (cool grey-blue glow at the edge)
+    + '<linearGradient id="itS" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop offset="0%" stop-color="rgba(190,205,215,0.45)"/>'
+      + '<stop offset="100%" stop-color="rgba(190,205,215,0)"/>'
+    + '</linearGradient>'
+    // Soft inner shadow at the equator (3D bulge)
+    + '<radialGradient id="shS" cx="50%" cy="48%" r="55%">'
+      + '<stop offset="55%" stop-color="rgba(0,0,0,0)"/>'
+      + '<stop offset="100%" stop-color="rgba(140,90,40,0.22)"/>'
+    + '</radialGradient>'
+    // Linear highlight band (enamel reflection — diagonal soft glow on upper-left)
+    + '<linearGradient id="hiS" x1="0.20" y1="0.10" x2="0.55" y2="0.65">'
+      + '<stop offset="0%" stop-color="rgba(255,255,255,0.65)"/>'
+      + '<stop offset="40%" stop-color="rgba(255,255,255,0.25)"/>'
+      + '<stop offset="100%" stop-color="rgba(255,255,255,0)"/>'
+    + '</linearGradient>'
+    // Subtle vertical perikymata pattern (growth lines on enamel)
+    + '<pattern id="pkS" x="0" y="0" width="100" height="3" patternUnits="userSpaceOnUse">'
+      + '<line x1="0" y1="1.5" x2="100" y2="1.5" stroke="#a8825a" stroke-width="0.15" opacity="0.06"/>'
+    + '</pattern>'
+    // Occlusal surface gradient: A1 enamel (brighter at table, light reflects off cusps)
+    + '<linearGradient id="ogS" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop offset="0%" stop-color="#fefcf6"/>'
+      + '<stop offset="50%" stop-color="#faf4e2"/>'
+      + '<stop offset="100%" stop-color="#f0e6cc"/>'
+    + '</linearGradient>'
+    // Occlusal highlight (top-down light reflection)
+    + '<radialGradient id="ohS" cx="50%" cy="20%" r="55%">'
+      + '<stop offset="0%" stop-color="rgba(255,255,255,0.55)"/>'
+      + '<stop offset="100%" stop-color="rgba(255,255,255,0)"/>'
+    + '</radialGradient>'
+    + '<radialGradient id="fsS" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="rgba(90,58,24,0.18)"/><stop offset="100%" stop-color="rgba(90,58,24,0)"/></radialGradient>';
+function ensureToothSharedDefs() {
+  if (document.getElementById('toothSharedDefs')) return;
+  var holder = document.createElement('div');
+  holder.innerHTML = '<svg id="toothSharedDefs" width="0" height="0" aria-hidden="true" focusable="false" '
+    + 'style="position:absolute;width:0;height:0;overflow:hidden" xmlns="http://www.w3.org/2000/svg"><defs>'
+    + TOOTH_SHARED_DEFS + '</defs></svg>';
+  document.body.appendChild(holder.firstChild);
+}
 function buildTooth(num, surfaceMap, isUpper) {
+  ensureToothSharedDefs();
   var sm = surfaceMap || {};
   var anat = toothAnatomy(num);
 
@@ -2433,70 +2509,9 @@ function buildTooth(num, surfaceMap, isUpper) {
 
   var svg = '<svg class="tooth-shape" viewBox="0 0 100 210" width="' + W + '" height="' + H + '" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">'
     + '<defs>'
-    // Crown gradient: A1 enamel shade (bright cream-white, slightly warm)
-    // Vita A1: light cream with subtle ivory tones — preserve gradient depth
-    + '<linearGradient id="cg' + gid + '" x1="0" y1="0" x2="0" y2="1">'
-      + '<stop offset="0%" stop-color="#fdfaf2"/>'         // bright enamel tip (A1 light)
-      + '<stop offset="25%" stop-color="#faf4e2"/>'         // upper enamel (A1 mid)
-      + '<stop offset="60%" stop-color="#f5edd8"/>'         // mid-crown (A1 base)
-      + '<stop offset="92%" stop-color="#ede1c4"/>'         // dentin warmth showing through near cervical
-      + '<stop offset="100%" stop-color="#e3d3aa"/>'        // cervical (warm transition to root)
-    + '</linearGradient>'
-    // Root gradient: natural dentin color (warm yellowish-ivory) with depth
-    + '<linearGradient id="rg' + gid + '" x1="0" y1="0" x2="0" y2="1">'
-      + '<stop offset="0%" stop-color="#e8d2a0"/>'          // pale dentin at cervical
-      + '<stop offset="55%" stop-color="#dcc28a"/>'         // mid-root dentin
-      + '<stop offset="100%" stop-color="#c8aa6e"/>'        // apex — deeper dentin
-    + '</linearGradient>'
-    // Side shadow on roots (light from upper-left → right side darker)
-    + '<linearGradient id="rs' + gid + '" x1="0" y1="0" x2="1" y2="0">'
-      + '<stop offset="0%" stop-color="rgba(80,50,20,0.16)"/>'
-      + '<stop offset="32%" stop-color="rgba(255,255,255,0.12)"/>'
-      + '<stop offset="62%" stop-color="rgba(0,0,0,0)"/>'
-      + '<stop offset="100%" stop-color="rgba(80,50,20,0.26)"/>'
-    + '</linearGradient>'
-    // Lateral crown shading (cylindrical body: both proximal edges recede)
-    + '<linearGradient id="cs' + gid + '" x1="0" y1="0" x2="1" y2="0">'
-      + '<stop offset="0%" stop-color="rgba(120,80,40,0.16)"/>'
-      + '<stop offset="28%" stop-color="rgba(255,255,255,0.05)"/>'
-      + '<stop offset="65%" stop-color="rgba(0,0,0,0)"/>'
-      + '<stop offset="100%" stop-color="rgba(120,80,40,0.20)"/>'
-    + '</linearGradient>'
-    // Incisal/occlusal enamel translucency (cool grey-blue glow at the edge)
-    + '<linearGradient id="it' + gid + '" x1="0" y1="0" x2="0" y2="1">'
-      + '<stop offset="0%" stop-color="rgba(190,205,215,0.45)"/>'
-      + '<stop offset="100%" stop-color="rgba(190,205,215,0)"/>'
-    + '</linearGradient>'
-    // Soft inner shadow at the equator (3D bulge)
-    + '<radialGradient id="sh' + gid + '" cx="50%" cy="48%" r="55%">'
-      + '<stop offset="55%" stop-color="rgba(0,0,0,0)"/>'
-      + '<stop offset="100%" stop-color="rgba(140,90,40,0.22)"/>'
-    + '</radialGradient>'
-    // Linear highlight band (enamel reflection — diagonal soft glow on upper-left)
-    + '<linearGradient id="hi' + gid + '" x1="0.20" y1="0.10" x2="0.55" y2="0.65">'
-      + '<stop offset="0%" stop-color="rgba(255,255,255,0.65)"/>'
-      + '<stop offset="40%" stop-color="rgba(255,255,255,0.25)"/>'
-      + '<stop offset="100%" stop-color="rgba(255,255,255,0)"/>'
-    + '</linearGradient>'
-    // Subtle vertical perikymata pattern (growth lines on enamel)
-    + '<pattern id="pk' + gid + '" x="0" y="0" width="100" height="3" patternUnits="userSpaceOnUse">'
-      + '<line x1="0" y1="1.5" x2="100" y2="1.5" stroke="#a8825a" stroke-width="0.15" opacity="0.06"/>'
-    + '</pattern>'
-    // Occlusal surface gradient: A1 enamel (brighter at table, light reflects off cusps)
-    + '<linearGradient id="og' + gid + '" x1="0" y1="0" x2="0" y2="1">'
-      + '<stop offset="0%" stop-color="#fefcf6"/>'
-      + '<stop offset="50%" stop-color="#faf4e2"/>'
-      + '<stop offset="100%" stop-color="#f0e6cc"/>'
-    + '</linearGradient>'
-    // Occlusal highlight (top-down light reflection)
-    + '<radialGradient id="oh' + gid + '" cx="50%" cy="20%" r="55%">'
-      + '<stop offset="0%" stop-color="rgba(255,255,255,0.55)"/>'
-      + '<stop offset="100%" stop-color="rgba(255,255,255,0)"/>'
-    + '</radialGradient>'
     // Crown clip-path: surface overlays and internal shading clip to the crown silhouette
     + '<clipPath id="cc' + gid + '"><path d="' + anat.outlineD + '"/></clipPath>'
-    // Furcation shadow gradient + a clip made of all root silhouettes
-    + '<radialGradient id="fs' + gid + '" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="rgba(90,58,24,0.18)"/><stop offset="100%" stop-color="rgba(90,58,24,0)"/></radialGradient>'
+    // A clip made of all root silhouettes (the furcation shadow gradient is in TOOTH_SHARED_DEFS)
     + '<clipPath id="rc' + gid + '">' + anat.roots.map(function(r){ return '<path d="' + r.d + '"/>'; }).join('') + '</clipPath>'
     + '</defs>'
     + '<g ' + transform + '>';
@@ -2530,17 +2545,17 @@ function buildTooth(num, surfaceMap, isUpper) {
     // surface/root treatment beneath it stays visible. So the root keeps its
     // own treatment color (or the natural gradient) regardless of hasWhole.
     if (rTreatKey && !isCanal && !isConditionKey(rTreatKey) && T_FILL[rTreatKey]) rFill = T_FILL[rTreatKey];   /* v434: الحالةُ رمزٌ لا طلاء */
-    else rFill = 'url(#rg' + gid + ')';
+    else rFill = 'url(#rgS)';
     svg += '<path class="root-part" data-tooth="' + num + '" data-surface="' + r.key + '" '
         +  'd="' + r.d + '" fill="' + rFill + '" stroke="' + rootStroke + '" stroke-width="0.6"></path>';
     if (rTreatKey && !isCanal && !isConditionKey(rTreatKey) && T_FILL[rTreatKey]) {   /* v595: الحالةُ على تعبئة الجذر (وتد…) */
       var _rst = txStatusOf(sm, r.key);
       if (_rst !== 'completed') { var _rpa = txPathAttrs(_rst, rFill, T_STROKE[rTreatKey] || rootStroke, 'pr' + gid + r.key, 1);
-        svg += '<path d="' + r.d + '" fill="url(#rg' + gid + ')" pointer-events="none"></path>' + _rpa.defs + '<path d="' + r.d + '" ' + _rpa.attrs + ' pointer-events="none"></path>'; }
+        svg += '<path d="' + r.d + '" fill="url(#rgS)" pointer-events="none"></path>' + _rpa.defs + '<path d="' + r.d + '" ' + _rpa.attrs + ' pointer-events="none"></path>'; }
     }
     // Side shadow overlay on each root (only if no full-fill treatment)
     if (!(rTreatKey && !isCanal && T_FILL[rTreatKey])) {
-      svg += '<path d="' + r.d + '" fill="url(#rs' + gid + ')" pointer-events="none"></path>';
+      svg += '<path d="' + r.d + '" fill="url(#rsS)" pointer-events="none"></path>';
     }
     // Root canal: draw a thin vertical channel INSIDE the root, from CEJ down toward apex
     if (isCanal && r.canalTopCx !== undefined) {
@@ -2580,7 +2595,7 @@ function buildTooth(num, surfaceMap, isUpper) {
   // so nothing paints on the background between them.
   if (anat.roots.length >= 2 && anat.furcationY && anat.type === 'molar' && !isPrimaryTooth(num)) {
     var fcW = (anat.cejR - anat.cejL) * 0.24;
-    svg += '<ellipse cx="50" cy="' + (anat.furcationY + 1) + '" rx="' + fcW + '" ry="5.5" fill="url(#fs' + gid + ')" '
+    svg += '<ellipse cx="50" cy="' + (anat.furcationY + 1) + '" rx="' + fcW + '" ry="5.5" fill="url(#fsS)" '
         +  'clip-path="url(#rc' + gid + ')" pointer-events="none"></ellipse>';
   }
   svg += canalSvg;
@@ -2594,27 +2609,27 @@ function buildTooth(num, surfaceMap, isUpper) {
      (الشفافة) تُرسم بعدها فيبقى السنُّ قابلاً للنقر والتلميحِ والإزالة. */
   var _noCrown = condDrawFlag(sm, 'no-crown');
   if (!_noCrown) {
-  var crownFillBase = 'url(#cg' + gid + ')';
+  var crownFillBase = 'url(#cgS)';
   svg += '<path class="tooth-detail" d="' + anat.outlineD + '" fill="' + crownFillBase + '" '
       +  'stroke="' + crownStroke + '" stroke-width="0.75" stroke-linejoin="round"></path>';
   {
     // Perikymata (subtle horizontal growth-line texture)
-    svg += '<path class="tooth-detail" d="' + anat.outlineD + '" fill="url(#pk' + gid + ')" pointer-events="none"></path>';
+    svg += '<path class="tooth-detail" d="' + anat.outlineD + '" fill="url(#pkS)" pointer-events="none"></path>';
     // Inner shadow at edges for 3D bulge
-    svg += '<path class="tooth-detail" d="' + anat.outlineD + '" fill="url(#sh' + gid + ')" pointer-events="none"></path>';
+    svg += '<path class="tooth-detail" d="' + anat.outlineD + '" fill="url(#shS)" pointer-events="none"></path>';
     // Lateral (mesio-distal) shading — proximal edges recede
-    svg += '<path class="tooth-detail" d="' + anat.outlineD + '" fill="url(#cs' + gid + ')" pointer-events="none"></path>';
+    svg += '<path class="tooth-detail" d="' + anat.outlineD + '" fill="url(#csS)" pointer-events="none"></path>';
     // Enamel translucency along the incisal/occlusal edge
     if (anat.crownTop !== undefined) {
       var itH = anat.crownH * ((anat.type === 'incisor' || anat.type === 'canine') ? 0.30 : 0.18);
-      svg += '<rect x="0" y="' + anat.crownTop + '" width="100" height="' + itH + '" fill="url(#it' + gid + ')" clip-path="url(#cc' + gid + ')" pointer-events="none"></rect>';
+      svg += '<rect x="0" y="' + anat.crownTop + '" width="100" height="' + itH + '" fill="url(#itS)" clip-path="url(#cc' + gid + ')" pointer-events="none"></rect>';
     }
     // Faint labial developmental depressions on anteriors
     if (anat.facialLobeD) {
       svg += '<path d="' + anat.facialLobeD + '" fill="none" stroke="rgba(120,80,40,0.12)" stroke-width="1.6" stroke-linecap="round" clip-path="url(#cc' + gid + ')" pointer-events="none"></path>';
     }
     // Linear highlight (enamel reflection band)
-    svg += '<path class="tooth-detail" d="' + anat.outlineD + '" fill="url(#hi' + gid + ')" pointer-events="none"></path>';
+    svg += '<path class="tooth-detail" d="' + anat.outlineD + '" fill="url(#hiS)" pointer-events="none"></path>';
     // CEJ shadow line (cementoenamel junction — subtle dark band where crown meets root)
     svg += '<path d="M ' + ((anat.cejL !== undefined ? anat.cejL : anat.crownL) + 1) + ' ' + anat.cervicalY
          + ' Q 50 ' + (anat.cervicalY + 2.5) + ' ' + ((anat.cejR !== undefined ? anat.cejR : anat.crownR) - 1) + ' ' + anat.cervicalY + '" '
@@ -2630,7 +2645,7 @@ function buildTooth(num, surfaceMap, isUpper) {
     svg += '<path d="' + anat.occlusalBandD + '" fill="rgba(160,110,55,0.18)" '
         +  'clip-path="url(#' + clipId + ')" pointer-events="none"></path>';
     // Bright highlight on top of cusps (light catches the cusp tips)
-    svg += '<path d="' + anat.occlusalBandD + '" fill="url(#oh' + gid + ')" '
+    svg += '<path d="' + anat.occlusalBandD + '" fill="url(#ohS)" '
         +  'clip-path="url(#' + clipId + ')" pointer-events="none"></path>';
     // Groove/fissure lines
     if (anat.occlusalDetailD) {
@@ -3067,6 +3082,8 @@ function printChart(){
   //     prefix every id + url(#)/href(#) so the clone resolves only against
   //     its own visible defs. Both quote styles covered (' and ").
   var tmp = jw.cloneNode(true);
+  var _sd = document.getElementById('toothSharedDefs');   // shared tooth gradients live outside jawWrap
+  if (_sd) tmp.insertBefore(_sd.cloneNode(true), tmp.firstChild);
   var gradMap = {};
   tmp.querySelectorAll('linearGradient,radialGradient').forEach(function(g){
     var gidv = g.getAttribute('id') || '';
