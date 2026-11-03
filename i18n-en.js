@@ -2880,3 +2880,12 @@ Object.assign(window.SyI18nDict, {
   "نعمل على تجهيز شروحات فيديو لكل قسم من SyDent. ستظهر هنا فور جاهزيتها.": "We're preparing video walkthroughs for every section of SyDent. They'll appear here as soon as they're ready.",
   "واتساب:": "WhatsApp:"
 });
+
+/* ── Sign-up: syndicate branch required, Turnstile error code in the pending message ── */
+Object.assign(window.SyI18nDict, {
+  "❌ فرع النقابة إلزامي — اختر الفرع المسجَّل فيه": "❌ The syndicate branch is required — choose the branch you're registered with"
+});
+window.SyI18nPatterns.push(
+  [/^(❌ )?(.+) \(رمز: ([\w-]+)\)$/, function (m, x, msg, code) { var D = window.SyI18nDict, t = D[msg]; return t ? (x || '') + t + ' (code: ' + code + ')' : m; }]
+);
+
