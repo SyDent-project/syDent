@@ -295,7 +295,7 @@ window.SyI18nDict = {
   'إرسال الرابط': 'Send the link',
   'لم يصلك الرابط؟ تحقّق من spam أو تواصل مع الدعم.': "Didn't get the link? Check spam or contact support.",
   'doctor@example.com أو 09xxxxxxxx': 'doctor@example.com or 09xxxxxxxx',
-  'لم يكتمل التحقق «أنا إنسان» بعد. أكمل المربع أعلى الزر إن ظهر، ثم أعد المحاولة': 'The «I am human» check is not finished yet. Complete the box above the button if it shows, then try again',
+  'لم يكتمل التحقق «أنا إنسان» بعد. أكمل المربع أعلى الزر إن ظهر، ثم أعد المحاولة. إن كان لديك VPN مفعّل فأطفئه أولاً، فهو يُفشل التحقق غالباً': 'The «I am human» check is not finished yet. Complete the box above the button if it shows, then try again. If a VPN is on, turn it off first — it often makes the check fail',
   'تم رفض طلب التجربة. تواصل مع الدعم.': 'Your trial request was declined. Contact support.',
   'تم رفض طلب التجربة. تواصل مع الدعم للتفاصيل.': 'Your trial request was declined. Contact support for details.',
   'حسابك موقوف حالياً. تواصل مع الدعم لإعادة التفعيل.': 'Your account is currently suspended. Contact support to reactivate it.',

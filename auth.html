@@ -17,11 +17,11 @@
 <!-- Theme system: MUST load before inline <style>
 /* ── Modal ── v453: التعريف المحلي حُذف — النافذة على عُدّة SyDent الموحّدة. */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261103g"></script>
+<script src="theme.js?v=20261103h"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261103g"></script>
-<script src="sy-modal.js?v=20261103g"></script>
-<script src="pwd-policy.js?v=20261103g"></script>
+<script src="supabase-init.js?v=20261103h"></script>
+<script src="sy-modal.js?v=20261103h"></script>
+<script src="pwd-policy.js?v=20261103h"></script>
 <!-- ── Cloudflare Turnstile (CAPTCHA) ── Axis 3 / Item 2. Helper is defined BEFORE the
      API script so window.onSyDentTurnstileLoad exists when the (async) script fires. -->
 <style>.cf-turnstile-box{margin:2px 0 14px;display:flex;justify-content:center}.cf-turnstile-box:empty{margin:0}</style>
@@ -89,7 +89,7 @@
   };
   // Shown when a submit found no token (the check is still running or waits for a click):
   // nothing is sent to the server, so the user just completes the box and presses again.
-  window.TS_PENDING_MSG = 'لم يكتمل التحقق «أنا إنسان» بعد. أكمل المربع أعلى الزر إن ظهر، ثم أعد المحاولة';
+  window.TS_PENDING_MSG = 'لم يكتمل التحقق «أنا إنسان» بعد. أكمل المربع أعلى الزر إن ظهر، ثم أعد المحاولة. إن كان لديك VPN مفعّل فأطفئه أولاً، فهو يُفشل التحقق غالباً';
   // The pending message plus the last Cloudflare error code, if any (e.g. «رمز: 600010»).
   window.tsPendingMsg = function(name){ var c = errs[name]; return window.TS_PENDING_MSG + (c ? ' (رمز: ' + c + ')' : ''); };
   // The login widget is visible at page load → seed its render intent now.
@@ -270,7 +270,7 @@ body{
 }
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261103g">
+<link rel="stylesheet" href="theme.css?v=20261103h">
 </head>
 <body>
 
