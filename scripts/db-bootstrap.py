@@ -64,6 +64,7 @@ AFTER_SNAPSHOT = [
     'migrations/195_inventory_return_supplier.sql',
     'migrations/196_fk_indexes_and_grants.sql',
     'migrations/197_teeth_history_tenant_delete.sql',
+    'migrations/198_restore_function_api_grants.sql',   # must run LAST after the dump: undoes the anon/authenticated grants Supabase default privileges add to every dumped function
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',
