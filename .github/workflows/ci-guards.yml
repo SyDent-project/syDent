@@ -48,7 +48,8 @@ concurrency:
 
 jobs:
   guards:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # Playwright 1.55: no chromium build for 26.04 (كما e2e وresponsive)
+    timeout-minutes: 45   # مثبتات DOM بمتصفحٍ حقيقي تطيل الحُرّاس (~15–25 د)
     steps:
       - name: Checkout (نسخة ضحلة — depth:1 الافتراضي يكفي الحُرّاس)
         uses: actions/checkout@v5
@@ -62,11 +63,22 @@ jobs:
       # --no-save فلا package.json ولا lockfile ولا تلوّث للمستودع، وacorn
       # أداةُ بناءٍ صرفة لا تصل المتصفّح (Cloudflare يخدم ملفات ثابتة فقط).
       # عند تعذّر التثبيت يتخطّى الحارسُ نفسه بوضوح (⏭️) ولا يُسقِط البوابة.
-      - name: تثبيت acorn (حارس النطاقات)
-        run: npm install acorn --no-save --no-audit --no-fund
+      - name: تثبيت acorn + jsdom (حارس النطاقات · مثبتات jsdom)
+        run: npm install acorn jsdom --no-save --no-audit --no-fund
+
+      # مثبتات DOM الحيّة (scripts/dom-smoke/*) تتخطّى نفسها بلا Playwright — فكانت
+      # خضراء هنا بينما تفشل على جهاز المطوّر (6 تشرين الثاني 2026: 3 فشول لم يرها CI).
+      # التثبيت هنا يجعل البوابة ترى ما يراه المطوّر.
+      - name: Setup Python 3.12 (مثبتات DOM الحيّة — بايثون المُدار خارجياً بـ24.04 يرفض pip)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Playwright + Chromium (مثبتات DOM الحيّة)
+        run: python3 -m pip install --quiet playwright==1.55.0 && python3 -m playwright install --with-deps chromium
 
       - name: نسخة الأدوات (توثيق تشخيصي عند الفشل)
-        run: node --version && python3 --version && node -e "require('acorn');console.log('acorn ✓')"
+        run: node --version && python3 --version && node -e "require('acorn');require('jsdom');console.log('acorn+jsdom ✓')" && python3 -c "import playwright;print('playwright ✓')"
 
       - name: تشغيل حُرّاس الجودة (validate.sh)
         run: bash scripts/validate.sh

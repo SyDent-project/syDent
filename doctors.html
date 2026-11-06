@@ -558,7 +558,7 @@ function renderList() {
     var isDefault = (d.user_id === currentUser.id);
     var defaultBtn = isDefault
       ? '<button class="sy-act sy-act-primary" onclick="unlinkFromUser(\'' + d.id + '\')" title="هذا هو معالجك الافتراضي — اضغط للإلغاء">⭐ المعالج الافتراضي</button>'
-      : '<button class="sy-act" onclick="linkToUser(\'' + d.id + '\')" title="تعيين هذا الطبيب كمعالج افتراضي عند تسجيلك للجلسات">☆ تعيين كمعالج افتراضي</button>';
+      : '<button class="sy-act" onclick="linkToUser(\'' + d.id + '\')" title="تعيين هذا الطبيب كمعالج افتراضي عند تسجيلك للجلسات">☆ معالج افتراضي</button>';
 
     // Owner-doctor: no edit button. The owner's name/specialty is synced from
     // the auth account (user_metadata.full_name) via read-time self-heal, so an

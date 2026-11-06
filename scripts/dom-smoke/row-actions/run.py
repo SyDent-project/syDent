@@ -13,11 +13,11 @@ try:
 except ImportError:
     print('⏭️  playwright غير مثبت — تخطّي مثبت أزرار الصفوف'); sys.exit(0)
 
-# المرجعُ مقيساً (appointments.css + theme.css قبل v469، أزرار طلبات الحجز)
-GOLD = {
-    'light': {'border': 'rgb(179, 195, 211)', 'bg': 'rgb(223, 231, 240)', 'text': 'rgb(16, 42, 67)', 'ico': 'rgb(90, 113, 132)'},
-    'dark':  {'border': 'rgba(46, 232, 158, 0.15)', 'bg': 'rgba(0, 0, 0, 0)', 'text': 'rgb(225, 244, 238)', 'ico': 'rgb(138, 154, 181)'},
-}
+# المرجعُ كان مقيساً بقيمٍ محفورة (appointments.css + theme.css قبل v469، أزرار طلبات الحجز). بعد باليتة C1
+# (#67 الأزرق الطبي · #86 التركوازي) صارت القيمُ المحفورة تحمرّ على 992 توكيداً — والمثبتُ كان يتخطّى نفسه بـCI
+# بلا Playwright فلم يرَها أحد (6 تشرين الثاني 2026). الآن يُحلّ المرجعُ من توكنات الثيم نفسها داخل الصفحة
+# (كما التنويعات منذ v472)، فيبقى المثبتُ مثبتَ *توحيدٍ* لا مثبتَ لونٍ بعينه: الأساسُ .sy-act = var(--bg3)/var(--border2)/var(--text)
+# بالفاتح و transparent/var(--border)/var(--text) بالداكن، والأيقونةُ var(--text2) — انظر theme.css «.sy-act».
 SIZE = {1280: {'h': 32, 'fs': '12.5px', 'ico_w': 32}, 390: {'h': 40, 'fs': '13px', 'ico_w': 44}}
 
 subprocess.run(['node', os.path.join(os.path.dirname(__file__), 'build-harness.js')], check=True, cwd=ROOT, stdout=subprocess.DEVNULL)
@@ -60,6 +60,8 @@ MEASURE = """() => {
   const tok = (bg, bd, fg) => { const d = document.createElement('button'); d.style.cssText = 'background:' + bg + ';border:1px solid ' + bd + ';color:' + fg;
     document.body.appendChild(d); const s = getComputedStyle(d); const o = { bg: s.backgroundColor, bd: s.borderTopColor, fg: s.color }; d.remove(); return o; };
   return { rows, green: probe('var(--green)'), red: probe('var(--red)'), orange: probe('var(--orange)'), redInk: probe('var(--red-ink)'), greenFg: probe('var(--green-fg)'), orangeInk: probe('var(--orange-ink)'),
+           tBase: document.documentElement.dataset.theme === 'light' ? tok('var(--bg3)', 'var(--border2)', 'var(--text)') : tok('transparent', 'var(--border)', 'var(--text)'),
+           tIco: tok('transparent', 'var(--border)', 'var(--text2)'),
            tPrimary: document.documentElement.dataset.theme === 'light' ? tok('var(--green)', 'var(--green)', '#ffffff') : tok('var(--green-bg)', 'var(--green-bd)', 'var(--green-fg)'),
            tPrimaryHover: document.documentElement.dataset.theme === 'light' ? tok('var(--green2)', 'var(--green2)', '#ffffff') : tok('transparent', 'var(--green)', 'var(--green-fg)'), tWarn: tok('var(--orange-bg)', 'var(--orange-bd)', 'var(--orange-ink)'),
            sw: document.documentElement.scrollWidth, vw: window.innerWidth };
@@ -73,7 +75,7 @@ with sync_playwright() as p:
                 pg = b.new_page(viewport={'width': vw, 'height': 900}); hermetic_fonts(pg)
                 errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
                 pg.goto('file://' + os.path.join(ROOT, '_ra', '%s_%s.html' % (base, t))); pg.wait_for_timeout(150)
-                m = pg.evaluate(MEASURE); G = GOLD[t]; S = SIZE[vw]; tag = '%s %s %d' % (base, t, vw)
+                m = pg.evaluate(MEASURE); G = {'border': m['tBase']['bd'], 'bg': m['tBase']['bg'], 'text': m['tBase']['fg'], 'ico': m['tIco']['fg']}; S = SIZE[vw]; tag = '%s %s %d' % (base, t, vw)
                 ok(tag + ': لا تجاوزَ أفقيّ للصفحة', m['sw'] <= m['vw'] + 1, '%s>%s' % (m['sw'], m['vw']))
                 for r in m['rows']:
                     rt = tag + ' [' + r['row'] + ']'

@@ -14,7 +14,7 @@ const PAGES = {
   'appointments.html': {
     /* v470: شريطُ العرض يُقتطع من الصفحة نفسها (لا نسخة) والشارتان ظاهرتان — بلاغُ المالك:
        «طلبات الحجز» وشارتُه كانا يُقصّان بالهاتف. */
-    top: ['  <div class="topbar">', '  <!-- Content -->'],
+    top: ['  <div class="topbar', '  <!-- Content -->'],
     src: ['appointments.html', 'appt-booking.js', 'appt-views.js'],
     anchors: [
       '<div class="list-item booking-item show-acts"',
@@ -166,7 +166,7 @@ const PAGES = {
 <div class="doc-card" data-row="doc-owner"><div class="doc-color-bar" style="background:#0284c7"></div><div class="doc-body"><div class="doc-head"><div class="doc-avatar" style="background:#0284c7">أغ</div><div style="flex:1;"><div class="doc-name">د. أيهم غنيم</div></div></div>
 <div class="doc-actions sy-acts sy-acts-grid"><button class="sy-act sy-act-primary" title="هذا هو معالجك الافتراضي">⭐ المعالج الافتراضي</button></div></div></div>
 <div class="doc-card" data-row="doc-other"><div class="doc-color-bar" style="background:#2563eb"></div><div class="doc-body"><div class="doc-head"><div class="doc-avatar" style="background:#2563eb">مب</div><div style="flex:1;"><div class="doc-name">د. مجد بركة</div></div></div>
-<div class="doc-actions sy-acts sy-acts-grid"><button class="sy-act">✏️ تعديل</button><button class="sy-act" title="تعيين هذا الطبيب كمعالج افتراضي">☆ تعيين كمعالج افتراضي</button></div></div></div>
+<div class="doc-actions sy-acts sy-acts-grid"><button class="sy-act">✏️ تعديل</button><button class="sy-act" title="تعيين هذا الطبيب كمعالج افتراضي">☆ معالج افتراضي</button></div></div></div>
 </div>`,
   },
   'employees.html': {

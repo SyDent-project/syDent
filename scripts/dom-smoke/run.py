@@ -613,7 +613,7 @@ with sync_playwright() as p:
       if (!btn) return { key: null };
       btn.click();
       return { key: examSelectedKey,
-               statusHidden: document.getElementById('examStatusChips').style.display === 'none',
+               statusHidden: document.getElementById('examStatusRow').style.display === 'none',   /* #87: الصفّ كلُّه مع عنوانه يختفي (examStatusRow) لا الشرائح وحدها */
                noteShown: document.getElementById('examCondNote').style.display !== 'none',
                monthsHidden: document.getElementById('examMonthsRow').style.display === 'none' };
     }""")
