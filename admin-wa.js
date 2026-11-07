@@ -72,11 +72,17 @@ var TPL_MOCK_VARS = {
 // the saved support number never showed up in the test message, so the admin
 // believed the save had failed. Empty saved value ⇒ mock stays (preview must
 // still show the line's shape).
+// Owner decision (7 Nov 2026): no saved support number ⇒ no demo number
+// either — the key is REMOVED, so the preview and the test message drop the
+// whole line exactly as the live send does (stripUnfilledSupport). What the
+// admin sees is what the clinic receives.
 function tplPreviewVars() {
   var vars = Object.assign({}, TPL_MOCK_VARS);
   var c = (typeof PLATFORM_SETTINGS_CACHE === 'object' && PLATFORM_SETTINGS_CACHE) || {};
-  if (String(c.support_phone || '').trim()) vars.support_phone = String(c.support_phone).trim();
-  if (String(c.support_email || '').trim()) vars.support_email = String(c.support_email).trim();
+  var ph = String(c.support_phone || '').trim();
+  var em = String(c.support_email || '').trim();
+  if (ph) vars.support_phone = ph; else delete vars.support_phone;
+  if (em) vars.support_email = em; else delete vars.support_email;
   return vars;
 }
 
@@ -375,6 +381,7 @@ function renderTplPreview() {
     // R6 audit fix: single-pass split/join (see renderTemplate for rationale).
     if (body.indexOf(needle) !== -1) body = body.split(needle).join(val);
   });
+  body = stripUnfilledSupport(body);   // same as the live send: no support value ⇒ no line
   var bubble = document.getElementById('tplPreviewBubble');
   if (bubble) bubble.textContent = body;
   // Counter — wa.me text param accepts ~5000 chars safely.
@@ -399,8 +406,8 @@ function renderTplPreview() {
           if (String(c.support_phone || '').trim()) real.push('رقم الدعم');
           if (String(c.support_email || '').trim()) real.push('إيميل الدعم');
           return real.length
-            ? 'ببيانات تجريبية (' + real.join(' و') + ' حقيقيان من إعدادات المنصة) — الإرسال الفعلي يستبدل الباقي.'
-            : 'ببيانات تجريبية — الإرسال الفعلي يستبدل القيم.';
+            ? 'ببيانات تجريبية (' + real.join(' و') + (real.length > 1 ? ' حقيقيان' : ' حقيقي') + ' من إعدادات المنصة) — الإرسال الفعلي يستبدل الباقي.'
+            : 'ببيانات تجريبية — سطرُ الدعم محذوف لأن رقم/إيميل الدعم غير مُعدّ بإعدادات المنصة.';
         })();
   }
 }
@@ -519,6 +526,7 @@ function sendTplTest() {
     // R6 audit fix: single-pass split/join (see renderTemplate for rationale).
     if (body.indexOf(needle) !== -1) body = body.split(needle).join(val);
   });
+  body = stripUnfilledSupport(body);   // same as the live send: no support value ⇒ no line
   var url = 'https://wa.me/' + num + '?text=' + encodeURIComponent(body);
   window.SyDentWA.open(url);   /* v651 */
 }
