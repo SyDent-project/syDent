@@ -65,6 +65,27 @@ var TPL_MOCK_VARS = {
   support_email: 'support@sydent.app'
 };
 
+// tplPreviewVars() — the vars the preview and the «تجريبي» test send use.
+// Mock values for what is only known at send time (clinic name, plan, dates…),
+// but the REAL support phone/email whenever the admin has saved them
+// (PLATFORM_SETTINGS_CACHE, Section H «معلومات الدعم»). Owner report 7 Nov 2026:
+// the saved support number never showed up in the test message, so the admin
+// believed the save had failed. Empty saved value ⇒ mock stays (preview must
+// still show the line's shape).
+// Owner decision (7 Nov 2026): no saved support number ⇒ no demo number
+// either — the key is REMOVED, so the preview and the test message drop the
+// whole line exactly as the live send does (stripUnfilledSupport). What the
+// admin sees is what the clinic receives.
+function tplPreviewVars() {
+  var vars = Object.assign({}, TPL_MOCK_VARS);
+  var c = (typeof PLATFORM_SETTINGS_CACHE === 'object' && PLATFORM_SETTINGS_CACHE) || {};
+  var ph = String(c.support_phone || '').trim();
+  var em = String(c.support_email || '').trim();
+  if (ph) vars.support_phone = ph; else delete vars.support_phone;
+  if (em) vars.support_email = em; else delete vars.support_email;
+  return vars;
+}
+
 // Variable definitions per template — keeps the chip list inside the
 // editor in sync with what each template actually supports. This is
 // the same list as Migration 28.2's `variables` JSONB column, but kept
@@ -351,14 +372,16 @@ function renderTplPreview() {
   // the preview matches the live send path exactly — unsupported tokens
   // (e.g. {price} in wa_welcome) stay literal, same as production.
   var defKeys = (TPL_VAR_DEFS[tplEditorState.currentCode] || []).map(function(d){ return d.key; });
+  var pvars = tplPreviewVars();
   defKeys.forEach(function(k){
-    if (!(k in TPL_MOCK_VARS)) return;
+    if (!(k in pvars)) return;
     var needle = '{' + k + '}';
     // عزل BiDi مطابق لمسار الإرسال الحي — وإلا خالفت المعاينة الإنتاج (tplLtrWrap).
-    var val = tplLtrWrap(k, String(TPL_MOCK_VARS[k]));
+    var val = tplLtrWrap(k, String(pvars[k]));
     // R6 audit fix: single-pass split/join (see renderTemplate for rationale).
     if (body.indexOf(needle) !== -1) body = body.split(needle).join(val);
   });
+  body = stripUnfilledSupport(body);   // same as the live send: no support value ⇒ no line
   var bubble = document.getElementById('tplPreviewBubble');
   if (bubble) bubble.textContent = body;
   // Counter — wa.me text param accepts ~5000 chars safely.
@@ -377,7 +400,15 @@ function renderTplPreview() {
     });
     meta.textContent = unresolved.length
       ? '⚠️ متغيّرات غير مدعومة بهذا القالب: ' + unresolved.join(', ')
-      : 'ببيانات تجريبية — الإرسال الفعلي يستبدل القيم.';
+      : (function(){
+          var c = (typeof PLATFORM_SETTINGS_CACHE === 'object' && PLATFORM_SETTINGS_CACHE) || {};
+          var real = [];
+          if (String(c.support_phone || '').trim()) real.push('رقم الدعم');
+          if (String(c.support_email || '').trim()) real.push('إيميل الدعم');
+          return real.length
+            ? 'ببيانات تجريبية (' + real.join(' و') + (real.length > 1 ? ' حقيقيان' : ' حقيقي') + ' من إعدادات المنصة) — الإرسال الفعلي يستبدل الباقي.'
+            : 'ببيانات تجريبية — سطرُ الدعم محذوف لأن رقم/إيميل الدعم غير مُعدّ بإعدادات المنصة.';
+        })();
   }
 }
 
@@ -485,15 +516,17 @@ function sendTplTest() {
   // Same per-template scoping as renderTplPreview — the test message must
   // mirror what the live send path would actually produce.
   var defKeys = (TPL_VAR_DEFS[tplEditorState.currentCode] || []).map(function(d){ return d.key; });
+  var tvars = tplPreviewVars();
   defKeys.forEach(function(k){
-    if (!(k in TPL_MOCK_VARS)) return;
+    if (!(k in tvars)) return;
     var needle = '{' + k + '}';
     // عزل BiDi مطابق لمسار الإرسال الحي (tplLtrWrap) — رسالة الاختبار يجب أن
     // تصل الهاتف بنفس رسم الرسالة الحقيقية حرفياً.
-    var val = tplLtrWrap(k, String(TPL_MOCK_VARS[k]));
+    var val = tplLtrWrap(k, String(tvars[k]));
     // R6 audit fix: single-pass split/join (see renderTemplate for rationale).
     if (body.indexOf(needle) !== -1) body = body.split(needle).join(val);
   });
+  body = stripUnfilledSupport(body);   // same as the live send: no support value ⇒ no line
   var url = 'https://wa.me/' + num + '?text=' + encodeURIComponent(body);
   window.SyDentWA.open(url);   /* v651 */
 }
