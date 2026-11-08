@@ -1682,7 +1682,15 @@ function c360BuildOverview(r) {
     : '—';
   var lastSignInText = act && act.lastSignIn ? evfFormatTimestamp(act.lastSignIn) : '—';
   var lastActivityText = act && act.lastActivity ? evfFormatTimestamp(act.lastActivity) : '—';
-  var onlineText = isOnlineNow(act) ? '🟢 متصل الآن' : '⚪ غير متصل';
+  var lastSeenAtText = act && act.lastSeenAt ? evfFormatTimestamp(act.lastSeenAt) : 'لا تصفّح مسجّل';
+  // Same honest label as the card (presenceSource): sign-in alone = «آخر دخول».
+  var onlineText = (function(){
+    if (isOnlineNow(act)) return '🟢 متصل الآن';
+    var seen = lastSeenMs(act);
+    if (seen === null) return '⚪ غير متصل';
+    var lbl = presenceSource(act) === 'signin' ? 'آخر دخول' : 'آخر ظهور';
+    return '⚪ غير متصل · ' + lbl + ' ' + timeSince(new Date(seen).toISOString());
+  })();
   var patientsCount     = (act && typeof act.patients === 'number')     ? act.patients     : '—';
   var appointmentsCount = (act && typeof act.appointments === 'number') ? act.appointments : '—';
   var employeesCount    = (act && typeof act.employees === 'number')    ? act.employees    : '—';
@@ -1741,6 +1749,7 @@ function c360BuildOverview(r) {
     +   c360Row('فرع النقابة', c360EscapeHtml(synBranchOf(r) || '—'))
     +   c360Row('الرقم النقابي', c360EscapeHtml(synNoOf(r) || '—'))
     +   c360Row('الحالة', onlineText)
+    +   c360Row('آخر تصفّح', lastSeenAtText)
     +   c360Row('آخر نشاط', lastActivityText)
     +   c360Row('آخر تسجيل دخول', lastSignInText)
     + '</div>';
