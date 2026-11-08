@@ -429,6 +429,7 @@ header{
   border-bottom:1px dashed rgba(var(--purple-rgb),0.12);
 }
 .activity-row:last-child{border-bottom:none;}
+.activity-row b.act-time{cursor:pointer;border-bottom:1px dotted currentColor;}   /* tap/hover reveals the exact time */
 .activity-row b{
   color:var(--text);font-weight:800;
   font-family:'Cairo',sans-serif;font-size:13px;

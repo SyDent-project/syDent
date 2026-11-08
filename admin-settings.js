@@ -54,6 +54,38 @@ function lastSeenMs(act) {
   return (best > 0 && isFinite(best)) ? best : null;
 }
 
+// Which signal produced lastSeenMs — 'heartbeat' (presence ping while
+// browsing), 'activity' (an audit_log write), 'signin' (password sign-in
+// only), or null. Drives the honest status label: a sign-in with no
+// heartbeat/activity after it is a login, not a sighting.
+function presenceSource(act) {
+  var seen = lastSeenMs(act);
+  if (seen === null) return null;
+  var tH = act.lastSeenAt   ? new Date(act.lastSeenAt).getTime()   : NaN;
+  var tA = act.lastActivity ? new Date(act.lastActivity).getTime() : NaN;
+  if (isFinite(tH) && tH === seen) return 'heartbeat';
+  if (isFinite(tA) && tA === seen) return 'activity';
+  return 'signin';
+}
+
+// Relative time that reveals the exact timestamp: hover (title) on desktop,
+// tap toggles rel ⇄ exact on touch. Exact = SyDT numbers + time (#date rule).
+function actTime(iso, emptyText) {
+  if (!iso) return '<b>' + escapeHtml(emptyText || '—') + '</b>';
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return '<b>—</b>';
+  var rel = timeSince(d.toISOString());
+  var exact = SyDT.numDate(d) + ' — ' + SyDT.time12(d);
+  return '<b class="act-time" title="' + escapeHtml(exact) + '" data-rel="' + escapeHtml(rel) +
+         '" data-exact="' + escapeHtml(exact) + '" onclick="actTimeToggle(this)">' + escapeHtml(rel) + '</b>';
+}
+function actTimeToggle(el) {
+  if (!el || !el.dataset) return;
+  var showingExact = el.dataset.on === '1';
+  el.textContent = showingExact ? el.dataset.rel : el.dataset.exact;
+  el.dataset.on = showingExact ? '0' : '1';
+}
+
 // Online = any signal (heartbeat / activity / sign-in) within the last
 // 15 minutes. The heartbeat writes at most every 10 min, so 15 gives one
 // full cycle of slack — a clinic with a page open can never flap offline.
@@ -158,13 +190,21 @@ function renderActivityPanel(reqId) {
       (function(){
         var on = isOnlineNow(c);
         var seen = lastSeenMs(c);
+        var src = presenceSource(c);
+        // Honest label: 'signin' alone means the doctor logged in and left no
+        // trace since — say «آخر دخول», not «آخر ظهور».
+        var seenLabel = (src === 'signin') ? 'آخر دخول ' : 'آخر ظهور ';
         var txt = on ? '🟢 متصل الآن'
-                     : (seen !== null ? '⚪ غير متصل · آخر ظهور ' + timeSince(new Date(seen).toISOString())
+                     : (seen !== null ? '⚪ غير متصل · ' + seenLabel + timeSince(new Date(seen).toISOString())
                                        : '⚪ غير متصل');
-        return '<div class="activity-row"><span>📡 الحالة:</span>     <b style="color:' + (on ? 'var(--green, #0e7a8c)' : 'inherit') + ';">' + escapeHtml(txt) + '</b></div>';
+        var exact = seen !== null ? (SyDT.numDate(new Date(seen)) + ' — ' + SyDT.time12(new Date(seen))) : '';
+        return '<div class="activity-row"><span>📡 الحالة:</span>     <b' + (exact ? ' title="' + escapeHtml(exact) + '"' : '') +
+               ' style="color:' + (on ? 'var(--green, #0e7a8c)' : 'inherit') + ';">' + escapeHtml(txt) + '</b></div>';
       })() +
-      '<div class="activity-row"><span>⚡ آخر نشاط:</span>   <b>' + escapeHtml(c.lastActivity ? timeSince(c.lastActivity) : 'لا نشاط مسجّل') + '</b></div>' +
-      '<div class="activity-row"><span>🕐 آخر تسجيل دخول:</span>   <b>' + escapeHtml(timeSince(c.lastSignIn)) + '</b></div>' +
+      // آخر تصفّح = نبضة التواجد (M82/M199): الطبيب يقرأ ويتصفّح بلا عملية — مصدر موجود أصلاً، يُعرض بمكانه.
+      '<div class="activity-row"><span>🧭 آخر تصفّح:</span>   ' + actTime(c.lastSeenAt, 'لا تصفّح مسجّل') + '</div>' +
+      '<div class="activity-row"><span>⚡ آخر نشاط:</span>   ' + actTime(c.lastActivity, 'لا نشاط مسجّل') + '</div>' +
+      '<div class="activity-row"><span>🕐 آخر تسجيل دخول:</span>   ' + actTime(c.lastSignIn, 'لم يدخل بعد') + '</div>' +
     '</div>'
   );
 }
