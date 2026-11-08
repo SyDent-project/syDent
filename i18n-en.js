@@ -258,7 +258,7 @@ window.SyI18nDict = {
   'رقم الموبايل': 'Mobile number',
   '(واتساب —': '(',
   'البريد الإلكتروني': 'Email',
-  'به تسجّل الدخول. لا يلزم أن يكون بريداً تستخدمه، لكن بصيغة بريد مثل name@gmail.com — والبريد الحقيقي وحده يتيح استعادة كلمة المرور.': "You sign in with it. It doesn't have to be an inbox you use, but it must look like an email such as name@gmail.com — and only a real inbox lets you recover your password.",
+  'استخدم بريد Gmail حقيقياً، فهو الطريقة الوحيدة لاستعادة كلمة المرور.': "Use a real Gmail address — it's the only way to recover your password.",
   'فرع النقابة': 'Syndicate branch',
   'اختر الفرع': 'Choose the branch',
   'دمشق': 'Damascus',
