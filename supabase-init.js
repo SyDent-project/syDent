@@ -3885,6 +3885,12 @@
               // clear the stamp so the next page load retries.
               try { localStorage.removeItem(key); } catch(_) {}
               console.warn('[presenceHeartbeat] skipped:', r.error.message);
+            } else if (r && r.data === false) {
+              // M199: no clinic_settings row yet (brand-new account — the
+              // onboarding seed runs a moment after autoInit). Clear the
+              // stamp so the 5-min timer / next page load stamps presence
+              // as soon as the row exists, instead of a 10-min blind spot.
+              try { localStorage.removeItem(key); } catch(_) {}
             }
           });
       }).catch(function(e) {
