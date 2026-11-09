@@ -429,6 +429,13 @@ header{
   border-bottom:1px dashed rgba(var(--purple-rgb),0.12);
 }
 .activity-row:last-child{border-bottom:none;}
+.activity-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:-2px 0 2px;}
+.activity-fresh{font-size:11px;color:var(--text2);font-weight:600;}
+.activity-refresh{background:transparent;border:1px solid rgba(var(--purple-rgb),0.25);border-radius:8px;
+  width:30px;height:28px;cursor:pointer;font-size:13px;line-height:1;display:inline-flex;align-items:center;justify-content:center;
+  transition:all .18s;color:var(--text);direction:ltr;}
+.activity-refresh:hover:not(:disabled){background:rgba(var(--purple-rgb),0.10);}
+.activity-refresh:disabled{opacity:.55;cursor:default;}
 .activity-row b.act-time{cursor:pointer;border-bottom:1px dotted currentColor;}   /* tap/hover reveals the exact time */
 .activity-row b{
   color:var(--text);font-weight:800;

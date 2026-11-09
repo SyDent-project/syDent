@@ -2033,7 +2033,7 @@
       email: user.email || null,
       city: city || null,
       syndicate_no: syn || null,
-      notes: 'أُعيد إنشاء الطلب تلقائياً عند الدخول — حساب auth بلا طلب تجربة (M139)',
+      notes: 'أُعيد إنشاء الطلب تلقائياً عند الدخول — حساب auth بلا طلب تجربة',
       status: 'new',
       user_id: user.id
     };
