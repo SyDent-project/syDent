@@ -103,17 +103,38 @@ function fmtMetric(v) {
 
 // Lazy-fetch metrics for a tenant. Caches on success AND on partial error
 // (graceful degradation: per-metric fetch failures become null → '—').
-async function fetchActivityFor(userId, reqId) {
+// Presence freshness (v701). The panel used to be fetched once and then
+// served from activityCache for the whole admin session, so «متصل الآن»
+// (15-min window) and every relative time froze at first expansion. Now a
+// loaded entry carries fetchedAt; an expanded panel older than
+// ACTIVITY_TTL_MS is re-fetched in the background (old values stay on
+// screen — no loader flash) on expand, on a 60-s tick while the tab is
+// visible, and on the panel's 🔄 button.
+var ACTIVITY_TTL_MS = 60 * 1000;
+function activityIsStale(c) {
+  return !!(c && c.loaded && !c.loading && !c.refreshing &&
+            (!c.fetchedAt || (Date.now() - c.fetchedAt) > ACTIVITY_TTL_MS));
+}
+// background=true: keep the loaded entry visible and mark it refreshing
+// instead of replacing it with the loader.
+async function fetchActivityFor(userId, reqId, background) {
   if (!userId) {
     activityCache[reqId] = { loading: false, loaded: true, error: 'no_user_id',
                               patients: null, appointments: null, employees: null,
-                              lastSignIn: null, lastActivity: null, lastSeenAt: null };
+                              lastSignIn: null, lastActivity: null, lastSeenAt: null,
+                              fetchedAt: Date.now() };
     return;
   }
-  activityCache[reqId] = { loading: true, loaded: false, error: null,
-                            patients: null, appointments: null, employees: null,
-                            lastSignIn: null, lastActivity: null, lastSeenAt: null };
-  renderList(); // show loader immediately
+  var prev = activityCache[reqId];
+  if (background && prev && prev.loaded && !prev.loading) {
+    if (prev.refreshing) return;      // one in-flight refresh per panel
+    prev.refreshing = true;
+  } else {
+    activityCache[reqId] = { loading: true, loaded: false, error: null,
+                              patients: null, appointments: null, employees: null,
+                              lastSignIn: null, lastActivity: null, lastSeenAt: null };
+    renderList(); // show loader immediately
+  }
 
   // Phase E1: counts + last_sign_in now come from the admin-ops Edge Function
   // in ONE round-trip (was four separate service-key fetches). The function
@@ -136,10 +157,42 @@ async function fetchActivityFor(userId, reqId) {
     // Presence heartbeat (Migration 82) — stamped ~every 10 min by
     // supabase-init.js while any tenant page is open. Covers pure
     // browsing that neither lastSignIn nor audit_log can see.
-    lastSeenAt:   (_ad.lastSeenAt || null)
+    lastSeenAt:   (_ad.lastSeenAt || null),
+    fetchedAt:    Date.now()
   };
-  renderList();
+  // A background refresh that failed outright keeps the previous values
+  // (they are at least as truthful as four dashes); only a cold load
+  // shows the failure state.
+  if (background && prev && prev.loaded && !(_act && _act.ok)) {
+    prev.refreshing = false;
+    prev.fetchedAt = Date.now();   // back off until the next tick
+    activityCache[reqId] = prev;
+  }
+  if (activityExpanded[reqId] || !background) renderList();
 }
+
+// Manual refresh from the panel header — background (no loader flash).
+function refreshActivity(reqId) {
+  var r = allRequests.find(function(x){ return x.id === reqId; });
+  if (!r) return;
+  fetchActivityFor(r.user_id, reqId, true);
+}
+
+// 60-s tick: re-fetch every expanded, stale panel while the tab is visible.
+// Collapsed panels are left alone (they re-check on expand) — one request
+// per open panel per minute, nothing when nobody is looking.
+function activityTick() {
+  if (document.hidden) return;
+  for (var id in activityExpanded) {
+    if (!activityExpanded[id]) continue;
+    var c = activityCache[id];
+    if (!activityIsStale(c)) continue;
+    var r = allRequests.find(function(x){ return x.id === id; });
+    if (r && r.user_id) fetchActivityFor(r.user_id, id, true);
+  }
+}
+setInterval(activityTick, ACTIVITY_TTL_MS);
+document.addEventListener('visibilitychange', function(){ if (!document.hidden) activityTick(); });
 
 function toggleActivity(reqId) {
   var r = allRequests.find(function(x){ return x.id === reqId; });
@@ -156,6 +209,8 @@ function toggleActivity(reqId) {
     fetchActivityFor(r.user_id, reqId);
   } else {
     renderList();
+    // Cached but older than the TTL → refresh behind the shown values.
+    if (activityIsStale(activityCache[reqId])) fetchActivityFor(r.user_id, reqId, true);
   }
 }
 
@@ -182,8 +237,17 @@ function renderActivityPanel(reqId) {
                'onclick="retryActivity(\'' + reqId + '\')">🔄 إعادة المحاولة</button>' +
            '</div>';
   }
+  // Header: freshness stamp + manual refresh (background, keeps values).
+  var freshTxt = c.refreshing ? '⏳ يُحدَّث…'
+               : (c.fetchedAt ? 'محدَّث ' + timeSince(new Date(c.fetchedAt).toISOString()) : '');
+  var head = '<div class="activity-head">' +
+               '<span class="activity-fresh">' + escapeHtml(freshTxt) + '</span>' +
+               '<button type="button" class="activity-refresh" title="تحديث الآن" aria-label="تحديث الآن" ' +
+                 (c.refreshing ? 'disabled ' : '') +
+                 'onclick="refreshActivity(\'' + reqId + '\')">🔄</button>' +
+             '</div>';
   return (
-    '<div class="activity-panel">' +
+    '<div class="activity-panel">' + head +
       '<div class="activity-row"><span>👥 المرضى:</span>     <b>' + fmtMetric(c.patients)     + '</b></div>' +
       '<div class="activity-row"><span>📅 المواعيد:</span>   <b>' + fmtMetric(c.appointments) + '</b></div>' +
       '<div class="activity-row"><span>👨‍⚕️ الموظفين النشطين:</span> <b>' + fmtMetric(c.employees) + '</b></div>' +
