@@ -795,6 +795,8 @@ async function init() {
     if (window.SyLive) window.SyLive.watch({ name: 'accounting', uid: currentUser.id,
       tables: ['ledger_sessions', 'ledger_payments', 'payment_splits', 'account_adjustments', 'expenses', 'lab_payments', 'provider_payouts', 'inventory_movements', 'lab_orders'],
       refresh: async function () {   /* v623 SyLive: لحظيّ بلا تحديث (M185) — يعيد التقرير المفتوح بصمت */
+        /* v702: كشفُ اليوم يلحق أيضاً (كان يبقى على أرقام لحظة فتح الصفحة) — مستقلٌّ عن فترة التقرير وصحّتها */
+        try { if (window.SyDentDaySheet && window.SyDentDaySheet.refresh && !_blocked()) await window.SyDentDaySheet.refresh(); } catch (e) { console.warn('daysheet live (non-critical):', e); }
         var from = $('fromDate') && $('fromDate').value, to = $('toDate') && $('toDate').value;
         if (!from || !to || from > to || _applyInFlight || _blocked()) return;
         await loadAllInRange(from, to);

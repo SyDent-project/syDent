@@ -293,7 +293,7 @@
   }
 
   /* ── التركيب على الصفحة ── */
-  var _st = { host: null, sb: null, uid: null, fmt: null, day: null, res: null, inFlight: false, seq: 0 };
+  var _st = { host: null, sb: null, uid: null, fmt: null, day: null, res: null, inFlight: false, seq: 0, editing: {} };
   async function mount(host, sb, uid, fmt) {
     _st.host = host; _st.sb = sb; _st.uid = uid; _st.fmt = fmt;
     await pick(todayYmd());
@@ -302,7 +302,7 @@
     if (!_st.host) return;
     var day = v === 'today' ? todayYmd() : (v === 'yesterday' ? shiftYmd(todayYmd(), -1) : String(v || '').slice(0, 10));
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
-    _st.day = day;
+    _st.day = day; _st.editing = {};
     var seq = ++_st.seq;
     _st.host.innerHTML = renderSection(day, '<div class="ds-empty">⏳ جارٍ التحميل…</div>');
     var r = await load(_st.sb, _st.uid, day);
@@ -310,6 +310,48 @@
     _st.res = r.ok ? compute(r.data, day) : null;
     var body = document.getElementById('dsBody');
     if (body) body.innerHTML = renderBody(_st.res, day, _st.fmt);
+  }
+  /* ── v702: ما كتبه المستخدم بنموذج الإقفال يُحفظ عبر أيِّ إعادة رسم (تحديثٌ لحظي · فحصُ ما قبل الإقفال) ── */
+  function formSnapshot() {
+    var snap = { focus: null };
+    var ae = (typeof document !== 'undefined' && document.activeElement) || null;
+    CURS.forEach(function (cur) {
+      var c = document.getElementById('dsCounted_' + cur), n = document.getElementById('dsNote_' + cur);
+      if (c || n) snap[cur] = { counted: c ? c.value : '', note: n ? n.value : '' };
+      if (ae && (ae === c || ae === n)) snap.focus = ae.id;
+    });
+    return snap;
+  }
+  function formRestore(snap) {
+    if (!snap) return;
+    CURS.forEach(function (cur) {
+      if (!snap[cur]) return;
+      var c = document.getElementById('dsCounted_' + cur), n = document.getElementById('dsNote_' + cur);
+      if (c && snap[cur].counted !== '') c.value = snap[cur].counted;
+      if (n && snap[cur].note !== '') n.value = snap[cur].note;
+    });
+    if (snap.focus) { var f = document.getElementById(snap.focus); if (f && f.focus) { try { f.focus(); } catch (e) {} } }
+  }
+  /* يرسم نتيجةً جديدة لليوم المعروض بلا وميض، ويُبقي نموذجَ «تعديل الإقفال» مفتوحاً إن كان مفتوحاً */
+  function applyResult(res, day) {
+    var body = document.getElementById('dsBody');
+    var snap = formSnapshot(), editing = _st.editing || {};
+    _st.res = res;
+    if (!body) return;
+    body.innerHTML = renderBody(res, day, _st.fmt);
+    CURS.forEach(function (cur) { if (editing[cur] && res && res[cur] && res[cur].closing) openEditForm(cur); });
+    formRestore(snap);
+  }
+  /* تحديثٌ صامت (SyLive بصفحة المحاسبة): دفعةٌ/مصروفٌ سُجّل من جهازٍ أو تبويبٍ آخر ⇒ الكشفُ يلحق بلا إعادة تحميل.
+     فشلُ التحميل الصامت يُبقي آخرَ كشفٍ سليم (لا يستبدله برسالة خطأ)؛ واختيارُ يومٍ أثناء الطيران يفوز. */
+  async function refresh() {
+    if (!_st.host || !_st.day || _closeBusy) return false;
+    var day = _st.day, seq = _st.seq;
+    var r = await load(_st.sb, _st.uid, day);
+    if (seq !== _st.seq || day !== _st.day || _closeBusy) return false;
+    if (!r.ok) return false;
+    applyResult(compute(r.data, day), day);
+    return true;
   }
   function print() {
     var sec = document.getElementById('daySheetSection');
@@ -343,6 +385,20 @@
     var note = noteEl ? String(noteEl.value || '').trim().slice(0, 300) : '';
     _closeBusy = true;
     try {
+      /* v702: الإقفالُ لقطةٌ للمساءلة ⇒ يُبنى على الدفتر الآن لا على ما رُسم قبل دقائق. إن تحرّك اليومُ
+         (دفعةٌ من جهازٍ آخر) أو أُقفل من جهازٍ آخر: يُعاد الرسمُ بالأرقام الجديدة ويُطلب التأكيدُ من جديد — لا كتابة. */
+      var fr = await load(_st.sb, _st.uid, _st.day);
+      if (!fr.ok) { if (window.showToast) window.showToast('⚠️ تعذّر التحقق من حركة اليوم — تحقّق من الاتصال وأعد المحاولة'); return; }
+      var fresh = compute(fr.data, _st.day), FL = fresh[cur];
+      var closedElsewhere = !!(FL.closing && !L.closing);
+      if (closedElsewhere || Math.abs(FL.net.cash - L.net.cash) > 0.005) {
+        if (closedElsewhere) _st.editing[cur] = false;
+        applyResult(fresh, _st.day);
+        if (window.showToast) window.showToast(closedElsewhere
+          ? 'ℹ️ هذا اليوم أُقفل للتوّ من جهازٍ آخر — راجع الإقفال المعروض'
+          : 'ℹ️ تغيّرت حركة اليوم — المتوقّع صار ' + _st.fmt(FL.net.cash, cur) + '. راجع الرقم ثم اضغط «إقفال اليوم» مجدداً');
+        return;
+      }
       /* M165: متوقَّعٌ سالب = دفعةٌ نقدية مسجّلة «من الدرج» أكبر من داخله — غالباً مصدرُها خطأ.
          لا منع (قد يكون بالدرج رصيدٌ سابق)، لكن تأكيدٌ صريح قبل حفظ «زيادة» محسوبة على سالب. */
       if (L.net.cash < 0) {
@@ -355,6 +411,7 @@
         .select().single();
       if (res.error) { if (window.showToast) window.showToast('⚠️ فشل الإقفال: ' + (res.error.message || '')); return; }
       if (window.showToast) window.showToast('✅ أُقفل الصندوق');
+      _st.editing[cur] = false;
       await pick(_st.day);
     } catch (e) { if (window.showToast) window.showToast('⚠️ فشل الإقفال'); }
     finally { _closeBusy = false; }
@@ -363,7 +420,12 @@
   function reopen(cur) {
     if (window.SyDentSub && window.SyDentSub.blockReadOnly && window.SyDentSub.blockReadOnly()) return;
     if (!_st.res || !_st.res[cur]) return;
-    var L = _st.res[cur], prev = L.closing;
+    _st.editing[cur] = true;
+    openEditForm(cur);
+  }
+  function openEditForm(cur) {
+    var L = _st.res && _st.res[cur]; if (!L) return;
+    var prev = L.closing;
     var box = document.querySelector('.ds-close[data-ds-close="' + cur + '"]');
     if (!box) return;
     L.closing = null;
@@ -376,7 +438,7 @@
 
   window.SyDentDaySheet = {
     compute: compute, load: load, renderBody: renderBody, renderSection: renderSection, renderClosing: renderClosing,
-    mount: mount, pick: pick, print: print, close: close, reopen: reopen,
+    mount: mount, pick: pick, refresh: refresh, print: print, close: close, reopen: reopen,
     localDayOf: localDayOf, shiftYmd: shiftYmd, todayYmd: todayYmd
   };
 })();
