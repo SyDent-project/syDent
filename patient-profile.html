@@ -703,12 +703,25 @@
           <select id="adjKind" onchange="onAdjKindChange()">
             <option value="discount">خصم (تخفيض على المريض)</option>
             <option value="write_off">إعدام دين (مبلغ متعذّر تحصيله)</option>
-            <option value="refund">استرداد (إعادة مبلغ نقداً للمريض)</option>
+            <option value="refund">استرداد (إعادة مبلغ للمريض)</option>
           </select>
         </div>
         <div class="form-group"><label>المبلغ (<span data-cur>ل.س</span>)</label><input type="number" id="adjAmount" placeholder="مثال: 20000" min="0" inputmode="numeric"></div>
       </div>
       <div id="adjHint" style="font-size:12px;color:var(--text2);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:12px;"></div>
+      <!-- M200 (v702): بأيِّ طريقةٍ أُعيد المبلغ — يظهر مع «استرداد» فقط؛ كشفُ اليوم يخصم من الدرج النقديَّ وحده -->
+      <div class="form-group" id="adjMethodGroup" style="display:none;"><label>طريقة إعادة المبلغ</label>
+        <select id="adjMethod">
+          <option value="cash">نقد (من درج العيادة)</option>
+          <option value="bank">تحويل بنكي</option>
+          <option value="check">شيك</option>
+          <option value="shamcash">شام كاش</option>
+          <option value="syriatel">سيريتل كاش</option>
+          <option value="mtn">MTN كاش</option>
+          <option value="online">أونلاين</option>
+          <option value="other">أخرى</option>
+        </select>
+      </div>
       <div class="form-group"><label>التاريخ</label><input type="date" id="adjDate"></div>
       <div class="form-group"><label>السبب / ملاحظة (اختياري)</label><textarea id="adjNote" placeholder="مثال: خصم مجاملة، أو إعادة دفعة زائدة…"></textarea></div>
     </div>
@@ -4392,9 +4405,11 @@ function onAdjKindChange() {
   var hint = '';
   if (kind === 'discount')       hint = 'تخفيض على قيمة العلاج المنجز — يقلّل ما هو مستحق على المريض. ليس نقداً.';
   else if (kind === 'write_off') hint = 'شطب مبلغ متعذّر تحصيله — يقلّل المستحق على المريض. ليس نقداً.';
-  else if (kind === 'refund')    hint = 'إعادة مبلغ نقداً للمريض — يقلّل رصيده المقدّم أولاً، وأي فائض يعيد فتح المستحق، ويُخصم من إيراد العيادة.';
+  else if (kind === 'refund')    hint = 'إعادة مبلغ للمريض — يقلّل رصيده المقدّم أولاً، وأي فائض يعيد فتح المستحق، ويُخصم من إيراد العيادة. اختر طريقة الإعادة: النقد وحده يُخصم من درج العيادة في كشف اليوم.';
   var el = document.getElementById('adjHint');
   if (el) el.textContent = hint;
+  var mg = document.getElementById('adjMethodGroup');   // M200
+  if (mg) mg.style.display = (kind === 'refund') ? '' : 'none';
 }
 
 function openAdjustmentModal() {
@@ -4407,6 +4422,7 @@ function openAdjustmentModal() {
   document.getElementById('adjAmount').value = '';
   document.getElementById('adjNote').value   = '';
   document.getElementById('adjDate').value   = toDay();
+  document.getElementById('adjMethod').value = 'cash';   // M200
   onAdjKindChange();
   try { window.SyDentCurPick.mount('adjAmount'); } catch (e) {}
   openModal('adjModal');
@@ -4425,6 +4441,7 @@ async function saveAdjustment() {
   if (['discount','write_off','refund'].indexOf(kind) === -1) { showToast('⚠️ اختر نوع التسوية'); return; }
   if (!amount || amount <= 0) { showToast('⚠️ أدخل مبلغاً صحيحاً'); return; }
   if (!date) { showToast('⚠️ اختر التاريخ'); return; }
+  var adjMethod = (kind === 'refund') ? window.SyDentPayMethods.norm(document.getElementById('adjMethod').value) : null;   // M200
   var saveBtn = document.getElementById('adjModalSaveBtn');
   _adjSaveInFlight = true;
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'جارٍ الحفظ…'; }
@@ -4432,6 +4449,7 @@ async function saveAdjustment() {
     var res = await window.sb.from('account_adjustments').insert({
       doctor_id: currentUser.id, patient_id: patientId,
       kind: kind, amount: amount, note: note, date: date,
+      payment_method: adjMethod,                         // M200: للاسترداد فقط (قيدُ القاعدة)
       currency: window.SyDentCurPick.read('adjAmount')   // M125
     }).select().single();
     if (res.error || !res.data) {
@@ -4453,8 +4471,8 @@ async function saveAdjustment() {
         entityId: res.data.id,
         patientId: patientId,
         patientName: (patient && patient.name) || '',
-        description: 'تسوية (' + adjKindLabel(kind) + '): ' + amount + ' ' + _rowLbl(res.data),   // M1: عملة الصف لا العيادة، وبلا بتر سنتات
-        newValue: { kind: kind, amount: amount, currency: _rowCur(res.data), date: date, note: note }
+        description: 'تسوية (' + adjKindLabel(kind) + '): ' + amount + ' ' + _rowLbl(res.data) + (adjMethod ? ' — ' + window.SyDentPayMethods.label(adjMethod) : ''),   // M1: عملة الصف لا العيادة، وبلا بتر سنتات
+        newValue: { kind: kind, amount: amount, currency: _rowCur(res.data), date: date, note: note, payment_method: adjMethod }
       });
     }
     showToast('✅ تم حفظ التسوية');
@@ -4499,8 +4517,9 @@ function renderAdjustments() {
     el.innerHTML = '<div class="empty" style="padding:20px 16px;"><div style="font-size:13px;color:var(--text2)">لا توجد تسويات.<span data-sub-write> استخدم الزر أعلاه لإضافة خصم أو إعدام دين أو استرداد.</span></div></div>';
     return;
   }
-  var tagFor = function(kind){
-    if (kind === 'refund')    return '<span class="tag tone tone-red">استرداد</span>';
+  var tagFor = function(kind, row){
+    /* M200: طريقةُ إعادة المبلغ بجانب الشارة (الفارغُ = صفٌّ قديم ⇒ نقد) */
+    if (kind === 'refund')    return '<span class="tag tone tone-red">استرداد</span> <span style="font-size:11px;color:var(--text2);">' + escapeHtml(window.SyDentPayMethods.label(row && row.payment_method ? row.payment_method : 'cash')) + '</span>';
     if (kind === 'write_off') return '<span class="tag tone tone-yellow">إعدام دين</span>';
     return '<span class="tag tone tone-yellow">خصم</span>';
   };
@@ -4510,7 +4529,7 @@ function renderAdjustments() {
     if (a.note && String(a.note).trim()) aMeta.push(escapeHtml(a.note));
     rows += '<tr>'
       + '<td class="mc-hide">' + SyDT.cellRec(a.date, a.created_at) + '</td>'
-      + '<td class="mc-title">' + tagFor(a.kind) + '<div class="mc-only mc-meta">' + aMeta.join(' · ') + '</div></td>'
+      + '<td class="mc-title">' + tagFor(a.kind, a) + '<div class="mc-only mc-meta">' + aMeta.join(' · ') + '</div></td>'
       + '<td class="mc-hide" style="color:var(--text2)">' + escapeHtml(a.note || '—') + '</td>'
       + '<td class="mc-side" style="text-align:left;color:var(--amber);font-weight:700;white-space:nowrap;">− ' + fmt(a.amount) + ' ' + _rowLbl(a) + '</td>'
       + '<td class="mc-actions" style="white-space:nowrap;"><div class="sy-acts"><button class="sy-act sy-act-danger" onclick="delAdjustment(\'' + a.id + '\')">🗑️ حذف</button></div></td>'

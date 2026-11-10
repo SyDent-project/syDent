@@ -14,8 +14,9 @@
    • **الخارج** = المصروفات (date) · دفعاتُ المخابر (pay_date) · الرواتبُ ودفعاتُ الأطباء
      (paid_at بيومه المحلي — مرآةُ `inLocalRange`) · الاستردادات (account_adjustments.date).
    • **كيسٌ لكلِّ عملة** (#481): لا جمعَ عابر.
-   • **الدرجُ نقداً**: الداخلُ بطريقة «نقداً» − الخارجُ بطريقة «نقداً» **من الدرج**؛ ما لا طريقةَ له
-     (الاستردادات · دفعاتُ المخابر) يُعدّ نقداً **صراحةً** ويُقال ذلك بالكشف.
+   • **الدرجُ نقداً**: الداخلُ بطريقة «نقداً» − الخارجُ بطريقة «نقداً» **من الدرج**. دفعاتُ المخابر
+     والاستردادات صار لها طريقةُ دفع (M200 — v702)؛ صفوفُها القديمة الفارغة تُقرأ نقداً كما كانت.
+     حركةٌ بلا طريقةٍ إطلاقاً (دفعةُ مريض · مصروف · راتب) ⇒ «بلا طريقة مسجَّلة» + تنبيهٌ صريح (لا تمسّ الدرج).
    • **مصدرُ النقد (M165 — v548):** المدفوعُ نقداً «من خارج الدرج» (خزنة · جيب الطبيب —
      `cash_source='outside'`) يبقى خارجاً بالكشف والحسابات لكنه **لا يُخصم من الدرج**، ويُعرض
      سطراً مستقلاً؛ الفارغُ = من الدرج (الصفوفُ القائمة كما كانت). المتوقَّعُ السالب يُنبَّه عليه ويُؤكَّد.
@@ -59,6 +60,14 @@
   /* M165: هل خرج هذا النقدُ من خارج الدرج؟ (الفارغُ/المجهول ⇒ من الدرج — سلوكُ ما قبل M165) */
   function srcOutside(raw) { var pm = PM(); return pm && pm.normSource ? pm.normSource(raw) === 'outside' : String(raw || '') === 'outside'; }
   var OUT_KEY = 'cash_outside', OUT_LABEL = 'نقداً — من خارج الدرج';
+  /* v702: حركةٌ حُفظت بلا طريقة دفع إطلاقاً ⇒ سلّةٌ باسمها الصريح (كانت تذوب بـ«أخرى») وتنبيهٌ بالكشف:
+     لا تُحسب بالدرج، فيعرف الطبيبُ لماذا لا يطابق العدُّ ويصحّحها من مصدرها. */
+  var NONE_KEY = 'none', NONE_LABEL = 'بلا طريقة مسجَّلة';
+  function isBlank(raw) { return raw == null || String(raw).trim() === ''; }
+  function mKeyOrNone(raw) { return isBlank(raw) ? NONE_KEY : mKey(raw); }
+  /* M200: دفعاتُ المخابر والاستردادات صار لها طريقة؛ الفارغُ = صفٌّ قبل M200 ⇒ نقداً كما كان يُحتسب حرفياً */
+  function mKeyLegacyCash(raw) { return isBlank(raw) ? 'cash' : mKey(raw); }
+  function bucketLabel(k) { return k === OUT_KEY ? OUT_LABEL : (k === NONE_KEY ? NONE_LABEL : mLabel(k)); }
 
   /* ── دالةٌ محضة: صفوفُ اليوم ⇒ { SYP, USD } ──
      كلُّ طبقة: { active, production:{count,total}, collected:{count,total,byMethod[]},
@@ -73,9 +82,10 @@
       var by = function () { return {}; };
       var prod = { count: 0, total: 0 };
       var col = { count: 0, total: 0, byMethod: by() };
-      var red = { count: 0, total: 0 }, ref = { count: 0, total: 0 };
+      var red = { count: 0, total: 0 }, ref = { count: 0, total: 0, byMethod: by() };
+      var noM = { count: 0, total: 0 };   /* v702: حركاتٌ بلا طريقة دفع (داخلة أو خارجة) */
       var exp = { count: 0, total: 0, byMethod: by() };
-      var lab = { count: 0, total: 0, outside: 0 };
+      var lab = { count: 0, total: 0, outside: 0, byMethod: by() };
       var pay = { count: 0, total: 0, byMethod: by() };
       var cashIn = 0, cashOut = 0, cashOutside = 0;
       var add = function (bucket, key, amt) { bucket[key] = (bucket[key] || 0) + amt; };
@@ -89,20 +99,26 @@
       (data.payments || []).forEach(function (p) {
         if (rc(p) !== cur || String(p.date || '').slice(0, 10) !== day) return;
         var a = Number(p.amount || 0); if (!(a > 0)) return;
-        var k = mKey(p.method);
+        var k = mKeyOrNone(p.method);
+        if (k === NONE_KEY) { noM.count++; noM.total += a; }
         col.count++; col.total += a; add(col.byMethod, k, a);
         if (mIsCash(k)) cashIn += a;
       });
       (data.adjustments || []).forEach(function (x) {
         if (rc(x) !== cur || String(x.date || '').slice(0, 10) !== day) return;
         var a = Number(x.amount || 0); if (!(a > 0)) return;
-        if (x.kind === 'refund') { ref.count++; ref.total += a; cashOut += a; }          /* بلا طريقة ⇒ نقداً صراحةً */
+        if (x.kind === 'refund') {                                                       /* M200: بطريقته؛ الفارغُ القديم ⇒ نقداً */
+          var kr = mKeyLegacyCash(x.payment_method);
+          ref.count++; ref.total += a; add(ref.byMethod, kr, a);
+          if (mIsCash(kr)) cashOut += a;
+        }
         else if (x.kind === 'discount' || x.kind === 'write_off') { red.count++; red.total += a; }
       });
       (data.expenses || []).forEach(function (e) {
         if (rc(e) !== cur || String(e.date || '').slice(0, 10) !== day) return;
         var a = Number(e.amount || 0); if (!(a > 0)) return;
-        var k = mKey(e.payment_method);
+        var k = mKeyOrNone(e.payment_method);
+        if (k === NONE_KEY) { noM.count++; noM.total += a; }
         if (mIsCash(k) && srcOutside(e.cash_source)) { exp.count++; exp.total += a; add(exp.byMethod, OUT_KEY, a); cashOutside += a; return; }
         exp.count++; exp.total += a; add(exp.byMethod, k, a);
         if (mIsCash(k)) cashOut += a;
@@ -110,32 +126,37 @@
       (data.labPayments || []).forEach(function (l) {
         if (rc(l) !== cur || String(l.pay_date || '').slice(0, 10) !== day) return;
         var a = Number(l.amount || 0); if (!(a > 0)) return;
-        lab.count++; lab.total += a;                                                      /* بلا طريقة ⇒ نقداً صراحةً */
-        if (srcOutside(l.cash_source)) { lab.outside += a; cashOutside += a; } else cashOut += a;
+        var kl = mKeyLegacyCash(l.payment_method);                                        /* M200: بطريقتها؛ الفارغُ القديم ⇒ نقداً */
+        lab.count++; lab.total += a;
+        if (mIsCash(kl) && srcOutside(l.cash_source)) { lab.outside += a; add(lab.byMethod, OUT_KEY, a); cashOutside += a; return; }
+        add(lab.byMethod, kl, a);
+        if (mIsCash(kl)) cashOut += a;
       });
       (data.payouts || []).forEach(function (po) {
         if (rc(po) !== cur || localDayOf(po.paid_at) !== day) return;
         var a = Number(po.amount || 0); if (!(a > 0)) return;
-        var k = mKey(po.payment_method);
+        var k = mKeyOrNone(po.payment_method);
+        if (k === NONE_KEY) { noM.count++; noM.total += a; }
         if (mIsCash(k) && srcOutside(po.cash_source)) { pay.count++; pay.total += a; add(pay.byMethod, OUT_KEY, a); cashOutside += a; return; }
         pay.count++; pay.total += a; add(pay.byMethod, k, a);
         if (mIsCash(k)) cashOut += a;
       });
 
       var toList = function (bucket) {
-        return Object.keys(bucket).map(function (k) { return { key: k, label: k === OUT_KEY ? OUT_LABEL : mLabel(k), total: r2(bucket[k]) }; })
+        return Object.keys(bucket).map(function (k) { return { key: k, label: bucketLabel(k), total: r2(bucket[k]) }; })
           .sort(function (a, b) { return b.total - a.total || String(a.label).localeCompare(String(b.label), 'ar'); });
       };
       var outTotal = exp.total + lab.total + pay.total + ref.total;
       var layer = {
         production: { count: prod.count, total: r2(prod.total) },
         collected: { count: col.count, total: r2(col.total), byMethod: toList(col.byMethod) },
-        adjustments: { reductions: { count: red.count, total: r2(red.total) }, refunds: { count: ref.count, total: r2(ref.total) } },
+        adjustments: { reductions: { count: red.count, total: r2(red.total) }, refunds: { count: ref.count, total: r2(ref.total), byMethod: toList(ref.byMethod) } },
         outflow: { expenses: { count: exp.count, total: r2(exp.total), byMethod: toList(exp.byMethod) },
-                   labs: { count: lab.count, total: r2(lab.total), outside: r2(lab.outside) },
+                   labs: { count: lab.count, total: r2(lab.total), outside: r2(lab.outside), byMethod: toList(lab.byMethod) },
                    payouts: { count: pay.count, total: r2(pay.total), byMethod: toList(pay.byMethod) },
                    total: r2(outTotal) },
-        net: { all: r2(col.total - outTotal), cashIn: r2(cashIn), cashOut: r2(cashOut), cash: r2(cashIn - cashOut), cashOutside: r2(cashOutside) }
+        net: { all: r2(col.total - outTotal), cashIn: r2(cashIn), cashOut: r2(cashOut), cash: r2(cashIn - cashOut), cashOutside: r2(cashOutside) },
+        noMethod: { count: noM.count, total: r2(noM.total) }
       };
       var cl = closings[cur] || null;
       layer.closing = cl ? { id: cl.id, expected: r2(cl.expected), counted: r2(cl.counted), variance: r2(Number(cl.counted || 0) - Number(cl.expected || 0)), note: cl.note || '', closed_at: cl.closed_at || null } : null;
@@ -158,9 +179,9 @@
       var rs = await Promise.all([
         sb.from('ledger_sessions').select('id,cost,status,currency,date').eq('doctor_id', uid).eq('status', 'completed').eq('date', day),
         sb.from('ledger_payments').select('id,amount,method,currency,date').eq('doctor_id', uid).eq('date', day),
-        sb.from('account_adjustments').select('id,kind,amount,currency,date').eq('doctor_id', uid).eq('date', day),
+        sb.from('account_adjustments').select('id,kind,amount,payment_method,currency,date').eq('doctor_id', uid).eq('date', day),
         sb.from('expenses').select('id,amount,payment_method,cash_source,currency,date').eq('owner_id', uid).eq('date', day),
-        sb.from('lab_payments').select('id,amount,cash_source,currency,pay_date').eq('doctor_id', uid).eq('pay_date', day),
+        sb.from('lab_payments').select('id,amount,payment_method,cash_source,currency,pay_date').eq('doctor_id', uid).eq('pay_date', day),
         sb.from('provider_payouts').select('id,amount,payment_method,cash_source,currency,paid_at').eq('owner_id', uid).gte('paid_at', lo).lte('paid_at', hi),
         sb.from('day_closings').select('id,day,currency,expected,counted,note,closed_at').eq('owner_id', uid).eq('day', day)
       ]);
@@ -207,21 +228,18 @@
     }
     h += row('<b>الخارج</b>', L.outflow.total, cur, fmt, 'ds-head');
     if (L.outflow.expenses.count) { h += row('&nbsp;&nbsp;↳ مصروفات', L.outflow.expenses.total, cur, fmt, 'ds-m', L.outflow.expenses.count + ''); h += L.outflow.expenses.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
-    if (L.outflow.labs.count) {
-      h += row('&nbsp;&nbsp;↳ دفعات مخابر', L.outflow.labs.total, cur, fmt, 'ds-m', L.outflow.labs.count + ' — تُحتسب نقداً');
-      if (L.outflow.labs.outside > 0) {   /* M165: جزءٌ منها من خارج الدرج */
-        var labIn = r2(L.outflow.labs.total - L.outflow.labs.outside);
-        if (labIn > 0) h += row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· نقداً — من الدرج', labIn, cur, fmt, 'ds-m2');
-        h += row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + OUT_LABEL, L.outflow.labs.outside, cur, fmt, 'ds-m2');
-      }
-    }
+    if (L.outflow.labs.count)     { h += row('&nbsp;&nbsp;↳ دفعات مخابر', L.outflow.labs.total, cur, fmt, 'ds-m', L.outflow.labs.count + ''); h += L.outflow.labs.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
     if (L.outflow.payouts.count)  { h += row('&nbsp;&nbsp;↳ رواتب ودفعات أطباء', L.outflow.payouts.total, cur, fmt, 'ds-m', L.outflow.payouts.count + ''); h += L.outflow.payouts.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
-    if (L.adjustments.refunds.count) h += row('&nbsp;&nbsp;↳ استرداد للمريض', L.adjustments.refunds.total, cur, fmt, 'ds-m', L.adjustments.refunds.count + ' — تُحتسب نقداً');
+    if (L.adjustments.refunds.count) { h += row('&nbsp;&nbsp;↳ استرداد للمريض', L.adjustments.refunds.total, cur, fmt, 'ds-m', L.adjustments.refunds.count + ''); h += L.adjustments.refunds.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
     if (!L.outflow.expenses.count && !L.outflow.labs.count && !L.outflow.payouts.count && !L.adjustments.refunds.count) h += '<tr class="ds-m"><td colspan="2" class="ds-empty">لا مدفوعات خارجة</td></tr>';
     h += row('<b>صافي حركة اليوم (كل الطرق)</b>', L.net.all, cur, fmt, 'ds-total');
     h += row('<b>صافي الدرج نقداً</b>', L.net.cash, cur, fmt, 'ds-total ds-cash');
     if (L.net.cashOutside > 0) h += row('نقداً من خارج الدرج', L.net.cashOutside, cur, fmt, 'ds-m2', 'خزنة · جيب الطبيب — مصروفٌ بالحسابات، لا يُخصم من الدرج');
     h += '</tbody></table></div>';
+    if (L.noMethod && L.noMethod.count) {   /* v702: سببُ عدم تطابق الدرج يُقال صراحةً */
+      h += '<div class="ds-flag">⚠️ ' + (L.noMethod.count === 1 ? 'حركةٌ واحدة' : L.noMethod.count + ' حركات') + ' بمجموع ' + fmt(L.noMethod.total, cur) +
+        ' مسجَّلةٌ بلا طريقة دفع، فلم تُحتسب في «صافي الدرج نقداً». افتح الحركة من صفحتها (الرواتب · المصروفات · دفعات المريض) وحدِّد طريقة دفعها ليصحّ الإقفال.</div>';
+    }
     h += renderClosing(L, cur, fmt);
     h += '</div>';
     return h;
@@ -274,7 +292,7 @@
       h += renderLayer(res[cur], cur, fmt);
     });
     h += '<div class="ds-note-foot">الإنتاج = الجلسات المنجزة بتاريخ اليوم. المقبوضات = ما دخل الصندوق فعلاً بتاريخ اليوم بكل الطرق (المقدَّم منها يبقى مقبوضاً). ' +
-         'صافي الدرج نقداً = الداخل بطريقة «نقداً» − الخارج بطريقة «نقداً» من الدرج؛ الاستردادات ودفعات المخابر بلا طريقةٍ مسجَّلة فتُحتسب نقداً. المدفوع نقداً «من خارج الدرج» (خزنة · جيب الطبيب) مصروفٌ بالحسابات ولا يُخصم من الدرج. رقم تشغيلي لا يدخل صافي الربح.</div>';
+         'صافي الدرج نقداً = الداخل بطريقة «نقداً» − الخارج بطريقة «نقداً» من الدرج (مصروفات · مخابر · رواتب · استردادات، كلٌّ بطريقته المسجَّلة). المدفوع نقداً «من خارج الدرج» (خزنة · جيب الطبيب) مصروفٌ بالحسابات ولا يُخصم من الدرج. رقم تشغيلي لا يدخل صافي الربح.</div>';
     return h;
   }
   function renderSection(day, bodyHtml) {

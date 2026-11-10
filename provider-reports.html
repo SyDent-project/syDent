@@ -2456,10 +2456,10 @@ async function _savePayout_inner() {
       var doc = doctors.find(function(x){ return x.id === provId; });
       var docName = doc ? doc.name : '—';
       window.logAudit('payout.create', {
-        entity_type: 'payout',
-        entity_id: res.data ? res.data.id : null,
+        entityType: 'payout',
+        entityId: res.data ? res.data.id : null,
         description: 'دفعة لـ ' + docName + ' (' + fmtSY(payload.amount) + ') — ' + payoutMethodText(payload),
-        new_value: {
+        newValue: {
           provider_id: provId,
           provider_name: docName,
           period_start: payload.period_start,
@@ -2497,10 +2497,10 @@ async function _deletePayout_inner(id) {
   try {
     if (window.logAudit) {
       window.logAudit('payout.delete', {
-        entity_type: 'payout',
-        entity_id: id,
+        entityType: 'payout',
+        entityId: id,
         description: 'حذف دفعة لـ ' + snapName + ' (' + fmtSY(snapAmt) + ')',
-        old_value: snapshot || null
+        oldValue: snapshot || null
       });
     }
   } catch (e) { console.warn('audit log failed:', e); }

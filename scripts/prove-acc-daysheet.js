@@ -85,7 +85,7 @@ function suite(PMm, DS) {
                    expenses: [E(120, 'cash'), E(200, 'bank'), E(30, null)], labPayments: [LB(60), LB(999, { pay_date: '2026-09-27' })],
                    payouts: [PO(400, 'cash', DAY + 'T10:00:00+03:00'), PO(150, 'bank', DAY + 'T10:00:00+03:00'), PO(999, 'cash', '2026-09-27T10:00:00+03:00')] }), DAY);
   ok(r.SYP.adjustments.reductions.total === 150 && r.SYP.adjustments.reductions.count === 2 && r.SYP.adjustments.refunds.total === 80, 'adjustments: discount+write-off vs refunds, today only');
-  ok(r.SYP.outflow.expenses.total === 350 && r.SYP.outflow.expenses.byMethod.find(m => m.key === 'other').total === 30 && r.SYP.outflow.labs.total === 60 && r.SYP.outflow.payouts.total === 550 && r.SYP.outflow.total === 350 + 60 + 550 + 80, 'outflow: expenses (codes normalised, null→other) + labs + payouts + refunds');
+  ok(r.SYP.outflow.expenses.total === 350 && r.SYP.outflow.expenses.byMethod.find(m => m.key === 'none').total === 30 && r.SYP.outflow.expenses.byMethod.find(m => m.key === 'none').label === 'بلا طريقة مسجَّلة' && !r.SYP.outflow.expenses.byMethod.find(m => m.key === 'other') && r.SYP.outflow.labs.total === 60 && r.SYP.outflow.payouts.total === 550 && r.SYP.outflow.total === 350 + 60 + 550 + 80, 'outflow: expenses (codes normalised, blank → its own «بلا طريقة مسجَّلة» bucket) + labs + payouts + refunds');
   ok(r.SYP.net.cashOut === 120 + 60 + 400 + 80 && r.SYP.net.cash === 1000 - (120 + 60 + 400 + 80), 'drawer: cash expenses + labs (explicitly cash) + cash payouts + refunds (explicitly cash); discounts never; bank never');
   ok(r.SYP.net.all === 1500 - 1040, 'net all methods = collected − all outflow');
   ok(r.SYP.active && !r.USD.active, 'active flags per currency');
@@ -123,6 +123,26 @@ function suite(PMm, DS) {
   ok(neg.SYP.net.cash === -150 && /المتوقّع بالسالب/.test(DS.renderBody(neg, DAY, (n) => n + '')), 'render: negative expected → explicit warning on the open closing form');
   const negOut = DS.compute(D({ payouts: [PO(150, 'cash', DAY + 'T10:00:00+03:00', { cash_source: 'outside' })] }), DAY);
   ok(negOut.SYP.net.cash === 0 && negOut.SYP.net.cashOutside === 150 && !/المتوقّع بالسالب/.test(DS.renderBody(negOut, DAY, (n) => n + '')), 'owner case: a $150 salary from outside → drawer 0, no warning');
+
+  /* (٦) v702 · M200 — طريقةُ الدفع لدفعات المخابر والاستردادات + الحركاتُ بلا طريقة */
+  const f6 = (n, cur) => n + (cur === 'USD' ? ' $' : ' ل.س');
+  r = DS.compute(D({ payments: [P(1000, 'نقداً')],
+                     labPayments: [LB(100, { payment_method: 'bank' }), LB(40, { payment_method: 'cash' }), LB(25, { payment_method: 'cash', cash_source: 'outside' }), LB(15), LB(7, { payment_method: 'shamcash', cash_source: 'outside' })],
+                     adjustments: [ADJ('refund', 60, { payment_method: 'shamcash' }), ADJ('refund', 30, { payment_method: 'cash' }), ADJ('refund', 20)] }), DAY);
+  ok(r.SYP.outflow.labs.total === 187 && r.SYP.outflow.labs.count === 5 && r.SYP.adjustments.refunds.total === 110, 'M200: lab/refund totals unchanged by the method (money still left)');
+  ok(r.SYP.net.cashOut === 40 + 15 + 30 + 20 && r.SYP.net.cash === 1000 - 105, 'M200: only cash lab payments/refunds leave the drawer; bank & e-wallet never; blank (pre-M200) rows still count as cash');
+  const lm = k => (r.SYP.outflow.labs.byMethod.find(m => m.key === k) || {}).total, rm = k => (r.SYP.adjustments.refunds.byMethod.find(m => m.key === k) || {}).total;
+  ok(lm('bank') === 100 && lm('cash') === 55 && lm('cash_outside') === 25 && lm('shamcash') === 7 && r.SYP.outflow.labs.outside === 25 && r.SYP.net.cashOutside === 25, 'M200: lab payments grouped by method; «outside» only for cash (a stale source on an e-wallet row stays e-wallet)');
+  ok(rm('shamcash') === 60 && rm('cash') === 50, 'M200: refunds grouped by method (blank → cash)');
+  let h6 = DS.renderBody(r, DAY, f6);
+  ok(/دفعات مخابر/.test(h6) && /· تحويل بنكي/.test(h6) && /استرداد للمريض/.test(h6) && /· شام كاش/.test(h6) && !/تُحتسب نقداً/.test(h6), 'M200 render: lab payments and refunds list their methods');
+  ok(r.SYP.noMethod.count === 0 && !/ds-flag/.test(h6), 'no-method flag: silent when every movement has a method (blank lab/refund rows are legacy cash, not flagged)');
+  r = DS.compute(D({ payments: [P(500, 'نقداً'), P(70, null), P(5, 'غير معروف')], expenses: [E(30, ''), E(10, 'other')], payouts: [PO(63599, null, DAY + 'T10:00:00+03:00'), PO(9, 'cash', DAY + 'T10:00:00+03:00')] }), DAY);
+  ok(r.SYP.noMethod.count === 3 && r.SYP.noMethod.total === 70 + 30 + 63599, 'no-method flag: counts blank-method payments, expenses and payouts — explicit «other»/unknown text is not blank');
+  ok(r.SYP.net.cash === 500 - 9 && r.SYP.outflow.payouts.byMethod.find(m => m.key === 'none').total === 63599 && r.SYP.collected.byMethod.find(m => m.key === 'none').total === 70 && r.SYP.collected.byMethod.find(m => m.key === 'other').total === 5, 'no-method rows never touch the drawer and sit in their own bucket');
+  h6 = DS.renderBody(r, DAY, f6);
+  ok(/class="ds-flag"/.test(h6) && /3 حركات/.test(h6) && /63699 ل\.س/.test(h6) && /بلا طريقة دفع/.test(h6) && /بلا طريقة مسجَّلة/.test(h6), 'no-method flag: rendered with count, total and what to do');
+  ok(/حركةٌ واحدة/.test(DS.renderBody(DS.compute(D({ payouts: [PO(5, null, DAY + 'T10:00:00+03:00')] }), DAY), DAY, f6)), 'no-method flag: singular wording');
 }
 suite(PMm, DS);
 
@@ -143,6 +163,7 @@ suite(PMm, DS);
   ok(r.ok && r.data.sessions.length === 1 && r.data.payments.length === 1 && r.data.payouts.length === 1 && r.data.payouts[0].amount === 1, 'load: ok; payouts trimmed to the local day after the widened window');
   const c = t => st.calls.find(x => x.table === t);
   ok(c('ledger_sessions').eq.some(e => e.join() === 'doctor_id,DOC') && c('ledger_sessions').eq.some(e => e.join() === 'status,completed') && c('ledger_sessions').eq.some(e => e.join() === 'date,' + DAY), 'load: sessions scoped to doctor, completed, eq(date)');
+  ok(/payment_method/.test(c('lab_payments').select) && /payment_method/.test(c('account_adjustments').select), 'load: lab payments and adjustments carry payment_method (M200)');
   ok(c('ledger_payments').eq.some(e => e.join() === 'date,' + DAY) && /method/.test(c('ledger_payments').select) && c('account_adjustments').eq.some(e => e.join() === 'date,' + DAY) && c('lab_payments').eq.some(e => e.join() === 'pay_date,' + DAY), 'load: payments (with method) / adjustments / labs by day');
   ok(c('expenses').eq.some(e => e.join() === 'owner_id,DOC') && c('provider_payouts').eq.some(e => e.join() === 'owner_id,DOC') && /payment_method/.test(c('expenses').select) && /payment_method/.test(c('provider_payouts').select), 'load: expenses/payouts scoped to owner_id and carry payment_method');
   ok(/cash_source/.test(c('expenses').select) && /cash_source/.test(c('lab_payments').select) && /cash_source/.test(c('provider_payouts').select), 'load: expenses / lab payments / payouts carry cash_source (M165)');
@@ -162,7 +183,7 @@ suite(PMm, DS);
   ok(/بالليرة/.test(html) && /بالدولار/.test(html) && (html.match(/ds-layer/g) || []).length === 2, 'render: dual currency → two layers with heads');
   ok(/150 ل\.س/.test(html) && /130 ل\.س/.test(html) && /7 \$/.test(html), 'render: totals via page formatter per currency');
   ok(!/<b>x<\/b>/.test(html) && /أخرى/.test(html), 'render: unknown method shown as «أخرى», never raw HTML');
-  ok(/صافي الدرج نقداً/.test(html) && /تُحتسب نقداً/.test(html), 'render: drawer line + explicit cash-assumption note');
+  ok(/صافي الدرج نقداً/.test(html) && /كلٌّ بطريقته المسجَّلة/.test(html) && !/تُحتسب نقداً/.test(html), 'render: drawer line + footnote says every outflow counts by its recorded method (no blanket cash assumption since M200)');
   const empty = DS.renderBody(DS.compute(D(), DAY), DAY, fmt);
   ok(/لا حركة مالية بتاريخ 28\/9\/2026/.test(empty) && !/ds-layer/.test(empty), 'render: empty day message with numeric date');
   ok(/تعذّر تحميل/.test(DS.renderBody(null, DAY, fmt)), 'render: failed load → explicit error, no numbers');
@@ -299,26 +320,46 @@ suite(PMm, DS);
   ok(/setModalMethod\('cash'\);\n  setModalSource\('drawer'\);/.test(POH) && /setModalSource\(window\.SyDentPayMethods\.normSource\(po\.cash_source\)\)/.test(POH) && /_syncSourceField\(\);\n\}/.test(extractFn(POH, 'setModalMethod')), 'payouts: new → cash from drawer (no silent «other»); edit restores source; method change toggles the field');
   ok(/payment_method, cash_source, breakdown_salary/.test(POH), 'payouts: loader reads cash_source');
   ok(/cash_source: cashSource,/.test(EXH) && /var cashSource = window\.SyDentPayMethods\.sourceForStore\(paymentMethod, \$\('eCashSource'\)\.value\)/.test(EXH) && /onchange="syncExpSource\(\)"/.test(EXH) && /sourceOptionsHtml\(e\.cash_source\)/.test(EXH) && /sourceOptionsHtml\('drawer'\)/.test(EXH), 'expenses: select filled from the shared source, saved via sourceForStore, toggled by method');
-  ok(/cash_source: cashSource,/.test(LBH) && /var cashSource = window\.SyDentPayMethods\.normSource\(document\.getElementById\('labPaySource'\)\.value\)/.test(LBH) && /labPaySource'\)\.innerHTML = window\.SyDentPayMethods\.sourceOptionsHtml\('drawer'\)/.test(LBH), 'labs: lab payment saves a normalised source, defaults to drawer');
+  ok(/cash_source: cashSource,/.test(LBH) && /var cashSource = window\.SyDentPayMethods\.sourceForStore\(payMethod, document\.getElementById\('labPaySource'\)\.value\)/.test(LBH) && /payment_method: payMethod,/.test(LBH) && /getElementById\('labPayMethod'\)\.value = 'cash'; syncLabPaySource\(\);/.test(LBH) && /labPaySource'\)\.innerHTML = window\.SyDentPayMethods\.sourceOptionsHtml\('drawer'\)/.test(LBH), 'labs: lab payment saves its method + a source for cash only (M200), defaults to cash from the drawer');
   const lbPM = LBH.indexOf('<script src="pay-methods.js?v='), lbInl = LBH.indexOf('<script>\n');
   ok(lbPM > 0 && (LBH.match(/pay-methods\.js\?v=/g) || []).length === 1 && (lbInl < 0 || lbPM < lbInl), 'labs: pay-methods tag once, before inline code');
   ok(/expenses_cash_source_valid[\s\S]*cash_source IN \('drawer','outside'\) AND payment_method = 'cash'/.test(M165) && /provider_payouts_cash_source_valid[\s\S]*cash_source IN \('drawer','outside'\) AND payment_method = 'cash'/.test(M165) && /lab_payments_cash_source_valid[\s\S]*cash_source IN \('drawer','outside'\)\)/.test(M165) && (M165.match(/ADD COLUMN IF NOT EXISTS cash_source text;/g) || []).length === 3, 'M165: three nullable columns, cash-only constraint (labs: values only), idempotent');
+
+  /* v702 · M200 — الصفحاتُ والقاعدة */
+  const M200 = read('migrations/200_daysheet_methods_and_closing_trail.sql'), PRH = read('provider-reports.html'), SCH = read('db/schema.sql');
+  const K8 = "'cash','bank','check','other','shamcash','syriatel','mtn','online'";
+  ok(M200.includes("lab_payments ADD COLUMN IF NOT EXISTS payment_method text") && M200.includes("account_adjustments ADD COLUMN IF NOT EXISTS payment_method text") && (M200.match(new RegExp(K8.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length === 2, 'M200: payment_method on lab_payments + account_adjustments, constrained to the pay-methods.js keys');
+  ok(/cash_source IN \('drawer','outside'\) AND \(payment_method IS NULL OR payment_method = 'cash'\)/.test(M200) && /kind = 'refund' AND payment_method IN/.test(M200), 'M200: lab cash source is for cash only; a method on a non-refund adjustment is rejected');
+  ok(/"payment_method" "text"/.test(SCH.slice(SCH.indexOf('CREATE TABLE IF NOT EXISTS "public"."lab_payments"'), SCH.indexOf('CREATE TABLE IF NOT EXISTS "public"."lab_payments"') + 900)) && /"payment_method" "text"/.test(SCH.slice(SCH.indexOf('CREATE TABLE IF NOT EXISTS "public"."account_adjustments"'), SCH.indexOf('CREATE TABLE IF NOT EXISTS "public"."account_adjustments"') + 900)) && /lab_payments_payment_method_valid/.test(SCH) && /account_adjustments_payment_method_valid/.test(SCH), 'db/schema.sql mirrors M200 columns and constraints');
+  ok(/<select id="labPayMethod" onchange="syncLabPaySource\(\)">/.test(LBH) && /id="labPaySourceWrap"/.test(LBH) && /labPayMethodText\(e\.p\)/.test(LBH), 'labs: method select on the payment form, source shown for cash only, statement rows state the method');
+  const adjSave = extractFn(PP, 'saveAdjustment');
+  ok(/var adjMethod = \(kind === 'refund'\) \? window\.SyDentPayMethods\.norm\(document\.getElementById\('adjMethod'\)\.value\) : null;/.test(adjSave) && /payment_method: adjMethod,/.test(adjSave) && /id="adjMethodGroup" style="display:none;"/.test(PP) && /mg\.style\.display = \(kind === 'refund'\) \? '' : 'none';/.test(extractFn(PP, 'onAdjKindChange')), 'patient-profile: refund carries its method (null for discount/write-off — DB constraint); the field shows for refunds only');
+  const prSave = extractFn(PRH, '_savePayout_inner');
+  ok(/payment_method: method,\n    cash_source: source,/.test(prSave) && /var method = window\.SyDentPayMethods\.norm\(document\.getElementById\('payoutMethod'\)\.value\);/.test(prSave) && /sourceForStore\(method, document\.getElementById\('payoutSource'\)\.value\)/.test(prSave), 'provider-reports: the quick payout stores method + source (was blank → «أخرى», never deducted)');
+  ok(/resetPayoutMethod\(\);   \/\/ v702/.test(extractFn(PRH, '_openPayoutModalCore')) && /if \(m\) m\.value = 'cash';/.test(extractFn(PRH, 'resetPayoutMethod')) && (PRH.match(/pay-methods\.js\?v=/g) || []).length === 1 && PRH.indexOf('<script src="pay-methods.js?v=') < PRH.indexOf('<script>\n'), 'provider-reports: every payout starts «cash · drawer»; pay-methods loaded once before inline code');
+  ok(!/entity_id:|new_value:|old_value:|entity_type:/.test(PRH.slice(PRH.indexOf("window.logAudit('payout.create'"), PRH.indexOf("window.logAudit('payout.delete'") + 400)), 'provider-reports: audit entries use the keys logAudit actually reads (values were silently dropped)');
 
   /* الإثباتُ العكسي */
   if (process.argv.includes('--self-test')) {
     const muts = [
       [DS_SRC, "if ((s.status || 'completed') !== 'completed') return;", '', 'planned sessions counted as production'],
       [DS_SRC, "if (mIsCash(k)) cashIn += a;", 'cashIn += a;', 'bank money counted in the drawer'],
-      [DS_SRC, "if (srcOutside(l.cash_source)) { lab.outside += a; cashOutside += a; } else cashOut += a;", "if (srcOutside(l.cash_source)) { lab.outside += a; cashOutside += a; }", 'lab payments not taken from the drawer'],
+      [DS_SRC, "if (mIsCash(kl)) cashOut += a;", "", 'lab payments not taken from the drawer'],
+      [DS_SRC, "if (mIsCash(kl)) cashOut += a;", "cashOut += a;", 'bank lab payment taken from the drawer'],
+      [DS_SRC, "function mKeyLegacyCash(raw) { return isBlank(raw) ? 'cash' : mKey(raw); }", "function mKeyLegacyCash(raw) { return mKey(raw); }", 'pre-M200 blank lab/refund rows stop counting as cash'],
+      [DS_SRC, "if (mIsCash(kr)) cashOut += a;", "cashOut += a;", 'e-wallet refund taken from the drawer'],
+      [DS_SRC, "function mKeyOrNone(raw) { return isBlank(raw) ? NONE_KEY : mKey(raw); }", "function mKeyOrNone(raw) { return mKey(raw); }", 'blank method melts back into «other» (no flag)'],
+      [DS_SRC, "if (L.noMethod && L.noMethod.count) {", "if (false) {", 'no-method flag not rendered'],
       [DS_SRC, "if (mIsCash(k) && srcOutside(e.cash_source)) {", "if (false) {", 'outside expense deducted from the drawer'],
       [DS_SRC, "if (mIsCash(k) && srcOutside(po.cash_source)) {", "if (false) {", 'outside payout deducted from the drawer'],
-      [DS_SRC, "if (srcOutside(l.cash_source)) {", "if (false) {", 'outside lab payment deducted from the drawer'],
+      [DS_SRC, "if (mIsCash(kl) && srcOutside(l.cash_source)) {", "if (false) {", 'outside lab payment deducted from the drawer'],
+      [DS_SRC, "if (mIsCash(kl) && srcOutside(l.cash_source)) {", "if (srcOutside(l.cash_source)) {", 'stale source on a non-cash lab payment treated as outside cash'],
       [DS_SRC, "if (mIsCash(k) && srcOutside(e.cash_source)) {", "if (srcOutside(e.cash_source)) {", 'stale source on a non-cash expense treated as outside cash'],
       [PM_SRC, "=== 'outside' ? 'outside' : 'drawer'; }", "=== 'outside' ? 'drawer' : 'drawer'; }", 'normSource never returns outside'],
       [PM_SRC, "function sourceForStore(method, source) { return isCash(method) ? normSource(source) : null; }", "function sourceForStore(method, source) { return normSource(source); }", 'non-cash rows get a source (violates M165)'],
       [DS_SRC, "      if (L.net.cash < 0) {", "      if (false) {", 'negative confirm removed'],
       [DS_SRC, "(L.net.cash < 0 ? '<div class=\"ds-close-warn\">", "(false ? '<div class=\"ds-close-warn\">", 'negative warning removed'],
-      [DS_SRC, "if (x.kind === 'refund') { ref.count++; ref.total += a; cashOut += a; }", "if (x.kind === 'refund') { ref.count++; ref.total += a; }", 'refunds not taken from the drawer'],
+      [DS_SRC, "if (mIsCash(kr)) cashOut += a;", "", 'refunds not taken from the drawer'],
       [DS_SRC, "if (rc(po) !== cur || localDayOf(po.paid_at) !== day) return;", "if (rc(po) !== cur || String(po.paid_at).slice(0,10) !== day) return;", 'payout day taken from UTC not local'],
       [DS_SRC, "if (seq !== _st.seq) return;", '', 'stale load paints over a newer pick'],
       [DS_SRC, "data.payouts = data.payouts.filter(function (po) { return localDayOf(po.paid_at) === day; });", '', 'widened payout window not trimmed'],
