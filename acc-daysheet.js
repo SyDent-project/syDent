@@ -20,6 +20,8 @@
    • **مصدرُ النقد (M165 — v548):** المدفوعُ نقداً «من خارج الدرج» (خزنة · جيب الطبيب —
      `cash_source='outside'`) يبقى خارجاً بالكشف والحسابات لكنه **لا يُخصم من الدرج**، ويُعرض
      سطراً مستقلاً؛ الفارغُ = من الدرج (الصفوفُ القائمة كما كانت). المتوقَّعُ السالب يُنبَّه عليه ويُؤكَّد.
+   • **أثرُ الإقفال (M200 — v702):** `closed_at` وقتُ الإقفال الأول لا يتحرّك؛ التعديلُ يُختم بالقاعدة
+     (`edited_at` · `edit_count` · `first_counted`) ويُعرض بالكشف، وكلُّ إقفالٍ/تعديلٍ يُكتب بسجلّ النشاط.
    • **إقفالُ الصندوق (M158 — الكتابةُ الوحيدة بالوحدة):** صفٌّ واحد لكلِّ (مالك · يوم · عملة) بـ
      `day_closings`: المتوقّع = صافي الدرج نقداً لحظةَ الإقفال (لقطةٌ للمساءلة)، المعدود، الفرقُ مولَّد
      بالقاعدة. upsert بنطاق المالك، محروسٌ بوضع القراءة، ولا يمسّ أيَّ رقمٍ بالكشف نفسه.
@@ -159,7 +161,9 @@
         noMethod: { count: noM.count, total: r2(noM.total) }
       };
       var cl = closings[cur] || null;
-      layer.closing = cl ? { id: cl.id, expected: r2(cl.expected), counted: r2(cl.counted), variance: r2(Number(cl.counted || 0) - Number(cl.expected || 0)), note: cl.note || '', closed_at: cl.closed_at || null } : null;
+      layer.closing = cl ? { id: cl.id, expected: r2(cl.expected), counted: r2(cl.counted), variance: r2(Number(cl.counted || 0) - Number(cl.expected || 0)), note: cl.note || '', closed_at: cl.closed_at || null,
+        /* M200: أثرُ التعديل — تملؤه القاعدة (تريغر)، لا العميل */
+        edited_at: cl.edited_at || null, edit_count: Number(cl.edit_count || 0), first_counted: cl.first_counted == null ? null : r2(cl.first_counted) } : null;
       layer.active = !!(prod.count || col.count || red.count || ref.count || exp.count || lab.count || pay.count || cl);
       out[cur] = layer;
     });
@@ -183,7 +187,7 @@
         sb.from('expenses').select('id,amount,payment_method,cash_source,currency,date').eq('owner_id', uid).eq('date', day),
         sb.from('lab_payments').select('id,amount,payment_method,cash_source,currency,pay_date').eq('doctor_id', uid).eq('pay_date', day),
         sb.from('provider_payouts').select('id,amount,payment_method,cash_source,currency,paid_at').eq('owner_id', uid).gte('paid_at', lo).lte('paid_at', hi),
-        sb.from('day_closings').select('id,day,currency,expected,counted,note,closed_at').eq('owner_id', uid).eq('day', day)
+        sb.from('day_closings').select('id,day,currency,expected,counted,note,closed_at,edited_at,edit_count,first_counted,first_expected').eq('owner_id', uid).eq('day', day)
       ]);
       var keys = ['sessions', 'payments', 'adjustments', 'expenses', 'labPayments', 'payouts', 'closings'];
       var core = { sessions: true, payments: true };
@@ -258,6 +262,8 @@
           '<div><div class="ds-lbl">الفرق</div><div class="ds-val-s ds-var-' + tone + '">' + vLbl + '</div></div>' +
         '</div>' +
         (c.note ? '<div class="ds-close-note">📝 ' + esc(c.note) + '</div>' : '') +
+        (c.edit_count > 0 ? '<div class="ds-close-trail">✏️ عُدّل هذا الإقفال ' + timesAr(c.edit_count) + (c.edited_at ? ' — آخر تعديل ' + esc(fmtStamp(c.edited_at)) : '') +
+          (c.first_counted != null && Math.abs(c.first_counted - c.counted) > 0.005 ? ' · المعدود عند الإقفال الأول: ' + fmt(c.first_counted, cur) : '') + '</div>' : '') +
         (Math.abs(c.expected - L.net.cash) > 0.005 ? '<div class="ds-close-warn">⚠️ الكشفُ اليوم يحسب ' + fmt(L.net.cash, cur) + ' — تغيّر الدفترُ بعد الإقفال؛ أعد الإقفال إن لزم.</div>' : '') +
         '<div class="ds-noprint"><button type="button" class="ds-qb" data-sub-write onclick="window.SyDentDaySheet.reopen(\'' + cur + '\')">✏️ تعديل الإقفال</button></div>';
     } else {
@@ -273,6 +279,7 @@
     h += '</div>';
     return h;
   }
+  function timesAr(n) { return n === 1 ? 'مرةً واحدة' : (n === 2 ? 'مرتين' : (n <= 10 ? n + ' مرات' : n + ' مرة')); }
   function fmtStamp(ts) {
     if (!ts) return '';
     var d = new Date(ts); if (isNaN(d.getTime())) return '';
@@ -383,7 +390,7 @@
       '<style>body{margin:0;padding:24px;font-family:"Noto Kufi Arabic",sans-serif;color:#111;font-size:13px;}h1{font-size:18px;margin:0 0 4px;}' +
       '.ds-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0;}.ds-card{border:1px solid #bbb;border-radius:8px;padding:8px;}.ds-lbl{font-size:11px;color:#555;}.ds-val{font-size:15px;font-weight:800;}.ds-note{font-size:10px;color:#666;}' +
       'table{width:100%;border-collapse:collapse;margin-top:6px;}td{padding:5px 8px;border-bottom:1px solid #ddd;}td.num{text-align:left;direction:ltr;white-space:nowrap;}tr.ds-head td{background:#f3f3f3;}tr.ds-total td{font-weight:800;border-top:2px solid #333;}tr.ds-m2 td{color:#555;}' +
-      '.ds-noprint{display:none;}.ds-close{margin-top:10px;border:1px solid #bbb;border-radius:8px;padding:8px;}.ds-close-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}.ds-val-s{font-weight:800;}.ds-sub{font-size:10px;color:#666;}.ds-curhead{font-weight:800;margin:14px 0 4px;font-size:14px;}.ds-note-foot{font-size:10px;color:#555;margin-top:12px;line-height:1.6;}.ds-empty{padding:12px;color:#555;}</style>' +
+      '.ds-noprint{display:none;}.ds-close{margin-top:10px;border:1px solid #bbb;border-radius:8px;padding:8px;}.ds-close-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}.ds-val-s{font-weight:800;}.ds-sub{font-size:10px;color:#666;}.ds-curhead{font-weight:800;margin:14px 0 4px;font-size:14px;}.ds-note-foot{font-size:10px;color:#555;margin-top:12px;line-height:1.6;}.ds-close-trail,.ds-close-note{font-size:10px;color:#555;margin-top:6px;}.ds-flag{margin-top:8px;padding:6px 8px;border:1px solid #999;border-radius:6px;font-size:11px;}.ds-empty{padding:12px;color:#555;}</style>' +
       '</head><body><h1>🧾 كشف اليوم — ' + esc(fmtDay(_st.day)) + '</h1>' +
       '<div style="font-size:11px;color:#666;">طُبع: ' + esc(fmtDay(todayYmd())) + '</div>' +
       (body ? body.innerHTML : '') + '</body></html>');
@@ -428,11 +435,29 @@
         .upsert({ owner_id: _st.uid, day: _st.day, currency: cur, expected: L.net.cash, counted: counted, note: note || null, closed_at: new Date().toISOString() }, { onConflict: 'owner_id,day,currency' })
         .select().single();
       if (res.error) { if (window.showToast) window.showToast('⚠️ فشل الإقفال: ' + (res.error.message || '')); return; }
-      if (window.showToast) window.showToast('✅ أُقفل الصندوق');
+      if (window.showToast) window.showToast(L.closing ? '✅ عُدّل الإقفال وسُجّل التعديل' : '✅ أُقفل الصندوق');
+      logClosing(cur, L, counted, note, res.data);
       _st.editing[cur] = false;
       await pick(_st.day);
     } catch (e) { if (window.showToast) window.showToast('⚠️ فشل الإقفال'); }
     finally { _closeBusy = false; }
+  }
+  /* v702: كلُّ إقفالٍ وكلُّ تعديلٍ عليه يُكتب بسجلّ النشاط (من · متى · من كم إلى كم) — لا إقفالَ يتبدّل بصمت */
+  function logClosing(cur, L, counted, note, row) {
+    try {
+      if (!window.logAudit) return;
+      var prev = L.closing, f = _st.fmt, dayTxt = fmtDay(_st.day), diff = r2(counted - L.net.cash);
+      var verdict = Math.abs(diff) < 0.005 ? 'مطابق' : (diff > 0 ? 'زيادة ' + f(diff, cur) : 'عجز ' + f(-diff, cur));
+      var nv = { day: _st.day, currency: cur, expected: L.net.cash, counted: counted, note: note || null };
+      if (prev) {
+        window.logAudit('day_closing.edit', { entityType: 'day_closing', entityId: (row && row.id) || prev.id || null,
+          description: 'تعديل إقفال صندوق يوم ' + dayTxt + ': المعدود من ' + f(prev.counted, cur) + ' إلى ' + f(counted, cur) + ' · المتوقّع ' + f(L.net.cash, cur) + ' · ' + verdict,
+          oldValue: { day: _st.day, currency: cur, expected: prev.expected, counted: prev.counted, note: prev.note || null }, newValue: nv });
+      } else {
+        window.logAudit('day_closing.create', { entityType: 'day_closing', entityId: (row && row.id) || null,
+          description: 'إقفال صندوق يوم ' + dayTxt + ': المتوقّع ' + f(L.net.cash, cur) + ' · المعدود ' + f(counted, cur) + ' · ' + verdict, newValue: nv });
+      }
+    } catch (e) { console.warn('daysheet audit (non-critical):', e); }
   }
   /* «تعديل» = فتحُ النموذج مسبقاً بالقيم المحفوظة؛ الحفظُ يمرّ بـclose (upsert على الصف نفسه) */
   function reopen(cur) {

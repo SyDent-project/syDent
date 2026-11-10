@@ -4084,7 +4084,8 @@
     'prescription.', 'postop_note.', 'adjustment.',
     'implant_log.',
     'perio.',
-    'family.'
+    'family.',
+    'day_closing.'   /* v702: إقفالُ الصندوق وتعديلُه (كشف اليوم) */
   ];
 
   async function logAudit(actionType, opts) {

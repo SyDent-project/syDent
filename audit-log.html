@@ -359,6 +359,7 @@ html[data-sub-level="read"] :is([onclick*="openArchiveModal("],[onclick*="doArch
         <option value="payment">الدفعات</option>
         <option value="payment_plan">خطط الأقساط</option>
         <option value="lab">المخابر</option>
+        <option value="day_closing">إقفال الصندوق</option>
         <option value="doctor">الأطباء</option>
         <option value="employee">الموظفون</option>
         <option value="operatory">الغرف</option>
@@ -463,7 +464,8 @@ var ACTION_TYPES_BY_PREFIX = {
   payment_plan: ['payment_plan.create', 'payment_plan.update', 'payment_plan.completed', 'payment_plan.cancelled'],
   settings:    ['settings.change_pin', 'settings.archive_audit'],
   lock:        ['lock.role_switch', 'lock.pin_clear'],
-  report:      ['report.view_accounting']
+  report:      ['report.view_accounting'],
+  day_closing: ['day_closing.create', 'day_closing.edit']   /* v702: إقفالُ الصندوق بكشف اليوم وكلُّ تعديلٍ عليه */
 };
 
 // ── Helpers ──
@@ -503,7 +505,7 @@ function actionTypeLabel(t) {
     implant_log:'سجل زرعة', prescription:'روشتة', postop_note:'تعليمات بعد الجلسة',
     family:'عائلة',
     settings:'إعدادات', lock:'قفل',
-    report:'تقرير'
+    report:'تقرير', day_closing:'إقفال صندوق'
   };
   var opMap = {
     create:'إضافة', edit:'تعديل', delete:'حذف',
