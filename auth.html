@@ -17,14 +17,14 @@
 <!-- Theme system: MUST load before inline <style>
 /* ── Modal ── v453: التعريف المحلي حُذف — النافذة على عُدّة SyDent الموحّدة. */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261109a"></script>
+<script src="theme.js?v=20261111a"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261109a"></script>
-<script src="sy-modal.js?v=20261109a"></script>
-<script src="pwd-policy.js?v=20261109a"></script>
+<script src="supabase-init.js?v=20261111a"></script>
+<script src="sy-modal.js?v=20261111a"></script>
+<script src="pwd-policy.js?v=20261111a"></script>
 <!-- ── Cloudflare Turnstile (CAPTCHA) ── Axis 3 / Item 2. Helper is defined BEFORE the
      API script so window.onSyDentTurnstileLoad exists when the (async) script fires. -->
-<style>.cf-turnstile-box{margin:2px 0 14px;display:flex;justify-content:center}.cf-turnstile-box:empty{margin:0}</style>
+<style>.cf-turnstile-box{margin:2px 0 14px;display:flex;justify-content:center}.cf-turnstile-box>div{flex:1 1 100%;min-width:300px}.cf-turnstile-box:empty{margin:0}</style>
 <script>
 (function(){
   var SITEKEY = '0x4AAAAAAFXnC1T1zKo_VYCS';   // public site key — safe in client by design
@@ -34,6 +34,7 @@
   var wanted  = {};   // name -> containerId (render intent recorded before API is ready)
   var errs    = {};   // name -> last Turnstile error code (shown in the message so a failure can be diagnosed)
   var retries = {};   // name -> automatic retries spent after an error
+  var themes  = {};   // name -> theme the widget was drawn with
   // On an error or a timed-out challenge the widget resets itself a few times before giving up,
   // so a passing network hiccup doesn't leave the person stuck on «فشل التحقق».
   function autoRetry(name){
@@ -46,22 +47,65 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
     else fn();
   }
+  // The box follows the platform's own theme switch (data-theme on <html>), not the device's dark
+  // mode: «auto» drew a dark box on the light page whenever the phone itself was in dark mode.
+  function siteTheme(){ return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'; }
+  function shown(el){ return !!(el && el.getClientRects().length); }
   function render(name, containerId){
     if (!ready || !window.turnstile) return;
     if (widgets[name] !== undefined) return;            // already rendered — no double render
     var el = document.getElementById(containerId);
     if (!el) return;
+    var th = siteTheme();
     // The box is always shown (owner request): people see the check run and tick it themselves
     // when Cloudflare asks, instead of a hidden check that left «not verified yet» with no box.
-    try { widgets[name] = window.turnstile.render(el, { sitekey: SITEKEY, theme: 'auto', action: name,
+    // size «flexible»: as wide as the fields around it (Cloudflare's own floor is 300px).
+    try { widgets[name] = window.turnstile.render(el, { sitekey: SITEKEY, theme: th, size: 'flexible', action: name,
       appearance: 'always', language: (window.SyI18n && window.SyI18n.lang === 'en') ? 'en' : 'ar',
       'refresh-expired': 'auto', 'refresh-timeout': 'auto', retry: 'auto', 'retry-interval': 1500,
       callback: function(t){ tokens[name] = t; errs[name] = ''; retries[name] = 0; (waiters[name] || []).splice(0).forEach(function(r){ r(t); }); },
       'expired-callback': function(){ tokens[name] = ''; },
       'timeout-callback': function(){ tokens[name] = ''; autoRetry(name); },
-      'error-callback': function(code){ tokens[name] = ''; errs[name] = String(code || ''); autoRetry(name); } }); }
+      'error-callback': function(code){ tokens[name] = ''; errs[name] = String(code || ''); autoRetry(name); } });
+      themes[name] = th; }
     catch(e){ console.warn('[turnstile] render failed:', name, e); }
+    watchFit(name, el);
   }
+  // Cloudflare's box can't go below 300px, and the fields are narrower than that on most phones:
+  // there the box is scaled down to the field width instead of sticking out past the fields.
+  var fitted = {};    // containerId -> size watcher attached
+  function fit(name){
+    var el = document.getElementById(wanted[name]), box = el && el.firstElementChild;
+    if (!box) return;
+    var w = el.clientWidth, k = (w > 0 && w < 300) ? w / 300 : 1, h = k < 1 ? Math.ceil(65 * k) + 'px' : '';
+    box.style.transformOrigin = k < 1 ? 'top center' : '';
+    box.style.transform = k < 1 ? 'scale(' + k.toFixed(4) + ')' : '';
+    el.style.height = h; el.style.minHeight = h;
+  }
+  function watchFit(name, el){
+    fit(name);
+    setTimeout(function(){ fit(name); }, 400);
+    if (fitted[el.id]) return;
+    fitted[el.id] = true;
+    try { new ResizeObserver(function(){ fit(name); }).observe(el); } catch(e){}
+  }
+  window.addEventListener('resize', function(){ Object.keys(widgets).forEach(fit); });
+  // A live widget can't be recoloured, so when the theme is switched it is removed and drawn again.
+  // A hidden one (closed tab or modal) is only removed: its next requestTurnstile draws it.
+  function redraw(){
+    if (!ready || !window.turnstile) return;
+    var th = siteTheme();
+    Object.keys(widgets).forEach(function(n){
+      var id = widgets[n];
+      if (id === undefined || themes[n] === th) return;
+      var el = document.getElementById(wanted[n]);
+      try { window.turnstile.remove(id); } catch(e){}
+      delete widgets[n]; tokens[n] = ''; errs[n] = ''; retries[n] = 0;
+      if (el) el.innerHTML = '';
+      if (shown(el)) render(n, wanted[n]);
+    });
+  }
+  try { new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] }); } catch(e){}
   // Invoked by the Turnstile API once loaded (onload param in the script URL below).
   window.onSyDentTurnstileLoad = function(){
     ready = true;
@@ -270,7 +314,7 @@ body{
 }
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261109a">
+<link rel="stylesheet" href="theme.css?v=20261111a">
 </head>
 <body>
 
@@ -720,7 +764,8 @@ function switchTab(which) {
   document.getElementById('tabRegister').classList.toggle('active', which === 'register');
   document.getElementById('loginForm').classList.toggle('hidden', which !== 'login');
   document.getElementById('registerForm').classList.toggle('hidden', which !== 'register');
-  if (which === 'register') { try { requestTurnstile('register', 'ts-register'); } catch(e){} }
+  // Each tab's box is drawn when the tab is shown (a theme switch removes the hidden tab's box).
+  try { requestTurnstile(which === 'register' ? 'register' : 'login', which === 'register' ? 'ts-register' : 'ts-login'); } catch(e){}
   hideMsg();
 }
 
