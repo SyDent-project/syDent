@@ -201,6 +201,7 @@ body { min-height: 100vh; }
 .ds-ctl input[type="date"], .ds-ctl input.sy-df-in { background:var(--bg3); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:6px 8px; font-family:inherit; font-size:13px; }
 .ds-qb { border:1px solid var(--border); background:var(--bg3); color:var(--text); border-radius:20px; padding:5px 12px; font-size:12px; cursor:pointer; font-family:inherit; }
 .ds-qb:hover { background:var(--green-dim); border-color:var(--green); }
+.ds-qb.on { background:var(--green-dim); border-color:var(--green); color:var(--green); font-weight:700; }   /* v702: اليومُ المعروض */
 .ds-cards { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:10px; margin:12px 0; }
 .ds-card { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:10px 12px; }
 .ds-card .ds-lbl { font-size:11px; color:var(--text2); }
@@ -222,6 +223,7 @@ table.providers.ds-table { min-width:0; }   /* الكشفُ عمودان فيل�
 .ds-close { margin-top:12px; border:1px solid var(--border); border-radius:12px; padding:12px 14px; background:var(--bg3); }
 .ds-close-head { font-weight:800; margin-bottom:8px; }
 .ds-close-grid { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:10px; }
+.ds-close-grid .ds-lbl { font-size:12px; color:var(--text2); }
 .ds-val-s { font-weight:800; font-size:15px; white-space:nowrap; }
 .ds-var-ok { color:var(--green); } .ds-var-over { color:var(--yellow-ink); } .ds-var-short { color:var(--red-ink); }
 .ds-close-note { font-size:12px; color:var(--text2); margin-top:8px; }
@@ -233,7 +235,19 @@ table.providers.ds-table { min-width:0; }   /* الكشفُ عمودان فيل�
 .ds-close-row input { background:var(--bg2, var(--bg)); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:7px 9px; font-family:inherit; font-size:14px; min-width:0; width:100%; box-sizing:border-box; }
 .ds-close-btn { background:var(--green); color:#fff; border-color:var(--green); padding:8px 16px; white-space:nowrap; }
 .ds-close .ds-noprint { margin-top:8px; }
-@media (max-width: 700px) { .ds-cards { grid-template-columns: repeat(2, minmax(0,1fr)); } .ds-close-row { grid-template-columns: minmax(0,1fr); } .ds-close-grid { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+@media (max-width: 700px) { .ds-cards { grid-template-columns: repeat(2, minmax(0,1fr)); } .ds-close-row { grid-template-columns: minmax(0,1fr); }
+  /* v702: «الصندوق مُقفل» على الهاتف — ثلاثةُ أعمدةٍ بعرض 390px كانت تُركِّب المبالغ فوق بعضها (17,126,000 ل.س بعمود 90px)؛ صار كلُّ بندٍ سطراً: التسميةُ يميناً والمبلغُ يساراً */
+  .ds-close-grid { grid-template-columns: minmax(0,1fr); gap:0; }
+  .ds-close-grid > div { display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px dashed var(--border); }
+  .ds-close-grid > div:last-child { border-bottom:0; }
+  .ds-close-head .ds-sub { display:block; margin-top:2px; } }
+@media (max-width: 420px) { .ds-card .ds-val { font-size:15px; } }
+/* v702: شريطُ تحكّم الكشف على الهاتف — حقلُ التاريخ بسطرٍ كامل وتحته الأزرارُ الثلاثة بأعمدةٍ متساوية (كان «طباعة» يسقط وحده بسطر) */
+@media (max-width: 700px) {
+  .ds-ctl { width:100%; display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; }
+  .ds-ctl > .sy-df, .ds-ctl > input[type="date"] { grid-column: 1 / -1; width:100% !important; display:block !important; }
+  .ds-ctl .ds-qb { padding:9px 6px; font-size:13px; min-height:40px; text-align:center; white-space:nowrap; }
+}
 
 /* ─── فاصل المعلومات التكميلية ─── */
 .supp-head {
@@ -3141,6 +3155,12 @@ function loadDaySheet() {
     var _dsQ = '';
     try { _dsQ = new URLSearchParams(window.location.search || '').get('ds') || ''; } catch (e) { _dsQ = ''; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(_dsQ)) _dsQ = '';
+    /* v702: اسمُ العيادة لرأس الورقة المطبوعة — قراءةٌ واحدة غير حرجة */
+    try {
+      window.sb.from('clinic_settings').select('clinic_name').eq('owner_id', currentUser.id).maybeSingle().then(function (r) {
+        if (r && r.data && r.data.clinic_name && window.SyDentDaySheet.setMeta) window.SyDentDaySheet.setMeta({ clinic: r.data.clinic_name });
+      }, function () {});
+    } catch (e) {}
     window.SyDentDaySheet.mount(host, window.sb, currentUser.id, dsFmt).then(function () {
       if (!_dsQ) return;
       return window.SyDentDaySheet.pick(_dsQ).then(function () { try { host.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} });

@@ -210,38 +210,64 @@
     return p.length === 3 ? (+p[2]) + '/' + (+p[1]) + '/' + p[0] : ymd;
   }
   function curName(cur) { return cur === 'USD' ? 'بالدولار' : 'بالليرة'; }
+  /* v702: المبلغُ السالب داخل نصٍّ عربي كان يُرسم «1,100,000-» (الناقصُ محايدٌ فيلحق اتجاهَ الفقرة) ⇒ الرقمُ وحده
+     يُعزل اتجاهاً (LRI…PDI) فيبقى «-1,100,000» والعملةُ بمكانها. الموجبُ لا يُمسّ حرفياً. */
+  function isoNeg(fmt) {
+    if (!fmt || fmt.__dsIso) return fmt;
+    var f = function (n, cur) {
+      var s = String(fmt(n, cur));
+      return s.charAt(0) === '-' ? s.replace(/^-[0-9.,]*/, function (m) { return '\u2066' + m + '\u2069'; }) : s;
+    };
+    f.__dsIso = true;
+    return f;
+  }
+  /* v702: المعدودُ بصيغته العربية («3 دفعات» لا «3 دفعة»، «دفعتان»، «دفعة واحدة») — والعددُ لا يُترك رقماً عارياً بجانب التسمية */
+  var NOUN = {
+    sess: ['لا جلسات منجزة', 'جلسة منجزة واحدة', 'جلستان منجزتان', 'جلسات منجزة', 'جلسة منجزة'],
+    pay:  ['لا دفعات', 'دفعة واحدة', 'دفعتان', 'دفعات', 'دفعة'],
+    exp:  ['', 'مصروف واحد', 'مصروفان', 'مصروفات', 'مصروفاً'],
+    adj:  ['', 'تسوية واحدة', 'تسويتان', 'تسويات', 'تسوية'],
+    ref:  ['', 'استرداد واحد', 'استردادان', 'استردادات', 'استرداداً']
+  };
+  function cntAr(n, kind) {
+    var f = NOUN[kind]; n = Number(n || 0);
+    if (!n) return f[0]; if (n === 1) return f[1]; if (n === 2) return f[2];
+    var m = n % 100;
+    return n + ' ' + ((m >= 3 && m <= 10) ? f[3] : f[4]);
+  }
   function row(label, amt, cur, fmt, cls, sub) {
-    return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + label + (sub ? ' <span class="ds-sub">' + sub + '</span>' : '') + '</td><td class="num">' + fmt(amt, cur) + '</td></tr>';
+    return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + label + (sub ? ' <span class="ds-sub">· ' + sub + '</span>' : '') + '</td><td class="num">' + fmt(amt, cur) + '</td></tr>';
   }
   function methodRows(list, cur, fmt) {
     return list.map(function (m) { return row('&nbsp;&nbsp;↳ ' + esc(m.label), m.total, cur, fmt, 'ds-m'); }).join('');
   }
   function renderLayer(L, cur, fmt) {
+    fmt = isoNeg(fmt);
     var h = '<div class="ds-layer" data-ds-cur="' + cur + '">';
     h += '<div class="ds-cards">' +
-      card('💎 إنتاج اليوم', fmt(L.production.total, cur), L.production.count + ' جلسة منجزة', 'blue') +
-      card('💰 المقبوضات', fmt(L.collected.total, cur), L.collected.count + ' دفعة', 'green') +
+      card('💎 إنتاج اليوم', fmt(L.production.total, cur), cntAr(L.production.count, 'sess'), 'blue') +
+      card('💰 المقبوضات', fmt(L.collected.total, cur), cntAr(L.collected.count, 'pay'), 'green') +
       card('📤 الخارج', fmt(L.outflow.total, cur), 'مصروفات · مخابر · رواتب · استردادات', 'red') +
       card('💵 صافي الدرج نقداً', fmt(L.net.cash, cur), 'داخلٌ نقداً ' + fmt(L.net.cashIn, cur) + ' − خارجٌ من الدرج ' + fmt(L.net.cashOut, cur), L.net.cash >= 0 ? 'yellow' : 'red') +
     '</div>';
     h += '<div class="tbl-wrap"><table class="providers ds-table"><tbody>';
-    h += row('<b>المقبوضات حسب الطريقة</b>', L.collected.total, cur, fmt, 'ds-head', L.collected.count + ' دفعة');
+    h += row('<b>المقبوضات حسب الطريقة</b>', L.collected.total, cur, fmt, 'ds-head', cntAr(L.collected.count, 'pay'));
     h += L.collected.byMethod.length ? methodRows(L.collected.byMethod, cur, fmt) : '<tr class="ds-m"><td colspan="2" class="ds-empty">لا دفعات</td></tr>';
     if (L.adjustments.reductions.count) {
-      h += row('<b>خصم / إعدام</b>', L.adjustments.reductions.total, cur, fmt, 'ds-head', L.adjustments.reductions.count + ' — تسويةُ ذمّة، لا تمسّ الصندوق');
+      h += row('<b>خصم / إعدام</b>', L.adjustments.reductions.total, cur, fmt, 'ds-head', cntAr(L.adjustments.reductions.count, 'adj') + ' — تسويةُ ذمّة، لا تمسّ الصندوق');
     }
     h += row('<b>الخارج</b>', L.outflow.total, cur, fmt, 'ds-head');
-    if (L.outflow.expenses.count) { h += row('&nbsp;&nbsp;↳ مصروفات', L.outflow.expenses.total, cur, fmt, 'ds-m', L.outflow.expenses.count + ''); h += L.outflow.expenses.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
-    if (L.outflow.labs.count)     { h += row('&nbsp;&nbsp;↳ دفعات مخابر', L.outflow.labs.total, cur, fmt, 'ds-m', L.outflow.labs.count + ''); h += L.outflow.labs.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
-    if (L.outflow.payouts.count)  { h += row('&nbsp;&nbsp;↳ رواتب ودفعات أطباء', L.outflow.payouts.total, cur, fmt, 'ds-m', L.outflow.payouts.count + ''); h += L.outflow.payouts.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
-    if (L.adjustments.refunds.count) { h += row('&nbsp;&nbsp;↳ استرداد للمريض', L.adjustments.refunds.total, cur, fmt, 'ds-m', L.adjustments.refunds.count + ''); h += L.adjustments.refunds.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
+    if (L.outflow.expenses.count) { h += row('&nbsp;&nbsp;↳ مصروفات', L.outflow.expenses.total, cur, fmt, 'ds-m', cntAr(L.outflow.expenses.count, 'exp')); h += L.outflow.expenses.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
+    if (L.outflow.labs.count)     { h += row('&nbsp;&nbsp;↳ دفعات مخابر', L.outflow.labs.total, cur, fmt, 'ds-m', cntAr(L.outflow.labs.count, 'pay')); h += L.outflow.labs.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
+    if (L.outflow.payouts.count)  { h += row('&nbsp;&nbsp;↳ رواتب ودفعات أطباء', L.outflow.payouts.total, cur, fmt, 'ds-m', cntAr(L.outflow.payouts.count, 'pay')); h += L.outflow.payouts.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
+    if (L.adjustments.refunds.count) { h += row('&nbsp;&nbsp;↳ استرداد للمريض', L.adjustments.refunds.total, cur, fmt, 'ds-m', cntAr(L.adjustments.refunds.count, 'ref')); h += L.adjustments.refunds.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
     if (!L.outflow.expenses.count && !L.outflow.labs.count && !L.outflow.payouts.count && !L.adjustments.refunds.count) h += '<tr class="ds-m"><td colspan="2" class="ds-empty">لا مدفوعات خارجة</td></tr>';
     h += row('<b>صافي حركة اليوم (كل الطرق)</b>', L.net.all, cur, fmt, 'ds-total');
     h += row('<b>صافي الدرج نقداً</b>', L.net.cash, cur, fmt, 'ds-total ds-cash');
     if (L.net.cashOutside > 0) h += row('نقداً من خارج الدرج', L.net.cashOutside, cur, fmt, 'ds-m2', 'خزنة · جيب الطبيب — مصروفٌ بالحسابات، لا يُخصم من الدرج');
     h += '</tbody></table></div>';
     if (L.noMethod && L.noMethod.count) {   /* v702: سببُ عدم تطابق الدرج يُقال صراحةً */
-      h += '<div class="ds-flag">⚠️ ' + (L.noMethod.count === 1 ? 'حركةٌ واحدة' : L.noMethod.count + ' حركات') + ' بمجموع ' + fmt(L.noMethod.total, cur) +
+      h += '<div class="ds-flag">⚠️ ' + (L.noMethod.count === 1 ? 'حركةٌ واحدة' : (L.noMethod.count === 2 ? 'حركتان' : L.noMethod.count + (L.noMethod.count % 100 >= 3 && L.noMethod.count % 100 <= 10 ? ' حركات' : ' حركة'))) + ' بمجموع ' + fmt(L.noMethod.total, cur) +
         ' مسجَّلةٌ بلا طريقة دفع، فلم تُحتسب في «صافي الدرج نقداً». افتح الحركة من صفحتها (الرواتب · المصروفات · دفعات المريض) وحدِّد طريقة دفعها ليصحّ الإقفال.</div>';
     }
     h += renderClosing(L, cur, fmt);
@@ -250,6 +276,7 @@
   }
   /* إقفالُ الصندوق (M158): مُقفلٌ ⇒ اللقطةُ والفرق (+ «تعديل» للمالك)؛ مفتوحٌ ⇒ نموذجُ العدّ */
   function renderClosing(L, cur, fmt) {
+    fmt = isoNeg(fmt);
     var c = L.closing;
     var h = '<div class="ds-close" data-ds-close="' + cur + '">';
     if (c) {
@@ -284,7 +311,8 @@
     if (!ts) return '';
     var d = new Date(ts); if (isNaN(d.getTime())) return '';
     var hh = d.getHours(), ap = hh >= 12 ? 'PM' : 'AM'; hh = hh % 12 || 12;
-    return fmtDay(ymdLocal(d)) + ' — ' + String(hh).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ' ' + ap;
+    /* v702: الوقتُ معزولُ الاتجاه (مرآةُ SyDT.time12 — v485): داخل نصٍّ عربي كان «04:23 PM» يُرسم «PM 04:23» */
+    return fmtDay(ymdLocal(d)) + ' — \u2066' + String(hh).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ' ' + ap + '\u2069';
   }
   function card(lbl, val, sub, tone) {
     return '<div class="ds-card ds-' + tone + '"><div class="ds-lbl">' + lbl + '</div><div class="ds-val">' + val + '</div><div class="ds-note">' + sub + '</div></div>';
@@ -303,13 +331,14 @@
     return h;
   }
   function renderSection(day, bodyHtml) {
+    var t = todayYmd(), y = shiftYmd(t, -1);   /* v702: الزرُّ المطابق لليوم المعروض يتلوّن؛ التاريخُ القادم غيرُ متاح */
     return '<div class="section ds-section" id="daySheetSection">' +
       '<div class="ds-head-row">' +
         '<h2>🧾 كشف اليوم <span class="count">' + esc(fmtDay(day)) + '</span></h2>' +
         '<div class="ds-ctl">' +
-          '<input type="date" id="dsDate" value="' + esc(day) + '" aria-label="تاريخ الكشف" onchange="window.SyDentDaySheet.pick(this.value)">' +
-          '<button type="button" class="ds-qb" onclick="window.SyDentDaySheet.pick(\'today\')">اليوم</button>' +
-          '<button type="button" class="ds-qb" onclick="window.SyDentDaySheet.pick(\'yesterday\')">أمس</button>' +
+          '<input type="date" id="dsDate" value="' + esc(day) + '" max="' + esc(t) + '" aria-label="تاريخ الكشف" onchange="window.SyDentDaySheet.pick(this.value)">' +
+          '<button type="button" class="ds-qb' + (day === t ? ' on' : '') + '" aria-pressed="' + (day === t) + '" onclick="window.SyDentDaySheet.pick(\'today\')">اليوم</button>' +
+          '<button type="button" class="ds-qb' + (day === y ? ' on' : '') + '" aria-pressed="' + (day === y) + '" onclick="window.SyDentDaySheet.pick(\'yesterday\')">أمس</button>' +
           '<button type="button" class="ds-qb" onclick="window.SyDentDaySheet.print()">🖨️ طباعة</button>' +
         '</div>' +
       '</div>' +
@@ -327,6 +356,10 @@
     if (!_st.host) return;
     var day = v === 'today' ? todayYmd() : (v === 'yesterday' ? shiftYmd(todayYmd(), -1) : String(v || '').slice(0, 10));
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
+    if (day > todayYmd()) {   /* v702: لا كشفَ ليومٍ لم يأتِ — يُعرض اليوم ويُقال ذلك */
+      day = todayYmd();
+      if (window.showToast) window.showToast('ℹ️ لا كشف لتاريخٍ قادم — عُرض كشف اليوم');
+    }
     _st.day = day; _st.editing = {};
     var seq = ++_st.seq;
     _st.host.innerHTML = renderSection(day, '<div class="ds-empty">⏳ جارٍ التحميل…</div>');
@@ -378,6 +411,8 @@
     applyResult(compute(r.data, day), day);
     return true;
   }
+  /* v702: بياناتُ رأس الورقة المطبوعة (اسمُ العيادة) — تضبطها الصفحة؛ غيابُها لا يمنع الطباعة */
+  function setMeta(m) { _st.meta = { clinic: m && m.clinic ? String(m.clinic).trim().slice(0, 120) : '' }; }
   function print() {
     var sec = document.getElementById('daySheetSection');
     if (!sec || !_st.day) return;
@@ -387,12 +422,13 @@
     w.document.write('<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">' +
       '<title>كشف اليوم ' + esc(fmtDay(_st.day)) + '</title>' +
       '<link href="/fonts/noto-kufi-arabic.css" rel="stylesheet">' +
-      '<style>body{margin:0;padding:24px;font-family:"Noto Kufi Arabic",sans-serif;color:#111;font-size:13px;}h1{font-size:18px;margin:0 0 4px;}' +
+      '<style>body{margin:0;padding:24px;font-family:"Noto Kufi Arabic",sans-serif;color:#111;font-size:13px;}h1{font-size:18px;margin:0 0 4px;}.ds-ph-clinic{font-size:15px;font-weight:800;margin:0 0 6px;padding-bottom:6px;border-bottom:2px solid #333;}.ds-ph-meta{font-size:11px;color:#666;}@page{margin:12mm;}' +
       '.ds-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0;}.ds-card{border:1px solid #bbb;border-radius:8px;padding:8px;}.ds-lbl{font-size:11px;color:#555;}.ds-val{font-size:15px;font-weight:800;}.ds-note{font-size:10px;color:#666;}' +
-      'table{width:100%;border-collapse:collapse;margin-top:6px;}td{padding:5px 8px;border-bottom:1px solid #ddd;}td.num{text-align:left;direction:ltr;white-space:nowrap;}tr.ds-head td{background:#f3f3f3;}tr.ds-total td{font-weight:800;border-top:2px solid #333;}tr.ds-m2 td{color:#555;}' +
+      'table{width:100%;border-collapse:collapse;margin-top:6px;}td{padding:5px 8px;border-bottom:1px solid #ddd;}td.num{text-align:left;white-space:nowrap;}tr.ds-head td{background:#f3f3f3;}tr.ds-total td{font-weight:800;border-top:2px solid #333;}tr.ds-m2 td{color:#555;}' +
       '.ds-noprint{display:none;}.ds-close{margin-top:10px;border:1px solid #bbb;border-radius:8px;padding:8px;}.ds-close-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}.ds-val-s{font-weight:800;}.ds-sub{font-size:10px;color:#666;}.ds-curhead{font-weight:800;margin:14px 0 4px;font-size:14px;}.ds-note-foot{font-size:10px;color:#555;margin-top:12px;line-height:1.6;}.ds-close-trail,.ds-close-note{font-size:10px;color:#555;margin-top:6px;}.ds-flag{margin-top:8px;padding:6px 8px;border:1px solid #999;border-radius:6px;font-size:11px;}.ds-empty{padding:12px;color:#555;}</style>' +
-      '</head><body><h1>🧾 كشف اليوم — ' + esc(fmtDay(_st.day)) + '</h1>' +
-      '<div style="font-size:11px;color:#666;">طُبع: ' + esc(fmtDay(todayYmd())) + '</div>' +
+      '</head><body>' + (_st.meta && _st.meta.clinic ? '<div class="ds-ph-clinic">' + esc(_st.meta.clinic) + '</div>' : '') +
+      '<h1>🧾 كشف اليوم — ' + esc(fmtDay(_st.day)) + '</h1>' +
+      '<div class="ds-ph-meta">طُبع: ' + esc(fmtStamp(new Date().toISOString())) + '</div>' +
       (body ? body.innerHTML : '') + '</body></html>');
     w.document.close();
     setTimeout(function () { w.print(); }, 600);
@@ -480,8 +516,8 @@
   }
 
   window.SyDentDaySheet = {
-    compute: compute, load: load, renderBody: renderBody, renderSection: renderSection, renderClosing: renderClosing,
-    mount: mount, pick: pick, refresh: refresh, print: print, close: close, reopen: reopen,
+    cntAr: cntAr, compute: compute, load: load, renderBody: renderBody, renderSection: renderSection, renderClosing: renderClosing,
+    mount: mount, pick: pick, refresh: refresh, setMeta: setMeta, print: print, close: close, reopen: reopen,
     localDayOf: localDayOf, shiftYmd: shiftYmd, todayYmd: todayYmd
   };
 })();
