@@ -2895,3 +2895,16 @@ window.SyI18nPatterns.push(
   [/^(❌ )?(.+) \(رمز: ([\w-]+)\)$/, function (m, x, msg, code) { var D = window.SyI18nDict, t = D[msg]; return t ? (x || '') + t + ' (code: ' + code + ')' : m; }]
 );
 
+/* ── Expenses: protected «dental materials» category + supplier picked from the inventory suppliers (M201) ── */
+Object.assign(window.SyI18nDict, {
+  "اختيار المورّد": "Choose the supplier",
+  "— بدون مورّد —": "— No supplier —",
+  "✏️ مورّد آخر (اكتب الاسم)": "✏️ Another supplier (type the name)",
+  "القائمة من مورّدي المخزون.": "The list comes from the inventory suppliers.",
+  "سجّل مورّديك في المخزون («الطلبيات والموردون») لتختارهم من قائمة.": "Add your suppliers in Inventory («Orders and suppliers») to pick them from a list.",
+  "🔒 أساسي": "🔒 Built-in",
+  "تصنيف أساسي يرتبط به مورّدو المخزون — لا يمكن حذفه": "A built-in category the inventory suppliers are linked to — it can't be deleted",
+  "🔒 هذا تصنيف أساسي لا يمكن حذفه — يمكنك تعديله أو تعطيله": "🔒 This is a built-in category and can't be deleted — you can edit or deactivate it",
+  "طلبيات الشراء من المورّدين، وقائمة المورّدين وأرقامهم": "Purchase orders from suppliers, and the list of suppliers with their numbers",
+  "تصنيف «مواد سنية» أساسي لا يُحذف؛ ومعه تختار المورّد من مورّدي المخزون المسجّلين.": "The «dental materials» category is built-in and can't be deleted; with it you pick the supplier from the suppliers registered in Inventory."
+});
