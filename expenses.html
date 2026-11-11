@@ -903,6 +903,16 @@ async function init() {
     await maybeBootstrapDefaults();
     await ensureMaterialsCategory();   // M201
     await Promise.all([loadExpenses(), loadSuppliers()]);
+    /* v705: رابطٌ من كشف اليوم — expenses.html?from=YYYY-MM-DD&to=YYYY-MM-DD يفتح القائمةَ مفلترةً بذلك اليوم
+       (الفلترُ ظاهرٌ بحقلَي «من/إلى» و«إعادة ضبط» تمسحه). قيمةٌ غير تاريخٍ تُتجاهل. */
+    (function () {
+      var q = new URLSearchParams(location.search), iso = /^\d{4}-\d{2}-\d{2}$/;
+      var f = q.get('from') || '', t = q.get('to') || '';
+      if (!iso.test(f) && !iso.test(t)) return;
+      if (iso.test(f)) { $('dateFrom').value = f; filterDateFrom = f; }
+      if (iso.test(t)) { $('dateTo').value = t; filterDateTo = t; }
+      if (!q.get('inv_receipt')) history.replaceState({}, '', 'expenses.html');
+    })();
     renderCategoryFilters();
     renderExpenses();
     renderCategories();

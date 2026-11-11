@@ -2263,6 +2263,12 @@ function applyQueryPrefill() {
   } else if (provId) {
     // Just filter to that provider
     employeeFilter = provId;
+  } else {
+    /* v705: رابطٌ من كشف اليوم — payouts.html?from=YYYY-MM-DD&to=YYYY-MM-DD يفتح السجلَّ مفلتراً بذلك اليوم (بلا فتح نموذج) */
+    var iso = /^\d{4}-\d{2}-\d{2}$/;
+    if (iso.test(from || '')) $('filterFrom').value = from;
+    if (iso.test(to || ''))   $('filterTo').value = to;
+    if (iso.test(from || '') || iso.test(to || '')) history.replaceState({}, '', 'payouts.html');
   }
 }
 

@@ -438,6 +438,81 @@ suite(PMm, DS);
   }
   await v702Suite(DS_SRC);
 
+  /* ══ v705 — تفاصيلُ كلِّ سطر: من دفع · ما المصروف · أيُّ مخبر · لمن الراتب · جلساتُ الإنتاج + روابطُ صفحة المصدر ══ */
+  async function v705Suite(src) {
+    const DSm = load(src).SyDentDaySheet, f = (n, cur) => n + (cur === 'USD' ? ' $' : ' ل.س');
+    const names = { patients: { p1: 'محمد العلي', p2: 'سارة <b>x</b>' }, cats: { c1: '🧴 مواد' }, labs: { l1: 'مخبر النور' }, doctors: { d1: 'د. رامي' }, employees: { e1: 'لينا' } };
+    const rows = {
+      sessions: [S(2500, { patient_id: 'p1', description: 'حشوة', tooth_num: '16' })],
+      payments: [P(350, 'نقداً', { patient_id: 'p1', notes: 'دفعة أولى', created_at: DAY + 'T11:15:00+03:00' }), P(120, 'نقداً', { patient_id: 'p2', created_at: '2026-01-01T10:00:00+03:00' }), P(200, 'شام كاش', { patient_id: 'p9' })],
+      adjustments: [ADJ('refund', 50, { patient_id: 'p2', note: 'ألغى', payment_method: 'cash' }), ADJ('discount', 20, { patient_id: 'p1', note: 'عائلي' }), ADJ('write_off', 5, { patient_id: 'p1' })],
+      expenses: [E(125, 'cash', { category_id: 'c1', description: 'قفازات', vendor: 'مستودع الشام' }), E(40, 'cash', { cash_source: 'outside', category_id: 'c7' })],
+      labPayments: [LB(300, { payment_method: 'bank', lab_id: 'l1', note: 'تاج' })],
+      payouts: [PO(100, 'cash', DAY + 'T10:00:00+03:00', { provider_id: 'd1', notes: 'سلفة' }), PO(60, null, DAY + 'T10:00:00+03:00', { employee_id: 'e1' })]
+    };
+    const withN = DSm.compute(D(Object.assign({ names }, rows)), DAY), noN = DSm.compute(D(rows), DAY);
+    const strip = o => JSON.stringify(o, (k, v) => k === 'items' ? undefined : v);
+    ok(strip(withN) === strip(noN) && strip(noN) === strip(DS.compute(D(rows), DAY)), 'v705: details never change a number — every total identical with names, without names, and to the shipped module');
+    const L = withN.SYP, m = (list, k) => (list.find(x => x.key === k) || { items: [] }).items;
+    ok(L.production.items.length === 1 && L.production.items[0].who === 'محمد العلي' && L.production.items[0].pid === 'p1' && L.production.items[0].what === 'حشوة · سن 16' && L.production.items[0].amount === 2500, 'v705 items: production lists each completed session with patient, procedure and tooth');
+    const cash = m(L.collected.byMethod, 'cash');
+    ok(cash.length === 2 && cash[0].who === 'محمد العلي' && cash[0].note === 'دفعة أولى' && cash[0].time === DAY + 'T11:15:00+03:00' && cash[1].time === null && m(L.collected.byMethod, 'shamcash')[0].who === '' && m(L.collected.byMethod, 'shamcash')[0].pid === 'p9', 'v705 items: payments grouped under their method with patient + note; entry time only when recorded that same day; unknown name stays blank (never invented)');
+    ok(cash.reduce((a, x) => a + x.amount, 0) === (L.collected.byMethod.find(x => x.key === 'cash') || {}).total, 'v705 items: a method\'s items add up to its row');
+    const ex = L.outflow.expenses.byMethod;
+    ok(m(ex, 'cash')[0].who === '🧴 مواد' && m(ex, 'cash')[0].note === 'قفازات — مستودع الشام' && m(ex, 'cash_outside').length === 1 && m(ex, 'cash_outside')[0].who === 'مصروف', 'v705 items: expenses say category + description/vendor; an outside-drawer expense is listed under its own row; unknown category → «مصروف»');
+    ok(m(L.outflow.labs.byMethod, 'bank')[0].who === 'مخبر النور' && m(L.outflow.labs.byMethod, 'bank')[0].note === 'تاج' && m(L.outflow.payouts.byMethod, 'cash')[0].who === 'د. رامي' && m(L.outflow.payouts.byMethod, 'none')[0].who === 'لينا', 'v705 items: lab payments name the lab; payouts name the doctor or the employee');
+    ok(m(L.adjustments.refunds.byMethod, 'cash')[0].who.indexOf('سارة') === 0 && L.adjustments.reductions.items.length === 2 && L.adjustments.reductions.items[0].what === 'خصم' && L.adjustments.reductions.items[1].what === 'إعدام دين', 'v705 items: refunds and discounts/write-offs name the patient and the kind');
+    let h = DSm.renderBody(withN, DAY, f);
+    const keys = (h.match(/data-ds-x="([^"]+)"/g) || []).map(x => x.slice(11, -1));
+    ok(['SYP-prod-all', 'SYP-pay-cash', 'SYP-pay-shamcash', 'SYP-red-all', 'SYP-exp-cash', 'SYP-exp-cash_outside', 'SYP-lab-bank', 'SYP-po-cash', 'SYP-po-none', 'SYP-ref-cash'].every(k => keys.includes(k)) && keys.length === 10 && keys.every(k => new RegExp('<tr class="ds-det" data-ds-det="' + k + '" hidden>').test(h)), 'v705 render: every row with movements gets a «التفاصيل» button and a detail row — folded by default');
+    ok(/<a href="patient-profile\.html\?id=p1">محمد العلي<\/a>/.test(h) && /سارة &lt;b&gt;x&lt;\/b&gt;/.test(h) && !/<b>x<\/b>/.test(h) && /<div class="ds-det-who">—<span/.test(h) === false && /<a href="patient-profile\.html\?id=p9">—<\/a>/.test(h), 'v705 render: patient names link to the profile and are escaped; a missing name shows «—» (still linked)');
+    ok(/دفعة أولى · \u206611:15 AM\u2069/.test(h) && /حشوة · سن 16/.test(h) && /قفازات — مستودع الشام/.test(h), 'v705 render: note · isolated time, procedure · tooth, description — vendor');
+    ok(/<a class="ds-go ds-noprint" href="expenses\.html\?from=2026-09-28&to=2026-09-28">فتح بالمصروفات ←<\/a>/.test(h) && /<a class="ds-go ds-noprint" href="payouts\.html\?from=2026-09-28&to=2026-09-28">فتح بالرواتب ←<\/a>/.test(h) && (h.match(/class="ds-x ds-noprint"/g) || []).length === 10, 'v705 render: expenses and payouts rows link to their page filtered to the sheet\'s day; buttons and links stay off the printout');
+    ok(!/ds-go/.test(DSm.renderBody(withN, 'not-a-day', f)), 'v705 render: no source link without a valid day');
+    ok(!/data-ds-x=|ds-det/.test(DSm.renderBody(DSm.compute(D({ payments: [] , closings: [{ id: 'c', day: DAY, currency: 'SYP', expected: 0, counted: 0 }] }), DAY), DAY, f)), 'v705 render: nothing to expand → no buttons');
+    ok(/tr\.ds-det\[hidden\]\{display:table-row;\}/.test(src.slice(src.indexOf('function print()'))), 'v705 print: details always print open');
+
+    /* التحميل: أسماءٌ بالمعرّفات التي ظهرت فقط · فشلُها لا يُسقط الكشف · الفتحُ يبقى عبر التحديث ويُصفَّر بتغيير اليوم */
+    function world(spec, breakNames) {
+      const calls = [];
+      const sb = { from(t) { const st = { t, inn: null }; const q = { select() { return q; }, eq() { return q; }, gte() { return q; }, lte() { return q; }, maybeSingle() { return q; }, single() { return q; },
+        in(k, arr) { if (breakNames === 'throw') throw new Error('boom'); st.inn = [k, arr]; calls.push({ t, k, arr: arr.slice().sort() }); return q; },
+        then(res) { let rows = spec[t] || []; if (st.inn) { if (breakNames === 'error') return Promise.resolve({ data: null, error: { message: 'x' } }).then(res); rows = rows.filter(r => st.inn[1].includes(r[st.inn[0]])); } return Promise.resolve({ data: rows, error: null }).then(res); } }; return q; } };
+      return { sb, calls };
+    }
+    const spec = { ledger_sessions: rows.sessions, ledger_payments: rows.payments, account_adjustments: rows.adjustments, expenses: rows.expenses, lab_payments: rows.labPayments, provider_payouts: rows.payouts,
+      patients: [{ id: 'p1', name: 'محمد العلي' }, { id: 'p2', name: 'سارة' }, { id: 'zz', name: 'غريب' }], expense_categories: [{ id: 'c1', name: 'مواد', icon: '🧴' }], labs: [{ id: 'l1', name: 'مخبر النور' }], clinic_doctors: [{ id: 'd1', name: 'د. رامي' }], clinic_employees: [{ id: 'e1', name: 'لينا' }] };
+    let w = world(spec), r = await DSm.load(w.sb, 'DOC', DAY);
+    const call = t => w.calls.find(c => c.t === t) || {};
+    ok(r.ok && w.calls.length === 5 && call('patients').arr.join() === 'p1,p2,p9' && call('expense_categories').arr.join() === 'c1,c7' && call('labs').arr.join() === 'l1' && call('clinic_doctors').arr.join() === 'd1' && call('clinic_employees').arr.join() === 'e1' && w.calls.every(c => c.k === 'id'), 'v705 load: names fetched only for the ids that appear on the day (never a whole table)');
+    ok(r.data.names.patients.p1 === 'محمد العلي' && !r.data.names.patients.zz && r.data.names.cats.c1 === '🧴 مواد' && r.data.names.employees.e1 === 'لينا', 'v705 load: name maps built (category carries its icon)');
+    for (const mode of ['error', 'throw']) {
+      w = world(spec, mode); r = await DSm.load(w.sb, 'DOC', DAY);
+      const c2 = DSm.compute(r.data, DAY);
+      ok(r.ok === true && strip(c2) === strip(noN) && /<a href="patient-profile\.html\?id=p1">—<\/a>/.test(DSm.renderBody(c2, DAY, f)), 'v705 load: names lookup ' + mode + ' → the sheet still loads with identical numbers and «—»');
+    }
+    w = world({ ledger_payments: [P(5, 'نقداً')] }); r = await DSm.load(w.sb, 'DOC', DAY);
+    ok(r.ok && w.calls.length === 0, 'v705 load: no ids → no lookup queries at all');
+    /* الحالة: toggle ثم تحديث ⇒ يبقى مفتوحاً؛ يومٌ آخر ⇒ يُطوى */
+    const els = { dsBody: { innerHTML: '' }, daySheetSection: { innerHTML: '' } };
+    const cx = { window: { showToast() {} }, console: { warn() {} }, Number, String, Date, Array, Object, Promise, Math, isNaN, parseFloat, isFinite, document: { activeElement: null, getElementById(id) { return els[id] || null; }, querySelector() { return null; } } };
+    vm.createContext(cx); vm.runInContext(PM_SRC + '\n' + src, cx);
+    const M = cx.window.SyDentDaySheet; w = world(spec);
+    await M.mount({ innerHTML: '' }, w.sb, 'DOC', f); await M.pick(DAY);
+    ok(/data-ds-det="SYP-pay-cash" hidden>/.test(els.dsBody.innerHTML), 'v705 state: folded after load');
+    M.toggle('SYP-pay-cash'); await M.refresh();
+    ok(/<tr class="ds-det" data-ds-det="SYP-pay-cash"><td/.test(els.dsBody.innerHTML) && /data-ds-x="SYP-pay-cash" aria-expanded="true"/.test(els.dsBody.innerHTML) && /data-ds-det="SYP-prod-all" hidden>/.test(els.dsBody.innerHTML), 'v705 state: an opened row stays open across a live refresh; the others stay folded');
+    M.toggle('SYP-pay-cash"><script>'); M.toggle('SYP-pay-cash'); await M.refresh();
+    ok(/data-ds-det="SYP-pay-cash" hidden>/.test(els.dsBody.innerHTML), 'v705 state: toggle folds again; a hostile key is reduced to safe characters');
+    M.toggle('SYP-pay-cash'); await M.pick(DSm.shiftYmd(DAY, -1)); await M.pick(DAY);
+    ok(/data-ds-det="SYP-pay-cash" hidden>/.test(els.dsBody.innerHTML), 'v705 state: switching day folds everything');
+    const EXH2 = read('expenses.html'), POH2 = read('payouts.html');
+    ok(/if \(iso\.test\(f\)\) \{ \$\('dateFrom'\)\.value = f; filterDateFrom = f; \}/.test(EXH2) && /if \(iso\.test\(t\)\) \{ \$\('dateTo'\)\.value = t; filterDateTo = t; \}/.test(EXH2) && EXH2.indexOf("filterDateTo = t; }") < EXH2.indexOf("renderExpenses();\n    renderCategories();") && /if \(!q\.get\('inv_receipt'\)\) history\.replaceState/.test(EXH2), 'v705 expenses: ?from&to (ISO only) sets the visible date filter before the first render, keeps the inventory-receipt link working');
+    ok(/if \(iso\.test\(from \|\| ''\)\) \$\('filterFrom'\)\.value = from;/.test(extractFn(POH2, 'applyQueryPrefill')) && /if \(iso\.test\(to \|\| ''\)\)   \$\('filterTo'\)\.value = to;/.test(extractFn(POH2, 'applyQueryPrefill')) && POH2.indexOf('applyQueryPrefill();') < POH2.indexOf('renderPayouts();\n\n    /* v626'), 'v705 payouts: ?from&to (no action) sets the list\'s date filter before the first render');
+    ok(/\.ds-x \{/.test(AC) && /\.ds-det-list \{/.test(AC) && /\.ds-go \{/.test(AC) && /\.ds-det-who \{ min-width:0;/.test(AC), 'v705 css: button, list and link styled');
+  }
+  await v705Suite(DS_SRC);
+
   /* الإثباتُ العكسي */
   if (process.argv.includes('--self-test')) {
     const muts = [
@@ -476,7 +551,16 @@ suite(PMm, DS);
       [DS_SRC, "return s.charAt(0) === '-' ? s.replace(", "return false ? s.replace(", 'v702: negative amount not isolated (trailing minus)'],
       [DS_SRC, "' — \\u2066' + String(hh)", "' — ' + String(hh)", 'v702: closing time not isolated (PM 04:23)'],
       [DS_SRC, "((m >= 3 && m <= 10) ? f[3] : f[4])", "f[4]", 'v702: «3 دفعة» wording back'],
-      [DS_SRC, "if (day > todayYmd()) {", "if (false) {", 'v702: future date accepted']
+      [DS_SRC, "if (day > todayYmd()) {", "if (false) {", 'v702: future date accepted'],
+      [DS_SRC, "(open ? '' : ' hidden') + '><td colspan=\"2\"><div class=\"ds-det-list\">'", "'' + '><td colspan=\"2\"><div class=\"ds-det-list\">'", 'v705: details open by default (noisy sheet)'],
+      [DS_SRC, "var who = it.who ? esc(it.who) : '—';", "var who = it.who || '—';", 'v705: patient name injected unescaped'],
+      [DS_SRC, "push(expI, OUT_KEY, ei);", "push(expI, k, ei);", 'v705: outside-drawer expense listed under the drawer row'],
+      [DS_SRC, "time: sameDay(p.created_at),", "time: p.created_at,", 'v705: a back-dated payment shows a misleading entry time'],
+      [DS_SRC, "if (day !== _st.day) _st.open = {};", "", 'v705: opened rows leak into another day'],
+      [DS_SRC, "tr.ds-det[hidden]{display:table-row;}", "", 'v705: details missing from the printout'],
+      [DS_SRC, "return Object.keys(seen).slice(0, 300);", "return [];", 'v705: names never fetched'],
+      [DS_SRC, "nm(N.doctors, po.provider_id) || nm(N.employees, po.employee_id)", "nm(N.doctors, po.provider_id)", 'v705: employee payouts unnamed'],
+      [DS_SRC, "dq ? { href: 'expenses.html' + dq, text: 'فتح بالمصروفات' } : null", "null", 'v705: no link to the expenses of the day']
     ];
     let red = 0;
     for (const [base, a, b, name] of muts) {
@@ -488,6 +572,7 @@ suite(PMm, DS);
         if (/count accepted|snapshot|day key|guard removed/.test(name)) await closingSuite(base === PM_SRC ? DS_SRC : DS_SRC.replace(a, b));
         if (/negative confirm/.test(name)) await negClosingSuite(DS_SRC.replace(a, b));
         if (/^v702/.test(name)) await v702Suite(DS_SRC.replace(a, b));
+        if (/^v705/.test(name)) await v705Suite(DS_SRC.replace(a, b));
         if (/stale|trimmed|swallowed/.test(name)) {
           const M = Wm.SyDentDaySheet;
           const s1 = stub(full); const r1 = await M.load(s1.sb, 'DOC', DAY);

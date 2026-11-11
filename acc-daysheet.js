@@ -20,6 +20,8 @@
    • **مصدرُ النقد (M165 — v548):** المدفوعُ نقداً «من خارج الدرج» (خزنة · جيب الطبيب —
      `cash_source='outside'`) يبقى خارجاً بالكشف والحسابات لكنه **لا يُخصم من الدرج**، ويُعرض
      سطراً مستقلاً؛ الفارغُ = من الدرج (الصفوفُ القائمة كما كانت). المتوقَّعُ السالب يُنبَّه عليه ويُؤكَّد.
+   • **التفاصيل (v705):** كلُّ سطرٍ يحمل حركاتِه (`items`: من دفع · ما المصروف · أيُّ مخبر · لمن الراتب · جلساتُ
+     الإنتاج) مطويةً بزرّ «التفاصيل»، وتُطبع مفتوحة؛ للعرض فقط ولا تدخل مجموعاً. الأسماءُ تحميلٌ غير حرج.
    • **أثرُ الإقفال (M200 — v702):** `closed_at` وقتُ الإقفال الأول لا يتحرّك؛ التعديلُ يُختم بالقاعدة
      (`edited_at` · `edit_count` · `first_counted`) ويُعرض بالكشف، وكلُّ إقفالٍ/تعديلٍ يُكتب بسجلّ النشاط.
    • **إقفالُ الصندوق (M158 — الكتابةُ الوحيدة بالوحدة):** صفٌّ واحد لكلِّ (مالك · يوم · عملة) بـ
@@ -91,12 +93,20 @@
       var pay = { count: 0, total: 0, byMethod: by() };
       var cashIn = 0, cashOut = 0, cashOutside = 0;
       var add = function (bucket, key, amt) { bucket[key] = (bucket[key] || 0) + amt; };
+      /* v705: تفاصيلُ كلِّ سطر (من دفع · ما المصروف · لمن الراتب) — للعرض فقط، لا تدخل أيَّ مجموع.
+         الأسماءُ من data.names (تحميلٌ غير حرج)؛ غيابُها ⇒ «—» والأرقامُ كما هي. */
+      var N = data.names || {};
+      var nm = function (map, id) { return (id != null && map && map[id]) ? String(map[id]) : ''; };
+      var prodI = [], redI = [], colI = {}, refI = {}, expI = {}, labI = {}, payI = {};
+      var push = function (I, key, item) { (I[key] = I[key] || []).push(item); };
+      var sameDay = function (ts) { return ts && localDayOf(ts) === day ? ts : null; };
 
       (data.sessions || []).forEach(function (s) {
         if (rc(s) !== cur) return;
         if ((s.status || 'completed') !== 'completed') return;
         if (String(s.date || '').slice(0, 10) !== day) return;
         prod.count++; prod.total += Number(s.cost || 0);
+        prodI.push({ who: nm(N.patients, s.patient_id), pid: s.patient_id || null, what: [s.description, s.tooth_num ? 'سن ' + s.tooth_num : ''].filter(Boolean).join(' · '), note: '', time: null, amount: r2(s.cost || 0) });
       });
       (data.payments || []).forEach(function (p) {
         if (rc(p) !== cur || String(p.date || '').slice(0, 10) !== day) return;
@@ -104,6 +114,7 @@
         var k = mKeyOrNone(p.method);
         if (k === NONE_KEY) { noM.count++; noM.total += a; }
         col.count++; col.total += a; add(col.byMethod, k, a);
+        push(colI, k, { who: nm(N.patients, p.patient_id), pid: p.patient_id || null, what: '', note: p.notes || '', time: sameDay(p.created_at), amount: r2(a) });
         if (mIsCash(k)) cashIn += a;
       });
       (data.adjustments || []).forEach(function (x) {
@@ -112,17 +123,22 @@
         if (x.kind === 'refund') {                                                       /* M200: بطريقته؛ الفارغُ القديم ⇒ نقداً */
           var kr = mKeyLegacyCash(x.payment_method);
           ref.count++; ref.total += a; add(ref.byMethod, kr, a);
+          push(refI, kr, { who: nm(N.patients, x.patient_id), pid: x.patient_id || null, what: '', note: x.note || '', time: null, amount: r2(a) });
           if (mIsCash(kr)) cashOut += a;
         }
-        else if (x.kind === 'discount' || x.kind === 'write_off') { red.count++; red.total += a; }
+        else if (x.kind === 'discount' || x.kind === 'write_off') {
+          red.count++; red.total += a;
+          redI.push({ who: nm(N.patients, x.patient_id), pid: x.patient_id || null, what: x.kind === 'discount' ? 'خصم' : 'إعدام دين', note: x.note || '', time: null, amount: r2(a) });
+        }
       });
       (data.expenses || []).forEach(function (e) {
         if (rc(e) !== cur || String(e.date || '').slice(0, 10) !== day) return;
         var a = Number(e.amount || 0); if (!(a > 0)) return;
         var k = mKeyOrNone(e.payment_method);
         if (k === NONE_KEY) { noM.count++; noM.total += a; }
-        if (mIsCash(k) && srcOutside(e.cash_source)) { exp.count++; exp.total += a; add(exp.byMethod, OUT_KEY, a); cashOutside += a; return; }
-        exp.count++; exp.total += a; add(exp.byMethod, k, a);
+        var ei = { who: nm(N.cats, e.category_id) || 'مصروف', pid: null, what: '', note: [e.description, e.vendor].filter(Boolean).join(' — '), time: null, amount: r2(a) };
+        if (mIsCash(k) && srcOutside(e.cash_source)) { exp.count++; exp.total += a; add(exp.byMethod, OUT_KEY, a); push(expI, OUT_KEY, ei); cashOutside += a; return; }
+        exp.count++; exp.total += a; add(exp.byMethod, k, a); push(expI, k, ei);
         if (mIsCash(k)) cashOut += a;
       });
       (data.labPayments || []).forEach(function (l) {
@@ -130,8 +146,9 @@
         var a = Number(l.amount || 0); if (!(a > 0)) return;
         var kl = mKeyLegacyCash(l.payment_method);                                        /* M200: بطريقتها؛ الفارغُ القديم ⇒ نقداً */
         lab.count++; lab.total += a;
-        if (mIsCash(kl) && srcOutside(l.cash_source)) { lab.outside += a; add(lab.byMethod, OUT_KEY, a); cashOutside += a; return; }
-        add(lab.byMethod, kl, a);
+        var li = { who: nm(N.labs, l.lab_id) || 'مخبر', pid: null, what: '', note: l.note || '', time: null, amount: r2(a) };
+        if (mIsCash(kl) && srcOutside(l.cash_source)) { lab.outside += a; add(lab.byMethod, OUT_KEY, a); push(labI, OUT_KEY, li); cashOutside += a; return; }
+        add(lab.byMethod, kl, a); push(labI, kl, li);
         if (mIsCash(kl)) cashOut += a;
       });
       (data.payouts || []).forEach(function (po) {
@@ -139,23 +156,24 @@
         var a = Number(po.amount || 0); if (!(a > 0)) return;
         var k = mKeyOrNone(po.payment_method);
         if (k === NONE_KEY) { noM.count++; noM.total += a; }
-        if (mIsCash(k) && srcOutside(po.cash_source)) { pay.count++; pay.total += a; add(pay.byMethod, OUT_KEY, a); cashOutside += a; return; }
-        pay.count++; pay.total += a; add(pay.byMethod, k, a);
+        var pi = { who: nm(N.doctors, po.provider_id) || nm(N.employees, po.employee_id), pid: null, what: '', note: po.notes || '', time: po.paid_at || null, amount: r2(a) };
+        if (mIsCash(k) && srcOutside(po.cash_source)) { pay.count++; pay.total += a; add(pay.byMethod, OUT_KEY, a); push(payI, OUT_KEY, pi); cashOutside += a; return; }
+        pay.count++; pay.total += a; add(pay.byMethod, k, a); push(payI, k, pi);
         if (mIsCash(k)) cashOut += a;
       });
 
-      var toList = function (bucket) {
-        return Object.keys(bucket).map(function (k) { return { key: k, label: bucketLabel(k), total: r2(bucket[k]) }; })
+      var toList = function (bucket, I) {
+        return Object.keys(bucket).map(function (k) { return { key: k, label: bucketLabel(k), total: r2(bucket[k]), items: (I && I[k]) || [] }; })
           .sort(function (a, b) { return b.total - a.total || String(a.label).localeCompare(String(b.label), 'ar'); });
       };
       var outTotal = exp.total + lab.total + pay.total + ref.total;
       var layer = {
-        production: { count: prod.count, total: r2(prod.total) },
-        collected: { count: col.count, total: r2(col.total), byMethod: toList(col.byMethod) },
-        adjustments: { reductions: { count: red.count, total: r2(red.total) }, refunds: { count: ref.count, total: r2(ref.total), byMethod: toList(ref.byMethod) } },
-        outflow: { expenses: { count: exp.count, total: r2(exp.total), byMethod: toList(exp.byMethod) },
-                   labs: { count: lab.count, total: r2(lab.total), outside: r2(lab.outside), byMethod: toList(lab.byMethod) },
-                   payouts: { count: pay.count, total: r2(pay.total), byMethod: toList(pay.byMethod) },
+        production: { count: prod.count, total: r2(prod.total), items: prodI },
+        collected: { count: col.count, total: r2(col.total), byMethod: toList(col.byMethod, colI) },
+        adjustments: { reductions: { count: red.count, total: r2(red.total), items: redI }, refunds: { count: ref.count, total: r2(ref.total), byMethod: toList(ref.byMethod, refI) } },
+        outflow: { expenses: { count: exp.count, total: r2(exp.total), byMethod: toList(exp.byMethod, expI) },
+                   labs: { count: lab.count, total: r2(lab.total), outside: r2(lab.outside), byMethod: toList(lab.byMethod, labI) },
+                   payouts: { count: pay.count, total: r2(pay.total), byMethod: toList(pay.byMethod, payI) },
                    total: r2(outTotal) },
         net: { all: r2(col.total - outTotal), cashIn: r2(cashIn), cashOut: r2(cashOut), cash: r2(cashIn - cashOut), cashOutside: r2(cashOutside) },
         noMethod: { count: noM.count, total: r2(noM.total) }
@@ -176,17 +194,44 @@
     var msg = ((err && err.message) || '') + ' ' + ((err && err.code) || '');
     return /relation .* does not exist|42P01|PGRST205|42703/i.test(msg);
   }
+  /* v705: أسماءُ أصحاب حركات اليوم (مرضى · تصنيفاتُ مصروف · مخابر · أطباء · موظفون) — بالمعرّفات التي ظهرت فعلاً
+     فقط، والعزلُ بسياسات القاعدة. أيُّ فشلٍ ⇒ خريطةٌ فارغة وتظهر الحركةُ بـ«—»؛ الأرقامُ لا تتأثّر. */
+  async function loadNames(sb, data) {
+    var out = { patients: {}, cats: {}, labs: {}, doctors: {}, employees: {} };
+    try {
+      var ids = function (lists) {
+        var seen = {};
+        lists.forEach(function (pair) { (pair[0] || []).forEach(function (r) { if (r && r[pair[1]]) seen[r[pair[1]]] = 1; }); });
+        return Object.keys(seen).slice(0, 300);
+      };
+      var jobs = [
+        ['patients', 'patients', 'id,name', ids([[data.sessions, 'patient_id'], [data.payments, 'patient_id'], [data.adjustments, 'patient_id']])],
+        ['cats', 'expense_categories', 'id,name,icon', ids([[data.expenses, 'category_id']])],
+        ['labs', 'labs', 'id,name', ids([[data.labPayments, 'lab_id']])],
+        ['doctors', 'clinic_doctors', 'id,name', ids([[data.payouts, 'provider_id']])],
+        ['employees', 'clinic_employees', 'id,name', ids([[data.payouts, 'employee_id']])]
+      ].filter(function (j) { return j[3].length; });
+      var rs = await Promise.all(jobs.map(function (j) { return sb.from(j[1]).select(j[2]).in('id', j[3]); }));
+      rs.forEach(function (r, i) {
+        if (!r || r.error) return;
+        (r.data || []).forEach(function (row) {
+          out[jobs[i][0]][row.id] = jobs[i][0] === 'cats' ? ((row.icon ? row.icon + ' ' : '') + (row.name || '')).trim() : (row.name || '');
+        });
+      });
+    } catch (e) { console.warn('daysheet names (non-critical):', e); }
+    return out;
+  }
   async function load(sb, uid, day) {
     var data = { sessions: [], payments: [], adjustments: [], expenses: [], labPayments: [], payouts: [], closings: [] };
     var lo = widenStart(day), hi = widenEnd(day);
     try {
       var rs = await Promise.all([
-        sb.from('ledger_sessions').select('id,cost,status,currency,date').eq('doctor_id', uid).eq('status', 'completed').eq('date', day),
-        sb.from('ledger_payments').select('id,amount,method,currency,date').eq('doctor_id', uid).eq('date', day),
-        sb.from('account_adjustments').select('id,kind,amount,payment_method,currency,date').eq('doctor_id', uid).eq('date', day),
-        sb.from('expenses').select('id,amount,payment_method,cash_source,currency,date').eq('owner_id', uid).eq('date', day),
-        sb.from('lab_payments').select('id,amount,payment_method,cash_source,currency,pay_date').eq('doctor_id', uid).eq('pay_date', day),
-        sb.from('provider_payouts').select('id,amount,payment_method,cash_source,currency,paid_at').eq('owner_id', uid).gte('paid_at', lo).lte('paid_at', hi),
+        sb.from('ledger_sessions').select('id,patient_id,description,tooth_num,cost,status,currency,date').eq('doctor_id', uid).eq('status', 'completed').eq('date', day),
+        sb.from('ledger_payments').select('id,patient_id,amount,method,notes,created_at,currency,date').eq('doctor_id', uid).eq('date', day),
+        sb.from('account_adjustments').select('id,patient_id,kind,amount,note,payment_method,currency,date').eq('doctor_id', uid).eq('date', day),
+        sb.from('expenses').select('id,category_id,description,vendor,amount,payment_method,cash_source,currency,date').eq('owner_id', uid).eq('date', day),
+        sb.from('lab_payments').select('id,lab_id,note,amount,payment_method,cash_source,currency,pay_date').eq('doctor_id', uid).eq('pay_date', day),
+        sb.from('provider_payouts').select('id,provider_id,employee_id,notes,amount,payment_method,cash_source,currency,paid_at').eq('owner_id', uid).gte('paid_at', lo).lte('paid_at', hi),
         sb.from('day_closings').select('id,day,currency,expected,counted,note,closed_at,edited_at,edit_count,first_counted,first_expected').eq('owner_id', uid).eq('day', day)
       ]);
       var keys = ['sessions', 'payments', 'adjustments', 'expenses', 'labPayments', 'payouts', 'closings'];
@@ -200,6 +245,7 @@
         data[keys[i]] = r.data || [];
       }
       data.payouts = data.payouts.filter(function (po) { return localDayOf(po.paid_at) === day; });   /* قصٌّ محليٌّ صارم */
+      data.names = await loadNames(sb, data);   /* v705: غير حرج — فشلُه لا يُسقط الكشف */
       return { ok: true, data: data };
     } catch (e) { console.warn('daysheet load exception', e); return { ok: false, data: data }; }
   }
@@ -235,14 +281,40 @@
     var m = n % 100;
     return n + ' ' + ((m >= 3 && m <= 10) ? f[3] : f[4]);
   }
-  function row(label, amt, cur, fmt, cls, sub) {
-    return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + label + (sub ? ' <span class="ds-sub">· ' + sub + '</span>' : '') + '</td><td class="num">' + fmt(amt, cur) + '</td></tr>';
+  /* v705: `x` اختياري = { key, n } ⇒ زرُّ «التفاصيل» يفتح/يطوي صفَّ الحركات تحته؛ `go` اختياري = رابطٌ لصفحة المصدر */
+  function row(label, amt, cur, fmt, cls, sub, x, go) {
+    var open = !!(x && _st.open && _st.open[x.key]);
+    var btn = (x && x.n) ? ' <button type="button" class="ds-x ds-noprint" data-ds-x="' + x.key + '" aria-expanded="' + open + '" onclick="window.SyDentDaySheet.toggle(\'' + x.key + '\')">التفاصيل <span class="ds-x-c">' + (open ? '▴' : '▾') + '</span></button>' : '';
+    var lnk = go ? ' <a class="ds-go ds-noprint" href="' + go.href + '">' + go.text + ' ←</a>' : '';
+    return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + label + (sub ? ' <span class="ds-sub">· ' + sub + '</span>' : '') + btn + lnk + '</td><td class="num">' + fmt(amt, cur) + '</td></tr>';
   }
-  function methodRows(list, cur, fmt) {
-    return list.map(function (m) { return row('&nbsp;&nbsp;↳ ' + esc(m.label), m.total, cur, fmt, 'ds-m'); }).join('');
+  function fmtTime(ts) {
+    var d = new Date(ts); if (!ts || isNaN(d.getTime())) return '';
+    var hh = d.getHours(), ap = hh >= 12 ? 'PM' : 'AM'; hh = hh % 12 || 12;
+    return '\u2066' + String(hh).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ' ' + ap + '\u2069';
   }
-  function renderLayer(L, cur, fmt) {
+  /* صفُّ التفاصيل: اسمٌ (رابطٌ لملفّ المريض إن وُجد) · ما تحته (إجراء/ملاحظة/وقت) · المبلغ. مطويٌّ افتراضياً، ويُطبع مفتوحاً دائماً. */
+  function det(key, items, cur, fmt) {
+    if (!items || !items.length) return '';
+    var open = !!(_st.open && _st.open[key]);
+    return '<tr class="ds-det" data-ds-det="' + key + '"' + (open ? '' : ' hidden') + '><td colspan="2"><div class="ds-det-list">' + items.map(function (it) {
+      var who = it.who ? esc(it.who) : '—';
+      if (it.pid) who = '<a href="patient-profile.html?id=' + encodeURIComponent(it.pid) + '">' + who + '</a>';
+      var sub = [it.what, it.note].filter(Boolean).map(esc).concat(it.time ? [fmtTime(it.time)] : []).filter(Boolean).join(' · ');
+      return '<div class="ds-det-i"><div class="ds-det-who">' + who + (sub ? '<span class="ds-det-sub">' + sub + '</span>' : '') + '</div><div class="ds-det-amt">' + fmt(it.amount, cur) + '</div></div>';
+    }).join('') + '</div></td></tr>';
+  }
+  function xk(cur, sec, k) { return (cur + '-' + sec + '-' + (k || 'all')).replace(/[^A-Za-z0-9_-]/g, ''); }
+  function methodRows(list, cur, fmt, sec, cls, indent) {
+    return list.map(function (m) {
+      var key = xk(cur, sec, m.key);
+      return row(indent + esc(m.label), m.total, cur, fmt, cls, null, { key: key, n: (m.items || []).length }) + det(key, m.items, cur, fmt);
+    }).join('');
+  }
+  function renderLayer(L, cur, fmt, day) {
     fmt = isoNeg(fmt);
+    var IN1 = '&nbsp;&nbsp;↳ ', IN2 = '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ';
+    var dq = /^\d{4}-\d{2}-\d{2}$/.test(String(day || '')) ? '?from=' + day + '&to=' + day : '';
     var h = '<div class="ds-layer" data-ds-cur="' + cur + '">';
     h += '<div class="ds-cards">' +
       card('💎 إنتاج اليوم', fmt(L.production.total, cur), cntAr(L.production.count, 'sess'), 'blue') +
@@ -251,16 +323,21 @@
       card('💵 صافي الدرج نقداً', fmt(L.net.cash, cur), 'داخلٌ نقداً ' + fmt(L.net.cashIn, cur) + ' − خارجٌ من الدرج ' + fmt(L.net.cashOut, cur), L.net.cash >= 0 ? 'yellow' : 'red') +
     '</div>';
     h += '<div class="tbl-wrap"><table class="providers ds-table"><tbody>';
+    if (L.production.count) {   /* v705: جلساتُ اليوم بأسماء مرضاها (كانت رقماً بالبطاقة فقط) */
+      var kp = xk(cur, 'prod');
+      h += row('<b>إنتاج اليوم</b>', L.production.total, cur, fmt, 'ds-head', cntAr(L.production.count, 'sess'), { key: kp, n: (L.production.items || []).length }) + det(kp, L.production.items, cur, fmt);
+    }
     h += row('<b>المقبوضات حسب الطريقة</b>', L.collected.total, cur, fmt, 'ds-head', cntAr(L.collected.count, 'pay'));
-    h += L.collected.byMethod.length ? methodRows(L.collected.byMethod, cur, fmt) : '<tr class="ds-m"><td colspan="2" class="ds-empty">لا دفعات</td></tr>';
+    h += L.collected.byMethod.length ? methodRows(L.collected.byMethod, cur, fmt, 'pay', 'ds-m', IN1) : '<tr class="ds-m"><td colspan="2" class="ds-empty">لا دفعات</td></tr>';
     if (L.adjustments.reductions.count) {
-      h += row('<b>خصم / إعدام</b>', L.adjustments.reductions.total, cur, fmt, 'ds-head', cntAr(L.adjustments.reductions.count, 'adj') + ' — تسويةُ ذمّة، لا تمسّ الصندوق');
+      var kd = xk(cur, 'red');
+      h += row('<b>خصم / إعدام</b>', L.adjustments.reductions.total, cur, fmt, 'ds-head', cntAr(L.adjustments.reductions.count, 'adj') + ' — تسويةُ ذمّة، لا تمسّ الصندوق', { key: kd, n: (L.adjustments.reductions.items || []).length }) + det(kd, L.adjustments.reductions.items, cur, fmt);
     }
     h += row('<b>الخارج</b>', L.outflow.total, cur, fmt, 'ds-head');
-    if (L.outflow.expenses.count) { h += row('&nbsp;&nbsp;↳ مصروفات', L.outflow.expenses.total, cur, fmt, 'ds-m', cntAr(L.outflow.expenses.count, 'exp')); h += L.outflow.expenses.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
-    if (L.outflow.labs.count)     { h += row('&nbsp;&nbsp;↳ دفعات مخابر', L.outflow.labs.total, cur, fmt, 'ds-m', cntAr(L.outflow.labs.count, 'pay')); h += L.outflow.labs.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
-    if (L.outflow.payouts.count)  { h += row('&nbsp;&nbsp;↳ رواتب ودفعات أطباء', L.outflow.payouts.total, cur, fmt, 'ds-m', cntAr(L.outflow.payouts.count, 'pay')); h += L.outflow.payouts.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
-    if (L.adjustments.refunds.count) { h += row('&nbsp;&nbsp;↳ استرداد للمريض', L.adjustments.refunds.total, cur, fmt, 'ds-m', cntAr(L.adjustments.refunds.count, 'ref')); h += L.adjustments.refunds.byMethod.map(function (m) { return row('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;· ' + esc(m.label), m.total, cur, fmt, 'ds-m2'); }).join(''); }
+    if (L.outflow.expenses.count) { h += row(IN1 + 'مصروفات', L.outflow.expenses.total, cur, fmt, 'ds-m', cntAr(L.outflow.expenses.count, 'exp'), null, dq ? { href: 'expenses.html' + dq, text: 'فتح بالمصروفات' } : null); h += methodRows(L.outflow.expenses.byMethod, cur, fmt, 'exp', 'ds-m2', IN2); }
+    if (L.outflow.labs.count)     { h += row(IN1 + 'دفعات مخابر', L.outflow.labs.total, cur, fmt, 'ds-m', cntAr(L.outflow.labs.count, 'pay'), null, null); h += methodRows(L.outflow.labs.byMethod, cur, fmt, 'lab', 'ds-m2', IN2); }
+    if (L.outflow.payouts.count)  { h += row(IN1 + 'رواتب ودفعات أطباء', L.outflow.payouts.total, cur, fmt, 'ds-m', cntAr(L.outflow.payouts.count, 'pay'), null, dq ? { href: 'payouts.html' + dq, text: 'فتح بالرواتب' } : null); h += methodRows(L.outflow.payouts.byMethod, cur, fmt, 'po', 'ds-m2', IN2); }
+    if (L.adjustments.refunds.count) { h += row(IN1 + 'استرداد للمريض', L.adjustments.refunds.total, cur, fmt, 'ds-m', cntAr(L.adjustments.refunds.count, 'ref'), null, null); h += methodRows(L.adjustments.refunds.byMethod, cur, fmt, 'ref', 'ds-m2', IN2); }
     if (!L.outflow.expenses.count && !L.outflow.labs.count && !L.outflow.payouts.count && !L.adjustments.refunds.count) h += '<tr class="ds-m"><td colspan="2" class="ds-empty">لا مدفوعات خارجة</td></tr>';
     h += row('<b>صافي حركة اليوم (كل الطرق)</b>', L.net.all, cur, fmt, 'ds-total');
     h += row('<b>صافي الدرج نقداً</b>', L.net.cash, cur, fmt, 'ds-total ds-cash');
@@ -326,7 +403,7 @@
     var h = '';
     act.forEach(function (cur) {
       if (act.length > 1) h += '<div class="ds-curhead">' + curName(cur) + '</div>';
-      h += renderLayer(res[cur], cur, fmt);
+      h += renderLayer(res[cur], cur, fmt, day);
     });
     h += '<div class="ds-note-foot">الإنتاج = الجلسات المنجزة بتاريخ اليوم. المقبوضات = ما دخل الصندوق فعلاً بتاريخ اليوم بكل الطرق (المقدَّم منها يبقى مقبوضاً). ' +
          'صافي الدرج نقداً = الداخل بطريقة «نقداً» − الخارج بطريقة «نقداً» من الدرج (مصروفات · مخابر · رواتب · استردادات، كلٌّ بطريقته المسجَّلة). المدفوع نقداً «من خارج الدرج» (خزنة · جيب الطبيب) مصروفٌ بالحسابات ولا يُخصم من الدرج. رقم تشغيلي لا يدخل صافي الربح.</div>';
@@ -349,7 +426,7 @@
   }
 
   /* ── التركيب على الصفحة ── */
-  var _st = { host: null, sb: null, uid: null, fmt: null, day: null, res: null, inFlight: false, seq: 0, editing: {} };
+  var _st = { host: null, sb: null, uid: null, fmt: null, day: null, res: null, inFlight: false, seq: 0, editing: {}, open: {} };
   async function mount(host, sb, uid, fmt) {
     _st.host = host; _st.sb = sb; _st.uid = uid; _st.fmt = fmt;
     await pick(todayYmd());
@@ -362,6 +439,7 @@
       day = todayYmd();
       if (window.showToast) window.showToast('ℹ️ لا كشف لتاريخٍ قادم — عُرض كشف اليوم');
     }
+    if (day !== _st.day) _st.open = {};   /* v705: التفاصيلُ المفتوحة تخصّ يومها */
     _st.day = day; _st.editing = {};
     var seq = ++_st.seq;
     _st.host.innerHTML = renderSection(day, '<div class="ds-empty">⏳ جارٍ التحميل…</div>');
@@ -413,6 +491,16 @@
     applyResult(compute(r.data, day), day);
     return true;
   }
+  /* v705: فتحُ/طيُّ تفاصيل سطر — بلا إعادة رسم، والحالةُ تُحفظ فتبقى مفتوحةً عبر التحديث اللحظي */
+  function toggle(key) {
+    key = String(key || '').replace(/[^A-Za-z0-9_-]/g, '');
+    if (!key) return;
+    var open = !_st.open[key];
+    _st.open[key] = open;
+    var tr = document.querySelector('tr[data-ds-det="' + key + '"]'), b = document.querySelector('button[data-ds-x="' + key + '"]');
+    if (tr) { if (open) tr.removeAttribute('hidden'); else tr.setAttribute('hidden', ''); }
+    if (b) { b.setAttribute('aria-expanded', String(open)); var c = b.querySelector('.ds-x-c'); if (c) c.textContent = open ? '▴' : '▾'; }
+  }
   /* v702: بياناتُ رأس الورقة المطبوعة (اسمُ العيادة) — تضبطها الصفحة؛ غيابُها لا يمنع الطباعة */
   function setMeta(m) { _st.meta = { clinic: m && m.clinic ? String(m.clinic).trim().slice(0, 120) : '' }; }
   function print() {
@@ -427,7 +515,7 @@
       '<style>body{margin:0;padding:24px;font-family:"Noto Kufi Arabic",sans-serif;color:#111;font-size:13px;}h1{font-size:18px;margin:0 0 4px;}.ds-ph-clinic{font-size:15px;font-weight:800;margin:0 0 6px;padding-bottom:6px;border-bottom:2px solid #333;}.ds-ph-meta{font-size:11px;color:#666;}@page{margin:12mm;}' +
       '.ds-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0;}.ds-card{border:1px solid #bbb;border-radius:8px;padding:8px;}.ds-lbl{font-size:11px;color:#555;}.ds-val{font-size:15px;font-weight:800;}.ds-note{font-size:10px;color:#666;}' +
       'table{width:100%;border-collapse:collapse;margin-top:6px;}td{padding:5px 8px;border-bottom:1px solid #ddd;}td.num{text-align:left;white-space:nowrap;}tr.ds-head td{background:#f3f3f3;}tr.ds-total td{font-weight:800;border-top:2px solid #333;}tr.ds-m2 td{color:#555;}' +
-      '.ds-noprint{display:none;}.ds-printonly{display:block;font-weight:700;}.ds-close{margin-top:10px;border:1px solid #bbb;border-radius:8px;padding:8px;}.ds-close-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}.ds-val-s{font-weight:800;}.ds-sub{font-size:10px;color:#666;}.ds-curhead{font-weight:800;margin:14px 0 4px;font-size:14px;}.ds-note-foot{font-size:10px;color:#555;margin-top:12px;line-height:1.6;}.ds-close-trail,.ds-close-note{font-size:10px;color:#555;margin-top:6px;}.ds-flag{margin-top:8px;padding:6px 8px;border:1px solid #999;border-radius:6px;font-size:11px;}.ds-empty{padding:12px;color:#555;}</style>' +
+      '.ds-noprint{display:none;}.ds-printonly{display:block;font-weight:700;}tr.ds-det[hidden]{display:table-row;}tr.ds-det td{padding:0 8px 8px 24px;border-bottom:1px solid #ddd;}.ds-det-i{display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-bottom:1px dotted #ccc;font-size:11px;}.ds-det-i:last-child{border-bottom:0;}.ds-det-sub{display:block;font-size:10px;color:#666;}.ds-det-amt{white-space:nowrap;}.ds-det-who a{color:inherit;text-decoration:none;}.ds-close{margin-top:10px;border:1px solid #bbb;border-radius:8px;padding:8px;}.ds-close-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}.ds-val-s{font-weight:800;}.ds-sub{font-size:10px;color:#666;}.ds-curhead{font-weight:800;margin:14px 0 4px;font-size:14px;}.ds-note-foot{font-size:10px;color:#555;margin-top:12px;line-height:1.6;}.ds-close-trail,.ds-close-note{font-size:10px;color:#555;margin-top:6px;}.ds-flag{margin-top:8px;padding:6px 8px;border:1px solid #999;border-radius:6px;font-size:11px;}.ds-empty{padding:12px;color:#555;}</style>' +
       '</head><body>' + (_st.meta && _st.meta.clinic ? '<div class="ds-ph-clinic">' + esc(_st.meta.clinic) + '</div>' : '') +
       '<h1>🧾 كشف اليوم — ' + esc(fmtDay(_st.day)) + '</h1>' +
       '<div class="ds-ph-meta">طُبع: ' + esc(fmtStamp(new Date().toISOString())) + '</div>' +
@@ -519,7 +607,7 @@
 
   window.SyDentDaySheet = {
     cntAr: cntAr, compute: compute, load: load, renderBody: renderBody, renderSection: renderSection, renderClosing: renderClosing,
-    mount: mount, pick: pick, refresh: refresh, setMeta: setMeta, print: print, close: close, reopen: reopen,
+    mount: mount, pick: pick, refresh: refresh, toggle: toggle, setMeta: setMeta, print: print, close: close, reopen: reopen,
     localDayOf: localDayOf, shiftYmd: shiftYmd, todayYmd: todayYmd
   };
 })();
