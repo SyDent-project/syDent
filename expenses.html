@@ -781,7 +781,9 @@ var filterCatId = 'all';  // 'all' or category id
 var filterDateFrom = '';
 var filterDateTo = '';
 var suppliers = [];          // M201: inventory_suppliers rows (id · name · is_active)
+var _suppliersOk = false;    // v706: آخرُ قراءةٍ للمورّدين نجحت (فشلُها ≠ «لا مورّدين»)
 var _expSupplierId = null;   // M201: مورّدُ المصروف المفتوح للتعديل (يبقى بالقائمة ولو حُذف من المخزون)
+var _expVendorName = '';     // v706: اسمُ مورّده المحفوظ عند الفتح
 
 // ─── Default categories (bootstrapped on first run) ───────────────────────
 // These appear automatically the first time the Owner opens expenses.html in
@@ -1015,7 +1017,8 @@ async function loadSuppliers() {
       .eq('owner_id', currentUser.id).order('name', { ascending: true });
     if (r.error) throw r.error;
     suppliers = r.data || [];
-  } catch (e) { console.warn('loadSuppliers:', e); }
+    _suppliersOk = true;
+  } catch (e) { _suppliersOk = false; console.warn('loadSuppliers:', e); }
 }
 
 /* صرفة: (تصنيفُ النموذج · المورّدون · مورّدُ المصروف المحفوظ) ⇒ شكلُ الحقل وخياراتُه */
@@ -1054,8 +1057,9 @@ function renderExpVendor(cur) {
     sel.innerHTML = ''; sel.style.display = 'none';
     txt.style.display = ''; txt.value = cur.vendor || '';
     grp.classList.remove('exp-sup-other');
-    hint.textContent = plan.materials ? 'سجّل مورّديك في المخزون («الطلبيات والموردون») لتختارهم من قائمة.' : '';
-    hint.style.display = plan.materials ? '' : 'none';
+    var tip = plan.materials && _suppliersOk;   // v706: تعذّرت قراءةُ المورّدين ⇒ لا نقول «سجّل مورّديك»
+    hint.textContent = tip ? 'سجّل مورّديك في المخزون («الطلبيات والموردون») لتختارهم من قائمة.' : '';
+    hint.style.display = tip ? '' : 'none';
     return;
   }
   var pick = expVendorPick(plan, cur);
@@ -1077,6 +1081,7 @@ function renderExpVendor(cur) {
 /* فتحُ النموذج: يحدّد مورّدَ المصروف واسمَه ثم يرسم */
 function expVendorInit(supplierId, name) {
   _expSupplierId = supplierId || null;
+  _expVendorName = name || '';
   var sel = $('eSupplier'); if (sel) { sel.innerHTML = ''; sel.style.display = 'none'; }
   renderExpVendor({ supplier_id: _expSupplierId, vendor: name || '', other: false });
 }
@@ -1089,10 +1094,19 @@ function pickExpSupplier() {
   renderExpVendor(cur);
   if (cur.other) { try { $('eVendor').focus(); } catch (_) {} }
 }
-/* ما يُحفظ: الاسمُ نصاً دائماً، والربطُ لمورّدٍ مختارٍ من القائمة فقط */
+/* ما يُحفظ: الاسمُ نصاً دائماً، والربطُ لمورّدٍ مختارٍ من القائمة فقط.
+   v706: مصروفٌ مرتبطٌ فُتح للتعديل والقائمةُ غائبة (تعذّرت قراءةُ المورّدين ⇒ الحقلُ نص) يحتفظ بربطه
+   ما دام على «مواد سنية» واسمُ مورّده لم يُغيَّر — تعديلُ المبلغ بشبكةٍ متعثّرة لا يفكّ الربط بصمت. */
 function readExpVendor() {
   var cur = curExpVendor();
-  return { supplier_id: cur.supplier_id || null, vendor: String(cur.vendor || '').trim() || null };
+  var out = { supplier_id: cur.supplier_id || null, vendor: String(cur.vendor || '').trim() || null };
+  var sel = $('eSupplier'), catId = $('eCategory').value;
+  var cat = categories.find(function(c){ return c.id === catId; }) || null;
+  if (!out.supplier_id && _expSupplierId && (!sel || sel.style.display === 'none')
+      && cat && cat.system_key === MATERIALS_KEY && _supKey(out.vendor) && _supKey(out.vendor) === _supKey(_expVendorName)) {
+    out.supplier_id = _expSupplierId;
+  }
+  return out;
 }
 /* القائمةُ تُحدَّث عند كل فتحٍ للنموذج (مورّدٌ أُضيف بالمخزون بتبويبٍ آخر) — يُعاد الرسمُ فقط إن تغيّرت */
 function refreshExpSuppliers() {
@@ -1582,8 +1596,9 @@ async function saveExpense() {
         : await window.sb.from('expenses').insert(row).select().single();
     }
     // M201: قاعدةٌ بلا Migration 201 ⇒ يُحفظ الاسمُ نصاً بلا ربط (التدهورُ نفسه)
-    if (res.error && _expColMissing(res.error, 'supplier_id')) {
-      console.warn('saveExpense: supplier_id غير موجود (Migration 201) — حفظ بلا ربط المورّد');
+    // v706: والمورّدُ الذي لم يعد موجوداً (القاعدةُ ترفض ربطاً قديماً) ⇒ الاسمُ نصاً بلا ربط كذلك
+    if (res.error && (_expColMissing(res.error, 'supplier_id') || /expense_supplier_not_owned/.test(String(res.error.message || '')))) {
+      console.warn('saveExpense: تعذّر ربطُ المورّد — حفظ الاسم نصاً بلا ربط:', res.error.message || res.error.code);
       delete row.supplier_id;
       res = editingExpId
         ? await window.sb.from('expenses').update(row).eq('id', editingExpId).eq('owner_id', currentUser.id).select().single()

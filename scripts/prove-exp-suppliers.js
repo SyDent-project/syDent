@@ -101,7 +101,7 @@ async function suite(F) {
   try { P = boot(EXH); } catch (e) { ok(false, 'expenses.html main script runs in the harness: ' + e.message); return { pass, fails }; }
   const { run, $, state } = P;
   const J = (code) => JSON.parse(run('JSON.stringify(' + code + ')'));
-  run('categories = ' + CATS + '; suppliers = ' + SUPS + '; expenses = [];');
+  run('categories = ' + CATS + '; suppliers = ' + SUPS + '; _suppliersOk = true; expenses = [];');
 
   // الخطة (صرفة)
   let p = J("expVendorPlan(categories[0], suppliers, null)");
@@ -150,7 +150,21 @@ async function suite(F) {
   ok($('eSupplier').value === '__other' && shown('eVendor') && r.vendor === 'صيدلية الحي' && r.supplier_id === null, 'edit: any other old text opens as «مورّد آخر»');
   run('suppliers = [];'); run("expVendorInit(null, '')");
   ok(!shown('eSupplier') && shown('eVendor') && shown('eVendorHint') && /سجّل/.test($('eVendorHint').textContent), 'form: materials with no supplier ⇒ text + where to add them');
-  run('suppliers = ' + SUPS + ';');
+  // v706: تعذّرت قراءةُ المورّدين (شبكة) — القائمةُ غائبة لكنّ الربطَ المحفوظ لا يُفكّ بصمت
+  P.setReply(() => ({ data: null, error: { message: 'Failed to fetch' } })); await run('loadSuppliers()');
+  ok(run('_suppliersOk') === false && J('suppliers').length === 0, 'offline: a failed read is remembered as failed, the list is left as it was');
+  $('eCategory')._v = 'c1'; run("expVendorInit('s1', 'مستودع ديما')"); r = J('readExpVendor()');
+  ok(!shown('eSupplier') && shown('eVendor') && !shown('eVendorHint') && r.supplier_id === 's1' && r.vendor === 'مستودع ديما', 'offline: a linked expense opens as text, with no «register your suppliers» hint, and keeps its link');
+  $('eVendor').value = 'مورّد غيره'; r = J('readExpVendor()');
+  ok(r.supplier_id === null && r.vendor === 'مورّد غيره', 'offline: changing the name drops the link');
+  $('eVendor').value = 'مستودع ديما'; $('eCategory')._v = 'c2'; run('syncExpVendor()'); r = J('readExpVendor()');
+  ok(r.supplier_id === null && r.vendor === 'مستودع ديما', 'offline: moving it to another category drops the link');
+  $('eCategory')._v = 'c1'; run("expVendorInit(null, 'مستودع ديما')"); r = J('readExpVendor()');
+  ok(r.supplier_id === null, 'offline: an expense that was never linked stays unlinked');
+  run("expVendorInit('s1', 'مستودع ديما'); closeExpModal();"); r = J('readExpVendor()');
+  ok(r.supplier_id === null, 'offline: closing the window forgets the edited expense — the next new expense is not linked');
+  P.setReply(() => ({ data: JSON.parse(JSON.stringify(eval(SUPS))), error: null })); await run('loadSuppliers()');
+  ok(run('_suppliersOk') === true && J('suppliers').length === 3, 'offline: the next successful read restores the list');
 
   // البطاقات
   run('renderCategories()');
@@ -176,13 +190,19 @@ async function suite(F) {
   // الحفظ
   const sv = fnSrc(EXH, 'async function saveExpense() {');
   ok(/var _ven = readExpVendor\(\);/.test(sv) && /var vendor = _ven\.vendor;/.test(sv) && /vendor: vendor,\s+supplier_id: _ven\.supplier_id,/.test(sv), 'save: vendor text + supplier link come from one reader');
-  ok(/_expColMissing\(res\.error, 'supplier_id'\)\) \{[\s\S]{0,260}delete row\.supplier_id;/.test(sv), 'save: a database without M201 still saves (no link)');
+  ok(/if \(res\.error && \(_expColMissing\(res\.error, 'supplier_id'\) \|\| \/expense_supplier_not_owned\/\.test\(String\(res\.error\.message \|\| ''\)\)\)\) \{[\s\S]{0,300}delete row\.supplier_id;/.test(sv), 'save: a database without M201, or a supplier that is gone, still saves (name only)');
   $('eCategory')._v = 'c1'; run("categories = " + CATS + "; expVendorInit(null, ''); editingExpId = null;"); $('eSupplier').value = 's2'; run('pickExpSupplier()');
   $('eDate').value = '2026-11-11'; $('eAmount').value = '5000'; $('eTime').value = '';
   let n = 0; P.setReply((c) => { if (c.t === 'expenses' && c.op === 'insert') { n++; return n === 1 ? { data: null, error: { code: 'PGRST204', message: "Could not find the 'supplier_id' column of 'expenses'" } } : { data: Object.assign({ id: 'new' }, c.row), error: null }; } return { data: [], error: null }; });
   state.calls.length = 0; await run('saveExpense()');
   const ins = state.calls.filter(c => c.t === 'expenses' && c.op === 'insert');
   ok(ins.length === 2 && ins[0].row.supplier_id === 's2' && ins[0].row.vendor === 'الرازي' && !('supplier_id' in ins[1].row) && ins[1].row.vendor === 'الرازي' && ins[1].row.amount === 5000, 'save: first write carries the link; the retry drops only the link');
+
+  run("expVendorInit(null, '');"); $('eSupplier').value = 's1'; run('pickExpSupplier()'); $('eAmount').value = '800';
+  n = 0; P.setReply((c) => { if (c.t === 'expenses' && c.op === 'insert') { n++; return n === 1 ? { data: null, error: { code: '42501', message: 'expense_supplier_not_owned' } } : { data: Object.assign({ id: 'new2' }, c.row), error: null }; } return { data: [], error: null }; });
+  state.calls.length = 0; await run('saveExpense()');
+  const ins2 = state.calls.filter(c => c.t === 'expenses' && c.op === 'insert');
+  ok(ins2.length === 2 && ins2[0].row.supplier_id === 's1' && !('supplier_id' in ins2[1].row) && ins2[1].row.vendor === 'مستودع ديما' && ins2[1].row.amount === 800, 'save: a supplier the database no longer knows is saved by name, not refused');
 
   // البذرُ والعياداتُ القديمة
   ok(J('DEFAULT_CATEGORIES').filter(c => c.system_key).length === 1 && J('DEFAULT_CATEGORIES')[0].system_key === 'dental_materials' && J('DEFAULT_CATEGORIES')[0].name === 'مواد سنية', 'seed: exactly «مواد سنية» carries the system key');
@@ -234,13 +254,19 @@ const MUTANTS = [
   ['link saved outside the list', rep('expenses.html', "if (!sel || sel.style.display === 'none') return { supplier_id: null,", "if (!sel || sel.style.display === 'none') return { supplier_id: _expSupplierId,")],
   ['vendor text not trimmed', rep('expenses.html', "vendor: String(cur.vendor || '').trim() || null };", "vendor: cur.vendor || null };")],
   ['save drops the link', rep('expenses.html', "      supplier_id: _ven.supplier_id,   // M201\n", "")],
-  ['no fallback without M201', rep('expenses.html', "if (res.error && _expColMissing(res.error, 'supplier_id')) {", "if (false) {")],
+  ['no fallback without M201', rep('expenses.html', "(_expColMissing(res.error, 'supplier_id') || ", "(false || ")],
   ['seed without the key', rep('expenses.html', "sort_order: 1, system_key: MATERIALS_KEY };", "sort_order: 1 };")],
   ['old clinic never healed', rep('expenses.html', "    await ensureMaterialsCategory();   // M201\n", "")],
   ['read-only account writes', rep('expenses.html', "if (lvl && lvl !== 'full') return;", "")],
   ['redraw wipes typed text', rep('expenses.html', "txt.value = isOther ? (cur.vendor || '') : (pick ? supplierName(pick) : '');", "txt.value = pick && !isOther ? supplierName(pick) : '';")],
   ['toggle no longer spans', rep('expenses.html', "var span = sys ? ' data-span=\"2\"' : '';", "var span = '';")],
   ['receipt finds the category by name only', rep('expenses.html', "var mat = materialsCat();\n", "var mat = null;\n")],
+  ['offline: link kept even when the name was changed', rep('expenses.html', " && _supKey(out.vendor) && _supKey(out.vendor) === _supKey(_expVendorName)) {", ") {")],
+  ['offline: link kept on another category', rep('expenses.html', "      && cat && cat.system_key === MATERIALS_KEY && _supKey(out.vendor)", "      && _supKey(out.vendor)")],
+  ['offline: link dropped again', rep('expenses.html', "    out.supplier_id = _expSupplierId;\n", "")],
+  ['offline: failed read looks like «no suppliers»', rep('expenses.html', "} catch (e) { _suppliersOk = false; console.warn('loadSuppliers:', e); }", "} catch (e) { _suppliersOk = true; console.warn('loadSuppliers:', e); }")],
+  ['offline: closing keeps the edited supplier', rep('expenses.html', "  _expSupplierId = null;    // M201\n", "")],
+  ['save refused for a vanished supplier', rep('expenses.html', " || /expense_supplier_not_owned/.test(String(res.error.message || ''))))", " || false))")],
   ['M201: delete guard ignores the cascade', rep('migrations/201_expense_system_category_supplier_link.sql', "     AND EXISTS (SELECT 1 FROM auth.users u WHERE u.id = OLD.owner_id) THEN", "     THEN")],
   ['M201: trigger misses DELETE', rep('migrations/201_expense_system_category_supplier_link.sql', "BEFORE UPDATE OF system_key OR DELETE ON", "BEFORE UPDATE OF system_key ON")],
   ['M201: ownership guard without owner', rep('migrations/201_expense_system_category_supplier_link.sql', "WHERE s.id = NEW.supplier_id AND s.owner_id = NEW.owner_id)", "WHERE s.id = NEW.supplier_id)")],
