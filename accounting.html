@@ -217,6 +217,8 @@ table.providers.ds-table { min-width:0; }   /* الكشفُ عمودان فيل�
 .ds-table tr.ds-cash td { color:var(--yellow-ink); }
 .ds-table td.ds-empty, .ds-empty { color:var(--text3); padding:10px; }
 .ds-sub { font-size:11px; color:var(--text3); font-weight:400; }
+.ds-table .ds-sub { display:inline-block; }   /* v702: العددُ ومعدودُه لا ينفصلان بسطرين («· 3» ثم «دفعات») */
+.ds-printonly { display:none; }               /* يظهر بورقة الطباعة فقط */
 .ds-curhead { font-weight:800; margin:14px 0 4px; color:var(--text2); }
 .ds-note-foot { font-size:12px; color:var(--text2); line-height:1.6; margin-top:10px; }
 /* M158: إقفال الصندوق */

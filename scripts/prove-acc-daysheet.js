@@ -416,6 +416,7 @@ suite(PMm, DS);
     e.M.setMeta({ clinic: 'عيادة <b>الاختبار</b>' }); e.M.print();
     ok(e.opened.length === 1 && /<div class="ds-ph-clinic">عيادة &lt;b&gt;الاختبار&lt;\/b&gt;<\/div>/.test(e.opened[0].html) && /طُبع: \d{1,2}\/\d{1,2}\/\d{4} — \u2066\d{2}:\d{2} (AM|PM)\u2069/.test(e.opened[0].html) && /كشف اليوم — 28\/9\/2026/.test(e.opened[0].html), 'v702 print: clinic name (escaped) + print date AND time in the header');
     e = env(ref); await e.M.mount(host(), mkSb(ref, e), 'DOC', f); await e.M.pick(DAY); e.M.print();
+    ok(/<div class="ds-printonly">🔓 الصندوق لم يُقفل لهذا اليوم — المتوقّع نقداً بالدرج: 1000 ل\.س<\/div>/.test(e.els.dsBody.innerHTML) && /\.ds-printonly\{display:block;/.test(src) && /\.ds-printonly \{ display:none; \}/.test(AC), 'v702 print: an open day prints «not closed» with the expected cash instead of an empty frame (hidden on screen)');
     ok(e.opened.length === 1 && !/ds-ph-clinic"/.test(e.opened[0].html.replace(/<style>[\s\S]*?<\/style>/, '')), 'v702 print: no clinic name known → prints without it (never blocks)');
     const C = DSm.cntAr;
     ok(C(0, 'pay') === 'لا دفعات' && C(1, 'pay') === 'دفعة واحدة' && C(2, 'pay') === 'دفعتان' && C(3, 'pay') === '3 دفعات' && C(10, 'pay') === '10 دفعات' && C(11, 'pay') === '11 دفعة' && C(103, 'sess') === '103 جلسات منجزة' && C(2, 'sess') === 'جلستان منجزتان' && C(12, 'exp') === '12 مصروفاً', 'v702 wording: Arabic counted nouns (one · dual · 3–10 plural · 11+ singular)');

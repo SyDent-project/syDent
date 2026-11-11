@@ -294,6 +294,8 @@
         (Math.abs(c.expected - L.net.cash) > 0.005 ? '<div class="ds-close-warn">⚠️ الكشفُ اليوم يحسب ' + fmt(L.net.cash, cur) + ' — تغيّر الدفترُ بعد الإقفال؛ أعد الإقفال إن لزم.</div>' : '') +
         '<div class="ds-noprint"><button type="button" class="ds-qb" data-sub-write onclick="window.SyDentDaySheet.reopen(\'' + cur + '\')">✏️ تعديل الإقفال</button></div>';
     } else {
+      /* v702: على الورق يُقال صراحةً إن اليوم لم يُقفل (كان يُطبع إطارٌ فارغ مكان النموذج) */
+      h += '<div class="ds-printonly">🔓 الصندوق لم يُقفل لهذا اليوم — المتوقّع نقداً بالدرج: ' + fmt(L.net.cash, cur) + '</div>';
       h += '<div class="ds-noprint ds-close-form">' +
         '<div class="ds-close-head">🔒 إقفال الصندوق نقداً <span class="ds-sub">المتوقّع من الكشف: ' + fmt(L.net.cash, cur) + '</span></div>' +
         (L.net.cash < 0 ? '<div class="ds-close-warn">⚠️ المتوقّع بالسالب: خرج من الدرج نقداً أكثر مما دخله اليوم. إذا دُفع شيءٌ من خارج الدرج (خزنة · جيب الطبيب) فعدّل «مصدر النقد» بالدفعة نفسها؛ وإذا كان بالدرج رصيدٌ من أيامٍ سابقة فاكتب المعدود واذكر ذلك بالملاحظة.</div>' : '') +
@@ -425,7 +427,7 @@
       '<style>body{margin:0;padding:24px;font-family:"Noto Kufi Arabic",sans-serif;color:#111;font-size:13px;}h1{font-size:18px;margin:0 0 4px;}.ds-ph-clinic{font-size:15px;font-weight:800;margin:0 0 6px;padding-bottom:6px;border-bottom:2px solid #333;}.ds-ph-meta{font-size:11px;color:#666;}@page{margin:12mm;}' +
       '.ds-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0;}.ds-card{border:1px solid #bbb;border-radius:8px;padding:8px;}.ds-lbl{font-size:11px;color:#555;}.ds-val{font-size:15px;font-weight:800;}.ds-note{font-size:10px;color:#666;}' +
       'table{width:100%;border-collapse:collapse;margin-top:6px;}td{padding:5px 8px;border-bottom:1px solid #ddd;}td.num{text-align:left;white-space:nowrap;}tr.ds-head td{background:#f3f3f3;}tr.ds-total td{font-weight:800;border-top:2px solid #333;}tr.ds-m2 td{color:#555;}' +
-      '.ds-noprint{display:none;}.ds-close{margin-top:10px;border:1px solid #bbb;border-radius:8px;padding:8px;}.ds-close-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}.ds-val-s{font-weight:800;}.ds-sub{font-size:10px;color:#666;}.ds-curhead{font-weight:800;margin:14px 0 4px;font-size:14px;}.ds-note-foot{font-size:10px;color:#555;margin-top:12px;line-height:1.6;}.ds-close-trail,.ds-close-note{font-size:10px;color:#555;margin-top:6px;}.ds-flag{margin-top:8px;padding:6px 8px;border:1px solid #999;border-radius:6px;font-size:11px;}.ds-empty{padding:12px;color:#555;}</style>' +
+      '.ds-noprint{display:none;}.ds-printonly{display:block;font-weight:700;}.ds-close{margin-top:10px;border:1px solid #bbb;border-radius:8px;padding:8px;}.ds-close-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}.ds-val-s{font-weight:800;}.ds-sub{font-size:10px;color:#666;}.ds-curhead{font-weight:800;margin:14px 0 4px;font-size:14px;}.ds-note-foot{font-size:10px;color:#555;margin-top:12px;line-height:1.6;}.ds-close-trail,.ds-close-note{font-size:10px;color:#555;margin-top:6px;}.ds-flag{margin-top:8px;padding:6px 8px;border:1px solid #999;border-radius:6px;font-size:11px;}.ds-empty{padding:12px;color:#555;}</style>' +
       '</head><body>' + (_st.meta && _st.meta.clinic ? '<div class="ds-ph-clinic">' + esc(_st.meta.clinic) + '</div>' : '') +
       '<h1>🧾 كشف اليوم — ' + esc(fmtDay(_st.day)) + '</h1>' +
       '<div class="ds-ph-meta">طُبع: ' + esc(fmtStamp(new Date().toISOString())) + '</div>' +
