@@ -50,6 +50,8 @@ jobs:
   guards:
     runs-on: ubuntu-24.04   # Playwright 1.55: no chromium build for 26.04 (كما e2e وresponsive)
     timeout-minutes: 45   # مثبتات DOM بمتصفحٍ حقيقي تطيل الحُرّاس (~15–25 د)
+    env:
+      PW_PY_VERSION: '1.55.0'   # نسخةُ Playwright (بايثون) — رقمٌ واحد يقرؤه التثبيتُ ومفتاحُ الكاش معاً
     steps:
       - name: Checkout (نسخة ضحلة — depth:1 الافتراضي يكفي الحُرّاس)
         uses: actions/checkout@v5
@@ -74,8 +76,59 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Playwright + Chromium (مثبتات DOM الحيّة)
-        run: python3 -m pip install --quiet playwright==1.55.0 && python3 -m playwright install --with-deps chromium
+      # ── Playwright + Chromium لمثبتات DOM الحيّة ──────────────────────────
+      # كان سطراً واحداً: pip install playwright && playwright install --with-deps chromium
+      # وعلّق خمس مرات متتالية على main (11 تشرين الثاني 2026، تشغيلة 43034417535): عشرُ دقائق
+      # ثم فشل وvalidate.sh لم يبدأ ⇒ promote تُخطّي والنشرُ محجوب **بلا عطبٍ بالكود**، والتشغيلاتُ
+      # قبله بساعة تُنهي الخطوةَ نفسَها بـ25 ثانية. العَرَضُ نفسُه الذي شُخّص وأُصلح بـjob الـe2e
+      # (.github/actions/e2e-run): `--with-deps` يشغّل apt، وapt يعلّق على قفلٍ تمسكه صورةُ الرَنَر،
+      # وبلا مهلةٍ ولا إعادةِ محاولة يصير التعثّرُ حجباً للنشر. فيُطبَّق هنا العلاجُ المجرَّب نفسُه:
+      #   ١. بلا apt — صورةُ ubuntu-24.04 تشحن تبعيات Chromium (e2e وresponsive يعملان هكذا)،
+      #      وخطوةُ «يقلع» أدناه تقيس ذلك بدل افتراضه.
+      #   ٢. مهلةٌ لكل محاولة + إعادةُ محاولة ⇒ فشلٌ مسمّى خلال دقائق لا تعليقٌ صامت.
+      #   ٣. كاشٌ للثنائيّة بمفتاحٍ يحمل النسخة ⇒ لا تنزيلَ بكل تشغيلة، وترقيةُ النسخة تُبطله.
+      #   ٤. كلُّ فشلٍ يكتب ‎::error::‎ يسمّي طرفَه (PyPI · تنزيل · إقلاع) ⇒ يُقرأ من واجهة
+      #      الفحوص بلا فتح اللوج.
+      - name: Playwright (مكتبة بايثون — النسخةُ المثبّتة)
+        run: |
+          for i in 1 2 3; do
+            if timeout 180 python3 -m pip install --quiet "playwright==${PW_PY_VERSION}"; then exit 0; fi
+            echo "::warning::pip install playwright — المحاولة $i فشلت أو تجاوزت 3 دقائق"
+            sleep 10
+          done
+          echo "::error::تعذّر تثبيت مكتبة Playwright بعد ثلاث محاولات — عطلٌ ببنية التشغيل (PyPI) لا بالكود"
+          exit 1
+
+      # المفتاحُ يحمل النسخة ⇒ ترقيتُها تُبطل الكاش فلا تُخدَم ثنائيّةٌ لا تطابق المكتبة.
+      # مستقلٌّ عن كاش e2e/responsive (مكتبةُ Node) كي لا يخدم أحدُهما ثنائيّةَ الآخر.
+      - name: كاش ثنائيّات المتصفّح (مثبتات DOM الحيّة)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-py-${{ runner.os }}-${{ env.PW_PY_VERSION }}-chromium
+
+      # تُشغَّل دائماً لا بشرط إصابة الكاش: عند الإصابة تنتهي بثوانٍ وتتحقّق أن الثنائيّة سليمة.
+      - name: تنزيل Chromium (مهلة + إعادة محاولة · بلا apt)
+        run: |
+          for i in 1 2 3; do
+            if timeout 300 python3 -m playwright install chromium; then exit 0; fi
+            echo "::warning::تنزيل Chromium — المحاولة $i فشلت أو تجاوزت 5 دقائق"
+            sleep 15
+          done
+          echo "::error::تعذّر تنزيل Chromium بعد ثلاث محاولات — عطلٌ ببنية التشغيل (CDN) لا بالكود"
+          exit 1
+
+      # حزام: يقلع Chromium فعلاً؟ نقصُ مكتبةِ نظام يفشل هنا بسطرٍ صريح خلال ثوانٍ،
+      # بدل أن يظهر بعد دقائق كفشلِ مثبتٍ لا يقول سببه.
+      - name: إثبات — Chromium يقلع (تبعيات النظام مكتملة)
+        run: |
+          timeout 120 python3 -c "
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as p:
+              b = p.chromium.launch()
+              print('✅ Chromium يقلع —', b.version)
+              b.close()
+          " || { echo "::error::Chromium لا يقلع — مكتبةُ نظامٍ ناقصة بصورة الرَنَر أو ثنائيّةٌ تالفة (لا بالكود)"; exit 1; }
 
       - name: نسخة الأدوات (توثيق تشخيصي عند الفشل)
         run: node --version && python3 --version && node -e "require('acorn');require('jsdom');console.log('acorn+jsdom ✓')" && python3 -c "import playwright;print('playwright ✓')"
