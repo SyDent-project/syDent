@@ -307,6 +307,7 @@ window.SyI18nDict = {
   'هذا الحساب مسجَّل برقم هاتف فقط. تواصل مع الدعم لاستعادة الحساب.': 'This account is registered with a phone number only. Contact support to recover it.',
   'إذا كان البريد مسجَّلاً، فقد أرسلنا رابط إعادة التعيين. تحقّق من بريدك (وقد يكون في spam).': "If the email is registered, we've sent a reset link. Check your inbox (it may be in spam).",
   'جارٍ التحقق': 'Checking',
+  'جارٍ التحقق…': 'Checking…',
   'حسابك قيد المراجعة — سنفعّله خلال 24 ساعة.': "Your account is under review — we'll activate it within 24 hours.",
   'تم تسجيل الدخول، جارٍ التحويل...': 'Signed in, redirecting...',
   'فشل تسجيل الدخول': 'Sign-in failed',

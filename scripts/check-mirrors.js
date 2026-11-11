@@ -1989,7 +1989,7 @@ try {
   const st = read('settings.html');
   if (/tryDelete\('trial_requests'/.test(st)) miss('حذف الحساب ما زال يحذف صفّ الطلب');
   const cd = extractFunction(st, 'confirmDelete');
-  if (!/await window\.SyDentAccountDelete\.run\(\{ password: pass, captchaToken: getTurnstileToken\('delete'\) \}\)/.test(cd)) miss('حذف الحساب بالإعدادات لا يمرّ بالوحدة المشتركة');
+  if (!/await window\.SyDentAccountDelete\.run\(\{ password: pass, captchaToken: delCaptcha \}\)/.test(cd)) miss('حذف الحساب بالإعدادات لا يمرّ بالوحدة المشتركة');
   /* M142 — وحدة الحذف المشتركة: الترتيب هو الأمان (لا يُحذف الحساب وملفاتٌ باقية) */
   {
     const ib = si.indexOf('/* ══ SyDentAccountDelete:begin'), ie = si.indexOf('/* ══ SyDentAccountDelete:end ══ */');
@@ -2017,7 +2017,7 @@ try {
     if (!tsS || !tsB || tsS !== tsB) miss('Turnstile بصفحة الاشتراك ليس نسخةً حرفية من الإعدادات');
     if (!/<div class="sub-danger" id="subDangerCard" hidden>/.test(sub)) miss('بطاقة الحذف بصفحة الاشتراك ليست مخفيةً افتراضياً');
     if (!/if \(card\) card\.hidden = !\(st && st\.level === 'none'\);/.test(sub)) miss('بطاقة الحذف تظهر لغير الحساب المحجوب');
-    if (!/var res = await window\.SyDentAccountDelete\.run\(\{ password: pass, captchaToken: getTurnstileToken\('delete'\) \}\);/.test(sub)) miss('حذف صفحة الاشتراك لا يمرّ بالوحدة المشتركة');
+    if (!/var res = await window\.SyDentAccountDelete\.run\(\{ password: pass, captchaToken: delCaptcha \}\);/.test(sub)) miss('حذف صفحة الاشتراك لا يمرّ بالوحدة المشتركة');
     if (!/if \(phrase !== 'حذف حسابي'\)/.test(sub)) miss('حذف صفحة الاشتراك بلا عبارة التأكيد');
     /* v363 — الطابور الأوفلاين ينتظر التجديد: لا محاولة ولا عدّاد ولا كنس ما دام المستوى ليس full */
     {

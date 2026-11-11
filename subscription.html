@@ -23,32 +23,113 @@
 (function(){
   var SITEKEY = '0x4AAAAAAFXnC1T1zKo_VYCS';   // public site key — safe in client by design
   var widgets = {};   // name -> widgetId
+  var tokens  = {};   // name -> latest token (from the widget callback)
+  var waiters = {};   // name -> [resolve] waiting for a token
   var wanted  = {};   // name -> containerId (render intent recorded before API is ready)
+  var errs    = {};   // name -> last Turnstile error code (shown in the message so a failure can be diagnosed)
+  var retries = {};   // name -> automatic retries spent after an error
+  var themes  = {};   // name -> theme the widget was drawn with
+  // On an error or a timed-out challenge the widget resets itself a few times before giving up,
+  // so a passing network hiccup doesn't leave the person stuck on «فشل التحقق».
+  function autoRetry(name){
+    if ((retries[name] || 0) >= 3) return;
+    retries[name] = (retries[name] || 0) + 1;
+    setTimeout(function(){ try { var id = widgets[name]; if (id !== undefined && window.turnstile) window.turnstile.reset(id); } catch(e){} }, 1200);
+  }
   var ready   = false;
   function whenDomReady(fn){
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
     else fn();
   }
+  // The box follows the platform's own theme switch (data-theme on <html>), not the device's dark
+  // mode: «auto» drew a dark box on the light page whenever the phone itself was in dark mode.
+  function siteTheme(){ return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'; }
+  function shown(el){ return !!(el && el.getClientRects().length); }
   function render(name, containerId){
     if (!ready || !window.turnstile) return;
     if (widgets[name] !== undefined) return;            // already rendered — no double render
     var el = document.getElementById(containerId);
     if (!el) return;
-    try { widgets[name] = window.turnstile.render(el, { sitekey: SITEKEY, theme: 'auto', action: name }); }
+    var th = siteTheme();
+    // The box is always shown (owner request): people see the check run and tick it themselves
+    // when Cloudflare asks, instead of a hidden check that left «not verified yet» with no box.
+    // size «flexible»: as wide as the fields around it (Cloudflare's own floor is 300px).
+    try { widgets[name] = window.turnstile.render(el, { sitekey: SITEKEY, theme: th, size: 'flexible', action: name,
+      appearance: 'always', language: (window.SyI18n && window.SyI18n.lang === 'en') ? 'en' : 'ar',
+      'refresh-expired': 'auto', 'refresh-timeout': 'auto', retry: 'auto', 'retry-interval': 1500,
+      callback: function(t){ tokens[name] = t; errs[name] = ''; retries[name] = 0; (waiters[name] || []).splice(0).forEach(function(r){ r(t); }); },
+      'expired-callback': function(){ tokens[name] = ''; },
+      'timeout-callback': function(){ tokens[name] = ''; autoRetry(name); },
+      'error-callback': function(code){ tokens[name] = ''; errs[name] = String(code || ''); autoRetry(name); } });
+      themes[name] = th; }
     catch(e){ console.warn('[turnstile] render failed:', name, e); }
+    watchFit(name, el);
   }
+  // Cloudflare's box can't go below 300px, and the fields are narrower than that on most phones:
+  // there the box is scaled down to the field width instead of sticking out past the fields.
+  var fitted = {};    // containerId -> size watcher attached
+  function fit(name){
+    var el = document.getElementById(wanted[name]), box = el && el.firstElementChild;
+    if (!box) return;
+    var w = el.clientWidth, k = (w > 0 && w < 300) ? w / 300 : 1, h = k < 1 ? Math.ceil(65 * k) + 'px' : '';
+    box.style.transformOrigin = k < 1 ? 'top center' : '';
+    box.style.transform = k < 1 ? 'scale(' + k.toFixed(4) + ')' : '';
+    el.style.height = h; el.style.minHeight = h;
+  }
+  function watchFit(name, el){
+    fit(name);
+    setTimeout(function(){ fit(name); }, 400);
+    if (fitted[el.id]) return;
+    fitted[el.id] = true;
+    try { new ResizeObserver(function(){ fit(name); }).observe(el); } catch(e){}
+  }
+  window.addEventListener('resize', function(){ Object.keys(widgets).forEach(fit); });
+  // A live widget can't be recoloured, so when the theme is switched it is removed and drawn again.
+  // A hidden one (closed tab or modal) is only removed: its next requestTurnstile draws it.
+  function redraw(){
+    if (!ready || !window.turnstile) return;
+    var th = siteTheme();
+    Object.keys(widgets).forEach(function(n){
+      var id = widgets[n];
+      if (id === undefined || themes[n] === th) return;
+      var el = document.getElementById(wanted[n]);
+      try { window.turnstile.remove(id); } catch(e){}
+      delete widgets[n]; tokens[n] = ''; errs[n] = ''; retries[n] = 0;
+      if (el) el.innerHTML = '';
+      if (shown(el)) render(n, wanted[n]);
+    });
+  }
+  try { new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] }); } catch(e){}
+  // Invoked by the Turnstile API once loaded (onload param in the script URL below).
   window.onSyDentTurnstileLoad = function(){
     ready = true;
     whenDomReady(function(){ Object.keys(wanted).forEach(function(n){ render(n, wanted[n]); }); });
   };
+  // Page-facing helpers.
   window.requestTurnstile = function(name, containerId){ wanted[name] = containerId; render(name, containerId); };
   window.getTurnstileToken = function(name){
     try { var id = widgets[name]; return (id !== undefined && window.turnstile) ? (window.turnstile.getResponse(id) || '') : ''; }
     catch(e){ return ''; }
   };
+  // A submit before the background check finished waits for its token instead of failing.
+  window.waitTurnstileToken = function(name, ms){
+    var now = window.getTurnstileToken(name) || tokens[name];
+    if (now) return Promise.resolve(now);
+    return new Promise(function(resolve){
+      var done = false, finish = function(t){ if (!done) { done = true; resolve(t || window.getTurnstileToken(name) || ''); } };
+      (waiters[name] = waiters[name] || []).push(finish);
+      setTimeout(function(){ finish(''); }, ms || 15000);
+    });
+  };
   window.resetTurnstile = function(name){
+    tokens[name] = '';
     try { var id = widgets[name]; if (id !== undefined && window.turnstile) window.turnstile.reset(id); } catch(e){}
   };
+  // Shown when a submit found no token (the check is still running or waits for a click):
+  // nothing is sent to the server, so the user just completes the box and presses again.
+  window.TS_PENDING_MSG = 'لم يكتمل التحقق «أنا إنسان» بعد. أكمل المربع أعلى الزر إن ظهر، ثم أعد المحاولة. إن كان لديك VPN مفعّل فأطفئه أولاً، فهو يُفشل التحقق غالباً';
+  // The pending message plus the last Cloudflare error code, if any (e.g. «رمز: 600010»).
+  window.tsPendingMsg = function(name){ var c = errs[name]; return window.TS_PENDING_MSG + (c ? ' (رمز: ' + c + ')' : ''); };
 })();
 </script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onSyDentTurnstileLoad" async defer></script>
@@ -320,6 +401,7 @@ html.lang-en .sub-danger::before { content: "⚠️ Danger zone"; }
 }
 .sub-confirm.danger { background: var(--red-solid); color: var(--on-red-solid); }
 .cf-turnstile-box { margin: 14px 0 0; min-height: 65px; display: flex; justify-content: center; }
+.cf-turnstile-box > div { flex: 1 1 100%; min-width: 300px; }
 @media (max-width: 480px) { .sub-danger { flex-direction: column; align-items: stretch; text-align: center; } }
 
 /* ---- modal ---- */
@@ -1282,8 +1364,17 @@ button:disabled { opacity: .6; cursor: wait; }
     if (phrase !== 'حذف حسابي') { toast('⚠️ اكتب العبارة بالضبط: حذف حسابي', true); return; }
     if (!pass) { toast('⚠️ أدخل كلمة المرور', true); return; }
     var btn = document.getElementById('subDelBtn');
-    btn.disabled = true; btn.textContent = 'جارٍ الحذف…';
-    var res = await window.SyDentAccountDelete.run({ password: pass, captchaToken: getTurnstileToken('delete') });
+    btn.disabled = true; btn.textContent = 'جارٍ التحقق…';
+    // The «أنا إنسان» check may still be running when the button is pressed: wait for its token
+    // instead of sending an empty one (which the server refuses as a failed captcha).
+    var delCaptcha = await waitTurnstileToken('delete');
+    if (!delCaptcha) {
+      btn.disabled = false; btn.textContent = 'حذف نهائياً';
+      toast('❌ ' + tsPendingMsg('delete'), true);
+      return;
+    }
+    btn.textContent = 'جارٍ الحذف…';
+    var res = await window.SyDentAccountDelete.run({ password: pass, captchaToken: delCaptcha });
     if (!res.ok) {
       btn.disabled = false; btn.textContent = 'حذف نهائياً';
       try { resetTurnstile('delete'); } catch (e) {}
