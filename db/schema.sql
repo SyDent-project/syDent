@@ -1474,6 +1474,47 @@ $$;
 ALTER FUNCTION "public"."day_closings_keep_trail"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."expense_categories_system_guard"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'auth'
+    AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    -- العلامةُ تُمنح مرةً (NULL ⇒ قيمة) ولا تُنزع ولا تُبدَّل
+    IF OLD.system_key IS NOT NULL AND NEW.system_key IS DISTINCT FROM OLD.system_key THEN
+      RAISE EXCEPTION 'system_category_key_locked' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+  -- DELETE: المالكُ غائب = حذفُ الحساب كاملاً يتسلسل من auth.users ⇒ يمرّ (نمط M197)
+  IF OLD.system_key IS NOT NULL
+     AND EXISTS (SELECT 1 FROM auth.users u WHERE u.id = OLD.owner_id) THEN
+    RAISE EXCEPTION 'system_category_protected' USING ERRCODE = '23514';
+  END IF;
+  RETURN OLD;
+END
+$$;
+
+
+ALTER FUNCTION "public"."expense_categories_system_guard"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."expenses_supplier_guard"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF NEW.supplier_id IS NOT NULL AND NOT EXISTS
+     (SELECT 1 FROM public.inventory_suppliers s WHERE s.id = NEW.supplier_id AND s.owner_id = NEW.owner_id) THEN
+    RAISE EXCEPTION 'expense_supplier_not_owned' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION "public"."expenses_supplier_guard"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."touch_presence"() RETURNS "void"
     LANGUAGE "sql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -1886,11 +1927,17 @@ CREATE TABLE IF NOT EXISTS "public"."expense_categories" (
     "sort_order" integer DEFAULT 0 NOT NULL,
     "is_active" boolean DEFAULT true NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "system_key" "text",
+    CONSTRAINT "expense_categories_system_key_valid" CHECK ((("system_key" IS NULL) OR ("system_key" = 'dental_materials'::"text")))
 );
 
 
 ALTER TABLE "public"."expense_categories" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."expense_categories"."system_key" IS 'M201: علامةُ تصنيفٍ أساسي (dental_materials = «مواد سنية»). صفٌّ يحملها لا يُحذف ولا تُنزع عنه؛ NULL = تصنيفٌ عادي.';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."expenses" (
@@ -1908,6 +1955,7 @@ CREATE TABLE IF NOT EXISTS "public"."expenses" (
     "currency" "text" NOT NULL,
     "expense_time" time(0) without time zone,
     "cash_source" "text",
+    "supplier_id" "uuid",
     CONSTRAINT "expenses_amount_check" CHECK (("amount" >= (0)::numeric)),
     CONSTRAINT "expenses_cash_source_valid" CHECK ((("cash_source" IS NULL) OR (("cash_source" = ANY (ARRAY['drawer'::"text", 'outside'::"text"])) AND ("payment_method" = 'cash'::"text")))),
     CONSTRAINT "expenses_currency_valid" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"])))
@@ -1918,6 +1966,10 @@ ALTER TABLE "public"."expenses" OWNER TO "postgres";
 
 
 COMMENT ON COLUMN "public"."expenses"."expense_time" IS 'M153: وقت المصروف المحلي (العرض فقط). المحاسبة على expenses.date حصراً.';
+
+
+
+COMMENT ON COLUMN "public"."expenses"."supplier_id" IS 'M201: مورّدُ المخزون المرتبط بالمصروف (اختياري). expenses.vendor يبقى لقطةَ الاسم نصاً.';
 
 
 
@@ -3552,6 +3604,10 @@ CREATE INDEX "idx_expenses_owner_date" ON "public"."expenses" USING "btree" ("ow
 
 
 
+CREATE INDEX "idx_expenses_supplier" ON "public"."expenses" USING "btree" ("supplier_id") WHERE ("supplier_id" IS NOT NULL);
+
+
+
 CREATE INDEX "idx_implant_log_patient" ON "public"."implant_log" USING "btree" ("owner_id", "patient_id", "created_at" DESC);
 
 
@@ -3972,6 +4028,10 @@ CREATE UNIQUE INDEX "uq_booking_pending_slot" ON "public"."booking_requests" USI
 
 
 
+CREATE UNIQUE INDEX "uq_expense_categories_owner_system_key" ON "public"."expense_categories" USING "btree" ("owner_id", "system_key") WHERE ("system_key" IS NOT NULL);
+
+
+
 CREATE UNIQUE INDEX "uq_clinic_employees_doctor_link" ON "public"."clinic_employees" USING "btree" ("doctor_id") WHERE ("doctor_id" IS NOT NULL);
 
 
@@ -4080,7 +4140,15 @@ CREATE OR REPLACE TRIGGER "trg_enforce_patient_limit" BEFORE INSERT ON "public".
 
 
 
+CREATE OR REPLACE TRIGGER "trg_expense_categories_system_guard" BEFORE DELETE OR UPDATE OF "system_key" ON "public"."expense_categories" FOR EACH ROW EXECUTE FUNCTION "public"."expense_categories_system_guard"();
+
+
+
 CREATE OR REPLACE TRIGGER "trg_expense_categories_updated_at" BEFORE UPDATE ON "public"."expense_categories" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_expenses_supplier_guard" BEFORE INSERT OR UPDATE OF "owner_id", "supplier_id" ON "public"."expenses" FOR EACH ROW EXECUTE FUNCTION "public"."expenses_supplier_guard"();
 
 
 
@@ -4268,6 +4336,11 @@ ALTER TABLE ONLY "public"."expenses"
 
 ALTER TABLE ONLY "public"."expenses"
     ADD CONSTRAINT "expenses_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."expenses"
+    ADD CONSTRAINT "expenses_supplier_id_fkey" FOREIGN KEY ("supplier_id") REFERENCES "public"."inventory_suppliers"("id") ON DELETE SET NULL;
 
 
 
@@ -6460,6 +6533,16 @@ GRANT ALL ON FUNCTION "public"."tenant_access_level"("p_uid" "uuid") TO "service
 
 REVOKE ALL ON FUNCTION "public"."day_closings_keep_trail"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."day_closings_keep_trail"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."expense_categories_system_guard"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."expense_categories_system_guard"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."expenses_supplier_guard"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."expenses_supplier_guard"() TO "service_role";
 
 
 

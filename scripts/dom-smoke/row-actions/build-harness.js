@@ -192,17 +192,19 @@ const PAGES = {
   },
   'expenses.html': {
     src: ['expenses.html'],
-    anchors: ['<div class="table-scroll">', "SyDT.cell(e.date, e.expense_time)", "'<td data-label=\"إجراءات\" class=\"exp-acts-cell\"><div class=\"sy-acts\">'", 'id="catsGrid" class="cats-grid"', "'<div class=\"cat-actions sy-acts\">'"],
+    anchors: ['<div class="table-scroll">', "SyDT.cell(e.date, e.expense_time)", "'<td data-label=\"إجراءات\" class=\"exp-acts-cell\"><div class=\"sy-acts\">'", 'id="catsGrid" class="cats-grid"', "'<div class=\"cat-actions sy-acts sy-acts-grid\">'", "(sys ? '' : '<button class=\"sy-act sy-act-danger\" onclick=\"deleteCategory("],
     rows: `
 <div class="table-scroll"><table><thead><tr><th>التاريخ</th><th>التصنيف</th><th>الوصف</th><th>المورّد</th><th>المبلغ</th><th>طريقة الدفع</th><th>إجراءات</th></tr></thead><tbody>
 <tr data-exp-id="x" data-row="expense"><td data-label="التاريخ"><span class="dt-cell"><span class="ltr-val">30/7/2026</span><span class="dt-time ltr-val">11:05 AM</span></span></td><td data-label="التصنيف">مواد سنية</td><td data-label="الوصف">كمبوزيت — ثلاث عبوات</td><td data-label="المورّد">—</td><td data-label="المبلغ"><span class="amount">350,000 ل.س</span></td><td data-label="طريقة الدفع">نقد</td>
 <td data-label="إجراءات" class="exp-acts-cell"><div class="sy-acts"><button class="sy-act">✏️ تعديل</button><button class="sy-act sy-act-danger">🗑️ حذف</button></div></td></tr>
 </tbody></table></div>
 <div class="cats-grid">
-<div class="cat-card" data-row="cat"><div class="cat-head"><div class="cat-icon">🦷</div><div class="cat-info"><div class="cat-name">مواد سنية</div><div class="cat-stats">2 مصروف • مجموع 800,000 ل.س</div></div></div>
-<div class="cat-actions sy-acts"><button class="sy-act">✏️ تعديل</button><button class="sy-act sy-act-warn">⏸️ تعطيل</button><button class="sy-act sy-act-danger">🗑️ حذف</button></div></div>
+<div class="cat-card" data-row="cat-system"><div class="cat-head"><div class="cat-icon">🦷</div><div class="cat-info"><div class="cat-name">مواد سنية<span class="cat-chip cbadge tone tone-gray" title="تصنيف أساسي يرتبط به مورّدو المخزون — لا يمكن حذفه">🔒 أساسي</span></div><div class="cat-stats">2 مصروف • مجموع 800,000 ل.س</div></div></div>
+<div class="cat-actions sy-acts sy-acts-grid"><button class="sy-act">✏️ تعديل</button><button class="sy-act sy-act-warn" data-span="2">⏸️ تعطيل</button></div></div>
+<div class="cat-card" data-row="cat"><div class="cat-head"><div class="cat-icon">🔧</div><div class="cat-info"><div class="cat-name">أدوات ومعدّات</div><div class="cat-stats">2 مصروف • مجموع 800,000 ل.س</div></div></div>
+<div class="cat-actions sy-acts sy-acts-grid"><button class="sy-act">✏️ تعديل</button><button class="sy-act sy-act-warn">⏸️ تعطيل</button><button class="sy-act sy-act-danger">🗑️ حذف</button></div></div>
 <div class="cat-card inactive" data-row="cat-off"><div class="cat-head"><div class="cat-icon">⚡</div><div class="cat-info"><div class="cat-name">كهرباء وماء</div><div class="cat-stats">1 مصروف</div></div></div>
-<div class="cat-actions sy-acts"><button class="sy-act">✏️ تعديل</button><button class="sy-act sy-act-primary">▶️ تفعيل</button><button class="sy-act sy-act-danger">🗑️ حذف</button></div></div>
+<div class="cat-actions sy-acts sy-acts-grid"><button class="sy-act">✏️ تعديل</button><button class="sy-act sy-act-primary">▶️ تفعيل</button><button class="sy-act sy-act-danger">🗑️ حذف</button></div></div>
 </div>`,
   },
   'inventory.html': {

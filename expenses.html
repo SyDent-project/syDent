@@ -16,7 +16,7 @@
 /* ── Modal ── v448: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261111b"></script>
+<script src="theme.js?v=20261111c"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -317,12 +317,19 @@ button:disabled { opacity: .6; cursor: wait; }
   color: var(--text2);
   margin-top: 2px;
 }
+/* M201: لوحةُ أزرار البطاقة شبكةٌ بثلاثة أعمدة ثابتة (.sy-acts-grid) — التعديلُ فوق التعديل والحذفُ فوق الحذف
+   عبر البطاقات؛ والتصنيفُ الأساسي (بلا حذف) يمتدّ زرُّ حالته على خانتين. */
 .cat-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   padding-top: 8px;
   border-top: 1px solid var(--border);
 }
+.cat-actions > [data-span="2"] { grid-column: span 2; }
+.cat-name > .cat-chip { margin-inline-start: 8px; vertical-align: middle; }   /* شارةُ «أساسي» بجانب الاسم — سطرُ المجموع يبقى بعرضه */
+/* M201: قائمةُ المورّدين فوق حقل «مورّد آخر» */
+#eVendorGroup.exp-sup-other > #eVendor { margin-top: 8px; }
 
 /* Modal */
 .modal-overlay.show { display: flex; }
@@ -510,14 +517,14 @@ button:disabled { opacity: .6; cursor: wait; }
 html[data-sub-level="read"] :is([onclick*="openExpenseModal("],[onclick*="openCatModal("],[onclick*="saveExpense("],[onclick*="saveCategory("],[onclick*="editExpense("],[onclick*="deleteExpense("],[onclick*="editCategory("],[onclick*="toggleCategoryActive("],[onclick*="deleteCategory("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261111b">
+<link rel="stylesheet" href="theme.css?v=20261111c">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261111b"></script>
-<script src="sy-modal.js?v=20261111b"></script>
-<script src="pay-methods.js?v=20261111b"></script>
-<script src="inv-po.js?v=20261111b"></script>
-<script src="sidebar.js?v=20261111b"></script>
-<script src="timepicker.js?v=20261111b"></script>
+<script src="supabase-init.js?v=20261111c"></script>
+<script src="sy-modal.js?v=20261111c"></script>
+<script src="pay-methods.js?v=20261111c"></script>
+<script src="inv-po.js?v=20261111c"></script>
+<script src="sidebar.js?v=20261111c"></script>
+<script src="timepicker.js?v=20261111c"></script>
 </head>
 <body>
 
@@ -675,7 +682,7 @@ html[data-sub-level="read"] :is([onclick*="openExpenseModal("],[onclick*="openCa
 
       <div class="form-group">
         <label>التصنيف *</label>
-        <select id="eCategory"></select>
+        <select id="eCategory" onchange="syncExpVendor()"></select>
         <div class="hint">إذا لم يكن التصنيف موجوداً، أضفه من تبويب "التصنيفات".</div>
       </div>
 
@@ -685,9 +692,12 @@ html[data-sub-level="read"] :is([onclick*="openExpenseModal("],[onclick*="openCa
       </div>
 
       <div class="form-row">
-        <div class="form-group">
+        <!-- M201: مع «مواد سنية» ومورّدين مسجّلين بالمخزون ⇒ قائمة (+ «مورّد آخر» للكتابة)؛ غير ذلك نصٌّ حر كما كان -->
+        <div class="form-group" id="eVendorGroup">
           <label>المورّد / المتجر</label>
+          <select id="eSupplier" onchange="pickExpSupplier()" aria-label="اختيار المورّد" style="display:none;"></select>
           <input type="text" id="eVendor" placeholder="مثلاً: المركز الطبي">
+          <div class="hint" id="eVendorHint" style="display:none;"></div>
         </div>
         <div class="form-group">
           <label>طريقة الدفع</label>
@@ -770,14 +780,19 @@ var editingCatId = null;
 var filterCatId = 'all';  // 'all' or category id
 var filterDateFrom = '';
 var filterDateTo = '';
+var suppliers = [];          // M201: inventory_suppliers rows (id · name · is_active)
+var _expSupplierId = null;   // M201: مورّدُ المصروف المفتوح للتعديل (يبقى بالقائمة ولو حُذف من المخزون)
 
 // ─── Default categories (bootstrapped on first run) ───────────────────────
 // These appear automatically the first time the Owner opens expenses.html in
 // a freshly-installed clinic. The Owner can rename, recolor, deactivate or
-// delete any of them afterwards — they're seeds, not built-ins. is_system
-// flag isn't used since the Owner has full control over their categories.
+// delete any of them afterwards — they're seeds, not built-ins. The one
+// exception (M201) is «مواد سنية»: it carries system_key, so it can be edited
+// and deactivated but never deleted (the inventory suppliers hang on it).
+var MATERIALS_KEY = 'dental_materials';
+var MATERIALS_SEED = { name: 'مواد سنية', icon: '🦷', color: '#63b3ed', sort_order: 1, system_key: MATERIALS_KEY };
 var DEFAULT_CATEGORIES = [
-  { name: 'مواد سنية', icon: '🦷', color: '#63b3ed', sort_order: 1 },
+  MATERIALS_SEED,
   { name: 'أدوات ومعدّات', icon: '🔧', color: '#ffa726', sort_order: 2 },
   { name: 'إيجار وخدمات', icon: '🏢', color: '#f5c842', sort_order: 3 },
   { name: 'كهرباء وماء', icon: '💡', color: '#fbbf24', sort_order: 4 },
@@ -886,7 +901,8 @@ async function init() {
 
     await loadCategories();
     await maybeBootstrapDefaults();
-    await loadExpenses();
+    await ensureMaterialsCategory();   // M201
+    await Promise.all([loadExpenses(), loadSuppliers()]);
     renderCategoryFilters();
     renderExpenses();
     renderCategories();
@@ -911,16 +927,26 @@ async function init() {
 async function maybeBootstrapDefaults() {
   if (categories.length > 0) return;
   console.log('[expenses] bootstrapping default categories…');
-  var rows = DEFAULT_CATEGORIES.map(function(c) {
-    return {
-      owner_id: currentUser.id,
-      name: c.name,
-      icon: c.icon,
-      color: c.color,
-      sort_order: c.sort_order
-    };
-  });
-  var res = await window.sb.from('expense_categories').insert(rows).select();
+  var mkRows = function(withKey) {
+    return DEFAULT_CATEGORIES.map(function(c) {
+      var r = {
+        owner_id: currentUser.id,
+        name: c.name,
+        icon: c.icon,
+        color: c.color,
+        sort_order: c.sort_order
+      };
+      if (withKey && c.system_key) r.system_key = c.system_key;   // M201
+      return r;
+    });
+  };
+  var res = await window.sb.from('expense_categories').insert(mkRows(true)).select();
+  // M201: قاعدةٌ بلا العمود ⇒ البذرُ بلا العلامة كما كان
+  if (res.error && _expColMissing(res.error, 'system_key')) {
+    res = await window.sb.from('expense_categories').insert(mkRows(false)).select();
+  }
+  // M201: تبويبٌ آخر بذر باللحظة نفسها (فهرسُ العلامة الفريد رفض النسخة الثانية) ⇒ اقرأ ما بُذر
+  if (res.error && res.error.code === '23505') { await loadCategories(); return; }
   if (res.error) {
     console.warn('[expenses] bootstrap failed:', res.error);
     // Don't throw — the Owner can add categories manually. Show a soft hint
@@ -932,6 +958,138 @@ async function maybeBootstrapDefaults() {
   }
   categories = res.data || [];
   console.log('[expenses] bootstrapped', categories.length, 'default categories');
+}
+
+/* ═══ M201 — «مواد سنية» تصنيفٌ أساسي + المورّدُ من مورّدي المخزون ═══════════════════════
+   · التصنيفُ الأساسي يُعرف بعلامته (system_key) لا باسمه: لا يُحذف (القاعدةُ ترفض حتى من نسخةٍ
+     مخزّنة قديمة)، ويبقى تعديلُه وتعطيلُه بيد المالك.
+   · معه يصير حقلُ المورّد قائمةً من مورّدي المخزون الفعّالين + «مورّد آخر» للكتابة؛ بلا مورّدين
+     مسجّلين، ومع أي تصنيفٍ آخر، يبقى نصاً حراً كما كان.
+   · eVendor يحمل الاسمَ دائماً (لقطةُ expenses.vendor) والقائمةُ عرضٌ فوقه؛ الربطُ expenses.supplier_id. */
+var SUP_OTHER = '__other';
+function _expColMissing(err, col) {
+  return !!err && (err.code === '42703' || err.code === 'PGRST204') && String(err.message || '').indexOf(col) > -1;
+}
+function isSystemCat(c) { return !!(c && c.system_key); }
+function materialsCat() {
+  return categories.find(function(c){ return c.system_key === MATERIALS_KEY; }) || null;
+}
+function _supKey(v) { return String(v || '').trim().toLowerCase(); }
+function supplierName(id) {
+  var s = suppliers.find(function(x){ return x.id === id; });
+  return s ? s.name : '';
+}
+
+/* عيادةٌ بذرتها نسخةٌ قديمة (بلا علامة) يُعلَّم «مواد سنية» فيها؛ وإن غاب يُضاف. القاعدةُ تضمن
+   واحداً لكل عيادة (فهرسٌ فريد) فسباقُ تبويبين ينتهي بخطأٍ صامت ثم قراءةٍ واحدة. */
+async function ensureMaterialsCategory() {
+  if (!categories.length || materialsCat()) return;
+  if (!('system_key' in categories[0])) return;                       // قاعدةٌ بلا Migration 201
+  var lvl = (window.SyDentSub && typeof window.SyDentSub.level === 'function') ? window.SyDentSub.level() : null;
+  if (lvl && lvl !== 'full') return;                                    // حسابٌ للقراءة فقط لا يكتب
+  try {
+    var same = categories.find(function(c){ return (c.name || '').trim() === MATERIALS_SEED.name; });
+    var res = same
+      ? await window.sb.from('expense_categories').update({ system_key: MATERIALS_KEY }).eq('id', same.id).eq('owner_id', currentUser.id)
+      : await window.sb.from('expense_categories').insert({ owner_id: currentUser.id, name: MATERIALS_SEED.name, icon: MATERIALS_SEED.icon,
+          color: MATERIALS_SEED.color, sort_order: MATERIALS_SEED.sort_order, system_key: MATERIALS_KEY });
+    if (res.error) console.warn('ensureMaterialsCategory:', res.error);
+  } catch (e) { console.warn('ensureMaterialsCategory:', e); }
+  await loadCategories();
+}
+
+/* قاعدةٌ بلا جدول المورّدين أو فشلُ شبكة ⇒ القائمةُ فارغة والحقلُ نصٌّ حر كما كان */
+async function loadSuppliers() {
+  try {
+    var r = await window.sb.from('inventory_suppliers').select('id, name, is_active')
+      .eq('owner_id', currentUser.id).order('name', { ascending: true });
+    if (r.error) throw r.error;
+    suppliers = r.data || [];
+  } catch (e) { console.warn('loadSuppliers:', e); }
+}
+
+/* صرفة: (تصنيفُ النموذج · المورّدون · مورّدُ المصروف المحفوظ) ⇒ شكلُ الحقل وخياراتُه */
+function expVendorPlan(cat, sups, keepId) {
+  var isMat = !!(cat && cat.system_key === MATERIALS_KEY);
+  var list = (sups || []).filter(function(s){ return s.is_active !== false || (!!keepId && s.id === keepId); });
+  return { mode: (isMat && list.length) ? 'pick' : 'text', materials: isMat, options: list };
+}
+/* صرفة: (الخطة · الحالةُ الراهنة { supplier_id, vendor, other }) ⇒ ما يُختار بالقائمة */
+function expVendorPick(plan, cur) {
+  var has = function(id){ return plan.options.some(function(s){ return s.id === id; }); };
+  if (cur.supplier_id && has(cur.supplier_id)) return cur.supplier_id;
+  var key = _supKey(cur.vendor);
+  if (key) {
+    var m = plan.options.find(function(s){ return _supKey(s.name) === key; });
+    return m ? m.id : SUP_OTHER;
+  }
+  return cur.other ? SUP_OTHER : '';
+}
+/* الحالةُ الراهنة كما هي على الشاشة (النصُّ خاماً — القصُّ عند الحفظ والمطابقة فقط) */
+function curExpVendor() {
+  var sel = $('eSupplier'), raw = $('eVendor').value || '';
+  if (!sel || sel.style.display === 'none') return { supplier_id: null, vendor: raw, other: false };
+  var v = sel.value;
+  if (v === SUP_OTHER) return { supplier_id: null, vendor: raw, other: true };
+  if (v) return { supplier_id: v, vendor: supplierName(v), other: false };
+  return { supplier_id: null, vendor: '', other: false };
+}
+function renderExpVendor(cur) {
+  var sel = $('eSupplier'), txt = $('eVendor'), hint = $('eVendorHint'), grp = $('eVendorGroup');
+  if (!sel || !txt || !hint || !grp) return;
+  var catId = $('eCategory').value;
+  var cat = categories.find(function(c){ return c.id === catId; }) || null;
+  var plan = expVendorPlan(cat, suppliers, _expSupplierId);
+  if (plan.mode === 'text') {
+    sel.innerHTML = ''; sel.style.display = 'none';
+    txt.style.display = ''; txt.value = cur.vendor || '';
+    grp.classList.remove('exp-sup-other');
+    hint.textContent = plan.materials ? 'سجّل مورّديك في المخزون («الطلبيات والموردون») لتختارهم من قائمة.' : '';
+    hint.style.display = plan.materials ? '' : 'none';
+    return;
+  }
+  var pick = expVendorPick(plan, cur);
+  sel.innerHTML = '';
+  var add = function(value, label) {
+    var o = document.createElement('option'); o.value = value; o.textContent = label; sel.appendChild(o);
+  };
+  add('', '— بدون مورّد —');
+  plan.options.forEach(function(s){ add(s.id, s.name); });
+  add(SUP_OTHER, '✏️ مورّد آخر (اكتب الاسم)');
+  sel.value = pick; sel.style.display = '';
+  var isOther = pick === SUP_OTHER;
+  txt.style.display = isOther ? '' : 'none';
+  txt.value = isOther ? (cur.vendor || '') : (pick ? supplierName(pick) : '');
+  grp.classList.toggle('exp-sup-other', isOther);
+  hint.textContent = 'القائمة من مورّدي المخزون.';
+  hint.style.display = '';
+}
+/* فتحُ النموذج: يحدّد مورّدَ المصروف واسمَه ثم يرسم */
+function expVendorInit(supplierId, name) {
+  _expSupplierId = supplierId || null;
+  var sel = $('eSupplier'); if (sel) { sel.innerHTML = ''; sel.style.display = 'none'; }
+  renderExpVendor({ supplier_id: _expSupplierId, vendor: name || '', other: false });
+}
+/* تغييرُ التصنيف: الشكلُ يتبع التصنيف والمكتوبُ/المختارُ يبقى */
+function syncExpVendor() { renderExpVendor(curExpVendor()); }
+/* اختيارٌ من القائمة */
+function pickExpSupplier() {
+  var cur = curExpVendor();
+  if (cur.other && _supKey(cur.vendor) && suppliers.some(function(s){ return _supKey(s.name) === _supKey(cur.vendor); })) cur.vendor = '';   // كان اسمَ مورّدٍ مختار — «مورّد آخر» يبدأ فارغاً
+  renderExpVendor(cur);
+  if (cur.other) { try { $('eVendor').focus(); } catch (_) {} }
+}
+/* ما يُحفظ: الاسمُ نصاً دائماً، والربطُ لمورّدٍ مختارٍ من القائمة فقط */
+function readExpVendor() {
+  var cur = curExpVendor();
+  return { supplier_id: cur.supplier_id || null, vendor: String(cur.vendor || '').trim() || null };
+}
+/* القائمةُ تُحدَّث عند كل فتحٍ للنموذج (مورّدٌ أُضيف بالمخزون بتبويبٍ آخر) — يُعاد الرسمُ فقط إن تغيّرت */
+function refreshExpSuppliers() {
+  var before = JSON.stringify(suppliers);
+  loadSuppliers().then(function () {
+    if (JSON.stringify(suppliers) !== before && $('expModal').classList.contains('show')) renderExpVendor(curExpVendor());
+  });
 }
 
 async function loadCategories() {
@@ -1136,21 +1294,24 @@ function renderCategories() {
     expenses.forEach(function(e){ if (e.category_id === c.id) _bagAdd(totalBag, e, e.amount); });
     var inactiveCls = c.is_active === false ? ' inactive' : '';
     var color = c.color || 'var(--text3)';
+    var sys = isSystemCat(c);                       // M201: التصنيفُ الأساسي بلا «حذف»، وزرُّ حالته يملأ خانته
+    var span = sys ? ' data-span="2"' : '';
     html +=
       '<div class="cat-card' + inactiveCls + '">' +
         '<div class="cat-head">' +
           '<div class="cat-icon" style="background:' + escapeHtml(color) + '22;">' + escapeHtml(c.icon || '📋') + '</div>' +
           '<div class="cat-info">' +
-            '<div class="cat-name">' + escapeHtml(c.name) + '</div>' +
+            '<div class="cat-name">' + escapeHtml(c.name) +
+              (sys ? '<span class="cat-chip cbadge tone tone-gray" title="تصنيف أساسي يرتبط به مورّدو المخزون — لا يمكن حذفه">🔒 أساسي</span>' : '') + '</div>' +
             '<div class="cat-stats">' + usageCount + ' مصروف • مجموع ' + _bagTextFull(totalBag) + '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="cat-actions sy-acts">' +
+        '<div class="cat-actions sy-acts sy-acts-grid">' +
           '<button class="sy-act" onclick="editCategory(\'' + c.id + '\')">✏️ تعديل</button>' +
           (c.is_active === false
-            ? '<button class="sy-act sy-act-primary" onclick="toggleCategoryActive(\'' + c.id + '\', true)">▶️ تفعيل</button>'
-            : '<button class="sy-act sy-act-warn" onclick="toggleCategoryActive(\'' + c.id + '\', false)">⏸️ تعطيل</button>') +
-          '<button class="sy-act sy-act-danger" onclick="deleteCategory(\'' + c.id + '\')">🗑️ حذف</button>' +
+            ? '<button class="sy-act sy-act-primary" onclick="toggleCategoryActive(\'' + c.id + '\', true)"' + span + '>▶️ تفعيل</button>'
+            : '<button class="sy-act sy-act-warn" onclick="toggleCategoryActive(\'' + c.id + '\', false)"' + span + '>⏸️ تعطيل</button>') +
+          (sys ? '' : '<button class="sy-act sy-act-danger" onclick="deleteCategory(\'' + c.id + '\')">🗑️ حذف</button>') +
         '</div>' +
       '</div>';
   });
@@ -1230,7 +1391,6 @@ function openExpenseModal() {
   $('eTime').value = SyDT.nowHM();   // v476: الوقتُ افتراضياً الآن (SyDT — v477)
   $('eAmount').value = '';
   $('eDescription').value = '';
-  $('eVendor').value = '';
   $('ePaymentMethod').value = 'cash';
   $('eCashSource').innerHTML = window.SyDentPayMethods.sourceOptionsHtml('drawer');   // M165
   syncExpSource();
@@ -1240,9 +1400,11 @@ function openExpenseModal() {
   if (firstActive && $('eCategory').options.length > 0) {
     $('eCategory').value = firstActive.id;
   }
+  expVendorInit(null, '');   // M201: بعد التصنيف — شكلُ حقل المورّد يتبعه
   clearMsg('expMsg');
   try { window.SyDentCurPick.mount('eAmount'); } catch (e) {}   // M125
   $('expModal').classList.add('show');
+  refreshExpSuppliers();     // M201
   setTimeout(function(){ $('eAmount').focus(); }, 80);
 }
 
@@ -1255,7 +1417,6 @@ function editExpense(id) {
   $('eTime').value = e.expense_time ? String(e.expense_time).slice(0, 5) : '';   // v476
   $('eAmount').value = e.amount || '';
   $('eDescription').value = e.description || '';
-  $('eVendor').value = e.vendor || '';
   $('ePaymentMethod').value = e.payment_method || 'cash';
   $('eCashSource').innerHTML = window.SyDentPayMethods.sourceOptionsHtml(e.cash_source);   // M165: الفارغُ = من الدرج
   syncExpSource();
@@ -1263,18 +1424,21 @@ function editExpense(id) {
   if (e.category_id) {
     $('eCategory').value = e.category_id;
   }
+  expVendorInit(e.supplier_id || null, e.vendor || '');   // M201: بعد التصنيف
   clearMsg('expMsg');
   // M125: التعديل يفتح بعملة المصروف المحفوظة لا بعملة العيادة — وإلا قُرِئ
   // مصروفُ الدولار ليرةً وأُعيد حفظه بوسمٍ كاذب (صنف v181).
   try { window.SyDentCurPick.pin('eAmount', (e.currency === 'USD') ? 'USD' : 'SYP'); } catch (_e) {}
   try { window.SyDentCurPick.mount('eAmount'); } catch (e) {}   // M125
   $('expModal').classList.add('show');
+  refreshExpSuppliers();     // M201
 }
 
 function closeExpModal() {
   $('expModal').classList.remove('show');
   editingExpId = null;
   _invReceiptLink = null;   // C3: الإغلاقُ يفكّ ربط الاستلام (#721)
+  _expSupplierId = null;    // M201
 }
 
 /* C3 (M172) — «💸 سجّلها مصروفاً» من استلام طلبية المخزون (#721):
@@ -1289,7 +1453,7 @@ async function openInvReceiptExpense(receiptId, cur) {
   }
   try {
     var r = await window.sb.from('inventory_receipts')
-      .select('id, received_at, expense_syp_id, expense_usd_id, inventory_suppliers(name), inventory_receipt_lines(qty, unit_price, currency)')
+      .select('id, received_at, supplier_id, expense_syp_id, expense_usd_id, inventory_suppliers(name), inventory_receipt_lines(qty, unit_price, currency)')
       .eq('id', receiptId).eq('owner_id', currentUser.id).maybeSingle();
     if (r.error) throw r.error;
     if (!r.data) { showToast('⚠️ الاستلام غير موجود', true); return; }
@@ -1301,11 +1465,13 @@ async function openInvReceiptExpense(receiptId, cur) {
     openExpenseModal();
     _invReceiptLink = { id: receiptId, cur: cur };
     $('eAmount').value = pre.amount;
-    $('eVendor').value = pre.vendor;
     $('eDescription').value = pre.description;
     if (pre.date) $('eDate').value = pre.date;
-    var mat = categories.find(function(c){ return c.is_active !== false && /مواد|مستلزمات/.test(c.name || ''); });
+    // M201: التصنيفُ الأساسي بعلامته لا باسمه؛ الاسمُ احتياطٌ لقاعدةٍ بلا العلامة أو لتصنيفٍ أساسي معطَّل
+    var mat = materialsCat();
+    if (!mat || mat.is_active === false) mat = categories.find(function(c){ return c.is_active !== false && /مواد|مستلزمات/.test(c.name || ''); });
     if (mat) $('eCategory').value = mat.id;
+    expVendorInit(r.data.supplier_id || null, pre.vendor);   // M201: مورّدُ الطلبية مختاراً من القائمة
     if (pre.unpriced) showMsg('expMsg', 'في الاستلام ' + pre.unpriced + ' صنف بلا سعر — راجع المبلغ قبل الحفظ', true);
   } catch (e) {
     console.error('openInvReceiptExpense:', e);
@@ -1336,7 +1502,8 @@ async function saveExpense() {
   var amount = amountRaw === '' ? null : Math.round(parseFloat(amountRaw) * 100) / 100;
   var categoryId = $('eCategory').value || null;
   var description = ($('eDescription').value || '').trim() || null;
-  var vendor = ($('eVendor').value || '').trim() || null;
+  var _ven = readExpVendor();   // M201: الاسمُ نصاً + الربطُ بمورّد المخزون إن اختير من القائمة
+  var vendor = _ven.vendor;
   var paymentMethod = $('ePaymentMethod').value || 'cash';
   var cashSource = window.SyDentPayMethods.sourceForStore(paymentMethod, $('eCashSource').value);   // M165: غيرُ النقدي ⇒ null
   var notes = ($('eNotes').value || '').trim() || null;
@@ -1375,6 +1542,7 @@ async function saveExpense() {
       amount: amount,
       description: description,
       vendor: vendor,
+      supplier_id: _ven.supplier_id,   // M201
       payment_method: paymentMethod,
       cash_source: cashSource,
       notes: notes,
@@ -1399,6 +1567,14 @@ async function saveExpense() {
     if (res.error && /expense_time/.test(String(res.error.message || '')) && (res.error.code === '42703' || res.error.code === 'PGRST204')) {
       console.warn('saveExpense: expense_time غير موجود (Migration 153) — حفظ بلا وقت');
       delete row.expense_time;
+      res = editingExpId
+        ? await window.sb.from('expenses').update(row).eq('id', editingExpId).eq('owner_id', currentUser.id).select().single()
+        : await window.sb.from('expenses').insert(row).select().single();
+    }
+    // M201: قاعدةٌ بلا Migration 201 ⇒ يُحفظ الاسمُ نصاً بلا ربط (التدهورُ نفسه)
+    if (res.error && _expColMissing(res.error, 'supplier_id')) {
+      console.warn('saveExpense: supplier_id غير موجود (Migration 201) — حفظ بلا ربط المورّد');
+      delete row.supplier_id;
       res = editingExpId
         ? await window.sb.from('expenses').update(row).eq('id', editingExpId).eq('owner_id', currentUser.id).select().single()
         : await window.sb.from('expenses').insert(row).select().single();
@@ -1613,6 +1789,7 @@ var deleteCategory = xGuarded('deleteCategory', _deleteCategory_inner, 'جارٍ
 async function _deleteCategory_inner(id) {
   var c = categories.find(function(x){ return x.id === id; });
   if (!c) return;
+  if (isSystemCat(c)) { showToast('🔒 هذا تصنيف أساسي لا يمكن حذفه — يمكنك تعديله أو تعطيله', true); return; }   // M201
   var usage = expenses.filter(function(e){ return e.category_id === id; }).length;
   var msg;
   if (usage > 0) {
@@ -1629,6 +1806,12 @@ async function _deleteCategory_inner(id) {
     .eq('id', id)
     .eq('owner_id', currentUser.id);
   if (res.error) {
+    // M201: القاعدةُ ترفض حذفَ التصنيف الأساسي (قائمةٌ قديمة بتبويبٍ مفتوح)
+    if (/system_category_protected/.test(String(res.error.message || ''))) {
+      showToast('🔒 هذا تصنيف أساسي لا يمكن حذفه — يمكنك تعديله أو تعطيله', true);
+      await loadCategories(); renderCategories();
+      return;
+    }
     showToast('⚠️ فشل الحذف: ' + (res.error.message || ''), true);
     return;
   }

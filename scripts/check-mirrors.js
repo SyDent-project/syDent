@@ -2447,7 +2447,7 @@ try {
       "write": ["openExpenseModal", "openCatModal", "saveExpense", "saveCategory", "editExpense", "deleteExpense", "editCategory", "toggleCategoryActive", "deleteCategory"],
       "guard": ["expRowOpen"],
       "read": ["switchTab", "applyFilters", "clearDateFilter", "closeExpModal", "closeCatModal"],
-      "inert": ["openCatColorPicker", "syncExpSource"],
+      "inert": ["openCatColorPicker", "syncExpSource", "syncExpVendor", "pickExpSupplier"],
       "extra": []
     },
     "inventory.html": {
