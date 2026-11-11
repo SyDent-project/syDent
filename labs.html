@@ -23,7 +23,7 @@
 /* ── Modal ── v448: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261111a"></script>
+<script src="theme.js?v=20261111b"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -566,16 +566,16 @@ a.appt-badge:hover { background: rgba(var(--blue-rgb),0.28) !important; }
 html[data-sub-level="read"] :is([onclick*="openLabOrderModal("],[onclick*="openLabModal("],[onclick*="labTplSaveCurrent("],[onclick*="labTplDeleteSelected("],[onclick*="labClearDateSent("],[onclick*="labAiDraftOrder("],[onclick*="labAiSaveAndSend("],[onclick*="saveLabOrder("],[onclick*="saveLab("],[onclick*="saveLabPayment("],[onclick*="editLab("],[onclick*="delLab("],[onclick*="advanceLabOrder("],[onclick*="redoLabOrder("],[onclick*="editLabOrder("],[onclick*="delLabOrder("],[onclick*="delLabPayment("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261111a">
+<link rel="stylesheet" href="theme.css?v=20261111b">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261111a"></script>
-<script src="sy-modal.js?v=20261111a"></script>
-<script src="pay-methods.js?v=20261111a"></script>
-<script src="lab-redo.js?v=20261111a"></script>
-<script src="lab-due.js?v=20261111a"></script>
-<script src="lab-slip.js?v=20261111a"></script>
-<script src="lab-files.js?v=20261111a"></script>
-<script src="sidebar.js?v=20261111a"></script>
+<script src="supabase-init.js?v=20261111b"></script>
+<script src="sy-modal.js?v=20261111b"></script>
+<script src="pay-methods.js?v=20261111b"></script>
+<script src="lab-redo.js?v=20261111b"></script>
+<script src="lab-due.js?v=20261111b"></script>
+<script src="lab-slip.js?v=20261111b"></script>
+<script src="lab-files.js?v=20261111b"></script>
+<script src="sidebar.js?v=20261111b"></script>
 </head>
 <body>
 <script>
@@ -883,7 +883,21 @@ html[data-sub-level="read"] :is([onclick*="openLabOrderModal("],[onclick*="openL
             <label style="font-size:12px;">التاريخ *</label>
             <input type="date" id="labPayDate">
           </div>
+          <!-- M200 (v702): طريقةُ دفع دفعة المخبر — كانت تُحتسب نقداً من الدرج دائماً بكشف اليوم -->
           <div class="lab-pay-src">
+            <label style="font-size:12px;">طريقة الدفع *</label>
+            <select id="labPayMethod" onchange="syncLabPaySource()">
+              <option value="cash">نقد</option>
+              <option value="bank">تحويل بنكي</option>
+              <option value="check">شيك</option>
+              <option value="shamcash">شام كاش</option>
+              <option value="syriatel">سيريتل كاش</option>
+              <option value="mtn">MTN كاش</option>
+              <option value="online">أونلاين</option>
+              <option value="other">أخرى</option>
+            </select>
+          </div>
+          <div class="lab-pay-src" id="labPaySourceWrap">
             <label style="font-size:12px;" title="«من خارج الدرج» (خزنة · جيب الطبيب): يُسجَّل بالحسابات ولا يُخصم من إقفال الصندوق">مصدر النقد</label>
             <select id="labPaySource"></select>
           </div>
@@ -2658,6 +2672,7 @@ function openLabStatement(labId) {
   document.getElementById('labPayNote').value = '';
   document.getElementById('labPayDate').value = dateStrLocal(new Date());
   document.getElementById('labPaySource').innerHTML = window.SyDentPayMethods.sourceOptionsHtml('drawer');   // M165
+  document.getElementById('labPayMethod').value = 'cash'; syncLabPaySource();   // M200: كلُّ دفعةٍ تبدأ «نقد · من الدرج»
   renderLabStatement();
   // M125: سداد المخبر يتبع عملة ذمّته — تُشتق من طلبات هذا المخبر غير المرفوضة.
   // ذمّة بعملة واحدة ⇒ المبدّل مقفول عليها؛ ذمّة مخلوطة ⇒ الاختيار حرّ.
@@ -2792,8 +2807,8 @@ function renderLabStatement() {
       html += '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:9px 4px;border-bottom:1px solid var(--border,rgba(255,255,255,0.08));font-size:13px;">'
         + '<span>💵</span>'
         + '<div style="flex:1;min-width:0;"><div>دفعة سداد' + (e.p.note ? ' — ' + escapeHtml(e.p.note) : '')
-        + (window.SyDentPayMethods.normSource(e.p.cash_source) === 'outside' ? ' <span style="font-size:11px;color:var(--text2);">· من خارج الدرج</span>' : '') + '</div>'
-        + '<div style="font-size:11px;color:var(--text2);">' + escapeHtml(fmtD(e.date) || '—') + '</div></div>'
+        + '</div>'
+        + '<div style="font-size:11px;color:var(--text2);">' + escapeHtml(fmtD(e.date) || '—') + ' · ' + escapeHtml(labPayMethodText(e.p)) + '</div></div>'
         + '<div style="font-weight:700;color:var(--green);white-space:nowrap;">− ' + fmt(e.p.amount || 0) + ' ' + _rowLbl(e.p) + '</div>'
         + '<div class="sy-acts"><button class="sy-act sy-act-danger" onclick="delLabPayment(\'' + e.p.id + '\')" title="حذف الدفعة">🗑️ حذف</button></div>'
         + '</div>';
@@ -2802,6 +2817,16 @@ function renderLabStatement() {
   document.getElementById('labStmtList').innerHTML = html;
 }
 
+/* M200: مصدرُ النقد يظهر مع «نقد» فقط (مرآةُ المصروفات والرواتب) */
+function syncLabPaySource() {
+  var w = document.getElementById('labPaySourceWrap'), m = document.getElementById('labPayMethod');
+  if (w) w.style.display = window.SyDentPayMethods.isCash(m ? m.value : 'cash') ? '' : 'none';
+}
+/* وصفُ طريقة دفعةِ مخبرٍ محفوظة: الفارغُ = صفٌّ قبل M200 ⇒ نقد */
+function labPayMethodText(p) {
+  var PMs = window.SyDentPayMethods, k = p.payment_method ? PMs.norm(p.payment_method) : 'cash';
+  return PMs.label(k) + (PMs.isCash(k) ? ' · ' + PMs.sourceLabel(p.cash_source) : '');
+}
 async function saveLabPayment() {
   // L2 (فحص المحاسبة الشامل): حارس القفل 4.1 — تكافؤ مسارَي إنشاء/حذف الطلب.
   if (window.SyDentLock && window.SyDentLock.isDoctorAccountInactive && window.SyDentLock.isDoctorAccountInactive()) {
@@ -2814,8 +2839,9 @@ async function saveLabPayment() {
   var amount = Math.round((parseFloat(document.getElementById('labPayAmount').value) || 0) * 100) / 100;
   var payDate = document.getElementById('labPayDate').value;
   var note = (document.getElementById('labPayNote').value || '').trim() || null;
-  // M165: دفعةُ المخبر تُحتسب نقداً دائماً — المصدرُ وحده يحدّد هل تُخصم من الدرج
-  var cashSource = window.SyDentPayMethods.normSource(document.getElementById('labPaySource').value);
+  // M200: الدفعةُ بطريقتها المسجَّلة؛ المصدرُ للنقد فقط (غيرُ النقدي ⇒ null — قيدُ القاعدة)
+  var payMethod = window.SyDentPayMethods.norm(document.getElementById('labPayMethod').value);
+  var cashSource = window.SyDentPayMethods.sourceForStore(payMethod, document.getElementById('labPaySource').value);
   if (isNaN(amount) || amount <= 0) { showToast('⚠️ أدخل مبلغاً موجباً'); return; }
   if (!payDate) { showToast('⚠️ التاريخ مطلوب'); return; }
 
@@ -2826,6 +2852,7 @@ async function saveLabPayment() {
   try {
     var res = await window.sb.from('lab_payments')
       .insert({ doctor_id: currentUser.id, lab_id: stmtLabId, amount: amount, pay_date: payDate, note: note,
+                payment_method: payMethod,                                   // M200
                 cash_source: cashSource,                                     // M165
                 currency: window.SyDentCurPick.read('labPayAmount') })   // M125
       .select().single();
@@ -2835,13 +2862,14 @@ async function saveLabPayment() {
       var lab = allLabs.find(function(x){ return x.id === stmtLabId; });
       window.logAudit('lab_payment.create', {
         entityId: res.data.id,
-        description: 'تسجيل دفعة للمخبر: ' + (lab ? lab.name : '—') + ' — ' + fmt(amount) + ' ' + _rowLbl(res.data),
-        newValue: { lab_id: stmtLabId, amount: amount, pay_date: payDate, cash_source: cashSource }
+        description: 'تسجيل دفعة للمخبر: ' + (lab ? lab.name : '—') + ' — ' + fmt(amount) + ' ' + _rowLbl(res.data) + ' — ' + labPayMethodText(res.data),
+        newValue: { lab_id: stmtLabId, amount: amount, pay_date: payDate, payment_method: payMethod, cash_source: cashSource }
       });
     }
     document.getElementById('labPayAmount').value = '';
     document.getElementById('labPayNote').value = '';
     document.getElementById('labPaySource').value = 'drawer';   // M165: الدفعةُ التالية تبدأ من الدرج
+    document.getElementById('labPayMethod').value = 'cash'; syncLabPaySource();
     renderLabStatement();
     renderStats();
     renderLabs();
@@ -2871,7 +2899,7 @@ async function _delLabPayment_inner(id) {
     window.logAudit('lab_payment.delete', {
       entityId: id,
       description: 'حذف دفعة للمخبر: ' + (lab ? lab.name : '—') + ' — ' + fmt(p.amount) + ' ' + _rowLbl(p),
-      oldValue: { lab_id: p.lab_id, amount: p.amount, pay_date: p.pay_date }
+      oldValue: { lab_id: p.lab_id, amount: p.amount, pay_date: p.pay_date, payment_method: p.payment_method || null, cash_source: p.cash_source || null }
     });
   }
   renderLabStatement();

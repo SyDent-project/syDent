@@ -2463,7 +2463,7 @@ try {
       "write": ["openLabOrderModal", "openLabModal", "labTplSaveCurrent", "labTplDeleteSelected", "labClearDateSent", "labAiDraftOrder", "labAiSaveAndSend", "saveLabOrder", "saveLab", "saveLabPayment", "editLab", "delLab", "advanceLabOrder", "redoLabOrder", "editLabOrder", "delLabOrder", "delLabPayment"],
       "guard": [],
       "read": ["applyFilter", "setLabPageSize", "closeModal", "closeLabModal", "openLabStatement", "labAiCopy", "labSlipPrint"],
-      "inert": ["labTplApply", "onLabOrderPatientChange", "onLabOrderAppointmentChange", "labTplGlowSync"],
+      "inert": ["labTplApply", "onLabOrderPatientChange", "onLabOrderAppointmentChange", "labTplGlowSync", "syncLabPaySource"],
       "extra": []
     },
     "accounting.html": {
@@ -2474,7 +2474,7 @@ try {
       "write": ["savePayout", "openPayoutModal", "deletePayout"],
       "guard": [],
       "read": ["exportExcel", "refresh", "clearPresetHighlight", "onFilterChange", "setBasis", "closeModal", "printLedger", "goToFullPayoutsPage", "setPreset", "showDetails", "printSlip", "openLedger", "setRptTab", "setMatMode"],
-      "inert": [], "extra": []
+      "inert": ["syncPayoutSource"], "extra": []
     },
     "audit-log.html": {
       "write": ["openArchiveModal", "doArchive", "restoreAll", "restoreOne"],

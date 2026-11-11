@@ -16,17 +16,18 @@
 /* ── Modal ── v451: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261111a"></script>
+<script src="theme.js?v=20261111b"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261111a"></script>
-<script src="sy-modal.js?v=20261111a"></script>
-<script src="sidebar.js?v=20261111a"></script>
-<script src="rpt-treat.js?v=20261111a"></script>
-<script src="rpt-newpt.js?v=20261111a"></script>
-<script src="rpt-att.js?v=20261111a"></script>
-<script src="rpt-ret.js?v=20261111a"></script>
-<script src="rpt-sum.js?v=20261111a"></script>
-<script src="mat-cost.js?v=20261111a"></script>
+<script src="supabase-init.js?v=20261111b"></script>
+<script src="sy-modal.js?v=20261111b"></script>
+<script src="sidebar.js?v=20261111b"></script>
+<script src="rpt-treat.js?v=20261111b"></script>
+<script src="rpt-newpt.js?v=20261111b"></script>
+<script src="rpt-att.js?v=20261111b"></script>
+<script src="rpt-ret.js?v=20261111b"></script>
+<script src="rpt-sum.js?v=20261111b"></script>
+<script src="mat-cost.js?v=20261111b"></script>
+<script src="pay-methods.js?v=20261111b"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -429,7 +430,7 @@ a.rt-row:hover{background:rgba(var(--green-rgb),0.04);}
 html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutModal("],[onclick*="deletePayout("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261111a">
+<link rel="stylesheet" href="theme.css?v=20261111b">
 </head>
 <body>
 <div class="main" id="sbMainContent">
@@ -600,6 +601,27 @@ html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutMo
         <label>المبلغ (<span data-cur>ل.س</span>) *</label>
         <input type="number" id="payoutAmount" placeholder="مثال: 250000" min="0" inputmode="numeric">
       </div>
+      <!-- v702: طريقةُ الدفع ومصدرُ النقد — كانت الدفعةُ هنا تُحفظ بلا طريقة فتظهر «أخرى» بكشف اليوم ولا تُخصم من الدرج -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group">
+          <label>طريقة الدفع *</label>
+          <select id="payoutMethod" onchange="syncPayoutSource()">
+            <option value="cash">نقد</option>
+            <option value="bank">تحويل بنكي</option>
+            <option value="check">شيك</option>
+            <option value="shamcash">شام كاش</option>
+            <option value="syriatel">سيريتل كاش</option>
+            <option value="mtn">MTN كاش</option>
+            <option value="online">أونلاين</option>
+            <option value="other">أخرى</option>
+          </select>
+        </div>
+        <div class="form-group" id="payoutSourceGroup">
+          <label>مصدر النقد</label>
+          <select id="payoutSource"></select>
+        </div>
+      </div>
+      <div id="payoutSourceHint" style="font-size:11px;color:var(--text2);line-height:1.6;margin:-4px 0 10px;">«من درج العيادة» تُخصم من إقفال الصندوق بكشف اليوم؛ «من خارج الدرج» (خزنة · جيب الطبيب) تُسجَّل بالحسابات ولا تُخصم من الدرج.</div>
       <div class="form-group">
         <label>ملاحظات (اختياري)</label>
         <textarea id="payoutNotes" rows="2" placeholder="مثل: دفعة شهر أيار..."></textarea>
@@ -2302,6 +2324,7 @@ function _openPayoutModalCore(provId) {
   document.getElementById('payoutAmount').value = suggested > 0 ? (Math.round(suggested * 100) / 100) : '';
   document.getElementById('payoutAmount').placeholder = 'المقترح: ' + fmtSY(suggested);
   document.getElementById('payoutNotes').value = '';
+  resetPayoutMethod();   // v702: كلُّ دفعةٍ تبدأ «نقد · من الدرج» (مرآةُ صفحة الرواتب)
 
   // F3: عملة المودال تُحفظ لحظة الفتح — الحفظ والحذف يعيدان رسم السجل خارج غلاف العملة،
   // وبدونها كانت القائمة تختلط بالعملتين وتُوسَم كلها بعملة العيادة (صنف v208).
@@ -2324,6 +2347,25 @@ function _fmtRowAmt(po) {
   if (v % 1 === 0) return fmt(v) + ' ' + lbl;
   return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + lbl;
 }
+/* v702: طريقةُ الدفع ومصدرُ النقد بمودال الدفعة السريعة — المصدرُ الواحد pay-methods.js (M165) */
+function resetPayoutMethod() {
+  var m = document.getElementById('payoutMethod'), src = document.getElementById('payoutSource');
+  if (m) m.value = 'cash';
+  if (src) src.innerHTML = window.SyDentPayMethods.sourceOptionsHtml('drawer');
+  syncPayoutSource();
+}
+function syncPayoutSource() {
+  var m = document.getElementById('payoutMethod');
+  var cash = window.SyDentPayMethods.isCash(m ? m.value : 'cash');
+  var g = document.getElementById('payoutSourceGroup'), h = document.getElementById('payoutSourceHint');
+  if (g) g.style.visibility = cash ? '' : 'hidden';
+  if (h) h.style.display = cash ? '' : 'none';
+}
+function payoutMethodText(po) {
+  var PMs = window.SyDentPayMethods;
+  if (!po.payment_method) return 'بلا طريقة مسجَّلة';
+  return PMs.label(po.payment_method) + (PMs.isCash(po.payment_method) ? ' · ' + PMs.sourceLabel(po.cash_source) : '');
+}
 function renderPayoutHistory(provId) {
   // F3: فلترة بعملة المودال (إن عُرفت) — النداء من الحفظ/الحذف يقع خارج غلاف العملة
   // فمصفوفة payouts غير مفلترة هناك؛ والوسم يتبع عملة الصف نفسه لا عملة العيادة.
@@ -2341,7 +2383,7 @@ function renderPayoutHistory(provId) {
     return '<div class="payout-history-item">'
       + '<div>'
         + '<div class="amt">' + _fmtRowAmt(po) + '</div>'
-        + '<div class="meta">' + escapeHtml(SyDT.numDate(po.period_start)) + ' ← ' + escapeHtml(SyDT.numDate(po.period_end)) + (po.notes ? ' • ' + escapeHtml(po.notes) : '') + '</div>'
+        + '<div class="meta">' + escapeHtml(SyDT.numDate(po.period_start)) + ' ← ' + escapeHtml(SyDT.numDate(po.period_end)) + ' • ' + escapeHtml(payoutMethodText(po)) + (po.notes ? ' • ' + escapeHtml(po.notes) : '') + '</div>'
       + '</div>'
       + '<div class="phi-when">' + SyDT.cell(po.paid_at || po.created_at) + '</div>'   /* v477: متى دُفعت — تاريخاً ووقتاً */
       + '<div class="sy-acts"><button class="sy-act sy-act-danger" onclick="deletePayout(\'' + po.id + '\')" title="حذف الدفعة">🗑️ حذف</button></div>'
@@ -2373,6 +2415,8 @@ async function _savePayout_inner() {
   var to     = document.getElementById('payoutTo').value;
   var amount = parseFloat(document.getElementById('payoutAmount').value);
   var notes  = document.getElementById('payoutNotes').value.trim();
+  var method = window.SyDentPayMethods.norm(document.getElementById('payoutMethod').value);                                  // v702
+  var source = window.SyDentPayMethods.sourceForStore(method, document.getElementById('payoutSource').value);   // غيرُ النقدي ⇒ null (قيدُ M165)
 
   if (!from || !to) { showToast('⚠️ اختر الفترة'); return; }
   if (!amount || amount <= 0) { showToast('⚠️ أدخل مبلغاً صحيحاً'); return; }
@@ -2384,6 +2428,8 @@ async function _savePayout_inner() {
     period_end: to,
     amount: amount,
     notes: notes || null,
+    payment_method: method,
+    cash_source: source,
     currency: window.SyDentCurPick.read('payoutAmount')   // M125
   };
 
@@ -2400,6 +2446,7 @@ async function _savePayout_inner() {
   renderPayoutHistory(provId);
   document.getElementById('payoutAmount').value = '';
   document.getElementById('payoutNotes').value = '';
+  resetPayoutMethod();
   showToast('✅ تم تسجيل الدفعة');
 
   // Phase 7.2: audit log fires from both provider-reports (quick path)
@@ -2409,14 +2456,16 @@ async function _savePayout_inner() {
       var doc = doctors.find(function(x){ return x.id === provId; });
       var docName = doc ? doc.name : '—';
       window.logAudit('payout.create', {
-        entity_type: 'payout',
-        entity_id: res.data ? res.data.id : null,
-        description: 'دفعة لـ ' + docName + ' (' + fmtSY(payload.amount) + ')',
-        new_value: {
+        entityType: 'payout',
+        entityId: res.data ? res.data.id : null,
+        description: 'دفعة لـ ' + docName + ' (' + fmtSY(payload.amount) + ') — ' + payoutMethodText(payload),
+        newValue: {
           provider_id: provId,
           provider_name: docName,
           period_start: payload.period_start,
           period_end: payload.period_end,
+          payment_method: payload.payment_method,
+          cash_source: payload.cash_source,
           amount: payload.amount
         }
       });
@@ -2448,10 +2497,10 @@ async function _deletePayout_inner(id) {
   try {
     if (window.logAudit) {
       window.logAudit('payout.delete', {
-        entity_type: 'payout',
-        entity_id: id,
+        entityType: 'payout',
+        entityId: id,
         description: 'حذف دفعة لـ ' + snapName + ' (' + fmtSY(snapAmt) + ')',
-        old_value: snapshot || null
+        oldValue: snapshot || null
       });
     }
   } catch (e) { console.warn('audit log failed:', e); }

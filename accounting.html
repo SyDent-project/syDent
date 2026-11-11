@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=5">
 <title>SyDent — المحاسبة</title>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261111a"></script>
+<script src="theme.js?v=20261111b"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -201,6 +201,7 @@ body { min-height: 100vh; }
 .ds-ctl input[type="date"], .ds-ctl input.sy-df-in { background:var(--bg3); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:6px 8px; font-family:inherit; font-size:13px; }
 .ds-qb { border:1px solid var(--border); background:var(--bg3); color:var(--text); border-radius:20px; padding:5px 12px; font-size:12px; cursor:pointer; font-family:inherit; }
 .ds-qb:hover { background:var(--green-dim); border-color:var(--green); }
+.ds-qb.on { background:var(--green-dim); border-color:var(--green); color:var(--green); font-weight:700; }   /* v702: اليومُ المعروض */
 .ds-cards { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:10px; margin:12px 0; }
 .ds-card { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:10px 12px; }
 .ds-card .ds-lbl { font-size:11px; color:var(--text2); }
@@ -216,22 +217,39 @@ table.providers.ds-table { min-width:0; }   /* الكشفُ عمودان فيل�
 .ds-table tr.ds-cash td { color:var(--yellow-ink); }
 .ds-table td.ds-empty, .ds-empty { color:var(--text3); padding:10px; }
 .ds-sub { font-size:11px; color:var(--text3); font-weight:400; }
+.ds-table .ds-sub { display:inline-block; }   /* v702: العددُ ومعدودُه لا ينفصلان بسطرين («· 3» ثم «دفعات») */
+.ds-printonly { display:none; }               /* يظهر بورقة الطباعة فقط */
 .ds-curhead { font-weight:800; margin:14px 0 4px; color:var(--text2); }
 .ds-note-foot { font-size:12px; color:var(--text2); line-height:1.6; margin-top:10px; }
 /* M158: إقفال الصندوق */
 .ds-close { margin-top:12px; border:1px solid var(--border); border-radius:12px; padding:12px 14px; background:var(--bg3); }
 .ds-close-head { font-weight:800; margin-bottom:8px; }
 .ds-close-grid { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:10px; }
+.ds-close-grid .ds-lbl { font-size:12px; color:var(--text2); }
 .ds-val-s { font-weight:800; font-size:15px; white-space:nowrap; }
 .ds-var-ok { color:var(--green); } .ds-var-over { color:var(--yellow-ink); } .ds-var-short { color:var(--red-ink); }
 .ds-close-note { font-size:12px; color:var(--text2); margin-top:8px; }
+.ds-close-trail { font-size:12px; color:var(--text2); margin-top:6px; line-height:1.7; }   /* M200: أثرُ تعديل الإقفال */
+.ds-flag { margin-top:10px; padding:9px 12px; border:1px solid var(--yellow-bd); background:var(--yellow-dim); color:var(--yellow-ink); border-radius:10px; font-size:12.5px; line-height:1.7; }   /* v702: حركاتٌ بلا طريقة دفع */
 .ds-close-warn { font-size:12px; color:var(--yellow-ink); margin-top:8px; }
 .ds-close-row { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,2fr) auto; gap:8px; align-items:end; }
 .ds-close-row label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--text2); min-width:0; }
 .ds-close-row input { background:var(--bg2, var(--bg)); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:7px 9px; font-family:inherit; font-size:14px; min-width:0; width:100%; box-sizing:border-box; }
 .ds-close-btn { background:var(--green); color:#fff; border-color:var(--green); padding:8px 16px; white-space:nowrap; }
 .ds-close .ds-noprint { margin-top:8px; }
-@media (max-width: 700px) { .ds-cards { grid-template-columns: repeat(2, minmax(0,1fr)); } .ds-close-row { grid-template-columns: minmax(0,1fr); } .ds-close-grid { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+@media (max-width: 700px) { .ds-cards { grid-template-columns: repeat(2, minmax(0,1fr)); } .ds-close-row { grid-template-columns: minmax(0,1fr); }
+  /* v702: «الصندوق مُقفل» على الهاتف — ثلاثةُ أعمدةٍ بعرض 390px كانت تُركِّب المبالغ فوق بعضها (17,126,000 ل.س بعمود 90px)؛ صار كلُّ بندٍ سطراً: التسميةُ يميناً والمبلغُ يساراً */
+  .ds-close-grid { grid-template-columns: minmax(0,1fr); gap:0; }
+  .ds-close-grid > div { display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px dashed var(--border); }
+  .ds-close-grid > div:last-child { border-bottom:0; }
+  .ds-close-head .ds-sub { display:block; margin-top:2px; } }
+@media (max-width: 420px) { .ds-card .ds-val { font-size:15px; } }
+/* v702: شريطُ تحكّم الكشف على الهاتف — حقلُ التاريخ بسطرٍ كامل وتحته الأزرارُ الثلاثة بأعمدةٍ متساوية (كان «طباعة» يسقط وحده بسطر) */
+@media (max-width: 700px) {
+  .ds-ctl { width:100%; display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; }
+  .ds-ctl > .sy-df, .ds-ctl > input[type="date"] { grid-column: 1 / -1; width:100% !important; display:block !important; }
+  .ds-ctl .ds-qb { padding:9px 6px; font-size:13px; min-height:40px; text-align:center; white-space:nowrap; }
+}
 
 /* ─── فاصل المعلومات التكميلية ─── */
 .supp-head {
@@ -472,20 +490,20 @@ table.providers tr:hover td { background: var(--bg3); }
 html[data-sub-level="read"] :is([onclick*="digestGenerate("],[onclick*="setAccUnifyCur("],[onclick*="saveAccUsdRate("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261111a">
+<link rel="stylesheet" href="theme.css?v=20261111b">
 <!-- CRITICAL: Supabase CDN MUST load BEFORE supabase-init.js. The init
      script accesses window.supabase synchronously to expose sbGetUser and
      window.sb on the global. If the CDN loads later (e.g. at end of body),
      init() will throw "sbGetUser is not a function". This 3-line block
      matches the exact pattern used in expenses.html, payouts.html, etc. -->
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261111a"></script>
-<script src="sy-modal.js?v=20261111a"></script>
-<script src="sidebar.js?v=20261111a"></script>
-<script src="mat-cost.js?v=20261111a"></script>
-<script src="acc-aging.js?v=20261111a"></script>
-<script src="pay-methods.js?v=20261111a"></script>
-<script src="acc-daysheet.js?v=20261111a"></script>
+<script src="supabase-init.js?v=20261111b"></script>
+<script src="sy-modal.js?v=20261111b"></script>
+<script src="sidebar.js?v=20261111b"></script>
+<script src="mat-cost.js?v=20261111b"></script>
+<script src="acc-aging.js?v=20261111b"></script>
+<script src="pay-methods.js?v=20261111b"></script>
+<script src="acc-daysheet.js?v=20261111b"></script>
 </head>
 <body>
 
@@ -795,6 +813,8 @@ async function init() {
     if (window.SyLive) window.SyLive.watch({ name: 'accounting', uid: currentUser.id,
       tables: ['ledger_sessions', 'ledger_payments', 'payment_splits', 'account_adjustments', 'expenses', 'lab_payments', 'provider_payouts', 'inventory_movements', 'lab_orders'],
       refresh: async function () {   /* v623 SyLive: لحظيّ بلا تحديث (M185) — يعيد التقرير المفتوح بصمت */
+        /* v702: كشفُ اليوم يلحق أيضاً (كان يبقى على أرقام لحظة فتح الصفحة) — مستقلٌّ عن فترة التقرير وصحّتها */
+        try { if (window.SyDentDaySheet && window.SyDentDaySheet.refresh && !_blocked()) await window.SyDentDaySheet.refresh(); } catch (e) { console.warn('daysheet live (non-critical):', e); }
         var from = $('fromDate') && $('fromDate').value, to = $('toDate') && $('toDate').value;
         if (!from || !to || from > to || _applyInFlight || _blocked()) return;
         await loadAllInRange(from, to);
@@ -3137,6 +3157,12 @@ function loadDaySheet() {
     var _dsQ = '';
     try { _dsQ = new URLSearchParams(window.location.search || '').get('ds') || ''; } catch (e) { _dsQ = ''; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(_dsQ)) _dsQ = '';
+    /* v702: اسمُ العيادة لرأس الورقة المطبوعة — قراءةٌ واحدة غير حرجة */
+    try {
+      window.sb.from('clinic_settings').select('clinic_name').eq('owner_id', currentUser.id).maybeSingle().then(function (r) {
+        if (r && r.data && r.data.clinic_name && window.SyDentDaySheet.setMeta) window.SyDentDaySheet.setMeta({ clinic: r.data.clinic_name });
+      }, function () {});
+    } catch (e) {}
     window.SyDentDaySheet.mount(host, window.sb, currentUser.id, dsFmt).then(function () {
       if (!_dsQ) return;
       return window.SyDentDaySheet.pick(_dsQ).then(function () { try { host.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} });

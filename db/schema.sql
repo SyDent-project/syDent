@@ -1445,6 +1445,35 @@ $$;
 ALTER FUNCTION "public"."tenant_access_level"("p_uid" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."day_closings_keep_trail"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    NEW.edited_at := NULL; NEW.edit_count := 0; NEW.first_counted := NULL; NEW.first_expected := NULL;
+    RETURN NEW;
+  END IF;
+  NEW.closed_at := OLD.closed_at;
+  IF NEW.counted IS DISTINCT FROM OLD.counted
+     OR NEW.expected IS DISTINCT FROM OLD.expected
+     OR NEW.note IS DISTINCT FROM OLD.note THEN
+    NEW.edited_at      := now();
+    NEW.edit_count     := OLD.edit_count + 1;
+    NEW.first_counted  := COALESCE(OLD.first_counted, OLD.counted);
+    NEW.first_expected := COALESCE(OLD.first_expected, OLD.expected);
+  ELSE
+    NEW.edited_at := OLD.edited_at; NEW.edit_count := OLD.edit_count;
+    NEW.first_counted := OLD.first_counted; NEW.first_expected := OLD.first_expected;
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+
+ALTER FUNCTION "public"."day_closings_keep_trail"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."touch_presence"() RETURNS "void"
     LANGUAGE "sql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -1510,9 +1539,11 @@ CREATE TABLE IF NOT EXISTS "public"."account_adjustments" (
     "date" "date" DEFAULT CURRENT_DATE NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "currency" "text" NOT NULL,
+    "payment_method" "text",
     CONSTRAINT "account_adjustments_amount_check" CHECK (("amount" > (0)::numeric)),
     CONSTRAINT "account_adjustments_currency_valid" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))),
-    CONSTRAINT "account_adjustments_kind_check" CHECK (("kind" = ANY (ARRAY['discount'::"text", 'write_off'::"text", 'refund'::"text"])))
+    CONSTRAINT "account_adjustments_kind_check" CHECK (("kind" = ANY (ARRAY['discount'::"text", 'write_off'::"text", 'refund'::"text"]))),
+    CONSTRAINT "account_adjustments_payment_method_valid" CHECK ((("payment_method" IS NULL) OR (("kind" = 'refund'::"text") AND ("payment_method" = ANY (ARRAY['cash'::"text", 'bank'::"text", 'check'::"text", 'other'::"text", 'shamcash'::"text", 'syriatel'::"text", 'mtn'::"text", 'online'::"text"])))))
 );
 
 
@@ -2083,9 +2114,11 @@ CREATE TABLE IF NOT EXISTS "public"."lab_payments" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "currency" "text" NOT NULL,
     "cash_source" "text",
+    "payment_method" "text",
     CONSTRAINT "lab_payments_amount_check" CHECK (("amount" > (0)::numeric)),
-    CONSTRAINT "lab_payments_cash_source_valid" CHECK ((("cash_source" IS NULL) OR ("cash_source" = ANY (ARRAY['drawer'::"text", 'outside'::"text"])))),
-    CONSTRAINT "lab_payments_currency_valid" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"])))
+    CONSTRAINT "lab_payments_cash_source_valid" CHECK ((("cash_source" IS NULL) OR (("cash_source" = ANY (ARRAY['drawer'::"text", 'outside'::"text"])) AND (("payment_method" IS NULL) OR ("payment_method" = 'cash'::"text"))))),
+    CONSTRAINT "lab_payments_currency_valid" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))),
+    CONSTRAINT "lab_payments_payment_method_valid" CHECK ((("payment_method" IS NULL) OR ("payment_method" = ANY (ARRAY['cash'::"text", 'bank'::"text", 'check'::"text", 'other'::"text", 'shamcash'::"text", 'syriatel'::"text", 'mtn'::"text", 'online'::"text"]))))
 );
 
 
@@ -2631,6 +2664,10 @@ CREATE TABLE IF NOT EXISTS "public"."day_closings" (
     "variance" numeric GENERATED ALWAYS AS (("counted" - "expected")) STORED,
     "note" "text",
     "closed_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "edited_at" timestamp with time zone,
+    "edit_count" integer DEFAULT 0 NOT NULL,
+    "first_counted" numeric,
+    "first_expected" numeric,
     CONSTRAINT "day_closings_counted_nonneg" CHECK (("counted" >= (0)::numeric)),
     CONSTRAINT "day_closings_currency_valid" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))),
     CONSTRAINT "day_closings_note_len" CHECK ((("note" IS NULL) OR ("char_length"("note") <= 300)))
@@ -3968,6 +4005,10 @@ CREATE OR REPLACE TRIGGER "trg_clinic_settings_name_source" BEFORE INSERT OR UPD
 
 
 CREATE OR REPLACE TRIGGER "trg_clinic_settings_updated" BEFORE UPDATE ON "public"."clinic_settings" FOR EACH ROW EXECUTE FUNCTION "public"."update_clinic_settings_timestamp"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_day_closings_trail" BEFORE INSERT OR UPDATE ON "public"."day_closings" FOR EACH ROW EXECUTE FUNCTION "public"."day_closings_keep_trail"();
 
 
 
@@ -6414,6 +6455,11 @@ GRANT ALL ON FUNCTION "public"."sync_doctor_card_active"() TO "service_role";
 
 REVOKE ALL ON FUNCTION "public"."tenant_access_level"("p_uid" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."tenant_access_level"("p_uid" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."day_closings_keep_trail"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."day_closings_keep_trail"() TO "service_role";
 
 
 
