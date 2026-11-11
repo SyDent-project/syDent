@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=5">
 <title>SyDent — المحاسبة</title>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261111c"></script>
+<script src="theme.js?v=20261111d"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -219,6 +219,20 @@ table.providers.ds-table { min-width:0; }   /* الكشفُ عمودان فيل�
 .ds-sub { font-size:11px; color:var(--text3); font-weight:400; }
 .ds-table .ds-sub { display:inline-block; }   /* v702: العددُ ومعدودُه لا ينفصلان بسطرين («· 3» ثم «دفعات») */
 .ds-printonly { display:none; }               /* يظهر بورقة الطباعة فقط */
+/* v705: تفاصيلُ كلِّ سطر — زرٌّ يفتح قائمةَ الحركات تحته (من دفع · ما المصروف · لمن الراتب) ورابطٌ لصفحة المصدر */
+.ds-x { border:1px solid var(--border); background:var(--bg3); color:var(--text2); border-radius:999px; padding:3px 10px; font-size:11px; font-family:inherit; cursor:pointer; margin-inline-start:8px; white-space:nowrap; vertical-align:middle; }
+.ds-x:hover, .ds-x[aria-expanded="true"] { background:var(--green-dim); border-color:var(--green); color:var(--green); }
+.ds-go { font-size:11px; font-weight:700; color:var(--green); text-decoration:none; margin-inline-start:8px; white-space:nowrap; }
+.ds-go:hover { text-decoration:underline; }
+.ds-table tr.ds-det td { padding:0 10px 10px; }
+.ds-det-list { border:1px solid var(--border); border-radius:10px; background:var(--bg3); overflow:hidden; }
+.ds-det-i { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:8px 12px; border-bottom:1px solid var(--border); font-size:13px; }
+.ds-det-i:last-child { border-bottom:0; }
+.ds-det-who { min-width:0; font-weight:600; overflow-wrap:anywhere; }
+.ds-det-who a { color:inherit; text-decoration:underline; text-decoration-color:var(--border2); text-underline-offset:3px; }
+.ds-det-sub { display:block; margin-top:2px; font-size:11px; font-weight:400; color:var(--text2); }
+.ds-det-amt { white-space:nowrap; font-weight:700; }
+@media (max-width: 700px) { .ds-x { padding:6px 12px; font-size:12px; } .ds-go { display:inline-block; padding:6px 0; font-size:12px; } }
 .ds-curhead { font-weight:800; margin:14px 0 4px; color:var(--text2); }
 .ds-note-foot { font-size:12px; color:var(--text2); line-height:1.6; margin-top:10px; }
 /* M158: إقفال الصندوق */
@@ -490,20 +504,20 @@ table.providers tr:hover td { background: var(--bg3); }
 html[data-sub-level="read"] :is([onclick*="digestGenerate("],[onclick*="setAccUnifyCur("],[onclick*="saveAccUsdRate("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261111c">
+<link rel="stylesheet" href="theme.css?v=20261111d">
 <!-- CRITICAL: Supabase CDN MUST load BEFORE supabase-init.js. The init
      script accesses window.supabase synchronously to expose sbGetUser and
      window.sb on the global. If the CDN loads later (e.g. at end of body),
      init() will throw "sbGetUser is not a function". This 3-line block
      matches the exact pattern used in expenses.html, payouts.html, etc. -->
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261111c"></script>
-<script src="sy-modal.js?v=20261111c"></script>
-<script src="sidebar.js?v=20261111c"></script>
-<script src="mat-cost.js?v=20261111c"></script>
-<script src="acc-aging.js?v=20261111c"></script>
-<script src="pay-methods.js?v=20261111c"></script>
-<script src="acc-daysheet.js?v=20261111c"></script>
+<script src="supabase-init.js?v=20261111d"></script>
+<script src="sy-modal.js?v=20261111d"></script>
+<script src="sidebar.js?v=20261111d"></script>
+<script src="mat-cost.js?v=20261111d"></script>
+<script src="acc-aging.js?v=20261111d"></script>
+<script src="pay-methods.js?v=20261111d"></script>
+<script src="acc-daysheet.js?v=20261111d"></script>
 </head>
 <body>
 
