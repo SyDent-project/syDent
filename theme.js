@@ -62,7 +62,8 @@
     if (q) localStorage.setItem(KEY, q);
     lang = localStorage.getItem(KEY) === 'en' ? 'en' : 'ar';
   } catch (e) {}
-  var page = (String(location.pathname).split('/').pop() || '').replace(/\.html$/, '');
+  /* الرابط الجذر «/» (start_url للتطبيق المثبَّت) هو index.html نفسُها — بلا هذا يبقى اسمُ الصفحة فارغاً فلا يُركَّب زرُّ اللغة ولا تعمل الإنجليزية بلوحة التحكم. */
+  var page = (String(location.pathname).split('/').pop() || '').replace(/\.html$/, '') || 'index';
   var ready = EN_PAGES.indexOf(page) > -1;
   var on = lang === 'en' && ready;
 

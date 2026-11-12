@@ -24,18 +24,21 @@ function staticStrings(html) {
 function engine(theme, dictSrc, page, lang) {
   const store = { 'sydent.lang': lang };
   const el = () => ({ getAttribute: () => null, setAttribute() {}, closest: () => null, nodeName: 'DIV' });
+  const mount = { load: null, where: null, cls: '' };   // where the language button lands once the page has loaded
+  const sw = { parentNode: { insertBefore(b) { mount.where = 'sidebar'; mount.cls = b.className; } } };
   const ctx = {
     console, setTimeout: () => 0,
     localStorage: { getItem: k => store[k] || null, setItem: (k, v) => { store[k] = v; } },
-    location: { search: '', pathname: '/' + page, reload() {} },
+    location: { search: '', pathname: page.charAt(0) === '/' ? page : '/' + page, reload() {} },
     document: {
-      readyState: 'complete', title: '', documentElement: { classList: { add() {} } }, body: el(),
-      write() {}, querySelector: () => null, getElementById: () => null, addEventListener() {},
+      readyState: 'complete', title: '', documentElement: { classList: { add() {} } }, body: Object.assign(el(), { appendChild(b) { mount.where = 'float'; mount.cls = b.className; } }),
+      write() {}, querySelector: () => null, getElementById: id => (id === 'sbThemeSwitch' ? sw : null), addEventListener() {},
       createTreeWalker: () => ({ nextNode: () => null }), createElement: () => Object.assign(el(), { addEventListener() {} })
     },
     MutationObserver: function () { this.observe = () => {}; }
   };
-  ctx.window = ctx; ctx.window.addEventListener = () => {};
+  ctx.window = ctx; ctx.window.addEventListener = (ev, cb) => { if (ev === 'load') mount.load = cb; };
+  ctx.__mount = mount;
   vm.createContext(ctx);
   const start = theme.indexOf('/* ── SyI18n'), end = theme.indexOf('})();', start) + 5;
   vm.runInContext(dictSrc, ctx);
@@ -68,6 +71,13 @@ function run(F) {
   ok(t('أحمد الخطيب') === 'أحمد الخطيب', 'text with no entry (a patient name) is left as is');
   const A = engine(F['theme.js'], F['i18n-en.js'], 'book.html', 'en');
   ok(A.window.SyI18n.lang === 'ar' && A.window.SyI18n.chosen === 'en', 'pages not translated yet stay Arabic even when English is chosen');
+  /* the site root «/» IS the dashboard (manifest start_url — how the installed app opens): same language, same button */
+  const btn = (path, lang) => { const X = engine(F['theme.js'], F['i18n-en.js'], path, lang); if (X.__mount.load) X.__mount.load(); return { ready: X.window.SyI18n.ready, lang: X.window.SyI18n.lang, where: X.__mount.where, cls: X.__mount.cls }; };
+  const root = btn('/', 'ar'), idx = btn('/index.html', 'ar'), clean = btn('/index', 'ar');
+  ok(root.ready && root.where === 'sidebar' && /\bsy-lang-sb\b/.test(root.cls), 'the root URL «/» mounts the language button in the side menu');
+  ok(idx.where === 'sidebar' && clean.where === 'sidebar' && root.cls === idx.cls, '«/», «/index.html» and «/index» mount the same button');
+  ok(btn('/', 'en').lang === 'en' && btn('/index.html', 'en').lang === 'en', 'English chosen ⇒ the dashboard is English on «/» as on «/index.html»');
+  ok(btn('/book.html', 'ar').where === null && btn('/admin.html', 'ar').where === null, 'a page outside EN_PAGES still gets no language button');
   return out;
 }
 
@@ -78,7 +88,9 @@ const MUTANTS = [
   ['arrow not flipped', 'theme.js', "return c === '←' ? '→' : '←';", "return c;"],
   ['English forced on every page', 'theme.js', 'var on = lang === \'en\' && ready;', 'var on = lang === \'en\';'],
   ['pattern dropped', 'i18n-en.js', "  [/^حتى (\\d+) مريض$/, 'Up to $1 patients'],\n", ''],
-  ['untranslated value', 'i18n-en.js', "'Most popular'", "'الأكثر شعبية'"]
+  ['untranslated value', 'i18n-en.js', "'Most popular'", "'الأكثر شعبية'"],
+  ['root URL not treated as the dashboard', 'theme.js', ".replace(/\\.html$/, '') || 'index';", ".replace(/\\.html$/, '');"],
+  ['language button mounted on untranslated pages', 'theme.js', "if (ready) window.addEventListener('load'", "window.addEventListener('load'"]
 ];
 const self = process.argv.includes('--self-test');
 let pass = 0, fail = 0;
