@@ -132,6 +132,15 @@
       for (var k = 1; k < parts.length; k += 2) { var v = D[parts[k]]; if (v == null) { all = false; break; } parts[k] = v; }
       if (all) return flip(parts.join(''));
     }
+    /* لبٌّ عربيٌّ يتبعه رقمٌ عشري أو قوس («0 ل.س · 120.5 $»): المطابقةُ أعلاه تمدّ اللبَّ حتى آخر نقطةٍ بالنص فتضيع الكلمة.
+       محاولةٌ أخيرة باللبّ من أول حرفٍ عربي لآخره (مع ترقيمه الملاصق ثم بدونه) — تُضيف ترجمةً لما كان سيبقى عربياً
+       كلَّه، ولا تغيّر شيئاً مما تُرجم قبلها. */
+    var t2 = norm.match(/^([^\u0600-\u06FF]*)([\u0600-\u06FF](?:[\s\S]*[\u0600-\u06FF])?)([.)»؟:،]*)([^\u0600-\u06FF]*)$/);
+    if (t2 && (!m || t2[2] + t2[3] !== m[2])) {
+      if (D[t2[2] + t2[3]] != null) return flip(t2[1]) + D[t2[2] + t2[3]] + flip(t2[4]);
+      if (D[t2[2]] != null) return flip(t2[1]) + D[t2[2]] + flip(t2[3] + t2[4]);
+      for (i = 0; i < P.length; i++) if (P[i][0].test(t2[2])) return flip(t2[1]) + leftovers(t2[2].replace(P[i][0], P[i][1])) + flip(t2[3] + t2[4]);
+    }
     if (window.SyI18n.missing.indexOf(norm) < 0 && window.SyI18n.missing.length < 500) window.SyI18n.missing.push(norm);
     return null;
   }
