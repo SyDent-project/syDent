@@ -135,6 +135,7 @@ node "$S/prove-backup-restore.js" --self-test | tail -1 || FAIL=1   # النسخ
 node "$S/prove-mode-steps.js" --self-test | tail -1 || FAIL=1   # شريط خطوات وضعَي التحديد المتعدد والفحص الأولي · عدّاد الأسنان · تراجع التحديد
 node "$S/prove-landing-colors.js" --self-test | tail -1 || FAIL=1   # صفحة التعريف بألوان اللوغو (بعد theme.css) والتطبيق بلونه
 node "$S/prove-i18n.js" --self-test | tail -1 || FAIL=1   # خيار الإنجليزية: قاموس المرحلة كاملٌ لصفحاتها · المحرّك (أنماط · أسهم · صفحاتٌ غير مترجمة تبقى عربية)
+node "$S/prove-i18n-render.js" --self-test | tail -1 || FAIL=1   # خيار الإنجليزية: ما يبنيه الكود وقت التشغيل (بطاقة «الإنتاج مقابل الهدف») يُرسَم بكل حالاته ويمرّ بالمحرّك الحقيقي — صفرُ حرفٍ عربي · الأرقامُ نفسُها · لبٌّ يتبعه رقمٌ عشري
 python3 "$S/dom-smoke/perf-budget/run.py" | tail -1 || FAIL=1   # v555: حارسُ ميزانية الأداء — جولاتُ كل صفحة بمتصفحٍ حقيقي (400ms/طلب) ضمن ميزانيتها
 python3 "$S/dom-smoke/perf-budget/run.py" --self-test | tail -1 || FAIL=1   # v555: … ويحمرّ بسلسلةٍ متتالية محقونة
 node "$S/prove-dash-nextday.js" --self-test | tail -1 || FAIL=1   # v520: تبديلُ اليوم/يوم العمل القادم — التأكيد · التذكير · الهدلُ بيوم ذلك اليوم

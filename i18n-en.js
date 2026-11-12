@@ -2908,3 +2908,29 @@ Object.assign(window.SyI18nDict, {
   "طلبيات الشراء من المورّدين، وقائمة المورّدين وأرقامهم": "Purchase orders from suppliers, and the list of suppliers with their numbers",
   "تصنيف «مواد سنية» أساسي لا يُحذف؛ ومعه تختار المورّد من مورّدي المخزون المسجّلين.": "The «dental materials» category is built-in and can't be deleted; with it you pick the supplier from the suppliers registered in Inventory."
 });
+
+/* ── Runtime text: the «Production vs goal» card (dash-goal.js) ──
+   Built by code at render time, so prove-i18n (static page text) never sees it; scripts/prove-i18n-render.js
+   renders the card in every state through the engine and requires that no Arabic is left. Numbers reach the
+   page wrapped in direction isolates (U+2066 … U+2069), hence the optional \u2066 / \u2069 around each. */
+Object.assign(window.SyI18nDict, {
+  'قيمة مواعيد اليوم (متوقّع)': 'Scheduled today (expected)',
+  'الشهر حتى اليوم': 'Month to date',
+  'من هدف اليوم': "of today's goal",
+  'من هدف الشهر': "of the month's goal",
+  'لا مواعيدَ مسعَّرة اليوم ولا إنتاجَ بالشهر بعد': 'No priced appointments today and no production this month yet'
+});
+(function () {
+  var N = '\\u2066?(\\d+)\\u2069?', COUNT = '(موعد واحد|موعدان|' + N + ' (?:مواعيد|موعداً))';
+  /* «موعد واحد» · «موعدان» · «3 مواعيد» · «11 موعداً» ⇒ 1 appointment · 2 appointments · n appointments */
+  function appts(word, num) { var n = num != null ? +num : (word === 'موعدان' ? 2 : 1); return n + (n === 1 ? ' appointment' : ' appointments'); }
+  window.SyI18nPatterns.push(
+  [new RegExp('^(· )?' + COUNT + ' · من بنود الخطة$'), function (m, dot, w, n) { return (dot || '') + appts(w, n) + ' · from plan items'; }],
+  [new RegExp('^(· )?' + COUNT + ' · تقديري من سعر العلاج$'), function (m, dot, w, n) { return (dot || '') + appts(w, n) + ' · estimated from the treatment price'; }],
+  [new RegExp('^(· )?' + COUNT + ' \\(' + N + ' بخطة · ' + N + ' تقديري من سعر العلاج\\)$'), function (m, dot, w, n, ex, es) { return (dot || '') + appts(w, n) + ' (' + ex + ' from the plan · ' + es + ' estimated from the treatment price)'; }],
+  [/^(?:· )?(✅ على الوتيرة|⚠️ دون الوتيرة) \(المتوقّع حتى اليوم \u2066?([\d.,]+) (ل\.س|\$)\u2069?\)$/, function (m, pace, amt, cur) { return (m.charAt(0) === '·' ? '· ' : '') + (pace.charAt(0) === '✅' ? '✅ On pace' : '⚠️ Behind pace') + ' (expected by today: ' + amt + ' ' + (cur === '$' ? '$' : 'SYP') + ')'; }],
+  [new RegExp('^' + COUNT + ' اليوم(?: · ' + N + ' بلا تسعير)?$'), function (m, w, n, un) { return appts(w, n) + ' today' + (un != null ? ' · ' + un + ' unpriced' : ''); }],
+  [/^يوم عمل \u2066?(\d+\/\d+)\u2069?$/, 'Working day $1'],
+  [/^حدّد هدفاً شهرياً (ل\.س|\$) ←$/, function (m, cur) { return 'Set a monthly goal in ' + (cur === '$' ? '$' : 'SYP') + ' →'; }]
+  );
+})();
