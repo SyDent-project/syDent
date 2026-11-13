@@ -297,6 +297,7 @@
           <span class="exam-bar-title">🩺 وضع الفحص الأولي — انقر السطح لوسمه، ونقرة ثانية لإزالته</span>
           <span class="exam-count">وُسم: <b id="examCountEl">0</b> · أسنان: <b id="examTeethEl">0</b></span>
           <span class="spacer"></span>
+          <button type="button" class="exam-btn" onclick="dentOpenEdentulous()" title="يعلّم أسنان الفك القائمة مفقودةً بكبسة واحدة">🦷 فك أدرد</button>
           <button type="button" class="exam-btn" onclick="examUndo()">↩️ تراجع</button>
           <button type="button" class="exam-btn exit" onclick="toggleExamMode()">✕ إنهاء</button>
         </div>
@@ -747,7 +748,7 @@
       <div id="nseGrid" class="nse-grid"></div>
       <div class="nse-legend"><span><i class="tx"></i> عليه علاج</span><span><i class="p"></i> مخطّط</span><span><i class="x"></i> مقلوع</span><span><i class="im"></i> مزروع</span></div>
       <div class="nse-alt">
-        <button type="button" class="topt" onclick="nseRegional()">🦷 علاج جماعي (ربع / فك / فم)</button>
+        <button type="button" class="topt" onclick="nseRegional()">🦷 علاج جماعي (ربع / فك / فم / جهاز متحرك)</button>
         <button type="button" class="topt" onclick="nseFree()">📝 جلسة بلا سن (استشارة · أشعة · أخرى)</button>
       </div>
     </div>

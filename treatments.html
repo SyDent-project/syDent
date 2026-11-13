@@ -350,7 +350,8 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
           <option value="restorative" selected>ترميمي (حشوات)</option>
           <option value="endodontics">معالجة لبية (قناة جذر)</option>
           <option value="surgical">جراحي (قلع، جراحة فموية)</option>
-          <option value="prosthodontics">تعويضي (تاج، جسر، طقم)</option>
+          <option value="prosthodontics">تعويضات ثابتة (تاج، جسر)</option>
+          <option value="prosth_removable">تعويضات متحركة (جهاز كامل، جزئي)</option>
           <option value="implantology">زراعة الأسنان</option>
           <option value="cosmetic">تجميلي (تبييض)</option>
           <option value="prosth_cosmetic">تعويض تجميلي (فينير، زركون)</option>
@@ -576,10 +577,10 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
 var treatments = []; // populated from Supabase
 var currentDoctor = null;
 
-/* مصدرٌ واحد للتصنيفات الثلاثة عشر — يخدم البطاقة وكشف الطباعة معاً.
+/* مصدرٌ واحد للتصنيفات الأربعة عشر — يخدم البطاقة وكشف الطباعة معاً.
    كان لكلٍّ منهما خريطته، وخريطةُ الطباعة توقّفت عند 11 (بلا «لثوية» و«أطفال»)
    فكان الدليل يُسقط علاجاتهما بصمت. الترتيب مرآةُ منتقي التصنيف بالماركب. */
-var CAT_ORDER = ['diagnostic','preventive','restorative','endodontics','surgical','prosthodontics',
+var CAT_ORDER = ['diagnostic','preventive','restorative','endodontics','surgical','prosthodontics','prosth_removable',
                  'implantology','cosmetic','prosth_cosmetic','orthodontics','periodontics','pediatric','other'];
 var CAT_MAP = {
   'diagnostic':      '🔍 تشخيصي',
@@ -587,7 +588,8 @@ var CAT_MAP = {
   'restorative':     '🦷 ترميمي',
   'endodontics':     '🌱 معالجة لبية',
   'surgical':        '🔪 جراحي',
-  'prosthodontics':  '🔗 تعويضي',
+  'prosthodontics':  '🔗 تعويضات ثابتة',     /* M203: تيجان وجسور */
+  'prosth_removable':'🧩 تعويضات متحركة',    /* M203: جهاز كامل وجزئي */
   'implantology':    '🔩 زراعة',
   'cosmetic':        '✨ تجميلي',
   'prosth_cosmetic': '💎 تعويض تجميلي',
@@ -991,7 +993,8 @@ var LAB_DEFAULTS_BY_CATEGORY = {
   'restorative':     false,  // حشوات فقط — لا تحتاج مخبر
   'endodontics':     false,
   'surgical':        false,
-  'prosthodontics':  true,   // ✅ تاج + جسر + طقم
+  'prosthodontics':  true,   // ✅ تاج + جسر
+  'prosth_removable':true,   // ✅ جهاز متحرك كامل/جزئي (M203)
   'implantology':    true,   // ✅ زراعة
   'cosmetic':        false,  // تبييض فقط
   'prosth_cosmetic': true,   // ✅ فينير + زركون
@@ -1010,6 +1013,7 @@ var TARGET_DEFAULTS_BY_CATEGORY = {
   restorative:     'crown',
   surgical:        'extraction',
   prosthodontics:  'crown_full',
+  prosth_removable:'denture_partial',   /* M203 */
   prosth_cosmetic: 'crown_full',
   implantology:    'implant',
   cosmetic:        'mouth',
@@ -1555,10 +1559,10 @@ const CLINIC_CATALOG = [
     { treatment_key:'pedo-ssc', name:'تاج ستانلس ستيل', label:'ت', fill:'#94a3b8', stroke:'#475569', price:0, builtin:false, needs_lab:false, target_part:'crown_full', category:'pediatric', sort_order:27, post_extraction:false, dentition_scope:'primary', is_favorite:false, is_active:true, layman_name:'تاج معدني جاهز' },
     { treatment_key:'fissure-sealant', name:'سادّ شقوق', label:'س', fill:'#2563eb', stroke:'#1e40af', price:0, builtin:false, needs_lab:false, target_part:'crown', category:'preventive', sort_order:28, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'طبقة حماية من التسوّس' },
     { treatment_key:'fluoride', name:'تطبيق فلورايد', label:'ف', fill:'#0ea5e9', stroke:'#0369a1', price:0, builtin:false, needs_lab:false, target_part:'mouth', category:'preventive', sort_order:29, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' },
-    { treatment_key:'denture-full', name:'جهاز متحرك كامل', label:'ك', fill:'#e11d74', stroke:'#9d174d', price:0, builtin:false, needs_lab:true, target_part:'denture_full', category:'prosthodontics', sort_order:30, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان كامل' },
-    { treatment_key:'denture-partial-acrylic', name:'جهاز متحرك جزئي (أكريل)', label:'ج', fill:'#f4728f', stroke:'#be123c', price:0, builtin:false, needs_lab:true, target_part:'denture_partial', category:'prosthodontics', sort_order:31, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان جزئي' },
-    { treatment_key:'denture-partial-metal', name:'جهاز متحرك جزئي (هيكل معدني)', label:'ج', fill:'#9aa8bd', stroke:'#56657b', price:0, builtin:false, needs_lab:true, target_part:'denture_partial', category:'prosthodontics', sort_order:32, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان جزئي بهيكل معدني' },
-    { treatment_key:'denture-partial-flex', name:'جهاز متحرك جزئي (مرن)', label:'ج', fill:'#b45309', stroke:'#78350f', price:0, builtin:false, needs_lab:true, target_part:'denture_partial', category:'prosthodontics', sort_order:33, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان جزئي مرن' }
+    { treatment_key:'denture-full', name:'جهاز متحرك كامل', label:'ك', fill:'#e11d74', stroke:'#9d174d', price:0, builtin:false, needs_lab:true, target_part:'denture_full', category:'prosth_removable', sort_order:30, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان كامل' },
+    { treatment_key:'denture-partial-acrylic', name:'جهاز متحرك جزئي (أكريل)', label:'ج', fill:'#f4728f', stroke:'#be123c', price:0, builtin:false, needs_lab:true, target_part:'denture_partial', category:'prosth_removable', sort_order:31, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان جزئي' },
+    { treatment_key:'denture-partial-metal', name:'جهاز متحرك جزئي (هيكل معدني)', label:'ج', fill:'#9aa8bd', stroke:'#56657b', price:0, builtin:false, needs_lab:true, target_part:'denture_partial', category:'prosth_removable', sort_order:32, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان جزئي بهيكل معدني' },
+    { treatment_key:'denture-partial-flex', name:'جهاز متحرك جزئي (مرن)', label:'ج', fill:'#b45309', stroke:'#78350f', price:0, builtin:false, needs_lab:true, target_part:'denture_partial', category:'prosth_removable', sort_order:33, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان جزئي مرن' }
 ];
 
 /* resetToDefaults (below) additively restores the default catalogue. */

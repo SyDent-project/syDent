@@ -22,7 +22,7 @@
   'use strict';
   if (window.SyRptTreat) return;
 
-  var CAT_ORDER = ['diagnostic','preventive','restorative','endodontics','surgical','prosthodontics',
+  var CAT_ORDER = ['diagnostic','preventive','restorative','endodontics','surgical','prosthodontics','prosth_removable',
                    'implantology','cosmetic','prosth_cosmetic','orthodontics','periodontics','pediatric','other'];
   var CAT_MAP = {
     'diagnostic':      '🔍 تشخيصي',
@@ -30,7 +30,8 @@
     'restorative':     '🦷 ترميمي',
     'endodontics':     '🌱 معالجة لبية',
     'surgical':        '🔪 جراحي',
-    'prosthodontics':  '🔗 تعويضي',
+    'prosthodontics':  '🔗 تعويضات ثابتة',
+    'prosth_removable':'🧩 تعويضات متحركة',
     'implantology':    '🔩 زراعة',
     'cosmetic':        '✨ تجميلي',
     'prosth_cosmetic': '💎 تعويض تجميلي',

@@ -6,7 +6,7 @@
    (٣) السطحان الحيّان: كتلةُ القالب متطابقةٌ وتمرّ بـapplyTemplateDays · التحقّقُ قبل أيّ كتابة بالحفظين ·
        labDueOpen قبل فتح المودال (إنشاء/تعديل) · حلُّ موعد التركيب مُنفَّذاً (الملغى · __auto__ · __new__ · غير النشط);
    (٤) الربط: وسمُ السكربت · cache-bust · theme.css (السطر · الزرّ العائم · تاريخ iOS بحوار الإعادة).
-   --self-test: 17 طفرة لا بدّ أن تحمّر. */
+   --self-test: كلُّ طفرةٍ لا بدّ أن تحمّر. */
 'use strict';
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const ROOT = path.join(__dirname, '..');
@@ -91,6 +91,19 @@ async function suite(F) {
   ok(due.value === '2026-09-30' && /القالب: يوما عمل/.test(hintText(els)), 'modal: applying a template fills the due explicitly (work days)');
   D.reset();
   ok(due.getAttribute('data-ldu-auto') === null && hintText(els) === '', 'modal: reset clears the auto mark and the hint');
+  /* v710: حقلُ التاريخ الموحّد يلفّ الحقلَ بـ.sy-df — التلميحُ يُلحَق بعد الغلاف (بمجموعة الحقل) لا داخله */
+  {
+    const m2 = miniDoc();
+    const grp = { kids: [], appendChild(c) { this.kids.push(c); if (c.id) m2.els[c.id] = c; return c; } };
+    const wrap = { kids: [], classList: { contains: c => c === 'sy-df' }, parentNode: grp, appendChild(c) { this.kids.push(c); if (c.id) m2.els[c.id] = c; return c; } };
+    m2.els.labOrderDateDue.parentNode = wrap;
+    const D2 = load(F['lab-due.js'], m2.doc).SyLabDue;
+    D2._state.workDays = WD; D2._state.hist = H; D2.attach({ apptDate: () => '' });
+    m2.els.labOrderDateSent.value = '2026-09-28'; m2.els.labOrderLabSelect.value = 'L1'; m2.els.labOrderWorkType.value = 'crown';
+    D2.reset(); m2.els.labOrderWorkType.fire('change');
+    ok(grp.kids.length === 1 && grp.kids[0].id === 'lduHint' && wrap.kids.length === 0 && /عادةً 5 أيام عمل/.test(hintText(m2.els)),
+       'v710: the due hint is appended after the unified date-field wrap (.sy-df), never inside it');
+  }
   due.value = '2026-10-20'; appt = '2026-10-10';
   ok(/بعد موعد التركيب/.test(D.checkForm()), 'modal: checkForm reads the live fields');
   appt = ''; due.value = '2026-09-20';
@@ -197,7 +210,8 @@ const MUTANTS = [
   ['treatments save drops lab_days', rep('treatments.html', 'needs_lab: needsLab, lab_days: labDays,', 'needs_lab: needsLab,')],
   ['stale automatic date kept', rep('lab-due.js', "if (cur && cur === due.getAttribute('data-ldu-auto')) { due.value = ''; due.removeAttribute('data-ldu-auto'); }", '')],
   ['due before send accepted', rep('lab-due.js', "if (due && sent && due < sent) return", "if (false) return")],
-  ['dock stays over modals', rep('theme.css', 'body:has(.modal-overlay.open) #syFabDock,', '')]
+  ['dock stays over modals', rep('theme.css', 'body:has(.modal-overlay.open) #syFabDock,', '')],
+  ['hint inside the date-field wrap', rep('lab-due.js', 'host.parentNode.appendChild(el);', 'due.parentNode.appendChild(el);')]
 ];
 (async () => {
 await suite(base);

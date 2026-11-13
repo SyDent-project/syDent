@@ -101,7 +101,12 @@
     var el = $('lduHint'), due = $('labOrderDateDue');
     if (!el && due && due.parentNode) {
       el = document.createElement('div'); el.id = 'lduHint'; el.className = 'ldu-hint'; el.setAttribute('aria-live', 'polite');
-      due.parentNode.appendChild(el);
+      /* v710 — بلاغُ المالك (13/11/2026): أيقونةُ التقويم تنزل فوق نصّ التلميح بحقل «تاريخ الاستحقاق».
+         حقلُ التاريخ الموحّد (theme.js · v560) يلفّ الحقلَ بـ<span class="sy-df"> نسبيِّ الموضع: الأيقونةُ على منتصف ارتفاعه
+         والمنتقي الشفّاف بارتفاعه كاملاً. التلميحُ كان يُلحَق بـdue.parentNode = الغلافِ نفسه ⇒ يطول الغلاف فتنزل الأيقونةُ
+         على النص ويغطّي المنتقي رابطَ «حدّدها من صفحة العلاجات». مكانُه بعد الغلاف، داخل مجموعة الحقل. */
+      var host = (due.parentNode.classList && due.parentNode.classList.contains('sy-df') && due.parentNode.parentNode) ? due.parentNode : due;
+      host.parentNode.appendChild(el);
     }
     return el;
   }
