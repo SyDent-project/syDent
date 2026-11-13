@@ -500,16 +500,145 @@ var batchSel = [];                      // مواضع محددة {n, s} — ال
 var batchSelectedKey = null;            // العلاج المختار من اللوحة (العلاج أولاً — تكافؤ الفحص الأولي)
 var batchDefaultStatus = 'completed';   // chips الشريط (منجز/مخطط) — المودال يبقى الكلمة الأخيرة
 
+/* ── v712: فلترُ التصنيفات المشترك لشريطَي الفحص الأولي والتحديد المتعدد ──
+   نفسُ شرائح مودال السن (⭐ المفضلة · 🔥 شائعة · ثم التصنيفات بترتيب TX_CAT_ORDER) فوق «علاجات العيادة»،
+   فيُعرض تصنيفٌ واحد بدل كل العلاجات فوق بعضها (طلب المالك). الفلترُ عرضٌ صرف: لا يمسّ ما يُختار ولا ما يُحفظ،
+   والعلاجُ المختار يبقى مختاراً إن بُدّلت الشريحة (السطرُ الرفيع يذكره دائماً). */
+var modeTxTab = { exam: null, batch: null };
+function _modeTxCat(t) {
+  var c = t && t.category;
+  return (c && c !== 'condition' && typeof TX_CAT_META !== 'undefined' && TX_CAT_META[c]) ? c : 'other';
+}
+function modeTxCommon(list) {
+  var u = {}; try { if (typeof txUsage === 'function') u = txUsage() || {}; } catch (e) { u = {}; }
+  var scored = list.filter(function(t){ return (u[t.id] || 0) > 0; });
+  if (!scored.length) return list.slice();   // بلا استعمالٍ بعد ⇒ الكل (مرآةُ txFavorites بالمودال)
+  scored.sort(function(a, b){ return (u[b.id] || 0) - (u[a.id] || 0); });
+  return scored.slice(0, 8);
+}
+/* الشرائحُ الصالحة لهذه القائمة بترتيب عرضها: [[مفتاح, تسمية], …] */
+function modeTxTabsOf(list) {
+  var tabs = [], present = {};
+  for (var i = 0; i < list.length; i++) present[_modeTxCat(list[i])] = 1;
+  if (list.some(function(t){ return t.is_favorite; })) tabs.push(['starred', '⭐ المفضلة']);
+  if (list.length) tabs.push(['fav', '🔥 شائعة']);
+  var order = (typeof TX_CAT_ORDER !== 'undefined') ? TX_CAT_ORDER : [];
+  for (var c = 0; c < order.length; c++) {
+    if (order[c] === 'condition' || !present[order[c]]) continue;
+    tabs.push([order[c], (typeof TX_CAT_META !== 'undefined' && TX_CAT_META[order[c]]) || order[c]]);
+  }
+  return tabs;
+}
+function modeTxResolve(mode, list) {
+  var tabs = modeTxTabsOf(list), cur = modeTxTab[mode];
+  if (!tabs.some(function(x){ return x[0] === cur; })) modeTxTab[mode] = tabs.length ? tabs[0][0] : null;
+  return tabs;
+}
+function modeTxFilter(mode, list) {
+  var tab = modeTxTab[mode];
+  if (tab === 'starred') return list.filter(function(t){ return t.is_favorite; });
+  if (tab === 'fav' || !tab) return modeTxCommon(list);
+  return list.filter(function(t){ return _modeTxCat(t) === tab; });
+}
+/* يرسم الشرائح ويعيد القائمة المفلترة. مفاتيحُ الشرائح من قائمةٍ مغلقة (starred/fav/TX_CAT_ORDER) فلا نصَّ حرّاً بالسمات. */
+function modeTxRender(mode, list) {
+  var tabs = modeTxResolve(mode, list);
+  var el = document.getElementById(mode === 'exam' ? 'examTxTabs' : 'batchTxTabs');
+  if (el) {
+    el.innerHTML = tabs.map(function(x){
+      return '<button type="button" class="tx-tab' + (modeTxTab[mode] === x[0] ? ' tx-tab-active' : '') + '" data-modetab="' + x[0] + '" '
+           + 'onclick="modeTxSetTab(\'' + mode + '\',\'' + x[0] + '\')">' + x[1] + '</button>';
+    }).join('');
+  }
+  return modeTxFilter(mode, list);
+}
+function modeTxSetTab(mode, cat) {
+  modeTxTab[mode] = cat;
+  if (mode === 'exam') renderExamBar(); else renderBatchPalette();
+}
+
+/* ── v712: السطرُ الرفيع المرافق للتمرير (#modeMini) ──
+   الشريطان يبقيان مكانهما فوق المخطط (كانا sticky فغطّياه)، وهذا السطرُ وحده يلتصق بأعلى الشاشة:
+   الوضع · الحالة · العلاج المختار · العدّاد + تغيير/تراجع/تطبيق/إنهاء. textContent حصراً. */
+function modeMiniSync() {
+  var sel = document.getElementById('modeMiniSel');
+  if (!sel) return;
+  var exam = window.__examMode === true, batch = window.__batchMode === true;
+  if (!exam && !batch) return;
+  var key = exam ? examSelectedKey : batchSelectedKey;
+  var t = (key && typeof getTreatment === 'function') ? getTreatment(key) : null;
+  var isCond = exam && key && (typeof isConditionKey === 'function') && isConditionKey(key);
+  var stLbl = '';
+  if (exam && !isCond) { for (var i = 0; i < EXAM_STATUSES.length; i++) if (EXAM_STATUSES[i].v === examStatus) stLbl = EXAM_STATUSES[i].l; }
+  if (batch) { for (var j = 0; j < BATCH_STATUSES.length; j++) if (BATCH_STATUSES[j][0] === batchDefaultStatus) stLbl = BATCH_STATUSES[j][1]; }
+  var parts = [exam ? '🩺 فحص أولي' : '☑️ تحديد متعدد'];
+  if (stLbl) parts.push(stLbl);
+  parts.push(t ? t.name : 'اختر علاجاً من الشريط');
+  sel.textContent = parts.join(' · ');
+  var sw = document.getElementById('modeMiniSw');
+  if (sw && sw.style) {
+    sw.style.display = t ? 'inline-block' : 'none';
+    sw.style.background = t ? (t.fill || '') : '';
+  }
+  var cnt = document.getElementById('modeMiniCount');
+  if (cnt) cnt.textContent = exam ? ('وُسم: ' + examCount) : ('جلسات: ' + _batchMergedUnits().length);
+}
+function modeMiniJump() {
+  var bar = document.getElementById(window.__examMode ? 'examBar' : 'batchBar');
+  if (bar && bar.scrollIntoView) { try { bar.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { bar.scrollIntoView(); } }
+}
+function modeMiniUndo() { if (window.__examMode) examUndo(); else if (window.__batchMode) batchUndo(); }
+function modeMiniExit() { if (window.__examMode) toggleExamMode(); else if (window.__batchMode) toggleBatchMode(); }
+
+/* v712 (طلب المالك): «موجود مسبقاً — عيادتنا / عيادة أخرى» بجانب منجز/مخطط. الحالتان توثيقٌ على المخطط
+   بلا جلسةٍ ولا تكلفة — نفسُ عقد المسار الفردي والفحص الأولي (البوابةُ المالية بحلقة الحفظ: completed/planned وحدهما). */
+var BATCH_STATUSES = [
+  ['completed', 'منجز'], ['planned', 'مخطط'],
+  ['existing_current', 'موجود — من عيادتنا'], ['existing_other', 'موجود — من عيادة أخرى']
+];
+function batchIsDocStatus(s) { return s === 'existing_current' || s === 'existing_other'; }
 function renderBatchStatusChips() {
   var sc = document.getElementById('batchStatusChips');
   if (!sc) return;
-  var opts = [['completed', 'منجز'], ['planned', 'مخطط']];
-  sc.innerHTML = opts.map(function(o){
+  sc.innerHTML = BATCH_STATUSES.map(function(o){
     return '<button type="button" class="exam-chip' + (batchDefaultStatus === o[0] ? ' selected' : '') + '" '
          + 'onclick="batchSetStatus(\'' + o[0] + '\')">' + o[1] + '</button>';
   }).join('');
+  var dn = document.getElementById('batchDocNote');
+  if (dn && dn.style) dn.style.display = batchIsDocStatus(batchDefaultStatus) ? '' : 'none';
+  modeMiniSync();
 }
-function batchSetStatus(s) { batchDefaultStatus = s; renderBatchStatusChips(); }
+function batchSetStatus(s) {
+  if (!BATCH_STATUSES.some(function(o){ return o[0] === s; })) return;
+  batchDefaultStatus = s; renderBatchStatusChips();
+}
+/* مظهرُ مودال «تطبيق» حسب الحالة: «موجود مسبقاً» ⇒ توثيقٌ (زرُّ «حفظ» · تكلفةٌ صفرية مقفلة · بلا مخبر · حقولُ الجلسة مخفيّة بـCSS)،
+   وغيرُها ⇒ يعود كما كان. يُنادى عند فتح المودال وعند كل تبديل حالةٍ فيه (pickStatus) وعند الخروج من الوضع. */
+var _batchDocPrevCost = null, _batchApplyInfo = null;
+function batchDocUi() {
+  var step = document.getElementById('toothStep2');
+  if (!step || !step.setAttribute) return;
+  var on = window.__batchMode === true && batchIsDocStatus(pendingTreatStatus);
+  var was = step.getAttribute('data-batch-doc') === '1';
+  if (on) step.setAttribute('data-batch-doc', '1'); else step.removeAttribute('data-batch-doc');
+  if (on === was && !_batchApplyInfo) return;
+  var btn = document.querySelector ? document.querySelector('#toothFoot .btn-save-m') : null;
+  if (btn && (on || was || _batchApplyInfo)) btn.textContent = on ? 'حفظ' : 'حفظ كجلسة';   /* كلُّ فتحةِ «تطبيق» تثبّت نصَّ الزر — لا يرث «حفظ» من توثيقٍ سابق */
+  var costEl = document.getElementById('toothCost');
+  if (costEl) {
+    if (on && !was) { _batchDocPrevCost = costEl.value; costEl.value = '0'; }
+    else if (!on && was && _batchDocPrevCost !== null) { costEl.value = _batchDocPrevCost; _batchDocPrevCost = null; }
+  }
+  if (window.__batchMode === true && _batchApplyInfo) {
+    var info = _batchApplyInfo;
+    var lab = document.getElementById('batchLabBtn');
+    if (lab) lab.style.display = (!on && info.lab) ? 'inline-block' : 'none';
+    var ttl = document.getElementById('toothStep2Title');
+    if (ttl) ttl.textContent = on
+      ? '📌 ' + info.name + ' — موجود مسبقاً على ' + info.n + ' ' + (info.n === 1 ? 'موضع' : 'مواضع') + ' · توثيق بلا تكلفة (' + info.list + ')'
+      : '🦷 ' + info.name + ' — ' + info.n + ' ' + (info.n === 1 ? 'جلسة' : 'جلسات') + ' (' + info.list + ')';
+  }
+}
 
 /* دمج مواضع السن الواحد بوحدات مركّبة — حشوة متعددة الأسطح = جلسة واحدة
    بكود مركّب (MOD…)، وجذور السن الواحد = جلسة واحدة (R1R2…) — بنفس أكواد
@@ -563,6 +692,7 @@ function toggleBatchMode() {
     batchSel = [];
     batchSelectedKey = null;
     batchDefaultStatus = 'completed';
+    modeTxTab.batch = null;   /* v712: كلُّ دخولٍ يبدأ من المفضلة/الشائعة */
     renderBatchStatusChips();
     // Provider: same OpenDental-style default resolver as the modal (silent).
     var _pool = (CLINIC_DOCTORS || []).filter(function(d){ return d.is_active !== false; });
@@ -577,6 +707,7 @@ function toggleBatchMode() {
     batchSelectedKey = null;
     window.__batchApplySel = null;
     window.__batchMode = false;
+    _batchApplyInfo = null; batchDocUi();   /* v712: مظهرُ التوثيق لا يتسرّب للمودال العادي */
     document.body.classList.remove('batch-on');
     var tb2 = document.getElementById('batchToggleBtn'); if (tb2) tb2.style.display = 'block';
   }
@@ -635,6 +766,7 @@ function batchSyncUI() {
       sm.style.display = 'block';
     }
   }
+  modeMiniSync();
 }
 
 /* نقرة المخطط بوضع الدفعة — العلاج أولاً، والسطح يُوجَّه بنفس مسار الفحص الأولي
@@ -677,7 +809,9 @@ function renderBatchPalette() {
     list.push(t);
   }
   list.sort(function(a, b){ return (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0); });
-  pal.innerHTML = list.length ? list.map(function(t){
+  var _all = list.length;
+  list = modeTxRender('batch', list);   /* v712: فلترُ التصنيفات */
+  pal.innerHTML = _all ? list.map(function(t){
     // NB: in-memory TREATMENTS use .id (= treatment_key string) — same as examPick.
     return '<button type="button" class="exam-tx' + (batchSelectedKey === t.id ? ' selected' : '') + '" '
          + 'style="border-color:' + t.fill + ';" '
@@ -778,6 +912,8 @@ function batchOpenApplyModal(t, units) {
   var posList = units.map(function(e){ return e.n + ' ' + _batchPosLbl(e.n, e.s); });
   document.getElementById('toothStep2Title').textContent =
     '🦷 ' + t.name + ' — ' + units.length + ' ' + (units.length === 1 ? 'جلسة' : 'جلسات') + ' (' + posList.join('، ') + ')';
+  _batchDocPrevCost = null;
+  var _st2 = document.getElementById('toothStep2'); if (_st2 && _st2.removeAttribute) _st2.removeAttribute('data-batch-doc');   /* v712: كلُّ فتحةٍ تبدأ نظيفة */
   /* عنوان المودال بمسار الدفعة: كان لا يُكتب إطلاقاً فيبقى عالقاً على آخر
      فتحة مودال سن مفرد بسنّها وعلاجها — السطر الأخضر تحته صحيح دائماً
      والمحفوظ سليم (حلقة الحفظ تقرأ الوحدات المحدّدة لا العنوان، والعنوان
@@ -820,9 +956,12 @@ function batchOpenApplyModal(t, units) {
   // بوابة الخطة: زر الدفعة سطح إنشاء (طلب مخبر لكل سن).
   var _blbOk = (typeof labsPlanOk !== 'function') || labsPlanOk();
   if (_blbB) _blbB.style.display = ((typeof needsLab === 'function' && needsLab(t.id)) && _blbOk) ? 'inline-block' : 'none';
+  /* v712: «موجود مسبقاً» ⇒ مظهرُ توثيق (يُعاد حسابُه عند كل تبديل حالةٍ بالمودال عبر pickStatus) */
+  _batchApplyInfo = { name: t.name, n: units.length, list: posList.join('، '), lab: !!((typeof needsLab === 'function' && needsLab(t.id)) && _blbOk) };
+  batchDocUi();
   snTplRefresh();   /* M95: quick-note picker in the tooth modal too — non-blocking */
   openModal('toothModal');
-  setTimeout(function(){ var c = document.getElementById('toothCost'); if (c) { c.focus(); c.select(); } }, 100);
+  if (!batchIsDocStatus(pendingTreatStatus)) setTimeout(function(){ var c = document.getElementById('toothCost'); if (c) { c.focus(); c.select(); } }, 100);
 }
 
 /* [الجذع المُستبقى بالكتلة الرئيسية: مستمع ESC للخروج من الوضع — حفاظاً على ترتيب التسجيل] */
@@ -864,6 +1003,7 @@ function examSyncCount() {
     var c = document.querySelector('.tooth-cell[data-tooth-cell="' + k + '"]');
     if (c) c.classList.add('exam-touch');
   });
+  modeMiniSync();
 }
 var EXAM_STATUSES = [
   { v: 'existing_other',   l: 'موجود — من عيادة أخرى' },
@@ -887,6 +1027,7 @@ async function toggleExamMode() {
     examCount = 0;
     examUndoStack = [];
     examTeeth = {};
+    modeTxTab.exam = null;   /* v712: كلُّ دخولٍ يبدأ من المفضلة/الشائعة */
     // Provider: same OpenDental-style default resolver as the modal (silent).
     var _pool = (CLINIC_DOCTORS || []).filter(function(d){ return d.is_active !== false; });
     if (!_pool.length) _pool = CLINIC_DOCTORS || [];
@@ -948,6 +1089,7 @@ function renderExamBar() {
       list.push(t);
     }
     list.sort(function(a, b){ return (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0); });
+    list = modeTxRender('exam', list);   /* v712: فلترُ التصنيفات */
     pal.innerHTML = list.map(function(t){
       // NB: in-memory TREATMENTS use .id (= treatment_key string) — same identifier
       // txButtonHtml passes to pickToothTreatment. There is NO .treatment_key prop here.
@@ -974,6 +1116,7 @@ function renderExamBar() {
   examSyncCount();
   renderModeSteps('examSteps', ['اختر الحالة (موجود / مراقبة)', 'اختر العلاج أو الحالة السريرية', 'انقر الأسطح على المخطط'],
     examSelectedKey ? 2 : 1);
+  modeMiniSync();
 }
 function examSetStatus(s) { examStatus = s; renderExamBar(); }
 function examSetMonths(m) { examReviewMonths = m; renderExamBar(); }

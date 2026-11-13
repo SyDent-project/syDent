@@ -494,9 +494,13 @@ async function behave(w, hasDenture) {
   const eaI = w.examAllowed(14, T_IMPL), eaB = w.examAllowed(15, T_BRDG), baI = w.batchAllowed(14, T_IMPL, 'WHOLE'), eaFree = w.examAllowed(26, T_IMPL);
   load([X(14)]); const eaOk = w.examAllowed(14, T_IMPL), baOk = w.batchAllowed(14, T_IMPL, 'WHOLE');
   r.examBatchGuards = eaI.ok === false && /جهاز متحرك/.test(eaI.msg) && eaB.ok === false && baI.ok === false && /جهاز متحرك/.test(baI.msg) && eaFree.ok === false && eaOk.ok === true && baOk.ok === true;
-  const bp = doc.createElement('div'); bp.id = 'batchPalette'; doc.body.appendChild(bp); w.renderBatchPalette();
-  w.renderExamBar();
-  r.palettes = bp.innerHTML.indexOf('جهاز متحرك') === -1 && bp.innerHTML.indexOf(T_IMPL.name) > -1 && $('examPalette').innerHTML.indexOf(T_FULL.name) > -1 && $('examPalette').innerHTML.indexOf(T_PART.name) > -1;
+  /* v712: اللوحتان مفلترتان بالتصنيف — يُفتح تصنيفُ كلِّ علاجٍ قبل البحث عنه (الجهازُ بـ«تعويضات متحركة» بالفحص، وغائبٌ عن كل شرائح الدفعة) */
+  const bp = doc.createElement('div'); bp.id = 'batchPalette'; doc.body.appendChild(bp);
+  w.eval('modeTxTab.batch = "implantology"'); w.renderBatchPalette();
+  const bpImpl = bp.innerHTML;
+  let bpAll = ''; w.eval('modeTxTabsOf(TREATMENTS)').forEach(x => { w.eval('modeTxTab.batch = ' + JSON.stringify(x[0])); w.renderBatchPalette(); bpAll += bp.innerHTML; });
+  w.eval('modeTxTab.exam = "prosth_removable"'); w.renderExamBar();
+  r.palettes = bpAll.indexOf('جهاز متحرك') === -1 && bpImpl.indexOf(T_IMPL.name) > -1 && $('examPalette').innerHTML.indexOf(T_FULL.name) > -1 && $('examPalette').innerHTML.indexOf(T_PART.name) > -1;
 
   /* ⑫ الفحص الأولي: الجهازُ القائم يُسجَّل بحالة الشريط — صفوفٌ بلا جلسة ولا خطوةٍ ثانية */
   load([X(36), X(37)]); w.eval('window.__examMode = true; examStatus = "existing_current"; examSelectedKey = null; examCount = 0;');
