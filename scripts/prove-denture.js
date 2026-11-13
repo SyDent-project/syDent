@@ -173,7 +173,7 @@ function staticChecks(over) {
   r.scriptOrder = PPH.indexOf('<script src="pp-denture.js?v=') > PPH.indexOf('<script src="pp-dental.js?v=') && PPH.indexOf('<script src="pp-denture.js?v=') < PPH.indexOf('<script src="pp-plan.js?v=')
     && /id="dentPickBox"/.test(PPH) && /id="dentTeethGrid"/.test(PPH) && /id="dentureBanner"/.test(PPH)
     && /onclick="nseRegional\(\)">🦷 علاج جماعي \(ربع \/ فك \/ فم \/ جهاز متحرك\)<\/button>/.test(PPH)
-    && /<button type="button" class="exam-btn" onclick="dentOpenEdentulous\(\)"[^>]*>🦷 فك أدرد<\/button>/.test(PPH);
+    && /<button type="button" class="exam-btn exam-btn-edent" onclick="dentOpenEdentulous\(\)"[^>]*>🦷 فك أدرد<\/button>/.test(PPH);
   /* كلُّ محوٍ/تحديثٍ للسن بلا سطحٍ ولا وحدة يستثني صفَّ الجهاز */
   const sc = ['pp-dental.js', 'pp-modules.js', 'patient-profile.html', 'appointments.html', 'pp-denture.js'].map(f => scanWipes(F(f)));
   r.wipesSpareDenture = sc.every(x => x.bad.length === 0) && sc.reduce((n, x) => n + x.guarded, 0) === 13;
