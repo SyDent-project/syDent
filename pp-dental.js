@@ -4704,6 +4704,8 @@ function pickStatus(s) {
       else if (s === 'completed' && defNote) notesEl.value = defNote;  // fallback
     }
   }
+  /* v712: مودالُ «تطبيق» بالتحديد المتعدد يتبع الحالة — «موجود مسبقاً» توثيقٌ لا جلسة */
+  if (window.__batchMode === true && typeof batchDocUi === 'function') batchDocUi();
 }
 
 /* ── Composite surface chips (multi-select) ──────────────────────────────────
@@ -7067,6 +7069,9 @@ async function _saveToothTreatment_inner() {
       /* v430: حالةٌ سريرية بالدفعة ⇒ صفُّ مخططٍ فقط، بلا أي سطرٍ بالسجل (مسارُ الدفعة كان
          يُدرج بلا بوابة حالة). */
       if (isConditionKey(pendingToothStatus)) { _bCreated++; continue; }
+      /* v712: «موجود مسبقاً» بالدفعة ⇒ صفُّ مخططٍ فقط — مرآةُ بوابة المسار الفردي حرفياً
+         (completed/planned وحدهما يُنشئان سطراً بالسجل؛ ما عداهما توثيقٌ سريري بلا إنتاجٍ ولا ذمّة). */
+      if (pendingTreatStatus !== 'completed' && pendingTreatStatus !== 'planned') { _bCreated++; continue; }
       // Ledger session per tooth — byte-identical fields to the single-tooth path.
       var _bDesc = 'السن رقم ' + _bn + ' — ' + _bAreaLbl;
       var _bl = await window.sb.from('ledger_sessions').insert({
@@ -7108,8 +7113,10 @@ async function _saveToothTreatment_inner() {
     // Reallocate funds ONCE after all inserts (FIFO rebuild covers every session).
     if (bNewSess) await reallocatePatientFunds();
     var _bUpd = {};
-    if (!patient.last_visit || date > patient.last_visit) _bUpd.last_visit = date;
-    if (patient.status === 'جديد') _bUpd.status = 'تحت العلاج';
+    /* v712: توثيقُ «موجود مسبقاً» ليس زيارةً ولا بدءَ علاج — لا يمسّ آخرَ زيارةٍ ولا حالةَ المريض (كالفحص الأولي) */
+    var _bDoc = pendingTreatStatus !== 'completed' && pendingTreatStatus !== 'planned' && !isConditionKey(pendingToothStatus);
+    if (!_bDoc && (!patient.last_visit || date > patient.last_visit)) _bUpd.last_visit = date;
+    if (!_bDoc && patient.status === 'جديد') _bUpd.status = 'تحت العلاج';
     if (Object.keys(_bUpd).length) {
       await window.sb.from('patients').update(_bUpd).eq('id', patientId).eq('doctor_id', currentUser.id);
       Object.assign(patient, _bUpd);
@@ -7140,6 +7147,10 @@ async function _saveToothTreatment_inner() {
       showToast(_bFailed
         ? ('⚠️ توقفت الدفعة — سُجلت ' + _bCreated + ' من ' + _bSel.length + ' جلسات — أكمل بيانات المخبر للمسجَّل')
         : ('✅ تم تسجيل ' + pendingToothLabel + ' لـ' + _bCreated + ' أسنان — أكمل بيانات المخبر'));
+    } else if (_bCreated && _bDoc) {
+      showToast(_bFailed
+        ? ('⚠️ توقفت الدفعة — وُثّق ' + _bCreated + ' من ' + _bSel.length + ' مواضع')
+        : ('📌 وُثّق ' + pendingToothLabel + ' كموجودٍ مسبقاً على ' + _bCreated + (_bCreated === 1 ? ' موضع' : ' مواضع') + ' — بلا تكلفة'));
     } else if (_bCreated) {
       showToast(_bFailed
         ? ('⚠️ توقفت الدفعة — سُجلت ' + _bCreated + ' من ' + _bSel.length + ' جلسات')

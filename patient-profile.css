@@ -416,7 +416,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 .status-referred{background:#f59e0b;}
 .status-condition{background:#6b7280;opacity:.70;}         /* Cn — clinical watch only, no charge */
 /* ── B: Initial-exam stamp mode ─────────────────────────────────────────── */
-.exam-bar{display:none;position:sticky;top:8px;z-index:40;margin:0 2px 10px;padding:10px 12px;border:1.5px solid var(--green);border-radius:12px;background:var(--bg2);box-shadow:0 4px 18px rgba(0,0,0,.18);}
+.exam-bar{display:none;position:static;margin:0 2px 10px;padding:10px 12px;border:1.5px solid var(--green);border-radius:12px;background:var(--bg2);box-shadow:0 4px 18px rgba(0,0,0,.18);}
 body.exam-on .exam-bar{display:block;}
 .exam-bar-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
 .exam-bar-title{font-weight:800;color:var(--green);font-size:13.5px;}
@@ -464,7 +464,7 @@ body.exam-on .jaw-wrap .crown-surface, body.exam-on .jaw-wrap .root-part{cursor:
 @media(min-width:761px){ .exam-bar .exam-palette{flex-wrap:wrap;overflow:visible;} }
 @media(max-width:760px){ .exam-row{flex-wrap:wrap;gap:6px;} .exam-row-lbl,.exam-bar .exam-cond-lbl{flex-basis:100%;padding-top:0;} }
 /* ── M86: multi-select batch mode (reuses exam-bar-head/count/btn/palette/tx skins) ── */
-.batch-bar{display:none;position:sticky;top:8px;z-index:40;margin:0 2px 10px;padding:10px 12px;border:1.5px solid var(--purple);border-radius:12px;background:var(--bg2);box-shadow:0 4px 18px rgba(0,0,0,.18);}
+.batch-bar{display:none;position:static;margin:0 2px 10px;padding:10px 12px;border:1.5px solid var(--purple);border-radius:12px;background:var(--bg2);box-shadow:0 4px 18px rgba(0,0,0,.18);}
 body.batch-on .batch-bar{display:block;}
 .batch-bar-title{font-weight:800;color:var(--purple);font-size:13.5px;}
 body.batch-on .jaw-wrap .crown-surface, body.batch-on .jaw-wrap .root-part{cursor:pointer;}
@@ -484,7 +484,43 @@ body.batch-on .tooth-cell.batch-sel{outline-width:3px;box-shadow:0 0 0 6px color
 /* Batch apply-modal: financial statuses only — the non-billable multi-stamp is exam mode's job.
    While batch-on, toothModal can ONLY open via batchOpenApplyModal (the funnel intercepts all
    chart clicks), so this scoping never leaks into the normal modal. */
-body.batch-on #toothStatusPicker .status-opt:not([data-status="completed"]):not([data-status="planned"]){display:none;}
+body.batch-on #toothStatusPicker .status-opt:not([data-status="completed"]):not([data-status="planned"]):not([data-status="existing_current"]):not([data-status="existing_other"]){display:none;}
+/* ── v712 (بلاغ المالك بثلاث صور): ① الشريطان ثابتان فوق المخطط — كانا sticky فغطّيا المخطط حين طالا؛
+   السطرُ الرفيع .mode-mini وحده يرافق التمرير · ② فلترُ التصنيفات نفسُه (شرائح مودال السن) فوق علاجات
+   العيادة بالوضعين · ③ التحديد المتعدد بعرض الفحص الأولي نفسه (صفوفٌ بعناوينها) بلون الوضع البنفسجي. ── */
+.exam-row .exam-tx-wrap{flex:1 1 auto;min-width:0;}
+.mode-tx-tabs{margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--border);}
+.batch-bar .exam-bar-head{padding-bottom:8px;margin-bottom:10px;border-bottom:1px dashed color-mix(in srgb, var(--purple) 35%, var(--border));}
+.batch-bar .exam-chip{border-radius:999px;padding:6px 14px;}
+.batch-bar .exam-chip.selected{background:var(--purple);border-color:var(--purple);color:var(--on-accent);}
+.batch-bar .exam-tx{border-radius:10px;padding:6px 11px;background:var(--bg2);}
+.batch-bar .exam-tx.selected{outline:none;box-shadow:0 0 0 3px rgba(var(--purple-rgb),.35);background:rgba(var(--purple-rgb),.10);}
+.batch-bar .tx-tab:hover{border-color:var(--purple);}
+.batch-bar .tx-tab-active{background:var(--purple);border-color:var(--purple);color:var(--on-accent);}
+.batch-bar .mode-steps li.now{border-color:var(--purple);background:rgba(var(--purple-rgb),.10);}
+.batch-bar .mode-steps li.now::before,.batch-bar .mode-steps li.done::before{background:var(--purple);}
+@media(min-width:761px){ .batch-bar .exam-palette{flex-wrap:wrap;overflow:visible;} }
+.mode-mini{display:none;position:sticky;top:8px;z-index:40;align-items:center;gap:8px;margin:0 2px 10px;padding:6px 10px;border-radius:10px;background:var(--bg2);box-shadow:0 4px 14px rgba(0,0,0,.16);min-width:0;}
+body.exam-on .mode-mini{display:flex;border:1.5px solid var(--green);}
+body.batch-on .mode-mini{display:flex;border:1.5px solid var(--purple);}
+.mode-mini .spacer{flex:1 1 0;min-width:0;}
+.mode-mini-sw{flex:0 0 auto;width:16px;height:16px;border-radius:5px;border:1px solid var(--border);display:none;}
+.mode-mini-sel{flex:0 1 auto;min-width:0;font-size:12.5px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mode-mini .exam-count,.mode-mini .exam-btn{flex:0 0 auto;white-space:nowrap;}
+.mode-mini-apply{display:none;border-color:var(--green);color:var(--green);}
+body.batch-on .mode-mini-apply{display:inline-block;}
+@media(max-width:760px){
+  /* الجوال: سطران فقط — الاختيارُ والعدّاد، ثم الأزرارُ بصفٍّ واحد */
+  .mode-mini{flex-wrap:wrap;gap:5px 6px;padding:6px 8px;}
+  .mode-mini-sel{flex:1 1 0;font-size:12px;}
+  .mode-mini .exam-count{padding:2px 8px;font-size:11.5px;}
+  .mode-mini .spacer{flex:1 1 100%;height:0;}
+  .mode-mini .exam-btn{flex:1 1 0;padding:4px 4px;font-size:11.5px;}
+}
+/* مودال «تطبيق» بالدفعة لحالةِ «موجود مسبقاً»: توثيقٌ لا جلسة — تختفي حقولُ الجلسة (الطبيبُ يبقى: يُخزَّن على صفّ المخطط).
+   النطاقُ body.batch-on فلا يتسرّب للمودال العادي أبداً (نفسُ حيلة حصر الحالات أعلاه). */
+body.batch-on #toothStep2[data-batch-doc="1"] .tu-row,body.batch-on #toothStep2[data-batch-doc="1"] #toothUnitsHint,body.batch-on #toothStep2[data-batch-doc="1"] #snTplRow2,
+body.batch-on #toothStep2[data-batch-doc="1"] .form-group:has(> #toothDate),body.batch-on #toothStep2[data-batch-doc="1"] .form-group:has(> #toothNotes){display:none !important;}
 /* ── E: read-only historical chart view ── */
 .hist-bar{display:none;position:sticky;top:8px;z-index:40;margin:0 2px 10px;padding:10px 12px;border:1.5px solid var(--yellow);border-radius:12px;background:var(--bg2);box-shadow:0 4px 18px rgba(0,0,0,.18);}
 body.hist-on .hist-bar{display:block;}
