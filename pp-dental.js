@@ -3657,6 +3657,7 @@ function renderTeeth() {
   addPhotoBadges();   // P2 Phase B: photo-count badges, after status badges so both coexist
   addLabBadges();     // open lab-order badges (bottom-left) — status ↗, photos ↖, lab ↙
   if (typeof renderOrthoOverlay === 'function') renderOrthoOverlay();
+  if (window.SyDenture) window.SyDenture.paint();   /* M202: طبقةُ الجهاز المتحرك — بعد اكتمال المنظرين (بلا جهاز ⇒ صفر أثر) */
   renderWatchBanner();   // A: surface due 'مراقبة' reviews above the chart
   // M86: chart re-render wipes the DOM → restore the batch selection rings so
   // the visual state never desyncs from batchSel (e.g. a session completed
@@ -4198,7 +4199,7 @@ async function _implantAltToExtraction(num) {
   var tn = String(num), before = JSON.parse(JSON.stringify(teethMap[tn] || {}));
   var st = extractionStatusUnderImplant(num);
   var d = await window.sb.from('teeth_status').delete()
-    .eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', tn);
+    .eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', tn).neq('surface', 'DENTURE');   /* M202: محوُ السن لا يطال صفَّ الجهاز المتحرك (وحدتُه على أسنانٍ أخرى) */
   if (d.error) { console.warn('_implantAltToExtraction: wipe:', d.error); return null; }
   var r = await upsertTeethStatusWithFallback({
     doctor_id: currentUser.id, patient_id: patientId, tooth_num: tn, surface: 'WHOLE', treatment_key: 'extracted', status: st
@@ -4209,7 +4210,7 @@ async function _implantAltToExtraction(num) {
 }
 async function _implantAltRestore(num, before) {
   var tn = String(num);
-  await window.sb.from('teeth_status').delete().eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', tn);
+  await window.sb.from('teeth_status').delete().eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', tn).neq('surface', 'DENTURE');   /* M202 */
   for (var k in before) {
     if (k.charAt(0) === '_' || !before[k]) continue;
     var row = { doctor_id: currentUser.id, patient_id: patientId, tooth_num: tn, surface: k, treatment_key: before[k],
@@ -4374,7 +4375,7 @@ async function _altChartToImplants(ctx, imps) {
     /* v600: قلعُ هذا الموقع ما زال مخطّطاً ⇒ الزرعةُ المخطّطة تبقى جلسةَ خطة (لا مسحَ لصفّ القلع ولا لعلاجات السن) */
     if (x.status !== 'completed' && isExtractionPlanned(tn)) continue;
     var w = await window.sb.from('teeth_status').delete()
-      .eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', tn);
+      .eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', tn).neq('surface', 'DENTURE');   /* M202 */
     if (w.error) { console.warn('_altChartToImplants: pre-wipe:', w.error); continue; }
     var r = await upsertTeethStatusWithFallback({
       doctor_id: currentUser.id, patient_id: patientId, tooth_num: tn, surface: 'WHOLE',
@@ -4979,7 +4980,7 @@ async function openToothModal(n, surface) {
     currentSurfaces = [];
     currentRootParts = [];
     var _crw = document.getElementById('toothSurfaceChips'); if (_crw) _crw.style.display = 'none';
-    document.getElementById('toothModalTitle').textContent = 'علاج جماعي (ربع / فك / فم)';
+    document.getElementById('toothModalTitle').textContent = 'علاج جماعي (ربع / فك / فم / جهاز متحرك)';
     var containerR = document.getElementById('toothOptsContainer');
     var htmlR = '';
     var matchedR = 0;
@@ -4987,7 +4988,7 @@ async function openToothModal(n, surface) {
       var tR = TREATMENTS[iR];
       if (tR.is_active === false) continue;
       var tpR = tR.target_part || 'crown';
-      if (tpR !== 'quadrant' && tpR !== 'arch' && tpR !== 'mouth') continue;
+      if (tpR !== 'quadrant' && tpR !== 'arch' && tpR !== 'mouth' && !(window.SyDenture && window.SyDenture.isTp(tpR))) continue;   /* M202: الجهازُ المتحرك مدخلُه من هنا */
       matchedR++;
       // Phase 3 Feature D: same patient-facing subtitle pattern for regional
       // treatments (denture, full-mouth exam, quadrant cleaning, etc.).
@@ -5181,6 +5182,11 @@ async function openToothModal(n, surface) {
     if (isSxSurface(currentSurface)) return !t.is_condition && (t.target_part || 'crown') === 'extraction';
     // M146: علاجٌ «لبنية فقط» لا يُعرض على سنٍّ دائم والعكس — بكل حالات السن
     if (!txDentitionOk(t, n)) return false;
+    /* M202: الجهازُ المتحرك هندسةُ فكٍّ لا سنّ — مدخلُه «علاج جماعي»؛ والسنُّ الذي يحمل جهازاً لا يقبل زرعةً ولا جسراً قبل إزالته */
+    if (window.SyDenture) {
+      if (window.SyDenture.isTreatment(t)) return false;
+      if (window.SyDenture.has(n) && ((t.target_part || 'crown') === 'implant' || (t.target_part || 'crown') === 'bridge')) return false;
+    }
     // ── Owner matrix (OpenDental treatment-area model) — applies to STANDING teeth
     //    only. The implant/pontic/extracted state branches below keep their own
     //    rules verbatim: a ghost (even a PLANNED extraction — isExtracted is
@@ -5275,6 +5281,10 @@ async function openToothModal(n, surface) {
   // حافظ مسافة: removal action stacks on top of whatever context applies
   if (typeof toothHasSpacer === 'function' && toothHasSpacer(n)) {
     _special = '<button class="topt" style="border-color:#d946ef;color:#d946ef;font-weight:700;" onclick="removeSpacerUnit(' + n + ')">🧷 إزالة حافظ المسافة</button>' + _special;
+  }
+  /* M202: الجهازُ المتحرك — زرُّ إزالته من أي سنٍّ يعوّضه (يزيل الوحدةَ كلها) */
+  if (window.SyDenture && window.SyDenture.has(n) && !isSxSurface(currentSurface)) {
+    _special = window.SyDenture.removeBtnHtml(n) + _special;
   }
   /* v491: زرُّ إزالةٍ **لكلِّ حالةٍ سريرية** على السن (أيّاً كان موضعها)، باسمها وموضعها —
      وحالةُ السطح المنقور أولاً. «⬜ سليم (إلغاء)» يبقى لإعادة السطح/السن سليماً. */
@@ -5644,6 +5654,8 @@ async function _undoExtraction_inner(num) {
     showToast('🔒 حسابك غير نشط — لا يمكن تعديل حالة الأسنان');
     return;
   }
+  /* M202: سنٌّ يعوّضه جهازٌ متحرك لا يعود قائماً والجهازُ عليه — يُزال الجهازُ أولاً (زرُّه بنافذة السن نفسها) */
+  if (window.SyDenture && window.SyDenture.has(num)) { showToast('🦷 السن ' + num + ' يعوّضه جهاز متحرك — أزل الجهاز أولاً'); return; }
   // Determine the scope: just this tooth, or the whole bridge unit?
   var isPartOfBridge = isBridgeTooth(num);
   /* v488: إلغاءُ قلعٍ عادي يزيل صفَّ القلع + موقع القلع (+ حافظ المسافة إن وُجد) ⇒ نفس السؤالين عن جلساتها.
@@ -5838,7 +5850,7 @@ async function _removeImplant_inner(num) {
   // First: wipe ALL surfaces (clears any legacy implant entries on R1/R2/etc.)
   var dAll = await window.sb.from('teeth_status').delete()
     .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
-    .eq('tooth_num', tn);
+    .eq('tooth_num', tn).neq('surface', 'DENTURE');   /* M202 */
   if (dAll.error) { console.error('clear surfaces error:', dAll.error); _wErr = true; }
   delete teethMap[tn];
   // Then: replace with extracted at WHOLE — typically an implant replaces a missing tooth
@@ -5908,6 +5920,7 @@ var pendingRegionalArches = [];     // M85.2 multi-arch: full selection; save lo
 // skip straight to the cost/notes step. For 'quadrant'/'arch' we show a dropdown
 // pre-selected to the auto-detected value (if the user clicked a tooth first).
 function openRegionalAreaPicker(status, label, treatPart, autoQuadrant, autoArch) {
+  if (window.SyDenture) window.SyDenture.pickerReset();   /* M202: النافذةُ مشتركة مع منتقي الجهاز المتحرك */
   pendingRegionalType = treatPart;
   pendingRegionalQuadrant = null;
   pendingRegionalQuadrants = [];
@@ -6104,6 +6117,7 @@ function orthoMonthsForArch(isUpper){
   return null;
 }
 function confirmRegionalAreaPick() {
+  if (window.SyDenture && window.SyDenture.pickerActive()) { window.SyDenture.confirmPick(); return; }   /* M202 */
   if (pendingRegionalType === 'quadrant') {
     // M85.2: chips selection (multi). At least one quadrant required.
     if (!pendingRegionalQuadrants.length) { showToast('⚠️ اختر ربعاً واحداً على الأقل'); return; }
@@ -6301,6 +6315,16 @@ function pickToothTreatment(status, label) {
   // not where the user clicked. This way the list can stay unified.
   var tr = getTreatment(status);
   var tp = tr ? (tr.target_part || 'crown') : 'crown';
+  /* M202: الجهازُ المتحرك — منتقيه الخاص (الفك ثم الأسنان المعوَّضة)؛ وسياقٌ متروك من فتحةٍ سابقة يُمحى دائماً */
+  if (window.SyDenture) {
+    window.SyDenture.clearPending();
+    if (window.SyDenture.isTp(tp)) {
+      window.__regionalPickerMode = false;
+      closeModal('toothModal');
+      window.SyDenture.openPicker(status, label, null);
+      return;
+    }
+  }
   // ── حافظ مسافة: gap-unit flow (NOT regional) — gated on M61 ──
   var spacerFlow = window.__m61 === true && isSpacerTreatment(tr);
   if (spacerFlow) {
@@ -6485,6 +6509,11 @@ async function persistSpecialTreatment() {
   // tooth. Explicit message instead of charting a clinically-invalid record.
   if (pendingTp === 'implant' && isPrimaryTooth(currentTooth)) {
     showToast('🦷 الزراعة لا تُسجَّل على سن لبني — حوّل الموضع للسن الدائم ثم خطّطها');
+    return { blocked: true };
+  }
+  /* M202: حارسُ الكتابة — سنٌّ يعوّضه جهازٌ متحرك لا يأخذ زرعةً ولا جسراً قبل إزالة الجهاز (القائمةُ تخفيهما؛ هذا للفحص الأولي وما سواه) */
+  if ((pendingTp === 'implant' || isBridgeTreatment) && window.SyDenture && window.SyDenture.has(currentTooth)) {
+    showToast('🦷 السن ' + currentTooth + ' يعوّضه جهاز متحرك — أزل الجهاز أولاً');
     return { blocked: true };
   }
   if (pendingTp === 'implant' && _altBridge) {
@@ -6736,7 +6765,7 @@ async function persistSpecialTreatment() {
       var _iDx = dxCollectWholeTooth(currentTooth);   /* v609 */
       var dAll = await window.sb.from('teeth_status').delete()
         .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
-        .eq('tooth_num', String(currentTooth));
+        .eq('tooth_num', String(currentTooth)).neq('surface', 'DENTURE');   /* M202 */
       if (dAll.error) console.error('clear surfaces before implant error:', dAll.error);
       teethMap[String(currentTooth)] = {};
       return { handled: false, implantWiped: true, implantDx: _iDx };
@@ -6792,6 +6821,8 @@ async function _saveToothTreatment_inner() {
   // ledger_sessions row with quadrant/arch columns set, and tooth_num/surface = null.
   // Following OpenDental's rule, regional procedures don't display on the tooth chart;
   // they appear only in the sessions list and timeline.
+  /* M202: الجهازُ المتحرك جلسةُ فكٍّ + صفوفُ مخططٍ للأسنان المعوَّضة — مسارُه بـpp-denture.js (المالُ: الجلسةُ نفسها وإعادةُ التوزيع القائمة) */
+  if (window.SyDenture && window.SyDenture.saveReady()) { await window.SyDenture.save(cost, units, date, notes); return; }
   if (pendingRegionalType === 'quadrant' || pendingRegionalType === 'arch' || pendingRegionalType === 'mouth') {
     // Build description that describes the region (no tooth number)
     var regAreaText, regDescription;
@@ -6984,7 +7015,7 @@ async function _saveToothTreatment_inner() {
         _bImplantDx = dxCollectWholeTooth(_bn);   /* v609 */
         var _bd = await window.sb.from('teeth_status').delete()
           .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
-          .eq('tooth_num', String(_bn));
+          .eq('tooth_num', String(_bn)).neq('surface', 'DENTURE');   /* M202 */
         if (_bd.error) {
           console.error('batch implant pre-wipe error:', _bd.error);
           showToast('⚠️ خطأ بالسن ' + _bn + ': ' + _bd.error.message);
@@ -7646,6 +7677,8 @@ function removalToast(okIcon, base, fu) {
 }
 /* موضعُ الجلسة بسطر القائمة: وحدةٌ ⇒ أسنانها؛ وإلا السطح (ما عدا السن كاملاً). */
 function _removalSessWhere(x) {
+  /* M202: جلسةُ فكٍّ (جهاز متحرك) — موضعُها وصفُها («الفك العلوي — الأسنان 14، 15») */
+  if (x && !x.tooth_num) return x.description ? ' / ' + x.description : ((x.arch && ARCH_LABELS[x.arch]) ? ' / ' + ARCH_LABELS[x.arch] : '');
   if (isUnitLedgerSession(x)) return ' / الأسنان ' + String(x.tooth_num || '').split(',').join('، ');
   return (x.surface && x.surface !== 'WHOLE') ? ' / ' + surfLabelFor(x.surface, x.tooth_num) : '';
 }

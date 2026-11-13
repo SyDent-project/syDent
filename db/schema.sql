@@ -563,7 +563,7 @@ BEGIN
   )
   ON CONFLICT (id) DO NOTHING;
 
-  -- زرع الكتالوج المرجعي (29 علاجاً · كل الأسعار 0)
+  -- زرع الكتالوج المرجعي (33 علاجاً · كل الأسعار 0)
   -- CATALOG-PARITY-START
   INSERT INTO public.treatments
     (doctor_id, treatment_key, name, label, fill, stroke, price, builtin, needs_lab,
@@ -597,7 +597,11 @@ BEGIN
     (NEW.id, 'pedo-pulpectomy', 'استئصال لب لبني', 'ا', '#be185d', '#831843', 0, false, false, 'root', 'pediatric', 26, false, false, true, 'سحب عصب السن اللبني', 'primary'),
     (NEW.id, 'pedo-ssc', 'تاج ستانلس ستيل', 'ت', '#94a3b8', '#475569', 0, false, false, 'crown_full', 'pediatric', 27, false, false, true, 'تاج معدني جاهز', 'primary'),
     (NEW.id, 'fissure-sealant', 'سادّ شقوق', 'س', '#2563eb', '#1e40af', 0, false, false, 'crown', 'preventive', 28, false, false, true, 'طبقة حماية من التسوّس', 'all'),
-    (NEW.id, 'fluoride', 'تطبيق فلورايد', 'ف', '#0ea5e9', '#0369a1', 0, false, false, 'mouth', 'preventive', 29, false, false, true, '', 'all')
+    (NEW.id, 'fluoride', 'تطبيق فلورايد', 'ف', '#0ea5e9', '#0369a1', 0, false, false, 'mouth', 'preventive', 29, false, false, true, '', 'all'),
+    (NEW.id, 'denture-full', 'جهاز متحرك كامل', 'ك', '#e11d74', '#9d174d', 0, false, true, 'denture_full', 'prosthodontics', 30, false, false, true, 'طقم أسنان كامل', 'permanent'),
+    (NEW.id, 'denture-partial-acrylic', 'جهاز متحرك جزئي (أكريل)', 'ج', '#f4728f', '#be123c', 0, false, true, 'denture_partial', 'prosthodontics', 31, false, false, true, 'طقم أسنان جزئي', 'permanent'),
+    (NEW.id, 'denture-partial-metal', 'جهاز متحرك جزئي (هيكل معدني)', 'ج', '#9aa8bd', '#56657b', 0, false, true, 'denture_partial', 'prosthodontics', 32, false, false, true, 'طقم أسنان جزئي بهيكل معدني', 'permanent'),
+    (NEW.id, 'denture-partial-flex', 'جهاز متحرك جزئي (مرن)', 'ج', '#b45309', '#78350f', 0, false, true, 'denture_partial', 'prosthodontics', 33, false, false, true, 'طقم أسنان جزئي مرن', 'permanent')
   ON CONFLICT (doctor_id, treatment_key) DO NOTHING;
   -- CATALOG-PARITY-END
 
@@ -2917,7 +2921,7 @@ CREATE TABLE IF NOT EXISTS "public"."teeth_status" (
     "review_at" "date",
     "unit_id" "uuid",
     CONSTRAINT "teeth_status_status_check" CHECK (("status" = ANY (ARRAY['planned'::"text", 'completed'::"text", 'existing_current'::"text", 'existing_other'::"text", 'referred'::"text", 'condition'::"text"]))),
-    CONSTRAINT "teeth_status_surface_check" CHECK (((("surface" ~ '^M?[OI]?D?B?L?V?$'::"text") AND ("surface" <> ''::"text")) OR ("surface" = ANY (ARRAY['WHOLE'::"text", 'PONTIC'::"text", 'CROWN_FULL'::"text", 'BRIDGE'::"text", 'SPACER'::"text", 'SOCKET'::"text", 'COND'::"text", 'R1'::"text", 'R2'::"text", 'R3'::"text", 'R1R2'::"text", 'R1R3'::"text", 'R2R3'::"text", 'R1R2R3'::"text"]))))
+    CONSTRAINT "teeth_status_surface_check" CHECK (((("surface" ~ '^M?[OI]?D?B?L?V?$'::"text") AND ("surface" <> ''::"text")) OR ("surface" = ANY (ARRAY['WHOLE'::"text", 'PONTIC'::"text", 'CROWN_FULL'::"text", 'BRIDGE'::"text", 'SPACER'::"text", 'SOCKET'::"text", 'DENTURE'::"text", 'COND'::"text", 'R1'::"text", 'R2'::"text", 'R3'::"text", 'R1R2'::"text", 'R1R3'::"text", 'R2R3'::"text", 'R1R2R3'::"text"]))))
 );
 
 
@@ -3025,7 +3029,7 @@ CREATE TABLE IF NOT EXISTS "public"."treatments" (
     CONSTRAINT "treatments_currency_valid" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))),
     CONSTRAINT "treatments_dentition_scope_check" CHECK (("dentition_scope" = ANY (ARRAY['all'::"text", 'primary'::"text", 'permanent'::"text"]))),
     CONSTRAINT "treatments_layman_name_length" CHECK ((("layman_name" IS NULL) OR ("char_length"("layman_name") <= 100))),
-    CONSTRAINT "treatments_target_part_check" CHECK (("target_part" = ANY (ARRAY['crown'::"text", 'root'::"text", 'whole'::"text", 'crown_full'::"text", 'bridge'::"text", 'extraction'::"text", 'implant'::"text", 'quadrant'::"text", 'arch'::"text", 'mouth'::"text"])))
+    CONSTRAINT "treatments_target_part_check" CHECK (("target_part" = ANY (ARRAY['crown'::"text", 'root'::"text", 'whole'::"text", 'crown_full'::"text", 'bridge'::"text", 'extraction'::"text", 'implant'::"text", 'quadrant'::"text", 'arch'::"text", 'mouth'::"text", 'denture_full'::"text", 'denture_partial'::"text"])))
 );
 
 

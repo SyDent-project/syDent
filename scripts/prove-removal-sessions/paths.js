@@ -11,7 +11,7 @@ let pass=0,fail=0;function ok(c,m){if(c)pass++;else{fail++;console.log('FAIL',m)
 const isExt=k=>k==='extracted'||k==='surg_ext', isBr=k=>k==='bridge', isSp=k=>k==='spacer', isImp=k=>k==='implant';
 function run(o,entry,arg){
  const log={toasts:[],dels:[],confirms:[],tsDel:[],upserts:[]};const answers=o.answers.slice();
- const q=()=>{const st={};const b={delete(){st.op='del';return b},upsert(r){log.upserts.push(r);st.op='up';return b},eq(k,v){st[k]=v;return b},
+ const q=()=>{const st={};const b={delete(){st.op='del';return b},upsert(r){log.upserts.push(r);st.op='up';return b},eq(k,v){st[k]=v;return b},neq(k,v){st['neq_'+k]=v;return b},/* M202: محوُ السن يستثني صفَّ الجهاز المتحرك */
    then(res){if(st.op==='del')log.tsDel.push((st.tooth_num||'')+':'+(st.surface||'*'));const e=(o.tsErrOn&&o.tsErrOn(st))?{m:1}:null;return Promise.resolve({error:e}).then(res)}};return b;};
  const ctx={teethMap:JSON.parse(JSON.stringify(o.map)),currentTooth:o.tooth,currentSurface:o.surface||'X',currentUser:{id:'D'},
   sessions:o.sessions.map(x=>Object.assign({},x)),patientId:'P',

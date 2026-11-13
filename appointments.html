@@ -21,28 +21,28 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261112a"></script>
-<link rel="stylesheet" href="appointments.css?v=20261112a">
+<script src="theme.js?v=20261113a"></script>
+<link rel="stylesheet" href="appointments.css?v=20261113a">
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261112a">
+<link rel="stylesheet" href="theme.css?v=20261113a">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261112a"></script>
-<script src="sy-modal.js?v=20261112a"></script>
-<script src="appt-conflict.js?v=20261112a"></script>
-<script src="pt-reliability.js?v=20261112a"></script>
-<script src="sched-blocks.js?v=20261112a"></script>
-<script src="appt-blocks.js?v=20261112a"></script>
-<script src="appt-series.js?v=20261112a"></script>
-<script src="appt-family.js?v=20261112a"></script>
-<script src="sidebar.js?v=20261112a"></script>
-<script src="inv-consume.js?v=20261112a"></script>
-<script src="timepicker.js?v=20261112a"></script>
-<script src="appt-booking.js?v=20261112a"></script>
-<script src="appt-portal.js?v=20261112a"></script>
-<script src="appt-wa.js?v=20261112a"></script>
-<script src="appt-time.js?v=20261112a"></script>
-<script src="appt-views.js?v=20261112a"></script>
-<script src="appt-modal.js?v=20261112a"></script>
+<script src="supabase-init.js?v=20261113a"></script>
+<script src="sy-modal.js?v=20261113a"></script>
+<script src="appt-conflict.js?v=20261113a"></script>
+<script src="pt-reliability.js?v=20261113a"></script>
+<script src="sched-blocks.js?v=20261113a"></script>
+<script src="appt-blocks.js?v=20261113a"></script>
+<script src="appt-series.js?v=20261113a"></script>
+<script src="appt-family.js?v=20261113a"></script>
+<script src="sidebar.js?v=20261113a"></script>
+<script src="inv-consume.js?v=20261113a"></script>
+<script src="timepicker.js?v=20261113a"></script>
+<script src="appt-booking.js?v=20261113a"></script>
+<script src="appt-portal.js?v=20261113a"></script>
+<script src="appt-wa.js?v=20261113a"></script>
+<script src="appt-time.js?v=20261113a"></script>
+<script src="appt-views.js?v=20261113a"></script>
+<script src="appt-modal.js?v=20261113a"></script>
 </head>
 <body>
 <script>
@@ -2685,7 +2685,7 @@ async function _apptDrawPendingImplant(s, tn) {
   if (ls.error) return;
   var imps = (ls.data || []).filter(function(x){ return _apptKeyPart(_apptSessionTreatmentKey(x)) === 'implant'; });
   if (imps.length !== 1 || imps[0].plan_option != null) return;
-  var w = await window.sb.from('teeth_status').delete().eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('tooth_num', tn);
+  var w = await window.sb.from('teeth_status').delete().eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('tooth_num', tn).neq('surface', 'DENTURE');   /* M202: محوُ السن لا يطال صفَّ الجهاز المتحرك */
   if (w.error) { console.warn('_apptDrawPendingImplant wipe:', w.error); return; }
   var r = await window.sb.from('teeth_status').upsert({
     doctor_id: currentUser.id, patient_id: s.patient_id, tooth_num: tn, surface: 'WHOLE',
@@ -2693,7 +2693,19 @@ async function _apptDrawPendingImplant(s, tn) {
   }, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
   if (r.error) console.warn('_apptDrawPendingImplant row:', r.error);
 }
+/* M202 — مرآةُ SyDenture.onSessionComplete بملف المريض: جلسةُ الجهاز المتحرك جلسةُ فكٍّ (بلا tooth_num) وصفوفُ
+   وحدتها على المخطط تحمل معرّفَ الجلسة نفسه (unit_id) ⇒ إنجازُها يقلب تلك الصفوف المخطّطة وحدها. */
+async function _apptSyncDentureRowsOnComplete(s, providerOverride) {
+  if (!s || !s.id || s.tooth_num) return;
+  var patch = { status: 'completed', review_at: null };
+  if (providerOverride) patch.provider_id = providerOverride;
+  var u = await window.sb.from('teeth_status').update(patch)
+    .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id)
+    .eq('unit_id', s.id).eq('surface', 'DENTURE').eq('status', 'planned');
+  if (u.error) console.warn('denture rows complete warn:', u.error);
+}
 async function _apptSyncToothStatusOnComplete(s, providerOverride) {
+  if (s && !s.tooth_num) { await _apptSyncDentureRowsOnComplete(s, providerOverride); return; }   /* M202 */
   if (!s || !s.tooth_num) return;
   var tn = String(s.tooth_num);
   if (tn.indexOf(',') !== -1) { await _apptSyncUnitRowsOnComplete(s, providerOverride); return; }   /* M145-h */
@@ -2704,7 +2716,7 @@ async function _apptSyncToothStatusOnComplete(s, providerOverride) {
   if (!key) {
     console.warn('_apptSyncToothStatusOnComplete: unresolved treatment for session', s.id, s.type, '— legacy surface-only flip');
     var qL = window.sb.from('teeth_status').update(patch)
-      .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('tooth_num', tn).eq('status', 'planned');
+      .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('tooth_num', tn).eq('status', 'planned').neq('surface', 'DENTURE');   /* M202 */
     if (s.surface) qL = qL.eq('surface', s.surface);
     var uL = await qL;
     if (uL.error) console.warn('teeth_status complete warn:', uL.error);
@@ -2737,7 +2749,7 @@ async function _apptSyncToothStatusOnComplete(s, providerOverride) {
     var rp = await window.sb.from('teeth_status').select('treatment_key')
       .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('tooth_num', tn).eq('surface', 'PONTIC').maybeSingle();
     if (!rp.error && !(rp.data && _apptKeyPart(rp.data.treatment_key) === 'bridge')) {
-      var wI = await window.sb.from('teeth_status').delete().eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('tooth_num', tn);
+      var wI = await window.sb.from('teeth_status').delete().eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('tooth_num', tn).neq('surface', 'DENTURE');   /* M202 */
       if (wI.error) { console.warn('implant-complete wipe warn:', wI.error); return; }
       var rI = await window.sb.from('teeth_status').upsert({
         doctor_id: currentUser.id, patient_id: s.patient_id, tooth_num: tn, surface: 'WHOLE',

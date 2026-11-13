@@ -38,7 +38,7 @@ function installDb(w) {
       delete() { st.op = 'delete'; return api; }, update(p) { st.op = 'update'; st.payload = p; return api; },
       upsert(p) { st.op = 'upsert'; st.payload = p; log.push(st); return Promise.resolve({ data: [p], error: null }); },
       insert(p) { st.op = 'insert'; st.payload = p; log.push(st); return { select: () => ({ single: () => Promise.resolve({ data: Object.assign({ id: 'sess-' + log.length }, p), error: null }) }) }; },
-      select() { return api; }, eq(k, v) { st.eq[k] = v; return api; }, in(k, v) { st.in[k] = v.slice(); return api; },
+      select() { return api; }, eq(k, v) { st.eq[k] = v; return api; }, neq() { return api; }, in(k, v) { st.in[k] = v.slice(); return api; },
       order() { return api; }, limit() { return api; }, not() { return api; }, or() { return api; },
       single() { return Promise.resolve({ data: null, error: null }); },
       then(res) { log.push(st); return Promise.resolve({ data: [], error: null }).then(res); }
