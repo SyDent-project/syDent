@@ -432,6 +432,9 @@ body.exam-on .exam-bar{display:block;}
 .mode-steps li.now::before{background:var(--accent);color:#fff;}
 .exam-btn{padding:5px 12px;border-radius:8px;font-size:12px;font-weight:700;font-family:'Cairo',sans-serif;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);}
 .exam-btn.exit{border-color:var(--red);color:var(--red);}
+/* v713 (طلب المالك بصورة): «فك أدرد» زرُّ فعلٍ لا زرٌّ ثانوي — معبّأ بلونٍ واضح فلا يضيع بين «تراجع» و«إنهاء» */
+.exam-btn.exam-btn-edent{background:var(--blue);border-color:var(--blue);color:var(--on-accent);font-weight:800;padding:6px 14px;box-shadow:0 2px 8px rgba(0,0,0,.18);}
+.exam-btn.exam-btn-edent:hover{filter:brightness(1.08);}
 .exam-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
 .exam-chip{padding:5px 11px;border-radius:8px;font-size:12px;font-weight:700;font-family:'Cairo',sans-serif;cursor:pointer;border:1.5px solid var(--border);background:transparent;color:var(--text2);}
 .exam-chip.selected{border-color:var(--green);color:var(--green);background:color-mix(in srgb, var(--green) 12%, transparent);}
