@@ -147,6 +147,7 @@ async function behave(w) {
   r.miniExam = $('modeMiniSel').textContent === '🩺 فحص أولي · موجود — من عيادة أخرى · معالجة لبية تجريبية' && $('modeMiniCount').textContent === 'وُسم: 0'
     && $('modeMiniSw').style.display === 'inline-block';
   w.eval('examSelectedKey = null; renderExamBar();');
+  r.miniPartsSeparate = $('modeMiniSel').children.length === 3 && $('modeMiniSel').children[0].textContent === '🩺 فحص أولي' && $('modeMiniSel').children[1].textContent === 'موجود — من عيادة أخرى';   /* v715: قطعٌ مستقلة ⇒ تُترجَم كلٌّ وحدها */
   r.miniExamEmpty = /اختر علاجاً من الشريط$/.test($('modeMiniSel').textContent) && $('modeMiniSw').style.display === 'none';
   /* كلُّ دخولٍ يبدأ من أول شريحة */
   w.eval('window.__examMode = false; modeTxTab.exam = "surgical";');
@@ -270,6 +271,7 @@ async function runAll(over) {
     ['batch-palette-unfiltered', PM, "list = modeTxRender('batch', list);   /* v712: فلترُ التصنيفات */", "modeTxRender('batch', list);"],
     ['exam-tab-not-reset', PM, "modeTxTab.exam = null;   /* v712: كلُّ دخولٍ يبدأ من المفضلة/الشائعة */", ''],
     ['batch-tab-not-reset', PM, "modeTxTab.batch = null;   /* v712: كلُّ دخولٍ يبدأ من المفضلة/الشائعة */", ''],
+    ['mini-one-joined-node', PM, "if (document.createElement && document.createTextNode && sel.appendChild) {", "if (false) {"],
     ['mini-forgets-status', PM, "if (stLbl) parts.push(stLbl);", ''],
     ['mini-not-synced-on-select', PM, "      sm.style.display = 'block';\n    }\n  }\n  modeMiniSync();\n}", "      sm.style.display = 'block';\n    }\n  }\n}"],
     ['exam-bar-sticky-again', CSS, ".exam-bar{display:none;position:static;", ".exam-bar{display:none;position:sticky;top:8px;z-index:40;"],
