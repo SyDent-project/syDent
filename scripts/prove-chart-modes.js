@@ -87,8 +87,14 @@ function staticChecks(over) {
   const C = F('patient-profile.css'), H = F('patient-profile.html'), r = {};
   const rule = sel => { const m = C.match(new RegExp('(?:^|\\n)' + sel.replace(/[.#]/g, '\\$&') + '\\{([^}]*)\\}')); return m ? m[1] : ''; };
   r.barsNotSticky = /position:static/.test(rule('.exam-bar')) && /position:static/.test(rule('.batch-bar')) && !/sticky/.test(rule('.exam-bar') + rule('.batch-bar'));
-  r.miniSticky = /display:none/.test(rule('.mode-mini')) && /position:sticky;top:8px/.test(rule('.mode-mini'))
+  r.miniSticky = /display:none/.test(rule('.mode-mini')) && /position:sticky;top:calc\(var\(--pp-ma-h,0px\) \+ 8px\)/.test(rule('.mode-mini'))
     && /body\.exam-on \.mode-mini\{display:flex/.test(C) && /body\.batch-on \.mode-mini\{display:flex/.test(C);
+  /* v714: داخل الوضعين رأسُ الصفحة لا يلصق (كان يتراكب مع السطر الرفيع)، والتحذيرُ الطبي بأعلى الشاشة؛ وأزرارُ الرأس مجموعةٌ واحدة */
+  r.headerStaticInModes = C.indexOf('body.exam-on .topbar,body.batch-on .topbar{position:static;}') > -1 && C.indexOf('body.exam-on .pp-med-alert,body.batch-on .pp-med-alert{top:0;}') > -1
+    && /setProperty\('--pp-ma-h', \(el\.hidden \? 0 : el\.offsetHeight\) \+ 'px'\)/.test(H);
+  const grp = id => { const i = H.indexOf('id="' + id + '"'), j = H.indexOf('<ol class="mode-steps"', i), seg = H.slice(i, j), k = seg.indexOf('<span class="mode-actions">'); const e = seg.indexOf('</span>', k), x = seg.indexOf('class="exam-btn exit"'); return k > -1 && x > k && x < e && seg.slice(0, k).indexOf('exam-btn') === -1 && seg.slice(e).indexOf('exam-btn') === -1; };
+  r.actionsGrouped = grp('examBar') && grp('batchBar') && /\.mode-actions\{[^}]*margin-inline-start:auto/.test(C);
+  r.sectionsBoxed = /\.exam-bar \.exam-row,\.batch-bar \.exam-row,\.exam-bar \.exam-cond-row\{[^}]*border:1px solid var\(--border\)/.test(C) && /#examStatusRow\{border-inline-start/.test(C) && /#batchStatusRow\{border-inline-start/.test(C);
   const iBatch = H.indexOf('id="batchBar"'), iExam = H.indexOf('id="examBar"'), iMini = H.indexOf('id="modeMini"'), iJaw = H.indexOf('id="jawWrap"');
   r.miniBetweenBarsAndChart = iExam > 0 && iBatch > iExam && iMini > iBatch && iJaw > iMini;
   r.statusScope = C.indexOf('body.batch-on #toothStatusPicker .status-opt:not([data-status="completed"]):not([data-status="planned"]):not([data-status="existing_current"]):not([data-status="existing_other"]){display:none;}') > -1;
@@ -268,9 +274,14 @@ async function runAll(over) {
     ['mini-not-synced-on-select', PM, "      sm.style.display = 'block';\n    }\n  }\n  modeMiniSync();\n}", "      sm.style.display = 'block';\n    }\n  }\n}"],
     ['exam-bar-sticky-again', CSS, ".exam-bar{display:none;position:static;", ".exam-bar{display:none;position:sticky;top:8px;z-index:40;"],
     ['batch-bar-sticky-again', CSS, ".batch-bar{display:none;position:static;", ".batch-bar{display:none;position:sticky;top:8px;z-index:40;"],
-    ['mini-not-sticky', CSS, ".mode-mini{display:none;position:sticky;top:8px;", ".mode-mini{display:none;position:static;top:8px;"],
+    ['mini-not-sticky', CSS, ".mode-mini{display:none;position:sticky;top:calc(", ".mode-mini{display:none;position:static;top:calc("],
     ['existing-hidden-in-modal', CSS, ':not([data-status="planned"]):not([data-status="existing_current"]):not([data-status="existing_other"]){display:none;}', ':not([data-status="planned"]){display:none;}'],
     ['doc-css-unscoped', CSS, 'body.batch-on #toothStep2[data-batch-doc="1"] .tu-row,', '#toothStep2[data-batch-doc="1"] .tu-row,'],
+    ['header-sticky-in-modes', CSS, "body.exam-on .topbar,body.batch-on .topbar{position:static;}", ""],
+    ['exit-outside-group', PH, `          <button type="button" class="exam-btn exit" onclick="toggleBatchMode()">✕ إنهاء</button>
+          </span>`, `          </span>
+          <button type="button" class="exam-btn exit" onclick="toggleBatchMode()">✕ إنهاء</button>`],
+    ['status-section-unboxed', CSS, ".batch-bar #batchStatusRow{border-inline-start", ".batch-bar #batchStatusRowX{border-inline-start"],
     ['mini-below-chart', PH, '<div class="mode-mini" id="modeMini">', '<div class="mode-mini" id="modeMiniX">'],
     ['batch-layout-old', PH, '<div class="exam-row" id="batchStatusRow"><span class="exam-row-lbl">📌 الحالة</span>', '<div id="batchStatusRow">']
   ];
