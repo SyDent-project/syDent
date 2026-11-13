@@ -2299,7 +2299,7 @@ try {
      خامل)، وسطرُ CSS بـpatient-profile.css مولَّدٌ من قائمة الكتابة ويُقارَن حرفياً،
      ومعالجٌ جديد بلا تصنيف يُسقط الحارس فيُجبر صاحبه على القرار. */
   // سجلُّ معالجات بطاقة المريض لوضع القراءة — مصدرٌ واحد يُنسخ حرفياً إلى check-mirrors (V11)
-  const PP_FILES = ['patient-profile.html', 'pp-core.js', 'pp-clinical.js', 'pp-dental.js', 'pp-modules.js', 'pp-plan.js', 'pp-timeline.js', 'pp-appt.js', 'pp-extras.js', 'pp-wa.js', 'pp-intake.js', 'pp-portal.js', 'pp-xray.js'];
+  const PP_FILES = ['patient-profile.html', 'pp-core.js', 'pp-clinical.js', 'pp-dental.js', 'pp-modules.js', 'pp-plan.js', 'pp-timeline.js', 'pp-appt.js', 'pp-extras.js', 'pp-wa.js', 'pp-intake.js', 'pp-portal.js', 'pp-xray.js', 'pp-denture.js'];
   const PP_WRITE = ['openApptModal', 'openNewSessionEntry', 'openModal', 'openWaHub', 'openPayModal', 'openEditModal', 'unlinkFromFamily', 'openFamilyLinkModal',
     'openPlannedApptModal', 'toggleBatchMode', 'toggleExamMode', 'toggleDraftMode', 'examUndo', 'batchApply', 'batchUndo', 'draftUndo', 'draftClearAll', 'draftSave',
     'draftSetWidth', 'draftSetEraser', 'perioDeleteExam', 'perioNewExam', 'perioSave', 'perioCreateExam', 'openObModal', 'openAdjustmentModal',
@@ -2315,7 +2315,7 @@ try {
     'openPostOpTemplateEdit', 'savePostOpTemplate', 'confirmMaterialDeduction', 'setSessionPhase', 'setSessionOption', 'adoptPlanOption', 'removeDxNote', 'openAltBridgePicker', 'openImplantAltBridgePicker', 'aiPlanOptPick', 'completeSessionFromProfile', 'ppSessionOpenLab',
     'delSession', 'openSplitEditor', 'delPayment', 'delAdjustment', 'advanceLabOrder', 'redoLabOrder', 'editLabOrder', 'delLabOrder',
     'deletePrescription', 'rxEditTemplate', 'deleteRxTemplate', 'deletePostOpNote', 'deletePostOpTemplate', 'removeImplant', 'undoExtraction',
-    'clearToothStatus', 'removeSpacerUnit', 'removeSocket', 'removeCondition', 'sxCancelExtraction', 'deleteImplantLog', 'linkToFamily', 'deleteImplantTemplate', 'batchSetStatus',
+    'clearToothStatus', 'removeSpacerUnit', 'dentRemoveUnit' /* M202: إزالةُ الجهاز المتحرك */, 'removeSocket', 'removeCondition', 'sxCancelExtraction', 'deleteImplantLog', 'linkToFamily', 'deleteImplantTemplate', 'batchSetStatus',
     'batchPickTx', 'examSetStatus', 'examSetMonths', 'examPick', 'planWa', 'planSetStatus', 'removePendingPP', 'unlinkSessionFromApptPP',
     'quickSchedulePlannedFromProfile', 'editPlannedFromProfile', 'deletePlannedFromProfile', 'pfDeleteFile', 'planNewVisit', 'planLinkVisitPick', 'planLinkVisit', 'ppIntakeSend', 'ppIntakeCopyLink', 'ppIntakeDismiss', 'ppIntakeApprove',   /* M177: إنشاءُ رابط الاستمارة وختمُها كتابة */
     'ppPortalSend', 'ppPortalCopyLink', 'ppPortalRenew', 'ppPortalRevoke',   /* M180: إنشاءُ رابط البوابة وتجديدُه وإيقافُه كتابة */
@@ -2340,7 +2340,8 @@ try {
     'perioPdInput', 'perioPdKey', 'perioRecInput', 'perioMobInput',
     'xrUpClose', 'xrUpSubmit', 'xrToggleTooth', 'xrTeethQuick', 'xrTogglePrimary', 'xrSetType', 'xrSetSource', 'xrUpRemoveFile', 'xrUpAddFiles',
     'xrCamClose', 'xrCamStart', 'xrCamMirror', 'xrCamShot', 'xrCamRemove', 'xrCamDone',   /* v642: داخل نافذة الكاميرا (مدخلاها محروسان) */
-    'xrInboxClose', 'xrInboxAssign', 'xrInboxDismiss'];   /* M194: داخل نافذة الوارد (مدخلُها محروس) */   /* M192: داخل ورقة رفع الأشعة (مداخلُها محروسة) */
+    'xrInboxClose', 'xrInboxAssign', 'xrInboxDismiss',
+    'dentArchToggle', 'dentArchBoth', 'dentToothToggle', 'dentToothWhy'];   /* M202: داخل منتقي الجهاز المتحرك (مدخلُه محروس: openToothModal · toggleExamMode) */   /* M194: داخل نافذة الوارد (مدخلُها محروس) */   /* M192: داخل ورقة رفع الأشعة (مداخلُها محروسة) */
   const PP_ACT_WRITE = ['new', 'remind', 'rebook', 'stage', 'schedule', 'editplanned', 'delplanned'];
   const PP_ACT_READ = ['open', 'more'];
   const PP_SPECIAL = { openModal: '[onclick*="openModal(\'aiHubModal\')"]' };
@@ -2540,7 +2541,7 @@ try {
     const LISTENERS = {
       'index.html': 3, 'patients.html': 19   /* v442: عدّاد أحرف نص الرسالة (input) — قراءة بحتة · C2: إغلاق قائمة «أدوات» (عرضٌ فقط) · C2: شرائح الفلاتر النشطة (onclick ×2، تصفيةٌ محلية بلا كتابة) */, 'appointments.html': 3   /* v439: مستمع إغلاق modalOverlay بنقرةٍ خارجية حُذف — كان يمحو نموذجاً معبّأً · v565: مستمعُ «+N» انتقل إلى SyDentBadgeCap بـtheme.js (قراءةٌ بحتة) */, 'appt-views.js': 7   /* v498: نقرُ فترةٍ محجوزة ⇒ openBlockModal (محروسة) */, 'appt-blocks.js': 0, 'appt-time.js': 0, 'appt-wa.js': 1   /* v443: عدّاد أحرف نص التذكير (input) — قراءة بحتة */,
       'appt-booking.js': 0, 'appt-modal.js': 0, 'patient-profile.html': 11   /* C2: إغلاق قائمة «أدوات» (عرضٌ فقط) */, 'pp-core.js': 0, 'pp-clinical.js': 0, 'pp-dental.js': 2,
-      'pp-modules.js': 5, 'pp-plan.js': 2   /* v611: إغلاقُ لوحة «المرحلة/بديل» بنقرةٍ خارجية أو Escape — قراءة بحتة */, 'pp-timeline.js': 0, 'pp-appt.js': 3, 'pp-extras.js': 2, 'pp-wa.js': 1, 'pp-intake.js': 0, 'pp-portal.js': 0, 'pp-xray.js': 1 /* v635: «paste» (خارج القائمة) · v642: keydown للالتقاط — يعمل فقط ونافذةُ الكاميرا مفتوحة (مدخلاها محروسان) */,   /* v408: عدّاد أحرف نص الرسالة (input) — قراءة بحتة */
+      'pp-modules.js': 5, 'pp-plan.js': 2   /* v611: إغلاقُ لوحة «المرحلة/بديل» بنقرةٍ خارجية أو Escape — قراءة بحتة */, 'pp-timeline.js': 0, 'pp-appt.js': 3, 'pp-extras.js': 2, 'pp-wa.js': 1, 'pp-intake.js': 0, 'pp-portal.js': 0, 'pp-denture.js': 0   /* M202: صفر مستمعات — كلُّ نقراته onclick مصنّفة أعلاه */, 'pp-xray.js': 1 /* v635: «paste» (خارج القائمة) · v642: keydown للالتقاط — يعمل فقط ونافذةُ الكاميرا مفتوحة (مدخلاها محروسان) */,   /* v408: عدّاد أحرف نص الرسالة (input) — قراءة بحتة */
       'treatments.html': 16, 'doctors.html': 1, 'employees.html': 5, 'payouts.html': 1, 'expenses.html': 4, 'inventory.html': 5   /* v569: نافذةُ «جهّز الطلبية» (نقرٌ + إدخال) — قراءة بحتة · v570: نافذةُ الجرد (نقرٌ + إدخال) — الاعتمادُ وحده كتابة وزرُّه مخفيٌّ بالقراءة ومحروس */,
       'labs.html': 4, 'accounting.html': 11   /* v546: تصديرُ Excel — قراءة بحتة */, 'provider-reports.html': 3   /* v539: نقرُ تبويب العلاجات (ترتيبٌ · تفاصيلُ جلسات) · v545: طباعةُ الملخّص ونسخُه — قراءة بحتة */, 'audit-log.html': 6, 'settings.html': 2, 'learn.html': 1
     };

@@ -409,6 +409,17 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
             <div class="target-title">زراعة</div>
             <div class="target-sub">غرسة + تاج</div>
           </div>
+          <!-- M202: التعويضات المتحركة — هندسةٌ خاصة بالمخطط (الكامل = فكٌّ من 7 إلى 7 · الجزئي = أسنانٌ مفقودة بعينها) -->
+          <div class="target-opt" data-target="denture_full">
+            <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-h" d="M7 36C7 14 15 5 24 5C33 5 41 14 41 36L34 36C34 20 30 13 24 13C18 13 14 20 14 36Z"/><path class="tg-a tg-ah" d="M10.5 34C10.5 16 17 9 24 9C31 9 37.5 16 37.5 34"/></svg>
+            <div class="target-title">جهاز كامل</div>
+            <div class="target-sub">طقم فكٍّ كامل</div>
+          </div>
+          <div class="target-opt" data-target="denture_partial">
+            <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-m" d="M7 36C7 14 15 5 24 5C33 5 41 14 41 36L34 36C34 20 30 13 24 13C18 13 14 20 14 36Z"/><path class="tg-a tg-am" d="M10.5 34C10.5 16 17 9 24 9C31 9 37.5 16 37.5 34"/><path class="tg-a tg-ah" d="M10.5 34C10.5 27 11 22 13 17"/><path class="tg-a tg-ah" d="M37.5 34C37.5 27 37 22 35 17"/></svg>
+            <div class="target-title">جهاز جزئي</div>
+            <div class="target-sub">يعوّض أسناناً مفقودة</div>
+          </div>
           <!-- Phase 3 Feature G: regional treatment areas -->
           <div class="target-opt" data-target="quadrant">
             <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-a tg-am" d="M10 18C10 8 17 4 24 4"/><path class="tg-a tg-ah" d="M24 4C31 4 38 8 38 18"/><path class="tg-a tg-am" d="M10 30C10 40 17 44 24 44C31 44 38 40 38 30"/></svg>
@@ -418,7 +429,7 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
           <div class="target-opt" data-target="arch">
             <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-a tg-ah" d="M10 18C10 8 17 4 24 4C31 4 38 8 38 18"/><path class="tg-a tg-am" d="M10 30C10 40 17 44 24 44C31 44 38 40 38 30"/></svg>
             <div class="target-title">فك كامل</div>
-            <div class="target-sub">طقم، تقويم</div>
+            <div class="target-sub">تقويم، تبييض</div>
           </div>
           <div class="target-opt" data-target="mouth">
             <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-a tg-ah" d="M10 18C10 8 17 4 24 4C31 4 38 8 38 18"/><path class="tg-a tg-ah" d="M10 30C10 40 17 44 24 44C31 44 38 40 38 30"/></svg>
@@ -695,8 +706,9 @@ var activeFlags = { lab:false, primary:false, permanent:false, special:false, in
 
 var TARGET_CHIPS = [
   ['crown','تاج (سطح)'], ['crown_full','تاج كامل'], ['root','جذر'], ['whole','سن كامل'],
-  ['extraction','قلع'], ['implant','زراعة'], ['bridge','جسر'], ['quadrant','ربع'],
-  ['arch','فك'], ['mouth','فم كامل']
+  ['extraction','قلع'], ['implant','زراعة'], ['bridge','جسر'],
+  ['denture_full','جهاز كامل'], ['denture_partial','جهاز جزئي'],   /* M202 */
+  ['quadrant','ربع'], ['arch','فك'], ['mouth','فم كامل']
 ];
 var FLAG_CHIPS = [
   ['lab',       '🥽 مخبر',      'علاجات تحتاج إرسالاً للمخبر'],
@@ -845,6 +857,7 @@ function isProtectedTreatment(t) {
   return key === 'extracted' || tp === 'extraction'                                     // extraction ghost
       || key === 'implant'   || tp === 'implant'                                        // implant
       || key === 'bridge'    || tp === 'bridge'                                         // bridge pontic
+      || tp === 'denture_full' || tp === 'denture_partial'                              // M202: removable denture (surface='DENTURE' unit rows)
       || (t.category || '') === 'orthodontics' || /تقويم|ortho/i.test(key + ' ' + name) // ortho brackets/archwire
       || isSpacerTreatment(t);                                                          // space-maintainer Band&Loop
 }
@@ -885,6 +898,8 @@ function render() {
       'bridge':     { text:'جسر',         tone:'red' },
       'extraction': { text:'قلع',         tone:'red' },
       'implant':    { text:'زراعة',       tone:'blue' },
+      'denture_full':    { text:'جهاز كامل',  tone:'purple' },   /* M202 */
+      'denture_partial': { text:'جهاز جزئي',  tone:'purple' },
       'both':       { text:'تاج وجذر',    tone:'orange' },
       // Phase 3 Feature G: regional treatment areas (no specific tooth)
       'quadrant':   { text:'ربع',         tone:'lime' },
@@ -1003,7 +1018,7 @@ var TARGET_DEFAULTS_BY_CATEGORY = {
   diagnostic:      'mouth',
   orthodontics:    'arch'
 };
-var TARGET_TOAST_NAMES = { root:'جذر السن', crown:'سطح من التاج', extraction:'قلع', crown_full:'التاج كامل', implant:'زراعة', mouth:'فم كامل', arch:'فك كامل' };
+var TARGET_TOAST_NAMES = { root:'جذر السن', crown:'سطح من التاج', extraction:'قلع', crown_full:'التاج كامل', implant:'زراعة', mouth:'فم كامل', arch:'فك كامل', denture_full:'جهاز كامل', denture_partial:'جهاز جزئي' };
 // True once the user picks a target manually; we then stop overriding it on
 // category change. Reset at every ADD-modal open; edit/duplicate lock it.
 var userTouchedTarget = false;
@@ -1498,14 +1513,16 @@ async function _deleteTreatment_inner(id) {
 /* ═══════════════ Default clinic catalogue (CLINIC_CATALOG) ═══════════════
    Cloned 1:1 from the owner's reference clinic (25 Jul 2026): same treatments and
    settings (colors/labels/category/«يطبّق على»/lab/favorites ⭐/layman names) and the
-   exact display order sort_order 1..29 — with ALL prices 0 (each clinic sets its
+   exact display order sort_order 1..33 — with ALL prices 0 (each clinic sets its
    own pricing; Syrian market, manual). Consumed additively by «استعادة الافتراضي»
    AND the brand-new-account auto-seed — never deletes/edits existing rows
    (Rules #141/#175). default_note omitted (all empty at source; DB default).
    M146 (19 Sep 2026): rows 25..29 are the pediatric/preventive additions (بتر لب · استئصال لب
    لبني · تاج ستانلس · سادّ شقوق · فلورايد) + `dentition_scope` on every row.
+   M202 (13 Nov 2026): rows 30..33 are the removable prosthetics (جهاز متحرك كامل · جزئي أكريل ·
+   جزئي هيكل معدني · جزئي مرن) — target_part denture_full / denture_partial, permanent teeth.
    sort_order here is the catalogue's RELATIVE order: the seed on an empty account
-   gets 1..29 verbatim, while a restore into a populated catalogue appends the
+   gets 1..33 verbatim, while a restore into a populated catalogue appends the
    missing rows AFTER the clinic's max sort_order (in this same relative order) —
    the verbatim numbers used to collide with the clinic's own rows (10 live ties). */
 const CLINIC_CATALOG = [
@@ -1537,13 +1554,17 @@ const CLINIC_CATALOG = [
     { treatment_key:'pedo-pulpectomy', name:'استئصال لب لبني', label:'ا', fill:'#be185d', stroke:'#831843', price:0, builtin:false, needs_lab:false, target_part:'root', category:'pediatric', sort_order:26, post_extraction:false, dentition_scope:'primary', is_favorite:false, is_active:true, layman_name:'سحب عصب السن اللبني' },
     { treatment_key:'pedo-ssc', name:'تاج ستانلس ستيل', label:'ت', fill:'#94a3b8', stroke:'#475569', price:0, builtin:false, needs_lab:false, target_part:'crown_full', category:'pediatric', sort_order:27, post_extraction:false, dentition_scope:'primary', is_favorite:false, is_active:true, layman_name:'تاج معدني جاهز' },
     { treatment_key:'fissure-sealant', name:'سادّ شقوق', label:'س', fill:'#2563eb', stroke:'#1e40af', price:0, builtin:false, needs_lab:false, target_part:'crown', category:'preventive', sort_order:28, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'طبقة حماية من التسوّس' },
-    { treatment_key:'fluoride', name:'تطبيق فلورايد', label:'ف', fill:'#0ea5e9', stroke:'#0369a1', price:0, builtin:false, needs_lab:false, target_part:'mouth', category:'preventive', sort_order:29, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' }
+    { treatment_key:'fluoride', name:'تطبيق فلورايد', label:'ف', fill:'#0ea5e9', stroke:'#0369a1', price:0, builtin:false, needs_lab:false, target_part:'mouth', category:'preventive', sort_order:29, post_extraction:false, dentition_scope:'all', is_favorite:false, is_active:true, layman_name:'' },
+    { treatment_key:'denture-full', name:'جهاز متحرك كامل', label:'ك', fill:'#e11d74', stroke:'#9d174d', price:0, builtin:false, needs_lab:true, target_part:'denture_full', category:'prosthodontics', sort_order:30, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان كامل' },
+    { treatment_key:'denture-partial-acrylic', name:'جهاز متحرك جزئي (أكريل)', label:'ج', fill:'#f4728f', stroke:'#be123c', price:0, builtin:false, needs_lab:true, target_part:'denture_partial', category:'prosthodontics', sort_order:31, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان جزئي' },
+    { treatment_key:'denture-partial-metal', name:'جهاز متحرك جزئي (هيكل معدني)', label:'ج', fill:'#9aa8bd', stroke:'#56657b', price:0, builtin:false, needs_lab:true, target_part:'denture_partial', category:'prosthodontics', sort_order:32, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان جزئي بهيكل معدني' },
+    { treatment_key:'denture-partial-flex', name:'جهاز متحرك جزئي (مرن)', label:'ج', fill:'#b45309', stroke:'#78350f', price:0, builtin:false, needs_lab:true, target_part:'denture_partial', category:'prosthodontics', sort_order:33, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان جزئي مرن' }
 ];
 
 /* resetToDefaults (below) additively restores the default catalogue. */
 function buildDefaultTreatmentRows() {
   // Single source of truth for «استعادة الافتراضي» AND the brand-new-account auto-seed.
-  // sort_order is explicit and verbatim in CLINIC_CATALOG (1..29 clone of the reference
+  // sort_order is explicit and verbatim in CLINIC_CATALOG (1..33 clone of the reference
   // clinic) — no re-sorting. post_extraction default kept for contract symmetry (every
   // row also carries it explicitly).
   return CLINIC_CATALOG.map(function(d){ return Object.assign({ doctor_id: currentDoctor.id, post_extraction: false }, d); });
@@ -1561,7 +1582,7 @@ async function insertMissingDefaults() {
   var rows = allRows.filter(function(r){ return !_haveKey[r.treatment_key] && !_haveName[r.name]; });
   if (!rows.length) return { added: 0, error: null };
   // الترقيم: بعد أقصى ترتيبٍ قائم بالعيادة، بترتيب الكتالوج النسبي — حسابٌ جديد
-  // (صفر صفوف) يأخذ 1..29 حرفياً كما كان، وعيادةٌ قائمة لا تتعادل صفوفُها.
+  // (صفر صفوف) يأخذ 1..33 حرفياً كما كان، وعيادةٌ قائمة لا تتعادل صفوفُها.
   var _base = 0;
   for (var _b = 0; _b < treatments.length; _b++) _base = Math.max(_base, Number(treatments[_b].sort_order) || 0);
   rows.sort(function(a, b){ return (a.sort_order || 0) - (b.sort_order || 0); });

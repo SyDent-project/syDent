@@ -670,6 +670,7 @@ function renderBatchPalette() {
     if (t.is_active === false) continue;
     var tp = t.target_part || 'crown';
     if (tp === 'quadrant' || tp === 'arch' || tp === 'mouth') continue;            // regional → مساره الخاص
+    if (window.SyDenture && window.SyDenture.isTp(tp)) continue;                   // M202: جهاز متحرك → منتقيه الخاص («علاج جماعي»)
     if (tp === 'bridge') continue;                                                 // جسر = وحدة متعددة الأسنان → المسار الفردي
     if (t.post_extraction === true) continue;                                      // socket flow → normal
     if (typeof isSpacerTreatment === 'function' && isSpacerTreatment(t)) continue; // gap-unit flow → normal
@@ -702,6 +703,8 @@ function batchAllowed(n, t, s) {
     if (tp === 'crown' || (tp === 'both' && _sTaj)) return { ok: false, msg: 'دعامة جسر' };
     return { ok: true };
   }
+  /* M202: سنٌّ يعوّضه جهازٌ متحرك — لا زرعة قبل إزالة الجهاز (مرآةُ isAllowed بالمودال) */
+  if (tp === 'implant' && window.SyDenture && window.SyDenture.has(n)) return { ok: false, msg: 'يعوّضه جهاز متحرك' };
   /* v600: قلعٌ مخطّط = سنٌّ قائم (مرآةُ isAllowed بالمودال): علاجاتُه كلُّها + الزرعة كخطة؛ لا قلعَ ثانياً */
   var _xPl = (typeof isExtractionPlanned === 'function') && isExtractionPlanned(n);
   if (isExtracted(n) && !_xPl) {
@@ -974,7 +977,16 @@ function renderExamBar() {
 }
 function examSetStatus(s) { examStatus = s; renderExamBar(); }
 function examSetMonths(m) { examReviewMonths = m; renderExamBar(); }
-function examPick(key) { examSelectedKey = key; renderExamBar(); }
+function examPick(key) {
+  /* M202: الجهازُ المتحرك لا يُختم سنّاً سنّاً — منتقيه يسجّل الجهازَ القائم بحالة الشريط (موجود/عيادتنا · عيادة أخرى) */
+  if (window.SyDenture && window.SyDenture.isKey(key)) {
+    if (examStatus === 'condition') { showToast('🩺 اختر «موجود» من شريط الفحص لتسجيل جهازٍ قائم'); return; }
+    var _dt = getTreatment(key);
+    window.SyDenture.openPicker(key, _dt ? _dt.name : '', { exam: true });
+    return;
+  }
+  examSelectedKey = key; renderExamBar();
+}
 function examReviewAt() {
   if (examStatus !== 'condition' || !examReviewMonths) return null;
   var d = new Date(); d.setMonth(d.getMonth() + examReviewMonths);
@@ -995,6 +1007,8 @@ function examAllowed(n, t) {
   }
   if (isExtracted(n)) {
     if (isPrimaryTooth(n)) return { ok: false, msg: '🦷 سن لبني مقلوع — لا جسر/زراعة عليه' };
+    /* M202: سنٌّ يعوّضه جهازٌ متحرك — يُزال الجهازُ أولاً (مرآةُ isAllowed بالمودال) */
+    if ((tp === 'bridge' || tp === 'implant') && window.SyDenture && window.SyDenture.has(n)) return { ok: false, msg: '🦷 يعوّضه جهاز متحرك — أزل الجهاز من الوضع العادي' };
     if (tp === 'bridge' || tp === 'implant') return { ok: true };
     return { ok: false, msg: '🕳️ سن مقلوع — يقبل جسراً أو زراعة فقط هنا' };
   }
@@ -1020,6 +1034,7 @@ async function _examStamp_inner(n, clickedSurface) {
   if (!examSelectedKey) { showToast('👆 اختر علاجاً من شريط الفحص أولاً'); return; }
   var t = getTreatment(examSelectedKey);
   if (!t) { showToast('⚠️ العلاج المختار غير موجود'); return; }
+  if (window.SyDenture && window.SyDenture.isTreatment(t)) { showToast('🦷 الجهاز المتحرك يُسجَّل من زرّه بشريط الفحص — لا بالنقر على سن'); return; }   /* M202 */
   var tp = t.target_part || 'crown';
   /* v433: الحالةُ السريرية بالفحص الأولي — نفس عقد الوضع العادي حرفياً:
      حالةُ السن تُرسى على السطح المحجوز COND، وحالةُ السطح على سطحها المنقور. */

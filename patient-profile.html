@@ -39,6 +39,7 @@
 <script src="pp-wa.js?v=20261112a"></script>
 <script src="pp-clinical.js?v=20261112a"></script>
 <script src="pp-dental.js?v=20261112a"></script>
+<script src="pp-denture.js?v=20261112a"></script>
 <script src="pp-plan.js?v=20261112a"></script>
 <script src="pp-timeline.js?v=20261112a"></script>
 <script src="pp-appt.js?v=20261112a"></script>
@@ -360,6 +361,7 @@
         <div class="draft-hint">📱 دوّر الجهاز أفقياً لتكبير المخطط أثناء الشرح</div>
       </div>
       <div class="ortho-banner" id="orthoBanner" style="display:none;"></div>
+      <div class="ortho-banner dent-banner" id="dentureBanner" style="display:none;"></div>
       <div id="watchDueBanner" style="display:none;margin:6px 2px 16px;padding:8px 12px;border:1px solid #6b7280;border-radius:10px;background:rgba(107,114,128,.12);color:var(--text);font-size:12.5px;line-height:1.7;"></div>
       <div class="jaw-wrap" id="jawWrap" data-occview="all" data-dent="permanent">
         <div class="jaw-row row-buc" id="upperJaw"></div>
@@ -1111,6 +1113,11 @@
           <!-- populated dynamically based on target_part -->
         </select>
         <div id="regionalQuadChips" style="display:none;flex-wrap:wrap;gap:7px;"></div>
+      </div>
+      <!-- M202: منتقي الجهاز المتحرك (pp-denture.js) — شبكةُ أسنان الفك للجزئي + ملاحظةُ الحالة -->
+      <div id="dentPickBox" style="display:none;">
+        <div id="dentTeethGrid" class="nse-grid dent-grid"></div>
+        <div id="dentPickNote" class="dent-note"></div>
       </div>
     </div>
     <div class="modal-foot">
@@ -3068,7 +3075,9 @@ async function loadAll() {
     .eq('patient_id', patientId);
   teethMap = {};
   teethDx = {}; window.teethDx = teethDx;   /* v605 */
+  if (window.SyDenture) window.SyDenture.reset();   /* M202 */
   (td || []).forEach(function(t){
+    if (window.SyDenture && window.SyDenture.take(t)) return;   /* M202: صفُّ الجهاز المتحرك (surface='DENTURE') بخريطته المنفصلة — لا يدخل teethMap */
     var n = String(t.tooth_num);
     var s = t.surface || 'O';
     if (t.dx_key) { if (!teethDx[n]) teethDx[n] = {}; teethDx[n][s] = t.dx_key; }   /* v605 (M179) */
@@ -3740,6 +3749,7 @@ async function toggleHistoryMode(){
     window.__historyMode = false;
     if (liveTeethMapRef) teethMap = liveTeethMapRef;
     liveTeethMapRef = null;
+    if (window.SyDenture) window.SyDenture.histEnd();   /* M202: خريطةُ الجهاز الحيّة تعود كما كانت */
     document.body.classList.remove('hist-on');
     var eb = document.getElementById('examToggleBtn'); if (eb) eb.style.display = '';
     var hb = document.getElementById('histToggleBtn'); if (hb) hb.style.display = '';
@@ -3792,8 +3802,10 @@ function reconstructTeethMapAt(dateStr){
     else state[k] = ev;                              // I / U → latest wins
   }
   var map = {};
+  if (window.SyDenture) window.SyDenture.histBegin();   /* M202: جهازُ ذلك اليوم يُعاد بناؤه من السجل نفسه */
   Object.keys(state).forEach(function(k){
     var ev = state[k], n = String(ev.tooth_num), s = ev.surface;
+    if (window.SyDenture && window.SyDenture.take(ev)) return;   /* M202 */
     if (!map[n]) map[n] = {};
     map[n][s] = ev.treatment_key;
     if (!map[n].__status) map[n].__status = {};
@@ -4788,6 +4800,10 @@ async function _delSession_inner(id, opts) {
       } catch (e) { console.warn('delSession: surface resync skipped:', e); }
     }
   }
+  /* M202: حذفُ جلسة جهازٍ متحرك مخطّطة يزيل رسمَه (صفوفُ الوحدة بمعرّف الجلسة) — المنجزةُ يبقى رسمُها */
+  if (sess && window.SyDenture) {
+    try { await window.SyDenture.onSessionDeleted(sess); } catch (e) { console.warn('delSession: denture rows skipped:', e); }
+  }
   /* M145-b: حذفُ جلسة جسرٍ مخطّط له بديلٌ باقٍ ⇒ المخطط يتبع الجسر الباقي (لا بديل ⇒ صفر مساس). */
   if (sess && (sess.status || 'completed') === 'planned' && String(sess.tooth_num || '').indexOf(',') !== -1 && typeof bridgeChartResync === 'function') {
     var _bridgeFollowed = false;
@@ -4886,7 +4902,7 @@ async function drawPendingImplantAfterExtraction(tn) {
   });
   if (imps.length !== 1) return;
   var x = imps[0], key = sessionTreatmentKey(x);
-  var w = await window.sb.from('teeth_status').delete().eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', tn);
+  var w = await window.sb.from('teeth_status').delete().eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', tn).neq('surface', 'DENTURE');   /* M202: محوُ السن لا يطال صفَّ الجهاز المتحرك */
   if (w.error) { console.warn('drawPendingImplant wipe:', w.error); return; }
   var r = await upsertTeethStatusWithFallback({
     doctor_id: currentUser.id, patient_id: patientId, tooth_num: tn, surface: 'WHOLE',
@@ -4896,6 +4912,8 @@ async function drawPendingImplantAfterExtraction(tn) {
   teethMap[tn] = { WHOLE: key, __status: { WHOLE: 'planned' } };
 }
 async function syncToothStatusOnComplete(sess) {
+  /* M202: جلسةُ الجهاز المتحرك جلسةُ فكٍّ (بلا tooth_num) — إنجازُها يقلب صفوفَ وحدتها المخطّطة (مرآتُه بصفحة المواعيد) */
+  if (sess && !sess.tooth_num && window.SyDenture) { await window.SyDenture.onSessionComplete(sess); return ''; }
   if (!sess || !sess.tooth_num) return '';
   if (typeof isUnitLedgerSession === 'function' && isUnitLedgerSession(sess)) return await syncUnitRowsOnComplete(sess);
   var tn  = String(sess.tooth_num);
@@ -4917,7 +4935,7 @@ async function syncToothStatusOnComplete(sess) {
   if (!key) {
     console.warn('syncToothStatusOnComplete: unresolved treatment for session', sess.id, sess.type, '— legacy surface-only flip');
     var qL = window.sb.from('teeth_status').update({ status: 'completed' })
-      .eq('doctor_id', currentUser.id).eq('patient_id', pid).eq('tooth_num', tn).eq('status', 'planned');
+      .eq('doctor_id', currentUser.id).eq('patient_id', pid).eq('tooth_num', tn).eq('status', 'planned').neq('surface', 'DENTURE');   /* M202 */
     if (sess.surface) qL = qL.eq('surface', sess.surface);
     var uL = await qL;
     if (uL.error) console.warn('completeSessionFromProfile: teeth_status update warn:', uL.error);
@@ -4953,7 +4971,7 @@ async function syncToothStatusOnComplete(sess) {
      جسرٌ مرسومٌ على الموقع ⇒ صفر مساس. */
   if (sf === 'WHOLE' && typeof isImplantKey === 'function' && isImplantKey(key) && isExtractionKey(rowKey)
       && rowSt !== 'planned' && rowSt !== 'referred' && !isBridgeKey(sm.PONTIC)) {
-    var wI = await window.sb.from('teeth_status').delete().eq('doctor_id', currentUser.id).eq('patient_id', pid).eq('tooth_num', tn);
+    var wI = await window.sb.from('teeth_status').delete().eq('doctor_id', currentUser.id).eq('patient_id', pid).eq('tooth_num', tn).neq('surface', 'DENTURE');   /* M202 */
     if (wI.error) { console.warn('implant-complete wipe warn:', wI.error); return ''; }
     var rI = await upsertTeethStatusWithFallback({
       doctor_id: currentUser.id, patient_id: pid, tooth_num: tn, surface: 'WHOLE',

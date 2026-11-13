@@ -67,7 +67,7 @@ const page=`<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"
         return { select:function(){ return { single:function(){ return Promise.resolve({data:Object.assign({id:'sess-1'},row),error:null}); } }; } }; },
       delete:function(){ st.op='delete'; window.__WRITES.push(JSON.parse(JSON.stringify(st))); return api; },
       update:function(p){ st.op='update'; st.payload=p; window.__WRITES.push(JSON.parse(JSON.stringify(st))); return api; },
-      select:function(){ return api; }, eq:function(k,v){ st.eq[k]=v; return api; }, in:function(){ return api; },
+      select:function(){ return api; }, eq:function(k,v){ st.eq[k]=v; return api; }, neq:function(){ return api; }, in:function(){ return api; },
       order:function(){ return api; }, limit:function(){ return api; }, single:function(){ return Promise.resolve({data:null,error:null}); },
       not:function(){ return api; }, or:function(){ return api; }, then:function(res){ return Promise.resolve({data:[],error:null}).then(res); } };
     return api; }

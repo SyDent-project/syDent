@@ -68,6 +68,7 @@ AFTER_SNAPSHOT = [
     'migrations/199_touch_presence_reports_hit.sql',   # after 198 is safe: revokes anon by name itself
     'migrations/200_daysheet_methods_and_closing_trail.sql',   # after 198 is safe: its one new function is revoked from PUBLIC/anon/authenticated by name
     'migrations/201_expense_system_category_supplier_link.sql',   # after 198 is safe: its two trigger functions are revoked from PUBLIC/anon/authenticated by name
+    'migrations/202_removable_prosthetics_core.sql',   # after 198 is safe: no new function — handle_new_doctor is replaced in place (CREATE OR REPLACE keeps its ACL)
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',
