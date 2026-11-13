@@ -4831,8 +4831,8 @@ function updateToothModalAreaTitle(){
    The context action button (remove implant/bridge, undo extraction, mark sound)
    appears in every tab. */
 var _txAllowed = [], _txSpecialHtml = '', _txTab = 'starred';
-var TX_CAT_META = { condition:'🩺 حالات سريرية', diagnostic:'🔍 تشخيصي', preventive:'🛡️ وقائي', restorative:'🦷 ترميمي', endodontics:'🌱 معالجة لبية', surgical:'🔪 جراحي', prosthodontics:'🔗 تعويضي', implantology:'🔩 زراعة', cosmetic:'✨ تجميلي', prosth_cosmetic:'💎 تعويض تجميلي', orthodontics:'⚓ تقويم', periodontics:'🌿 معالجة لثوية', pediatric:'🧒 أطفال', other:'📋 أخرى' };
-var TX_CAT_ORDER = ['condition','diagnostic','preventive','restorative','endodontics','surgical','prosthodontics','implantology','cosmetic','prosth_cosmetic','orthodontics','periodontics','pediatric','other'];
+var TX_CAT_META = { condition:'🩺 حالات سريرية', diagnostic:'🔍 تشخيصي', preventive:'🛡️ وقائي', restorative:'🦷 ترميمي', endodontics:'🌱 معالجة لبية', surgical:'🔪 جراحي', prosthodontics:'🔗 تعويضات ثابتة', prosth_removable:'🧩 تعويضات متحركة', implantology:'🔩 زراعة', cosmetic:'✨ تجميلي', prosth_cosmetic:'💎 تعويض تجميلي', orthodontics:'⚓ تقويم', periodontics:'🌿 معالجة لثوية', pediatric:'🧒 أطفال', other:'📋 أخرى' };
+var TX_CAT_ORDER = ['condition','diagnostic','preventive','restorative','endodontics','surgical','prosthodontics','prosth_removable','implantology','cosmetic','prosth_cosmetic','orthodontics','periodontics','pediatric','other'];
 function txUsage(){ try { return JSON.parse(localStorage.getItem('sydent_tx_usage') || '{}'); } catch(e){ return {}; } }
 function bumpTxUsage(key){ try { var u = txUsage(); u[key] = (u[key]||0) + 1; localStorage.setItem('sydent_tx_usage', JSON.stringify(u)); } catch(e){} }
 function txFavorites(){
@@ -5182,9 +5182,9 @@ async function openToothModal(n, surface) {
     if (isSxSurface(currentSurface)) return !t.is_condition && (t.target_part || 'crown') === 'extraction';
     // M146: علاجٌ «لبنية فقط» لا يُعرض على سنٍّ دائم والعكس — بكل حالات السن
     if (!txDentitionOk(t, n)) return false;
-    /* M202: الجهازُ المتحرك هندسةُ فكٍّ لا سنّ — مدخلُه «علاج جماعي»؛ والسنُّ الذي يحمل جهازاً لا يقبل زرعةً ولا جسراً قبل إزالته */
+    /* M202: الجهازُ المتحرك هندسةُ فكٍّ لا سنّ؛ والسنُّ الذي يحمل جهازاً لا يقبل زرعةً ولا جسراً قبل إزالته */
     if (window.SyDenture) {
-      if (window.SyDenture.isTreatment(t)) return false;
+      if (window.SyDenture.isTreatment(t)) return true;   /* v710: يظهر على أي سنٍّ دائم (فئةُ «تعويضات متحركة») — نقرتُه تفتح منتقي الفك على فكّ هذا السن */
       if (window.SyDenture.has(n) && ((t.target_part || 'crown') === 'implant' || (t.target_part || 'crown') === 'bridge')) return false;
     }
     // ── Owner matrix (OpenDental treatment-area model) — applies to STANDING teeth
@@ -6319,9 +6319,10 @@ function pickToothTreatment(status, label) {
   if (window.SyDenture) {
     window.SyDenture.clearPending();
     if (window.SyDenture.isTp(tp)) {
+      var _dArch = (currentTooth && !window.__regionalPickerMode) ? archForTooth(currentTooth) : null;   /* v710: من نافذة سن ⇒ فكُّه */
       window.__regionalPickerMode = false;
       closeModal('toothModal');
-      window.SyDenture.openPicker(status, label, null);
+      window.SyDenture.openPicker(status, label, _dArch ? { arch: _dArch } : null);
       return;
     }
   }

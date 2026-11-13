@@ -598,10 +598,10 @@ BEGIN
     (NEW.id, 'pedo-ssc', 'تاج ستانلس ستيل', 'ت', '#94a3b8', '#475569', 0, false, false, 'crown_full', 'pediatric', 27, false, false, true, 'تاج معدني جاهز', 'primary'),
     (NEW.id, 'fissure-sealant', 'سادّ شقوق', 'س', '#2563eb', '#1e40af', 0, false, false, 'crown', 'preventive', 28, false, false, true, 'طبقة حماية من التسوّس', 'all'),
     (NEW.id, 'fluoride', 'تطبيق فلورايد', 'ف', '#0ea5e9', '#0369a1', 0, false, false, 'mouth', 'preventive', 29, false, false, true, '', 'all'),
-    (NEW.id, 'denture-full', 'جهاز متحرك كامل', 'ك', '#e11d74', '#9d174d', 0, false, true, 'denture_full', 'prosthodontics', 30, false, false, true, 'طقم أسنان كامل', 'permanent'),
-    (NEW.id, 'denture-partial-acrylic', 'جهاز متحرك جزئي (أكريل)', 'ج', '#f4728f', '#be123c', 0, false, true, 'denture_partial', 'prosthodontics', 31, false, false, true, 'طقم أسنان جزئي', 'permanent'),
-    (NEW.id, 'denture-partial-metal', 'جهاز متحرك جزئي (هيكل معدني)', 'ج', '#9aa8bd', '#56657b', 0, false, true, 'denture_partial', 'prosthodontics', 32, false, false, true, 'طقم أسنان جزئي بهيكل معدني', 'permanent'),
-    (NEW.id, 'denture-partial-flex', 'جهاز متحرك جزئي (مرن)', 'ج', '#b45309', '#78350f', 0, false, true, 'denture_partial', 'prosthodontics', 33, false, false, true, 'طقم أسنان جزئي مرن', 'permanent')
+    (NEW.id, 'denture-full', 'جهاز متحرك كامل', 'ك', '#e11d74', '#9d174d', 0, false, true, 'denture_full', 'prosth_removable', 30, false, false, true, 'طقم أسنان كامل', 'permanent'),
+    (NEW.id, 'denture-partial-acrylic', 'جهاز متحرك جزئي (أكريل)', 'ج', '#f4728f', '#be123c', 0, false, true, 'denture_partial', 'prosth_removable', 31, false, false, true, 'طقم أسنان جزئي', 'permanent'),
+    (NEW.id, 'denture-partial-metal', 'جهاز متحرك جزئي (هيكل معدني)', 'ج', '#9aa8bd', '#56657b', 0, false, true, 'denture_partial', 'prosth_removable', 32, false, false, true, 'طقم أسنان جزئي بهيكل معدني', 'permanent'),
+    (NEW.id, 'denture-partial-flex', 'جهاز متحرك جزئي (مرن)', 'ج', '#b45309', '#78350f', 0, false, true, 'denture_partial', 'prosth_removable', 33, false, false, true, 'طقم أسنان جزئي مرن', 'permanent')
   ON CONFLICT (doctor_id, treatment_key) DO NOTHING;
   -- CATALOG-PARITY-END
 

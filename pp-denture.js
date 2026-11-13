@@ -18,6 +18,10 @@
      وتقرأ كلَّ مفتاحٍ سطحاً. والرسمُ طبقةٌ تُضاف بعد renderTeeth ⇒ مخططٌ بلا جهاز لا يتغيّر فيه بايت.
    • المال: صفر مسار جديد — جلسةٌ بالتكلفة المدخلة ثم reallocatePatientFunds كأي جلسة فك.
 
+   ج1-ب (v710 · M203 — بلاغُ المالك بعد التجربة الحيّة 13/11/2026): العلاجاتُ لم تُعثَر عليها بتبويب «تعويضي» بنافذة السن،
+   والفكُّ الأدرد بلا مدخل. ⇒ علاجاتُ الجهاز تظهر بنافذة أي سنٍّ دائم (فئةُ «تعويضات متحركة») ونقرتُها تفتح المنتقي على فكّ
+   ذلك السن · «فك أدرد» بشريط الفحص الأولي يعلّم أسنانَ الفك القائمة مفقودةً بكبسة.
+
    قيودُ ج1 (تُرفع بـج2 مع البدائل أ/ب/ج والجهاز الفوري وفوق الزرعات):
    • السنُّ الذي يحمل جهازاً لا يقبل زرعةً ولا جسراً، ولا يُلغى قلعُه قبل إزالة الجهاز.
    • الجهازُ الجزئي على أسنانٍ مقلوعة فعلاً (لا قلعٍ مخطّط)، والكاملُ على فكٍّ بلا زرعاتٍ ولا جسور.
@@ -169,13 +173,14 @@ function dentOpenPicker(key, label, ctx) {
   if (window.__historyMode) { showToast('🕰️ عرض تاريخي للقراءة فقط — أنهِ العرض للتعديل'); return true; }
   var kind = tr.target_part === 'denture_full' ? 'full' : 'partial';
   pendingDenture = { key: key, label: label || tr.name, kind: kind, exam: !!(ctx && ctx.exam), picking: true, arches: [], arch: null, teeth: [], units: [] };
+  var fromArch = (ctx && (ctx.arch === 'U' || ctx.arch === 'L')) ? ctx.arch : null;   /* المدخلُ من نافذة سن: فكُّ ذلك السن */
   if (kind === 'partial') {
-    /* الفكُّ الافتراضي: الذي فيه مفقودٌ يقبل التعويض (العلوي أولاً)؛ والمفقودُ محدَّدٌ مسبقاً عدا أرحاء العقل */
-    var pick = null;
+    /* الفكُّ الافتراضي: فكُّ السن المنقور، وإلا الذي فيه مفقودٌ يقبل التعويض (العلوي أولاً)؛ والمفقودُ محدَّدٌ مسبقاً عدا أرحاء العقل */
+    var pick = fromArch;
     ['U', 'L'].forEach(function (a) { if (!pick && dentSelectable(a).length) pick = a; });
     pendingDenture.arch = pick || 'U';
     pendingDenture.teeth = dentDefaultTeeth(pendingDenture.arch);
-  }
+  } else if (fromArch) pendingDenture.arches = [fromArch];
   var sel = document.getElementById('regionalAreaSelect'); if (sel) sel.style.display = 'none';
   var chips = document.getElementById('regionalQuadChips'); if (chips) chips.style.display = 'flex';
   dentPickerUi(true);
@@ -204,10 +209,10 @@ function dentPickerRender() {
   if (chips) {
     var h = '';
     ['U', 'L'].forEach(function (a) {
-      var sel = pd.kind === 'full' ? pd.arches.indexOf(a) !== -1 : pd.arch === a;
+      var sel = pd.kind === 'partial' ? pd.arch === a : pd.arches.indexOf(a) !== -1;
       h += '<button type="button" data-dent-arch="' + a + '" onclick="dentArchToggle(\'' + a + '\')" style="' + base + (sel ? on : off) + '">' + dentArchLabel(a) + '</button>';
     });
-    if (pd.kind === 'full') {
+    if (pd.kind !== 'partial') {
       h += '<button type="button" data-dent-arch="both" onclick="dentArchBoth()" style="' + base + 'border:1.5px dashed var(--border2);color:var(--text2);background:transparent;">'
         + (pd.arches.length === 2 ? 'إلغاء الكل' : 'الفكان معاً') + '</button>';
     }
@@ -232,6 +237,14 @@ function dentPickerRender() {
     if (pd.kind === 'partial') {
       if (!dentSelectable(pd.arch).length) lines.push('<div class="dent-note-warn">لا أسنان مفقودة بهذا الفك تقبل التعويض — سجّل القلع على المخطط أولاً.</div>');
       else lines.push('<div>المحدَّد: <b>' + pd.teeth.length + '</b> ' + (pd.teeth.length === 1 ? 'سن' : 'أسنان') + ' — انقر السن لإضافته أو استبعاده. الباهتُ لا يقبل التعويض (انقره لمعرفة السبب).</div>');
+    } else if (pd.kind === 'edent') {
+      if (!pd.arches.length) lines.push('<div>اختر فكاً واحداً على الأقل.</div>');
+      pd.arches.forEach(function (a) {
+        var e = dentEdentCheck(a);
+        var keep = e.skip.length ? ' يبقى كما هو: ' + e.skip.map(function (b) { return b.t + ' (' + escapeHtml(b.why) + ')'; }).join('، ') + '.' : '';
+        if (e.mark.length) lines.push('<div><b>' + dentArchLabel(a) + ':</b> ' + e.mark.length + ' ' + (e.mark.length === 1 ? 'سن قائم يُعلَّم مفقوداً' : 'أسنان قائمة تُعلَّم مفقودة') + ' (' + e.mark.join('، ') + ').' + keep + '</div>');
+        else lines.push('<div><b>' + dentArchLabel(a) + ':</b> لا أسنان قائمة تُعلَّم' + (e.skip.length ? ' —' + keep : ' — كلُّ أسنانه مفقودة ✓') + '</div>');
+      });
     } else {
       if (!pd.arches.length) lines.push('<div>اختر فكاً واحداً على الأقل.</div>');
       pd.arches.forEach(function (a) {
@@ -250,7 +263,7 @@ function dentPickerRender() {
 }
 function dentArchToggle(a) {
   var pd = pendingDenture; if (!pd) return;
-  if (pd.kind === 'full') {
+  if (pd.kind !== 'partial') {
     var i = pd.arches.indexOf(a);
     if (i === -1) pd.arches.push(a); else pd.arches.splice(i, 1);
     pd.arches.sort(function (x, y) { return x === 'U' ? -1 : (y === 'U' ? 1 : 0); });
@@ -260,7 +273,7 @@ function dentArchToggle(a) {
   dentPickerRender();
 }
 function dentArchBoth() {
-  var pd = pendingDenture; if (!pd || pd.kind !== 'full') return;
+  var pd = pendingDenture; if (!pd || pd.kind === 'partial') return;
   pd.arches = (pd.arches.length === 2) ? [] : ['U', 'L'];
   dentPickerRender();
 }
@@ -273,10 +286,67 @@ function dentToothToggle(t) {
 }
 function dentToothWhy(t) { var s = dentToothState(t); showToast('🦷 السن ' + t + ': ' + (s.why || 'لا يقبل التعويض')); }
 
+/* ── «فك أدرد» (شريط الفحص الأولي): أسنانُ الفك القائمة تُعلَّم مفقودةً بكبسة — بلا جهاز، بلا جلسة ── */
+/* أسنانُ الفك الستة عشر: القائمُ يُعلَّم · المفقودُ أصلاً لا يُمسّ · الزرعةُ والجسرُ والقلعُ المخطّط تبقى كما هي وتُذكر */
+function dentEdentCheck(arch) {
+  var mark = [], skip = [];
+  dentArchRow(arch).forEach(function (t) {
+    if (typeof isExtractionDone === 'function' && isExtractionDone(t)) return;
+    var s = dentToothState(t);
+    if (s.standing) mark.push(t); else if (s.block) skip.push({ t: t, why: s.why });
+  });
+  return { mark: mark, skip: skip };
+}
+/* تعليمُ السن مفقوداً يمحو علاجاتِه المرسومة (v608) — يُقال صراحةً حين يوجد منها شيء */
+function dentChartedNote(teeth) {
+  var n = teeth.filter(function (t) {
+    var sm = teethMap[String(t)] || {};
+    return Object.keys(sm).some(function (k) { return k.indexOf('__') !== 0; });
+  });
+  return n.length ? '\n\n⚠️ على ' + (n.length === 1 ? 'السن ' : 'الأسنان ') + n.join('، ') + ' علاجاتٌ مرسومة تُزال عن المخطط (جلساتُها تبقى بالسجل).' : '';
+}
+function dentOpenEdentulous() {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  if (window.__historyMode) { showToast('🕰️ عرض تاريخي للقراءة فقط — أنهِ العرض للتعديل'); return; }
+  pendingDenture = { key: null, label: 'فك أدرد', kind: 'edent', exam: true, picking: true, arches: [], arch: null, teeth: [], units: [] };
+  var sel = document.getElementById('regionalAreaSelect'); if (sel) sel.style.display = 'none';
+  var chips = document.getElementById('regionalQuadChips'); if (chips) chips.style.display = 'flex';
+  dentPickerUi(true);
+  var ti = document.getElementById('regionalAreaTitle'); if (ti) ti.textContent = '🦷 فك أدرد';
+  var hi = document.getElementById('regionalAreaHint');
+  if (hi) hi.textContent = 'اختر الفك — أسنانه القائمة تُعلَّم «مفقودة» بكبسة واحدة (بلا جلسة ولا تكلفة)';
+  dentPickerRender();
+  var ov = document.getElementById('regionalAreaModal'); if (ov) ov.classList.add('open');
+}
+async function dentConfirmEdent(pd) {
+  if (!pd.arches.length) { showToast('⚠️ اختر فكاً واحداً على الأقل'); return; }
+  var mark = [];
+  pd.arches.forEach(function (a) { mark = mark.concat(dentEdentCheck(a).mark); });
+  if (!mark.length) { showToast('🦷 لا أسنان قائمة تُعلَّم بالفك المختار'); return; }
+  var names = pd.arches.map(dentArchLabel).join(' و');
+  var charted = dentChartedNote(mark);
+  if (!await SyDialog.confirm({
+    title: 'فك أدرد',
+    message: names + ': ' + mark.length + ' ' + (mark.length === 1 ? 'سن قائم يُعلَّم مفقوداً' : 'أسنان قائمة تُعلَّم مفقودة') + ':\n' + mark.join('، ')
+      + '\n\nبلا جلسة ولا تكلفة. للتراجع عن سنٍّ: «إلغاء القلع» من نافذته.' + charted,
+    confirmText: 'علّمها مفقودة', cancelText: 'رجوع', danger: !!charted
+  })) return;
+  var st = (typeof examStatus !== 'undefined' && examStatus === 'existing_current') ? 'existing_current' : 'existing_other';
+  var err = await dentMarkMissing(mark, pendingProviderId, st);
+  pendingDenture = null;
+  closeModal('regionalAreaModal'); dentPickerUi(false);
+  if (!err && typeof examCount !== 'undefined') examCount += mark.length;
+  renderTeeth(); renderStats();
+  if (typeof examSyncCount === 'function') examSyncCount();
+  if (err) { showToast('⚠️ تعذّر تعليم الأسنان مفقودة (' + err + ')'); return; }
+  showToast('✓ ' + names + ': ' + mark.length + ' ' + (mark.length === 1 ? 'سن عُلّم مفقوداً' : 'أسنان عُلّمت مفقودة'));
+}
+
 /* «متابعة» بالمنتقي: يبني الوحدات ويتحقّق، ثم الخطوةُ الثانية (أو الحفظُ المباشر بالفحص الأولي) */
 async function dentConfirmPick() {
   if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
   var pd = pendingDenture; if (!pd) return;
+  if (pd.kind === 'edent') { await dentConfirmEdent(pd); return; }
   var units = [];
   if (pd.kind === 'partial') {
     var teeth = pd.teeth.filter(function (t) { return dentToothState(t).ok; });
@@ -298,7 +368,8 @@ async function dentConfirmPick() {
       var ok = await SyDialog.confirm({
         title: 'أسنان قائمة بالمخطط',
         message: 'الجهاز الكامل يُسجَّل على فكٍّ بلا أسنان، وعلى المخطط ' + toMark.length + ' ' + (toMark.length === 1 ? 'سن قائم' : 'أسنان قائمة') + ':\n'
-          + toMark.join('، ') + '\n\nإن كانت مفقودةً فعلاً تُعلَّم «مفقودة مسبقاً» عند الحفظ (بلا جلسة ولا تكلفة).\nوإن كانت ستُقلع فارجع وسجّل قلعها أولاً.',
+          + toMark.join('، ') + '\n\nإن كانت مفقودةً فعلاً تُعلَّم «مفقودة مسبقاً» عند الحفظ (بلا جلسة ولا تكلفة).\nوإن كانت ستُقلع فارجع وسجّل قلعها أولاً.'
+          + dentChartedNote(toMark),
         confirmText: 'علّمها مفقودة وتابع', cancelText: 'رجوع'
       });
       if (!ok) return;
@@ -344,11 +415,12 @@ function dentRevalidate(pd) {
   return '';
 }
 /* تعليمُ سنٍّ قائم «مفقوداً مسبقاً»: مسارُ القلع القائم نفسه (محوُ صفوف السن وحملُ حالاتها dx على صفّ القلع — v608) */
-async function dentMarkMissing(teeth, providerId) {
+async function dentMarkMissing(teeth, providerId, status) {
+  var st = (status === 'existing_current') ? 'existing_current' : 'existing_other';
   for (var i = 0; i < teeth.length; i++) {
     var tn = String(teeth[i]);
     var row = { doctor_id: currentUser.id, patient_id: patientId, tooth_num: tn, surface: 'WHOLE', treatment_key: 'extracted',
-                status: 'existing_other', provider_id: providerId || null, review_at: null };
+                status: st, provider_id: providerId || null, review_at: null };
     var dx = await wipeToothAfterExtraction(tn, patientId);
     if (dx) row.dx_key = dx;
     var r = await upsertTeethStatusWithFallback(row, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
@@ -356,7 +428,7 @@ async function dentMarkMissing(teeth, providerId) {
     if (!teethMap[tn]) teethMap[tn] = {};
     teethMap[tn].WHOLE = 'extracted';
     if (!teethMap[tn].__status) teethMap[tn].__status = {};
-    teethMap[tn].__status.WHOLE = 'existing_other';
+    teethMap[tn].__status.WHOLE = st;
     if (teethMap[tn].__review) delete teethMap[tn].__review.WHOLE;
   }
   return '';
@@ -652,7 +724,7 @@ window.SyDenture = {
   isTp: dentIsTp, isTreatment: dentIsTreatment, isKey: dentIsKey,
   reset: dentReset, take: dentTake, histBegin: dentHistBegin, histEnd: dentHistEnd,
   has: dentHas, unitOf: dentUnitOf, units: dentUnits, areaText: dentAreaText,
-  openPicker: dentOpenPicker, pickerActive: dentPickerActive, pickerReset: dentPickerReset, confirmPick: dentConfirmPick, clearPending: dentClearPending,
+  openPicker: dentOpenPicker, openEdentulous: dentOpenEdentulous, pickerActive: dentPickerActive, pickerReset: dentPickerReset, confirmPick: dentConfirmPick, clearPending: dentClearPending,
   saveReady: dentSaveReady, save: dentSave,
   removeBtnHtml: dentRemoveBtnHtml,
   onSessionComplete: dentOnSessionComplete, onSessionDeleted: dentOnSessionDeleted,

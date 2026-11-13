@@ -2341,7 +2341,7 @@ try {
     'xrUpClose', 'xrUpSubmit', 'xrToggleTooth', 'xrTeethQuick', 'xrTogglePrimary', 'xrSetType', 'xrSetSource', 'xrUpRemoveFile', 'xrUpAddFiles',
     'xrCamClose', 'xrCamStart', 'xrCamMirror', 'xrCamShot', 'xrCamRemove', 'xrCamDone',   /* v642: داخل نافذة الكاميرا (مدخلاها محروسان) */
     'xrInboxClose', 'xrInboxAssign', 'xrInboxDismiss',
-    'dentArchToggle', 'dentArchBoth', 'dentToothToggle', 'dentToothWhy'];   /* M202: داخل منتقي الجهاز المتحرك (مدخلُه محروس: openToothModal · toggleExamMode) */   /* M194: داخل نافذة الوارد (مدخلُها محروس) */   /* M192: داخل ورقة رفع الأشعة (مداخلُها محروسة) */
+    'dentArchToggle', 'dentArchBoth', 'dentToothToggle', 'dentToothWhy', 'dentOpenEdentulous'];   /* M202: داخل منتقي الجهاز المتحرك (مدخلُه محروس: openToothModal · toggleExamMode) */   /* M194: داخل نافذة الوارد (مدخلُها محروس) */   /* M192: داخل ورقة رفع الأشعة (مداخلُها محروسة) */
   const PP_ACT_WRITE = ['new', 'remind', 'rebook', 'stage', 'schedule', 'editplanned', 'delplanned'];
   const PP_ACT_READ = ['open', 'more'];
   const PP_SPECIAL = { openModal: '[onclick*="openModal(\'aiHubModal\')"]' };
