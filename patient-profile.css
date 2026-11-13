@@ -1223,9 +1223,11 @@ html[data-sub-level="read"] .spc-caret,html[data-sub-level="read"] .spc-panel{di
 .nse-legend i.tx{border-color:var(--green);box-shadow:inset 0 -3px 0 var(--green);}
 .nse-legend i.p{border-style:dashed;border-color:var(--green);}
 /* M202: منتقي الجهاز المتحرك — شبكةُ أسنان الفك داخل نافذة «اختر المنطقة» (pp-denture.js).
-   مفقودٌ يقبل التعويض = إطارٌ متقطّع · محدَّد = أخضر · لا يقبل = باهت (نقرُه يشرح السبب). */
+   مفقودٌ يقبل التعويض = إطارٌ متقطّع · محدَّد = أخضر · لا يقبل = باهت (نقرُه يشرح السبب) ·
+   ج2-أ: عليه زرعةٌ أو جسرٌ مخطّط (الجهازُ بديل) = إطارٌ متقطّع أزرق، لا يُحدَّد مسبقاً. */
 .dent-grid{margin:14px 0 8px;}
 .dent-t.dent-miss{border-style:dashed;border-color:var(--border2,var(--border));color:var(--text2);}
+.dent-t.dent-miss.dent-alt{border-color:var(--blue);color:var(--blue);}
 .dent-t.dent-on{background:var(--green);border-color:var(--green);color:var(--on-accent,#fff);}
 .dent-t.dent-on:hover{background:var(--green);}
 .dent-t.dent-off{opacity:.35;cursor:not-allowed;}
@@ -1233,6 +1235,7 @@ html[data-sub-level="read"] .spc-caret,html[data-sub-level="read"] .spc-panel{di
 .dent-note{font-size:12.5px;line-height:1.8;color:var(--text2);}
 .dent-note b{color:var(--text);}
 .dent-note .dent-note-warn{color:var(--red);}
+.dent-note .dent-note-alt{color:var(--blue);}
 .dent-banner{margin-top:-8px;}
 .nse-legend i.x{position:relative;opacity:.7;}
 .nse-legend i.x::after{content:'';position:absolute;left:2px;right:2px;top:4px;height:1px;background:var(--text2);}
