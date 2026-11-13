@@ -2948,3 +2948,28 @@ Object.assign(window.SyI18nDict, {
   [/^حدّد هدفاً شهرياً (ل\.س|\$) ←$/, function (m, cur) { return 'Set a monthly goal in ' + (cur === '$' ? '$' : 'SYP') + ' →'; }]
   );
 })();
+
+/* ── v716: نافذةُ «تطبيق» ورسائلُ الحفظ بالتحديد المتعدد (#110–#113) — عنوانٌ ورسالةٌ يحملان اسمَ العلاج (بياناتُ العيادة)
+   فلا يطابقهما القاموس؛ هذه الأنماط تترجم الجملة وتُبقي الاسمَ كما هو إن لم يُعرف. المواضعُ («16 إطباقي، 26 جذر 1»)
+   تُترجَم كلمةً كلمة ما عُرفت كلُّ كلماتها، وإلا يبقى الموضعُ كما هو. ── */
+(function () {
+  var D = function () { return window.SyI18nDict || {}; };
+  var X = { 'تاج': 'crown', 'كامل': 'whole', 'جذر': 'root' };
+  function word(w) { var d = D(); return d[w] != null ? d[w] : (X[w] != null ? X[w] : null); }
+  function pos(p) {
+    var ws = p.split(' '), out = [];
+    for (var i = 0; i < ws.length; i++) { if (!/[\u0600-\u06FF]/.test(ws[i])) { out.push(ws[i]); continue; } var v = word(ws[i]); if (v == null) return p; out.push(v); }
+    return out.join(' ');
+  }
+  function list(s) { return s.split('، ').map(pos).join(', '); }
+  function name(s) { var d = D(); return d[s] != null ? d[s] : s; }
+  function cnt(n, one, many) { return n + ' ' + (+n === 1 ? one : many); }
+  window.SyI18nPatterns.push(
+    [/^🦷 (.+?) — (\d+) (?:جلسة|جلسات) \((.+)\)$/, function (m, t, n, l) { return '🦷 ' + name(t) + ' — ' + cnt(n, 'session', 'sessions') + ' (' + list(l) + ')'; }],
+    [/^📌 (.+?) — موجود مسبقاً على (\d+) (?:موضع|مواضع) · توثيق بلا تكلفة \((.+)\)$/, function (m, t, n, l) { return '📌 ' + name(t) + ' — already existing on ' + cnt(n, 'position', 'positions') + ' · documentation, no charge (' + list(l) + ')'; }],
+    [/^✅ تم تسجيل (.+?) لـ(\d+) أسنان \(جلسة لكل سن\)$/, function (m, t, n) { return '✅ ' + name(t) + ' recorded for ' + cnt(n, 'tooth', 'teeth') + ' (one session per tooth)'; }],
+    [/^📌 وُثّق (.+?) كموجودٍ مسبقاً على (\d+) (?:موضع|مواضع) — بلا تكلفة$/, function (m, t, n) { return '📌 ' + name(t) + ' documented as already existing on ' + cnt(n, 'position', 'positions') + ' — no charge'; }],
+    [/^⚠️ توقفت الدفعة — سُجلت (\d+) من (\d+) جلسات$/, function (m, a, b) { return '⚠️ Batch stopped — ' + a + ' of ' + b + ' sessions recorded'; }],
+    [/^⚠️ توقفت الدفعة — وُثّق (\d+) من (\d+) مواضع$/, function (m, a, b) { return '⚠️ Batch stopped — ' + a + ' of ' + b + ' positions documented'; }]
+  );
+})();
