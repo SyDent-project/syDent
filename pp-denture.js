@@ -71,6 +71,13 @@ function dentAreaText(arch, teeth) {
   var sorted = nums.slice().sort(function (a, b) { return a - b; });   /* ترقيمٌ تصاعدي — كما يُكتب بالسجل وورقة المخبر */
   return dentArchLabel(arch) + ' — ' + (sorted.length === 1 ? 'السن ' : 'الأسنان ') + sorted.join('، ');
 }
+/* المعدود بالعربية: سن واحد · سنّان · 3–10 أسنان · 11 فأكثر سناً */
+function dentTeethWord(n) {
+  n = parseInt(n, 10) || 0;
+  if (n === 1) return 'سن واحد';
+  if (n === 2) return 'سنّان';
+  return n + (n >= 3 && n <= 10 ? ' أسنان' : ' سناً');
+}
 function dentUuid() {
   if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -236,13 +243,13 @@ function dentPickerRender() {
     var lines = [];
     if (pd.kind === 'partial') {
       if (!dentSelectable(pd.arch).length) lines.push('<div class="dent-note-warn">لا أسنان مفقودة بهذا الفك تقبل التعويض — سجّل القلع على المخطط أولاً.</div>');
-      else lines.push('<div>المحدَّد: <b>' + pd.teeth.length + '</b> ' + (pd.teeth.length === 1 ? 'سن' : 'أسنان') + ' — انقر السن لإضافته أو استبعاده. الباهتُ لا يقبل التعويض (انقره لمعرفة السبب).</div>');
+      else lines.push('<div>المحدَّد: <b>' + (pd.teeth.length ? dentTeethWord(pd.teeth.length) : 'لا شيء') + '</b> — انقر السن لإضافته أو استبعاده. الباهتُ لا يقبل التعويض (انقره لمعرفة السبب).</div>');
     } else if (pd.kind === 'edent') {
       if (!pd.arches.length) lines.push('<div>اختر فكاً واحداً على الأقل.</div>');
       pd.arches.forEach(function (a) {
         var e = dentEdentCheck(a);
         var keep = e.skip.length ? ' يبقى كما هو: ' + e.skip.map(function (b) { return b.t + ' (' + escapeHtml(b.why) + ')'; }).join('، ') + '.' : '';
-        if (e.mark.length) lines.push('<div><b>' + dentArchLabel(a) + ':</b> ' + e.mark.length + ' ' + (e.mark.length === 1 ? 'سن قائم يُعلَّم مفقوداً' : 'أسنان قائمة تُعلَّم مفقودة') + ' (' + e.mark.join('، ') + ').' + keep + '</div>');
+        if (e.mark.length) lines.push('<div><b>' + dentArchLabel(a) + ':</b> الأسنان القائمة (' + e.mark.length + ') تُعلَّم مفقودة: ' + e.mark.join('، ') + '.' + keep + '</div>');
         else lines.push('<div><b>' + dentArchLabel(a) + ':</b> لا أسنان قائمة تُعلَّم' + (e.skip.length ? ' —' + keep : ' — كلُّ أسنانه مفقودة ✓') + '</div>');
       });
     } else {
@@ -253,8 +260,8 @@ function dentPickerRender() {
           lines.push('<div class="dent-note-warn"><b>' + dentArchLabel(a) + ':</b> لا يقبل جهازاً كاملاً — '
             + c.blockers.map(function (b) { return b.t + ' (' + escapeHtml(b.why) + ')'; }).join('، ') + '. سجّله جهازاً جزئياً على الأسنان المفقودة.</div>');
         } else if (c.standing.length) {
-          lines.push('<div><b>' + dentArchLabel(a) + ':</b> ' + c.standing.length + ' ' + (c.standing.length === 1 ? 'سن قائم' : 'أسنان قائمة') + ' بالمخطط ('
-            + c.standing.join('، ') + ') — يُسأل عن تعليمها «مفقودة مسبقاً» عند المتابعة.</div>');
+          lines.push('<div><b>' + dentArchLabel(a) + ':</b> أسنان قائمة بالمخطط (' + c.standing.length + '): '
+            + c.standing.join('، ') + ' — يُسأل عن تعليمها «مفقودة مسبقاً» عند المتابعة.</div>');
         } else lines.push('<div><b>' + dentArchLabel(a) + ':</b> كلُّ أسنانه مفقودة ✓</div>');
       });
     }
@@ -285,6 +292,52 @@ function dentToothToggle(t) {
   dentPickerRender();
 }
 function dentToothWhy(t) { var s = dentToothState(t); showToast('🦷 السن ' + t + ': ' + (s.why || 'لا يقبل التعويض')); }
+
+/* ── «تراجع» بالفحص الأولي (v711): لقطةُ الأسنان قبل تعليمها مفقودة ثم استعادتُها كما كانت ── */
+/* صفوفُ teeth_status الكاملة لهذه الأسنان (عدا صفَّ الجهاز) — null عند فشل القراءة */
+async function dentSnapshotTeeth(teeth) {
+  if (!teeth.length) return [];
+  var r = await window.sb.from('teeth_status').select('*')
+    .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
+    .in('tooth_num', teeth.map(String)).neq('surface', DENT_SURFACE);
+  if (!r || r.error) { console.warn('dentSnapshotTeeth:', r && r.error); return null; }
+  return r.data || [];
+}
+/* الأسنانُ تعود بصفوفها الملتقطة: ما عليها الآن يُمحى (عدا صفَّ الجهاز) ثم تُدرَج اللقطة — والذاكرةُ من المصدر الواحد ppIngestToothRow */
+async function dentRestoreTeeth(teeth, rows) {
+  if (!teeth.length) return '';
+  var tns = teeth.map(String);
+  var d = await window.sb.from('teeth_status').delete()
+    .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
+    .in('tooth_num', tns).neq('surface', 'DENTURE');
+  if (d && d.error) return d.error.message || 'تعذّر المحو';
+  if (rows && rows.length) {
+    var i = await window.sb.from('teeth_status').insert(rows);
+    if (i && i.error) return i.error.message || 'تعذّرت الاستعادة';
+  }
+  tns.forEach(function (tn) { delete teethMap[tn]; if (window.teethDx) delete window.teethDx[tn]; });
+  (rows || []).forEach(function (t) {
+    if (typeof ppIngestToothRow === 'function') { ppIngestToothRow(t); return; }
+    var n = String(t.tooth_num), s = t.surface || 'O';   /* احتياط: الصفحةُ بلا المحمّل المشترك */
+    if (!teethMap[n]) teethMap[n] = {};
+    teethMap[n][s] = t.treatment_key;
+    if (!teethMap[n].__status) teethMap[n].__status = {};
+    teethMap[n].__status[s] = t.status || 'completed';
+  });
+  return '';
+}
+/* مدخلُ examUndo: {type:'denture', unit, marked, rows} أو {type:'edent', marked, rows} ⇒ '' أو رسالةُ الخطأ */
+async function dentExamUndo(a) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return 'وضع القراءة';
+  if (a.type === 'denture' && a.unit) {
+    var d = await window.sb.from('teeth_status').delete()
+      .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
+      .eq('unit_id', a.unit).eq('surface', DENT_SURFACE);
+    if (d && d.error) return d.error.message || 'تعذّر حذف صفوف الجهاز';
+    Object.keys(dentureMap).forEach(function (tn) { if (dentureMap[tn].unit === a.unit) delete dentureMap[tn]; });
+  }
+  return await dentRestoreTeeth(a.marked || [], a.rows || []);
+}
 
 /* ── «فك أدرد» (شريط الفحص الأولي): أسنانُ الفك القائمة تُعلَّم مفقودةً بكبسة — بلا جهاز، بلا جلسة ── */
 /* أسنانُ الفك الستة عشر: القائمُ يُعلَّم · المفقودُ أصلاً لا يُمسّ · الزرعةُ والجسرُ والقلعُ المخطّط تبقى كما هي وتُذكر */
@@ -327,19 +380,23 @@ async function dentConfirmEdent(pd) {
   var charted = dentChartedNote(mark);
   if (!await SyDialog.confirm({
     title: 'فك أدرد',
-    message: names + ': ' + mark.length + ' ' + (mark.length === 1 ? 'سن قائم يُعلَّم مفقوداً' : 'أسنان قائمة تُعلَّم مفقودة') + ':\n' + mark.join('، ')
-      + '\n\nبلا جلسة ولا تكلفة. للتراجع عن سنٍّ: «إلغاء القلع» من نافذته.' + charted,
+    message: names + ' — الأسنان القائمة (' + mark.length + ') تُعلَّم مفقودة:\n' + mark.join('، ')
+      + '\n\nبلا جلسة ولا تكلفة. زرُّ «تراجع» بشريط الفحص يعيدها كما كانت.' + charted,
     confirmText: 'علّمها مفقودة', cancelText: 'رجوع', danger: !!charted
   })) return;
   var st = (typeof examStatus !== 'undefined' && examStatus === 'existing_current') ? 'existing_current' : 'existing_other';
+  /* اللقطةُ قبل أي محو: بلا لقطةٍ لا تراجع ⇒ لا تعليم */
+  var snap = await dentSnapshotTeeth(mark);
+  if (!snap) { showToast('⚠️ تعذّر قراءة حالة الأسنان — لم يتغيّر شيء، أعد المحاولة'); return; }
   var err = await dentMarkMissing(mark, pendingProviderId, st);
   pendingDenture = null;
   closeModal('regionalAreaModal'); dentPickerUi(false);
+  if (typeof examUndoStack !== 'undefined') examUndoStack.push({ type: 'edent', marked: mark.map(String), rows: snap, count: mark.length });   /* فشلٌ جزئي يُتراجع عنه أيضاً */
   if (!err && typeof examCount !== 'undefined') examCount += mark.length;
   renderTeeth(); renderStats();
   if (typeof examSyncCount === 'function') examSyncCount();
-  if (err) { showToast('⚠️ تعذّر تعليم الأسنان مفقودة (' + err + ')'); return; }
-  showToast('✓ ' + names + ': ' + mark.length + ' ' + (mark.length === 1 ? 'سن عُلّم مفقوداً' : 'أسنان عُلّمت مفقودة'));
+  if (err) { showToast('⚠️ تعذّر تعليم الأسنان مفقودة (' + err + ') — «تراجع» يعيد ما تغيّر'); return; }
+  showToast('✓ ' + names + ': عُلّمت الأسنان القائمة مفقودة (' + mark.length + ') — «تراجع» يعيدها');
 }
 
 /* «متابعة» بالمنتقي: يبني الوحدات ويتحقّق، ثم الخطوةُ الثانية (أو الحفظُ المباشر بالفحص الأولي) */
@@ -367,7 +424,7 @@ async function dentConfirmPick() {
     if (toMark.length) {
       var ok = await SyDialog.confirm({
         title: 'أسنان قائمة بالمخطط',
-        message: 'الجهاز الكامل يُسجَّل على فكٍّ بلا أسنان، وعلى المخطط ' + toMark.length + ' ' + (toMark.length === 1 ? 'سن قائم' : 'أسنان قائمة') + ':\n'
+        message: 'الجهاز الكامل يُسجَّل على فكٍّ بلا أسنان، وعلى المخطط أسنان قائمة (' + toMark.length + '):\n'
           + toMark.join('، ') + '\n\nإن كانت مفقودةً فعلاً تُعلَّم «مفقودة مسبقاً» عند الحفظ (بلا جلسة ولا تكلفة).\nوإن كانت ستُقلع فارجع وسجّل قلعها أولاً.'
           + dentChartedNote(toMark),
         confirmText: 'علّمها مفقودة وتابع', cancelText: 'رجوع'
@@ -548,18 +605,23 @@ async function dentSaveExam() {
   for (var i = 0; i < pd.units.length; i++) {
     var u = pd.units[i];
     var markNow = u.mark.filter(function (t) { return !!dentToothState(t).standing; });
+    var snap = await dentSnapshotTeeth(markNow);   /* v711: قبل أي محو — «تراجع» يعيد الأسنان كما كانت */
+    if (!snap) { showToast('⚠️ تعذّر قراءة حالة الأسنان — لم يتغيّر شيء، أعد المحاولة'); break; }
+    var uid = dentUuid();
+    var undo = { type: 'denture', unit: uid, marked: markNow.map(String), rows: snap, count: 1 };
     if (markNow.length) {
       var mErr = await dentMarkMissing(markNow, pendingProviderId);
-      if (mErr) { showToast('⚠️ تعذّر تعليم الأسنان مفقودة (' + mErr + ')'); break; }
+      if (mErr) { if (typeof examUndoStack !== 'undefined') examUndoStack.push(undo); showToast('⚠️ تعذّر تعليم الأسنان مفقودة (' + mErr + ') — «تراجع» يعيد ما تغيّر'); break; }
     }
-    var wErr = await dentWriteRows(u, pd.key, status, dentUuid(), pendingProviderId);
-    if (wErr) { showToast('⚠️ تعذّر حفظ الجهاز على المخطط (' + wErr + ')'); break; }
+    var wErr = await dentWriteRows(u, pd.key, status, uid, pendingProviderId);
+    if (wErr) { if (markNow.length && typeof examUndoStack !== 'undefined') examUndoStack.push(undo); showToast('⚠️ تعذّر حفظ الجهاز على المخطط (' + wErr + ')' + (markNow.length ? ' — «تراجع» يعيد الأسنان' : '')); break; }
+    if (typeof examUndoStack !== 'undefined') examUndoStack.push(undo);
     done.push(dentAreaText(u.arch, u.teeth));
   }
   if (done.length && typeof examCount !== 'undefined') examCount += done.length;
   renderTeeth(); renderStats();
   if (typeof examSyncCount === 'function') examSyncCount();
-  if (done.length) showToast('✓ ' + pd.label + ' — ' + done.join(' · ') + ' — للتراجع عنه أزله من الوضع العادي');
+  if (done.length) showToast('✓ ' + pd.label + ' — ' + done.join(' · ') + ' — «تراجع» يلغيه');
 }
 
 /* ═════════════════════ الإزالة ═════════════════════ */
@@ -680,7 +742,7 @@ function dentBannerHtml(units) {
     var full = dentIsFullSet(u.teeth, u.arch);
     var st = (u.st && u.st !== 'completed') ? ' · ' + escapeHtml((typeof STATUS_LABELS !== 'undefined' && STATUS_LABELS[u.st]) || u.st) : '';
     return '<span class="ortho-chip dent-chip" style="color:' + c.fill + ';' + (hex ? 'background:' + c.fill + '1a;border-color:' + c.fill + '55;' : '') + '">'
-      + escapeHtml(dentUnitName(u)) + ' · ' + dentArchLabel(u.arch) + ' · ' + (full ? 'كامل' : (u.teeth.length + ' ' + (u.teeth.length === 1 ? 'سن' : 'أسنان'))) + st + '</span>';
+      + escapeHtml(dentUnitName(u)) + ' · ' + dentArchLabel(u.arch) + ' · ' + (full ? 'كامل' : dentTeethWord(u.teeth.length)) + st + '</span>';
   }).join('');
 }
 /* طبقةُ هذه الوحدة على هذه الخلية إن رُسمت (الرسمُ لا يتكرّر لو استُدعي مرتين بلا إعادة بناء) */
@@ -707,6 +769,10 @@ function dentPaint() {
       var svg = cell ? cell.querySelector('svg.tooth-shape') : null;
       if (svg && !dentLayerOf(svg, u)) svg.insertAdjacentHTML('beforeend', dentFacialLayer(n, u, inUnit, i > lo, i < hi, i === mid, i === mid - 1));
       if (!inUnit) continue;
+      /* v711 (قرارُ المالك 13/11/2026): السنُّ الذي يعوّضه الجهاز لا يحمل نقطةَ «موجود مسبقاً» الرمادية — 14 نقطةً فوق جهازٍ كامل
+         زحمةٌ بلا معلومة (الجهازُ نفسه يقول إن الفك أدرد). نقاطُ المخطّط/المحوّل/المراقبة تبقى. */
+      var dot = cell ? cell.querySelector('.tooth-status-badge.status-existing_other, .tooth-status-badge.status-existing_current, .tooth-status-badge.status-existing') : null;
+      if (dot) dot.remove();
       var tip = cell ? cell.querySelector('.tooth-tip') : null;
       if (tip && !tip.querySelector('.dent-tip')) tip.insertAdjacentHTML('afterbegin', dentTipRow(u));
       var oc = document.querySelector('.occ-cell[data-occ-cell="' + n + '"]');
@@ -727,7 +793,7 @@ window.SyDenture = {
   openPicker: dentOpenPicker, openEdentulous: dentOpenEdentulous, pickerActive: dentPickerActive, pickerReset: dentPickerReset, confirmPick: dentConfirmPick, clearPending: dentClearPending,
   saveReady: dentSaveReady, save: dentSave,
   removeBtnHtml: dentRemoveBtnHtml,
-  onSessionComplete: dentOnSessionComplete, onSessionDeleted: dentOnSessionDeleted,
+  onSessionComplete: dentOnSessionComplete, onSessionDeleted: dentOnSessionDeleted, examUndo: dentExamUndo,
   paint: dentPaint,
   map: function () { return dentureMap; }
 };

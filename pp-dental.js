@@ -5185,7 +5185,7 @@ async function openToothModal(n, surface) {
     /* M202: الجهازُ المتحرك هندسةُ فكٍّ لا سنّ؛ والسنُّ الذي يحمل جهازاً لا يقبل زرعةً ولا جسراً قبل إزالته */
     if (window.SyDenture) {
       if (window.SyDenture.isTreatment(t)) return true;   /* v710: يظهر على أي سنٍّ دائم (فئةُ «تعويضات متحركة») — نقرتُه تفتح منتقي الفك على فكّ هذا السن */
-      if (window.SyDenture.has(n) && ((t.target_part || 'crown') === 'implant' || (t.target_part || 'crown') === 'bridge')) return false;
+      if (window.SyDenture.has(n) && ((t.target_part || 'crown') === 'implant' || (t.target_part || 'crown') === 'bridge' || isSpacerKey(t.id))) return false;   /* v711: + حافظ المسافة */
     }
     // ── Owner matrix (OpenDental treatment-area model) — applies to STANDING teeth
     //    only. The implant/pontic/extracted state branches below keep their own
@@ -6625,6 +6625,16 @@ async function persistSpecialTreatment() {
         return { blocked: true };
       }
     }
+    /* v711: الوحدةُ لا تشمل سناً يعوّضه جهازٌ متحرك — الحارسُ أعلاه يفحص السنَّ المنقور وحده، والوحدةُ المقترحة
+       تعبر الجارَ المفقود فكانت تكتب دميةً فوق جهازه */
+    if (window.SyDenture) {
+      for (var _du = 0; _du < unit.length; _du++) {
+        if (window.SyDenture.has(unit[_du])) {
+          showToast('🦷 الجسر يمرّ فوق السن ' + unit[_du] + ' الذي يعوّضه جهاز متحرك — أزل الجهاز أولاً');
+          return { blocked: true };
+        }
+      }
+    }
     bridgeUnitForLedger = unit;
     // ── M85.2: rows stranded by a RE-SAVE ─────────────────────────────────────
     // Every save mints a NEW unit id. If an earlier save of this same bridge was
@@ -7472,6 +7482,10 @@ async function _clearToothStatus_inner() {
     if (_sxK && isExtractionKey(_sxK)) return sxCancelExtraction(currentTooth, sxSideOf(currentSurface));
     if (_sxK && isConditionKey(_sxK)) return removeCondition(currentTooth, currentSurface);
     closeModal('toothModal'); return;
+  }
+  /* v711: حارسُ دفاع — «سليم» لا يعيد سناً يعوّضه جهازٌ متحرك قائماً (الزرُّ لا يُعرض على سنٍّ مقلوع؛ هذا لأي مسارٍ آخر) */
+  if (window.SyDenture && window.SyDenture.has(currentTooth) && typeof isExtracted === 'function' && isExtracted(currentTooth)) {
+    showToast('🦷 السن ' + currentTooth + ' يعوّضه جهاز متحرك — أزل الجهاز أولاً'); return;
   }
   var _wErr = false;   /* v285: كانت تُظهر توست نجاح حتى مع فشل كتابة (console فقط) */
   // Determine what surfaces to clear.

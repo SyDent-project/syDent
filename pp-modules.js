@@ -1070,6 +1070,10 @@ async function _examStamp_inner(n, clickedSurface) {
     if (tp === 'extraction' && typeof toothHasSpacer === 'function' && toothHasSpacer(n)) {
       showToast('🧷 على السن حافظ مسافة — ألغِ القلع من الوضع العادي'); return;
     }
+    /* v711: سنٌّ يعوّضه جهازٌ متحرك — النقرةُ الثانية كانت تزيل قلعَه فيبقى الجهازُ على سنٍّ قائم */
+    if (tp === 'extraction' && window.SyDenture && window.SyDenture.has(n)) {
+      showToast('🦷 السن ' + n + ' يعوّضه جهاز متحرك — أزل الجهاز أولاً'); return;
+    }
     var prevStX = (sm.__status || {})[s] || null;
     var prevRvX = (sm.__review || {})[s] || null;
     var _dxT = (typeof dxOf === 'function') ? dxOf(n, s) : [];   /* v605: العلاجُ المختوم فوق حالة ⇒ تعود عند إلغائه */
@@ -1177,6 +1181,21 @@ var examUndo = ppGuarded('examUndo', _examUndo_inner, '⏳');   /* v284: قفل 
 async function _examUndo_inner() {
   var a = examUndoStack.pop();
   if (!a) { showToast('لا شيء للتراجع عنه'); return; }
+  /* v711: «تراجع» يعيد تسجيلَ الجهاز المتحرك و«فك أدرد» كاملَين (pp-denture.js): صفوفُ الجهاز تُحذف، والأسنانُ التي عُلّمت
+     مفقودةً تعود بصفوفها كما كانت. قبله كان الزرُّ يتخطّاهما ويزيل الختمَ الذي سبقهما. */
+  if (a.type === 'denture' || a.type === 'edent') {
+    var eD = window.SyDenture ? await window.SyDenture.examUndo(a) : 'الوحدة غير محمّلة';
+    if (eD) { showToast('⚠️ ' + eD); examUndoStack.push(a); return; }
+    examCount = Math.max(0, examCount - (a.count || 1));
+    renderTeeth(); renderStats();
+    examSyncCount();
+    showToast(a.type === 'edent' ? '↩️ أُلغي «فك أدرد» — عادت الأسنان كما كانت' : '↩️ أُلغي تسجيل الجهاز');
+    return;
+  }
+  /* v711: ختمُ قلعٍ صار تحته جهازٌ متحرك لا يُتراجع عنه قبل الجهاز (الترتيبُ الطبيعي يمنع ذلك؛ هذا للجهاز المسجَّل خارج الشريط) */
+  if (a.type === 'stamp' && a.s === 'WHOLE' && !a.prevKey && window.SyDenture && window.SyDenture.has(a.n)) {
+    showToast('🦷 السن ' + a.n + ' يعوّضه جهاز متحرك — أزل الجهاز أولاً'); examUndoStack.push(a); return;
+  }
   if (a.type === 'note') {   /* v610: تراجعٌ عن ملاحظةٍ على علاج ⇒ dx السابق كما كان */
     var uN = await window.sb.from('teeth_status').update({ dx_key: a.prevDx || null })
       .eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('tooth_num', a.n).eq('surface', a.s);
