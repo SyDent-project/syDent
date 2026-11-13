@@ -3077,27 +3077,7 @@ async function loadAll() {
   teethMap = {};
   teethDx = {}; window.teethDx = teethDx;   /* v605 */
   if (window.SyDenture) window.SyDenture.reset();   /* M202 */
-  (td || []).forEach(function(t){
-    if (window.SyDenture && window.SyDenture.take(t)) return;   /* M202: صفُّ الجهاز المتحرك (surface='DENTURE') بخريطته المنفصلة — لا يدخل teethMap */
-    var n = String(t.tooth_num);
-    var s = t.surface || 'O';
-    if (t.dx_key) { if (!teethDx[n]) teethDx[n] = {}; teethDx[n][s] = t.dx_key; }   /* v605 (M179) */
-    if (!teethMap[n]) teethMap[n] = {};
-    teethMap[n][s] = t.treatment_key;
-    // Store treatment status alongside (default 'completed' for legacy data with no status column)
-    if (!teethMap[n].__status) teethMap[n].__status = {};
-    teethMap[n].__status[s] = t.status || 'completed';
-    // A (M74): scheduled review date for 'condition' watches (select('*') → flows automatically)
-    if (t.review_at) {
-      if (!teethMap[n].__review) teethMap[n].__review = {};
-      teethMap[n].__review[s] = t.review_at;
-    }
-    // M85: explicit prosthetic-unit membership (bridge). NULL = legacy row → adjacency fallback.
-    if (t.unit_id) {
-      if (!teethMap[n].__unit) teethMap[n].__unit = {};
-      teethMap[n].__unit[s] = t.unit_id;
-    }
-  });
+  (td || []).forEach(ppIngestToothRow);
     })(),
     (async function(){
   // Phase B: per-tooth photo counts for the chart badges. Seeds _toothPhotoCounts
@@ -4729,7 +4709,11 @@ async function _delSession_inner(id, opts) {
        لا يجوز أن يمحو القلع نفسه (كان سيُعيد السن قائماً تحت جسرٍ وهميّه ما زال مرسوماً). */
     var _rowIsExtraction = (typeof isExtractionKey === 'function') && (typeof isImplantKey === 'function')
       && isImplantKey(sessionTreatmentKey(sess)) && isExtractionKey((teethMap[String(sess.tooth_num)] || {})[sessSurface]);
-    if (!stillUsed && _rowIsExtraction) {
+    /* v711: جلسةُ قلعٍ لسنٍّ يعوّضه جهازٌ متحرك — الجلسةُ تُحذف (قرارٌ مالي) وصفُّ القلع يبقى: السنُّ مفقودٌ فعلاً والجهازُ عليه.
+       محوُه كان يعيد السن قائماً والجهازُ مرسومٌ فوقه. */
+    var _dentKeepsExtraction = !!(window.SyDenture && window.SyDenture.has(sess.tooth_num) && sessSurface === 'WHOLE'
+      && typeof isExtractionKey === 'function' && isExtractionKey((teethMap[String(sess.tooth_num)] || {}).WHOLE));
+    if (!stillUsed && (_rowIsExtraction || _dentKeepsExtraction)) {
       /* صفر مساس بالمخطط */
     } else if (!stillUsed && (function(){ var _sm0 = teethMap[String(sess.tooth_num)] || {}, _k0 = _sm0[sessSurface];
                  return !!_k0 && ((_sm0.__status || {})[sessSurface] === 'condition') && typeof isConditionKey === 'function' && isConditionKey(_k0); })()) {
@@ -4832,7 +4816,9 @@ async function _delSession_inner(id, opts) {
   }
   await syncPaymentStatus();
   renderTeeth(); renderStats(); renderInfo(); renderSessions(); renderRecentSessions(); renderPayments(); renderTimeline();
-  if (!(opts && opts.quiet === true)) showToast(_orphN ? '🗑️ تم حذف الجلسة وجلسة الزرعة المبنية عليها' : '🗑️ تم حذف الجلسة');
+  var _keptX = !!(sess && sess.tooth_num && typeof _dentKeepsExtraction !== 'undefined' && _dentKeepsExtraction);
+  if (!(opts && opts.quiet === true)) showToast(_orphN ? '🗑️ تم حذف الجلسة وجلسة الزرعة المبنية عليها'
+    : (_keptX ? '🗑️ تم حذف الجلسة — السن ' + sess.tooth_num + ' يبقى مفقوداً على المخطط (يعوّضه جهاز متحرك)' : '🗑️ تم حذف الجلسة'));
 }
 
 /* Phase 8A: Convert a single planned session to completed from patient-profile.
@@ -4911,6 +4897,29 @@ async function drawPendingImplantAfterExtraction(tn) {
   }, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
   if (r.error) { console.warn('drawPendingImplant row:', r.error); delete teethMap[tn]; return; }
   teethMap[tn] = { WHOLE: key, __status: { WHOLE: 'planned' } };
+}
+/* v711: صفٌّ واحد من teeth_status ⇒ خرائطُ الذاكرة (teethMap · teethDx · خريطةُ الجهاز المتحرك). مصدرٌ واحد يستعمله محمّلُ
+   الصفحة واستعادةُ «تراجع» بالفحص الأولي (pp-denture.js) — كان جسمَ حلقة المحمّل حرفياً. */
+function ppIngestToothRow(t) {
+  if (window.SyDenture && window.SyDenture.take(t)) return;   /* M202: صفُّ الجهاز المتحرك (surface='DENTURE') بخريطته المنفصلة — لا يدخل teethMap */
+  var n = String(t.tooth_num);
+  var s = t.surface || 'O';
+  if (t.dx_key) { if (!teethDx[n]) teethDx[n] = {}; teethDx[n][s] = t.dx_key; }   /* v605 (M179) */
+  if (!teethMap[n]) teethMap[n] = {};
+  teethMap[n][s] = t.treatment_key;
+  // Store treatment status alongside (default 'completed' for legacy data with no status column)
+  if (!teethMap[n].__status) teethMap[n].__status = {};
+  teethMap[n].__status[s] = t.status || 'completed';
+  // A (M74): scheduled review date for 'condition' watches (select('*') → flows automatically)
+  if (t.review_at) {
+    if (!teethMap[n].__review) teethMap[n].__review = {};
+    teethMap[n].__review[s] = t.review_at;
+  }
+  // M85: explicit prosthetic-unit membership (bridge). NULL = legacy row → adjacency fallback.
+  if (t.unit_id) {
+    if (!teethMap[n].__unit) teethMap[n].__unit = {};
+    teethMap[n].__unit[s] = t.unit_id;
+  }
 }
 async function syncToothStatusOnComplete(sess) {
   /* M202: جلسةُ الجهاز المتحرك جلسةُ فكٍّ (بلا tooth_num) — إنجازُها يقلب صفوفَ وحدتها المخطّطة (مرآتُه بصفحة المواعيد) */

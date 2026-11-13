@@ -103,7 +103,9 @@ function page(over) {
     if (rel === 'pp-dental.js' && !(over && over.__noDenture)) out += '<script>' + src('pp-denture.js').replace(/<\/script/gi, '<\\/script') + '</script>';
     return out;
   });
-  return html.replace('</body>', '<script>' + FAKE_DB + '</script></body>');
+  const ia = PP.indexOf('function ppIngestToothRow(t) {'), ib = ia < 0 ? -1 : PP.indexOf('\n}\n', ia);
+  const ingest = (ia > -1 && ib > ia && !(over && over.__noIngest)) ? PP.slice(ia, ib + 2) : '';
+  return html.replace('</body>', '<script>' + FAKE_DB + '\n' + ingest + '</script></body>');
 }
 function boot(over) {
   const vc = new VirtualConsole(); vc.on('jsdomError', () => {});
@@ -161,7 +163,11 @@ function staticChecks(over) {
     && /'denture_full':\s+\{ text:'جهاز كامل'/.test(TR) && /'denture_partial':\s+\{ text:'جهاز جزئي'/.test(TR);
   r.treatProtected = /\|\| tp === 'denture_full' \|\| tp === 'denture_partial'/.test(TR.slice(TR.indexOf('function isProtectedTreatment'), TR.indexOf('function isProtectedTreatment') + 1600));
   /* المحمّل والعرض التاريخي */
-  r.loaderRoutes = /if \(window\.SyDenture\) window\.SyDenture\.reset\(\);[^\n]*\n\s+\(td \|\| \[\]\)\.forEach\(function\(t\)\{\s+if \(window\.SyDenture && window\.SyDenture\.take\(t\)\) return;/.test(PPH);
+  r.loaderRoutes = /if \(window\.SyDenture\) window\.SyDenture\.reset\(\);[^\n]*\n\s+\(td \|\| \[\]\)\.forEach\(ppIngestToothRow\);/.test(PPH)
+    && /function ppIngestToothRow\(t\) \{\n  if \(window\.SyDenture && window\.SyDenture\.take\(t\)\) return;/.test(PPH) && (PPH.match(/teethMap\[n\]\[s\] = t\.treatment_key;/g) || []).length === 1;
+  /* v711: حذفُ جلسة قلعٍ لسنٍّ يعوّضه جهاز — الجلسةُ تُحذف وصفُّ القلع يبقى (الدالةُ بملف الصفحة، خارج العُدّة) */
+  r.delSessionKeepsExtractionUnderDenture = /var _dentKeepsExtraction = !!\(window\.SyDenture && window\.SyDenture\.has\(sess\.tooth_num\) && sessSurface === 'WHOLE'\s+&& typeof isExtractionKey === 'function' && isExtractionKey\(\(teethMap\[String\(sess\.tooth_num\)\] \|\| \{\}\)\.WHOLE\)\);\s+if \(!stillUsed && \(_rowIsExtraction \|\| _dentKeepsExtraction\)\) \{/.test(PPH)
+    && /يبقى مفقوداً على المخطط \(يعوّضه جهاز متحرك\)/.test(PPH);
   r.historyRoutes = /if \(window\.SyDenture\) window\.SyDenture\.histBegin\(\);/.test(PPH) && /if \(window\.SyDenture && window\.SyDenture\.take\(ev\)\) return;/.test(PPH) && /if \(window\.SyDenture\) window\.SyDenture\.histEnd\(\);/.test(PPH);
   r.sessionHooks = /await window\.SyDenture\.onSessionDeleted\(sess\)/.test(PPH) && /if \(sess && !sess\.tooth_num && window\.SyDenture\) \{ await window\.SyDenture\.onSessionComplete\(sess\); return ''; \}/.test(PPH);
   r.scriptOrder = PPH.indexOf('<script src="pp-denture.js?v=') > PPH.indexOf('<script src="pp-dental.js?v=') && PPH.indexOf('<script src="pp-denture.js?v=') < PPH.indexOf('<script src="pp-plan.js?v=')
@@ -170,7 +176,7 @@ function staticChecks(over) {
     && /<button type="button" class="exam-btn" onclick="dentOpenEdentulous\(\)"[^>]*>🦷 فك أدرد<\/button>/.test(PPH);
   /* كلُّ محوٍ/تحديثٍ للسن بلا سطحٍ ولا وحدة يستثني صفَّ الجهاز */
   const sc = ['pp-dental.js', 'pp-modules.js', 'patient-profile.html', 'appointments.html', 'pp-denture.js'].map(f => scanWipes(F(f)));
-  r.wipesSpareDenture = sc.every(x => x.bad.length === 0) && sc.reduce((n, x) => n + x.guarded, 0) === 12;
+  r.wipesSpareDenture = sc.every(x => x.bad.length === 0) && sc.reduce((n, x) => n + x.guarded, 0) === 13;
   /* مرآةُ صفحة المواعيد: إنجازُ جلسة الجهاز يقلب صفوفَ وحدتها بمعرّف الجلسة */
   const AP = F('appointments.html');
   r.apptCompleteMirror = /if \(s && !s\.tooth_num\) \{ await _apptSyncDentureRowsOnComplete\(s, providerOverride\); return; \}/.test(AP)
@@ -193,13 +199,14 @@ const T_PART = { treatment_key: 'denture-partial-acrylic', id: 'denture-partial-
 const T_IMPL = { treatment_key: 'implant', id: 'implant', name: 'زراعة', label: 'ز', fill: '#bfdbfe', stroke: '#3b82f6', price: 0, target_part: 'implant', category: 'implantology', is_active: true, currency: 'SYP', price_overrides: {} };
 const T_BRDG = { treatment_key: 'bridge', id: 'bridge', name: 'جسر', label: 'ج', fill: '#ef4444', stroke: '#b91c1c', price: 0, target_part: 'bridge', category: 'prosthodontics', is_active: true, currency: 'SYP', price_overrides: {} };
 const T_SOCK = { treatment_key: 'socket-dressing', id: 'socket-dressing', name: 'ضماد سنخ', label: 'ض', fill: '#fbbf24', stroke: '#b45309', price: 0, target_part: 'whole', category: 'surgical', is_active: true, post_extraction: true, currency: 'SYP', price_overrides: {} };
+const T_SPCR = { treatment_key: 'pedo-spacer', id: 'pedo-spacer', name: 'حافظ مسافة', label: 'م', fill: '#d946ef', stroke: '#86198f', price: 0, target_part: 'arch', category: 'pediatric', is_active: true, currency: 'SYP', price_overrides: {} };
 const T_ARCH = { treatment_key: 'whitening', id: 'whitening', name: 'تبييض', label: 'ب', fill: '#84cc16', stroke: '#5a9410', price: 100000, target_part: 'arch', category: 'cosmetic', is_active: true, currency: 'SYP', price_overrides: {} };
 
 async function behave(w, hasDenture) {
   const r = {}, doc = w.document;
   const $ = id => doc.getElementById(id);
   const tick = (ms) => new Promise(res => setTimeout(res, ms || 0));
-  [T_FULL, T_PART, T_IMPL, T_BRDG, T_SOCK, T_ARCH].forEach(t => w.TREATMENTS.push(JSON.parse(JSON.stringify(t))));
+  [T_FULL, T_PART, T_IMPL, T_BRDG, T_SOCK, T_SPCR, T_ARCH].forEach(t => w.TREATMENTS.push(JSON.parse(JSON.stringify(t))));
   const K = 'custom_1781292854422';
   const row = (tooth, surface, key, status, unit) => ({ doctor_id: 'doc-1', patient_id: 'pat-1', tooth_num: String(tooth), surface, treatment_key: key, status: status || 'completed', unit_id: unit || null, provider_id: null });
   /* تحميلٌ بمحاكاة المحمّل الحرفية (المطابقةُ الثابتة r.loaderRoutes تحرس الأصل) */
@@ -309,7 +316,7 @@ async function behave(w, hasDenture) {
   const tip = n => doc.querySelector('.tooth-cell[data-tooth-cell="' + n + '"] .tooth-tip .dent-tip'), otip = n => doc.querySelector('.occ-cell[data-occ-cell="' + n + '"] .tooth-tip .dent-tip');
   r.paintTips = !!tip(14) && /جهاز متحرك:/.test(tip(14).textContent) && tip(14).textContent.indexOf(T_PART.name) > -1 && !!otip(15) && !tip(16)
     && doc.querySelectorAll('.tooth-cell[data-tooth-cell="14"] .tooth-tip .dent-tip').length === 1;
-  r.paintBanner = $('dentureBanner').style.display === 'flex' && /جهاز متحرك جزئي \(أكريل\) · الفك العلوي · 2 أسنان$/.test($('dentureBanner').textContent.trim());
+  r.paintBanner = $('dentureBanner').style.display === 'flex' && /جهاز متحرك جزئي \(أكريل\) · الفك العلوي · سنّان$/.test($('dentureBanner').textContent.trim());
   w.SyDenture.paint(); r.paintIdempotent = fsvg(14).querySelectorAll('g.dent-layer').length === 1 && osvg(14).querySelectorAll('g.dent-layer').length === 1 && doc.querySelectorAll('.tooth-cell[data-tooth-cell="14"] .dent-tip').length === 1;
   /* الجارُ داخل الوحدة: القاعدةُ تمتدّ نحوه (الصفُّ يُرسم من اليمين إلى اليسار: 14 قبل 15 بالمصفوفة ⇒ 15 على يسار 14) */
   const bx = n => { const b = L(fsvg(n)).querySelector('rect.dent-base'); return [+b.getAttribute('x'), +b.getAttribute('x') + +b.getAttribute('width')]; };
@@ -345,7 +352,7 @@ async function behave(w, hasDenture) {
   w.SyDenture.openPicker(T_FULL.id, T_FULL.name, null);
   r.fullPickerUi = $('dentTeethGrid').style.display === 'none' && doc.querySelectorAll('#regionalQuadChips [data-dent-arch]').length === 3 && /اختر فكاً/.test($('dentPickNote').textContent);
   w.dentArchToggle('L');
-  r.fullNoteListsStanding = /الفك السفلي: 4 أسنان قائمة بالمخطط \(34، 35، 36، 37\)/.test($('dentPickNote').textContent.replace(/\s+/g, ' '));
+  r.fullNoteListsStanding = /الفك السفلي: أسنان قائمة بالمخطط \(4\): 34، 35، 36، 37 —/.test($('dentPickNote').textContent.replace(/\s+/g, ' '));
   w.__DIALOG_ANSWER = false; await w.SyDenture.confirmPick();
   r.confirmNamesDrawnTreatments = /على الأسنان 34، 35 علاجاتٌ مرسومة تُزال عن المخطط \(جلساتُها تبقى بالسجل\)/.test(w.__DIALOGS[0].message);
   r.fullConfirmCanCancel = w.__DIALOGS.length === 1 && /34، 35، 36، 37/.test(w.__DIALOGS[0].message) && $('regionalAreaModal').classList.contains('open') && !w.SyDenture.saveReady() && w.__OPS.length === 0;
@@ -436,7 +443,7 @@ async function behave(w, hasDenture) {
   r.removeButtonOnDentureTooth = /onclick="dentRemoveUnit\(15\)"/.test(sp) && /إزالة «جهاز متحرك جزئي \(أكريل\)»/.test(sp) && /undoExtraction\(15\)/.test(sp)
     && /onclick="dentRemoveUnit\(26\)"/.test(sp26) && /إزالة «جهاز متحرك كامل»/.test(sp26);
   /* على سنٍّ يعوّضه جهاز: علاجاتُ موقع القلع وحدها — لا زرعة ولا جسر (والقائمةُ غير فارغة فتُحدَّث _txAllowed) */
-  r.dentureToothTakesNoImplantOrBridge = dIds.indexOf('implant') === -1 && dIds.indexOf('bridge') === -1 && dIds.indexOf('socket-dressing') > -1 && dIds.indexOf(T_PART.id) > -1 && dIds.indexOf(T_FULL.id) > -1;
+  r.dentureToothTakesNoImplantOrBridge = dIds.indexOf('implant') === -1 && dIds.indexOf('bridge') === -1 && dIds.indexOf('pedo-spacer') === -1 && dIds.indexOf('socket-dressing') > -1 && dIds.indexOf(T_PART.id) > -1 && dIds.indexOf(T_FULL.id) > -1;
   await w.dentRemoveUnit(15);
   const delOp = ops('teeth_status', 'delete')[0] || { filters: [] };
   r.removeUnitRows = w.__DIALOGS.length === 2 && /إزالة «جهاز متحرك جزئي \(أكريل\)» \(الفك العلوي — الأسنان 14، 15\)/.test(w.__DIALOGS[0].message) && w.__DIALOGS[0].danger === true
@@ -471,6 +478,18 @@ async function behave(w, hasDenture) {
   const spI = await w.persistSpecialTreatment();
   w.eval('pendingToothStatus = "bridge";'); const spB = await w.persistSpecialTreatment();
   r.implantBridgeWriteGate = spI.blocked === true && spB.blocked === true && w.__OPS.length === 0;
+  /* v711: جسرٌ من سنٍّ مفقود بلا جهاز تعبر وحدتُه جارَه الذي يعوّضه جهاز ⇒ مرفوض بصفر كتابة */
+  load([X(35), X(36), row(36, 'DENTURE', T_PART.id, 'completed', 'u1')]);
+  w.eval('currentTooth = 35; currentSurface = "WHOLE"; pendingToothStatus = "bridge"; pendingToothLabel = "جسر"; pendingTreatStatus = "planned"; pendingBridgeExtra = { mesial: 0, distal: 0 };');
+  const spN = await w.persistSpecialTreatment();
+  r.bridgeUnitNeverCrossesDentureTooth = spN.blocked === true && w.__OPS.length === 0 && !DB('teeth_status').some(x => x.surface === 'PONTIC') && /الجسر يمرّ فوق السن 36 الذي يعوّضه جهاز متحرك/.test(toasts());
+  load([X(35)]); w.eval('currentTooth = 35; currentSurface = "WHOLE"; pendingToothStatus = "bridge"; pendingToothLabel = "جسر"; pendingTreatStatus = "planned"; pendingBridgeExtra = { mesial: 0, distal: 0 };');
+  const spOk = await w.persistSpecialTreatment();
+  r.bridgeWithoutDentureStillWorks = !!spOk && spOk.handled === true && DB('teeth_status').some(x => x.tooth_num === '35' && x.surface === 'PONTIC');
+  /* «سليم» لا يعيد سناً يعوّضه جهازٌ قائماً */
+  load(unitRows, unitSess); w.eval('currentTooth = 14; currentSurface = "WHOLE";'); await w.clearToothStatus();
+  r.clearToothGuard = w.__OPS.length === 0 && w.eval('teethMap["14"].WHOLE') === 'extracted' && /السن 14 يعوّضه جهاز متحرك/.test(toasts());
+  load(unitRows, unitSess);
   w.eval('currentTooth = null; currentSurface = null;');
   const eaI = w.examAllowed(14, T_IMPL), eaB = w.examAllowed(15, T_BRDG), baI = w.batchAllowed(14, T_IMPL, 'WHOLE'), eaFree = w.examAllowed(26, T_IMPL);
   load([X(14)]); const eaOk = w.examAllowed(14, T_IMPL), baOk = w.batchAllowed(14, T_IMPL, 'WHOLE');
@@ -486,7 +505,31 @@ async function behave(w, hasDenture) {
   await w.SyDenture.confirmPick();
   const ex = DB('teeth_status').filter(x => x.surface === 'DENTURE');
   r.examRecordsExisting = exOpen && ex.length === 2 && ex.every(x => x.status === 'existing_current') && DB('ledger_sessions').length === 0 && !$('toothModal').classList.contains('open')
-    && w.eval('examCount') === 1 && /للتراجع عنه أزله من الوضع العادي/.test(toasts()) && !w.SyDenture.saveReady();
+    && w.eval('examCount') === 1 && /«تراجع» يلغيه/.test(toasts()) && !w.SyDenture.saveReady();
+  /* v711: «تراجع» يلغي الجهازَ المسجَّل بالفحص — صفوفُه تُحذف وقلعُ أسنانه يبقى */
+  await w.examUndo();
+  r.examUndoRemovesDenture = DB('teeth_status').filter(x => x.surface === 'DENTURE').length === 0 && DB('teeth_status').filter(x => x.surface === 'WHOLE').length === 2
+    && !w.SyDenture.has(36) && w.eval('examCount') === 0 && /أُلغي تسجيل الجهاز/.test(toasts());
+  /* جهازٌ كامل بالفحص على فكٍّ فيه أسنانٌ قائمة عليها علاجات: «تراجع» يعيد الأسنان بصفوفها */
+  load(w.DENT_FULL_TEETH.L.filter(t => t !== 34 && t !== 35).map(t => X(t)).concat([row(34, 'O', K), row(35, 'CROWN_FULL', 'crown', 'planned'), row(11, 'O', K)]));
+  w.eval('window.__examMode = true; examStatus = "existing_other"; examSelectedKey = null; examCount = 0; examUndoStack = [];');
+  const fxBefore = JSON.stringify(DB('teeth_status').slice().sort((a, b) => (a.tooth_num + a.surface).localeCompare(b.tooth_num + b.surface))), fxMap = JSON.stringify(w.eval('teethMap'));
+  w.examPick(T_FULL.id); w.dentArchToggle('L'); await w.SyDenture.confirmPick();
+  const fxDone = DB('teeth_status').filter(x => x.surface === 'DENTURE').length === 14 && !DB('teeth_status').some(x => x.tooth_num === '34' && x.surface === 'O') && w.eval('examUndoStack.length') === 1;
+  await w.examUndo();
+  r.examUndoRestoresMarkedTeeth = fxDone && JSON.stringify(DB('teeth_status').slice().sort((a, b) => (a.tooth_num + a.surface).localeCompare(b.tooth_num + b.surface))) === fxBefore
+    && JSON.stringify(w.eval('teethMap')) === fxMap && Object.keys(w.SyDenture.map()).length === 0;
+  /* ختمُ قلعٍ ثم جهازٌ عليه ثم «تراجع» مرتين: الأولى تلغي الجهاز، والثانية القلع — لا جهازَ على سنٍّ قائم بأي لحظة */
+  load([row(45, 'O', K)]); w.eval('window.__examMode = true; examStatus = "existing_other"; examSelectedKey = "extracted"; examCount = 0; examUndoStack = [];');
+  await w.examStamp(46, 'O'); w.examPick(T_PART.id); await w.SyDenture.confirmPick();
+  await w.examUndo(); const u1 = { dent: DB('teeth_status').some(x => x.surface === 'DENTURE'), whole: DB('teeth_status').some(x => x.tooth_num === '46' && x.surface === 'WHOLE') };
+  await w.examUndo(); const u2 = DB('teeth_status').some(x => x.tooth_num === '46');
+  r.examUndoOrderNeverStrandsDenture = u1.dent === false && u1.whole === true && u2 === false;
+  /* نقرةُ الفحص الثانية على سنٍّ يعوّضه جهاز لا تزيل قلعَه */
+  load([X(36), X(37, 'existing_other'), row(36, 'DENTURE', T_PART.id, 'completed', 'u1'), row(37, 'DENTURE', T_PART.id, 'completed', 'u1')]);
+  w.eval('window.__examMode = true; examStatus = "existing_other"; examSelectedKey = "extracted"; examUndoStack = [];');
+  await w.examStamp(36, 'O'); await w.examStamp(37, 'O');
+  r.examClickKeepsExtractionUnderDenture = w.__OPS.length === 0 && DB('teeth_status').filter(x => x.surface === 'WHOLE').length === 2 && /السن 36 يعوّضه جهاز متحرك — أزل الجهاز أولاً/.test(toasts()) && w.eval('examUndoStack.length') === 0;
   w.eval('examStatus = "condition";'); w.__TOASTS.length = 0; $('regionalAreaModal').classList.remove('open'); w.examPick(T_PART.id);
   r.examConditionRefused = !$('regionalAreaModal').classList.contains('open') && /اختر «موجود»/.test(toasts());
   w.eval('examStatus = "existing_other"; examSelectedKey = "' + T_PART.id + '";'); w.__OPS = []; w.__TOASTS.length = 0;
@@ -515,10 +558,12 @@ async function behave(w, hasDenture) {
   await w.SyDenture.confirmPick(); const edNeedsArch = /اختر فكاً واحداً/.test(toasts()) && w.__OPS.length === 0;
   w.dentArchToggle('L');
   const edNote = $('dentPickNote').textContent.replace(/\s+/g, ' ');
-  r.edentPicker = edOpen && edNeedsArch && /الفك السفلي: 13 أسنان قائمة تُعلَّم مفقودة/.test(edNote) && /يبقى كما هو: /.test(edNote) && /46 \(مزروع\)/.test(edNote) && /45 \(قلعه مخطّط/.test(edNote) && !/31/.test(edNote.split('يبقى كما هو')[1]);
+  r.edentPicker = edOpen && edNeedsArch && /الفك السفلي: الأسنان القائمة \(13\) تُعلَّم مفقودة: /.test(edNote) && /يبقى كما هو: /.test(edNote) && /46 \(مزروع\)/.test(edNote) && /45 \(قلعه مخطّط/.test(edNote) && !/31/.test(edNote.split('يبقى كما هو')[1]);
   w.__DIALOG_ANSWER = false; await w.SyDenture.confirmPick();
   r.edentCancelWritesNothing = w.__DIALOGS.length === 1 && w.__OPS.length === 0 && $('regionalAreaModal').classList.contains('open') && w.__DIALOGS[0].danger === true
-    && /على السن 36 علاجاتٌ مرسومة تُزال/.test(w.__DIALOGS[0].message) && /13 أسنان قائمة تُعلَّم مفقودة/.test(w.__DIALOGS[0].message);
+    && /على السن 36 علاجاتٌ مرسومة تُزال/.test(w.__DIALOGS[0].message) && /الفك السفلي — الأسنان القائمة \(13\) تُعلَّم مفقودة:/.test(w.__DIALOGS[0].message) && /«تراجع» بشريط الفحص يعيدها/.test(w.__DIALOGS[0].message);
+  const edBefore = JSON.stringify(DB('teeth_status').slice().sort((a, b) => (a.tooth_num + a.surface).localeCompare(b.tooth_num + b.surface)));
+  const edMapBefore = JSON.stringify(w.eval('teethMap'));
   w.__DIALOG_ANSWER = true; await w.SyDenture.confirmPick();
   const edW = DB('teeth_status').filter(x => x.surface === 'WHOLE' && x.treatment_key === 'extracted');
   r.edentMarks = edW.filter(x => x.status === 'existing_current').length === 13 && edW.length === 15
@@ -527,10 +572,16 @@ async function behave(w, hasDenture) {
     && DB('teeth_status').some(x => x.tooth_num === '11' && x.surface === 'O') && !DB('teeth_status').some(x => x.surface === 'DENTURE')
     && DB('ledger_sessions').length === 0 && w.__REALLOC === 0 && w.eval('teethMap["36"].WHOLE') === 'extracted' && w.eval('teethMap["36"].__status.WHOLE') === 'existing_current'
     && !$('regionalAreaModal').classList.contains('open') && $('regionalAreaModal').classList.contains('sy-m-sm') && !w.SyDenture.pickerActive() && w.eval('examCount') === 13
-    && /الفك السفلي: 13 أسنان عُلّمت مفقودة/.test(toasts());
+    && /الفك السفلي: عُلّمت الأسنان القائمة مفقودة \(13\) — «تراجع» يعيدها/.test(toasts());
+  /* v711: «تراجع» يعيد «فك أدرد» كاملاً — القاعدةُ والذاكرةُ كما كانتا حرفياً (والحشوةُ المرسومة على 36 تعود) */
+  await w.examUndo();
+  const edAfter = JSON.stringify(DB('teeth_status').map(x => { const c = Object.assign({}, x); return c; }).sort((a, b) => (a.tooth_num + a.surface).localeCompare(b.tooth_num + b.surface)));
+  r.examUndoRestoresEdentulous = edAfter === edBefore && JSON.stringify(w.eval('teethMap')) === edMapBefore && w.eval('examCount') === 0 && w.eval('examUndoStack.length') === 0
+    && DB('teeth_status').some(x => x.tooth_num === '36' && x.surface === 'O') && /أُلغي «فك أدرد»/.test(toasts());
+  w.dentOpenEdentulous(); w.dentArchToggle('L'); await w.SyDenture.confirmPick();   /* يُعاد التعليم لتكملة الحالات التالية */
   w.eval('examStatus = "condition";'); w.dentOpenEdentulous(); w.dentArchBoth(); await w.SyDenture.confirmPick();
   const edU = DB('teeth_status').filter(x => x.surface === 'WHOLE' && x.status === 'existing_other');
-  r.edentBothArchesDefaultStatus = edU.length === 16 && /الفك العلوي: 16 أسنان قائمة تُعلَّم مفقودة|16 أسنان قائمة تُعلَّم مفقودة/.test(w.__DIALOGS[w.__DIALOGS.length - 1].message)
+  r.edentBothArchesDefaultStatus = edU.length === 16 && /الفك العلوي والفك السفلي — الأسنان القائمة \(16\) تُعلَّم مفقودة:/.test(w.__DIALOGS[w.__DIALOGS.length - 1].message)
     && !DB('teeth_status').some(x => x.tooth_num === '11' && x.surface === 'O');
   w.__TOASTS.length = 0; w.__OPS = []; w.dentOpenEdentulous(); w.dentArchToggle('U'); await w.SyDenture.confirmPick();
   r.edentNothingToMark = /لا أسنان قائمة تُعلَّم/.test(toasts()) && w.__OPS.length === 0;
@@ -540,6 +591,13 @@ async function behave(w, hasDenture) {
   r.areaText = w.dentAreaText('U', [16, 14, 15]) === 'الفك العلوي — الأسنان 14، 15، 16' && w.dentAreaText('L', [36]) === 'الفك السفلي — السن 36'
     && w.dentAreaText('U', w.DENT_FULL_TEETH.U) === 'الفك العلوي — كامل' && w.dentAreaText('U', w.DENT_FULL_TEETH.U.concat([18, 28])) === 'الفك العلوي — كامل'
     && w.dentAreaText('U', [24, 14, 15]) === 'الفك العلوي — الأسنان 14، 15، 24';
+  r.countedNoun = w.dentTeethWord(1) === 'سن واحد' && w.dentTeethWord(2) === 'سنّان' && w.dentTeethWord(3) === '3 أسنان' && w.dentTeethWord(10) === '10 أسنان' && w.dentTeethWord(11) === '11 سناً' && w.dentTeethWord(14) === '14 سناً';
+  /* v711: نقطةُ «موجود مسبقاً» الرمادية تختفي عن السن الذي يعوّضه الجهاز وحده — ونقطةُ المخطّط تبقى */
+  load(w.DENT_FULL_TEETH.U.map(t => X(t, 'existing_other')).concat([X(18, 'existing_other'), row(16, 'SOCKET', 'socket-dressing', 'planned')])
+    .concat(w.DENT_FULL_TEETH.U.map(t => row(t, 'DENTURE', T_FULL.id, 'completed', 'u-f'))));
+  w.renderTeeth();
+  const badge = n => doc.querySelector('.tooth-cell[data-tooth-cell="' + n + '"] .tooth-status-badge');
+  r.greyDotsHiddenUnderDenture = !badge(17) && !badge(11) && !badge(27) && !!badge(18) && badge(18).classList.contains('status-existing_other') && !!badge(16) && badge(16).classList.contains('status-planned');
   r.typePredicates = w.SyDenture.isTp('denture_full') && w.SyDenture.isTp('denture_partial') && !w.SyDenture.isTp('arch') && w.SyDenture.isKey(T_FULL.id) && !w.SyDenture.isKey('whitening') && !w.SyDenture.isKey(null);
   /* وضعُ القراءة: لا منتقي ولا إزالة */
   load(unitRows, unitSess); const sub = w.SyDentSub.blockReadOnly; w.SyDentSub.blockReadOnly = () => true;
@@ -585,18 +643,32 @@ async function behave(w, hasDenture) {
     ['wisdom-preselected', D, "return dentSelectable(arch).filter(function (t) { return (t % 10) !== 8; });", "return dentSelectable(arch);"],
     ['save-ready-always', D, "&& pendingRegionalType === 'arch' && pendingToothStatus === pd.key && !currentTooth && !window.__batchMode && !window.__examMode);", ");"],
     ['picker-not-reset', PD, "  if (window.SyDenture) window.SyDenture.pickerReset();   /* M202: النافذةُ مشتركة مع منتقي الجهاز المتحرك */\n", ''],
+    ['exam-click-unextracts', PM, "    if (tp === 'extraction' && window.SyDenture && window.SyDenture.has(n)) {\n      showToast('🦷 السن ' + n + ' يعوّضه جهاز متحرك — أزل الجهاز أولاً'); return;\n    }\n", ''],
+    ['exam-undo-skips-denture', PM, "if (a.type === 'denture' || a.type === 'edent') {", "if (false) {"],
+    ['exam-undo-not-pushed', D, "    if (typeof examUndoStack !== 'undefined') examUndoStack.push(undo);\n    done.push(", "    done.push("],
+    ['edent-undo-not-pushed', D, "if (typeof examUndoStack !== 'undefined') examUndoStack.push({ type: 'edent', marked: mark.map(String), rows: snap, count: mark.length });", ""],
+    ['restore-keeps-current-rows', D, "    .in('tooth_num', tns).neq('surface', 'DENTURE');\n  if (d && d.error) return d.error.message || 'تعذّر المحو';", "    .in('tooth_num', []).neq('surface', 'DENTURE');\n  if (d && d.error) return d.error.message || 'تعذّر المحو';"],
+    ['restore-drops-snapshot', D, "    var i = await window.sb.from('teeth_status').insert(rows);\n    if (i && i.error) return i.error.message || 'تعذّرت الاستعادة';", "    var i = null;"],
+    ['undo-leaves-denture-rows', D, "if (a.type === 'denture' && a.unit) {", "if (false) {"],
+    ['bridge-crosses-denture-tooth', PD, "        if (window.SyDenture.has(unit[_du])) {", "        if (false) {"],
+    ['spacer-on-denture-tooth', PD, " || isSpacerKey(t.id))) return false;   /* v711: + حافظ المسافة */", ")) return false;"],
+    ['clear-tooth-unguarded', PD, "  if (window.SyDenture && window.SyDenture.has(currentTooth) && typeof isExtracted === 'function' && isExtracted(currentTooth)) {", "  if (false) {"],
+    ['grey-dots-stay', D, "      if (dot) dot.remove();\n", ''],
+    ['grey-rule-eats-planned-dot', D, "var dot = cell ? cell.querySelector('.tooth-status-badge.status-existing_other, .tooth-status-badge.status-existing_current, .tooth-status-badge.status-existing') : null;", "var dot = cell ? cell.querySelector('.tooth-status-badge') : null;"],
+    ['counted-noun-flat', D, "return n + (n >= 3 && n <= 10 ? ' أسنان' : ' سناً');", "return n + ' أسنان';"],
+    ['session-delete-unextracts', PH, "if (!stillUsed && (_rowIsExtraction || _dentKeepsExtraction)) {", "if (!stillUsed && _rowIsExtraction) {"],
     ['denture-hidden-on-tooth', PD, "if (window.SyDenture.isTreatment(t)) return true;   /* v710", "if (window.SyDenture.isTreatment(t)) return false;   /* v710"],
     ['tooth-arch-ignored', PD, "window.SyDenture.openPicker(status, label, _dArch ? { arch: _dArch } : null);", "window.SyDenture.openPicker(status, label, null);"],
     ['removable-tab-missing', PD, "prosthodontics:'🔗 تعويضات ثابتة', prosth_removable:'🧩 تعويضات متحركة', implantology", "prosthodontics:'🔗 تعويضات ثابتة', implantology"],
     ['edent-marks-implants-too', D, "if (s.standing) mark.push(t); else if (s.block) skip.push({ t: t, why: s.why });", "mark.push(t);"],
     ['edent-touches-missing-teeth', D, "    if (typeof isExtractionDone === 'function' && isExtractionDone(t)) return;\n    var s = dentToothState(t);\n    if (s.standing)", "    var s = { standing: true };\n    if (s.standing)"],
     ['edent-without-confirm', D, "confirmText: 'علّمها مفقودة', cancelText: 'رجوع', danger: !!charted\n  })) return;", "confirmText: 'علّمها مفقودة', cancelText: 'رجوع', danger: !!charted\n  }) && false) return;"],
-    ['edent-ignores-bar-status', D, "var st = (typeof examStatus !== 'undefined' && examStatus === 'existing_current') ? 'existing_current' : 'existing_other';\n  var err", "var st = 'existing_other';\n  var err"],
+    ['edent-ignores-bar-status', D, "var st = (typeof examStatus !== 'undefined' && examStatus === 'existing_current') ? 'existing_current' : 'existing_other';\n  /* اللقطةُ قبل", "var st = 'existing_other';\n  /* اللقطةُ قبل"],
     ['drawn-treatments-not-named', D, "return n.length ? '\\n\\n⚠️ على '", "return false ? '\\n\\n⚠️ على '"],
     ['m203-category-drifts', 'migrations/203_removable_prosthetics_category.sql', "'denture_full', 'prosth_removable', 30,", "'denture_full', 'prosthodontics', 30,"],
     ['m203-backfill-unscoped', 'migrations/203_removable_prosthetics_category.sql', "   AND category = 'prosthodontics';", "   ;"],
     ['report-category-missing', 'rpt-treat.js', "    'prosth_removable':'🧩 تعويضات متحركة',\n", ''],
-    ['implant-offered-on-denture-tooth', PD, "      if (window.SyDenture.has(n) && ((t.target_part || 'crown') === 'implant' || (t.target_part || 'crown') === 'bridge')) return false;\n", ''],
+    ['implant-offered-on-denture-tooth', PD, "      if (window.SyDenture.has(n) && ((t.target_part || 'crown') === 'implant' || (t.target_part || 'crown') === 'bridge' || isSpacerKey(t.id))) return false;   /* v711: + حافظ المسافة */\n", ''],
     ['regional-list-without-denture', PD, "if (tpR !== 'quadrant' && tpR !== 'arch' && tpR !== 'mouth' && !(window.SyDenture && window.SyDenture.isTp(tpR))) continue;", "if (tpR !== 'quadrant' && tpR !== 'arch' && tpR !== 'mouth') continue;"],
     ['save-branch-removed', PD, "  if (window.SyDenture && window.SyDenture.saveReady()) { await window.SyDenture.save(cost, units, date, notes); return; }\n", ''],
     ['undo-extraction-open', PD, "  if (window.SyDenture && window.SyDenture.has(num)) { showToast('🦷 السن ' + num + ' يعوّضه جهاز متحرك — أزل الجهاز أولاً'); return; }\n", ''],
@@ -609,7 +681,7 @@ async function behave(w, hasDenture) {
     ['exam-stamp-open', PM, "  if (window.SyDenture && window.SyDenture.isTreatment(t)) { showToast('🦷 الجهاز المتحرك يُسجَّل من زرّه بشريط الفحص — لا بالنقر على سن'); return; }   /* M202 */\n", ''],
     ['exam-allows-implant', PM, "    if ((tp === 'bridge' || tp === 'implant') && window.SyDenture && window.SyDenture.has(n)) return { ok: false, msg: '🦷 يعوّضه جهاز متحرك — أزل الجهاز من الوضع العادي' };\n", ''],
     ['batch-palette-lists-denture', PM, "    if (window.SyDenture && window.SyDenture.isTp(tp)) continue;                   // M202: جهاز متحرك → منتقيه الخاص («علاج جماعي»)\n", ''],
-    ['loader-keeps-denture-in-teethmap', PH, "    if (window.SyDenture && window.SyDenture.take(t)) return;   /* M202: صفُّ الجهاز المتحرك (surface='DENTURE') بخريطته المنفصلة — لا يدخل teethMap */\n", ''],
+    ['loader-keeps-denture-in-teethmap', PH, "  if (window.SyDenture && window.SyDenture.take(t)) return;   /* M202: صفُّ الجهاز المتحرك (surface='DENTURE') بخريطته المنفصلة — لا يدخل teethMap */\n", ''],
     ['history-live-map-lost', PH, "    if (window.SyDenture) window.SyDenture.histEnd();   /* M202: خريطةُ الجهاز الحيّة تعود كما كانت */\n", ''],
     ['profile-complete-hook-removed', PH, "  if (sess && !sess.tooth_num && window.SyDenture) { await window.SyDenture.onSessionComplete(sess); return ''; }\n", ''],
     ['profile-wipe-hits-denture', PH, ".eq('tooth_num', tn).neq('surface', 'DENTURE');   /* M202: محوُ السن لا يطال صفَّ الجهاز المتحرك */\n  if (w.error) { console.warn('drawPendingImplant wipe:'", ".eq('tooth_num', tn);\n  if (w.error) { console.warn('drawPendingImplant wipe:'"],
@@ -626,7 +698,7 @@ async function behave(w, hasDenture) {
     try {
       const s2 = staticChecks(over);
       if (Object.keys(s2).some(k => !s2[k])) red = true;
-      if (!red && /\.js$/.test(file)) { const w2 = await boot(over); const b2 = await behave(w2, true); red = Object.keys(b2).some(k => !b2[k]); w2.close(); }
+      if (!red && (/\.js$/.test(file) || file === 'patient-profile.html')) { const w2 = await boot(over); const b2 = await behave(w2, true); red = Object.keys(b2).some(k => !b2[k]); w2.close(); }
     } catch (e) { red = true; }
     if (red) bit++; else { dull.push(name); console.log('  ✗ الطفرة «' + name + '» لم تُحمرّ شيئاً'); }
   }
