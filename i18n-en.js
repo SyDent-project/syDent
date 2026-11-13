@@ -1674,6 +1674,7 @@ Object.assign(window.SyI18nDict, {
   "مثال: • اعضض على الشاش نصف ساعة. • تجنّب المضمضة القوية اليوم. • مسكّن عند اللزوم. • راجع العيادة عند نزف مستمر.": "e.g. • Bite on the gauze for half an hour. • Avoid vigorous rinsing today. • A painkiller if needed. • Contact the clinic if bleeding continues.",
   "المتبقي": "Balance",
   "· جلسات:": "· Sessions:",
+  "جلسات:": "Sessions:",
   "حشوة": "Filling",
   "قلع": "Extraction",
   "تنظيف": "Cleaning",

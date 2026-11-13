@@ -574,7 +574,15 @@ function modeMiniSync() {
   var parts = [exam ? '🩺 فحص أولي' : '☑️ تحديد متعدد'];
   if (stLbl) parts.push(stLbl);
   parts.push(t ? t.name : 'اختر علاجاً من الشريط');
-  sel.textContent = parts.join(' · ');
+  /* v715: كلُّ قطعةٍ عقدةُ نصٍّ مستقلة (والفاصلُ عقدةٌ بلا عربية) — محرّكُ الترجمة يطابق العقدةَ كاملةً، فالسطرُ الموصول
+     كان يبقى عربياً كلَّه بالواجهة الإنجليزية لأن اسم العلاج بيانات. textContent للحاوية يبقى النصَّ الموصول نفسه. */
+  if (document.createElement && document.createTextNode && sel.appendChild) {
+    sel.textContent = '';
+    for (var pi = 0; pi < parts.length; pi++) {
+      if (pi) sel.appendChild(document.createTextNode(' · '));
+      var ps = document.createElement('span'); ps.textContent = parts[pi]; sel.appendChild(ps);
+    }
+  } else sel.textContent = parts.join(' · ');
   var sw = document.getElementById('modeMiniSw');
   if (sw && sw.style) {
     sw.style.display = t ? 'inline-block' : 'none';
