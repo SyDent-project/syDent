@@ -146,10 +146,29 @@ function run(F) {
   ok(plain('التخزين: 2.5 GB') === 'Storage: 2.5 GB' && plain('التخزين: 2 GB') === 'Storage: 2 GB', 'engine: an entry that carries its own colon is found before a decimal as before a whole number');
   ok(plain('أحمد الخطيب (2.5)') === 'أحمد الخطيب (2.5)' && plain('أحمد الخطيب · <120.5 $>') === 'أحمد الخطيب · 120.5 $', 'engine: an unknown name before a decimal is left exactly as is');
   ok(plain('أحمد الخطيب — <0 ل.س> · <1.5 $>') === 'أحمد الخطيب — 0 ل.س · 1.5 $', 'engine: no half-translated line — a name beside an amount stays whole');
+
+  /* (٥) v716: نافذةُ «تطبيق» ورسائلُ الحفظ بالتحديد المتعدد — الجملةُ تُترجَم واسمُ العلاج يُترجَم إن عُرف ويبقى كما هو إن لم يُعرف */
+  const BATCH = [
+    ['🦷 قلع — 2 جلسات (16 إطباقي، 26 جذر 1)', '🦷 Extraction — 2 sessions (16 Occlusal, 26 root 1)'],
+    ['🦷 قلع — 1 جلسة (16 تاج)', '🦷 Extraction — 1 session (16 crown)'],
+    ['📌 قلع — موجود مسبقاً على 2 مواضع · توثيق بلا تكلفة (16 إطباقي، 26 إطباقي)', '📌 Extraction — already existing on 2 positions · documentation, no charge (16 Occlusal, 26 Occlusal)'],
+    ['✅ تم تسجيل قلع لـ2 أسنان (جلسة لكل سن)', '✅ Extraction recorded for 2 teeth (one session per tooth)'],
+    ['✅ تم تسجيل قلع لـ1 أسنان (جلسة لكل سن)', '✅ Extraction recorded for 1 tooth (one session per tooth)'],
+    ['📌 وُثّق تنظيف كموجودٍ مسبقاً على 1 موضع — بلا تكلفة', '📌 Cleaning documented as already existing on 1 position — no charge'],
+    ['⚠️ توقفت الدفعة — سُجلت 1 من 3 جلسات', '⚠️ Batch stopped — 1 of 3 sessions recorded'],
+    ['⚠️ توقفت الدفعة — وُثّق 2 من 3 مواضع', '⚠️ Batch stopped — 2 of 3 positions documented']
+  ];
+  const bad = BATCH.filter(([ar, en]) => t(ar) !== en);
+  ok(bad.length === 0, 'batch apply modal + save toasts translate' + (bad.length ? ' — ' + bad.map(([ar]) => '«' + ar + '» ⇒ «' + t(ar) + '»').slice(0, 2).join(' | ') : ''));
+  ok(t('📌 قلع تنظيف — موجود مسبقاً على 2 مواضع · توثيق بلا تكلفة (16 إطباقي، 26 إطباقي)') === '📌 قلع تنظيف — already existing on 2 positions · documentation, no charge (16 Occlusal, 26 Occlusal)', 'batch: a clinic treatment name not in the dictionary stays whole — never word-by-word guessed');
+  /* الأنماطُ مربوطةٌ بالكود: صيغُ الرسائل كما يبنيها pp-modules/pp-dental — تغييرُ صياغةٍ هناك يحمرّ هنا */
+  const PDS = F['pp-dental.js'], PMS = F['pp-modules.js'];
+  ok(["' كموجودٍ مسبقاً على '", "' أسنان (جلسة لكل سن)'", "' — بلا تكلفة'", "'⚠️ توقفت الدفعة — سُجلت '", "'⚠️ توقفت الدفعة — وُثّق '"].every(x => PDS.includes(x))
+    && ["' — موجود مسبقاً على '", "' · توثيق بلا تكلفة ('", "(units.length === 1 ? 'جلسة' : 'جلسات')", "posList.join('، ')"].every(x => PMS.includes(x)), 'batch: the patterns match the strings the code actually builds');
   return out;
 }
 
-const FILES = ['theme.js', 'i18n-en.js'].concat(...MODULES.map(m => m.files));
+const FILES = ['theme.js', 'i18n-en.js', 'pp-dental.js', 'pp-modules.js'].concat(...MODULES.map(m => m.files));
 const F0 = {}; FILES.forEach(f => { F0[f] = R(f); });
 const MUTANTS = [
   ['a row title loses its entry', 'i18n-en.js', "  'الشهر حتى اليوم': 'Month to date',\n", ''],
@@ -160,7 +179,12 @@ const MUTANTS = [
   ['the module gains an untranslated state', 'dash-goal.js', "'لا مواعيد مسعَّرة بهذه العملة'", "'لا مواعيد بقيمة بهذه العملة'"],
   ['singular written as plural', 'i18n-en.js', "n === 1 ? ' appointment' : ' appointments'", "' appointments'"],
   ['the engine loses the word before a decimal again', 'theme.js', 'if (D[t2[2]] != null) return', 'if (false) return'],
-  ['the engine loses an entry with its own colon before a decimal', 'theme.js', 'if (D[t2[2] + t2[3]] != null) return', 'if (false) return']
+  ['the engine loses an entry with its own colon before a decimal', 'theme.js', 'if (D[t2[2] + t2[3]] != null) return', 'if (false) return'],
+  ['batch: the doc-title pattern is dropped', 'i18n-en.js', /\n    \[\/\^📌 \(\.\+\?\) — موجود مسبقاً[^\n]*\n/, '\n'],
+  ['batch: teeth always plural', 'i18n-en.js', "cnt(n, 'tooth', 'teeth')", "cnt(n, 'teeth', 'teeth')"],
+  ['batch: positions keep the Arabic comma', 'i18n-en.js', "return s.split('، ').map(pos).join(', ');", "return s.split('، ').map(pos).join('، ');"],
+  ['batch: an unknown name is half-guessed', 'i18n-en.js', "function name(s) { var d = D(); return d[s] != null ? d[s] : s; }", "function name(s) { return pos(s); }"],
+  ['batch: the code rewords a toast', 'pp-dental.js', "' كموجودٍ مسبقاً على '", "' كموجود سابقاً على '"]
 ];
 const self = process.argv.includes('--self-test');
 let pass = 0, fail = 0;
