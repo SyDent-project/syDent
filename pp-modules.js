@@ -845,8 +845,7 @@ function batchAllowed(n, t, s) {
     if (tp === 'crown' || (tp === 'both' && _sTaj)) return { ok: false, msg: 'دعامة جسر' };
     return { ok: true };
   }
-  /* M202: سنٌّ يعوّضه جهازٌ متحرك — لا زرعة قبل إزالة الجهاز (مرآةُ isAllowed بالمودال) */
-  if (tp === 'implant' && window.SyDenture && window.SyDenture.has(n)) return { ok: false, msg: 'يعوّضه جهاز متحرك' };
+  /* ج2-أ (v717): سنٌّ يعوّضه جهازٌ متحرك يقبل الزرعة (مرآةُ isAllowed بالمودال) — حارسُ ج1 رُفع */
   /* v600: قلعٌ مخطّط = سنٌّ قائم (مرآةُ isAllowed بالمودال): علاجاتُه كلُّها + الزرعة كخطة؛ لا قلعَ ثانياً */
   var _xPl = (typeof isExtractionPlanned === 'function') && isExtractionPlanned(n);
   if (isExtracted(n) && !_xPl) {
@@ -1158,8 +1157,7 @@ function examAllowed(n, t) {
   }
   if (isExtracted(n)) {
     if (isPrimaryTooth(n)) return { ok: false, msg: '🦷 سن لبني مقلوع — لا جسر/زراعة عليه' };
-    /* M202: سنٌّ يعوّضه جهازٌ متحرك — يُزال الجهازُ أولاً (مرآةُ isAllowed بالمودال) */
-    if ((tp === 'bridge' || tp === 'implant') && window.SyDenture && window.SyDenture.has(n)) return { ok: false, msg: '🦷 يعوّضه جهاز متحرك — أزل الجهاز من الوضع العادي' };
+    /* ج2-أ (v717): سنٌّ يعوّضه جهازٌ متحرك يقبل الجسر والزرعة (زرعاتٌ قائمة تحت جهازٍ قائم تُختم هنا) — حارسُ ج1 رُفع */
     if (tp === 'bridge' || tp === 'implant') return { ok: true };
     return { ok: false, msg: '🕳️ سن مقلوع — يقبل جسراً أو زراعة فقط هنا' };
   }
@@ -1239,6 +1237,8 @@ async function _examStamp_inner(n, clickedSurface) {
     if (teethMap[tn].__review) delete teethMap[tn].__review[s];
     var _rk = Object.keys(teethMap[tn]).filter(function(k){ return k !== '__status' && k !== '__review'; });
     if (_rk.length === 0) delete teethMap[tn];
+    /* ج2-أ: إلغاءُ ختم زرعةٍ عن سنٍّ يعوّضه جهاز ⇒ السنُّ يعود مفقوداً (لا قائماً تحت الجهاز) */
+    if (tp === 'implant' && window.SyDenture && window.SyDenture.has(n)) await window.SyDenture.restoreMissing(n);
     if (_twins.length) await deleteContactTwinRows(_twins);   /* v581 */
     if (_dxT.length && typeof dxRestoreAfterRemoval === 'function') await dxRestoreAfterRemoval(n, s, _dxT);   /* v605 */
     else if (typeof dxSet === 'function') dxSet(n, s, null);

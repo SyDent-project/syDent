@@ -4760,6 +4760,10 @@ async function _delSession_inner(id, opts) {
       /* v605: العلاجُ المحذوف كان يحمل تشخيصاً ⇒ يعود السطحُ إليه لا «سليماً» */
       if (!tsDel.error && _dxP.length && typeof dxRestoreAfterRemoval === 'function') await dxRestoreAfterRemoval(sess.tooth_num, sessSurface, _dxP);
       else if (typeof dxSet === 'function') dxSet(sess.tooth_num, sessSurface, null);
+      /* ج2-أ (v717): جلسةُ زرعةٍ على سنٍّ يعوّضه جهازٌ متحرك — صفُّها حُذف والسنُّ كان مفقوداً قبلها ⇒ يعود مفقوداً (لا قائماً تحت الجهاز) */
+      if (!tsDel.error && window.SyDenture && window.SyDenture.has(sess.tooth_num) && typeof isImplantKey === 'function' && isImplantKey(sessionTreatmentKey(sess))) {
+        await window.SyDenture.restoreMissing(sess.tooth_num);
+      }
       renderTeeth();
     } else if (typeof sessionTreatmentKey === 'function' && !(typeof isUnitLedgerSession === 'function' && isUnitLedgerSession(sess))) {
       // v260: السطحُ ما زال تستعمله جلسةٌ أخرى — لو كان صفُّ المخطّط يمثّل الجلسةَ

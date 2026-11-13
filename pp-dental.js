@@ -5184,10 +5184,11 @@ async function openToothModal(n, surface) {
     if (isSxSurface(currentSurface)) return !t.is_condition && (t.target_part || 'crown') === 'extraction';
     // M146: علاجٌ «لبنية فقط» لا يُعرض على سنٍّ دائم والعكس — بكل حالات السن
     if (!txDentitionOk(t, n)) return false;
-    /* M202: الجهازُ المتحرك هندسةُ فكٍّ لا سنّ؛ والسنُّ الذي يحمل جهازاً لا يقبل زرعةً ولا جسراً قبل إزالته */
+    /* M202: الجهازُ المتحرك هندسةُ فكٍّ لا سنّ. ج2-أ (v717): السنُّ الذي يعوّضه جهازٌ يقبل الزرعةَ والجسر (بديلٌ بالخطة أو زرعةٌ تحت الجهاز) —
+       صفُّ الجهاز بسطحه المحجوز لا يزاحمهما؛ حافظُ المسافة وحده يبقى مرفوضاً (جهازان متحركان على السن نفسه) */
     if (window.SyDenture) {
       if (window.SyDenture.isTreatment(t)) return true;   /* v710: يظهر على أي سنٍّ دائم (فئةُ «تعويضات متحركة») — نقرتُه تفتح منتقي الفك على فكّ هذا السن */
-      if (window.SyDenture.has(n) && ((t.target_part || 'crown') === 'implant' || (t.target_part || 'crown') === 'bridge' || isSpacerKey(t.id))) return false;   /* v711: + حافظ المسافة */
+      if (window.SyDenture.has(n) && isSpacerKey(t.id)) return false;   /* v711: حافظ المسافة */
     }
     // ── Owner matrix (OpenDental treatment-area model) — applies to STANDING teeth
     //    only. The implant/pontic/extracted state branches below keep their own
@@ -5656,8 +5657,9 @@ async function _undoExtraction_inner(num) {
     showToast('🔒 حسابك غير نشط — لا يمكن تعديل حالة الأسنان');
     return;
   }
-  /* M202: سنٌّ يعوّضه جهازٌ متحرك لا يعود قائماً والجهازُ عليه — يُزال الجهازُ أولاً (زرُّه بنافذة السن نفسها) */
-  if (window.SyDenture && window.SyDenture.has(num)) { showToast('🦷 السن ' + num + ' يعوّضه جهاز متحرك — أزل الجهاز أولاً'); return; }
+  /* M202: سنٌّ يعوّضه جهازٌ متحرك لا يعود قائماً والجهازُ عليه — يُزال الجهازُ أولاً (زرُّه بنافذة السن نفسها).
+     ج2-أ: إزالةُ جسرٍ يمرّ فوقه ليست إلغاءَ قلع (المقلوعُ يبقى مقلوعاً) ⇒ تمرّ */
+  if (window.SyDenture && window.SyDenture.has(num) && !isBridgeTooth(num)) { showToast('🦷 السن ' + num + ' يعوّضه جهاز متحرك — أزل الجهاز أولاً'); return; }
   // Determine the scope: just this tooth, or the whole bridge unit?
   var isPartOfBridge = isBridgeTooth(num);
   /* v488: إلغاءُ قلعٍ عادي يزيل صفَّ القلع + موقع القلع (+ حافظ المسافة إن وُجد) ⇒ نفس السؤالين عن جلساتها.
@@ -6514,11 +6516,7 @@ async function persistSpecialTreatment() {
     showToast('🦷 الزراعة لا تُسجَّل على سن لبني — حوّل الموضع للسن الدائم ثم خطّطها');
     return { blocked: true };
   }
-  /* M202: حارسُ الكتابة — سنٌّ يعوّضه جهازٌ متحرك لا يأخذ زرعةً ولا جسراً قبل إزالة الجهاز (القائمةُ تخفيهما؛ هذا للفحص الأولي وما سواه) */
-  if ((pendingTp === 'implant' || isBridgeTreatment) && window.SyDenture && window.SyDenture.has(currentTooth)) {
-    showToast('🦷 السن ' + currentTooth + ' يعوّضه جهاز متحرك — أزل الجهاز أولاً');
-    return { blocked: true };
-  }
+  /* ج2-أ (v717): حارسُ ج1 (لا زرعةَ ولا جسرَ على سنٍّ يعوّضه جهاز) رُفع — كلُّ محوٍ للسن أدناه يستثني صفَّ الجهاز (neq DENTURE) فيتعايشان */
   if (pendingTp === 'implant' && _altBridge) {
     /* M145-e: زرعةٌ بديلة للجسر = جلسةُ سجلٍّ فقط على السن المقلوع — صفر كتابة على المخطط،
        وقبل أي مسحٍ مسبق (مسحُ الزرعة العادي كان سيحذف صفّ القلع وصفّ الوهمي معاً). */
@@ -6627,16 +6625,7 @@ async function persistSpecialTreatment() {
         return { blocked: true };
       }
     }
-    /* v711: الوحدةُ لا تشمل سناً يعوّضه جهازٌ متحرك — الحارسُ أعلاه يفحص السنَّ المنقور وحده، والوحدةُ المقترحة
-       تعبر الجارَ المفقود فكانت تكتب دميةً فوق جهازه */
-    if (window.SyDenture) {
-      for (var _du = 0; _du < unit.length; _du++) {
-        if (window.SyDenture.has(unit[_du])) {
-          showToast('🦷 الجسر يمرّ فوق السن ' + unit[_du] + ' الذي يعوّضه جهاز متحرك — أزل الجهاز أولاً');
-          return { blocked: true };
-        }
-      }
-    }
+    /* ج2-أ (v717): الوحدةُ قد تعبر سناً يعوّضه جهازٌ متحرك — الدميةُ بسطح PONTIC وصفُّ الجهاز بسطحه، فلا يدهس أحدُهما الآخر (حارسُ v711 رُفع) */
     bridgeUnitForLedger = unit;
     // ── M85.2: rows stranded by a RE-SAVE ─────────────────────────────────────
     // Every save mints a NEW unit id. If an earlier save of this same bridge was
@@ -7494,9 +7483,10 @@ async function _clearToothStatus_inner() {
     if (_sxK && isConditionKey(_sxK)) return removeCondition(currentTooth, currentSurface);
     closeModal('toothModal'); return;
   }
-  /* v711: حارسُ دفاع — «سليم» لا يعيد سناً يعوّضه جهازٌ متحرك قائماً (الزرُّ لا يُعرض على سنٍّ مقلوع؛ هذا لأي مسارٍ آخر) */
-  if (window.SyDenture && window.SyDenture.has(currentTooth) && typeof isExtracted === 'function' && isExtracted(currentTooth)) {
-    showToast('🦷 السن ' + currentTooth + ' يعوّضه جهاز متحرك — أزل الجهاز أولاً'); return;
+  /* v711: حارسُ دفاع — «سليم» لا يعيد سناً يعوّضه جهازٌ متحرك قائماً (الزرُّ لا يُعرض على سنٍّ مقلوع؛ هذا لأي مسارٍ آخر).
+     ج2-أ: والزرعةُ تحت الجهاز كذلك — إزالتُها من زرّها «إزالة الزراعة» (يعيد السن مفقوداً)، لا من «سليم» (كان سيتركه قائماً تحت الجهاز) */
+  if (window.SyDenture && window.SyDenture.has(currentTooth) && ((typeof isExtracted === 'function' && isExtracted(currentTooth)) || isImplant(currentTooth))) {
+    showToast('🦷 السن ' + currentTooth + ' يعوّضه جهاز متحرك — ' + (isImplant(currentTooth) ? 'أزل الزرعة من زرّ «إزالة الزراعة»' : 'أزل الجهاز أولاً')); return;
   }
   var _wErr = false;   /* v285: كانت تُظهر توست نجاح حتى مع فشل كتابة (console فقط) */
   // Determine what surfaces to clear.

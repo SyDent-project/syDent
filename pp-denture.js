@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   SyDent — pp-denture.js (M202): التعويضات المتحركة — الإصدار ج1
+   SyDent — pp-denture.js (M202): التعويضات المتحركة — ج1 + ج2-أ
    ───────────────────────────────────────────────────────────────────────────
    البلاغ (المالك، 12 تشرين الثاني 2026): «كأنو ما عنا تعويضات متحركة». الجهازُ الكامل أو الجزئي
    كان يُسجَّل «علاجاً جماعياً على الفك» فقط: جلسةٌ بلا رسمٍ ولا أسنانٍ معوَّضة، والجهازُ الموجود
@@ -22,9 +22,12 @@
    والفكُّ الأدرد بلا مدخل. ⇒ علاجاتُ الجهاز تظهر بنافذة أي سنٍّ دائم (فئةُ «تعويضات متحركة») ونقرتُها تفتح المنتقي على فكّ
    ذلك السن · «فك أدرد» بشريط الفحص الأولي يعلّم أسنانَ الفك القائمة مفقودةً بكبسة.
 
-   قيودُ ج1 (تُرفع بـج2 مع البدائل أ/ب/ج والجهاز الفوري وفوق الزرعات):
-   • السنُّ الذي يحمل جهازاً لا يقبل زرعةً ولا جسراً، ولا يُلغى قلعُه قبل إزالة الجهاز.
-   • الجهازُ الجزئي على أسنانٍ مقلوعة فعلاً (لا قلعٍ مخطّط)، والكاملُ على فكٍّ بلا زرعاتٍ ولا جسور.
+   ج2-أ (v717): الجهازُ يتعايش مع الزرعة والجسر على السن نفسه — صفُّه بسطحه المحجوز لا يزاحم صفَّيهما:
+   • الكاملُ فوق زرعاتٍ منجزة = «جهاز فوق الزرعات» (الزرعةُ ليست مانعاً، ورسمُها يبقى ظاهراً تحت قاعدة الجهاز).
+   • الزرعةُ المخطّطة ودميةُ الجسر المخطّط تقبلان الجهازَ بديلاً (بالكامل تلقائياً، وبالجزئي بنقرة السن).
+   • والعكس: السنُّ الذي يعوّضه جهازٌ يقبل زرعةً أو جسراً (خطةٌ بديلة أو زرعةٌ تحت الجهاز)؛ إزالتُهما تعيده مفقوداً.
+   القيودُ الباقية (ج2-ب/ج): جهازٌ واحد على السن · لا يُلغى قلعُ سنٍّ والجهازُ عليه · الجزئي على قلعٍ منجز لا مخطّط ·
+   الكاملُ لا يُسجَّل على فكٍّ فيه جسرٌ منجز، والزرعةُ المنجزة لا يعوّضها جهازٌ جزئي.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 var DENT_SURFACE = 'DENTURE';
@@ -137,22 +140,32 @@ function dentSessionOfUnit(u) {
 function dentToothState(n) {
   var sm = teethMap[String(n)] || {};
   if (dentHas(n)) return { ok: false, block: true, why: 'عليه جهاز متحرك مسجّل' };
-  if (typeof isImplant === 'function' && isImplant(n)) return { ok: false, block: true, why: 'مزروع' };
-  if (isBridgeKey(sm.PONTIC) || isBridgeKey(sm.WHOLE)) return { ok: false, block: true, why: 'ضمن جسر' };
+  /* ج2-أ: الزرعةُ المخطّطة خطةٌ لا واقع ⇒ الجهازُ يُسجَّل بديلاً عنها؛ والمنجزةُ تحمل الكاملَ فوقها (dentFullCheck) ولا يعوّضها الجزئي */
+  if (typeof isImplant === 'function' && isImplant(n)) {
+    var plannedImp = (typeof implantRowsAllPlanned === 'function') ? implantRowsAllPlanned(n) : (((sm.__status || {}).WHOLE) === 'planned');
+    return plannedImp ? { ok: true, alt: true, implant: true, why: 'زرعة مخطّطة — الجهاز بديل' } : { ok: false, block: true, implant: true, why: 'مزروع' };
+  }
+  if (isBridgeKey(sm.PONTIC)) {
+    return (((sm.__status || {}).PONTIC) === 'planned') ? { ok: true, alt: true, why: 'دمية جسر مخطّط — الجهاز بديل' } : { ok: false, block: true, why: 'ضمن جسر' };
+  }
+  if (isBridgeKey(sm.WHOLE)) return { ok: false, block: true, why: 'ضمن جسر' };
   if (typeof toothHasSpacer === 'function' && toothHasSpacer(n)) return { ok: false, block: true, why: 'عليه حافظ مسافة' };
   if (typeof isExtractionPlanned === 'function' && isExtractionPlanned(n)) return { ok: false, block: true, why: 'قلعه مخطّط — أنجز القلع أولاً' };
   if (typeof isExtractionDone === 'function' && isExtractionDone(n)) return { ok: true, missing: true, why: 'مفقود' };
   return { ok: false, standing: true, why: 'سن قائم — سجّل قلعه أولاً' };
 }
-/* فحصُ فكٍّ للجهاز الكامل: موانعُ (زرعة/جسر/جهاز/قلعٌ مخطّط…) + الأسنانُ القائمة التي تُعلَّم مفقودة */
+/* فحصُ فكٍّ للجهاز الكامل: موانعُ (جسر/جهاز/قلعٌ مخطّط…) + الأسنانُ القائمة التي تُعلَّم مفقودة.
+   ج2-أ: الزرعةُ المنجزة ليست مانعاً (جهازٌ فوق الزرعات) · والمخطّطُ (زرعة/دمية جسر) يُسجَّل الجهازُ بديلاً عنه */
 function dentFullCheck(arch) {
-  var blockers = [], standing = [];
+  var blockers = [], standing = [], implants = [], alts = [];
   DENT_FULL_TEETH[arch].forEach(function (t) {
     var s = dentToothState(t);
-    if (s.block) blockers.push({ t: t, why: s.why });
+    if (s.block && s.implant) implants.push(t);
+    else if (s.block) blockers.push({ t: t, why: s.why });
     else if (s.standing) standing.push(t);
+    else if (s.alt) alts.push(t);
   });
-  return { blockers: blockers, standing: standing };
+  return { blockers: blockers, standing: standing, implants: implants, alts: alts };
 }
 
 /* ═════════════════════ المنتقي (داخل نافذة «اختر المنطقة» القائمة) ═════════════════════ */
@@ -204,8 +217,17 @@ function dentOpenPicker(key, label, ctx) {
 function dentSelectable(arch) {
   return dentArchRow(arch).filter(function (t) { return dentToothState(t).ok; });
 }
+/* ج2-أ: السنُّ الذي عليه زرعةٌ أو دميةُ جسرٍ مخطّطة يقبل الجهاز ولا يُحدَّد مسبقاً — إضافتُه قرارٌ صريح (الجهازُ بديلٌ عن الخطة) */
 function dentDefaultTeeth(arch) {
-  return dentSelectable(arch).filter(function (t) { return (t % 10) !== 8; });
+  return dentSelectable(arch).filter(function (t) { return (t % 10) !== 8 && !dentToothState(t).alt; });
+}
+function dentAltTeeth(arch) {
+  return dentSelectable(arch).filter(function (t) { return !!dentToothState(t).alt; });
+}
+/* «السن 36 عليه…» · «الأسنان 33، 36 عليها…» — ترقيمٌ تصاعدي كنصّ الموضع */
+function dentAltPhrase(teeth) {
+  var s = teeth.slice().sort(function (a, b) { return a - b; });
+  return (s.length === 1 ? 'السن ' + s[0] + ' عليه' : 'الأسنان ' + s.join('، ') + ' عليها') + ' زرعة أو جسر مخطّط';
 }
 function dentPickerRender() {
   var pd = pendingDenture; if (!pd) return;
@@ -232,7 +254,7 @@ function dentPickerRender() {
       for (var i = 0; i < row.length; i++) {
         if (i === row.length / 2) g += '<span class="nse-mid"></span>';
         var t = row[i], s = dentToothState(t), isOn = pd.teeth.indexOf(t) !== -1;
-        g += '<button type="button" class="nse-t dent-t' + (s.ok ? (isOn ? ' dent-on' : ' dent-miss') : ' dent-off') + '" data-dent-tooth="' + t + '" title="' + escapeHtml(s.why || '') + '"'
+        g += '<button type="button" class="nse-t dent-t' + (s.ok ? (isOn ? ' dent-on' : ' dent-miss' + (s.alt ? ' dent-alt' : '')) : ' dent-off') + '" data-dent-tooth="' + t + '" title="' + escapeHtml(s.why || '') + '"'
           + (s.ok ? ' onclick="dentToothToggle(' + t + ')"' : ' aria-disabled="true" onclick="dentToothWhy(' + t + ')"') + '>' + t + '</button>';
       }
       grid.innerHTML = g + '</div>';
@@ -244,6 +266,8 @@ function dentPickerRender() {
     if (pd.kind === 'partial') {
       if (!dentSelectable(pd.arch).length) lines.push('<div class="dent-note-warn">لا أسنان مفقودة بهذا الفك تقبل التعويض — سجّل القلع على المخطط أولاً.</div>');
       else lines.push('<div>المحدَّد: <b>' + (pd.teeth.length ? dentTeethWord(pd.teeth.length) : 'لا شيء') + '</b> — انقر السن لإضافته أو استبعاده. الباهتُ لا يقبل التعويض (انقره لمعرفة السبب).</div>');
+      var altT = dentAltTeeth(pd.arch);
+      if (altT.length) lines.push('<div class="dent-note-alt">' + dentAltPhrase(altT) + ' — ' + (altT.length === 1 ? 'انقره' : 'انقرها') + ' ليُسجَّل الجهاز بديلاً.</div>');
     } else if (pd.kind === 'edent') {
       if (!pd.arches.length) lines.push('<div>اختر فكاً واحداً على الأقل.</div>');
       pd.arches.forEach(function (a) {
@@ -259,10 +283,14 @@ function dentPickerRender() {
         if (c.blockers.length) {
           lines.push('<div class="dent-note-warn"><b>' + dentArchLabel(a) + ':</b> لا يقبل جهازاً كاملاً — '
             + c.blockers.map(function (b) { return b.t + ' (' + escapeHtml(b.why) + ')'; }).join('، ') + '. سجّله جهازاً جزئياً على الأسنان المفقودة.</div>');
-        } else if (c.standing.length) {
-          lines.push('<div><b>' + dentArchLabel(a) + ':</b> أسنان قائمة بالمخطط (' + c.standing.length + '): '
-            + c.standing.join('، ') + ' — يُسأل عن تعليمها «مفقودة مسبقاً» عند المتابعة.</div>');
-        } else lines.push('<div><b>' + dentArchLabel(a) + ':</b> كلُّ أسنانه مفقودة ✓</div>');
+        } else {
+          if (c.standing.length) {
+            lines.push('<div><b>' + dentArchLabel(a) + ':</b> أسنان قائمة بالمخطط (' + c.standing.length + '): '
+              + c.standing.join('، ') + ' — يُسأل عن تعليمها «مفقودة مسبقاً» عند المتابعة.</div>');
+          } else if (!c.implants.length && !c.alts.length) lines.push('<div><b>' + dentArchLabel(a) + ':</b> كلُّ أسنانه مفقودة ✓</div>');
+          if (c.implants.length) lines.push('<div class="dent-note-alt"><b>' + dentArchLabel(a) + ':</b> جهاز فوق الزرعات — ' + (c.implants.length === 1 ? 'الزرعة ' : 'الزرعات ') + c.implants.join('، ') + ' تبقى كما هي تحت الجهاز.</div>');
+          if (c.alts.length) lines.push('<div class="dent-note-alt"><b>' + dentArchLabel(a) + ':</b> ' + dentAltPhrase(c.alts) + ' — الجهاز يُسجَّل بديلاً والخطة تبقى.</div>');
+        }
       });
     }
     note.innerHTML = lines.join('');
@@ -465,7 +493,7 @@ function dentRevalidate(pd) {
     var u = pd.units[i];
     for (var j = 0; j < u.teeth.length; j++) {
       var t = u.teeth[j], s = dentToothState(t);
-      if (s.block) return 'السن ' + t + ': ' + s.why;
+      if (s.block && !(pd.kind === 'full' && s.implant && !dentHas(t))) return 'السن ' + t + ': ' + s.why;   /* ج2-أ: الكاملُ فوق زرعةٍ منجزة ليس مانعاً */
       if (s.standing && u.mark.indexOf(t) === -1) return 'السن ' + t + ' قائم — أعد اختيار الأسنان';
     }
   }
@@ -684,6 +712,25 @@ async function dentOnSessionDeleted(sess) {
   return true;
 }
 
+/* ج2-أ: زرعةٌ أُزيل صفُّها عن سنٍّ يعوّضه جهاز (حذفُ جلستها · إلغاءُ ختمها بالفحص) ⇒ السنُّ كان مفقوداً قبلها فيعود مفقوداً —
+   لا قائماً تحت الجهاز. حالةُ القلع من المصدر الواحد extractionStatusUnderImplant (مرآةُ removeImplant). */
+async function dentRestoreMissing(num) {
+  var tn = String(num);
+  if (!dentHas(tn)) return false;
+  var sm = teethMap[tn] || {};
+  if (sm.WHOLE || (typeof isExtracted === 'function' && isExtracted(tn)) || (typeof isImplant === 'function' && isImplant(tn))) return false;
+  var st = (typeof extractionStatusUnderImplant === 'function') ? extractionStatusUnderImplant(num) : 'completed';
+  var r = await upsertTeethStatusWithFallback({
+    doctor_id: currentUser.id, patient_id: patientId, tooth_num: tn, surface: 'WHOLE', treatment_key: 'extracted', status: st
+  }, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
+  if (r && r.error) { console.warn('dentRestoreMissing:', r.error); return false; }
+  if (!teethMap[tn]) teethMap[tn] = {};
+  teethMap[tn].WHOLE = 'extracted';
+  if (!teethMap[tn].__status) teethMap[tn].__status = {};
+  teethMap[tn].__status.WHOLE = st;
+  return true;
+}
+
 /* ═════════════════════ الرسم (طبقةٌ فوق المخطط بعد renderTeeth) ═════════════════════ */
 function dentColors(key) {
   var t = (typeof getTreatment === 'function') ? getTreatment(key) : null;
@@ -713,16 +760,19 @@ function dentBleed(n, acrossMidline) {
   var w = (typeof cellWidth === 'function' ? cellWidth(n) : 60) || 60;
   return Math.round((px * 100 / w + DENT_BLEED_EPS) * 100) / 100;
 }
-function dentFacialLayer(n, u, inUnit, bleedRight, bleedLeft, midRight, midLeft) {
+/* bandOnly (ج2-أ): الخليةُ ليست شبحَ سنٍّ مقلوع (زرعةٌ أو دميةُ جسرٍ مرسومةٌ عليها) ⇒ القاعدةُ وحدها — رسمُ الزرعة/الدمية يبقى ظاهراً فوقها */
+function dentFacialLayer(n, u, inUnit, bleedRight, bleedLeft, midRight, midLeft, bandOnly) {
   var c = dentColors(u.key), st = u.st, inner = '';
   var x1 = bleedLeft ? -dentBleed(n, midLeft) : 6, x2 = bleedRight ? 100 + dentBleed(n, midRight) : 94;
   if (inUnit) {
     var anat = toothAnatomy(n);
     var y = anat.cervicalY - 3;
     inner += txRectSvg(x1, y, x2 - x1, DENT_BASE_BOTTOM - y, txPaint(st, c.stroke, c.stroke, 'dnb' + n), null, 'class="dent-base"');
-    var a = txPathAttrs(st, c.fill, c.stroke, 'dn' + n, 0.92);
-    inner += a.defs + '<path class="dent-tooth" d="' + anat.outlineD + '" ' + a.attrs
-      + (/stroke=/.test(a.attrs) ? '' : ' stroke="' + c.stroke + '" stroke-width="1.2"') + ' stroke-linejoin="round"/>';
+    if (!bandOnly) {
+      var a = txPathAttrs(st, c.fill, c.stroke, 'dn' + n, 0.92);
+      inner += a.defs + '<path class="dent-tooth" d="' + anat.outlineD + '" ' + a.attrs
+        + (/stroke=/.test(a.attrs) ? '' : ' stroke="' + c.stroke + '" stroke-width="1.2"') + ' stroke-linejoin="round"/>';
+    }
   } else {
     inner += '<line class="dent-conn" x1="' + x1 + '" y1="' + DENT_CONN_Y + '" x2="' + x2 + '" y2="' + DENT_CONN_Y
       + '" stroke="' + c.stroke + '" stroke-width="3.2" stroke-linecap="butt"' + txRingDash(st) + '/>';
@@ -767,17 +817,24 @@ function dentPaint() {
       /* الصفُّ يُرسم من اليمين إلى اليسار: الجارُ السابق بالمصفوفة على اليمين، واللاحقُ على اليسار */
       var cell = document.querySelector('.tooth-cell[data-tooth-cell="' + n + '"]');
       var svg = cell ? cell.querySelector('svg.tooth-shape') : null;
-      if (svg && !dentLayerOf(svg, u)) svg.insertAdjacentHTML('beforeend', dentFacialLayer(n, u, inUnit, i > lo, i < hi, i === mid, i === mid - 1));
+      /* ج2-أ: السنُّ الصناعي يُرسم على شبح السن المقلوع وحده؛ فوق زرعةٍ أو دمية جسر تُرسم القاعدةُ فقط */
+      var ghost = !!(cell && cell.classList.contains('extract-cell'));
+      if (svg && !dentLayerOf(svg, u)) svg.insertAdjacentHTML('beforeend', dentFacialLayer(n, u, inUnit, i > lo, i < hi, i === mid, i === mid - 1, !ghost));
       if (!inUnit) continue;
       /* v711 (قرارُ المالك 13/11/2026): السنُّ الذي يعوّضه الجهاز لا يحمل نقطةَ «موجود مسبقاً» الرمادية — 14 نقطةً فوق جهازٍ كامل
          زحمةٌ بلا معلومة (الجهازُ نفسه يقول إن الفك أدرد). نقاطُ المخطّط/المحوّل/المراقبة تبقى. */
       var dot = cell ? cell.querySelector('.tooth-status-badge.status-existing_other, .tooth-status-badge.status-existing_current, .tooth-status-badge.status-existing') : null;
       if (dot) dot.remove();
       var tip = cell ? cell.querySelector('.tooth-tip') : null;
-      if (tip && !tip.querySelector('.dent-tip')) tip.insertAdjacentHTML('afterbegin', dentTipRow(u));
+      if (tip) { if (!tip.querySelector('.dent-tip')) tip.insertAdjacentHTML('afterbegin', dentTipRow(u)); }
+      else if (cell && !cell.hasAttribute('data-dent-title')) {
+        /* خليةُ الزرعة بلا تلميحٍ داكن (عنوانُ المتصفح وحده) ⇒ الجهازُ يُسمّى بالعنوان نفسه */
+        cell.setAttribute('title', (cell.getAttribute('title') || ('السن ' + n)) + ' · جهاز متحرك: ' + dentUnitName(u));
+        cell.setAttribute('data-dent-title', '1');
+      }
       var oc = document.querySelector('.occ-cell[data-occ-cell="' + n + '"]');
       var osvg = oc ? oc.querySelector('svg.tooth-shape') : null;
-      if (osvg && !dentLayerOf(osvg, u)) osvg.insertAdjacentHTML('beforeend', dentOccLayer(n, u));
+      if (ghost && osvg && !dentLayerOf(osvg, u)) osvg.insertAdjacentHTML('beforeend', dentOccLayer(n, u));
       var otip = oc ? oc.querySelector('.tooth-tip') : null;
       if (otip && !otip.querySelector('.dent-tip')) otip.insertAdjacentHTML('afterbegin', dentTipRow(u));
     }
@@ -794,6 +851,7 @@ window.SyDenture = {
   saveReady: dentSaveReady, save: dentSave,
   removeBtnHtml: dentRemoveBtnHtml,
   onSessionComplete: dentOnSessionComplete, onSessionDeleted: dentOnSessionDeleted, examUndo: dentExamUndo,
+  restoreMissing: dentRestoreMissing,
   paint: dentPaint,
   map: function () { return dentureMap; }
 };
