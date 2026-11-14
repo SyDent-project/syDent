@@ -1237,6 +1237,8 @@ html[data-sub-level="read"] .spc-caret,html[data-sub-level="read"] .spc-panel{di
 .dent-note .dent-note-warn{color:var(--red);}
 .dent-note .dent-note-alt{color:var(--blue);}
 .dent-banner{margin-top:-8px;}
+/* v722: شريحةُ الجهاز تلتفّ إن ضاقت الشاشة (اسمٌ طويل أو الواجهة الإنجليزية) — لا تُقصّ خارجها */
+.dent-banner .dent-chip{white-space:normal;max-width:100%;text-align:center;}
 .nse-legend i.x{position:relative;opacity:.7;}
 .nse-legend i.x::after{content:'';position:absolute;left:2px;right:2px;top:4px;height:1px;background:var(--text2);}
 .nse-legend i.im{border-color:var(--purple);}

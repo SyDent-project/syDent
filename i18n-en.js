@@ -3022,3 +3022,205 @@ Object.assign(window.SyI18nDict, {
     '🔒 حسابك غير نشط — لا يمكن تسجيل علاجات': '🔒 Your account is inactive — treatments cannot be recorded'
   });
 })();
+
+/* ── v722: removable prosthetics (pp-denture.js and its hooks in pp-dental.js / pp-modules.js) ──
+   Treatment names are clinic data and stay as written; everything around them is translated.
+   Areas («الفك العلوي — الأسنان 14، 15»), counts, statuses, plan options and tooth-state reasons come from
+   closed tables: an unknown value does not match, so the line stays fully Arabic (never half-translated). */
+(function () {
+  var ARCH = { 'الفك العلوي': 'Upper jaw', 'الفك السفلي': 'Lower jaw' };
+  var A1 = '(?:الفك العلوي|الفك السفلي) — (?:كامل|السن \\d+|الأسنان \\d+(?:، \\d+)*)';
+  var AREA = '(' + A1 + '(?: · ' + A1 + ')*)';
+  var ARCHES = '((?:الفك العلوي|الفك السفلي)(?: و(?:الفك العلوي|الفك السفلي))?)';
+  var NUMS = '(\\d+(?:، \\d+)*)';
+  function nums(s) { return s.replace(/،\s*/g, ', '); }
+  function area1(s) {
+    var m = s.match(/^(الفك العلوي|الفك السفلي) — (?:(كامل)|السن (\d+)|الأسنان (.+))$/);
+    return ARCH[m[1]] + ' — ' + (m[2] ? 'complete' : (m[3] ? 'tooth ' + m[3] : 'teeth ' + nums(m[4])));
+  }
+  function area(s) { return s.split(' · ').map(area1).join(' · '); }
+  function arches(s) { return s.split(' و').map(function (a) { return ARCH[a]; }).join(' and '); }
+  var CNT = '(كامل|سن واحد|سنّان|\\d+ (?:أسنان|سناً))';
+  function cnt(s) { return s === 'كامل' ? 'complete' : (s === 'سن واحد' ? '1 tooth' : (s === 'سنّان' ? '2 teeth' : s.replace(/ (?:أسنان|سناً)$/, ' teeth'))); }
+  var ST = { 'مخطط': 'planned', 'من عيادة أخرى': 'from another clinic', 'من عيادتنا': 'from our clinic', 'محوّل': 'referred' };
+  var ST_RE = '(مخطط|من عيادة أخرى|من عيادتنا|محوّل)';
+  var OPT = { 'أ': 'A', 'ب': 'B', 'ج': 'C' };
+  function opt(o) { return o ? ' [option ' + OPT[o] + ']' : ''; }
+  var OPT_RE = '(?: \\[خيار ([أبج])\\])?';
+  var WHY = {
+    'مفقود': 'missing', 'مزروع': 'has an implant', 'ضمن جسر': 'part of a bridge', 'عليه حافظ مسافة': 'has a space maintainer',
+    'قلعه مخطّط — أنجز القلع أولاً': 'extraction planned — complete the extraction first',
+    'سن قائم — سجّل قلعه أولاً': 'standing tooth — record its extraction first',
+    'عليه جهاز متحرك مسجّل': 'already has a recorded denture',
+    'عليه جهاز مسجّل — الجديد بديل أو تبديل': 'has a recorded denture — the new one is an alternative or a replacement',
+    'زرعة مخطّطة — الجهاز فوقها أو بديل عنها': 'planned implant — the denture sits on it or replaces it',
+    'دمية جسر مخطّط — الجهاز بديل': 'planned bridge pontic — the denture is an alternative',
+    'لا يقبل التعويض': 'cannot be replaced'
+  };
+  var esc = function (k) { return k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
+  var WHY_RE = '(' + Object.keys(WHY).map(esc).join('|') + ')';
+  var BAD_RE = '(\\d+ \\(' + WHY_RE + '\\)(?:، \\d+ \\(' + WHY_RE + '\\))*)';
+  function badList(s) {
+    return s.split(/، (?=\d+ \()/).map(function (p) { var m = p.match(/^(\d+) \((.+)\)$/); return m[1] + ' (' + WHY[m[2]] + ')'; }).join(', ');
+  }
+  function teethOn(n, list, one, many) { return n ? 'Tooth ' + n + ' ' + one : 'Teeth ' + nums(list) + ' ' + many; }
+  var P = window.SyI18nPatterns, R = function (src) { return new RegExp(src); };
+
+  /* tooth states: grid titles, the «why» toast and the lists inside notes */
+  P.push(
+    /* a reason standing alone (a tooth's title in the picker) — a pattern, not dictionary words: the dictionary's own
+       «مزروع» keeps its meaning, and no other page's closed reason table is widened through the word-by-word path */
+    [R('^' + WHY_RE + '$'), function (m, r) { return WHY[r].charAt(0).toUpperCase() + WHY[r].slice(1); }],
+    [R('^🦷 السن (\\d+): ' + WHY_RE + '$'), function (m, n, r) { return '🦷 Tooth ' + n + ': ' + WHY[r]; }],
+    [R('^⚠️ تغيّر المخطط — السن (\\d+): ' + WHY_RE + '$'), function (m, n, r) { return '⚠️ The chart changed — tooth ' + n + ': ' + WHY[r]; }],
+    [/^⚠️ تغيّر المخطط — السن (\d+) قائم — أعد اختيار الأسنان$/, '⚠️ The chart changed — tooth $1 is standing — pick the teeth again'],
+
+    /* step-2 title, banner chips, tips */
+    [R('^🦷 (.+?) — ' + AREA + '( — جلسة لكل فك بالسعر المدخل)?$'), function (m, n, a, per) { return '🦷 ' + n + ' — ' + area(a) + (per ? ' — one session per jaw at the entered price' : ''); }],
+    [R('^(.+?) · (الفك العلوي|الفك السفلي) · ' + CNT + '(?: · ' + ST_RE + ')?' + OPT_RE + '$'), function (m, n, a, c, st, o) { return n + ' · ' + ARCH[a] + ' · ' + cnt(c) + (st ? ' · ' + ST[st] : '') + opt(o); }],
+    [R('^(.+?) · (الفك العلوي|الفك السفلي) · ' + CNT + ' · مخطط — (بديل|تبديل عند الإنجاز)' + OPT_RE + '$'), function (m, n, a, c, k, o) { return n + ' · ' + ARCH[a] + ' · ' + cnt(c) + ' · planned — ' + (k === 'بديل' ? 'alternative' : 'replaces on completion') + opt(o); }],
+    [/^\[خيار ([أبج])\]$/, function (m, o) { return '[option ' + OPT[o] + ']'; }],
+    [/^جهاز مخطّط \((بديل|تبديل عند الإنجاز)\):$/, function (m, k) { return 'Planned denture (' + (k === 'بديل' ? 'alternative' : 'replaces on completion') + '):'; }],
+    [/^السن (\d+) — زراعة(?: — (مخطط|من عيادة أخرى|من عيادتنا|محوّل))? · جهاز متحرك: (.+)$/, function (m, n, st, nm) { return 'Tooth ' + n + ' — implant' + (st ? ' — ' + ST[st] : '') + ' · removable denture: ' + nm; }],
+    [/^(\d+) (?:أسنان|سناً)$/, '$1 teeth'],
+
+    /* picker notes */
+    [R('^أسنان قائمة بالمخطط \\((\\d+)\\): ' + NUMS + ' — يُسأل عن تعليمها «مفقودة مسبقاً» عند المتابعة\\.$'), function (m, n, l) { return 'Standing teeth on the chart (' + n + '): ' + nums(l) + ' — you will be asked to mark them «already missing» when you continue.'; }],
+    [R('^لا يقبل جهازاً كاملاً — ' + BAD_RE + '\\. سجّله جهازاً جزئياً على الأسنان المفقودة\\.$'), function (m, l) { return 'Cannot take a complete denture — ' + badList(l) + '. Record it as a partial denture on the missing teeth.'; }],
+    [R('^جهاز فوق الزرعات — (?:الزرعة (\\d+)|الزرعات ' + NUMS + ') تبقى كما هي تحت الجهاز\\.$'), function (m, one, many) { return 'Implant overdenture — ' + (one ? 'implant ' + one + ' stays' : 'implants ' + nums(many) + ' stay') + ' as recorded under the denture.'; }],
+    [R('^(?:السن (\\d+) عليه|الأسنان ' + NUMS + ' عليها) زرعة أو جسر مخطّط — (?:انقره ليدخل|انقرها لتدخل) بالجهاز\\.$'), function (m, one, many) { return teethOn(one, many, 'has', 'have') + ' a planned implant or bridge — click ' + (one ? 'it' : 'them') + ' to include ' + (one ? 'it' : 'them') + ' in the denture.'; }],
+    [R('^(?:السن (\\d+) عليه|الأسنان ' + NUMS + ' عليها) زرعة أو جسر مخطّط — تدخل بالجهاز وخطتها تبقى\\.$'), function (m, one, many) { return teethOn(one, many, 'has', 'have') + ' a planned implant or bridge — included in the denture, and the plan stays.'; }],
+    [R('^(?:السن (\\d+) عليه|الأسنان ' + NUMS + ' عليها) جهاز مسجّل — (?:انقره|انقرها) ليُسجَّل الجديد بديلاً عنه \\(مخطّط\\) أو تبديلاً له\\.$'), function (m, one, many) { return teethOn(one, many, 'has', 'have') + ' a recorded denture — click ' + (one ? 'it' : 'them') + ' to record the new one as its alternative (planned) or its replacement.'; }],
+    [/^عليه (.+) — الجديد يُسجَّل بديلاً عنه \(مخطّط\) أو تبديلاً له\.$/, function (m, n) { return 'Has ' + n.replace(/» و«/g, '» and «') + ' — the new one is recorded as its alternative (planned) or its replacement.'; }],
+    [R('^الأسنان القائمة \\((\\d+)\\) تُعلَّم مفقودة: ' + NUMS + '\\.(?: يبقى كما هو: ' + BAD_RE + '\\.)?$'), function (m, n, l, keep) { return 'Standing teeth (' + n + ') are marked missing: ' + nums(l) + '.' + (keep ? ' Left as is: ' + badList(keep) + '.' : ''); }],
+    [R('^لا أسنان قائمة تُعلَّم — يبقى كما هو: ' + BAD_RE + '\\.$'), function (m, keep) { return 'No standing teeth to mark — left as is: ' + badList(keep) + '.'; }],
+
+    /* dialogs (one line per text node) */
+    [/^الجهاز الكامل يُسجَّل على فكٍّ بلا أسنان، وعلى المخطط أسنان قائمة \((\d+)\):$/, 'A complete denture is recorded on a jaw with no teeth, and the chart has standing teeth ($1):'],
+    [R('^' + NUMS + '$'), function (m, l) { return nums(l); }],
+    [R('^⚠️ على (?:السن (\\d+)|الأسنان ' + NUMS + ') علاجاتٌ مرسومة تُزال عن المخطط \\(جلساتُها تبقى بالسجل\\)\\.$'), function (m, one, many) { return '⚠️ ' + (one ? 'Tooth ' + one + ' has' : 'Teeth ' + nums(many) + ' have') + ' charted treatments that will be removed from the chart (their sessions stay in the ledger).'; }],
+    [R('^' + ARCHES + ' — الأسنان القائمة \\((\\d+)\\) تُعلَّم مفقودة:$'), function (m, a, n) { return arches(a) + ' — standing teeth (' + n + ') are marked missing:'; }],
+    [R('^إزالة «(.+)» \\(' + AREA + '\\)؟$'), function (m, n, a) { return 'Remove «' + n + '» (' + area(a) + ')?'; }],
+    [R('^• «(.+)» \\(' + AREA + '\\)$'), function (m, n, a) { return '• «' + n + '» (' + area(a) + ')'; }],
+    [/^يُزال رسمه ويُرسم «(.+)» مكانه\. جلسة الجهاز القديم تبقى بالسجل\.$/, 'Its drawing is removed and «$1» is drawn in its place. The old denture\'s session stays in the ledger.'],
+    [/^على (?:السن (\d+) زرعة مخطّطة|الأسنان (\d+(?:، \d+)*) زرعات مخطّطة)\.$/, function (m, one, many) { return one ? 'Tooth ' + one + ' has a planned implant.' : 'Teeth ' + nums(many) + ' have planned implants.'; }],
+    [/^• «يركب عليها»: «(.+)» والزرعة خطة واحدة \(جهاز فوق الزرعات\)\.$/, '• «Sits on it»: «$1» and the implant are one plan (implant overdenture).'],
+    [R('^– (.+) / ' + AREA + '(?: — ([\\d/.-]+))? — ([\\d.,]+) (ل\\.س|\\$)(?: \\(مدفوع عليها ([\\d.,]+)\\))?' + OPT_RE + '$'), function (m, n, a, dt, c, cur, paid, o) { return '– ' + n + ' / ' + area(a) + (dt ? ' — ' + dt : '') + ' — ' + c + ' ' + (cur === '$' ? '$' : 'SYP') + (paid ? ' (' + paid + ' paid on it)' : '') + opt(o); }],
+
+    /* toasts */
+    [R('^✅ تم تسجيل (.+?) — ' + AREA + '( \\(جلسة لكل فك\\)| — أكمل بيانات المخبر)?$'), function (m, n, a, tail) { return '✅ ' + n + ' recorded — ' + area(a) + (tail ? (tail.indexOf('جلسة') > -1 ? ' (one session per jaw)' : ' — complete the lab details') : ''); }],
+    [R('^✅ سُجّل (.+) \\(' + ST_RE + '\\) — ' + AREA + '$'), function (m, n, st, a) { return '✅ ' + n + ' recorded (' + ST[st] + ') — ' + area(a); }],
+    [R('^🔀 أُضيف «(.+)» بديلاً بالخطة' + OPT_RE + ' — ' + AREA + ' \\(المرسوم يبقى حتى اعتماد أحد الخيارين\\)$'), function (m, n, o, a) { return '🔀 «' + n + '» added as a plan alternative' + opt(o) + ' — ' + area(a) + ' (the drawn one stays until an option is adopted)'; }],
+    [R('^🔁 أُضيف «(.+)» مخطّطاً — ' + AREA + ' \\(يأخذ مكان الجهاز الحالي على المخطط عند إنجازه\\)$'), function (m, n, a) { return '🔁 «' + n + '» added as planned — ' + area(a) + ' (it takes the current denture\'s place on the chart when completed)'; }],
+    [R('^⚠️ حُفظ ' + AREA + ' فقط — ([\\s\\S]+)$'), function (m, a, why) { return '⚠️ Saved only: ' + area(a) + ' — ' + why; }],
+    [/^⚠️ تعذّر حفظ الجهاز على المخطط \(([\s\S]+?)\)( — «تراجع» يعيد الأسنان)?$/, function (m, e, undo) { return '⚠️ Could not save the denture on the chart (' + e + ')' + (undo ? ' — «Undo» restores the teeth' : ''); }],
+    [/^⚠️ تعذّر تعليم الأسنان مفقودة \(([\s\S]+?)\)( — «تراجع» يعيد ما تغيّر)?$/, function (m, e, undo) { return '⚠️ Could not mark the teeth missing (' + e + ')' + (undo ? ' — «Undo» restores what changed' : ''); }],
+    [/^⚠️ تسجيل الجلسة فشل(?:: ([\s\S]+))?$/, function (m, e) { return '⚠️ Recording the session failed' + (e ? ': ' + e : ''); }],
+    [R('^⚠️ ' + '(الفك العلوي|الفك السفلي) لا يقبل جهازاً كاملاً \\(السن (\\d+): ' + WHY_RE + '\\) — سجّله جهازاً جزئياً$'), function (m, a, n, r) { return '⚠️ ' + ARCH[a] + ' cannot take a complete denture (tooth ' + n + ': ' + WHY[r] + ') — record it as a partial denture'; }],
+    [/^🦷 على الأسنان (.+) — «موجود مسبقاً» و«محوّل» لا يُسجَّلان فوق جهازٍ آخر؛ أزل القديم أولاً$/, function (m, n) { return '🦷 The teeth already have ' + n.replace(/» و«/g, '» and «') + ' — «Existing» and «Referred» cannot be recorded over another denture; remove the old one first'; }],
+    [/^🦷 على الأسنان جهاز مخطّط «(.+)» — أنجزه أو أزله أولاً، أو سجّل الجديد «مخطّط» ليكون بديلاً$/, '🦷 The teeth already have a planned denture «$1» — complete or remove it first, or record the new one as «Planned» to make it an alternative'],
+    [/^🦷 السن (\d+) يعوّضه جهاز متحرك — أزل الجهاز أولاً$/, '🦷 Tooth $1 is replaced by a removable denture — remove the denture first'],
+    [/^🦷 السن (\d+) يعوّضه جهاز متحرك — أزل الزرعة من زرّ «إزالة الزراعة»$/, '🦷 Tooth $1 is replaced by a removable denture — remove the implant with the «Remove implant» button'],
+    [/^🦷 إزالة «(.+)»$/, '🦷 Remove «$1»'],
+    [R('^✓ (.+?) — ' + AREA + ' — «تراجع» يلغيه$'), function (m, n, a) { return '✓ ' + n + ' — ' + area(a) + ' — «Undo» removes it'; }],
+    [R('^✓ ' + ARCHES + ': عُلّمت الأسنان القائمة مفقودة \\((\\d+)\\) — «تراجع» يعيدها$'), function (m, a, n) { return '✓ ' + arches(a) + ': standing teeth marked missing (' + n + ') — «Undo» restores them'; }]
+  );
+  /* removal: the shared closing toast (removalToast) and what followed the removal */
+  var PARTS_T = [
+    [/^حُذف العلاج المخطّط$/, 'the planned treatment was deleted'],
+    [/^حُذف (\d+) علاجات مخطّطة$/, '$1 planned treatments were deleted'],
+    [/^حُذف (\d+) مخطّط وتعذّر حذف الباقي$/, '$1 planned deleted, the rest could not be deleted'],
+    [/^تعذّر حذف العلاج المخطّط$/, 'the planned treatment could not be deleted'],
+    [/^بقيت الجلسة المنجزة بالسجل — حذفها يحتاج صلاحية المالك$/, 'the completed session stays in the ledger — deleting it needs the owner'],
+    [/^حُذف العلاج المنجز من السجل$/, 'the completed treatment was deleted from the ledger'],
+    [/^حُذف (\d+) علاجات منجزة من السجل$/, '$1 completed treatments were deleted from the ledger'],
+    [/^حُذف (\d+) منجز وتعذّر حذف الباقي$/, '$1 completed deleted, the rest could not be deleted'],
+    [/^تعذّر حذف العلاج المنجز$/, 'the completed treatment could not be deleted']
+  ];
+  var PART_RE = '(?:' + PARTS_T.map(function (x) { return x[0].source.slice(1, -1).replace(/\((?!\?)/g, '(?:'); }).join('|') + ')';   /* no capture groups inside: the callers count theirs */
+  var TAIL = '(?: — (' + PART_RE + '(?: · ' + PART_RE + ')*))?( — تحقّق من الاتصال وأعد المحاولة)?$';
+  function parts(s) {
+    return s.split(' · ').map(function (p) { for (var i = 0; i < PARTS_T.length; i++) if (PARTS_T[i][0].test(p)) return p.replace(PARTS_T[i][0], PARTS_T[i][1]); return p; }).join(' · ');
+  }
+  function tail(p, w) { return (p ? ' — ' + parts(p) : '') + (w ? ' — check the connection and try again' : ''); }
+  P.push(
+    [R('^(✅|⚠️) تمت إزالة حافظ المسافة' + TAIL), function (m, ic, p, w) { return ic + ' Space maintainer removed' + tail(p, w); }],
+    [R('^(✅|⚠️) تمت إزالة علاج موقع القلع' + TAIL), function (m, ic, p, w) { return ic + ' Extraction-site treatment removed' + tail(p, w); }],
+    [R('^(✅|⚠️) تمت إزالة الزراعة — السن (\\d+) (مقلوع|قلعه مخطّط)' + TAIL), function (m, ic, n, st, p, w) { return ic + ' Implant removed — tooth ' + n + (st === 'مقلوع' ? ' is extracted' : ' has a planned extraction') + tail(p, w); }],
+    [R('^(✅|⚠️) تمت إعادة السن (\\d+)' + TAIL), function (m, ic, n, p, w) { return ic + ' Tooth ' + n + ' restored' + tail(p, w); }],
+    [R('^(✅|⚠️) تمت إزالة الجسر( \\(مع دعامة معلّقة\\))?(?: وحذف (?:(جلسته المخطّطة)|(\\d+) من جلساته المخطّطة))?( — وتعذّر حذف الباقي| — لكن تعذّر حذف الجلسة)?( · الزرعةُ البديلة رُسمت مكانه)?(?: — (' + PART_RE + '(?: · ' + PART_RE + ')*))?$'),
+      function (m, ic, orphan, one, many, fail, imp, p) {
+        return ic + ' Bridge removed' + (orphan ? ' (with a dangling abutment)' : '') + (one ? ' and its planned session deleted' : (many ? ' and ' + many + ' of its planned sessions deleted' : ''))
+          + (fail ? (fail.indexOf('الباقي') > -1 ? ' — but the rest could not be deleted' : ' — but the session could not be deleted') : '')
+          + (imp ? ' · the alternative implant was drawn in its place' : '') + tail(p, false);
+      }],
+    [R('^(✅|⚠️) تمت إزالة (?!الجسر|الزراعة|حافظ المسافة|علاج موقع القلع)(.+?)' + TAIL), function (m, ic, n, p, w) { return ic + ' ' + n + ' removed' + tail(p, w); }],
+    [/^إزالة الزراعة من السن (\d+)؟$/, 'Remove the implant from tooth $1?'],
+    [/^هل تريد حذف العلاجات المنجزة \((\d+)\) من السجل أيضاً؟$/, 'Do you also want to delete the completed treatments ($1) from the ledger?'],
+    /* the jaw chooser shared with the other per-jaw treatments */
+    [/^✅ تم تسجيل (.+?) لـ (الفك العلوي|الفك السفلي)( — أكمل بيانات المخبر)?$/, function (m, n, a, lab) { return '✅ ' + n + ' recorded for the ' + ARCH[a].toLowerCase() + (lab ? ' — complete the lab details' : ''); }],
+    [/^✅ تم تسجيل (.+?) للفكين \(جلسة لكل فك\)$/, '✅ $1 recorded for both jaws (one session per jaw)'],
+    [/^اختر الفك — (.+)$/, 'Choose the jaw — $1'],
+    /* a bare name with its option — last, so the fuller lines above are tried first */
+    [/^([^·—]+) \[خيار ([أبج])\]$/, function (m, n, o) { return n + ' [option ' + OPT[o] + ']'; }]
+  );
+  Object.assign(window.SyI18nDict, {
+    /* picker */
+    'اختر الفك — الجهاز الكامل يعوّض أسنان الفك من 7 إلى 7': 'Choose the jaw — a complete denture replaces the jaw\'s teeth from 7 to 7',
+    'اختر الفك ثم الأسنان التي يعوّضها الجهاز — المفقود محدَّد مسبقاً': 'Choose the jaw, then the teeth the denture replaces — missing teeth are preselected',
+    'اختر الفك — أسنانه القائمة تُعلَّم «مفقودة» بكبسة واحدة (بلا جلسة ولا تكلفة)': 'Choose the jaw — its standing teeth are marked «missing» in one tap (no session, no charge)',
+    'الفكان معاً': 'Both jaws', 'إلغاء الكل': 'Clear all',
+    'لا أسنان مفقودة بهذا الفك تقبل التعويض — سجّل القلع على المخطط أولاً.': 'No missing teeth in this jaw can be replaced — record the extraction on the chart first.',
+    'المحدَّد': 'Selected', 'لا شيء': 'none', 'سن واحد': '1 tooth', 'سنّان': '2 teeth',
+    '— انقر السن لإضافته أو استبعاده. الباهتُ لا يقبل التعويض (انقره لمعرفة السبب).': '— click a tooth to add or exclude it. Faded teeth cannot be replaced (click one to see why).',
+    'اختر فكاً واحداً على الأقل': 'Choose at least one jaw',
+    'كلُّ أسنانه مفقودة ✓': 'All its teeth are missing ✓',
+    'لا أسنان قائمة تُعلَّم — كلُّ أسنانه مفقودة ✓': 'No standing teeth to mark — all its teeth are missing ✓',
+    /* dialogs */
+    'أسنان قائمة بالمخطط': 'Standing teeth on the chart',
+    'علّمها مفقودة وتابع': 'Mark them missing and continue', 'علّمها مفقودة': 'Mark them missing',
+    'إن كانت مفقودةً فعلاً تُعلَّم «مفقودة مسبقاً» عند الحفظ (بلا جلسة ولا تكلفة).': 'If they are in fact missing, they are marked «already missing» on save (no session, no charge).',
+    'وإن كانت ستُقلع فارجع وسجّل قلعها أولاً.': 'If they are going to be extracted, go back and record their extraction first.',
+    'فك أدرد': 'Edentulous jaw',
+    'بلا جلسة ولا تكلفة. زرُّ «تراجع» بشريط الفحص يعيدها كما كانت.': 'No session, no charge. The «Undo» button on the exam bar restores them as they were.',
+    'لن يتغيّر شيء آخر — الأسنان تبقى مفقودة كما هي.': 'Nothing else changes — the teeth stay missing as they are.',
+    'أُزيل الجهاز. هل تريد حذف جلسته المخطّطة من السجل أيضاً؟': 'The denture was removed. Do you also want to delete its planned session from the ledger?',
+    'تبديل الجهاز': 'Replace the denture', 'بدّل الجهاز': 'Replace it', 'على الأسنان جهاز مسجّل:': 'The teeth already have a recorded denture:',
+    'الجهاز والزرعة المخطّطة': 'The denture and the planned implant', 'بديل عنها': 'An alternative to it', 'يركب عليها': 'Sits on it',
+    '• «بديل عنها»: يُسجَّلان خيارين بخطة العلاج (أ/ب)، واعتماد أحدهما يحذف الآخر.': '• «An alternative to it»: both are recorded as treatment-plan options (A/B), and adopting one deletes the other.',
+    /* tips, buttons */
+    'جهاز متحرك:': 'Removable denture:', 'من عيادة أخرى': 'From another clinic', 'من عيادتنا': 'From our clinic',
+    'يزيل الجهاز عن كل أسنانه — الأسنان تبقى مفقودة': 'Removes the denture from all its teeth — the teeth stay missing',
+    /* toasts */
+    '🩺 «مراقبة» لا تُسجَّل لجهازٍ متحرك — اختر منجز أو مخطّط أو موجود مسبقاً': '🩺 «Watch» cannot be recorded for a removable denture — choose Done, Planned or Existing',
+    '🩺 اختر «موجود» من شريط الفحص لتسجيل جهازٍ قائم': '🩺 Choose «Existing» on the exam bar to record a denture already in place',
+    '🦷 الجهاز المتحرك يُسجَّل من زرّه بشريط الفحص — لا بالنقر على سن': '🦷 A removable denture is recorded from its button on the exam bar — not by clicking a tooth',
+    '🕰️ عرض تاريخي للقراءة فقط — أنهِ العرض للتعديل': '🕰️ Historical view is read-only — end it to edit',
+    '⚠️ اختر سناً مفقوداً واحداً على الأقل': '⚠️ Choose at least one missing tooth',
+    '🦷 لا أسنان قائمة تُعلَّم بالفك المختار': '🦷 No standing teeth to mark in the chosen jaw',
+    '⚠️ تعذّر قراءة حالة الأسنان — لم يتغيّر شيء، أعد المحاولة': '⚠️ Could not read the teeth\'s state — nothing changed, try again',
+    '⚠️ لم تُحفظ الإزالة — تحقّق من الاتصال وأعد المحاولة': '⚠️ The removal was not saved — check the connection and try again',
+    '⚠️ لم يُحفظ الجهاز': '⚠️ The denture was not saved',
+    '↩️ أُلغي تسجيل الجهاز': '↩️ The denture record was undone',
+    '↩️ أُلغي «فك أدرد» — عادت الأسنان كما كانت': '↩️ «Edentulous jaw» was undone — the teeth are back as they were',
+    /* removal dialogs shared by every removal path */
+    'اضغط موافق لإزالة الزراعة (السن سيعود مقلوعاً)': 'Press OK to remove the implant (the tooth goes back to extracted)',
+    'اضغط إلغاء للخروج بدون تغيير': 'Press Cancel to leave without changes',
+    'إزالة الجسر فقط؟ (الأسنان المقلوعة ستبقى مقلوعة)': 'Remove the bridge only? (extracted teeth stay extracted)',
+    '(بعد الإزالة نسألك عن حذف العلاجات المخطّطة ثم الجلسات المنجزة من السجل)': '(after the removal we ask you about deleting the planned treatments, then the completed sessions, from the ledger)',
+    '(بعد الإزالة نسألك عن حذف العلاجات المخطّطة من السجل — المنجزة تبقى في كشف الحساب)': '(after the removal we ask you about deleting the planned treatments from the ledger — completed ones stay on the statement)',
+    '(بعد الإزالة نسألك إن كنت تريد حذف الجلسة المنجزة من السجل أيضاً)': '(after the removal we ask whether you also want to delete the completed session from the ledger)',
+    '(لن تُحذف الجلسة المسجلة في كشف الحساب)': '(the session recorded on the statement is not deleted)',
+    'العلاجات المخطّطة': 'Planned treatments', 'الجلسات المنجزة': 'Completed sessions', 'احذفها': 'Delete', 'أبقِها': 'Keep',
+    'إن اخترت «أبقِها» تبقى الجلسة بالسجل بلا رسمٍ على المخطط.': 'If you choose «Keep», the session stays in the ledger with no drawing on the chart.',
+    'إن اخترت «أبقِها» يبقى العلاج المنجز بالسجل بلا رسمٍ على المخطط.': 'If you choose «Keep», the completed treatment stays in the ledger with no drawing on the chart.',
+    '⚠️ منها ما هو مربوط بموعد — الموعد يبقى بالتقويم بلا هذا البند.': '⚠️ Some are linked to an appointment — the appointment stays on the calendar without this item.',
+    'هل تريد حذف العلاج المنجز من السجل أيضاً؟': 'Do you also want to delete the completed treatment from the ledger?',
+    'هذا قرارٌ ماليّ: تُحذف القيمة من كشف الحساب والإنتاج.': 'This is a financial decision: the amount is removed from the statement and from production.',
+    'هذا قرارٌ ماليّ: تُحذف القيمة من كشف الحساب والإنتاج، وما دُفع عليها لا يضيع — يُعاد توزيعه على جلسات المريض الأخرى أو يصير رصيداً مقدّماً له.': 'This is a financial decision: the amount is removed from the statement and from production, and what was paid on it is not lost — it is redistributed to the patient\'s other sessions or becomes advance credit.',
+    /* the jaw chooser */
+    'يمكن اختيار الفكين معاً — تُسجَّل جلسة لكل فك بالسعر المدخل.': 'You can choose both jaws — one session is recorded per jaw at the entered price.',
+    'تم اقتراح الفك تلقائياً من السن الذي اخترته. يمكن اختيار الفكين معاً — تُسجَّل جلسة لكل فك بالسعر المدخل.': 'The jaw was suggested from the tooth you picked. You can choose both jaws — one session is recorded per jaw at the entered price.',
+    '✓ زراعة — للتراجع عنها استخدم الوضع العادي': '✓ Implant — to undo it, use normal mode'
+  });
+})();

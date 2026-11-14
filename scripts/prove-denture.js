@@ -15,7 +15,7 @@
        ج2-ب (M204 — البدائل والتبديل): جهازٌ مخطّط فوق جهازٍ مرسوم = جلسةٌ معلّقة بأسنانها (بلا صفوف) · وسمُ أ/ب مقابل جهازٍ/زرعةٍ/جسرٍ
        مخطّط (وبالعكس) · حذفُ المرسوم أو إزالتُه يرسم المعلّق · إنجازُ المعلّق يبدّل الرسم · منجزٌ فوق قائم بتأكيد · المرفوض بصفر كتابة.
    (٣) طفراتٌ متعمَّدة — كلٌّ منها يجب أن تُحمرّ توكيداً واحداً على الأقل (#342). */
-const fs = require('fs'), path = require('path'), cp = require('child_process');
+const fs = require('fs'), path = require('path'), cp = require('child_process'), vm = require('vm');
 const ROOT = path.resolve(__dirname, '..');
 let jsdomOk = true; try { require.resolve('jsdom'); } catch (e) { jsdomOk = false; }
 if (!jsdomOk) { console.warn('⚠️  jsdom غائبة — تخطّي مثبت التعويضات المتحركة (npm install jsdom --no-save)'); process.exit(0); }
@@ -25,7 +25,7 @@ const HARNESS = fs.readFileSync(path.join(__dirname, 'dom-smoke', '.out', 'harne
 
 const FILES = ['migrations/204_ledger_sessions_unit_teeth.sql', 'pp-denture.js', 'pp-dental.js', 'pp-modules.js', 'pp-core.js', 'pp-clinical.js', 'pp-wa.js', 'patient-profile.html', 'patient-profile.css',
   'appointments.html', 'treatments.html', 'rpt-treat.js', 'migrations/202_removable_prosthetics_core.sql', 'migrations/203_removable_prosthetics_category.sql', 'db/schema.sql', 'scripts/db-bootstrap.py',
-  'scripts/cache-bust.sh', 'scripts/check-mirrors.js'];
+  'scripts/cache-bust.sh', 'scripts/check-mirrors.js', 'i18n-en.js', 'theme.js'];
 const LIVE = {}; FILES.forEach(f => { LIVE[f] = fs.readFileSync(path.join(ROOT, f), 'utf8'); });
 
 /* ── القاعدةُ الوهمية: تحترم المفتاح الأساسي لـteeth_status والفلاتر (eq/neq/in/not) وتسجّل كلَّ عملية ── */
@@ -81,7 +81,31 @@ const FAKE_DB = `
     window.sb = { from: Q, rpc: function(){ return Promise.resolve({ data: null, error: null }); } };
   })();
   window.__DIALOGS = []; window.__DIALOG_ANSWER = true;
-  window.SyDialog = { confirm: function(o){ window.__DIALOGS.push(o); var a = window.__DIALOG_ANSWER; return Promise.resolve(typeof a === 'function' ? a(o) : a); } };
+  window.SyDialog = { confirm: function(o){ window.__DIALOGS.push(o);
+    if (window.__i18nAdd) { [o.title || 'تأكيد', o.confirmText || 'تأكيد', o.cancelText || 'إلغاء'].forEach(window.__i18nAdd); String(o.message || '').split('\\n').forEach(window.__i18nAdd); } var a = window.__DIALOG_ANSWER; return Promise.resolve(typeof a === 'function' ? a(o) : a); } };
+  /* v722 — التقاطُ كلِّ نصٍّ يراه الطبيب من وحدة الجهاز (عُقدُ نصٍّ وسمات · رسائل · حوارات) لفحص الترجمة الإنجليزية */
+  window.__I18N = {};
+  window.__i18nAdd = function(s){ s = String(s == null ? '' : s).replace(/\\s+/g, ' ').trim(); if (s && /[\\u0600-\\u06FF]/.test(s)) window.__I18N[s] = 1; };
+  window.__i18nGrab = function(){
+    var roots = [], q = function(sel){ var l = document.querySelectorAll(sel); for (var i = 0; i < l.length; i++) roots.push(l[i]); };
+    q('#regionalAreaModal'); q('#dentureBanner'); q('.dent-tip'); q('.dent-tip-pend'); q('#toothStep2Title'); q('.dent-remove'); q('[data-dent-title]');
+    roots.forEach(function(r){
+      var els = [r].concat(Array.prototype.slice.call(r.querySelectorAll('*')));
+      els.forEach(function(el){
+        if (el.offsetParent === undefined) return;
+        ['title', 'aria-label', 'placeholder'].forEach(function(a){ var v = el.getAttribute && el.getAttribute(a); if (v) window.__i18nAdd(v); });
+        for (var c = el.firstChild; c; c = c.nextSibling) if (c.nodeType === 3) window.__i18nAdd(c.nodeValue);
+      });
+    });
+  };
+  (function(){
+    if (typeof dentPickerRender !== 'function') return;
+    var pr = dentPickerRender; dentPickerRender = function(){ var o = pr.apply(this, arguments); window.__i18nGrab(); return o; };
+    var pp = dentPaint; dentPaint = function(){ var o = pp.apply(this, arguments); window.__i18nGrab(); return o; }; window.SyDenture.paint = dentPaint;
+    var s2 = dentStep2; dentStep2 = function(){ var o = s2.apply(this, arguments); window.__i18nGrab(); return o; };
+    var st = showToast; showToast = function(m){ window.__i18nAdd(m); return st.apply(this, arguments); };
+    var rb = dentRemoveBtnHtml; dentRemoveBtnHtml = function(){ var h = rb.apply(this, arguments); var d = document.createElement('div'); d.innerHTML = h; var b = d.firstChild; if (b) { window.__i18nAdd(b.textContent); window.__i18nAdd(b.getAttribute('title')); } return h; }; window.SyDenture.removeBtnHtml = dentRemoveBtnHtml;
+  })();
   window.__REALLOC = 0; reallocatePatientFunds = function(){ window.__REALLOC++; return Promise.resolve(); };
   window.__AUDIT = []; window.logAudit = function(a, d){ window.__AUDIT.push({ a: a, d: d }); };
   window.__MAT = []; maybePromptMaterialDeduction = function(k, l, n, ids){ window.__MAT.push({ k: k, n: n, ids: ids }); return Promise.resolve(); };
@@ -206,6 +230,7 @@ function staticChecks(over) {
   const CB = F('scripts/cache-bust.sh');
   r.cacheBustAsset = (CB.match(/pp-denture\\\.js/g) || []).length === 2 && /pp-dental\.js · pp-denture\.js · pp-plan\.js/.test(CB);
   const CSS = F('patient-profile.css'), DN = F('pp-denture.js');
+  r.bannerChipWraps = /\.dent-banner \.dent-chip\{white-space:normal;max-width:100%;text-align:center;\}/.test(CSS);   /* v722: شريحةٌ أطول من الشاشة تلتفّ ولا تُقصّ */
   r.bleedMirrorsCss = /\.jaw-row\{display:flex;justify-content:center;gap:4px;/.test(CSS) && /\.jaw-wrap\[data-dent="mixed"\] \.jaw-row\{gap:7px;\}/.test(CSS) && /\.jaw-wrap\[data-dent="primary"\] \.jaw-row\{gap:11px;\}/.test(CSS)
     && /\.midline\{width:2px;[^}]*margin:0 6px;/.test(CSS) && /var DENT_ROW_GAP_PX = \{ permanent: 4, mixed: 7, primary: 11 \};/.test(DN) && /var DENT_MIDLINE_PX = 14;/.test(DN)
     && /\.tooth-shape\{\s*display:block;\s*overflow:visible;/.test(CSS);
@@ -836,11 +861,77 @@ async function behave(w, hasDenture) {
   return r;
 }
 
+
+/* ── (٢-ب) v722 — الواجهة الإنجليزية: كلُّ نصٍّ التقطه السلوكُ أعلاه (عُقد نصّ · سمات · رسائل · حوارات) يمرّ بالمحرّك الحقيقي
+   (theme.js + i18n-en.js) فلا يبقى فيه حرفٌ عربي خارج اسم العلاج (بياناتُ العيادة تبقى كما كُتبت)، ولا يضيع رقم. ── */
+const I18N_NAMES = ['جهاز متحرك جزئي (هيكل معدني)', 'جهاز متحرك جزئي (أكريل)', 'جهاز متحرك كامل', 'جهاز <i id="xss">x</i>'];
+function i18nEngine(over) {
+  const F = f => (over && over[f] != null) ? over[f] : LIVE[f];
+  const store = { 'sydent.lang': 'en' }, el = () => ({ getAttribute: () => null, setAttribute() {}, closest: () => null, nodeName: 'DIV' });
+  const ctx = { console, setTimeout: () => 0, localStorage: { getItem: k => store[k] || null, setItem: (k, v) => { store[k] = v; } },
+    location: { search: '', pathname: '/patient-profile.html', reload() {} },
+    document: { readyState: 'complete', title: '', documentElement: { classList: { add() {} } }, body: el(), write() {}, querySelector: () => null, getElementById: () => null,
+      addEventListener() {}, createTreeWalker: () => ({ nextNode: () => null }), createElement: () => Object.assign(el(), { addEventListener() {} }) },
+    MutationObserver: function () { this.observe = () => {}; } };
+  ctx.window = ctx; ctx.window.addEventListener = () => {}; vm.createContext(ctx);
+  const theme = F('theme.js'), start = theme.indexOf('/* ── SyI18n'), end = theme.indexOf('})();', start) + 5;
+  vm.runInContext(F('i18n-en.js'), ctx); vm.runInContext(theme.slice(start, end), ctx);
+  return { t: s => ctx.window.SyI18n.t(s), dict: ctx.window.SyI18nDict };
+}
+function i18nChecks(strings, over) {
+  const r = {}, AR = /[؀-ۿ]/, X = 'جهاز متحرك جزئي (أكريل)';
+  let E; try { E = i18nEngine(over); } catch (e) { return { i18nEngineLoads: false }; }
+  const mask = s => { I18N_NAMES.forEach((n, i) => { s = s.split(n).join('«N' + i + '»'); }); return s; };
+  const numsOf = s => (mask(s).match(/\d+/g) || []).sort().join(' ');
+  const has = s => strings.indexOf(s) > -1;
+  /* قنواتُ الالتقاط الأربع حيّة: رسالة · سطرُ حوار · شريطُ الأجهزة · عنوانُ خلية */
+  r.i18nCaptureAlive = strings.length >= 180 && has('↩️ أُلغي تسجيل الجهاز') && has('لن يتغيّر شيء آخر — الأسنان تبقى مفقودة كما هي.')
+    && has(X + ' · الفك السفلي · سنّان · مخطط') && has('السن 36 — زراعة — مخطط · جهاز متحرك: ' + X);
+  const left = [], lost = [], renamed = [];
+  strings.forEach(s => {
+    const o = String(E.t(s));
+    if (AR.test(mask(o))) left.push(s);
+    const a = numsOf(s).split(' ').filter(Boolean), b = numsOf(o).split(' ').filter(Boolean);
+    if (a.some(n => { const i = b.indexOf(n); if (i === -1) return true; b.splice(i, 1); return false; })) lost.push(s);
+    if (I18N_NAMES.some(n => s.split(n).length !== o.split(n).length)) renamed.push(s);
+  });
+  r.i18nNoArabicLeft = left.length === 0;
+  if (left.length && !over) console.error('نصوصٌ بقيت عربية بالواجهة الإنجليزية:\n  ' + left.slice(0, 12).join('\n  '));
+  r.i18nNumbersKept = lost.length === 0;
+  r.i18nTreatmentNamesKept = renamed.length === 0;
+  /* صياغاتٌ بعينها: المنطقة المتعددة · العدّ · وسمُ الخيار · قائمةُ الأسباب · ذيلُ الإزالة · الفكّان */
+  const SPOT = [
+    [X + ' · الفك السفلي · سنّان · مخطط — بديل [خيار ب]', X + ' · Lower jaw · 2 teeth · planned — alternative [option B]'],
+    ['✅ تم تسجيل ' + X + ' — الفك العلوي — كامل · الفك السفلي — كامل (جلسة لكل فك)', '✅ ' + X + ' recorded — Upper jaw — complete · Lower jaw — complete (one session per jaw)'],
+    ['لا يقبل جهازاً كاملاً — 21 (ضمن جسر)، 24 (قلعه مخطّط — أنجز القلع أولاً). سجّله جهازاً جزئياً على الأسنان المفقودة.', 'Cannot take a complete denture — 21 (part of a bridge), 24 (extraction planned — complete the extraction first). Record it as a partial denture on the missing teeth.'],
+    ['⚠️ تمت إزالة ' + X + ' — حُذف 2 مخطّط وتعذّر حذف الباقي — تحقّق من الاتصال وأعد المحاولة', '⚠️ ' + X + ' removed — 2 planned deleted, the rest could not be deleted — check the connection and try again'],
+    ['✓ الفك العلوي والفك السفلي: عُلّمت الأسنان القائمة مفقودة (16) — «تراجع» يعيدها', '✓ Upper jaw and Lower jaw: standing teeth marked missing (16) — «Undo» restores them'],
+    ['السن 36 — زراعة — مخطط · جهاز متحرك: ' + X, 'Tooth 36 — implant — planned · removable denture: ' + X],
+    ['– ' + X + ' / الفك العلوي — الأسنان 14، 15 — 400000 ل.س [خيار أ]', '– ' + X + ' / Upper jaw — teeth 14, 15 — 400000 SYP [option A]'],
+    ['⚠️ تمت إزالة الجسر وحذف 2 من جلساته المخطّطة — وتعذّر حذف الباقي', '⚠️ Bridge removed and 2 of its planned sessions deleted — but the rest could not be deleted'],
+    ['– ' + X + ' / الفك السفلي — كامل — 14/11/2026 — 1,200,000 ل.س (مدفوع عليها 300,000)', '– ' + X + ' / Lower jaw — complete — 14/11/2026 — 1,200,000 SYP (300,000 paid on it)'],
+    ['✅ تمت إزالة الجسر (مع دعامة معلّقة) وحذف جلسته المخطّطة · الزرعةُ البديلة رُسمت مكانه — حُذف العلاج المنجز من السجل', '✅ Bridge removed (with a dangling abutment) and its planned session deleted · the alternative implant was drawn in its place — the completed treatment was deleted from the ledger'],
+    ['⚠️ تمت إزالة الزراعة — السن 13 قلعه مخطّط — تعذّر حذف العلاج المخطّط — تحقّق من الاتصال وأعد المحاولة', '⚠️ Implant removed — tooth 13 has a planned extraction — the planned treatment could not be deleted — check the connection and try again'],
+    ['⚠️ حُفظ الفك العلوي — كامل فقط — network', '⚠️ Saved only: Upper jaw — complete — network'],
+    ['12 سناً', '12 teeth']
+  ];
+  const off = SPOT.filter(p => E.t(p[0]) !== p[1]);
+  r.i18nWording = off.length === 0;
+  if (off.length && !over) off.forEach(p => console.error('صياغةٌ غير المتوقّعة: ' + p[0] + '\n   ⇐ ' + E.t(p[0])));
+  /* قيمةٌ خارج الجداول المغلقة لا تُترجَم نصفَ ترجمة — يبقى السطر عربياً كاملاً */
+  const WHOLE = ['🦷 السن 16: سببٌ لم يُعرَّف بعد', '✅ تمت إزالة الجسر بصيغةٍ لم تُعرَّف', '⚠️ تمت إزالة الزراعة — السن 13 بحالٍ لم تُعرَّف', X + ' · الفك السفلي · سنّان · حالةٌ جديدة'];
+  r.i18nUnknownStaysWhole = WHOLE.every(s => E.t(s) === s);
+  /* الأسبابُ المضافة للقاموس لا تدوس كلمةً قائمة فيه (تُقرأ بصفحاتٍ أخرى) */
+  r.i18nOlderWordsUntouched = E.dict['مزروع'] === 'Implant' && E.dict['مقلوع'] === 'Extracted' && E.dict['مخطط'] === 'Planned';
+  return r;
+}
+
 (async () => {
   const st = staticChecks(null);
   const w = await boot(null);
   const bh = await behave(w, true);
-  const res = Object.assign({}, st, bh);
+  const STR = Object.keys(w.__I18N || {});
+  const res = Object.assign({}, st, bh, i18nChecks(STR, null));
   const keys = Object.keys(res), bad = keys.filter(k => !res[k]);
   if (process.argv.indexOf('--verbose') > -1 || bad.length) keys.forEach(k => console.log((res[k] ? '  ✓ ' : '  ✗ ') + k));
   if (bad.length) { console.log(`⛔ prove-denture: ${keys.length - bad.length}/${keys.length}`); process.exit(1); }
@@ -940,6 +1031,18 @@ async function behave(w, hasDenture) {
     ['appt-pending-redraws-drawn-unit', AP, "  if (mine.error || (mine.data || []).length) return;\n", ''],
     ['m204-backfill-unscoped', 'migrations/204_ledger_sessions_unit_teeth.sql', "   AND s.tooth_num IS NULL\n", ''],
     ['m204-mirror-drifts', 'db/schema.sql', '    "unit_teeth" "text",\n', ''],
+    ['i18n-new-denture-text-untranslated', PM, ": '↩️ أُلغي تسجيل الجهاز');", ": '↩️ أُلغي تسجيل الجهاز المتحرك');"],
+    ['i18n-toast-entry-dropped', 'i18n-en.js', "    '↩️ أُلغي تسجيل الجهاز': '↩️ The denture record was undone',\n", ''],
+    ['i18n-reason-overwrites-older-word', 'i18n-en.js', "    'الفكان معاً': 'Both jaws', ", "    'الفكان معاً': 'Both jaws', 'مزروع': 'has an implant', "],
+    ['i18n-standalone-reason-dropped', 'i18n-en.js', "    [R('^' + WHY_RE + '$'), function (m, r) { return WHY[r].charAt(0).toUpperCase() + WHY[r].slice(1); }],\n", ''],
+    ['i18n-teeth-list-keeps-arabic-comma', 'i18n-en.js', "  function nums(s) { return s.replace(/،\\s*/g, ', '); }\n  function area1(s) {", "  function nums(s) { return s; }\n  function area1(s) {"],
+    ['i18n-count-loses-number', 'i18n-en.js', "[/^(\\d+) (?:أسنان|سناً)$/, '$1 teeth'],", "[/^(\\d+) (?:أسنان|سناً)$/, 'teeth'],"],
+    ['i18n-option-letter-lost', 'i18n-en.js', "var OPT = { 'أ': 'A', 'ب': 'B', 'ج': 'C' };", "var OPT = { 'أ': 'A' };"],
+    ['i18n-reason-table-open', 'i18n-en.js', "[R('^🦷 السن (\\\\d+): ' + WHY_RE + '$'), function (m, n, r) {", "[R('^🦷 السن (\\\\d+): (.+)$'), function (m, n, r) {"],
+    ['i18n-removal-swallows-unknown', 'i18n-en.js', "(?!الجسر|الزراعة|حافظ المسافة|علاج موقع القلع)(.+?)", "(.+?)"],
+    ['i18n-status-table-open', 'i18n-en.js', "var ST_RE = '(مخطط|من عيادة أخرى|من عيادتنا|محوّل)';", "var ST_RE = '([^·\\\\[]+?)';"],
+    ['i18n-name-translated-away', 'i18n-en.js', "function (m, n, a, c, st, o) { return n + ' · ' + ARCH[a]", "function (m, n, a, c, st, o) { return 'Denture · ' + ARCH[a]"],
+    ['banner-chip-clipped-on-phone', 'patient-profile.css', ".dent-banner .dent-chip{white-space:normal;max-width:100%;text-align:center;}", ""],
     ['grey-dots-stay', D, "      if (dot) dot.remove();\n", ''],
     ['grey-rule-eats-planned-dot', D, "var dot = cell ? cell.querySelector('.tooth-status-badge.status-existing_other, .tooth-status-badge.status-existing_current, .tooth-status-badge.status-existing') : null;", "var dot = cell ? cell.querySelector('.tooth-status-badge') : null;"],
     ['counted-noun-flat', D, "return n + (n >= 3 && n <= 10 ? ' أسنان' : ' سناً');", "return n + ' أسنان';"],
@@ -980,6 +1083,13 @@ async function behave(w, hasDenture) {
     const over = {}; over[file] = LIVE[file].replace(find, repl);
     let red = false;
     try {
+      if (/^i18n-/.test(name)) {   /* طفراتُ الترجمة: تعضّها فحوصُ الترجمة وحدها (لا يُنسب عضُّها لتوكيدٍ سلوكي) */
+        let S2 = STR;
+        if (file !== 'i18n-en.js' && file !== 'theme.js') { const w3 = await boot(over); await behave(w3, true); S2 = Object.keys(w3.__I18N || {}); w3.close(); }
+        const i2 = i18nChecks(S2, over); red = Object.keys(i2).some(k => !i2[k]);
+        if (red) bit++; else { dull.push(name); console.log('  ✗ الطفرة «' + name + '» لم تُحمرّ شيئاً'); }
+        continue;
+      }
       const s2 = staticChecks(over);
       if (Object.keys(s2).some(k => !s2[k])) red = true;
       if (!red && (/\.js$/.test(file) || file === 'patient-profile.html')) { const w2 = await boot(over); const b2 = await behave(w2, true); red = Object.keys(b2).some(k => !b2[k]); w2.close(); }
