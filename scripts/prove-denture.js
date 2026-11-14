@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* M202 — مثبتُ التعويضات المتحركة (ج1 + ج2-أ) على الكود الحيّ: pp-denture.js · pp-dental.js · pp-modules.js ·
+/* M202 — مثبتُ التعويضات المتحركة (ج1 + ج2-أ + ج2-ب) على الكود الحيّ: pp-denture.js · pp-dental.js · pp-modules.js ·
    patient-profile.html · appointments.html · treatments.html · الهجرة 202 ومرآتها.
    (١) العقدُ الثابت: الهجرة (قيدان + كتالوج 33) ومرآةُ db/schema.sql وخطةُ البناء · الكتالوج بصفحة العلاجات ·
        المحمّلُ والعرضُ التاريخي يوجّهان صفَّ الجهاز لخريطته · كلُّ محوٍ/تحديثٍ للسن بلا سطحٍ يستثني صفَّ الجهاز ·
@@ -12,6 +12,8 @@
        الإنجازُ والحذف · حرّاسُ القلع والزرعة والفحص والدفعة · الفحصُ الأولي · العرضُ التاريخي · سياقٌ متروك لا يحفظ.
        ج2-أ (التعايش): المخطّطُ (زرعة/دمية جسر) يقبل الجهازَ بديلاً بنقرةٍ صريحة · الكاملُ فوق زرعاتٍ منجزة · زرعةٌ وجسرٌ على سنٍّ
        يعوّضه جهاز (صفُّ الجهاز ينجو من المحو) · القاعدةُ وحدها فوق الزرعة/الدمية · إزالةُ الزرعة بأي طريقٍ تعيد السن مفقوداً.
+       ج2-ب (M204 — البدائل والتبديل): جهازٌ مخطّط فوق جهازٍ مرسوم = جلسةٌ معلّقة بأسنانها (بلا صفوف) · وسمُ أ/ب مقابل جهازٍ/زرعةٍ/جسرٍ
+       مخطّط (وبالعكس) · حذفُ المرسوم أو إزالتُه يرسم المعلّق · إنجازُ المعلّق يبدّل الرسم · منجزٌ فوق قائم بتأكيد · المرفوض بصفر كتابة.
    (٣) طفراتٌ متعمَّدة — كلٌّ منها يجب أن تُحمرّ توكيداً واحداً على الأقل (#342). */
 const fs = require('fs'), path = require('path'), cp = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
@@ -21,7 +23,7 @@ const { JSDOM, VirtualConsole } = require('jsdom');
 cp.execFileSync('node', [path.join(__dirname, 'dom-smoke', 'build-harness.js')], { stdio: 'ignore' });
 const HARNESS = fs.readFileSync(path.join(__dirname, 'dom-smoke', '.out', 'harness.html'), 'utf8');
 
-const FILES = ['pp-denture.js', 'pp-dental.js', 'pp-modules.js', 'pp-core.js', 'pp-clinical.js', 'pp-wa.js', 'patient-profile.html', 'patient-profile.css',
+const FILES = ['migrations/204_ledger_sessions_unit_teeth.sql', 'pp-denture.js', 'pp-dental.js', 'pp-modules.js', 'pp-core.js', 'pp-clinical.js', 'pp-wa.js', 'patient-profile.html', 'patient-profile.css',
   'appointments.html', 'treatments.html', 'rpt-treat.js', 'migrations/202_removable_prosthetics_core.sql', 'migrations/203_removable_prosthetics_category.sql', 'db/schema.sql', 'scripts/db-bootstrap.py',
   'scripts/cache-bust.sh', 'scripts/check-mirrors.js'];
 const LIVE = {}; FILES.forEach(f => { LIVE[f] = fs.readFileSync(path.join(ROOT, f), 'utf8'); });
@@ -88,6 +90,9 @@ const FAKE_DB = `
   function _rowLbl(){ return 'ل.س'; } function _rowCur(){ return 'SYP'; } function curLblOf(){ return 'ل.س'; } function fmt(n){ return String(n); }
   function computeSessionPaid(){ return 0; }
   sessionTreatmentKey = function(x){ return x ? x.treatment_key : null; };
+  /* مرآةُ pp-plan.js الحرفية (الملفُّ خارج العُدّة): plan_option 1..3 = أ/ب/ج */
+  var PLAN_OPTION_LABELS = { 1: 'أ', 2: 'ب', 3: 'ج' };
+  function planOptOf(s) { return (s && s.plan_option >= 1 && s.plan_option <= 3) ? s.plan_option : null; }
 `;
 
 function page(over) {
@@ -157,6 +162,13 @@ function staticChecks(over) {
   r.schemaMirror = seg(SCH) !== null && seg(SCH) === seg(M3)
     && /"treatments_target_part_check" CHECK[^\n]*'mouth'::"text", 'denture_full'::"text", 'denture_partial'::"text"\]/.test(SCH)
     && /"teeth_status_surface_check" CHECK[^\n]*'SOCKET'::"text", 'DENTURE'::"text"/.test(SCH);
+  /* M204: عمودُ أسنان الجهاز على جلسته — إضافيٌّ عرضي + تعبئةٌ محصورة بجلسات الأجهزة · ومرآتُه · وخطةُ البناء */
+  const M4 = F('migrations/204_ledger_sessions_unit_teeth.sql');
+  r.m204 = /ADD COLUMN IF NOT EXISTS unit_teeth text;/.test(M4) && /CHECK \(unit_teeth IS NULL OR \(unit_teeth ~ '\^\[1-4\]\[1-8\]\(,\[1-4\]\[1-8\]\)\{0,15\}\$' AND tooth_num IS NULL\)\);/.test(M4)
+    && /WHERE t\.surface = 'DENTURE' AND t\.unit_id IS NOT NULL/.test(M4) && /WHERE s\.id = d\.unit_id\s+AND s\.tooth_num IS NULL\s+AND s\.unit_teeth IS NULL;/.test(M4)
+    && (M4.match(/UPDATE public\./g) || []).length === 1 && !/\bcost\b\s*=/.test(M4) && !/GRANT |CREATE (OR REPLACE )?FUNCTION|POLICY/i.test(M4);
+  r.m204Mirror = /"units" smallint,\n    "unit_teeth" "text",/.test(SCH) && /CONSTRAINT "ledger_sessions_unit_teeth_format" CHECK \(\(\("unit_teeth" IS NULL\) OR \(\("unit_teeth" ~ '\^\[1-4\]\[1-8\]\(,\[1-4\]\[1-8\]\)\{0,15\}\$'::"text"\) AND \("tooth_num" IS NULL\)\)\)\),/.test(SCH)
+    && /'migrations\/203_removable_prosthetics_category\.sql',[^\n]*\n\s+'migrations\/204_ledger_sessions_unit_teeth\.sql',/.test(F('scripts/db-bootstrap.py'));
   r.bootstrapPlan = /'migrations\/201_expense_system_category_supplier_link\.sql',[^\n]*\n\s+'migrations\/202_removable_prosthetics_core\.sql',[^\n]*\n\s+'migrations\/203_removable_prosthetics_category\.sql',/.test(F('scripts/db-bootstrap.py'));
   /* صفحة العلاجات: الكتالوج · البلاطتان · الفلتر · الشارة · الحماية */
   const cat = (TR.match(/\{ treatment_key:'denture-[a-z-]+',[^\n]*\}/g) || []);
@@ -185,6 +197,11 @@ function staticChecks(over) {
   const AP = F('appointments.html');
   r.apptCompleteMirror = /if \(s && !s\.tooth_num\) \{ await _apptSyncDentureRowsOnComplete\(s, providerOverride\); return; \}/.test(AP)
     && /\.eq\('unit_id', s\.id\)\.eq\('surface', 'DENTURE'\)\.eq\('status', 'planned'\)/.test(AP);
+  /* ج2-ب: مرآةُ إنجاز الجلسة المعلّقة بصفحة المواعيد — لا صفوفَ انقلبت ⇒ يُرسم جهازُ الجلسة من unit_teeth مكان المرسوم */
+  r.apptPendingDentureMirror = /\.eq\('status', 'planned'\)\.select\('tooth_num'\);\s+if \(u\.error\) \{[^}]*return; \}\s+if \(\(u\.data \|\| \[\]\)\.length\) return;\s+await _apptDrawPendingDenture\(s, providerOverride\);/.test(AP)
+    && /if \(ls\.error \|\| !ls\.data \|\| !ls\.data\.unit_teeth \|\| !ls\.data\.treatment_key\) return;/.test(AP) && /if \(mine\.error \|\| \(mine\.data \|\| \[\]\)\.length\) return;/.test(AP)
+    && /\.eq\('surface', 'DENTURE'\)\.in\('unit_id', units\);/.test(AP) && /treatment_key: ls\.data\.treatment_key, status: 'completed', provider_id: prov, unit_id: s\.id, review_at: null \};/.test(AP);
+  r.fixedSaveHook = /if \(newSess && window\.SyDenture\) \{ try \{ await window\.SyDenture\.onFixedSessionSaved\(newSess\); \}/.test(F('pp-dental.js'));
   /* التسجيل: كسرُ الكاش ×2 · وضعُ القراءة */
   const CB = F('scripts/cache-bust.sh');
   r.cacheBustAsset = (CB.match(/pp-denture\\\.js/g) || []).length === 2 && /pp-dental\.js · pp-denture\.js · pp-plan\.js/.test(CB);
@@ -200,6 +217,7 @@ function staticChecks(over) {
 /* ── (٢) السلوك ── */
 const T_FULL = { treatment_key: 'denture-full', id: 'denture-full', name: 'جهاز متحرك كامل', label: 'ك', fill: '#e11d74', stroke: '#9d174d', price: 900000, target_part: 'denture_full', category: 'prosth_removable', is_active: true, needs_lab: true, dentition_scope: 'permanent', currency: 'SYP', price_overrides: {} };
 const T_PART = { treatment_key: 'denture-partial-acrylic', id: 'denture-partial-acrylic', name: 'جهاز متحرك جزئي (أكريل)', label: 'ج', fill: '#fb7185', stroke: '#be123c', price: 400000, target_part: 'denture_partial', category: 'prosth_removable', is_active: true, needs_lab: true, dentition_scope: 'permanent', currency: 'SYP', price_overrides: {} };
+const T_PMET = { treatment_key: 'denture-partial-metal', id: 'denture-partial-metal', name: 'جهاز متحرك جزئي (هيكل معدني)', label: 'ج', fill: '#9aa8bd', stroke: '#56657b', price: 600000, target_part: 'denture_partial', category: 'prosth_removable', is_active: true, needs_lab: true, dentition_scope: 'permanent', currency: 'SYP', price_overrides: {} };
 const T_IMPL = { treatment_key: 'implant', id: 'implant', name: 'زراعة', label: 'ز', fill: '#bfdbfe', stroke: '#3b82f6', price: 0, target_part: 'implant', category: 'implantology', is_active: true, currency: 'SYP', price_overrides: {} };
 const T_BRDG = { treatment_key: 'bridge', id: 'bridge', name: 'جسر', label: 'ج', fill: '#ef4444', stroke: '#b91c1c', price: 0, target_part: 'bridge', category: 'prosthodontics', is_active: true, currency: 'SYP', price_overrides: {} };
 const T_SOCK = { treatment_key: 'socket-dressing', id: 'socket-dressing', name: 'ضماد سنخ', label: 'ض', fill: '#fbbf24', stroke: '#b45309', price: 0, target_part: 'whole', category: 'surgical', is_active: true, post_extraction: true, currency: 'SYP', price_overrides: {} };
@@ -210,7 +228,7 @@ async function behave(w, hasDenture) {
   const r = {}, doc = w.document;
   const $ = id => doc.getElementById(id);
   const tick = (ms) => new Promise(res => setTimeout(res, ms || 0));
-  [T_FULL, T_PART, T_IMPL, T_BRDG, T_SOCK, T_SPCR, T_ARCH].forEach(t => w.TREATMENTS.push(JSON.parse(JSON.stringify(t))));
+  [T_FULL, T_PART, T_PMET, T_IMPL, T_BRDG, T_SOCK, T_SPCR, T_ARCH].forEach(t => w.TREATMENTS.push(JSON.parse(JSON.stringify(t))));
   const K = 'custom_1781292854422';
   const row = (tooth, surface, key, status, unit) => ({ doctor_id: 'doc-1', patient_id: 'pat-1', tooth_num: String(tooth), surface, treatment_key: key, status: status || 'completed', unit_id: unit || null, provider_id: null });
   /* تحميلٌ بمحاكاة المحمّل الحرفية (المطابقةُ الثابتة r.loaderRoutes تحرس الأصل) */
@@ -567,6 +585,95 @@ async function behave(w, hasDenture) {
   r.examImplantUnderDentureAndUnstamp = stI && !DB('teeth_status').some(x => x.treatment_key === 'implant') && DB('teeth_status').some(x => x.tooth_num === '36' && x.surface === 'WHOLE' && x.treatment_key === 'extracted')
     && DB('teeth_status').filter(x => x.surface === 'DENTURE').length === 2 && w.eval('isExtracted(36)') === true && w.eval('isImplant(36)') === false;
   w.eval('window.__examMode = false; examSelectedKey = null; currentTooth = null; currentSurface = null;');
+
+  /* ⑪-ج ج2-ب — بدائلُ الجهاز وتبديلُه: جهازٌ ثانٍ على أسنانٍ يعوّضها جهازٌ مرسوم = جلسةٌ معلّقة تحمل أسنانَها (unit_teeth) */
+  const sA = { id: 'sess-A', doctor_id: 'doc-1', patient_id: 'pat-1', type: T_PART.name, description: 'الفك السفلي — الأسنان 35، 36', cost: 400000, status: 'planned', tooth_num: null, arch: 'L', treatment_key: T_PART.id, unit_teeth: '35,36', date: '2026-11-01', created_at: '2026-11-01T10:00:00Z' };
+  const rowsA = [X(35), X(36), row(35, 'DENTURE', T_PART.id, 'planned', 'sess-A'), row(36, 'DENTURE', T_PART.id, 'planned', 'sess-A')];
+  const S = (expr) => w.eval(expr);
+  /* (١) مخطّطٌ فوق مخطّط = بديل: لا صفوف · وسمٌ أ/ب · الشريطُ والتلميح يسمّيانه */
+  load(rowsA, [sA]); w.renderTeeth(); w.SyDenture.openPicker(T_PMET.id, T_PMET.name, { arch: 'L' });
+  const ovNoteP = $('dentPickNote').textContent.replace(/\s+/g, ' ');
+  r.overTeethSelectableNotPreselected = cell(35).classList.contains('dent-miss') && cell(35).classList.contains('dent-alt') && !cell(35).classList.contains('dent-on')
+    && /عليه جهاز مسجّل — الجديد بديل أو تبديل/.test(cell(35).getAttribute('title')) && /الأسنان 35، 36 عليها جهاز مسجّل — انقرها ليُسجَّل الجديد بديلاً عنه \(مخطّط\) أو تبديلاً له/.test(ovNoteP);
+  w.dentToothToggle(35); w.dentToothToggle(36); await w.SyDenture.confirmPick(); w.pickStatus('planned'); $('toothCost').value = '600000'; await w.saveToothTreatment(); w.renderTeeth();
+  const bS = DB('ledger_sessions').find(x => x.treatment_key === T_PMET.id) || {};
+  r.altDentureIsLedgerOnly = ops('ledger_sessions', 'insert').length === 1 && bS.unit_teeth === '35,36' && bS.tooth_num === null && bS.arch === 'L' && bS.status === 'planned'
+    && ops('teeth_status', 'insert').length === 0 && ops('teeth_status', 'delete').length === 0 && DB('teeth_status').filter(x => x.surface === 'DENTURE').every(x => x.unit_id === 'sess-A')
+    && w.SyDenture.pendingSessions().length === 1 && w.SyDenture.pendingSessions()[0].id === bS.id && w.__REALLOC === 1 && !w.SyDenture.saveReady();
+  r.altDentureTaggedAsOptions = S('sessions.find(function(x){ return x.id === "sess-A"; }).plan_option') === 1 && S('sessions.find(function(x){ return x.id === "' + bS.id + '"; }).plan_option') === 2
+    && ops('ledger_sessions', 'update').length === 2 && ops('ledger_sessions', 'update').every(o => Object.keys(o.payload).join() === 'plan_option')
+    && /أُضيف «جهاز متحرك جزئي \(هيكل معدني\)» بديلاً بالخطة \[خيار ب\]/.test(toasts());
+  const pendChip = doc.querySelector('#dentureBanner .dent-chip-pend');
+  w.SyDenture.paint();
+  r.pendingShownInBannerAndTip = !!pendChip && /جهاز متحرك جزئي \(هيكل معدني\) · الفك السفلي · سنّان · مخطط — بديل \[خيار ب\]$/.test(pendChip.textContent.trim()) && pendChip.getAttribute('data-dent-pending') === bS.id
+    && doc.querySelectorAll('.tooth-cell[data-tooth-cell="35"] .tooth-tip .dent-tip-pend').length === 1 && /جهاز مخطّط \(بديل\):/.test(doc.querySelector('.tooth-cell[data-tooth-cell="35"] .dent-tip-pend').textContent)
+    && !doc.querySelector('.tooth-cell[data-tooth-cell="34"] .dent-tip-pend') && L(fsvg(35)).getAttribute('data-dent-unit') === 'sess-A'
+    && /جهاز متحرك جزئي \(أكريل\) · الفك السفلي · سنّان · مخطط \[خيار أ\]$/.test(doc.querySelector('#dentureBanner .dent-chip:not(.dent-chip-pend)').textContent.trim()) && /\[خيار أ\]/.test(tip(35).textContent);
+  /* المعلّقُ لا يُرسم ما دامت أسنانُه يعوّضها جهاز */
+  w.__OPS = []; r.settleKeepsPendingWhileOccupied = (await w.SyDenture.settlePending()) === false && w.__OPS.length === 0 && w.SyDenture.pendingSessions().length === 1;
+  /* حُذف المرسوم (اعتمادُ البديل يمرّ بالمسار نفسه: delSession ← onSessionDeleted) ⇒ المعلّقُ يأخذ الرسم */
+  w.__OPS = []; S('sessions = sessions.filter(function(x){ return x.id !== "sess-A"; });');
+  const delA = await w.SyDenture.onSessionDeleted(sA);
+  const afterDel = DB('teeth_status').filter(x => x.surface === 'DENTURE');
+  r.pendingTakesChartWhenDrawnDeleted = delA === true && afterDel.length === 2 && afterDel.every(x => x.unit_id === bS.id && x.status === 'planned' && x.treatment_key === T_PMET.id)
+    && w.SyDenture.pendingSessions().length === 0 && w.SyDenture.unitOf(35).id === bS.id;
+  /* (٢) مخطّطٌ فوق قائم = تبديل: بلا وسم خيار · القديمُ يبقى حتى الإنجاز، ثم يأخذ الجديدُ الرسم */
+  const oldRows = [X(46), X(47), row(46, 'DENTURE', T_PART.id, 'existing_other', 'u-old'), row(47, 'DENTURE', T_PART.id, 'existing_other', 'u-old')];
+  const pickOver = async (st) => { w.SyDenture.openPicker(T_PMET.id, T_PMET.name, { arch: 'L' }); w.dentToothToggle(46); w.dentToothToggle(47); await w.SyDenture.confirmPick(); w.pickStatus(st); $('toothCost').value = '600000'; await w.saveToothTreatment(); };
+  load(oldRows); await pickOver('planned'); w.renderTeeth();
+  const rS = DB('ledger_sessions')[0] || {};
+  r.replacementStaysPendingUntilDone = rS.unit_teeth === '46,47' && !rS.plan_option && ops('ledger_sessions', 'update').length === 0 && ops('teeth_status', 'insert').length === 0
+    && DB('teeth_status').filter(x => x.surface === 'DENTURE').every(x => x.unit_id === 'u-old') && /يأخذ مكان الجهاز الحالي على المخطط عند إنجازه/.test(toasts())
+    && /مخطط — تبديل عند الإنجاز$/.test(doc.querySelector('#dentureBanner .dent-chip-pend').textContent.trim());
+  w.__OPS = [];
+  const done2 = await S('(async function(){ sessions[0].status = "completed"; return await SyDenture.onSessionComplete(sessions[0]); })()');
+  const swapped = DB('teeth_status').filter(x => x.surface === 'DENTURE'), swapDel = ops('teeth_status', 'delete')[0] || { filters: [] };
+  r.completingReplacementSwapsDrawing = done2 === true && swapped.length === 2 && swapped.every(x => x.unit_id === rS.id && x.status === 'completed' && x.treatment_key === T_PMET.id)
+    && swapDel.filters.some(f => f[0] === 'eq' && f[1] === 'surface' && f[2] === 'DENTURE') && swapDel.filters.some(f => f[0] === 'in' && f[1] === 'tooth_num' && f[2].join() === '46,47')
+    && DB('teeth_status').filter(x => x.surface === 'WHOLE').length === 2 && w.SyDenture.pendingSessions().length === 0;
+  /* جلسةُ فكٍّ ليست جهازاً (تبييض) لا ترسم شيئاً عند إنجازها */
+  w.__OPS = []; r.archSessionCompletionDrawsNothing = (await w.SyDenture.onSessionComplete({ id: 'w1', patient_id: 'pat-1', tooth_num: null, arch: 'L', treatment_key: 'whitening', status: 'completed' })) === false && w.__OPS.length === 0;
+  /* (٣) منجزٌ فوق قائم = تبديلٌ فوري بتأكيد؛ الرفضُ صفرُ كتابة */
+  load(oldRows); w.__DIALOG_ANSWER = false; await pickOver('completed');
+  const swapAsk = w.__DIALOGS.length === 1 && w.__DIALOGS[0].title === 'تبديل الجهاز' && /«جهاز متحرك جزئي \(أكريل\)» \(الفك السفلي — الأسنان 46، 47\)/.test(w.__DIALOGS[0].message) && w.__OPS.length === 0 && w.SyDenture.saveReady();
+  w.__DIALOG_ANSWER = true; await w.saveToothTreatment();
+  const sw3 = DB('teeth_status').filter(x => x.surface === 'DENTURE'), s3 = DB('ledger_sessions')[0] || {};
+  r.immediateReplacementAfterConfirm = swapAsk && sw3.length === 2 && sw3.every(x => x.unit_id === s3.id && x.status === 'completed' && x.treatment_key === T_PMET.id) && s3.unit_teeth === '46,47' && DB('ledger_sessions').length === 1;
+  /* (٤) المرفوض: «موجود مسبقاً» فوق جهاز · منجزٌ فوق مخطّط — صفرُ كتابة */
+  load(oldRows); await pickOver('existing_other'); const blkEx = w.__OPS.length === 0 && /لا يُسجَّلان فوق جهازٍ آخر/.test(toasts());
+  load(rowsA, [sA]); w.SyDenture.openPicker(T_PMET.id, T_PMET.name, { arch: 'L' }); w.dentToothToggle(35); await w.SyDenture.confirmPick(); w.pickStatus('completed'); await w.saveToothTreatment();
+  r.overlapRefusals = blkEx && w.__OPS.length === 0 && w.__DIALOGS.length === 0 && /على الأسنان جهاز مخطّط «جهاز متحرك جزئي \(أكريل\)»/.test(toasts());
+  /* الفحصُ الأولي يسجّل القائمَ وحده ⇒ السنُّ الذي عليه جهازٌ يبقى فيه مانعاً */
+  load(oldRows); w.eval('window.__examMode = true; examStatus = "existing_other"; examSelectedKey = null;'); w.examPick(T_PMET.id); w.dentArchToggle('L');
+  r.examKeepsDentureToothBlocked = cell(46).classList.contains('dent-off') && /عليه جهاز متحرك مسجّل/.test(cell(46).getAttribute('title'));
+  w.closeModal('regionalAreaModal'); w.SyDenture.clearPending(); w.eval('window.__examMode = false;');
+  /* الكاملُ فوق جهازٍ مسجّل: ليس مانعاً، ويُسمّى */
+  load(w.DENT_FULL_TEETH.L.map(t => X(t)).concat([row(46, 'DENTURE', T_PART.id, 'completed', 'u-old'), row(47, 'DENTURE', T_PART.id, 'completed', 'u-old')]));
+  w.SyDenture.openPicker(T_FULL.id, T_FULL.name, null); w.dentArchToggle('L');
+  r.fullOverExistingDentureNamed = /الفك السفلي: عليه «جهاز متحرك جزئي \(أكريل\)» — الجديد يُسجَّل بديلاً عنه \(مخطّط\) أو تبديلاً له/.test($('dentPickNote').textContent.replace(/\s+/g, ' ')) && !/لا يقبل جهازاً كاملاً/.test($('dentPickNote').textContent);
+  w.closeModal('regionalAreaModal'); w.SyDenture.clearPending();
+  /* إزالةُ القديم من زرّه والجديدُ معلّق ⇒ الجديدُ يُرسم مخطّطاً */
+  const sR = { id: 'sess-R', doctor_id: 'doc-1', patient_id: 'pat-1', type: T_PMET.name, status: 'planned', tooth_num: null, arch: 'L', treatment_key: T_PMET.id, unit_teeth: '46,47', created_at: '2026-11-02T10:00:00Z' };
+  load(oldRows, [sR]); await w.dentRemoveUnit(46);
+  const afterRm = DB('teeth_status').filter(x => x.surface === 'DENTURE');
+  r.removingOldDrawsPending = afterRm.length === 2 && afterRm.every(x => x.unit_id === 'sess-R' && x.status === 'planned') && w.SyDenture.pendingSessions().length === 0;
+  /* (٥) الوسمُ التلقائي مقابل الثابت: جهازٌ مخطّط على سنٍّ عليه زرعةٌ مخطّطة ⇒ الزرعةُ «أ» والجهازُ «ب» — وبالعكس */
+  const sImp = { id: 's-imp', doctor_id: 'doc-1', patient_id: 'pat-1', type: 'زراعة', status: 'planned', tooth_num: '36', surface: 'WHOLE', treatment_key: 'implant', created_at: '2026-11-01T09:00:00Z' };
+  load([X(35), row(36, 'WHOLE', 'implant', 'planned')], [sImp]);
+  w.SyDenture.openPicker(T_PART.id, T_PART.name, { arch: 'L' }); w.dentToothToggle(36); await w.SyDenture.confirmPick(); w.pickStatus('planned'); await w.saveToothTreatment();
+  const dT = DB('ledger_sessions').find(x => x.treatment_key === T_PART.id) || {};
+  r.dentureVsPlannedImplantTagged = S('sessions.find(function(x){ return x.id === "s-imp"; }).plan_option') === 1 && S('sessions.find(function(x){ return x.id === "' + dT.id + '"; }).plan_option') === 2
+    && dT.unit_teeth === '35,36' && DB('teeth_status').filter(x => x.surface === 'DENTURE').length === 2;
+  load(rowsA, [sA]); S('sessions.push(' + JSON.stringify(Object.assign({}, sImp, { created_at: '2026-11-03T09:00:00Z' })) + ');');
+  const tagRev = await S('SyDenture.onFixedSessionSaved(sessions[sessions.length - 1])');
+  const noTouch = await S('SyDenture.onFixedSessionSaved({ id: "s-x", status: "planned", tooth_num: "11", treatment_key: "implant" })');
+  const doneFix = await S('SyDenture.onFixedSessionSaved({ id: "s-y", status: "completed", tooth_num: "36", treatment_key: "implant" })');
+  r.fixedOnPlannedDentureTagged = tagRev === true && S('sessions.find(function(x){ return x.id === "sess-A"; }).plan_option') === 1 && S('sessions.find(function(x){ return x.id === "s-imp"; }).plan_option') === 2
+    && noTouch === false && doneFix === false && ops('ledger_sessions', 'update').length === 2;
+  /* لا بدائل ⇒ لا وسم (جهازٌ مخطّط عادي) */
+  load([X(35), X(36)]); w.SyDenture.openPicker(T_PART.id, T_PART.name, { arch: 'L' }); await w.SyDenture.confirmPick(); w.pickStatus('planned'); await w.saveToothTreatment();
+  r.plainPlannedDentureUntagged = ops('ledger_sessions', 'update').length === 0 && !DB('ledger_sessions')[0].plan_option && DB('ledger_sessions')[0].unit_teeth === '35,36' && DB('teeth_status').filter(x => x.surface === 'DENTURE').length === 2;
+  w.eval('currentTooth = null; currentSurface = null;');
   /* v712: اللوحتان مفلترتان بالتصنيف — يُفتح تصنيفُ كلِّ علاجٍ قبل البحث عنه (الجهازُ بـ«تعويضات متحركة» بالفحص، وغائبٌ عن كل شرائح الدفعة) */
   const bp = doc.createElement('div'); bp.id = 'batchPalette'; doc.body.appendChild(bp);
   w.eval('modeTxTab.batch = "implantology"'); w.renderBatchPalette();
@@ -717,8 +824,8 @@ async function behave(w, hasDenture) {
     ['standing-not-confirmed', D, "if (toMark.length) {\n      var ok = await SyDialog.confirm({", "if (false) {\n      var ok = await SyDialog.confirm({"],
     ['blockers-ignored', D, "if (c.blockers.length) {\n        showToast(", "if (false) {\n        showToast("],
     ['planned-extraction-selectable', D, "if (typeof isExtractionPlanned === 'function' && isExtractionPlanned(n)) return { ok: false, block: true, why: 'قلعه مخطّط — أنجز القلع أولاً' };", ''],
-    ['wisdom-preselected', D, "return dentSelectable(arch).filter(function (t) { return (t % 10) !== 8 && !dentToothState(t).alt; });", "return dentSelectable(arch).filter(function (t) { return !dentToothState(t).alt; });"],
-    ['planned-site-preselected', D, "return dentSelectable(arch).filter(function (t) { return (t % 10) !== 8 && !dentToothState(t).alt; });", "return dentSelectable(arch).filter(function (t) { return (t % 10) !== 8; });"],
+    ['wisdom-preselected', D, "return (t % 10) !== 8 && !s.alt && !s.over; });", "return !s.alt && !s.over; });"],
+    ['planned-site-preselected', D, "return (t % 10) !== 8 && !s.alt && !s.over; });", "return (t % 10) !== 8 && !s.over; });"],
     ['save-ready-always', D, "&& pendingRegionalType === 'arch' && pendingToothStatus === pd.key && !currentTooth && !window.__batchMode && !window.__examMode);", ");"],
     ['picker-not-reset', PD, "  if (window.SyDenture) window.SyDenture.pickerReset();   /* M202: النافذةُ مشتركة مع منتقي الجهاز المتحرك */\n", ''],
     ['exam-click-unextracts', PM, "    if (tp === 'extraction' && window.SyDenture && window.SyDenture.has(n)) {\n      showToast('🦷 السن ' + n + ' يعوّضه جهاز متحرك — أزل الجهاز أولاً'); return;\n    }\n", ''],
@@ -739,7 +846,7 @@ async function behave(w, hasDenture) {
     ['completed-pontic-replaceable', D, "return (((sm.__status || {}).PONTIC) === 'planned') ? { ok: true, alt: true, why:", "return true ? { ok: true, alt: true, why:"],
     ['abutment-treated-as-standing', D, "  if (isBridgeKey(sm.WHOLE)) return { ok: false, block: true, why: 'ضمن جسر' };\n", ''],
     ['implants-block-overdenture', D, "    if (s.block && s.implant) implants.push(t);\n    else if (s.block) blockers.push", "    if (s.block) blockers.push"],
-    ['revalidation-rejects-overdenture', D, "if (s.block && !(pd.kind === 'full' && s.implant && !dentHas(t))) return", "if (s.block) return"],
+    ['revalidation-rejects-overdenture', D, "if (s.block && !(pd.kind === 'full' && s.implant)) return", "if (s.block) return"],
     ['artificial-tooth-over-pontic', D, "if (!bandOnly) {\n      var a = txPathAttrs(st, c.fill, c.stroke, 'dn' + n, 0.92);", "if (true) {\n      var a = txPathAttrs(st, c.fill, c.stroke, 'dn' + n, 0.92);"],
     ['occlusal-drawn-over-pontic', D, "if ((ghost || onImplant) && osvg && !dentLayerOf(osvg, u)) {", "if (osvg && !dentLayerOf(osvg, u)) {"],
     ['implant-keeps-band-only', D, "i === mid, i === mid - 1, !(ghost || onImplant)));", "i === mid, i === mid - 1, !ghost));"],
@@ -754,6 +861,33 @@ async function behave(w, hasDenture) {
     ['restore-missing-overwrites-row', D, "  if (sm.WHOLE || (typeof isExtracted === 'function' && isExtracted(tn)) || (typeof isImplant === 'function' && isImplant(tn))) return false;\n", ''],
     ['exam-unstamp-leaves-standing-under-denture', PM, "    if (tp === 'implant' && window.SyDenture && window.SyDenture.has(n)) await window.SyDenture.restoreMissing(n);\n", ''],
     ['session-delete-leaves-standing-under-denture', PH, "        await window.SyDenture.restoreMissing(sess.tooth_num);\n", ''],
+    ['pending-writes-rows', D, "    if (asPending) pendingMade.push(", "    if (false) pendingMade.push("],
+    ['unit-teeth-not-saved', D, "unit_teeth: dentTeethCsv(u.teeth)   /* M204 */", "unit_teeth: null"],
+    ['no-option-tagging', D, "if (sess && status === 'planned') { try { await dentTagOptions(sess); }", "if (false) { try { await dentTagOptions(sess); }"],
+    ['newest-gets-first-option', D, "groups.sort(function (a, b) { var x = first(a), y = first(b); return x < y ? -1 : (x > y ? 1 : 0); });", "groups.sort(function (a, b) { var x = first(a), y = first(b); return x < y ? 1 : (x > y ? -1 : 0); });"],
+    ['fixed-sessions-not-rivals', D, "return await dentAssignOptions([fixed].concat(dents.map(function (d) { return [d]; })).concat([[dSess]]));", "return await dentAssignOptions(dents.map(function (d) { return [d]; }).concat([[dSess]]));"],
+    ['reverse-tag-ignores-status', D, "if (!dentPlannedOf(fSess) || !fSess.tooth_num || !dentIsFixedAlt(fSess)", "if (!fSess.tooth_num || !dentIsFixedAlt(fSess)"],
+    ['reverse-tag-hook-removed', PD, "  if (newSess && window.SyDenture) { try { await window.SyDenture.onFixedSessionSaved(newSess); } catch (eDt) { console.warn('denture option tagging skipped:', eDt); } }\n", ''],
+    ['pending-never-settles-on-delete', D, "  try { await dentSettlePending(); } catch (eS) { console.warn('settle after delete skipped:', eS); }\n", ''],
+    ['pending-never-settles-on-removal', D, "  if (!err) { try { await dentSettlePending(); } catch (eS) { console.warn('settle after removal skipped:', eS); } }   /* ج2-ب: المعلّقُ يأخذ الرسم */\n", ''],
+    ['settle-draws-over-a-denture', D, "    if (!teeth.length || teeth.some(dentHas)) continue;", "    if (!teeth.length) continue;"],
+    ['completion-skips-pending-denture', D, "  if (!hit.length) return (dentIsSession(sess) && !dentSessDrawn(sess)) ? await dentDrawCompleted(sess) : false;", "  if (!hit.length) return false;"],
+    ['replacement-keeps-old-rows', D, "  var cErr = await dentClearUnits(dentOverlapUnits(teeth));", "  var cErr = '';"],
+    ['immediate-replacement-unconfirmed', D, "confirmText: 'بدّل الجهاز', cancelText: 'رجوع', danger: true\n    })) return;", "confirmText: 'بدّل الجهاز', cancelText: 'رجوع', danger: true\n    }) && false) return;"],
+    ['existing-recorded-over-a-denture', D, "  if (ovAll.length && !billable) {", "  if (false) {"],
+    ['completed-over-planned-allowed', D, "var plOld = ovAll.filter(function (o) { return o.st === 'planned'; })[0];", "var plOld = null;"],
+    ['exam-allows-second-denture', D, "if (over && pendingDenture && pendingDenture.exam) return", "if (false) return"],
+    ['denture-teeth-preselected', D, "return (t % 10) !== 8 && !s.alt && !s.over; });", "return (t % 10) !== 8 && !s.alt; });"],
+    ['late-denture-not-detected', D, "      if (dentHas(t) && (u.over || []).indexOf(t) === -1) return 'السن ' + t + ': عليه جهاز متحرك مسجّل';   /* ج2-ب: جهازٌ ظهر بعد المنتقي */\n", ''],
+    ['drawn-option-not-labelled', D, "(full ? 'كامل' : dentTeethWord(u.teeth.length)) + st + escapeHtml(dentOptBadgeText(dentSessionOfUnit(u))) + '</span>';", "(full ? 'كامل' : dentTeethWord(u.teeth.length)) + st + '</span>';"],
+    ['pending-missing-from-banner', D, "dentBannerHtml(units) + dentPendingBannerHtml(pend)", "dentBannerHtml(units)"],
+    ['pending-tip-missing', D, "  dentPaintPendingTips(pend);\n", ''],
+    ['pending-tip-duplicated', D, "        for (var i = 0; i < had.length; i++) { if (had[i].getAttribute('data-dent-pending') === String(s.id)) return; }\n", ''],
+    ['pending-kind-always-alt', D, "return ov.some(function (u) { return u.st === 'planned'; }) ? 'alt' : 'replace';\n}", "return 'alt';\n}"],
+    ['appt-pending-mirror-removed', AP, "  await _apptDrawPendingDenture(s, providerOverride);\n", ''],
+    ['appt-pending-redraws-drawn-unit', AP, "  if (mine.error || (mine.data || []).length) return;\n", ''],
+    ['m204-backfill-unscoped', 'migrations/204_ledger_sessions_unit_teeth.sql', "   AND s.tooth_num IS NULL\n", ''],
+    ['m204-mirror-drifts', 'db/schema.sql', '    "unit_teeth" "text",\n', ''],
     ['grey-dots-stay', D, "      if (dot) dot.remove();\n", ''],
     ['grey-rule-eats-planned-dot', D, "var dot = cell ? cell.querySelector('.tooth-status-badge.status-existing_other, .tooth-status-badge.status-existing_current, .tooth-status-badge.status-existing') : null;", "var dot = cell ? cell.querySelector('.tooth-status-badge') : null;"],
     ['counted-noun-flat', D, "return n + (n >= 3 && n <= 10 ? ' أسنان' : ' سناً');", "return n + ' أسنان';"],

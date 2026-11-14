@@ -2238,6 +2238,7 @@ CREATE TABLE IF NOT EXISTS "public"."ledger_sessions" (
     "currency" "text" NOT NULL,
     "plan_option" smallint,
     "units" smallint,
+    "unit_teeth" "text",
     CONSTRAINT "ledger_sessions_arch_valid" CHECK ((("arch" IS NULL) OR ("arch" = ANY (ARRAY['U'::"text", 'L'::"text"])))),
     CONSTRAINT "ledger_sessions_cost_nonneg" CHECK ((("cost" IS NULL) OR ("cost" >= (0)::numeric))),
     CONSTRAINT "ledger_sessions_currency_valid" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))),
@@ -2246,6 +2247,7 @@ CREATE TABLE IF NOT EXISTS "public"."ledger_sessions" (
     CONSTRAINT "ledger_sessions_quadrant_valid" CHECK ((("quadrant" IS NULL) OR ("quadrant" = ANY (ARRAY['UR'::"text", 'UL'::"text", 'LR'::"text", 'LL'::"text"])))),
     CONSTRAINT "ledger_sessions_status_check" CHECK (("status" = ANY (ARRAY['planned'::"text", 'completed'::"text", 'existing_current'::"text", 'existing_other'::"text", 'referred'::"text", 'condition'::"text"]))),
     CONSTRAINT "ledger_sessions_surface_check" CHECK ((("surface" IS NULL) OR (("surface" ~ '^M?[OI]?D?B?L?V?$'::"text") AND ("surface" <> ''::"text")) OR ("surface" = ANY (ARRAY['WHOLE'::"text", 'PONTIC'::"text", 'CROWN_FULL'::"text", 'BRIDGE'::"text", 'SPACER'::"text", 'SOCKET'::"text", 'R1'::"text", 'R2'::"text", 'R3'::"text", 'R1R2'::"text", 'R1R3'::"text", 'R2R3'::"text", 'R1R2R3'::"text"])))),
+    CONSTRAINT "ledger_sessions_unit_teeth_format" CHECK ((("unit_teeth" IS NULL) OR (("unit_teeth" ~ '^[1-4][1-8](,[1-4][1-8]){0,15}$'::"text") AND ("tooth_num" IS NULL)))),
     CONSTRAINT "ledger_sessions_units_range" CHECK ((("units" IS NULL) OR (("units" >= 1) AND ("units" <= 99))))
 );
 
@@ -2258,6 +2260,10 @@ COMMENT ON COLUMN "public"."ledger_sessions"."phase" IS 'Treatment-plan stage (1
 
 
 COMMENT ON COLUMN "public"."ledger_sessions"."plan_option" IS 'Alternative treatment-plan option (1..3 = أ/ب/ج) for planned sessions; NULL = shared by all options. Presentation-only, excluded from all financial logic.';
+
+
+
+COMMENT ON COLUMN "public"."ledger_sessions"."unit_teeth" IS 'أسنان الجهاز المتحرك الذي تمثّله جلسةُ الفك (FDI تصاعدياً، «14,15,16»). عرضيٌّ بحت: لا يدخل أي حساب مالي. NULL لكل جلسةٍ ليست جهازاً متحركاً.';
 
 
 
