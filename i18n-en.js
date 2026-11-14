@@ -2964,12 +2964,61 @@ Object.assign(window.SyI18nDict, {
   function list(s) { return s.split('، ').map(pos).join(', '); }
   function name(s) { var d = D(); return d[s] != null ? d[s] : s; }
   function cnt(n, one, many) { return n + ' ' + (+n === 1 ? one : many); }
+  /* v718: أسبابُ عدم الأهلية كما يبنيها batchAllowed/txDentitionMsg — جدولٌ مغلق؛ سببٌ مجهول ⇒ تبقى الرسالةُ كلُّها عربية (لا نصفُ ترجمة) */
+  var WHY = {
+    'مزروع': 'has an implant', 'فجوة جسر': 'bridge gap', 'دعامة جسر': 'bridge abutment',
+    'يعوّضه جهاز متحرك': 'replaced by a removable denture', 'مقلوع': 'extracted', 'لبني مقلوع': 'extracted primary tooth',
+    'قلعه مخطّط أصلاً': 'extraction already planned', 'لبني': 'primary tooth', 'من نافذة السن': 'use the tooth window',
+    'سن قائم — الزراعة تُخطَّط على موقع مقلوع (سجّل القلع أولاً ولو مخططاً)': 'standing tooth — an implant is planned on an extraction site (record the extraction first, even as planned)',
+    'عليه حافظ مسافة': 'has a space maintainer', 'علاجٌ للأسنان اللبنية فقط': 'treatment for primary teeth only',
+    'علاجٌ للأسنان الدائمة فقط': 'treatment for permanent teeth only'
+  };
+  function why(r) { return WHY[r] != null ? WHY[r] : null; }
+  /* السببُ يُطابَق بالنمط نفسه من الجدول — سببٌ مجهول لا يطابق أصلاً، فتمضي الرسالةُ لمسار المحرّك العادي كما قبل v717
+     (إرجاعُ الأصل من دالة النمط لا يكفي: المحرّك يترجم بقايا الكلمات المعروفة فيه فيخرج نصفُ ترجمة) */
+  var WHY_RE = '(' + Object.keys(WHY).map(function (k) { return k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|') + ')';
+  var BAD_RE = '(\\d+ \\(' + WHY_RE + '\\)(?:، \\d+ \\(' + WHY_RE + '\\))*)';
+  /* «16 (مقلوع)، 26 (دعامة جسر)» ⇒ «16 (extracted), 26 (bridge abutment)» — أو null إن جُهل سبب */
+  function badList(s) {
+    var parts = s.split('، '), out = [];
+    for (var i = 0; i < parts.length; i++) {
+      var m = parts[i].match(/^(\d+) \((.+)\)$/); if (!m) return null;
+      var w = why(m[2]); if (w == null) return null; out.push(m[1] + ' (' + w + ')');
+    }
+    return out.join(', ');
+  }
   window.SyI18nPatterns.push(
     [/^🦷 (.+?) — (\d+) (?:جلسة|جلسات) \((.+)\)$/, function (m, t, n, l) { return '🦷 ' + name(t) + ' — ' + cnt(n, 'session', 'sessions') + ' (' + list(l) + ')'; }],
     [/^📌 (.+?) — موجود مسبقاً على (\d+) (?:موضع|مواضع) · توثيق بلا تكلفة \((.+)\)$/, function (m, t, n, l) { return '📌 ' + name(t) + ' — already existing on ' + cnt(n, 'position', 'positions') + ' · documentation, no charge (' + list(l) + ')'; }],
     [/^✅ تم تسجيل (.+?) لـ(\d+) أسنان \(جلسة لكل سن\)$/, function (m, t, n) { return '✅ ' + name(t) + ' recorded for ' + cnt(n, 'tooth', 'teeth') + ' (one session per tooth)'; }],
     [/^📌 وُثّق (.+?) كموجودٍ مسبقاً على (\d+) (?:موضع|مواضع) — بلا تكلفة$/, function (m, t, n) { return '📌 ' + name(t) + ' documented as already existing on ' + cnt(n, 'position', 'positions') + ' — no charge'; }],
     [/^⚠️ توقفت الدفعة — سُجلت (\d+) من (\d+) جلسات$/, function (m, a, b) { return '⚠️ Batch stopped — ' + a + ' of ' + b + ' sessions recorded'; }],
-    [/^⚠️ توقفت الدفعة — وُثّق (\d+) من (\d+) مواضع$/, function (m, a, b) { return '⚠️ Batch stopped — ' + a + ' of ' + b + ' positions documented'; }]
+    [/^⚠️ توقفت الدفعة — وُثّق (\d+) من (\d+) مواضع$/, function (m, a, b) { return '⚠️ Batch stopped — ' + a + ' of ' + b + ' positions documented'; }],
+    /* v718: رسائلُ الخطأ لسنٍّ معيّن بالتحديد المتعدد — السببُ من جدولٍ مغلق، ونصُّ الخطأ التقني (من الخادم) يبقى كما ورد */
+    [new RegExp('^⚠️ السن (\\d+) لم يعد مؤهلاً \\(' + WHY_RE + '\\) — توقفت الدفعة$'), function (m, n, r) { return '⚠️ Tooth ' + n + ' is no longer eligible (' + why(r) + ') — batch stopped'; }],
+    [new RegExp('^⚠️ السن (\\d+): ' + WHY_RE + '$'), function (m, n, r) { return '⚠️ Tooth ' + n + ': ' + why(r); }],
+    [new RegExp('^⚠️ أسنان غير مؤهلة لهذا العلاج: ' + BAD_RE + '$'), function (m, l) { return '⚠️ Teeth not eligible for this treatment: ' + badList(l); }],
+    [/^🔩 قلعُ السن (\d+) ما زال مخطّطاً — الزرعة عليه تُضاف كعلاجٍ مخطّط — توقفت الدفعة$/, '🔩 The extraction of tooth $1 is still planned — an implant on it is added as a planned treatment — batch stopped'],
+    [/^⚠️ خطأ بالسن (\d+): ([\s\S]+)$/, '⚠️ Error on tooth $1: $2'],
+    [/^⚠️ خطأ حفظ السن (\d+): ([\s\S]+)$/, '⚠️ Error saving tooth $1: $2'],
+    [/^⚠️ تسجيل جلسة السن (\d+) فشل: ([\s\S]+)$/, '⚠️ Recording the session for tooth $1 failed: $2'],
+    [/^↩️ أُلغي تحديد السن (\d+) \((.+)\)$/, function (m, n, p) { return '↩️ Tooth ' + n + ' deselected (' + pos(p) + ')'; }]
   );
+  /* v718: رسائلُ التحديد المتعدد الثابتة */
+  Object.assign(window.SyI18nDict, {
+    '☑️ أنهِ وضع التحديد المتعدد أولاً': '☑️ Finish multi-select first',
+    '☑️ العلاج الجماعي (ربع/فك/فم) له مساره — أنهِ وضع التحديد المتعدد أولاً': '☑️ Group treatment (quadrant/arch/mouth) has its own path — finish multi-select first',
+    '☑️ وضع التحديد المتعدد — اختر علاجاً ثم انقر المواضع على المخطط': '☑️ Multi-select — choose a treatment, then click positions on the chart',
+    'لا شيء للتراجع عنه': 'Nothing to undo',
+    '🩺 السنُّ الزائد خارج التحديد المتعدد — انقره بالوضع العادي': '🩺 Supernumerary teeth are outside multi-select — click it in normal mode',
+    '👆 اختر علاجاً من شريط التحديد أولاً': '👆 Choose a treatment from the selection bar first',
+    '⚠️ العلاج المختار غير موجود': '⚠️ The selected treatment no longer exists',
+    '☑️ تغيّر العلاج — أُلغي التحديد السابق': '☑️ Treatment changed — previous selection cleared',
+    '👆 اختر علاجاً من الشريط أولاً': '👆 Choose a treatment from the bar first',
+    '👆 انقر موضعاً واحداً على الأقل من المخطط': '👆 Click at least one position on the chart',
+    '✏️ أغلق المسودة أولاً': '✏️ Close the draft first',
+    '🕰️ أنهِ العرض التاريخي أولاً': '🕰️ Finish the historical view first',
+    '🩺 أنهِ وضع الفحص الأولي أولاً': '🩺 Finish the initial exam first',
+    '🔒 حسابك غير نشط — لا يمكن تسجيل علاجات': '🔒 Your account is inactive — treatments cannot be recorded'
+  });
 })();
