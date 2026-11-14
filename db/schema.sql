@@ -2150,9 +2150,12 @@ CREATE TABLE IF NOT EXISTS "public"."lab_orders" (
     "provider_id" "uuid",
     "session_id" "uuid",
     "currency" "text" NOT NULL,
+    "stages" "jsonb",
+    "stage_idx" smallint,
     CONSTRAINT "lab_orders_cost_nonneg" CHECK ((("cost" IS NULL) OR ("cost" >= (0)::numeric))),
     CONSTRAINT "lab_orders_currency_valid" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))),
     CONSTRAINT "lab_orders_draft_no_date_sent" CHECK (((("status" = 'draft'::"text") AND ("date_sent" IS NULL)) OR (("status" <> 'draft'::"text") AND ("date_sent" IS NOT NULL)))),
+    CONSTRAINT "lab_orders_stages_shape" CHECK (((("stages" IS NULL) AND ("stage_idx" IS NULL)) OR (("stages" IS NOT NULL) AND ("stage_idx" IS NOT NULL) AND ("jsonb_typeof"("stages") = 'array'::"text") AND (("jsonb_array_length"("stages") >= 2) AND ("jsonb_array_length"("stages") <= 8)) AND (("stage_idx" >= 0) AND ("stage_idx" <= ("jsonb_array_length"("stages") - 1)))))),
     CONSTRAINT "lab_orders_status_check" CHECK (("status" = ANY (ARRAY['draft'::"text", 'sent'::"text", 'received'::"text", 'checked'::"text", 'delivered'::"text", 'redo'::"text", 'rejected'::"text"])))
 );
 

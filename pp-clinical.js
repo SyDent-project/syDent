@@ -149,7 +149,8 @@ function renderLabOrders() {
     // v482: خاناتٌ ثابتة (.sy-slots) — الخطوة · الإعادة · التعديل · الحذف، كلٌّ بعموده عبر الصفوف؛
     //       الخطوةُ تمتدّ فوق خانة الإعادة حين تغيب (طلب المالك).
     var actions = '';
-    var nx = LAB_NEXT_STATUS[lo.status];
+    /* ج3-أ: طلبٌ بمراحل — بعد الاستلام تُرسل المرحلةُ التالية (لا «تم الفحص/التركيب» قبل الأخيرة) */
+    var nx = (window.SyLabStages && SyLabStages.next(lo)) || LAB_NEXT_STATUS[lo.status];
     var canRedo = (lo.status === 'received' || lo.status === 'checked') && labsPlanOk();
     if (nx) {
       actions += '<button class="sy-act sy-act-primary" data-slot="1"' + (canRedo ? '' : ' data-span-if="2"') + ' onclick="advanceLabOrder(\'' + lo.id + '\')">' + nx.label + '</button>';
@@ -174,6 +175,7 @@ function renderLabOrders() {
       + '<td class="mc-hide">' + (lo.date_sent ? SyDT.cellRec(lo.date_sent, lo.created_at) : '—') + '</td>'   /* v481: تاريخُ الإرسال ووقتُه ظاهرين (كان تلميحاً يُقَصّ ويغطّي الصفّ التالي) */
       + '<td class="mc-hide">' + (toothChip || '—') + '</td>'
       + '<td class="mc-title">' + escapeHtml(lo.work_type || '—') + (window.SyLabFiles ? ' ' + SyLabFiles.badge(lo.id) : '')   /* v535 */
+      +   (window.SyLabStages ? SyLabStages.line(lo, { tail: (window.SyLabStages && SyLabStages.canUndo(lo) ? '<button type="button" class="lst-undo" onclick="undoLabStage(\'' + lo.id + '\')" title="يعيد الطلب إلى المرحلة السابقة كما كانت">↩️ تراجع عن المرحلة</button>' : '') }) : '')   /* ج3-أ: سطرُ المراحل (مُهرَّب) + التراجع عن آخر مرحلة */
       +   (window.SyLabRedo ? SyLabRedo.line(lo.id) : '')   /* M160: سطرُ دورات الإعادة (مُهرَّب) */
       +   '<div class="mc-only mc-meta">' + mMeta.filter(Boolean).map(function(x){ return '<span style="white-space:nowrap;">' + x + '</span>'; }).join(' · ') + '</div></td>'
       + '<td class="mc-hide" style="color:var(--text2)">' + escapeHtml(String(labDisplay)) + '</td>'
@@ -698,7 +700,27 @@ async function openLabOrderModal(prefill) {
   labAiReset();      /* بند #6 ج4: تصفير صندوق الأمر المولَّد — وإلا علِقت آخر صياغة */
   try { window.SyDentCurPick.mount('labOrderCost'); } catch (e) {}   // M125
   labDueOpen(true);  /* v524: الاستحقاق التلقائي وسقفُ موعد التركيب (lab-due.js) */
+  labStagesMount(null);   /* ج3-أ */
   openModal('labOrderModal');
+}
+/* ج3-أ: منتقي المراحل بنافذة الطلب — طلبٌ جديد يُقترح له قالبٌ من نوع العمل (الجهازُ المتحرك؛ والفوريُّ من جلسته)،
+   وتغييرُ النوع يعيد الاقتراح ما لم يختر الطبيب */
+function labStagesTreatment() {
+  var k = (document.getElementById('labOrderWorkType') || {}).value;
+  return (k && k !== '_other') ? (TREATMENTS.find(function (x) { return x.id === k; }) || null) : null;
+}
+function labStagesSuggest() {
+  if (!window.SyLabStages) return '';
+  var s = pendingLabSessionId ? (sessions || []).find(function (x) { return x.id === pendingLabSessionId; }) : null;
+  var imm = !!(s && window.SyDenture && window.SyDenture.isImmediate && window.SyDenture.isImmediate(s));
+  return SyLabStages.suggest(labStagesTreatment(), { immediate: imm });
+}
+function labStagesMount(lo) {
+  if (!window.SyLabStages) return;
+  SyLabStages.mount(document.getElementById('labStagesBox'), {
+    order: lo, suggest: lo ? '' : labStagesSuggest(),
+    workSelect: document.getElementById('labOrderWorkType'), suggestFn: labStagesSuggest
+  });
 }
 
 /* M86-lab: single owner of the batch hint + tooth-field lock, so open/edit can
@@ -784,6 +806,7 @@ async function editLabOrder(id) {
   labAiReset();      /* بند #6 ج4: تصفير صندوق الأمر المولَّد — وإلا علِقت آخر صياغة */
   try { window.SyDentCurPick.mount('labOrderCost'); } catch (e) {}   // M125
   labDueOpen(false);
+  labStagesMount(lo);   /* ج3-أ */
   openModal('labOrderModal');
 }
 
@@ -1046,6 +1069,11 @@ async function _saveLabOrderInner() {
   var _prevLo = id ? (labOrders || []).find(function(x){ return x.id === id; }) : null;
   var _newSt  = _labResolveStatus(_prevLo, isDraft);
   if (_newSt) payload.status = _newSt;
+  /* ج3-أ (M206): المراحلُ تُلحق بالحمولة — إنشاءٌ بمصفوفتها، وتعديلٌ فقط إن تغيّرت (المغلقةُ يصونها التريغر) */
+  if (window.SyLabStages) {
+    var _stErr = SyLabStages.applyToPayload(document.getElementById('labStagesBox'), payload, _prevLo);
+    if (_stErr) { showToast('⚠️ ' + _stErr); return; }
+  }
 
   if (id) {
     var res = await window.sb.from('lab_orders')
@@ -1169,6 +1197,19 @@ var advanceLabOrder = ppGuarded('advanceLabOrder', _advanceLabOrder_inner, '⏳'
 async function _advanceLabOrder_inner(id) {
   var lo = labOrders.find(function(x){ return x.id === id; });
   if (!lo) return;
+  /* ج3-أ (M206): المرحلةُ التالية — حوارٌ (الموعد + الاستحقاق) ثم RPC ذرّي؛ date_sent لا يتحرّك (التريغر) */
+  if (window.SyLabStages && SyLabStages.next(lo)) {
+    var _stRow = await SyLabStages.run(window.sb, lo, {
+      workType: lo.work_type, labName: labStageLabName(lo), patientName: (typeof patient !== 'undefined' && patient) ? patient.name : '', appts: labStageAppts()
+    });
+    if (!_stRow) return;
+    var _stI = labOrders.findIndex(function(x){ return x.id === id; });
+    if (_stI !== -1) labOrders[_stI] = _stRow;
+    renderLabOrders();
+    renderTimeline();
+    showToast('📤 أُرسلت مرحلة «' + SyLabStages.cur(_stRow).n + '» للمخبر');
+    return;
+  }
   var nx = LAB_NEXT_STATUS[lo.status];
   if (!nx) return;
   var nowIso = new Date().toISOString();
@@ -1191,6 +1232,33 @@ async function _advanceLabOrder_inner(id) {
   renderLabOrders();
   renderTimeline();
   showToast('✅ تم تحديث الحالة إلى: ' + LAB_STATUSES[nx.next].ar);
+}
+
+/* ج3-أ: مواعيدُ المريض القادمة الحيّة لحوار المرحلة التالية — القائمةُ نفسها التي يعرضها منتقي الموعد بالنافذة */
+function labStageLabName(lo) {
+  var nm = lo.lab_name || '';
+  if (lo.lab_id) { var o = allLabs.find(function(x){ return x.id === lo.lab_id; }); if (o) nm = o.name; }
+  return nm;
+}
+function labStageAppts() {
+  var today = toDay(), DEAD = ['cancelled', 'broken', 'no_show', 'completed'];
+  return (Array.isArray(upcomingAppts) ? upcomingAppts : []).filter(function (a) {
+    return a && a.date && String(a.date).slice(0, 10) >= today && !(a.status && DEAD.indexOf(a.status) !== -1);
+  }).slice(0, 12).map(function (a) {
+    return { id: a.id, date: a.date, label: ((window.SyDT && SyDT.numDate(a.date)) || String(a.date).slice(0, 10)) + (a.time ? ' · ' + String(a.time).slice(0, 5) : '') + (a.type ? ' · ' + a.type : '') };
+  });
+}
+var undoLabStage = ppGuarded('undoLabStage', _undoLabStage_inner, '⏳');
+async function _undoLabStage_inner(id) {
+  var lo = labOrders.find(function(x){ return x.id === id; });
+  if (!lo || !window.SyLabStages) return;
+  var data = await SyLabStages.undo(window.sb, lo, { workType: lo.work_type, patientName: (typeof patient !== 'undefined' && patient) ? patient.name : '' });
+  if (!data) return;
+  var idx = labOrders.findIndex(function(x){ return x.id === id; });
+  if (idx !== -1) labOrders[idx] = data;
+  renderLabOrders();
+  renderTimeline();
+  showToast('↩️ عاد الطلب إلى مرحلة «' + SyLabStages.cur(data).n + '»');
 }
 
 var redoLabOrder = ppGuarded('redoLabOrder', _redoLabOrder_inner, '⏳');   /* v284: قفل + انشغال */

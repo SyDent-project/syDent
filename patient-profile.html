@@ -25,6 +25,7 @@
 <script src="supabase-init.js?v=20261114h"></script>
 <script src="sy-modal.js?v=20261114h"></script>
 <script src="lab-redo.js?v=20261114h"></script>
+<script src="lab-stages.js?v=20261114h"></script>
 <script src="lab-due.js?v=20261114h"></script>
 <script src="lab-slip.js?v=20261114h"></script>
 <script src="lab-files.js?v=20261114h"></script>
@@ -1451,6 +1452,8 @@
           <input type="date" id="labOrderDateDue">
         </div>
       </div>
+      <!-- ج3-أ (M206): مراحلُ العمل متعدّد الزيارات — lab-stages.js يرسمها ويقرؤها -->
+      <div class="form-group lst-box" id="labStagesBox"></div>
       <div class="form-group">
         <label>ملاحظات (اختياري)</label>
         <textarea id="labOrderNotes" placeholder="أي ملاحظات للمخبر…" oninput="labTplGlowSync()"></textarea>

@@ -3240,3 +3240,59 @@ Object.assign(window.SyI18nDict, {
     '✓ زراعة — للتراجع عنها استخدم الوضع العادي': '✓ Implant — to undo it, use normal mode'
   });
 })();
+
+/* ── ج3-أ: مراحلُ طلب المخبر (lab-stages.js وخطّافاتُه بـlabs.html / pp-clinical.js) ──
+   أسماءُ المراحل المبنيّة تُترجَم؛ اسمُ مرحلةٍ كتبه الطبيب بياناتُ عيادة يبقى كما كُتب، وكلُّ ما حوله يُترجَم. */
+(function () {
+  var D = window.SyI18nDict, P = window.SyI18nPatterns;
+  var STAGE = {
+    'طبعة نهائية': 'Final impression', 'تسجيل العضة': 'Bite registration', 'تجربة الهيكل': 'Framework try-in',
+    'تجربة الأسنان': 'Teeth try-in', 'تجربة': 'Try-in', 'تسليم': 'Fit'
+  };
+  /* داخل الأنماط وحدها — لا كلماتِ قاموسٍ عامة: «تجربة» و«تسليم» لهما معانٍ أخرى بصفحاتٍ أخرى (خطةُ «تجربة»)،
+     والشرائحُ نفسها تعرضها lab-stages.js بالإنجليزية من مفتاح المرحلة */
+  function nm(s) { return STAGE[s] != null ? STAGE[s] : s; }
+  P.push(
+    [/^📤 للمخبر: (.+)$/, function (m, n) { return '📤 To lab: ' + nm(n); }],
+    [/^📤 أُرسلت مرحلة «(.+)» للمخبر$/, function (m, n) { return '📤 Stage «' + nm(n) + '» sent to the lab'; }],
+    [/^↩️ عاد الطلب إلى مرحلة «(.+)»$/, function (m, n) { return '↩️ The order is back on stage «' + nm(n) + '»'; }],
+    [/^التراجع عن إرسال مرحلة «(.+)»؟$/, function (m, n) { return 'Undo sending stage «' + nm(n) + '»?'; }],
+    [/^يعود الطلب إلى مرحلة «(.+)» مستلَماً كما كان\.$/, function (m, n) { return 'The order goes back to stage «' + nm(n) + '», received as it was.'; }],
+    /* عنوانُ سطر المراحل: «1) اسم — أُرسلت d · استُلمت d 2) …» (الأسطرُ تُطوى مسافاتٍ بالمحرّك) */
+    [/^(?:\d+\) .+?(?: — أُرسلت [\d\/]+)?(?: · استُلمت [\d\/]+)?(?: |$))+$/, function (m) {
+      return m.split(/ (?=\d+\) )/).map(function (seg) {
+        var x = seg.match(/^(\d+\)) (.+?)( — أُرسلت ([\d\/]+))?( · استُلمت ([\d\/]+))?$/);
+        if (!x) return seg;
+        return x[1] + ' ' + nm(x[2]) + (x[3] ? ' — sent ' + x[4] : '') + (x[5] ? ' · received ' + x[6] : '');
+      }).join(' ');
+    }]
+  );
+  Object.assign(D, {
+    /* سطرُ المراحل */
+    'عند المخبر': 'at the lab', 'جاهزة': 'ready', 'لم تُرسل': 'not sent',
+    '↩️ تراجع عن المرحلة': '↩️ Undo stage', 'يعيد الطلب إلى المرحلة السابقة كما كانت': 'Puts the order back on the previous stage as it was',
+    /* منتقي المراحل بنافذة الطلب */
+    'مراحل العمل': 'Work stages', 'بلا مراحل — رحلة واحدة للمخبر': 'No stages — one trip to the lab',
+    'جهاز جزئي معدني': 'Metal partial denture', 'جهاز جزئي أكريل': 'Acrylic partial denture', 'جهاز فوري': 'Immediate denture',
+    'تاج / جسر مع تجربة': 'Crown / bridge with try-in', 'مخصّص': 'Custom',
+    'مرحلة أخرى (مثلاً: تجربة ثانية)': 'Other stage, e.g. extra try-in', 'حذف المرحلة': 'Remove stage',
+    'كل مرحلة = زيارة يعود لها العمل من المخبر. الكلفة تُحسب مرة واحدة بتاريخ الإرسال الأول.': 'Each stage = a visit the work comes back from the lab for. The cost is counted once, on the first send date.',
+    '⚠️ العمل بمراحل يحتاج مرحلتين على الأقل — أو اختر «بلا مراحل»': '⚠️ Staged work needs at least two stages — or choose «No stages»',
+    '⚠️ ثماني مراحل على الأكثر': '⚠️ Eight stages at most',
+    '⚠️ لا تُحذف المراحل بعد إنجاز أولاها': '⚠️ Stages cannot be removed once the first one is done',
+    /* حوارُ المرحلة التالية */
+    'إرسال المرحلة التالية للمخبر': 'Send the next stage to the lab', 'المرحلة التالية': 'Next stage',
+    'موعد المريض لهذه المرحلة': 'The patient\'s visit for this stage', '— بلا موعد بعد —': '— No appointment yet —',
+    'موعد الاستلام من المخبر': 'Due back from the lab', 'إرسال للمخبر': 'Send to lab',
+    'تبقى تكلفة الطلب محسوبة مرة واحدة بتاريخ إرساله الأول.': 'The order\'s cost stays counted once, on its first send date.',
+    'موعد الاستلام لا يكون بتاريخٍ مضى.': 'The due date cannot be in the past.',
+    'موعد الاستلام من المخبر لا يكون بعد موعد المريض.': 'The lab due date cannot be after the patient\'s visit.',
+    /* التراجع والأخطاء */
+    'تراجع عن المرحلة': 'Undo stage', 'تراجع': 'Undo',
+    '⚠️ الموعد المختار لا يعود لهذا المريض': '⚠️ The chosen appointment does not belong to this patient',
+    '⚠️ حالة الطلب تغيّرت — حدّث الصفحة وأعد المحاولة': '⚠️ The order has changed — refresh the page and try again',
+    '⚠️ فشل إرسال المرحلة التالية — حاول مجدداً': '⚠️ Sending the next stage failed — try again',
+    '⚠️ فشل التراجع — حاول مجدداً': '⚠️ Undo failed — try again',
+    '📤 مرحلة مخبر': '📤 Lab stage'
+  });
+})();

@@ -301,12 +301,18 @@ var _phase8cInFlight = false; // double-click guard across the whole flow
 // Silent — caller decides whether to surface the count to the user.
 // Only advances 'sent' | 'received' | 'checked' → 'delivered'. Anything else
 // (already delivered, rejected, etc.) is left untouched. Doctor-scoped UPDATE.
+/* M206: طلبٌ بمراحل لم يبلغ الأخيرة — موعدُه زيارةُ مرحلة (عضة · تجربة) لا تركيب، فإكمالُ الموعد لا يسلّمه
+   (والقاعدةُ ترفض «تم التركيب» قبل المرحلة الأخيرة أصلاً). */
+function labStageOpen(o) {
+  return !!(o && Array.isArray(o.stages) && o.stage_idx != null && o.stage_idx < o.stages.length - 1);
+}
 async function autoDeliverLinkedLabs(apptId) {
   var result = { updated: 0, failed: 0 };
   if (!apptId) return result;
   var linkedLabs = labOrdersByAppt[apptId] || [];
   for (var k = 0; k < linkedLabs.length; k++) {
     var lo = linkedLabs[k];
+    if (!lo.id || labStageOpen(lo)) continue;
     if (lo.status === 'sent' || lo.status === 'received' || lo.status === 'checked') {
       try {
         var labRes = await window.sb.from('lab_orders')
@@ -397,7 +403,7 @@ function openDismissedCompleteModal(apptId, btnEl) {
   // covers ALL planned sessions). For the dismissed-trigger flow, this matches
   // the original "Set Complete" semantics from the in-modal button.
   var linkedLabs = (labOrdersByAppt[apptId] || []).filter(function(o){
-    return o.status === 'sent' || o.status === 'received' || o.status === 'checked';
+    return (o.status === 'sent' || o.status === 'received' || o.status === 'checked') && !labStageOpen(o);   /* M206 */
   });
   var labsListEl = document.getElementById('dcmLabsList');
   var labsSectionEl = document.getElementById('dcmLabsSection');

@@ -2566,12 +2566,14 @@ async function recordDashApptTime(apptId, fieldKey, btnEl) {
       // stayed in 'received' forever. Same status filter as autoDeliverLinkedLabs
       // on appointments.html so the two paths agree.
       var qLabs = window.sb.from('lab_orders')
-        .select('id, status, work_type, tooth_num')
+        .select('id, status, work_type, tooth_num, stages, stage_idx')
         .eq('appointment_id', apptId)
         .in('status', ['sent', 'received', 'checked']);
       if (_dashUid) qLabs = qLabs.eq('doctor_id', _dashUid);
       var labsRes = await qLabs;
       var labsList = (labsRes && labsRes.data) || [];
+      /* M206: طلبٌ بمراحل لم يبلغ الأخيرة — موعدُه زيارةُ مرحلة لا تركيب، فلا يُعرض للتسليم (مرآةُ labStageOpen بصفحة المواعيد) */
+      labsList = labsList.filter(function (o) { return !(Array.isArray(o.stages) && o.stage_idx != null && o.stage_idx < o.stages.length - 1); });
 
       if (plannedList.length > 0) {
         // Build the human-readable summary of what's still planned.

@@ -899,7 +899,8 @@ async function loadAppointments() {
      المعالجةُ بعدها بالترتيب نفسه حرفياً (الجلساتُ تحتاج المواعيد لحساب «المخطّط لموعدٍ ميت»). */
   var _sesCols = 'id, patient_id, appointment_id, type, description, cost, currency, date, status, tooth_num, surface, quadrant, arch, provider_id, notes';
   var _sesPre = _apptSettle(window.SyDentFetchAll(function(){ return window.sb.from('ledger_sessions').select(_sesCols + ', plan_option').eq('doctor_id', currentUser.id); }));
-  var _labSel = 'patient_id, appointment_id, status, date_due, work_type, lab_name, lab_id, tooth_num';
+  /* M206: id (كان غائباً ⇒ «تم التركيب» التلقائي عند إكمال الموعد يفشل دائماً: .eq('id', undefined)) + مراحلُ الطلب */
+  var _labSel = 'id, patient_id, appointment_id, status, date_due, work_type, lab_name, lab_id, tooth_num, stages, stage_idx';
   var _labPre = _apptSettle(window.sb.from('lab_orders')
       .select(_labSel)
       .eq('doctor_id', currentUser.id)
@@ -2895,7 +2896,7 @@ async function completeApptWithProcedures(apptIdParam, sessionIdsFilter) {
   // the user already made an explicit, item-level choice — skip this second confirm.
   // The provider-mismatch prompt above still fires (it's safety-critical, not a generic confirm).
   var linkedLabsForPrompt = (labOrdersByAppt[apptId] || []).filter(function(o){
-    return o.status === 'sent' || o.status === 'received' || o.status === 'checked';
+    return (o.status === 'sent' || o.status === 'received' || o.status === 'checked') && !labStageOpen(o);   /* M206: زيارةُ مرحلة لا تسلّم الطلب */
   });
   var _calledFromSubsetUI = Array.isArray(sessionIdsFilter) && sessionIdsFilter.length > 0;
   if (!_calledFromSubsetUI) {
