@@ -1119,6 +1119,36 @@ body:has(.modal-overlay.show) #syFabDock { display: none !important; }
 .lrd-dialog .lrd-err { margin-top: 10px; font-size: 12.5px; font-weight: 700; color: var(--red); }
 .lrd-line { margin-top: 3px; font-size: 11.5px; font-weight: 600; line-height: 1.6; color: var(--orange); white-space: normal; }
 /* ═══ /LAB REDO ═══ */
+/* ═══ LAB STAGES (ج3-أ · M206 · lab-stages.js) — سطرُ المراحل · منتقيها بنافذة الطلب · حوارُ المرحلة التالية ═══ */
+.lst-line { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 4px; font-size: 11.5px; font-weight: 600; line-height: 1.5; white-space: normal; }
+.lst-line .lst-st { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--text3); background: transparent; }
+.lst-line .lst-st.lst-done { color: var(--green); border-color: rgba(var(--green-rgb), 0.45); }
+.lst-line .lst-st.lst-cur { color: var(--blue); border-color: var(--blue); background: rgba(var(--blue-rgb), 0.12); font-weight: 700; }
+.lst-line .lst-state { font-weight: 600; opacity: .85; }
+.lst-line .lst-state::before { content: "· "; }
+.lst-sep { color: var(--text3); font-size: 11px; }
+.lst-undo { margin-inline-start: 4px; padding: 1px 7px; border-radius: 999px; border: 1px dashed var(--border2, var(--border)); background: transparent; color: var(--text2); font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer; width: auto; }
+.lst-undo:hover { color: var(--text); border-color: var(--text2); }
+.lst-box:empty { display: none; }
+.lst-box .lst-lbl, .lst-dialog .lst-lbl { display: block; margin: 0 0 6px; font-size: 12.5px; font-weight: 700; color: var(--text2); }
+.lst-dialog .lst-lbl { margin-top: 14px; }
+.lst-box .lst-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 8px; }
+.lst-box .lst-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 3px 10px; border-radius: 999px; background: var(--bg3); color: var(--text); border: 1px solid var(--border); font-size: 12.5px; font-weight: 600; }
+.lst-box .lst-chip.lst-fixed { color: var(--text3); border-style: dashed; }
+.lst-box .lst-x { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text3); font-size: 15px; line-height: 1; cursor: pointer; }
+.lst-box .lst-x:hover { color: var(--red); }
+.lst-box .lst-add { display: flex; gap: 6px; margin-top: 8px; }
+.lst-box .lst-add .lst-new { flex: 1 1 auto; min-width: 0; }
+.lst-box .lst-addbtn { flex: 0 0 auto; width: auto; padding: 0 14px; min-height: 38px; border-radius: var(--r-md, 10px); border: 1px solid var(--border); background: var(--bg3); color: var(--text); font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.lst-box .lst-hint, .lst-dialog .lst-hint { margin-top: 8px; font-size: 11.5px; color: var(--text3); }
+.lst-dialog .lst-next { margin-top: 4px; font-size: 13.5px; color: var(--text2); }
+.lst-dialog .lst-next-n { color: var(--text); font-size: 15px; }
+.lst-dialog .lst-next-of { margin-inline-start: 6px; font-size: 11.5px; color: var(--text3); direction: ltr; unicode-bidi: isolate; }
+.lst-dialog input[type="date"].lst-due { -webkit-appearance: none; appearance: none; display: block; width: 100%; min-width: 0; max-width: 100%; min-height: 44px; text-align: start; }
+.lst-dialog input[type="date"].lst-due::-webkit-date-and-time-value { text-align: start; }
+.lst-dialog .sy-df > input.sy-df-in.lst-due { display: block; width: 100%; min-width: 0; max-width: 100%; min-height: 44px; }
+.lst-dialog .lst-err { margin-top: 10px; font-size: 12.5px; font-weight: 700; color: var(--red); }
+/* ═══ /LAB STAGES ═══ */
 /* ═══ LAB DUE (v524 · lab-due.js) — سطرُ مصدر الاستحقاق وتنبيهُ تجاوز موعد التركيب ═══ */
 .ldu-hint { margin-top: 4px; font-size: 11.5px; line-height: 1.6; color: var(--text2); }
 .ldu-hint:empty { display: none; }

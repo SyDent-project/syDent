@@ -23,7 +23,7 @@
 /* ── Modal ── v448: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261114h"></script>
+<script src="theme.js?v=20261115a"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -563,19 +563,20 @@ a.appt-badge:hover { background: rgba(var(--blue-rgb),0.28) !important; }
   .stats-strip { grid-template-columns: 1fr 1fr; gap: 10px; }
 }
 /* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
-html[data-sub-level="read"] :is([onclick*="openLabOrderModal("],[onclick*="openLabModal("],[onclick*="labTplSaveCurrent("],[onclick*="labTplDeleteSelected("],[onclick*="labClearDateSent("],[onclick*="labAiDraftOrder("],[onclick*="labAiSaveAndSend("],[onclick*="saveLabOrder("],[onclick*="saveLab("],[onclick*="saveLabPayment("],[onclick*="editLab("],[onclick*="delLab("],[onclick*="advanceLabOrder("],[onclick*="redoLabOrder("],[onclick*="editLabOrder("],[onclick*="delLabOrder("],[onclick*="delLabPayment("]){display:none !important;}
+html[data-sub-level="read"] :is([onclick*="openLabOrderModal("],[onclick*="openLabModal("],[onclick*="labTplSaveCurrent("],[onclick*="labTplDeleteSelected("],[onclick*="labClearDateSent("],[onclick*="labAiDraftOrder("],[onclick*="labAiSaveAndSend("],[onclick*="saveLabOrder("],[onclick*="saveLab("],[onclick*="saveLabPayment("],[onclick*="editLab("],[onclick*="delLab("],[onclick*="advanceLabOrder("],[onclick*="redoLabOrder("],[onclick*="undoLabStage("],[onclick*="editLabOrder("],[onclick*="delLabOrder("],[onclick*="delLabPayment("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261114h">
+<link rel="stylesheet" href="theme.css?v=20261115a">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261114h"></script>
-<script src="sy-modal.js?v=20261114h"></script>
-<script src="pay-methods.js?v=20261114h"></script>
-<script src="lab-redo.js?v=20261114h"></script>
-<script src="lab-due.js?v=20261114h"></script>
-<script src="lab-slip.js?v=20261114h"></script>
-<script src="lab-files.js?v=20261114h"></script>
-<script src="sidebar.js?v=20261114h"></script>
+<script src="supabase-init.js?v=20261115a"></script>
+<script src="sy-modal.js?v=20261115a"></script>
+<script src="pay-methods.js?v=20261115a"></script>
+<script src="lab-redo.js?v=20261115a"></script>
+<script src="lab-stages.js?v=20261115a"></script>
+<script src="lab-due.js?v=20261115a"></script>
+<script src="lab-slip.js?v=20261115a"></script>
+<script src="lab-files.js?v=20261115a"></script>
+<script src="sidebar.js?v=20261115a"></script>
 </head>
 <body>
 <script>
@@ -798,6 +799,8 @@ html[data-sub-level="read"] :is([onclick*="openLabOrderModal("],[onclick*="openL
           <input type="date" id="labOrderDateDue">
         </div>
       </div>
+      <!-- ج3-أ (M206): مراحلُ العمل متعدّد الزيارات — lab-stages.js يرسمها ويقرؤها -->
+      <div class="form-group lst-box" id="labStagesBox"></div>
       <div class="form-group">
         <label>ملاحظات (اختياري)</label>
         <textarea id="labOrderNotes" placeholder="أي ملاحظات للمخبر…" oninput="labTplGlowSync()"></textarea>
@@ -1607,7 +1610,8 @@ function renderTable() {
     // v482: خاناتٌ ثابتة بالجدول (.sy-slots) — الخطوة · الإعادة · التعديل · الحذف بأعمدةٍ ثابتة عبر الصفوف،
     //       والخطوةُ تمتدّ فوق خانة الإعادة حين تغيب (طلب المالك). بطاقاتُ الموبايل بلا خانات.
     var actions = '';
-    var nx = LAB_NEXT_STATUS[lo.status];
+    /* ج3-أ: طلبٌ بمراحل — بعد الاستلام تُرسل المرحلةُ التالية (لا «تم الفحص/التركيب» قبل الأخيرة) */
+    var nx = (window.SyLabStages && SyLabStages.next(lo)) || LAB_NEXT_STATUS[lo.status];
     var canRedo = (lo.status === 'received' || lo.status === 'checked');
     if (nx) actions += '<button class="sy-act sy-act-primary" data-slot="1"' + (canRedo ? '' : ' data-span-if="2"') + ' onclick="advanceLabOrder(\'' + lo.id + '\')">' + nx.label + '</button>';
     if (canRedo) {
@@ -1629,6 +1633,8 @@ function renderTable() {
     var atRiskTag  = atRisk  ? '<span class="at-risk-tag" title="موعد المريض خلال يومين والمخبر لم يستلم العمل بعد">⏰ قارب الموعد</span>' : '';
     var rowClass = overdue ? 'row-overdue' : (atRisk ? 'row-at-risk' : '');
     var redoLine = window.SyLabRedo ? SyLabRedo.line(lo.id) : '';   /* M160: سطرُ دورات الإعادة (مُهرَّب) */
+    /* ج3-أ: سطرُ المراحل فوقه (مُهرَّب) — وزرُّ التراجع عن آخر مرحلة حين يصحّ (الطلبُ عند المخبر) */
+    if (window.SyLabStages) redoLine = SyLabStages.line(lo, { tail: (window.SyLabStages && SyLabStages.canUndo(lo) ? '<button type="button" class="lst-undo" onclick="undoLabStage(\'' + lo.id + '\')" title="يعيد الطلب إلى المرحلة السابقة كما كانت">↩️ تراجع عن المرحلة</button>' : '') }) + redoLine;
     var seatLink = labSeatLink(lo);   /* v527: بلا موعد تركيب — رابطُ حجزٍ يعبّي ولا يحفظ (#690) */
 
     // Linked-appointment badge — clickable when we can resolve the appt.
@@ -2101,6 +2107,7 @@ function openLabOrderModal() {
   labAiReset();      /* بند #6 ج4: تصفير صندوق الأمر المولَّد — وإلا علِقت آخر صياغة */
   try { window.SyDentCurPick.mount('labOrderCost'); } catch (e) {}   // M125
   labDueOpen(true);  /* v524: الاستحقاق التلقائي وسقفُ موعد التركيب (lab-due.js) */
+  labStagesMount(null);   /* ج3-أ */
   openModal('labOrderModal');
 }
 
@@ -2205,7 +2212,20 @@ async function editLabOrder(id) {
   labAiReset();      /* بند #6 ج4: تصفير صندوق الأمر المولَّد — وإلا علِقت آخر صياغة */
   try { window.SyDentCurPick.mount('labOrderCost'); } catch (e) {}   // M125
   labDueOpen(false);
+  labStagesMount(lo);   /* ج3-أ */
   openModal('labOrderModal');
+}
+/* ج3-أ: منتقي المراحل بنافذة الطلب — طلبٌ جديد يُقترح له قالبٌ من نوع العمل (الجهازُ المتحرك)، وتغييرُ النوع يعيد الاقتراح ما لم يختر الطبيب */
+function labStagesTreatment() {
+  var k = (document.getElementById('labOrderWorkType') || {}).value;
+  return (k && k !== '_other') ? (TREATMENTS.find(function (x) { return x.id === k; }) || null) : null;
+}
+function labStagesMount(lo) {
+  if (!window.SyLabStages) return;
+  SyLabStages.mount(document.getElementById('labStagesBox'), {
+    order: lo, suggest: lo ? '' : SyLabStages.suggest(labStagesTreatment()),
+    workSelect: document.getElementById('labOrderWorkType'), suggestFn: function () { return SyLabStages.suggest(labStagesTreatment()); }
+  });
 }
 
 // Phase post-X10 B1 fix: module-level in-flight flag prevents double-
@@ -2360,6 +2380,11 @@ async function saveLabOrder() {
     var _prevLo = id ? allOrders.find(function(x){ return x.id === id; }) : null;
     var _newSt  = _labResolveStatus(_prevLo, isDraft);
     if (_newSt) payload.status = _newSt;
+    /* ج3-أ (M206): المراحلُ تُلحق بالحمولة — إنشاءٌ بمصفوفتها، وتعديلٌ فقط إن تغيّرت (المغلقةُ يصونها التريغر) */
+    if (window.SyLabStages) {
+      var _stErr = SyLabStages.applyToPayload(document.getElementById('labStagesBox'), payload, _prevLo);
+      if (_stErr) { showToast('⚠️ ' + _stErr); return; }
+    }
 
     if (id) {
       var origLO = allOrders.find(function(x){ return x.id === id; });
@@ -2454,6 +2479,19 @@ async function _advanceLabOrder_inner(id) {
   }
   var lo = allOrders.find(function(x){ return x.id === id; });
   if (!lo) return;
+  /* ج3-أ (M206): المرحلةُ التالية — حوارٌ (الموعد + الاستحقاق) ثم RPC ذرّي؛ date_sent لا يتحرّك (التريغر) */
+  if (window.SyLabStages && SyLabStages.next(lo)) {
+    var _stRow = await SyLabStages.run(window.sb, lo, {
+      workType: lo.work_type, labName: getLabName(lo.lab_id, lo.lab_name), patientName: getPatientName(lo.patient_id), appts: labStageAppts(lo)
+    });
+    if (!_stRow) return;
+    var _stI = allOrders.findIndex(function(x){ return x.id === id; });
+    if (_stI !== -1) allOrders[_stI] = _stRow;
+    renderStats();
+    renderTable();
+    showToast('📤 أُرسلت مرحلة «' + SyLabStages.cur(_stRow).n + '» للمخبر');
+    return;
+  }
   var nx = LAB_NEXT_STATUS[lo.status];
   if (!nx) return;
   var nowIso = new Date().toISOString();
@@ -2477,6 +2515,30 @@ async function _advanceLabOrder_inner(id) {
   renderStats();
   renderTable();
   showToast('✅ ' + LAB_STATUSES[nx.next].ar);
+}
+
+/* ج3-أ: مواعيدُ المريض القادمة الحيّة لحوار المرحلة التالية — بتعريف المنصة الواحد (labApptLive) */
+function labStageAppts(lo) {
+  var today = toDay();
+  return (allAppointments || []).filter(function (a) { return a && a.patient_id === lo.patient_id && labApptLive(a, today); })
+    .sort(function (a, b) { return String(a.date + (a.time || '')).localeCompare(String(b.date + (b.time || ''))); })
+    .slice(0, 12).map(function (a) { return { id: a.id, date: a.date, label: fmtApptOption(a) }; });
+}
+var undoLabStage = lGuarded('undoLabStage', _undoLabStage_inner, '⏳');
+async function _undoLabStage_inner(id) {
+  if (window.SyDentLock && window.SyDentLock.isDoctorAccountInactive && window.SyDentLock.isDoctorAccountInactive()) {
+    showToast('🔒 حسابك غير نشط — لا يمكن تغيير حالة الطلبات');
+    return;
+  }
+  var lo = allOrders.find(function(x){ return x.id === id; });
+  if (!lo || !window.SyLabStages) return;
+  var data = await SyLabStages.undo(window.sb, lo, { workType: lo.work_type, patientName: getPatientName(lo.patient_id) });
+  if (!data) return;
+  var idx = allOrders.findIndex(function(x){ return x.id === id; });
+  if (idx !== -1) allOrders[idx] = data;
+  renderStats();
+  renderTable();
+  showToast('↩️ عاد الطلب إلى مرحلة «' + SyLabStages.cur(data).n + '»');
 }
 
 var redoLabOrder = lGuarded('redoLabOrder', _redoLabOrder_inner, 'جارٍ الإعادة…');   /* v296 */

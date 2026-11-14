@@ -2313,7 +2313,7 @@ try {
     'saveManualSplits', 'ppSendWaReminder', 'waTplSaveCurrent', 'waTplDeleteSelected', 'ppWaAiDraft', 'ppWaComposeSend', 'savePaymentPlan',
     'openRxTemplatesModal', 'rxAddItemRow', 'savePrescription', 'openPostOpTemplatesModal', 'ppPostOpAiSuggest', 'savePostOpNote',
     'openPostOpTemplateEdit', 'savePostOpTemplate', 'confirmMaterialDeduction', 'setSessionPhase', 'setSessionOption', 'adoptPlanOption', 'removeDxNote', 'openAltBridgePicker', 'openImplantAltBridgePicker', 'aiPlanOptPick', 'completeSessionFromProfile', 'ppSessionOpenLab',
-    'delSession', 'openSplitEditor', 'delPayment', 'delAdjustment', 'advanceLabOrder', 'redoLabOrder', 'editLabOrder', 'delLabOrder',
+    'delSession', 'openSplitEditor', 'delPayment', 'delAdjustment', 'advanceLabOrder', 'redoLabOrder', 'undoLabStage' /* M206: تراجعٌ عن مرحلة مخبر */, 'editLabOrder', 'delLabOrder',
     'deletePrescription', 'rxEditTemplate', 'deleteRxTemplate', 'deletePostOpNote', 'deletePostOpTemplate', 'removeImplant', 'undoExtraction',
     'clearToothStatus', 'removeSpacerUnit', 'dentRemoveUnit' /* M202: إزالةُ الجهاز المتحرك */, 'removeSocket', 'removeCondition', 'sxCancelExtraction', 'deleteImplantLog', 'linkToFamily', 'deleteImplantTemplate', 'batchSetStatus',
     'batchPickTx', 'examSetStatus', 'examSetMonths', 'examPick', 'planWa', 'planSetStatus', 'removePendingPP', 'unlinkSessionFromApptPP',
@@ -2462,7 +2462,7 @@ try {
       "extra": ["#poRecvForm"]   /* C3: نموذجُ الاستلام (خاناتُ الكمية والصلاحية والسعر) — كتابة */
     },
     "labs.html": {
-      "write": ["openLabOrderModal", "openLabModal", "labTplSaveCurrent", "labTplDeleteSelected", "labClearDateSent", "labAiDraftOrder", "labAiSaveAndSend", "saveLabOrder", "saveLab", "saveLabPayment", "editLab", "delLab", "advanceLabOrder", "redoLabOrder", "editLabOrder", "delLabOrder", "delLabPayment"],
+      "write": ["openLabOrderModal", "openLabModal", "labTplSaveCurrent", "labTplDeleteSelected", "labClearDateSent", "labAiDraftOrder", "labAiSaveAndSend", "saveLabOrder", "saveLab", "saveLabPayment", "editLab", "delLab", "advanceLabOrder", "redoLabOrder", "undoLabStage", "editLabOrder", "delLabOrder", "delLabPayment"],
       "guard": [],
       "read": ["applyFilter", "setLabPageSize", "closeModal", "closeLabModal", "openLabStatement", "labAiCopy", "labSlipPrint"],
       "inert": ["labTplApply", "onLabOrderPatientChange", "onLabOrderAppointmentChange", "labTplGlowSync", "syncLabPaySource"],

@@ -1196,6 +1196,7 @@ window.SyDenture = {
   removeBtnHtml: dentRemoveBtnHtml,
   onSessionComplete: dentOnSessionComplete, onSessionDeleted: dentOnSessionDeleted, examUndo: dentExamUndo,
   completeNote: dentCompleteNote, sessWhere: dentSessWhere, printLine: dentPrintLine,
+  isImmediate: function (s) { return dentOpenExtractions(dentSessTeeth(s)).length > 0; },   /* ج3-أ: قالبُ مراحل المخبر للجهاز الفوري */
   restoreMissing: dentRestoreMissing,
   onFixedSessionSaved: dentOnFixedSessionSaved, settlePending: dentSettlePending, pendingSessions: dentPendingSessions,
   paint: dentPaint,

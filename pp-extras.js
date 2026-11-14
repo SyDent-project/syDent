@@ -1349,6 +1349,7 @@ async function loadPatientAuditLog() {
       'lab.create': '🥽 طلب مخبر',
       'lab.edit': '✏️ تعديل مخبر',
       'lab.redo': '🔄 إعادة عمل للمخبر',
+      'lab.stage': '📤 مرحلة مخبر',
       'lab.delete': '🗑️ حذف مخبر',
       // Phase 6 K: operatory entries are clinic-wide (no patient_id) so they
       // won't normally appear in this patient-scoped tab. Defensive entry

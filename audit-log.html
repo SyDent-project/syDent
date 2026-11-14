@@ -16,11 +16,11 @@
 /* ── Modal ── v451: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261114h"></script>
+<script src="theme.js?v=20261115a"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261114h"></script>
-<script src="sy-modal.js?v=20261114h"></script>
-<script src="sidebar.js?v=20261114h"></script>
+<script src="supabase-init.js?v=20261115a"></script>
+<script src="sy-modal.js?v=20261115a"></script>
+<script src="sidebar.js?v=20261115a"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -283,7 +283,7 @@ button:disabled { opacity: .6; cursor: wait; }
 html[data-sub-level="read"] :is([onclick*="openArchiveModal("],[onclick*="doArchive("],[onclick*="restoreAll("],[onclick*="restoreOne("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261114h">
+<link rel="stylesheet" href="theme.css?v=20261115a">
 </head>
 <body>
 <div class="main" id="sbMainContent">
@@ -454,7 +454,7 @@ var ACTION_TYPES_BY_PREFIX = {
   appointment_type: ['appointment_type.create', 'appointment_type.edit', 'appointment_type.delete'],
   session:     ['session.create', 'session.complete', 'session.delete'],
   payment:     ['payment.create', 'payment.edit_splits', 'payment.delete'],
-  lab:         ['lab.create', 'lab.edit', 'lab.redo', 'lab.delete', 'lab_payment.create', 'lab_payment.delete'],
+  lab:         ['lab.create', 'lab.edit', 'lab.redo', 'lab.stage', 'lab.delete', 'lab_payment.create', 'lab_payment.delete'],
   doctor:      ['doctor.create', 'doctor.edit', 'doctor.delete'],
   employee:    ['employee.create', 'employee.edit', 'employee.toggle_active', 'employee.delete'],
   operatory:   ['operatory.create', 'operatory.edit', 'operatory.delete'],

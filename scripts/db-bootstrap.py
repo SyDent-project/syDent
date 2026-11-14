@@ -72,6 +72,7 @@ AFTER_SNAPSHOT = [
     'migrations/203_removable_prosthetics_category.sql',   # same: handle_new_doctor replaced in place + a 4-row category backfill
     'migrations/204_ledger_sessions_unit_teeth.sql',   # no function: one nullable column + CHECK + a scoped backfill of denture sessions
     'migrations/205_portal_info_arch_teeth.sql',   # after 198 is safe: portal_info replaced in place and re-granted by name (PUBLIC revoked, anon + authenticated only) — the M191 grant, restated
+    'migrations/206_lab_order_stages.sql',   # after 198 is safe: its trigger function is revoked from PUBLIC/anon/authenticated and the two RPCs are granted to authenticated only, all by name
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',
