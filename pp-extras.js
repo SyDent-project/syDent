@@ -285,7 +285,7 @@ function _aiPlanLinesCore(planned){
         ? surfLabelFor(s.surface, s.tooth_num) : '';
       if (area) loc += ' / ' + area;
     } else if (s.arch) {
-      loc = _aiPlanArchLbl(s.arch);
+      loc = ((window.SyDenture && window.SyDenture.sessWhere) ? window.SyDenture.sessWhere(s) : '') || _aiPlanArchLbl(s.arch);   /* ج2-ج: الجهازُ بأسنانه */
     }
     var c = Number(s.cost || 0);
     var eCur = _rowCur(s);

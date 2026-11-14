@@ -3120,6 +3120,9 @@ function printChart(){
     .replace(/href="#/g, 'href="#prn-')
     .replace(/href='#/g, "href='#prn-");
   h += '<div class="cp-jaw">' + jwHtml + '</div>';
+  /* ج2-ج: شريطُ الأجهزة المتحركة فوق المخطط لا يُطبع ⇒ الورقةُ تسمّي الجهاز بسطر (الاسم · الفك والأسنان · الحالة) */
+  var _dentLine = (window.SyDenture && window.SyDenture.printLine) ? window.SyDenture.printLine() : '';
+  if (_dentLine) h += '<div class="cp-dent" style="margin:8px 0 2px;font-size:12.5px;color:#222;text-align:center;"><strong>الأجهزة المتحركة:</strong> ' + _dentLine + '</div>';
   if (legEl) h += '<div class="chart-legend cp-legend">' + legEl.innerHTML + '</div>';
   h += '</div>';
 

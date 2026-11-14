@@ -370,7 +370,7 @@ function populateAddPlannedSelectPP() {
       toothPart = ' (' + (QLBL2[s.quadrant] || s.quadrant) + ')';
     } else if (s.arch) {
       var ALBL2 = {'U':'الفك العلوي','L':'الفك السفلي'};
-      toothPart = ' (' + (ALBL2[s.arch] || s.arch) + ')';
+      toothPart = ' (' + (((window.SyDenture && window.SyDenture.sessWhere) ? window.SyDenture.sessWhere(s) : '') || ALBL2[s.arch] || s.arch) + ')';   /* ج2-ج */
     } else {
       toothPart = '';
     }
@@ -410,7 +410,7 @@ function renderApptProcedureListPP() {
           toothPart = ' • ' + (QLBL[s.quadrant] || escapeHtml(s.quadrant));
         } else if (s.arch) {
           var ALBL = {'U':'الفك العلوي','L':'الفك السفلي'};
-          toothPart = ' • ' + (ALBL[s.arch] || escapeHtml(s.arch));
+          toothPart = ' • ' + (escapeHtml(((window.SyDenture && window.SyDenture.sessWhere) ? window.SyDenture.sessWhere(s) : '')) || ALBL[s.arch] || escapeHtml(s.arch));   /* ج2-ج */
         }
         var costStr = (typeof fmt === 'function') ? fmt(s.cost) : String(s.cost || 0);
         html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(var(--green-rgb),0.05);border-radius:8px;border:1px solid rgba(var(--green-rgb),0.2);flex-wrap:wrap;">'
@@ -457,7 +457,7 @@ function renderApptProcedureListPP() {
         toothPart2 = ' • ' + (QLBL2[s.quadrant] || escapeHtml(s.quadrant));
       } else if (s.arch) {
         var ALBL2 = {'U':'الفك العلوي','L':'الفك السفلي'};
-        toothPart2 = ' • ' + (ALBL2[s.arch] || escapeHtml(s.arch));
+        toothPart2 = ' • ' + (escapeHtml(((window.SyDenture && window.SyDenture.sessWhere) ? window.SyDenture.sessWhere(s) : '')) || ALBL2[s.arch] || escapeHtml(s.arch));   /* ج2-ج */
       }
       var costStr2 = (typeof fmt === 'function') ? fmt(s.cost) : String(s.cost || 0);
       html2 += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06);flex-wrap:wrap;">'

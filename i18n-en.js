@@ -3050,6 +3050,7 @@ Object.assign(window.SyI18nDict, {
   var WHY = {
     'مفقود': 'missing', 'مزروع': 'has an implant', 'ضمن جسر': 'part of a bridge', 'عليه حافظ مسافة': 'has a space maintainer',
     'قلعه مخطّط — أنجز القلع أولاً': 'extraction planned — complete the extraction first',
+    'قلعه مخطّط — جهاز فوري (يُسجَّل مخطّطاً)': 'extraction planned — immediate denture (recorded as planned)',
     'سن قائم — سجّل قلعه أولاً': 'standing tooth — record its extraction first',
     'عليه جهاز متحرك مسجّل': 'already has a recorded denture',
     'عليه جهاز مسجّل — الجديد بديل أو تبديل': 'has a recorded denture — the new one is an alternative or a replacement',
@@ -3077,7 +3078,7 @@ Object.assign(window.SyI18nDict, {
 
     /* step-2 title, banner chips, tips */
     [R('^🦷 (.+?) — ' + AREA + '( — جلسة لكل فك بالسعر المدخل)?$'), function (m, n, a, per) { return '🦷 ' + n + ' — ' + area(a) + (per ? ' — one session per jaw at the entered price' : ''); }],
-    [R('^(.+?) · (الفك العلوي|الفك السفلي) · ' + CNT + '(?: · ' + ST_RE + ')?' + OPT_RE + '$'), function (m, n, a, c, st, o) { return n + ' · ' + ARCH[a] + ' · ' + cnt(c) + (st ? ' · ' + ST[st] : '') + opt(o); }],
+    [R('^(.+?) · (الفك العلوي|الفك السفلي) · ' + CNT + '(?: · ' + ST_RE + ')?( · فوري)?' + OPT_RE + '$'), function (m, n, a, c, st, imm, o) { return n + ' · ' + ARCH[a] + ' · ' + cnt(c) + (st ? ' · ' + ST[st] : '') + (imm ? ' · immediate' : '') + opt(o); }],
     [R('^(.+?) · (الفك العلوي|الفك السفلي) · ' + CNT + ' · مخطط — (بديل|تبديل عند الإنجاز)' + OPT_RE + '$'), function (m, n, a, c, k, o) { return n + ' · ' + ARCH[a] + ' · ' + cnt(c) + ' · planned — ' + (k === 'بديل' ? 'alternative' : 'replaces on completion') + opt(o); }],
     [/^\[خيار ([أبج])\]$/, function (m, o) { return '[option ' + OPT[o] + ']'; }],
     [/^جهاز مخطّط \((بديل|تبديل عند الإنجاز)\):$/, function (m, k) { return 'Planned denture (' + (k === 'بديل' ? 'alternative' : 'replaces on completion') + '):'; }],
@@ -3090,6 +3091,15 @@ Object.assign(window.SyI18nDict, {
     [R('^جهاز فوق الزرعات — (?:الزرعة (\\d+)|الزرعات ' + NUMS + ') تبقى كما هي تحت الجهاز\\.$'), function (m, one, many) { return 'Implant overdenture — ' + (one ? 'implant ' + one + ' stays' : 'implants ' + nums(many) + ' stay') + ' as recorded under the denture.'; }],
     [R('^(?:السن (\\d+) عليه|الأسنان ' + NUMS + ' عليها) زرعة أو جسر مخطّط — (?:انقره ليدخل|انقرها لتدخل) بالجهاز\\.$'), function (m, one, many) { return teethOn(one, many, 'has', 'have') + ' a planned implant or bridge — click ' + (one ? 'it' : 'them') + ' to include ' + (one ? 'it' : 'them') + ' in the denture.'; }],
     [R('^(?:السن (\\d+) عليه|الأسنان ' + NUMS + ' عليها) زرعة أو جسر مخطّط — تدخل بالجهاز وخطتها تبقى\\.$'), function (m, one, many) { return teethOn(one, many, 'has', 'have') + ' a planned implant or bridge — included in the denture, and the plan stays.'; }],
+    /* immediate denture (2c): a tooth whose extraction is still planned */
+    [R('^(?:السن (\\d+) قلعه|الأسنان ' + NUMS + ' قلعها) مخطّط — (?:انقره ليدخل|انقرها لتدخل) بالجهاز \\(جهاز فوري: يُسجَّل مخطّطاً ويُرسم سنُّه بعد القلع\\)\\.$'), function (m, one, many) { return (one ? 'Tooth ' + one + ' has a planned extraction' : 'Teeth ' + nums(many) + ' have planned extractions') + ' — click ' + (one ? 'it' : 'them') + ' to include ' + (one ? 'it' : 'them') + ' in the denture (immediate denture: recorded as planned, and its tooth is drawn after the extraction).'; }],
+    [R('^(?:السن (\\d+) قلعه|الأسنان ' + NUMS + ' قلعها) مخطّط — جهاز فوري: يُسجَّل مخطّطاً ويُرسم سنُّه بعد القلع\\.$'), function (m, one, many) { return (one ? 'Tooth ' + one + ' has a planned extraction' : 'Teeth ' + nums(many) + ' have planned extractions') + ' — immediate denture: recorded as planned, and its tooth is drawn after the extraction.'; }],
+    [R('^🦷 (?:السن (\\d+) قلعه|الأسنان ' + NUMS + ' قلعها) مخطّط — الجهاز الفوري يُسجَّل «مخطّط»؛ أنجز القلع أولاً لتسجيله بحالةٍ أخرى$'), function (m, one, many) { return '🦷 ' + (one ? 'Tooth ' + one + ' has a planned extraction' : 'Teeth ' + nums(many) + ' have planned extractions') + ' — an immediate denture is recorded as «Planned»; complete the extraction first to record it with another status'; }],
+    [/^🦷 قلع السن (\d+) مخطّط وعليه جهاز فوري — أزل الجهاز أولاً$/, '🦷 The extraction of tooth $1 is planned and an immediate denture sits on it — remove the denture first'],
+    [R('^✅ تم إكمال العلاج( • وأُكمل الموعد المرتبط تلقائياً)?(?: • ⚠️ قلع (?:السن (\\d+)|الأسنان ' + NUMS + ') ما زال مخطّطاً — أنجزه ليظهر سنُّ الجهاز)?$'), function (m, appt, one, many) {
+      return '✅ Treatment completed' + (appt ? ' • and the linked appointment was completed automatically' : '')
+        + ((one || many) ? ' • ⚠️ the extraction of ' + (one ? 'tooth ' + one : 'teeth ' + nums(many)) + ' is still planned — complete it to show the denture tooth' : '');
+    }],
     [R('^(?:السن (\\d+) عليه|الأسنان ' + NUMS + ' عليها) جهاز مسجّل — (?:انقره|انقرها) ليُسجَّل الجديد بديلاً عنه \\(مخطّط\\) أو تبديلاً له\\.$'), function (m, one, many) { return teethOn(one, many, 'has', 'have') + ' a recorded denture — click ' + (one ? 'it' : 'them') + ' to record the new one as its alternative (planned) or its replacement.'; }],
     [/^عليه (.+) — الجديد يُسجَّل بديلاً عنه \(مخطّط\) أو تبديلاً له\.$/, function (m, n) { return 'Has ' + n.replace(/» و«/g, '» and «') + ' — the new one is recorded as its alternative (planned) or its replacement.'; }],
     [R('^الأسنان القائمة \\((\\d+)\\) تُعلَّم مفقودة: ' + NUMS + '\\.(?: يبقى كما هو: ' + BAD_RE + '\\.)?$'), function (m, n, l, keep) { return 'Standing teeth (' + n + ') are marked missing: ' + nums(l) + '.' + (keep ? ' Left as is: ' + badList(keep) + '.' : ''); }],
@@ -3108,7 +3118,7 @@ Object.assign(window.SyI18nDict, {
     [R('^– (.+) / ' + AREA + '(?: — ([\\d/.-]+))? — ([\\d.,]+) (ل\\.س|\\$)(?: \\(مدفوع عليها ([\\d.,]+)\\))?' + OPT_RE + '$'), function (m, n, a, dt, c, cur, paid, o) { return '– ' + n + ' / ' + area(a) + (dt ? ' — ' + dt : '') + ' — ' + c + ' ' + (cur === '$' ? '$' : 'SYP') + (paid ? ' (' + paid + ' paid on it)' : '') + opt(o); }],
 
     /* toasts */
-    [R('^✅ تم تسجيل (.+?) — ' + AREA + '( \\(جلسة لكل فك\\)| — أكمل بيانات المخبر)?$'), function (m, n, a, tail) { return '✅ ' + n + ' recorded — ' + area(a) + (tail ? (tail.indexOf('جلسة') > -1 ? ' (one session per jaw)' : ' — complete the lab details') : ''); }],
+    [R('^✅ تم تسجيل (.+?) — ' + AREA + '( \\(جلسة لكل فك\\)| — أكمل بيانات المخبر)?( — جهاز فوري: سنُّه يُرسم بعد إنجاز القلع)?$'), function (m, n, a, tail, imm) { return '✅ ' + n + ' recorded — ' + area(a) + (tail ? (tail.indexOf('جلسة') > -1 ? ' (one session per jaw)' : ' — complete the lab details') : '') + (imm ? ' — immediate denture: its tooth is drawn once the extraction is completed' : ''); }],
     [R('^✅ سُجّل (.+) \\(' + ST_RE + '\\) — ' + AREA + '$'), function (m, n, st, a) { return '✅ ' + n + ' recorded (' + ST[st] + ') — ' + area(a); }],
     [R('^🔀 أُضيف «(.+)» بديلاً بالخطة' + OPT_RE + ' — ' + AREA + ' \\(المرسوم يبقى حتى اعتماد أحد الخيارين\\)$'), function (m, n, o, a) { return '🔀 «' + n + '» added as a plan alternative' + opt(o) + ' — ' + area(a) + ' (the drawn one stays until an option is adopted)'; }],
     [R('^🔁 أُضيف «(.+)» مخطّطاً — ' + AREA + ' \\(يأخذ مكان الجهاز الحالي على المخطط عند إنجازه\\)$'), function (m, n, a) { return '🔁 «' + n + '» added as planned — ' + area(a) + ' (it takes the current denture\'s place on the chart when completed)'; }],
@@ -3161,6 +3171,9 @@ Object.assign(window.SyI18nDict, {
     [/^✅ تم تسجيل (.+?) لـ (الفك العلوي|الفك السفلي)( — أكمل بيانات المخبر)?$/, function (m, n, a, lab) { return '✅ ' + n + ' recorded for the ' + ARCH[a].toLowerCase() + (lab ? ' — complete the lab details' : ''); }],
     [/^✅ تم تسجيل (.+?) للفكين \(جلسة لكل فك\)$/, '✅ $1 recorded for both jaws (one session per jaw)'],
     [/^اختر الفك — (.+)$/, 'Choose the jaw — $1'],
+    /* a denture session named by its location in lists (2c: timeline title · plan card) — the name stays, the location is translated */
+    [R('^(.+?) — (' + A1 + ')$'), function (m, n, a) { return n + ' — ' + area(a); }],
+    [R('^(.+) \\((' + A1 + ')\\)( ×\\d+)?$'), function (m, n, a, x) { return n + ' (' + area(a) + ')' + (x || ''); }],
     /* a bare name with its option — last, so the fuller lines above are tried first */
     [/^([^·—]+) \[خيار ([أبج])\]$/, function (m, n, o) { return n + ' [option ' + OPT[o] + ']'; }]
   );
@@ -3180,7 +3193,8 @@ Object.assign(window.SyI18nDict, {
     'أسنان قائمة بالمخطط': 'Standing teeth on the chart',
     'علّمها مفقودة وتابع': 'Mark them missing and continue', 'علّمها مفقودة': 'Mark them missing',
     'إن كانت مفقودةً فعلاً تُعلَّم «مفقودة مسبقاً» عند الحفظ (بلا جلسة ولا تكلفة).': 'If they are in fact missing, they are marked «already missing» on save (no session, no charge).',
-    'وإن كانت ستُقلع فارجع وسجّل قلعها أولاً.': 'If they are going to be extracted, go back and record their extraction first.',
+    'وإن كانت ستُقلع فارجع وسجّل قلعها أولاً — ولو مخطّطاً (جهاز فوري).': 'If they are going to be extracted, go back and record their extraction first — even as planned (immediate denture).',
+    'فوري — بعد القلع': 'Immediate — after the extraction',
     'فك أدرد': 'Edentulous jaw',
     'بلا جلسة ولا تكلفة. زرُّ «تراجع» بشريط الفحص يعيدها كما كانت.': 'No session, no charge. The «Undo» button on the exam bar restores them as they were.',
     'لن يتغيّر شيء آخر — الأسنان تبقى مفقودة كما هي.': 'Nothing else changes — the teeth stay missing as they are.',

@@ -256,7 +256,7 @@ async function _adoptPlanOption_inner(opt, opts) {
   var keep = planned.filter(function(s){ return planOptOf(s) === opt; });
   var msg = 'اعتماد الخيار ' + PLAN_OPTION_LABELS[opt] + '؟\n\n'
     + (drop.length ? '• سيُحذف ' + drop.length + ' بند مخطّط من الخيارات الأخرى:\n'
-        + drop.map(function(s){ return '   – ' + (s.type || '') + (s.tooth_num ? ' (سن ' + s.tooth_num + ')' : '') + ' [' + PLAN_OPTION_LABELS[planOptOf(s)] + ']'; }).join('\n') + '\n'
+        + drop.map(function(s){ return '   – ' + (s.type || '') + (s.tooth_num ? ' (سن ' + s.tooth_num + ')' : (planDentWhere(s) ? ' (' + planDentWhere(s) + ')' : '')) + ' [' + PLAN_OPTION_LABELS[planOptOf(s)] + ']'; }).join('\n') + '\n'
       : '• لا بنود بخيارات أخرى للحذف.\n')
     + (keep.length
         ? '• بنود الخيار ' + PLAN_OPTION_LABELS[opt] + ' (' + keep.length + ') تصير جزءاً ثابتاً من الخطة.'
@@ -431,12 +431,14 @@ function planUnvisitedGroups() {
   });
   return { g: g, alt: alt, stale: stale };
 }
+/* ج2-ج: جلسةُ جهازٍ متحرك تُسمّى بفكّها وأسنانها («الفك العلوي — الأسنان 14، 15») — فارغٌ لغيرها */
+function planDentWhere(s) { return (window.SyDenture && window.SyDenture.sessWhere) ? window.SyDenture.sessWhere(s) : ''; }
 function planItemName(s) {
   var u = (typeof sessUnitsOf === 'function') ? sessUnitsOf(s) : 1;   /* v425 (M150) */
   var mult = u > 1 ? ' ×' + u : '';
   var where = s.tooth_num ? ' (' + s.tooth_num + ')'
     : (s.quadrant && typeof QUADRANT_LABELS !== 'undefined' && QUADRANT_LABELS[s.quadrant]) ? ' (' + QUADRANT_LABELS[s.quadrant] + ')'
-    : (s.arch && typeof ARCH_LABELS !== 'undefined' && ARCH_LABELS[s.arch]) ? ' (' + ARCH_LABELS[s.arch] + ')' : '';
+    : (s.arch && typeof ARCH_LABELS !== 'undefined' && ARCH_LABELS[s.arch]) ? ' (' + (planDentWhere(s) || ARCH_LABELS[s.arch]) + ')' : '';
   return (s.type || 'علاج') + where + mult;
 }
 function _planVisitBag(items) {
@@ -616,7 +618,7 @@ function planVisitsForPatient() {
       var t = planTreatmentFor(s);
       var disp = t ? getDisplayName(t, true) : (s.type || '—');
       var u = (typeof sessUnitsOf === 'function') ? sessUnitsOf(s) : 1;   /* v425 (M150) */
-      return disp + (s.tooth_num ? ' (سن ' + s.tooth_num + ')' : '') + (u > 1 ? ' ×' + u : '');
+      return disp + (s.tooth_num ? ' (سن ' + s.tooth_num + ')' : (planDentWhere(s) ? ' (' + planDentWhere(s) + ')' : '')) + (u > 1 ? ' ×' + u : '');
     });
     var when = (v.bucket === 'planned') ? 'يُحدَّد موعدها لاحقاً' : planVisitWhen(v);
     return { n: v.n, when: when, names: names };
