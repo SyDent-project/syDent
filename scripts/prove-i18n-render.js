@@ -165,6 +165,37 @@ function run(F) {
   const PDS = F['pp-dental.js'], PMS = F['pp-modules.js'];
   ok(["' كموجودٍ مسبقاً على '", "' أسنان (جلسة لكل سن)'", "' — بلا تكلفة'", "'⚠️ توقفت الدفعة — سُجلت '", "'⚠️ توقفت الدفعة — وُثّق '"].every(x => PDS.includes(x))
     && ["' — موجود مسبقاً على '", "' · توثيق بلا تكلفة ('", "(units.length === 1 ? 'جلسة' : 'جلسات')", "posList.join('، ')"].every(x => PMS.includes(x)), 'batch: the patterns match the strings the code actually builds');
+
+  /* (٦) v718: رسائلُ الخطأ لسنٍّ معيّن ورسائلُ التحديد المتعدد الثابتة */
+  const ERR = [
+    ['⚠️ السن 16 لم يعد مؤهلاً (مقلوع) — توقفت الدفعة', '⚠️ Tooth 16 is no longer eligible (extracted) — batch stopped'],
+    ['⚠️ السن 16: مزروع', '⚠️ Tooth 16: has an implant'],
+    ['⚠️ السن 75: علاجٌ للأسنان الدائمة فقط', '⚠️ Tooth 75: treatment for permanent teeth only'],
+    ['⚠️ أسنان غير مؤهلة لهذا العلاج: 16 (مقلوع)، 26 (دعامة جسر)', '⚠️ Teeth not eligible for this treatment: 16 (extracted), 26 (bridge abutment)'],
+    ['🔩 قلعُ السن 16 ما زال مخطّطاً — الزرعة عليه تُضاف كعلاجٍ مخطّط — توقفت الدفعة', '🔩 The extraction of tooth 16 is still planned — an implant on it is added as a planned treatment — batch stopped'],
+    ['⚠️ خطأ بالسن 16: duplicate key value', '⚠️ Error on tooth 16: duplicate key value'],
+    ['⚠️ خطأ حفظ السن 16: network error', '⚠️ Error saving tooth 16: network error'],
+    ['⚠️ تسجيل جلسة السن 16 فشل: timeout', '⚠️ Recording the session for tooth 16 failed: timeout'],
+    ['↩️ أُلغي تحديد السن 26 (جذر 1)', '↩️ Tooth 26 deselected (root 1)'],
+    ['☑️ أنهِ وضع التحديد المتعدد أولاً', '☑️ Finish multi-select first'],
+    ['👆 انقر موضعاً واحداً على الأقل من المخطط', '👆 Click at least one position on the chart'],
+    ['لا شيء للتراجع عنه', 'Nothing to undo'],
+    ['☑️ وضع التحديد المتعدد — اختر علاجاً ثم انقر المواضع على المخطط', '☑️ Multi-select — choose a treatment, then click positions on the chart'],
+    ['🔒 حسابك غير نشط — لا يمكن تسجيل علاجات', '🔒 Your account is inactive — treatments cannot be recorded']
+  ];
+  const badE = ERR.filter(([ar, en]) => t(ar) !== en);
+  ok(badE.length === 0, 'batch: per-tooth errors and fixed toasts translate' + (badE.length ? ' — ' + badE.map(([ar]) => '«' + ar + '» ⇒ «' + t(ar) + '»').slice(0, 2).join(' | ') : ''));
+  /* سببٌ مجهول ⇒ الرسالةُ كلُّها تبقى عربية كما هي — لا نصفُ ترجمة («Tooth 16 لم يعد…») */
+  ok(['⚠️ السن 16 لم يعد مؤهلاً (سبب جديد) — توقفت الدفعة', '⚠️ السن 16: سبب جديد', '⚠️ أسنان غير مؤهلة لهذا العلاج: 16 (مقلوع)، 26 (سبب جديد)'].every(x => t(x) == null || t(x) === x), 'batch: an unknown reason leaves the whole message untouched — never half translated');
+  /* كلُّ سببٍ يبنيه الكود له ترجمة: أسبابُ batchAllowed ورسالتا txDentitionMsg */
+  const PMx = F['pp-modules.js'], PDx = F['pp-dental.js'];
+  const ba = PMx.slice(PMx.indexOf('function batchAllowed('), PMx.indexOf('\n}\n', PMx.indexOf('function batchAllowed(')));
+  const td = PDx.slice(PDx.indexOf('function txDentitionMsg('), PDx.indexOf('\n}\n', PDx.indexOf('function txDentitionMsg(')));
+  const reasons = [...ba.matchAll(/msg: '([^']+)'/g)].map(m => m[1]).concat([...td.matchAll(/'([^']*[\u0600-\u06FF][^']*)'/g)].map(m => m[1]));
+  const untr = reasons.filter(r => t('⚠️ السن 16: ' + r) === null || /[\u0600-\u06FF]/.test(t('⚠️ السن 16: ' + r)));
+  ok(reasons.length >= 12 && untr.length === 0, 'batch: every eligibility reason the code builds has a translation (' + reasons.length + ')' + (untr.length ? ' — missing: ' + untr.join(' | ') : ''));
+  ok(["'⚠️ السن ' + _bn + ' لم يعد مؤهلاً ('", "'⚠️ خطأ بالسن ' + _bn + ': '", "'⚠️ خطأ حفظ السن ' + _bn + ': '", "'⚠️ تسجيل جلسة السن ' + _bn + ' فشل: '", "'🔩 قلعُ السن ' + _bn + ' ما زال مخطّطاً"].every(x => PDx.includes(x))
+    && ["'⚠️ أسنان غير مؤهلة لهذا العلاج: ' + bad.join('، ')", "bad.push(units[i].n + ' (' + v.msg + ')')", "'↩️ أُلغي تحديد السن ' + last.n + ' ('"].every(x => PMx.includes(x)), 'batch: the error patterns match the strings the code actually builds');
   return out;
 }
 
@@ -184,7 +215,13 @@ const MUTANTS = [
   ['batch: teeth always plural', 'i18n-en.js', "cnt(n, 'tooth', 'teeth')", "cnt(n, 'teeth', 'teeth')"],
   ['batch: positions keep the Arabic comma', 'i18n-en.js', "return s.split('، ').map(pos).join(', ');", "return s.split('، ').map(pos).join('، ');"],
   ['batch: an unknown name is half-guessed', 'i18n-en.js', "function name(s) { var d = D(); return d[s] != null ? d[s] : s; }", "function name(s) { return pos(s); }"],
-  ['batch: the code rewords a toast', 'pp-dental.js', "' كموجودٍ مسبقاً على '", "' كموجود سابقاً على '"]
+  ['batch: the code rewords a toast', 'pp-dental.js', "' كموجودٍ مسبقاً على '", "' كموجود سابقاً على '"],
+  ['batch: a reason loses its translation', 'i18n-en.js', "'عليه حافظ مسافة': 'has a space maintainer', ", ''],
+  ['batch: the code adds an untranslated reason', 'pp-modules.js', "return { ok: false, msg: 'مزروع' };", "return { ok: false, msg: 'مزروع حديثاً' };"],
+  ['batch: unknown reason half-translated', 'i18n-en.js', "[new RegExp('^⚠️ السن (\\\\d+): ' + WHY_RE + '$')", "[new RegExp('^⚠️ السن (\\\\d+): (.+)$')"],
+  ['batch: technical error text dropped', 'i18n-en.js', "'⚠️ Error saving tooth $1: $2'", "'⚠️ Error saving tooth $1'"],
+  ['batch: a fixed toast loses its entry', 'i18n-en.js', "'لا شيء للتراجع عنه': 'Nothing to undo',", ''],
+  ['batch: the code rewords an error toast', 'pp-dental.js', "' فشل: '", "' لم ينجح: '"]
 ];
 const self = process.argv.includes('--self-test');
 let pass = 0, fail = 0;
