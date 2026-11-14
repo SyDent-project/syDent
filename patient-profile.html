@@ -4692,10 +4692,19 @@ async function _delSession_inner(id, opts) {
     showToast('🔒 حسابك غير نشط — لا يمكن حذف الجلسات');
     return;
   }
-  // M145: adoptPlanOption يؤكّد مرة واحدة للدفعة كلها ثم يمرّر skipConfirm.
-  if (!(opts && opts.skipConfirm === true) && !await SyDialog.confirm({ message: 'حذف هذه الجلسة؟', danger: true })) return;
   // find session to check tooth+surface
   var sess = sessions.find(function(s){ return s.id === id; });
+  /* ج2-ج: قلعٌ مخطّط وعليه جهازٌ فوري — حذفُ جلسته يعيد السن قائماً والجهازُ فوقه. الحذفُ التفاعلي يُرفض (يُزال الجهاز أولاً)؛
+     حذفُ الدفعة (اعتماد خيارٍ بالخطة — skipConfirm) يمرّ: الخيارُ المعتمد يحذف ما يلزم. */
+  if (!(opts && opts.skipConfirm === true) && sess && sess.tooth_num && (sess.status || 'completed') === 'planned'
+      && window.SyDenture && window.SyDenture.has(sess.tooth_num)
+      && typeof isExtractionKey === 'function' && isExtractionKey(sessionTreatmentKey(sess))
+      && typeof isExtractionPlanned === 'function' && isExtractionPlanned(sess.tooth_num)) {
+    showToast('🦷 قلع السن ' + sess.tooth_num + ' مخطّط وعليه جهاز فوري — أزل الجهاز أولاً');
+    return;
+  }
+  // M145: adoptPlanOption يؤكّد مرة واحدة للدفعة كلها ثم يمرّر skipConfirm.
+  if (!(opts && opts.skipConfirm === true) && !await SyDialog.confirm({ message: 'حذف هذه الجلسة؟', danger: true })) return;
 
   // Delete the session itself. payment_splits.session_id has ON DELETE SET NULL
   // — surviving splits become orphans (session_id=NULL) but we immediately
@@ -4737,8 +4746,10 @@ async function _delSession_inner(id, opts) {
       && isImplantKey(sessionTreatmentKey(sess)) && isExtractionKey((teethMap[String(sess.tooth_num)] || {})[sessSurface]);
     /* v711: جلسةُ قلعٍ لسنٍّ يعوّضه جهازٌ متحرك — الجلسةُ تُحذف (قرارٌ مالي) وصفُّ القلع يبقى: السنُّ مفقودٌ فعلاً والجهازُ عليه.
        محوُه كان يعيد السن قائماً والجهازُ مرسومٌ فوقه. */
+    /* ج2-ج: القلعُ **المخطّط** تحت جهازٍ فوري ليس سناً مفقوداً — صفُّه يتبع جلستَه كأي قلعٍ مخطّط (حذفُه التفاعلي مرفوض أعلاه) */
     var _dentKeepsExtraction = !!(window.SyDenture && window.SyDenture.has(sess.tooth_num) && sessSurface === 'WHOLE'
-      && typeof isExtractionKey === 'function' && isExtractionKey((teethMap[String(sess.tooth_num)] || {}).WHOLE));
+      && typeof isExtractionKey === 'function' && isExtractionKey((teethMap[String(sess.tooth_num)] || {}).WHOLE)
+      && !(typeof isExtractionPlanned === 'function' && isExtractionPlanned(sess.tooth_num)));
     if (!stillUsed && (_rowIsExtraction || _dentKeepsExtraction)) {
       /* صفر مساس بالمخطط */
     } else if (!stillUsed && (function(){ var _sm0 = teethMap[String(sess.tooth_num)] || {}, _k0 = _sm0[sessSurface];
@@ -4953,7 +4964,7 @@ function ppIngestToothRow(t) {
 }
 async function syncToothStatusOnComplete(sess) {
   /* M202: جلسةُ الجهاز المتحرك جلسةُ فكٍّ (بلا tooth_num) — إنجازُها يقلب صفوفَ وحدتها المخطّطة (مرآتُه بصفحة المواعيد) */
-  if (sess && !sess.tooth_num && window.SyDenture) { await window.SyDenture.onSessionComplete(sess); return ''; }
+  if (sess && !sess.tooth_num && window.SyDenture) { await window.SyDenture.onSessionComplete(sess); return window.SyDenture.completeNote ? window.SyDenture.completeNote(sess) : ''; }
   if (!sess || !sess.tooth_num) return '';
   if (typeof isUnitLedgerSession === 'function' && isUnitLedgerSession(sess)) return await syncUnitRowsOnComplete(sess);
   var tn  = String(sess.tooth_num);
@@ -5063,7 +5074,7 @@ async function _completeSessionFromProfile_inner(sessionId) {
   } else if (sess.quadrant && QUADRANT_LABELS[sess.quadrant]) {
     toothPart = '\nالنطاق: ' + QUADRANT_LABELS[sess.quadrant];
   } else if (sess.arch && ARCH_LABELS[sess.arch]) {
-    toothPart = '\nالنطاق: ' + ARCH_LABELS[sess.arch];
+    toothPart = '\nالنطاق: ' + (((window.SyDenture && window.SyDenture.sessWhere) ? window.SyDenture.sessWhere(sess) : '') || ARCH_LABELS[sess.arch]);   /* ج2-ج: الجهازُ بأسنانه */
   }
   var msg = 'تأكيد إكمال العلاج\n\n'
           + 'العلاج: ' + (sess.type || sess.description || '—')

@@ -294,7 +294,8 @@ function renderTimelineRow(e) {
       // Phase 3 Feature G: regional session in timeline
       toothPart = ' — ' + escapeHtml(QUADRANT_LABELS[s.quadrant]);
     } else if (s.arch && ARCH_LABELS[s.arch]) {
-      toothPart = ' — ' + escapeHtml(ARCH_LABELS[s.arch]);
+      /* ج2-ج: جلسةُ الجهاز المتحرك بفكّها وأسنانها */
+      toothPart = ' — ' + escapeHtml(((window.SyDenture && window.SyDenture.sessWhere) ? window.SyDenture.sessWhere(s) : '') || ARCH_LABELS[s.arch]);
     } else {
       toothPart = '';  // 'mouth' or legacy session — description carries the scope
     }
@@ -307,7 +308,9 @@ function renderTimelineRow(e) {
       ? '<span>👨‍⚕️ <b style="color:' + e.providerColor + ';">' + escapeHtml(e.providerName) + '</b></span>'
       : '';
     meta = statusBadge + costPart + provPart;
-    if (s.description) notes += escapeHtml(s.description);
+    /* وصفُ جلسة الجهاز هو موضعُها نفسه — صار بالعنوان فلا يُكرَّر تحته */
+    var _dw = (window.SyDenture && window.SyDenture.sessWhere) ? window.SyDenture.sessWhere(s) : '';
+    if (s.description && !(_dw && s.description === _dw)) notes += escapeHtml(s.description);
     if (s.notes) notes += (notes ? '\n' : '') + escapeHtml(s.notes);
   }
   else if (e.type === 'payment') {

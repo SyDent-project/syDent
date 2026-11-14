@@ -134,7 +134,7 @@ function buildPrintHtml(withPrices){
     (sessions || []).slice().sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); }).forEach(function(s){
       html += '<tr>' +
         '<td style="' + td + '">' + escapeHtml(s.date || '') + '</td>' +
-        '<td style="' + td + '">' + escapeHtml(s.tooth_num != null ? String(s.tooth_num) : '—') + '</td>' +
+        '<td style="' + td + '">' + escapeHtml(s.tooth_num != null ? String(s.tooth_num) : (((window.SyDenture && window.SyDenture.sessWhere) ? window.SyDenture.sessWhere(s) : '') || '—')) + '</td>' +   /* ج2-ج: الجهازُ بفكّه وأسنانه */
         '<td style="' + td + '">' + escapeHtml(s.type || s.description || '—') + '</td>' +
         '<td style="' + td + '">' + escapeHtml(_ppSessionStatusAr(s.status)) + '</td>' +
         '<td style="' + td + '">' + escapeHtml(docMap[s.provider_id] || '—') + '</td>' +

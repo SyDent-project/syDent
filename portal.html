@@ -440,6 +440,18 @@ function changePanel(a, kind){
     + '</div></div>';
   return h;
 }
+/* M205: where a treatment sits — the tooth, or the jaw; a removable denture also names the teeth it replaces
+   (ledger_sessions.unit_teeth). «كامل» = every tooth from 7 to 7 of that jaw. Server values are validated, never trusted. */
+var FULL_ARCH = { U: [11,12,13,14,15,16,17,21,22,23,24,25,26,27], L: [31,32,33,34,35,36,37,41,42,43,44,45,46,47] };
+function whereOf(it){
+  if (it.tooth) return 'سن ' + esc(it.tooth);
+  var arch = it.arch === 'U' ? 'الفك العلوي' : (it.arch === 'L' ? 'الفك السفلي' : '');
+  if (!arch) return '';
+  var t = String(it.teeth || '').split(',').filter(function(x){ return /^[1-4][1-8]$/.test(x); }).map(Number).sort(function(a, b){ return a - b; });
+  if (!t.length) return arch;
+  if (FULL_ARCH[it.arch].every(function(n){ return t.indexOf(n) > -1; })) return arch + ' — كامل';
+  return arch + ' — ' + (t.length === 1 ? 'السن ' : 'الأسنان ') + t.join('، ');
+}
 /* M187: past treatments (CareStack «Past Treatment») — grouped by visit day; amounts only when the clinic shows the balance */
 function sectionHistory(hs){
   var items = (hs && Array.isArray(hs.items)) ? hs.items : [];
@@ -449,8 +461,8 @@ function sectionHistory(hs){
   items.forEach(function(it){ var k = String(it.date || '').slice(0, 10); if (!byDay[k]) { byDay[k] = []; days.push(k); } byDay[k].push(it); });
   var dayHtml = function(k){
     return '<div class="hist-day">' + esc(fmtYmd(k)) + '</div>' + byDay[k].map(function(it){
-      var sub = [];
-      if (it.tooth) sub.push('سن ' + esc(it.tooth));
+      var sub = [], wh = whereOf(it);
+      if (wh) sub.push(wh);
       if (it.doctor) sub.push(esc(it.doctor));
       return '<div class="pl-row"><div class="pl-name">' + esc(it.type || 'علاج') + (it.units && it.units > 1 ? ' <span class="cur">×' + esc(it.units) + '</span>' : '')
         + (sub.length ? '<div class="meta">' + sub.join(' · ') + '</div>' : '') + '</div>'
@@ -486,8 +498,8 @@ function sectionPlan(p){
   var items = (p && Array.isArray(p.items)) ? p.items : [];
   if (!items.length) return h + '<div class="empty">لا خطة علاج قائمة حالياً.</div></div>';
   items.forEach(function(it){
-    var sub = [];
-    if (it.tooth) sub.push('سن ' + esc(it.tooth));
+    var sub = [], wh = whereOf(it);
+    if (wh) sub.push(wh);
     if (it.phase) sub.push('المرحلة ' + esc(it.phase));
     h += '<div class="pl-row"><div class="pl-name">' + esc(it.type || 'علاج') + (it.units && it.units > 1 ? ' <span class="cur">×' + esc(it.units) + '</span>' : '')
       + (sub.length ? '<div class="meta">' + sub.join(' · ') + '</div>' : '') + '</div>'

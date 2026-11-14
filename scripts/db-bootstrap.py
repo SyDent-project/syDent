@@ -71,6 +71,7 @@ AFTER_SNAPSHOT = [
     'migrations/202_removable_prosthetics_core.sql',   # after 198 is safe: no new function — handle_new_doctor is replaced in place (CREATE OR REPLACE keeps its ACL)
     'migrations/203_removable_prosthetics_category.sql',   # same: handle_new_doctor replaced in place + a 4-row category backfill
     'migrations/204_ledger_sessions_unit_teeth.sql',   # no function: one nullable column + CHECK + a scoped backfill of denture sessions
+    'migrations/205_portal_info_arch_teeth.sql',   # after 198 is safe: portal_info replaced in place and re-granted by name (PUBLIC revoked, anon + authenticated only) — the M191 grant, restated
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',

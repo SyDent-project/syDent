@@ -541,10 +541,43 @@ async function suite191(S) {
   R3.ctx.screenPortal();
   ok(/عذراً يا سامر/.test(R3.els.app.innerHTML), 'M191 page: the clinic\'s own wording wins, placeholders filled');
 }
-async function run(S) { pass = 0; fail = 0; suite(S); await suite187(S); await suite189(S); await suite190(S); await suite191(S); return { pass, fail }; }
+/* ═══ (١١) M205 · ج2-ج — علاجُ الفك يُسمّى بفكّه، والجهازُ المتحرك بأسنانه ═══ */
+async function suite205(S) {
+  const { mig191, mig205, portal, boot } = S;
+  /* الدالةُ هي دالةُ M191 حرفياً + ثلاثة مواضع — عكسُ المواضع الثلاثة يعيدها بايتاً ببايت (فلا فلترَ سقط ولا حسابَ تغيّر) */
+  const back = fnBody(mig205)
+    .replace("'tooth', h.tooth_num, 'arch', h.arch, 'teeth', h.unit_teeth, 'units', h.units", "'tooth', h.tooth_num, 'units', h.units")
+    .replace("AS d,\n                   s.arch, s.unit_teeth   -- M205: بعد العمود 8 — «ORDER BY 8» أدناه يبقى على التاريخ\n", "AS d\n")
+    .replace("'tooth', s.tooth_num, 'arch', s.arch, 'teeth', s.unit_teeth, 'phase', s.phase", "'tooth', s.tooth_num, 'phase', s.phase");
+  ok(back === fnBody(mig191) && fnBody(mig205) !== fnBody(mig191), 'M205: portal_info is the M191 function verbatim plus three display-only insertions');
+  const sub = mig205.slice(mig205.indexOf('FROM (SELECT s.type, s.tooth_num, s.units, s.cost, s.currency, s.provider_id, s.created_at,'), mig205.indexOf('ORDER BY 8 DESC, s.created_at DESC LIMIT 60) h'));
+  ok(sub.length > 0 && sub.indexOf('AS d,') > -1 && sub.indexOf('AS d,') < sub.indexOf('s.arch, s.unit_teeth'), 'M205: the two new columns come after the 8th — «ORDER BY 8» still sorts by the visit date');
+  ok(/LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public/.test(fnBody(mig205)) && !/\b(INSERT\s+INTO|UPDATE\s+public\.|DELETE\s+FROM)\b/i.test(fnBody(mig205).replace(/--[^\n]*/g, ''))
+    && /REVOKE ALL ON FUNCTION public\.portal_info\(text\) FROM PUBLIC;\nGRANT EXECUTE ON FUNCTION public\.portal_info\(text\) TO anon, authenticated;/.test(mig205) && !/CREATE POLICY|ALTER TABLE|DROP /i.test(mig205),
+    'M205: still SECURITY DEFINER + STABLE with zero writes · same grants · no table, column or policy touched');
+  ok(/'migrations\/204_ledger_sessions_unit_teeth\.sql',[^\n]*\n    'migrations\/205_portal_info_arch_teeth\.sql',/.test(boot), 'M205: registered in the bootstrap plan right after M204');
+  const fullL = '31,32,33,34,35,36,37,41,42,43,44,45,46,47';
+  const info = { status: 'ok', clinic_name: 'عيادة', patient_name: 'سامر', show: { plan: true, history: true },
+    plan: { pending_options: false, totals: [], items: [
+      { type: 'جهاز متحرك جزئي', arch: 'U', teeth: '15,14', cost: 400000, currency: 'SYP' },
+      { type: 'جهاز متحرك كامل', arch: 'L', teeth: fullL, cost: 900000, currency: 'SYP' },
+      { type: 'تبييض', arch: 'U', teeth: null, cost: 100000, currency: 'SYP' },
+      { type: 'حشوة', tooth: '16', arch: null, teeth: null, cost: 50000, currency: 'SYP' },
+      { type: 'جهاز غريب', arch: 'L', teeth: '<img src=x onerror=1>,36,99', cost: 1, currency: 'SYP' },
+      { type: 'بلا فك', arch: 'X', teeth: '14', cost: 1, currency: 'SYP' }] },
+    history: { items: [{ date: '2026-09-01', type: 'جهاز متحرك جزئي', arch: 'L', teeth: '36', doctor: 'د. أيهم' }, { date: '2026-09-01', type: 'تنظيف', units: 2 }] } };
+  const R = loadPortalRpc(portal, JSON.parse(JSON.stringify(info)), async () => ({ data: {} }));
+  R.ctx.screenPortal(); const o = R.els.app.innerHTML;
+  const meta = name => { const i = o.indexOf(name); if (i < 0) return null; const row = o.slice(i, o.indexOf('pl-cost', i) > -1 ? o.indexOf('pl-cost', i) : i + 400); const m = row.match(/<div class="meta">([^<]*)<\/div>/); return m ? m[1] : ''; };
+  ok(meta('جهاز متحرك جزئي') === 'الفك العلوي — الأسنان 14، 15' && meta('جهاز متحرك كامل') === 'الفك السفلي — كامل' && meta('تبييض') === 'الفك العلوي' && meta('حشوة') === 'سن 16',
+    'M205 page: a denture names its jaw and teeth (sorted), a complete one says «كامل», a jaw treatment names the jaw, a tooth stays a tooth');
+  ok(meta('جهاز غريب') === 'الفك السفلي — السن 36' && meta('بلا فك') === '' && !/<img/.test(o) && !/99/.test(meta('جهاز غريب')), 'M205 page: only FDI numbers are printed — markup or junk in the server value never reaches the page');
+  ok(/الفك السفلي — السن 36 · د\. أيهم/.test(o), 'M205 page: past treatments carry the same location line');
+}
+async function run(S) { pass = 0; fail = 0; suite(S); await suite187(S); await suite189(S); await suite190(S); await suite191(S); await suite205(S); return { pass, fail }; }
 const FILES = { portal: 'portal.html', pp: 'pp-portal.js', mig: 'migrations/180_patient_portal.sql', pph: 'patient-profile.html', ppcss: 'patient-profile.css',
   cb: 'scripts/cache-bust.sh', ppwa: 'pp-wa.js', stg: 'settings.html', cc: 'scripts/check-colors.js', cmb: 'scripts/check-modal-behaviour.js', schema: 'db/schema.sql', plan: 'pp-plan.js', intake: 'intake.html', mig181: 'migrations/181_portal_intake_state.sql', mig182: 'migrations/182_portal_confirm.sql',
-  mig187: 'migrations/187_portal_history_changes.sql', mig188: 'migrations/188_portal_requests_hardening.sql', mig189: 'migrations/189_portal_slot_picker.sql', mig190: 'migrations/190_portal_cancel_approve.sql', mig191: 'migrations/191_portal_rejected_notice.sql', theme: 'theme.css', cra: 'scripts/check-row-actions.js', apcss: 'appointments.css', apo: 'appt-portal.js', apb: 'appt-booking.js', appts: 'appointments.html', side: 'sidebar.js', audit: 'audit-log.html' };
+  mig187: 'migrations/187_portal_history_changes.sql', mig188: 'migrations/188_portal_requests_hardening.sql', mig189: 'migrations/189_portal_slot_picker.sql', mig190: 'migrations/190_portal_cancel_approve.sql', mig191: 'migrations/191_portal_rejected_notice.sql', mig205: 'migrations/205_portal_info_arch_teeth.sql', boot: 'scripts/db-bootstrap.py', theme: 'theme.css', cra: 'scripts/check-row-actions.js', apcss: 'appointments.css', apo: 'appt-portal.js', apb: 'appt-booking.js', appts: 'appointments.html', side: 'sidebar.js', audit: 'audit-log.html' };
 const base = {}; Object.keys(FILES).forEach(k => { base[k] = read(FILES[k]); });
 
 (async () => {
@@ -585,6 +618,15 @@ if (process.argv.includes('--self-test')) {
     ['patient message drifts from settings', 'portal', "  too_late:  'لا يمكن إلغاء الموعد أو طلب تغييره من هنا قبل أقل من {cutoff_hours} ساعة", "  too_late:  'لا يمكن إلغاء الموعد من هنا قبل أقل من {cutoff_hours} ساعة"],
     ['buttons offered past the cutoff', 'portal', "if (chg && !a.open_request && a.can_change === true) {", "if (chg && !a.open_request) {"],
     ['clinic template rendered unescaped', 'portal', "h += '<div class=\"warn\" style=\"margin-top:8px;\">' + esc(tplMsg('too_late', a)) + '</div>';", "h += '<div class=\"warn\" style=\"margin-top:8px;\">' + tplMsg('too_late', a) + '</div>';"],
+    /* v723 · M205 */
+    ['M205 drops a history filter', 'mig205', "AND COALESCE(s.status, 'completed') = 'completed'\n               AND COALESCE(s.date", "AND COALESCE(s.date"],
+    ['M205 puts the new columns before the date', 'mig205', "FROM (SELECT s.type, s.tooth_num, s.units, s.cost,", "FROM (SELECT s.arch, s.type, s.tooth_num, s.units, s.cost,"],
+    ['M205 loses the anon grant', 'mig205', 'GRANT EXECUTE ON FUNCTION public.portal_info(text) TO anon, authenticated;', ''],
+    ['M205 not in the bootstrap plan', 'boot', "    'migrations/205_portal_info_arch_teeth.sql',", "    #"],
+    ['portal prints the server teeth unvalidated', 'portal', ".filter(function(x){ return /^[1-4][1-8]$/.test(x); })", ""],
+    ['portal names the jaw without the teeth', 'portal', "  if (!t.length) return arch;\n", "  return arch;\n"],
+    ['portal never says a denture is complete', 'portal', "  if (FULL_ARCH[it.arch].every(function(n){ return t.indexOf(n) > -1; })) return arch + ' — كامل';\n", ""],
+    ['portal hides the jaw of a jaw treatment', 'portal', "  var arch = it.arch === 'U' ? 'الفك العلوي' : (it.arch === 'L' ? 'الفك السفلي' : '');", "  var arch = it.teeth ? (it.arch === 'U' ? 'الفك العلوي' : (it.arch === 'L' ? 'الفك السفلي' : '')) : '';"],
     ['history shown with its switch off', 'portal', "if (show.history) h += sectionHistory(INFO.history);", "h += sectionHistory(INFO.history);"],
     ['live toast without the patient', 'side', "const name = row.patient_name_snapshot || 'مريض';", "const name = 'مريض';"],
     ['intake toast without the patient', 'side', "window.showToast(name ? ('📝 وصلت استمارة ' + name + ' — افتح بطاقته لمراجعتها')", "window.showToast(false ? ('📝 وصلت استمارة ' + name + ' — افتح بطاقته لمراجعتها')"],
