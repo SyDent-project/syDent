@@ -3204,13 +3204,15 @@ Object.assign(window.SyI18nDict, {
     '• «بديل عنها»: يُسجَّلان خيارين بخطة العلاج (أ/ب)، واعتماد أحدهما يحذف الآخر.': '• «An alternative to it»: both are recorded as treatment-plan options (A/B), and adopting one deletes the other.',
     /* tips, buttons */
     'جهاز متحرك:': 'Removable denture:', 'من عيادة أخرى': 'From another clinic', 'من عيادتنا': 'From our clinic',
+    'يزيل الجهاز عن كل أسنانه — الأسنان وقلعُها المخطّط تبقى كما هي': 'Removes the denture from all its teeth — the teeth and their planned extraction stay as they are',
+    'لن يتغيّر شيء آخر — الأسنان وقلعُها المخطّط تبقى كما هي.': 'Nothing else changes — the teeth and their planned extraction stay as they are.',
     'يزيل الجهاز عن كل أسنانه — الأسنان تبقى مفقودة': 'Removes the denture from all its teeth — the teeth stay missing',
     /* toasts */
     '🩺 «مراقبة» لا تُسجَّل لجهازٍ متحرك — اختر منجز أو مخطّط أو موجود مسبقاً': '🩺 «Watch» cannot be recorded for a removable denture — choose Done, Planned or Existing',
     '🩺 اختر «موجود» من شريط الفحص لتسجيل جهازٍ قائم': '🩺 Choose «Existing» on the exam bar to record a denture already in place',
     '🦷 الجهاز المتحرك يُسجَّل من زرّه بشريط الفحص — لا بالنقر على سن': '🦷 A removable denture is recorded from its button on the exam bar — not by clicking a tooth',
     '🕰️ عرض تاريخي للقراءة فقط — أنهِ العرض للتعديل': '🕰️ Historical view is read-only — end it to edit',
-    '⚠️ اختر سناً مفقوداً واحداً على الأقل': '⚠️ Choose at least one missing tooth',
+    '⚠️ اختر سناً واحداً على الأقل': '⚠️ Choose at least one tooth',
     '🦷 لا أسنان قائمة تُعلَّم بالفك المختار': '🦷 No standing teeth to mark in the chosen jaw',
     '⚠️ تعذّر قراءة حالة الأسنان — لم يتغيّر شيء، أعد المحاولة': '⚠️ Could not read the teeth\'s state — nothing changed, try again',
     '⚠️ لم تُحفظ الإزالة — تحقّق من الاتصال وأعد المحاولة': '⚠️ The removal was not saved — check the connection and try again',
