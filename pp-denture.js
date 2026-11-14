@@ -23,7 +23,7 @@
    ذلك السن · «فك أدرد» بشريط الفحص الأولي يعلّم أسنانَ الفك القائمة مفقودةً بكبسة.
 
    ج2-أ (v717): الجهازُ يتعايش مع الزرعة والجسر على السن نفسه — صفُّه بسطحه المحجوز لا يزاحم صفَّيهما:
-   • الكاملُ فوق زرعاتٍ منجزة = «جهاز فوق الزرعات» (الزرعةُ ليست مانعاً، ورسمُها يبقى ظاهراً تحت قاعدة الجهاز).
+   • الكاملُ فوق زرعاتٍ منجزة = «جهاز فوق الزرعات» (الزرعةُ ليست مانعاً؛ v719: برغيُّها يبقى ظاهراً وسنُّ الجهاز فوقه بلا تاجٍ للزرعة).
    • الزرعةُ المخطّطة ودميةُ الجسر المخطّط تقبلان الجهازَ بديلاً (بالكامل تلقائياً، وبالجزئي بنقرة السن).
    • والعكس: السنُّ الذي يعوّضه جهازٌ يقبل زرعةً أو جسراً (خطةٌ بديلة أو زرعةٌ تحت الجهاز)؛ إزالتُهما تعيده مفقوداً.
    القيودُ الباقية (ج2-ب/ج): جهازٌ واحد على السن · لا يُلغى قلعُ سنٍّ والجهازُ عليه · الجزئي على قلعٍ منجز لا مخطّط ·
@@ -760,7 +760,7 @@ function dentBleed(n, acrossMidline) {
   var w = (typeof cellWidth === 'function' ? cellWidth(n) : 60) || 60;
   return Math.round((px * 100 / w + DENT_BLEED_EPS) * 100) / 100;
 }
-/* bandOnly (ج2-أ): الخليةُ ليست شبحَ سنٍّ مقلوع (زرعةٌ أو دميةُ جسرٍ مرسومةٌ عليها) ⇒ القاعدةُ وحدها — رسمُ الزرعة/الدمية يبقى ظاهراً فوقها */
+/* bandOnly (ج2-أ): دميةُ جسرٍ مرسومةٌ على الخلية (بديلٌ بالخطة) ⇒ القاعدةُ وحدها — رسمُ الدمية يبقى ظاهراً. الزرعةُ ليست منها (v719): الجهازُ يركب عليها */
 function dentFacialLayer(n, u, inUnit, bleedRight, bleedLeft, midRight, midLeft, bandOnly) {
   var c = dentColors(u.key), st = u.st, inner = '';
   var x1 = bleedLeft ? -dentBleed(n, midLeft) : 6, x2 = bleedRight ? 100 + dentBleed(n, midRight) : 94;
@@ -795,6 +795,19 @@ function dentBannerHtml(units) {
       + escapeHtml(dentUnitName(u)) + ' · ' + dentArchLabel(u.arch) + ' · ' + (full ? 'كامل' : dentTeethWord(u.teeth.length)) + st + '</span>';
   }).join('');
 }
+/* v719: زرعةٌ يركب عليها جهاز — تاجُها (المسارُ المقصوص بمنطقة التاج) يُخفى والبرغي يبقى؛ وبالمنظر الإطباقي يُخفى رسمُ الزرعة كلُّه
+   فيظهر سنُّ الجهاز وحده. الإخفاءُ على DOM المرسوم فقط: renderTeeth يعيد بناء الخلية، فإزالةُ الجهاز تعيد التاج بلا أي كتابة. */
+function dentHideImplantCrown(svg) {
+  var ps = svg.querySelectorAll('path[clip-path^="url(#cclip"]');
+  for (var i = 0; i < ps.length; i++) { ps[i].setAttribute('display', 'none'); ps[i].setAttribute('data-dent-hidden', '1'); }
+}
+function dentHideOccImplant(osvg) {
+  for (var i = 0; i < osvg.children.length; i++) {
+    var c = osvg.children[i], tag = (c.tagName || '').toLowerCase();
+    if (tag === 'defs' || tag === 'title' || (c.classList && c.classList.contains('dent-layer'))) continue;
+    c.setAttribute('display', 'none'); c.setAttribute('data-dent-hidden', '1');
+  }
+}
 /* طبقةُ هذه الوحدة على هذه الخلية إن رُسمت (الرسمُ لا يتكرّر لو استُدعي مرتين بلا إعادة بناء) */
 function dentLayerOf(svg, u) {
   var id = String(u.id || u.key), gs = svg.querySelectorAll('g.dent-layer');
@@ -817,10 +830,13 @@ function dentPaint() {
       /* الصفُّ يُرسم من اليمين إلى اليسار: الجارُ السابق بالمصفوفة على اليمين، واللاحقُ على اليسار */
       var cell = document.querySelector('.tooth-cell[data-tooth-cell="' + n + '"]');
       var svg = cell ? cell.querySelector('svg.tooth-shape') : null;
-      /* ج2-أ: السنُّ الصناعي يُرسم على شبح السن المقلوع وحده؛ فوق زرعةٍ أو دمية جسر تُرسم القاعدةُ فقط */
+      /* ج2-أ: السنُّ الصناعي يُرسم على شبح السن المقلوع؛ فوق دمية جسر (بديلٌ بالخطة) تُرسم القاعدةُ فقط.
+         v719 (بلاغُ المالك 14/11/2026): الجهازُ يركب على الزرعة نفسها — لا تاجَ للزرعة تحته ⇒ يُخفى تاجُها ويُرسم سنُّ الجهاز فوق برغيها */
       var ghost = !!(cell && cell.classList.contains('extract-cell'));
-      if (svg && !dentLayerOf(svg, u)) svg.insertAdjacentHTML('beforeend', dentFacialLayer(n, u, inUnit, i > lo, i < hi, i === mid, i === mid - 1, !ghost));
+      var onImplant = !!(cell && cell.classList.contains('implant-cell'));
+      if (svg && !dentLayerOf(svg, u)) svg.insertAdjacentHTML('beforeend', dentFacialLayer(n, u, inUnit, i > lo, i < hi, i === mid, i === mid - 1, !(ghost || onImplant)));
       if (!inUnit) continue;
+      if (onImplant && svg) dentHideImplantCrown(svg);
       /* v711 (قرارُ المالك 13/11/2026): السنُّ الذي يعوّضه الجهاز لا يحمل نقطةَ «موجود مسبقاً» الرمادية — 14 نقطةً فوق جهازٍ كامل
          زحمةٌ بلا معلومة (الجهازُ نفسه يقول إن الفك أدرد). نقاطُ المخطّط/المحوّل/المراقبة تبقى. */
       var dot = cell ? cell.querySelector('.tooth-status-badge.status-existing_other, .tooth-status-badge.status-existing_current, .tooth-status-badge.status-existing') : null;
@@ -834,7 +850,10 @@ function dentPaint() {
       }
       var oc = document.querySelector('.occ-cell[data-occ-cell="' + n + '"]');
       var osvg = oc ? oc.querySelector('svg.tooth-shape') : null;
-      if (ghost && osvg && !dentLayerOf(osvg, u)) osvg.insertAdjacentHTML('beforeend', dentOccLayer(n, u));
+      if ((ghost || onImplant) && osvg && !dentLayerOf(osvg, u)) {
+        if (onImplant) dentHideOccImplant(osvg);
+        osvg.insertAdjacentHTML('beforeend', dentOccLayer(n, u));
+      }
       var otip = oc ? oc.querySelector('.tooth-tip') : null;
       if (otip && !otip.querySelector('.dent-tip')) otip.insertAdjacentHTML('afterbegin', dentTipRow(u));
     }

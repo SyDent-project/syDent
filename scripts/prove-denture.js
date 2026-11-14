@@ -523,10 +523,14 @@ async function behave(w, hasDenture) {
   r.dentureAsAlternativeToPlannedImplant = alt36On && aD.length === 2 && aD.map(x => x.tooth_num).sort().join() === '35,36' && aD.every(x => x.unit_id === aS.id && x.status === 'planned')
     && DB('teeth_status').some(x => x.tooth_num === '36' && x.surface === 'WHOLE' && x.treatment_key === 'implant' && x.status === 'planned') && w.eval('teethMap["36"].WHOLE') === 'implant'
     && aS.description === 'الفك السفلي — الأسنان 35، 36' && ops('teeth_status', 'delete').length === 0 && ops('teeth_status', 'upsert').length === 0;
-  /* الرسم: شبحُ المقلوع يأخذ السنَّ الصناعي بالمنظرين؛ خليةُ الزرعة تأخذ القاعدةَ وحدها (رسمُ الزرعة ظاهر) وعنوانُها يسمّي الجهاز */
+  /* v719 — الرسم: الجهازُ يركب على الزرعة ⇒ تاجُها يُخفى وبرغيُّها يبقى، وسنُّ الجهاز يُرسم فوقه بالمنظرين (والإطباقيُّ بلا رسم الزرعة)؛ عنوانُ الخلية يسمّي الجهاز */
   const c36 = doc.querySelector('.tooth-cell[data-tooth-cell="36"]');
   w.SyDenture.paint();
-  r.bandOnlyOverImplant = c36.classList.contains('implant-cell') && !!L(fsvg(36)) && !!L(fsvg(36)).querySelector('rect.dent-base') && !L(fsvg(36)).querySelector('path.dent-tooth') && !L(osvg(36))
+  const crown36 = fsvg(36).querySelectorAll('path[clip-path^="url(#cclip"]'), occKids36 = Array.from(osvg(36).children).filter(c => !/^(defs|title)$/i.test(c.tagName) && !c.classList.contains('dent-layer'));
+  r.dentureToothOverImplantFixture = c36.classList.contains('implant-cell') && !!L(fsvg(36)) && !!L(fsvg(36)).querySelector('rect.dent-base') && !!L(fsvg(36)).querySelector('path.dent-tooth')
+    && crown36.length === 1 && crown36[0].getAttribute('display') === 'none' && !!fsvg(36).querySelector('path[fill^="url(#sgim36"]') && fsvg(36).querySelector('path[fill^="url(#sgim36"]').getAttribute('display') !== 'none'
+    && !!L(osvg(36)) && !!L(osvg(36)).querySelector('path.dent-tooth') && osvg(36).querySelectorAll('g.dent-layer').length === 1 && occKids36.length > 0 && occKids36.every(c => c.getAttribute('display') === 'none')
+    && Array.from(fsvg(46).querySelectorAll('path[clip-path^="url(#cclip"]')).every(p => p.getAttribute('display') !== 'none') && !L(fsvg(46))
     && !!L(fsvg(35)).querySelector('path.dent-tooth') && !!L(osvg(35)) && fsvg(36).querySelectorAll('g.dent-layer').length === 1
     && (c36.getAttribute('title').match(/جهاز متحرك: /g) || []).length === 1 && c36.getAttribute('title').indexOf(T_PART.name) > -1
     && !/جهاز متحرك/.test(doc.querySelector('.tooth-cell[data-tooth-cell="46"]').getAttribute('title'));
@@ -541,7 +545,7 @@ async function behave(w, hasDenture) {
   r.overdentureOnCompletedImplants = /الفك العلوي: جهاز فوق الزرعات — الزرعات 13، 23 تبقى كما هي تحت الجهاز/.test(ovNote) && !/لا يقبل جهازاً كاملاً/.test(ovNote) && w.__DIALOGS.length === 0
     && ovD.length === 14 && ovD.some(x => x.tooth_num === '13') && ovD.some(x => x.tooth_num === '23') && DB('ledger_sessions').length === 1 && DB('ledger_sessions')[0].description === 'الفك العلوي — كامل'
     && DB('teeth_status').filter(x => x.treatment_key === 'implant').length === 2 && JSON.stringify(w.eval('teethMap')) === ovMap
-    && !!L(fsvg(13)).querySelector('rect.dent-base') && !L(fsvg(13)).querySelector('path.dent-tooth') && !!L(fsvg(14)).querySelector('path.dent-tooth');
+    && !!L(fsvg(13)).querySelector('rect.dent-base') && !!L(fsvg(13)).querySelector('path.dent-tooth') && fsvg(13).querySelector('path[clip-path^="url(#cclip"]').getAttribute('display') === 'none' && !!L(osvg(13)) && !!L(fsvg(14)).querySelector('path.dent-tooth');
   /* «سليم» لا يزيل زرعةً تحت جهاز (كان سيترك السن قائماً تحته) — زرُّ «إزالة الزراعة» يعيده مفقوداً والجهازُ باقٍ */
   w.__OPS = []; w.__TOASTS.length = 0; w.eval('currentTooth = 13; currentSurface = "WHOLE";'); await w.clearToothStatus();
   const clrImp = w.__OPS.length === 0 && /السن 13 يعوّضه جهاز متحرك — أزل الزرعة من زرّ «إزالة الزراعة»/.test(toasts()) && w.eval('teethMap["13"].WHOLE') === 'implant';
@@ -695,11 +699,11 @@ async function behave(w, hasDenture) {
   /* ── (٣) الطفرات ── */
   const D = 'pp-denture.js', PD = 'pp-dental.js', PM = 'pp-modules.js', PH = 'patient-profile.html', AP = 'appointments.html', MG = 'migrations/202_removable_prosthetics_core.sql';
   const MUT = [
-    ['paint-draws-nothing', D, "if (svg && !dentLayerOf(svg, u)) svg.insertAdjacentHTML('beforeend', dentFacialLayer(n, u, inUnit, i > lo, i < hi, i === mid, i === mid - 1, !ghost));", ''],
+    ['paint-draws-nothing', D, "if (svg && !dentLayerOf(svg, u)) svg.insertAdjacentHTML('beforeend', dentFacialLayer(n, u, inUnit, i > lo, i < hi, i === mid, i === mid - 1, !(ghost || onImplant)));", ''],
     ['planned-drawn-solid', D, "var a = txPathAttrs(st, c.fill, c.stroke, 'dn' + n, 0.92);", "var a = txPathAttrs('completed', c.fill, c.stroke, 'dn' + n, 0.92);"],
     ['no-connector', D, "for (var i = lo; i <= hi; i++) {\n      var n = row[i], inUnit = u.teeth.indexOf(n) !== -1;", "for (var i = lo; i <= hi; i++) {\n      var n = row[i], inUnit = u.teeth.indexOf(n) !== -1; if (!inUnit) continue;"],
     ['base-bleeds-wrong-side', D, "var x1 = bleedLeft ? -dentBleed(n, midLeft) : 6, x2 = bleedRight ? 100 + dentBleed(n, midRight) : 94;", "var x1 = bleedRight ? -dentBleed(n, midLeft) : 6, x2 = bleedLeft ? 100 + dentBleed(n, midRight) : 94;"],
-    ['midline-gap-left-open', D, "dentFacialLayer(n, u, inUnit, i > lo, i < hi, i === mid, i === mid - 1, !ghost)", "dentFacialLayer(n, u, inUnit, i > lo, i < hi, false, false, !ghost)"],
+    ['midline-gap-left-open', D, "dentFacialLayer(n, u, inUnit, i > lo, i < hi, i === mid, i === mid - 1, !(ghost || onImplant))", "dentFacialLayer(n, u, inUnit, i > lo, i < hi, false, false, !(ghost || onImplant))"],
     ['bases-overlap-again', D, "return Math.round((px * 100 / w + DENT_BLEED_EPS) * 100) / 100;", "return 24;"],
     ['rows-upsert-not-insert', D, "var r = await window.sb.from('teeth_status').insert(rows);", "var r = await window.sb.from('teeth_status').upsert(rows, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });"],
     ['no-rollback', D, "var rb = await window.sb.from('ledger_sessions').delete().eq('id', sess.id).eq('doctor_id', currentUser.id);", "var rb = null;"],
@@ -736,8 +740,13 @@ async function behave(w, hasDenture) {
     ['abutment-treated-as-standing', D, "  if (isBridgeKey(sm.WHOLE)) return { ok: false, block: true, why: 'ضمن جسر' };\n", ''],
     ['implants-block-overdenture', D, "    if (s.block && s.implant) implants.push(t);\n    else if (s.block) blockers.push", "    if (s.block) blockers.push"],
     ['revalidation-rejects-overdenture', D, "if (s.block && !(pd.kind === 'full' && s.implant && !dentHas(t))) return", "if (s.block) return"],
-    ['artificial-tooth-over-implant', D, "if (!bandOnly) {\n      var a = txPathAttrs(st, c.fill, c.stroke, 'dn' + n, 0.92);", "if (true) {\n      var a = txPathAttrs(st, c.fill, c.stroke, 'dn' + n, 0.92);"],
-    ['occlusal-drawn-over-implant', D, "if (ghost && osvg && !dentLayerOf(osvg, u))", "if (osvg && !dentLayerOf(osvg, u))"],
+    ['artificial-tooth-over-pontic', D, "if (!bandOnly) {\n      var a = txPathAttrs(st, c.fill, c.stroke, 'dn' + n, 0.92);", "if (true) {\n      var a = txPathAttrs(st, c.fill, c.stroke, 'dn' + n, 0.92);"],
+    ['occlusal-drawn-over-pontic', D, "if ((ghost || onImplant) && osvg && !dentLayerOf(osvg, u)) {", "if (osvg && !dentLayerOf(osvg, u)) {"],
+    ['implant-keeps-band-only', D, "i === mid, i === mid - 1, !(ghost || onImplant)));", "i === mid, i === mid - 1, !ghost));"],
+    ['implant-crown-stays-under-denture', D, "      if (onImplant && svg) dentHideImplantCrown(svg);\n", ''],
+    ['implant-fixture-hidden-too', D, "var ps = svg.querySelectorAll('path[clip-path^=\"url(#cclip\"]');", "var ps = svg.querySelectorAll('path');"],
+    ['occlusal-implant-shows-through', D, "        if (onImplant) dentHideOccImplant(osvg);\n", ''],
+    ['occlusal-denture-missing-over-implant', D, "if ((ghost || onImplant) && osvg && !dentLayerOf(osvg, u)) {", "if (ghost && osvg && !dentLayerOf(osvg, u)) {"],
     ['implant-cell-not-titled', D, "        cell.setAttribute('title', (cell.getAttribute('title') || ('السن ' + n)) + ' · جهاز متحرك: ' + dentUnitName(u));\n", ''],
     ['implant-cell-titled-twice', D, "else if (cell && !cell.hasAttribute('data-dent-title')) {", "else if (cell) {"],
     ['restore-missing-noop', D, "  if (!dentHas(tn)) return false;\n  var sm = teethMap[tn] || {};", "  return false;\n  var sm = teethMap[tn] || {};"],
