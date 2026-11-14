@@ -70,6 +70,7 @@ AFTER_SNAPSHOT = [
     'migrations/201_expense_system_category_supplier_link.sql',   # after 198 is safe: its two trigger functions are revoked from PUBLIC/anon/authenticated by name
     'migrations/202_removable_prosthetics_core.sql',   # after 198 is safe: no new function — handle_new_doctor is replaced in place (CREATE OR REPLACE keeps its ACL)
     'migrations/203_removable_prosthetics_category.sql',   # same: handle_new_doctor replaced in place + a 4-row category backfill
+    'migrations/204_ledger_sessions_unit_teeth.sql',   # no function: one nullable column + CHECK + a scoped backfill of denture sessions
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',

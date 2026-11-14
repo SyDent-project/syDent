@@ -26,7 +26,13 @@
    • الكاملُ فوق زرعاتٍ منجزة = «جهاز فوق الزرعات» (الزرعةُ ليست مانعاً؛ v719: برغيُّها يبقى ظاهراً وسنُّ الجهاز فوقه بلا تاجٍ للزرعة).
    • الزرعةُ المخطّطة ودميةُ الجسر المخطّط تقبلان الجهازَ بديلاً (بالكامل تلقائياً، وبالجزئي بنقرة السن).
    • والعكس: السنُّ الذي يعوّضه جهازٌ يقبل زرعةً أو جسراً (خطةٌ بديلة أو زرعةٌ تحت الجهاز)؛ إزالتُهما تعيده مفقوداً.
-   القيودُ الباقية (ج2-ب/ج): جهازٌ واحد على السن · لا يُلغى قلعُ سنٍّ والجهازُ عليه · الجزئي على قلعٍ منجز لا مخطّط ·
+   ج2-ب (v720 · M204): بدائلُ الجهاز وتبديلُه. صفٌّ واحد لكل سنٍّ على المخطط ⇒ جهازٌ ثانٍ على أسنانٍ يعوّضها جهازٌ مرسوم
+   لا صفوفَ له: جلستُه تحمل أسنانَه (ledger_sessions.unit_teeth) وتبقى «معلّقة» حتى تخلو أسنانُها.
+   • مخطّطٌ فوق مخطّط = بديل: الجلستان تُوسَمان خيارين بالخطة (أ/ب)، واعتمادُ أحدهما يحذف الآخر والمرسومُ يتبع المعتمد.
+   • مخطّطٌ فوق قائم/منجز = تبديل: القديمُ يبقى مرسوماً حتى يُنجَز الجديد، فيأخذ الجديدُ الرسم (جلسةُ القديم تبقى بالسجل).
+   • منجزٌ فوق قائم/منجز = تبديلٌ فوري بعد تأكيد. «موجود مسبقاً» لا يُسجَّل فوق جهازٍ آخر.
+   • جهازٌ مخطّط على سنٍّ عليه زرعةٌ/جسرٌ مخطّط (وبالعكس) ⇒ وسمٌ تلقائي أ/ب بآلية plan_option القائمة (عرضيٌّ بحت).
+   القيودُ الباقية (ج2-ج): لا يُلغى قلعُ سنٍّ والجهازُ عليه · الجزئي على قلعٍ منجز لا مخطّط ·
    الكاملُ لا يُسجَّل على فكٍّ فيه جسرٌ منجز، والزرعةُ المنجزة لا يعوّضها جهازٌ جزئي.
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -136,10 +142,53 @@ function dentSessionOfUnit(u) {
   return null;
 }
 
+/* ── ج2-ب: جلسةُ الجهاز وأسنانُها (unit_teeth — M204) ── */
+function dentTeethCsv(teeth) {
+  return teeth.map(function (t) { return parseInt(t, 10); }).sort(function (a, b) { return a - b; }).join(',');
+}
+function dentSessTeeth(s) {
+  if (!s || !s.unit_teeth) return [];
+  return String(s.unit_teeth).split(',').map(function (t) { return parseInt(t, 10); }).filter(function (t) { return t >= 11 && t <= 48; });
+}
+function dentSessKey(s) { return (typeof sessionTreatmentKey === 'function') ? sessionTreatmentKey(s) : (s ? s.treatment_key : null); }
+function dentIsSession(s) { return !!s && !s.tooth_num && !!s.unit_teeth && dentIsKey(dentSessKey(s)); }
+function dentSessDrawn(s) {
+  for (var tn in dentureMap) { if (dentureMap[tn] && dentureMap[tn].unit === s.id) return true; }
+  return false;
+}
+/* جلساتُ أجهزةٍ مخطّطة بلا صفوفٍ على المخطط (أسنانُها يعوّضها جهازٌ آخر) — بترتيب الإنشاء */
+function dentPendingSessions() {
+  if (typeof sessions === 'undefined' || !sessions) return [];
+  return sessions.filter(function (s) { return s && (s.status || 'completed') === 'planned' && dentIsSession(s) && !dentSessDrawn(s); })
+    .sort(function (a, b) { var x = String(a.created_at || '\uffff'), y = String(b.created_at || '\uffff'); return x < y ? -1 : (x > y ? 1 : 0); });
+}
+/* الوحداتُ المرسومة التي تعوّض شيئاً من هذه الأسنان */
+function dentOverlapUnits(teeth) {
+  var set = {}; teeth.forEach(function (t) { set[parseInt(t, 10)] = 1; });
+  return dentUnits().filter(function (u) { return u.teeth.some(function (t) { return set[t]; }); });
+}
+/* «بديل» إن كان المرسومُ فوق أسنانها مخطّطاً، و«تبديل» إن كان قائماً/منجزاً */
+function dentPendingKind(s) {
+  var ov = dentOverlapUnits(dentSessTeeth(s));
+  return ov.some(function (u) { return u.st === 'planned'; }) ? 'alt' : 'replace';
+}
+function dentOptBadgeText(s) {
+  var o = (typeof planOptOf === 'function') ? planOptOf(s) : null;
+  return o ? ' [خيار ' + PLAN_OPTION_LABELS[o] + ']' : '';
+}
+
 /* ── حالةُ السن أمام الجهاز: هل يقبل أن يُعوَّض؟ ── */
+/* ج2-ب: سنٌّ يعوّضه جهازٌ مسجّل يقبل جهازاً ثانياً (بديلاً أو تبديلاً) — حالتُه تُحسب كما لو لم يكن الجهازُ عليه وتُوسَم over.
+   الفحصُ الأولي يسجّل القائمَ وحده ⇒ يبقى فيه مانعاً. */
 function dentToothState(n) {
+  var over = dentHas(n);
+  if (over && pendingDenture && pendingDenture.exam) return { ok: false, block: true, why: 'عليه جهاز متحرك مسجّل' };
+  var s = dentBareState(n);
+  if (over) { s.over = true; if (s.ok) s.why = 'عليه جهاز مسجّل — الجديد بديل أو تبديل'; }
+  return s;
+}
+function dentBareState(n) {
   var sm = teethMap[String(n)] || {};
-  if (dentHas(n)) return { ok: false, block: true, why: 'عليه جهاز متحرك مسجّل' };
   /* ج2-أ: الزرعةُ المخطّطة خطةٌ لا واقع ⇒ الجهازُ يُسجَّل بديلاً عنها؛ والمنجزةُ تحمل الكاملَ فوقها (dentFullCheck) ولا يعوّضها الجزئي */
   if (typeof isImplant === 'function' && isImplant(n)) {
     var plannedImp = (typeof implantRowsAllPlanned === 'function') ? implantRowsAllPlanned(n) : (((sm.__status || {}).WHOLE) === 'planned');
@@ -157,15 +206,20 @@ function dentToothState(n) {
 /* فحصُ فكٍّ للجهاز الكامل: موانعُ (جسر/جهاز/قلعٌ مخطّط…) + الأسنانُ القائمة التي تُعلَّم مفقودة.
    ج2-أ: الزرعةُ المنجزة ليست مانعاً (جهازٌ فوق الزرعات) · والمخطّطُ (زرعة/دمية جسر) يُسجَّل الجهازُ بديلاً عنه */
 function dentFullCheck(arch) {
-  var blockers = [], standing = [], implants = [], alts = [];
+  var blockers = [], standing = [], implants = [], alts = [], overs = [];
   DENT_FULL_TEETH[arch].forEach(function (t) {
     var s = dentToothState(t);
+    if (s.over) overs.push(t);
     if (s.block && s.implant) implants.push(t);
     else if (s.block) blockers.push({ t: t, why: s.why });
     else if (s.standing) standing.push(t);
     else if (s.alt) alts.push(t);
   });
-  return { blockers: blockers, standing: standing, implants: implants, alts: alts };
+  return { blockers: blockers, standing: standing, implants: implants, alts: alts, overs: overs };
+}
+/* «جهاز متحرك كامل» أو «جهاز أ وجهاز ب» — أسماءُ الأجهزة المرسومة فوق هذه الأسنان */
+function dentOverNames(teeth) {
+  return dentOverlapUnits(teeth).map(function (u) { return '«' + dentUnitName(u) + '»'; }).join(' و');
 }
 
 /* ═════════════════════ المنتقي (داخل نافذة «اختر المنطقة» القائمة) ═════════════════════ */
@@ -219,15 +273,22 @@ function dentSelectable(arch) {
 }
 /* ج2-أ: السنُّ الذي عليه زرعةٌ أو دميةُ جسرٍ مخطّطة يقبل الجهاز ولا يُحدَّد مسبقاً — إضافتُه قرارٌ صريح (الجهازُ بديلٌ عن الخطة) */
 function dentDefaultTeeth(arch) {
-  return dentSelectable(arch).filter(function (t) { return (t % 10) !== 8 && !dentToothState(t).alt; });
+  return dentSelectable(arch).filter(function (t) { var s = dentToothState(t); return (t % 10) !== 8 && !s.alt && !s.over; });
 }
 function dentAltTeeth(arch) {
-  return dentSelectable(arch).filter(function (t) { return !!dentToothState(t).alt; });
+  return dentSelectable(arch).filter(function (t) { var s = dentToothState(t); return !!s.alt && !s.over; });
+}
+function dentOverTeeth(arch) {
+  return dentSelectable(arch).filter(function (t) { return !!dentToothState(t).over; });
 }
 /* «السن 36 عليه…» · «الأسنان 33، 36 عليها…» — ترقيمٌ تصاعدي كنصّ الموضع */
 function dentAltPhrase(teeth) {
   var s = teeth.slice().sort(function (a, b) { return a - b; });
   return (s.length === 1 ? 'السن ' + s[0] + ' عليه' : 'الأسنان ' + s.join('، ') + ' عليها') + ' زرعة أو جسر مخطّط';
+}
+function dentOverPhrase(teeth) {
+  var s = teeth.slice().sort(function (a, b) { return a - b; });
+  return (s.length === 1 ? 'السن ' + s[0] + ' عليه' : 'الأسنان ' + s.join('، ') + ' عليها') + ' جهاز مسجّل';
 }
 function dentPickerRender() {
   var pd = pendingDenture; if (!pd) return;
@@ -254,7 +315,7 @@ function dentPickerRender() {
       for (var i = 0; i < row.length; i++) {
         if (i === row.length / 2) g += '<span class="nse-mid"></span>';
         var t = row[i], s = dentToothState(t), isOn = pd.teeth.indexOf(t) !== -1;
-        g += '<button type="button" class="nse-t dent-t' + (s.ok ? (isOn ? ' dent-on' : ' dent-miss' + (s.alt ? ' dent-alt' : '')) : ' dent-off') + '" data-dent-tooth="' + t + '" title="' + escapeHtml(s.why || '') + '"'
+        g += '<button type="button" class="nse-t dent-t' + (s.ok ? (isOn ? ' dent-on' : ' dent-miss' + ((s.alt || s.over) ? ' dent-alt' : '')) : ' dent-off') + '" data-dent-tooth="' + t + '" title="' + escapeHtml(s.why || '') + '"'
           + (s.ok ? ' onclick="dentToothToggle(' + t + ')"' : ' aria-disabled="true" onclick="dentToothWhy(' + t + ')"') + '>' + t + '</button>';
       }
       grid.innerHTML = g + '</div>';
@@ -268,6 +329,8 @@ function dentPickerRender() {
       else lines.push('<div>المحدَّد: <b>' + (pd.teeth.length ? dentTeethWord(pd.teeth.length) : 'لا شيء') + '</b> — انقر السن لإضافته أو استبعاده. الباهتُ لا يقبل التعويض (انقره لمعرفة السبب).</div>');
       var altT = dentAltTeeth(pd.arch);
       if (altT.length) lines.push('<div class="dent-note-alt">' + dentAltPhrase(altT) + ' — ' + (altT.length === 1 ? 'انقره' : 'انقرها') + ' ليُسجَّل الجهاز بديلاً.</div>');
+      var ovT = dentOverTeeth(pd.arch);
+      if (ovT.length) lines.push('<div class="dent-note-alt">' + dentOverPhrase(ovT) + ' — ' + (ovT.length === 1 ? 'انقره' : 'انقرها') + ' ليُسجَّل الجديد بديلاً عنه (مخطّط) أو تبديلاً له.</div>');
     } else if (pd.kind === 'edent') {
       if (!pd.arches.length) lines.push('<div>اختر فكاً واحداً على الأقل.</div>');
       pd.arches.forEach(function (a) {
@@ -287,9 +350,10 @@ function dentPickerRender() {
           if (c.standing.length) {
             lines.push('<div><b>' + dentArchLabel(a) + ':</b> أسنان قائمة بالمخطط (' + c.standing.length + '): '
               + c.standing.join('، ') + ' — يُسأل عن تعليمها «مفقودة مسبقاً» عند المتابعة.</div>');
-          } else if (!c.implants.length && !c.alts.length) lines.push('<div><b>' + dentArchLabel(a) + ':</b> كلُّ أسنانه مفقودة ✓</div>');
+          } else if (!c.implants.length && !c.alts.length && !c.overs.length) lines.push('<div><b>' + dentArchLabel(a) + ':</b> كلُّ أسنانه مفقودة ✓</div>');
           if (c.implants.length) lines.push('<div class="dent-note-alt"><b>' + dentArchLabel(a) + ':</b> جهاز فوق الزرعات — ' + (c.implants.length === 1 ? 'الزرعة ' : 'الزرعات ') + c.implants.join('، ') + ' تبقى كما هي تحت الجهاز.</div>');
           if (c.alts.length) lines.push('<div class="dent-note-alt"><b>' + dentArchLabel(a) + ':</b> ' + dentAltPhrase(c.alts) + ' — الجهاز يُسجَّل بديلاً والخطة تبقى.</div>');
+          if (c.overs.length) lines.push('<div class="dent-note-alt"><b>' + dentArchLabel(a) + ':</b> عليه ' + dentOverNames(c.overs) + ' — الجديد يُسجَّل بديلاً عنه (مخطّط) أو تبديلاً له.</div>');
         }
       });
     }
@@ -364,7 +428,9 @@ async function dentExamUndo(a) {
     if (d && d.error) return d.error.message || 'تعذّر حذف صفوف الجهاز';
     Object.keys(dentureMap).forEach(function (tn) { if (dentureMap[tn].unit === a.unit) delete dentureMap[tn]; });
   }
-  return await dentRestoreTeeth(a.marked || [], a.rows || []);
+  var rErr = await dentRestoreTeeth(a.marked || [], a.rows || []);
+  if (!rErr && a.type === 'denture') { try { await dentSettlePending(); } catch (eS) { console.warn('settle after undo skipped:', eS); } }
+  return rErr;
 }
 
 /* ── «فك أدرد» (شريط الفحص الأولي): أسنانُ الفك القائمة تُعلَّم مفقودةً بكبسة — بلا جهاز، بلا جلسة ── */
@@ -436,7 +502,7 @@ async function dentConfirmPick() {
   if (pd.kind === 'partial') {
     var teeth = pd.teeth.filter(function (t) { return dentToothState(t).ok; });
     if (!teeth.length) { showToast('⚠️ اختر سناً مفقوداً واحداً على الأقل'); return; }
-    units.push({ arch: pd.arch, teeth: dentSortTeeth(teeth, pd.arch), mark: [] });
+    units.push({ arch: pd.arch, teeth: dentSortTeeth(teeth, pd.arch), mark: [], over: teeth.filter(dentHas) });
   } else {
     if (!pd.arches.length) { showToast('⚠️ اختر فكاً واحداً على الأقل'); return; }
     var toMark = [];
@@ -446,7 +512,7 @@ async function dentConfirmPick() {
         showToast('⚠️ ' + dentArchLabel(a) + ' لا يقبل جهازاً كاملاً (السن ' + c.blockers[0].t + ': ' + c.blockers[0].why + ') — سجّله جهازاً جزئياً');
         return;
       }
-      units.push({ arch: a, teeth: DENT_FULL_TEETH[a].slice(), mark: c.standing.slice() });
+      units.push({ arch: a, teeth: DENT_FULL_TEETH[a].slice(), mark: c.standing.slice(), over: c.overs.slice() });
       toMark = toMark.concat(c.standing);
     }
     if (toMark.length) {
@@ -493,7 +559,8 @@ function dentRevalidate(pd) {
     var u = pd.units[i];
     for (var j = 0; j < u.teeth.length; j++) {
       var t = u.teeth[j], s = dentToothState(t);
-      if (s.block && !(pd.kind === 'full' && s.implant && !dentHas(t))) return 'السن ' + t + ': ' + s.why;   /* ج2-أ: الكاملُ فوق زرعةٍ منجزة ليس مانعاً */
+      if (dentHas(t) && (u.over || []).indexOf(t) === -1) return 'السن ' + t + ': عليه جهاز متحرك مسجّل';   /* ج2-ب: جهازٌ ظهر بعد المنتقي */
+      if (s.block && !(pd.kind === 'full' && s.implant)) return 'السن ' + t + ': ' + s.why;   /* ج2-أ: الكاملُ فوق زرعةٍ منجزة ليس مانعاً */
       if (s.standing && u.mark.indexOf(t) === -1) return 'السن ' + t + ' قائم — أعد اختيار الأسنان';
     }
   }
@@ -529,6 +596,92 @@ async function dentWriteRows(u, key, status, unitId, providerId) {
   u.teeth.forEach(function (t) { dentureMap[String(t)] = { key: key, st: status, unit: unitId, prov: providerId || null }; });
   return '';
 }
+/* ج2-ب: إزالةُ رسم وحداتٍ مرسومة (تبديل) — صفوفُ الجهاز وحدها على أسنانها؛ الجلساتُ لا تُمسّ */
+async function dentClearUnits(unitsToClear) {
+  var teeth = [];
+  unitsToClear.forEach(function (o) { o.teeth.forEach(function (t) { if (teeth.indexOf(String(t)) === -1) teeth.push(String(t)); }); });
+  if (!teeth.length) return '';
+  var d = await window.sb.from('teeth_status').delete()
+    .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
+    .eq('surface', DENT_SURFACE).in('tooth_num', teeth);
+  if (d && d.error) return d.error.message || 'تعذّرت إزالة رسم الجهاز القديم';
+  teeth.forEach(function (tn) { delete dentureMap[tn]; });
+  return '';
+}
+/* وسمُ الخيارات: كلُّ مجموعةٍ خيارٌ واحد. الموسومُ يحتفظ بوسمه؛ غيرُ الموسوم يأخذ أصغرَ خيارٍ حرّ بترتيب الإنشاء (آليةُ M145-b نفسها) */
+async function dentAssignOptions(groups) {
+  groups = groups.filter(function (g) { return g && g.length; });
+  if (groups.length < 2 || typeof planOptOf !== 'function') return false;
+  /* الأقدمُ أولاً بمقارنةٍ حرفية (لا localeCompare: ترتيبُها للرموز يختلف)؛ جلسةٌ بلا created_at = الأحدث */
+  var first = function (g) { var m = null; g.forEach(function (x) { var c = x.created_at ? String(x.created_at) : '\uffff'; if (m === null || c < m) m = c; }); return m; };
+  groups.sort(function (a, b) { var x = first(a), y = first(b); return x < y ? -1 : (x > y ? 1 : 0); });
+  var used = {};
+  groups.forEach(function (g) { g.forEach(function (x) { var o = planOptOf(x); if (o) used[o] = true; }); });
+  var changed = false;
+  for (var i = 0; i < groups.length; i++) {
+    var g = groups[i], opt = null;
+    g.forEach(function (x) { if (!opt) opt = planOptOf(x); });
+    if (!opt) { opt = [1, 2, 3].filter(function (o) { return !used[o]; })[0]; if (!opt) continue; used[opt] = true; }
+    var todo = g.filter(function (x) { return !planOptOf(x); });
+    if (!todo.length) continue;
+    var u = await window.sb.from('ledger_sessions').update({ plan_option: opt })
+      .in('id', todo.map(function (x) { return x.id; })).eq('doctor_id', currentUser.id);
+    if (u && u.error) { console.warn('dentAssignOptions:', u.error); continue; }
+    todo.forEach(function (x) { x.plan_option = opt; });
+    changed = true;
+  }
+  return changed;
+}
+function dentPlannedOf(x) { return !!x && (x.status || 'completed') === 'planned'; }
+function dentSessionTouches(x, set) {
+  return !!x.tooth_num && String(x.tooth_num).split(',').some(function (t) { return set[parseInt(t, 10)]; });
+}
+function dentIsFixedAlt(x) {
+  var k = dentSessKey(x);
+  return !!k && ((typeof isImplantKey === 'function' && isImplantKey(k)) || isBridgeKey(k));
+}
+/* جهازٌ مخطّط سُجّل الآن: منافسوه = جلساتُ الزرعة/الجسر المخطّطة على أسنانه (خيارٌ واحد) + كلُّ جهازٍ مخطّط آخر يشاركه سناً */
+async function dentTagOptions(dSess) {
+  if (!dentPlannedOf(dSess) || typeof sessions === 'undefined') return false;
+  var set = {}; dentSessTeeth(dSess).forEach(function (t) { set[t] = 1; });
+  var fixed = sessions.filter(function (x) { return x.id !== dSess.id && dentPlannedOf(x) && dentIsFixedAlt(x) && dentSessionTouches(x, set); });
+  var dents = sessions.filter(function (x) { return x.id !== dSess.id && dentPlannedOf(x) && dentIsSession(x) && dentSessTeeth(x).some(function (t) { return set[t]; }); });
+  return await dentAssignOptions([fixed].concat(dents.map(function (d) { return [d]; })).concat([[dSess]]));
+}
+/* العكس: زرعةٌ/جسرٌ مخطّط سُجّل الآن على أسنانٍ عليها جهازٌ مخطّط ⇒ الجهازُ خيار، والثوابتُ على أسنانه خيارٌ آخر */
+async function dentOnFixedSessionSaved(fSess) {
+  if (!dentPlannedOf(fSess) || !fSess.tooth_num || !dentIsFixedAlt(fSess) || typeof sessions === 'undefined') return false;
+  var mine = {}; String(fSess.tooth_num).split(',').forEach(function (t) { mine[parseInt(t, 10)] = 1; });
+  var dents = sessions.filter(function (x) { return dentPlannedOf(x) && dentIsSession(x) && dentSessTeeth(x).some(function (t) { return mine[t]; }); });
+  if (!dents.length) return false;
+  var all = {}; dents.forEach(function (d) { dentSessTeeth(d).forEach(function (t) { all[t] = 1; }); });
+  var fixed = sessions.filter(function (x) { return dentPlannedOf(x) && dentIsFixedAlt(x) && dentSessionTouches(x, all); });
+  if (fixed.indexOf(fSess) === -1) fixed.push(fSess);
+  return await dentAssignOptions(dents.map(function (d) { return [d]; }).concat([fixed]));
+}
+/* جلسةٌ معلّقة خلت أسنانُها من أي جهاز (حُذف البديل · أُزيل القديم · اعتُمد خيارُها) ⇒ تُرسم مخطّطة — الأقدمُ أولاً */
+async function dentSettlePending() {
+  var pend = dentPendingSessions(), drew = false;
+  for (var i = 0; i < pend.length; i++) {
+    var s = pend[i], teeth = dentSessTeeth(s);
+    if (!teeth.length || teeth.some(dentHas)) continue;
+    var okAll = teeth.every(function (t) { var st = dentBareState(t); return st.ok || (st.block && st.implant); });
+    if (!okAll) continue;
+    var err = await dentWriteRows({ teeth: teeth }, dentSessKey(s), 'planned', s.id, s.provider_id || null);
+    if (err) { console.warn('dentSettlePending:', err); continue; }
+    drew = true;
+  }
+  return drew;
+}
+/* إنجازُ جلسةٍ معلّقة: رسمُ المرسوم فوق أسنانها يُزال ويُرسم جهازُها منجزاً (مرآتُه بصفحة المواعيد) */
+async function dentDrawCompleted(sess) {
+  var teeth = dentSessTeeth(sess); if (!teeth.length) return false;
+  var cErr = await dentClearUnits(dentOverlapUnits(teeth));
+  if (cErr) { console.warn('dentDrawCompleted clear:', cErr); return false; }
+  var wErr = await dentWriteRows({ teeth: teeth }, dentSessKey(sess), 'completed', sess.id, sess.provider_id || null);
+  if (wErr) { console.warn('dentDrawCompleted rows:', wErr); return false; }
+  return true;
+}
 async function dentSave(cost, units, date, notes) {
   if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
   var pd = pendingDenture; if (!pd) return;
@@ -537,9 +690,24 @@ async function dentSave(cost, units, date, notes) {
   var bad = dentRevalidate(pd);
   if (bad) { showToast('⚠️ تغيّر المخطط — ' + bad); return; }
   var billable = (status === 'completed' || status === 'planned');
-  var made = [], firstSess = null, failMsg = '';
+  /* ج2-ب: أسنانٌ يعوّضها جهازٌ مرسوم — مخطّط ⇒ جلسةٌ معلّقة (بديل/تبديل) · منجز ⇒ تبديلٌ فوري بتأكيد · غيرُهما مرفوض */
+  var ovAll = [];
+  pd.units.forEach(function (x) { dentOverlapUnits(x.teeth).forEach(function (o) { if (ovAll.indexOf(o) === -1) ovAll.push(o); }); });
+  if (ovAll.length && !billable) { showToast('🦷 على الأسنان ' + dentOverNames(ovAll[0].teeth) + ' — «موجود مسبقاً» و«محوّل» لا يُسجَّلان فوق جهازٍ آخر؛ أزل القديم أولاً'); return; }
+  if (ovAll.length && status === 'completed') {
+    var plOld = ovAll.filter(function (o) { return o.st === 'planned'; })[0];
+    if (plOld) { showToast('🦷 على الأسنان جهاز مخطّط «' + dentUnitName(plOld) + '» — أنجزه أو أزله أولاً، أو سجّل الجديد «مخطّط» ليكون بديلاً'); return; }
+    if (!await SyDialog.confirm({
+      title: 'تبديل الجهاز',
+      message: 'على الأسنان جهاز مسجّل:\n' + ovAll.map(function (o) { return '• «' + dentUnitName(o) + '» (' + dentAreaText(o.arch, o.teeth) + ')'; }).join('\n')
+        + '\n\nيُزال رسمه ويُرسم «' + label + '» مكانه. جلسة الجهاز القديم تبقى بالسجل.',
+      confirmText: 'بدّل الجهاز', cancelText: 'رجوع', danger: true
+    })) return;
+  }
+  var made = [], firstSess = null, failMsg = '', pendingMade = [];
   for (var i = 0; i < pd.units.length; i++) {
     var u = pd.units[i], area = dentAreaText(u.arch, u.teeth);
+    var ov = dentOverlapUnits(u.teeth), asPending = (status === 'planned' && ov.length > 0);
     var markNow = u.mark.filter(function (t) { return !!dentToothState(t).standing; });   /* محاولةٌ ثانية بعد فشل: ما عُلِّم لا يُعاد */
     if (markNow.length) {
       var mErr = await dentMarkMissing(markNow, pendingProviderId);
@@ -554,13 +722,19 @@ async function dentSave(cost, units, date, notes) {
         tooth_num: null, surface: null, arch: u.arch,
         status: status, provider_id: pendingProviderId,
         treatment_key: getTreatment(key) ? key : null,
-        currency: window.SyDentCurPick.read('toothCost')
+        currency: window.SyDentCurPick.read('toothCost'),
+        unit_teeth: dentTeethCsv(u.teeth)   /* M204 */
       };
       var rS = await window.sb.from('ledger_sessions').insert(payload).select().single();
       if (rS.error || !rS.data) { console.error('denture ledger insert error:', rS.error); failMsg = 'تسجيل الجلسة فشل' + (rS.error ? ': ' + rS.error.message : ''); break; }
       sess = rS.data; unitId = sess.id;
     } else unitId = dentUuid();
-    var wErr = await dentWriteRows(u, key, status, unitId, pendingProviderId);
+    var wErr = '';
+    if (asPending) pendingMade.push({ sess: sess, kind: ov.some(function (o) { return o.st === 'planned'; }) ? 'alt' : 'replace' });   /* لا صفوف: الأسنانُ يعوّضها المرسوم */
+    else {
+      if (ov.length) wErr = await dentClearUnits(ov);   /* تبديلٌ فوري (منجز فوق قائم) */
+      if (!wErr) wErr = await dentWriteRows(u, key, status, unitId, pendingProviderId);
+    }
     if (wErr) {
       /* الجلسةُ بلا رسمها نصفُ حفظ ⇒ تُسحب، والفشلُ يُعلَن */
       if (sess) {
@@ -581,6 +755,8 @@ async function dentSave(cost, units, date, notes) {
       }
     }
     made.push({ unit: u, sess: sess, area: area });
+    /* ج2-ب: وسمُ البدائل بالخطة — الجهازُ المخطّط مقابل زرعةٍ/جسرٍ/جهازٍ مخطّط على أسنانه (عرضيٌّ بحت) */
+    if (sess && status === 'planned') { try { await dentTagOptions(sess); } catch (eT) { console.warn('denture option tagging skipped:', eT); } }
   }
   if (firstSess) await reallocatePatientFunds();
   if (firstSess) {
@@ -611,6 +787,11 @@ async function dentSave(cost, units, date, notes) {
     showToast('✅ تم تسجيل ' + label + ' — ' + areaAll + ' — أكمل بيانات المخبر');
   } else if (!billable) {
     showToast('✅ سُجّل ' + label + ' (' + ((typeof STATUS_LABELS !== 'undefined' && STATUS_LABELS[status]) || status) + ') — ' + areaAll);
+  } else if (pendingMade.length) {
+    var pm = pendingMade[0], pmOpt = dentOptBadgeText(pm.sess);
+    showToast(pm.kind === 'alt'
+      ? '🔀 أُضيف «' + label + '» بديلاً بالخطة' + pmOpt + ' — ' + areaAll + ' (المرسوم يبقى حتى اعتماد أحد الخيارين)'
+      : '🔁 أُضيف «' + label + '» مخطّطاً — ' + areaAll + ' (يأخذ مكان الجهاز الحالي على المخطط عند إنجازه)');
   } else {
     showToast('✅ تم تسجيل ' + label + ' — ' + areaAll + (made.length > 1 ? ' (جلسة لكل فك)' : ''));
   }
@@ -673,6 +854,7 @@ async function _dentRemoveUnit_inner(num) {
   var err = !!(d && d.error);
   if (err) console.error('remove denture rows error:', d.error);
   else teeth.forEach(function (tn) { delete dentureMap[tn]; });
+  if (!err) { try { await dentSettlePending(); } catch (eS) { console.warn('settle after removal skipped:', eS); } }   /* ج2-ب: المعلّقُ يأخذ الرسم */
   closeModal('toothModal');
   renderTeeth(); renderStats();
   if (err) { showToast('⚠️ لم تُحفظ الإزالة — تحقّق من الاتصال وأعد المحاولة'); return; }
@@ -691,7 +873,8 @@ function dentRemoveBtnHtml(n) {
 async function dentOnSessionComplete(sess) {
   if (!sess || !sess.id) return false;
   var hit = Object.keys(dentureMap).filter(function (tn) { return dentureMap[tn].unit === sess.id && dentureMap[tn].st === 'planned'; });
-  if (!hit.length) return false;
+  /* ج2-ب: جلسةٌ معلّقة (لا صفوفَ لها) أُنجزت ⇒ جهازُها يأخذ الرسم مكان القديم */
+  if (!hit.length) return (dentIsSession(sess) && !dentSessDrawn(sess)) ? await dentDrawCompleted(sess) : false;
   var u = await window.sb.from('teeth_status').update({ status: 'completed', review_at: null })
     .eq('doctor_id', currentUser.id).eq('patient_id', sess.patient_id || patientId)
     .eq('unit_id', sess.id).eq('surface', DENT_SURFACE).eq('status', 'planned');
@@ -709,6 +892,8 @@ async function dentOnSessionDeleted(sess) {
     .eq('unit_id', sess.id).eq('surface', DENT_SURFACE).eq('status', 'planned');
   if (d && d.error) { console.warn('dentOnSessionDeleted warn:', d.error); return false; }
   hit.forEach(function (tn) { delete dentureMap[tn]; });
+  /* ج2-ب: حُذف المرسوم وله بديلٌ معلّق ⇒ البديلُ يأخذ الرسم (سابقةُ الجسر M145-b) */
+  try { await dentSettlePending(); } catch (eS) { console.warn('settle after delete skipped:', eS); }
   return true;
 }
 
@@ -749,7 +934,7 @@ function dentStatusBadge(st) {
 function dentTipRow(u) {
   var c = dentColors(u.key);
   return '<div class="tip-row dent-tip"><span class="tip-dot" style="background:' + escapeHtml(c.fill) + '"></span><b>جهاز متحرك:</b> '
-    + escapeHtml(dentUnitName(u)) + dentStatusBadge(u.st) + '</div>';
+    + escapeHtml(dentUnitName(u)) + dentStatusBadge(u.st) + escapeHtml(dentOptBadgeText(dentSessionOfUnit(u))) + '</div>';
 }
 /* خليةُ السن وجهياً: القاعدةُ (بلون إطار العلاج) + السنُّ الصناعي (بلون العلاج) على السن المعوَّض؛
    وعلى سنٍّ بين طرفَي الجهاز خطٌّ رابط فقط. الحالةُ بالشكل (txPaint/txPathAttrs — v595). */
@@ -792,7 +977,7 @@ function dentBannerHtml(units) {
     var full = dentIsFullSet(u.teeth, u.arch);
     var st = (u.st && u.st !== 'completed') ? ' · ' + escapeHtml((typeof STATUS_LABELS !== 'undefined' && STATUS_LABELS[u.st]) || u.st) : '';
     return '<span class="ortho-chip dent-chip" style="color:' + c.fill + ';' + (hex ? 'background:' + c.fill + '1a;border-color:' + c.fill + '55;' : '') + '">'
-      + escapeHtml(dentUnitName(u)) + ' · ' + dentArchLabel(u.arch) + ' · ' + (full ? 'كامل' : dentTeethWord(u.teeth.length)) + st + '</span>';
+      + escapeHtml(dentUnitName(u)) + ' · ' + dentArchLabel(u.arch) + ' · ' + (full ? 'كامل' : dentTeethWord(u.teeth.length)) + st + escapeHtml(dentOptBadgeText(dentSessionOfUnit(u))) + '</span>';
   }).join('');
 }
 /* v719: زرعةٌ يركب عليها جهاز — تاجُها (المسارُ المقصوص بمنطقة التاج) يُخفى والبرغي يبقى؛ وبالمنظر الإطباقي يُخفى رسمُ الزرعة كلُّه
@@ -808,6 +993,34 @@ function dentHideOccImplant(osvg) {
     c.setAttribute('display', 'none'); c.setAttribute('data-dent-hidden', '1');
   }
 }
+/* ج2-ب: الجهازُ المعلّق (بديل/تبديل) لا رسمَ له — يُسمّى بشريط الأجهزة (إطارٌ متقطّع) وبتلميح كل سنٍّ من أسنانه */
+function dentPendingLabel(s) { return dentPendingKind(s) === 'alt' ? 'بديل' : 'تبديل عند الإنجاز'; }
+function dentPendingBannerHtml(pend) {
+  return pend.map(function (s) {
+    var c = dentColors(dentSessKey(s)), teeth = dentSessTeeth(s), arch = (s.arch === 'U' || s.arch === 'L') ? s.arch : dentArchOf(teeth[0]);
+    return '<span class="ortho-chip dent-chip dent-chip-pend" data-dent-pending="' + escapeHtml(String(s.id)) + '" style="color:' + c.fill + ';border-style:dashed;border-color:' + c.fill + ';">'
+      + escapeHtml(s.type || 'جهاز متحرك') + ' · ' + dentArchLabel(arch) + ' · ' + (dentIsFullSet(teeth, arch) ? 'كامل' : dentTeethWord(teeth.length))
+      + ' · مخطط — ' + dentPendingLabel(s) + escapeHtml(dentOptBadgeText(s)) + '</span>';
+  }).join('');
+}
+function dentPendingTipRow(s) {
+  var c = dentColors(dentSessKey(s));
+  return '<div class="tip-row dent-tip-pend" data-dent-pending="' + escapeHtml(String(s.id)) + '"><span class="tip-dot" style="background:' + escapeHtml(c.fill) + '"></span><b>جهاز مخطّط ('
+    + dentPendingLabel(s) + '):</b> ' + escapeHtml(s.type || 'جهاز متحرك') + escapeHtml(dentOptBadgeText(s)) + '</div>';
+}
+function dentPaintPendingTips(pend) {
+  pend.forEach(function (s) {
+    dentSessTeeth(s).forEach(function (n) {
+      ['.tooth-cell[data-tooth-cell="' + n + '"]', '.occ-cell[data-occ-cell="' + n + '"]'].forEach(function (sel) {
+        var cell = document.querySelector(sel), tip = cell ? cell.querySelector('.tooth-tip') : null;
+        if (!tip) return;
+        var had = tip.querySelectorAll('.dent-tip-pend');
+        for (var i = 0; i < had.length; i++) { if (had[i].getAttribute('data-dent-pending') === String(s.id)) return; }
+        tip.insertAdjacentHTML('beforeend', dentPendingTipRow(s));
+      });
+    });
+  });
+}
 /* طبقةُ هذه الوحدة على هذه الخلية إن رُسمت (الرسمُ لا يتكرّر لو استُدعي مرتين بلا إعادة بناء) */
 function dentLayerOf(svg, u) {
   var id = String(u.id || u.key), gs = svg.querySelectorAll('g.dent-layer');
@@ -817,9 +1030,11 @@ function dentLayerOf(svg, u) {
 /* تُستدعى آخرَ renderTeeth. بلا أي جهاز ⇒ لا تُضيف ولا تُزيل شيئاً (صفر أثر على مخططٍ بلا جهاز). */
 function dentPaint() {
   var units = dentUnits();
+  var pend = units.length ? dentPendingSessions() : [];   /* المعلّقُ لا يوجد إلا فوق جهازٍ مرسوم — بلا جهاز: صفر أثر */
   var bar = document.getElementById('dentureBanner');
-  if (bar) { bar.innerHTML = units.length ? dentBannerHtml(units) : ''; bar.style.display = units.length ? 'flex' : 'none'; }
+  if (bar) { bar.innerHTML = units.length ? dentBannerHtml(units) + dentPendingBannerHtml(pend) : ''; bar.style.display = units.length ? 'flex' : 'none'; }
   if (!units.length) return;
+  dentPaintPendingTips(pend);
   units.forEach(function (u) {
     var row = dentArchRow(u.arch);
     var idx = u.teeth.map(function (t) { return row.indexOf(t); }).filter(function (i) { return i >= 0; });
@@ -871,6 +1086,7 @@ window.SyDenture = {
   removeBtnHtml: dentRemoveBtnHtml,
   onSessionComplete: dentOnSessionComplete, onSessionDeleted: dentOnSessionDeleted, examUndo: dentExamUndo,
   restoreMissing: dentRestoreMissing,
+  onFixedSessionSaved: dentOnFixedSessionSaved, settlePending: dentSettlePending, pendingSessions: dentPendingSessions,
   paint: dentPaint,
   map: function () { return dentureMap; }
 };

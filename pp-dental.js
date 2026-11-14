@@ -7440,6 +7440,8 @@ async function _saveToothTreatment_inner() {
     Object.assign(patient, updates);
   }
 
+  /* ج2-ب (v720): زرعةٌ/جسرٌ مخطّط سُجّل على أسنانٍ عليها جهازٌ متحرك مخطّط ⇒ يُوسَمان خيارين بالخطة (عرضيٌّ بحت — plan_option وحده) */
+  if (newSess && window.SyDenture) { try { await window.SyDenture.onFixedSessionSaved(newSess); } catch (eDt) { console.warn('denture option tagging skipped:', eDt); } }
   renderTeeth(); renderStats(); renderInfo(); renderSessions(); renderRecentSessions(); renderPayments(); renderTimeline();
   closeModal('toothModal');
   // Build area label that reflects the type

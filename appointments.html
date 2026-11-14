@@ -21,28 +21,28 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261114c"></script>
-<link rel="stylesheet" href="appointments.css?v=20261114c">
+<script src="theme.js?v=20261114d"></script>
+<link rel="stylesheet" href="appointments.css?v=20261114d">
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261114c">
+<link rel="stylesheet" href="theme.css?v=20261114d">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261114c"></script>
-<script src="sy-modal.js?v=20261114c"></script>
-<script src="appt-conflict.js?v=20261114c"></script>
-<script src="pt-reliability.js?v=20261114c"></script>
-<script src="sched-blocks.js?v=20261114c"></script>
-<script src="appt-blocks.js?v=20261114c"></script>
-<script src="appt-series.js?v=20261114c"></script>
-<script src="appt-family.js?v=20261114c"></script>
-<script src="sidebar.js?v=20261114c"></script>
-<script src="inv-consume.js?v=20261114c"></script>
-<script src="timepicker.js?v=20261114c"></script>
-<script src="appt-booking.js?v=20261114c"></script>
-<script src="appt-portal.js?v=20261114c"></script>
-<script src="appt-wa.js?v=20261114c"></script>
-<script src="appt-time.js?v=20261114c"></script>
-<script src="appt-views.js?v=20261114c"></script>
-<script src="appt-modal.js?v=20261114c"></script>
+<script src="supabase-init.js?v=20261114d"></script>
+<script src="sy-modal.js?v=20261114d"></script>
+<script src="appt-conflict.js?v=20261114d"></script>
+<script src="pt-reliability.js?v=20261114d"></script>
+<script src="sched-blocks.js?v=20261114d"></script>
+<script src="appt-blocks.js?v=20261114d"></script>
+<script src="appt-series.js?v=20261114d"></script>
+<script src="appt-family.js?v=20261114d"></script>
+<script src="sidebar.js?v=20261114d"></script>
+<script src="inv-consume.js?v=20261114d"></script>
+<script src="timepicker.js?v=20261114d"></script>
+<script src="appt-booking.js?v=20261114d"></script>
+<script src="appt-portal.js?v=20261114d"></script>
+<script src="appt-wa.js?v=20261114d"></script>
+<script src="appt-time.js?v=20261114d"></script>
+<script src="appt-views.js?v=20261114d"></script>
+<script src="appt-modal.js?v=20261114d"></script>
 </head>
 <body>
 <script>
@@ -2701,8 +2701,44 @@ async function _apptSyncDentureRowsOnComplete(s, providerOverride) {
   if (providerOverride) patch.provider_id = providerOverride;
   var u = await window.sb.from('teeth_status').update(patch)
     .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id)
-    .eq('unit_id', s.id).eq('surface', 'DENTURE').eq('status', 'planned');
-  if (u.error) console.warn('denture rows complete warn:', u.error);
+    .eq('unit_id', s.id).eq('surface', 'DENTURE').eq('status', 'planned').select('tooth_num');
+  if (u.error) { console.warn('denture rows complete warn:', u.error); return; }
+  if ((u.data || []).length) return;
+  await _apptDrawPendingDenture(s, providerOverride);
+}
+/* ج2-ب (M204) — مرآةُ dentDrawCompleted بملف المريض: جلسةُ جهازٍ «معلّقة» (جهازٌ مخطّط فوق جهازٍ قائم — أسنانُها على الجلسة
+   unit_teeth ولا صفوفَ لها) أُنجزت ⇒ رسمُ الجهاز المرسوم فوق أسنانها يُزال ويُرسم جهازُها منجزاً. جلسةُ فكٍّ ليست جهازاً
+   (unit_teeth فارغ) أو جهازٌ مرسومٌ أصلاً ⇒ صفر مساس. */
+async function _apptDrawPendingDenture(s, providerOverride) {
+  var ls = await window.sb.from('ledger_sessions').select('id,unit_teeth,treatment_key,provider_id')
+    .eq('doctor_id', currentUser.id).eq('id', s.id).maybeSingle();
+  if (ls.error || !ls.data || !ls.data.unit_teeth || !ls.data.treatment_key) return;
+  var teeth = String(ls.data.unit_teeth).split(',').filter(function(t){ return /^[1-4][1-8]$/.test(t); });
+  if (!teeth.length) return;
+  var mine = await window.sb.from('teeth_status').select('tooth_num')
+    .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('unit_id', s.id).eq('surface', 'DENTURE');
+  if (mine.error || (mine.data || []).length) return;
+  var ov = await window.sb.from('teeth_status').select('tooth_num,unit_id')
+    .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('surface', 'DENTURE').in('tooth_num', teeth);
+  if (ov.error) { console.warn('pending denture overlap warn:', ov.error); return; }
+  var units = [], loose = [];
+  (ov.data || []).forEach(function(r){ if (r.unit_id) { if (units.indexOf(r.unit_id) === -1) units.push(r.unit_id); } else loose.push(String(r.tooth_num)); });
+  if (units.length) {
+    var d1 = await window.sb.from('teeth_status').delete()
+      .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('surface', 'DENTURE').in('unit_id', units);
+    if (d1.error) { console.warn('pending denture clear warn:', d1.error); return; }
+  }
+  if (loose.length) {
+    var d2 = await window.sb.from('teeth_status').delete()
+      .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('surface', 'DENTURE').in('tooth_num', loose);
+    if (d2.error) { console.warn('pending denture clear warn:', d2.error); return; }
+  }
+  var prov = providerOverride || ls.data.provider_id || null;
+  var ins = await window.sb.from('teeth_status').insert(teeth.map(function(t){
+    return { doctor_id: currentUser.id, patient_id: s.patient_id, tooth_num: t, surface: 'DENTURE',
+             treatment_key: ls.data.treatment_key, status: 'completed', provider_id: prov, unit_id: s.id, review_at: null };
+  }));
+  if (ins.error) console.warn('pending denture rows warn:', ins.error);
 }
 async function _apptSyncToothStatusOnComplete(s, providerOverride) {
   if (s && !s.tooth_num) { await _apptSyncDentureRowsOnComplete(s, providerOverride); return; }   /* M202 */
