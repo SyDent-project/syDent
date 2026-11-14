@@ -536,7 +536,7 @@ async function dentConfirmPick() {
   var units = [];
   if (pd.kind === 'partial') {
     var teeth = pd.teeth.filter(function (t) { return dentToothState(t).ok; });
-    if (!teeth.length) { showToast('⚠️ اختر سناً مفقوداً واحداً على الأقل'); return; }
+    if (!teeth.length) { showToast('⚠️ اختر سناً واحداً على الأقل'); return; }
     units.push({ arch: pd.arch, teeth: dentSortTeeth(teeth, pd.arch), mark: [], over: teeth.filter(dentHas) });
   } else {
     if (!pd.arches.length) { showToast('⚠️ اختر فكاً واحداً على الأقل'); return; }
@@ -579,6 +579,8 @@ function dentStep2() {
   var ti = document.getElementById('toothStep2Title');
   if (ti) ti.textContent = '🦷 ' + pd.label + ' — ' + pd.units.map(function (u) { return dentAreaText(u.arch, u.teeth); }).join(' · ')
     + (pd.units.length > 1 ? ' — جلسة لكل فك بالسعر المدخل' : '');
+  /* v724: الجهازُ الفوري لا يُسجَّل إلا مخطّطاً ⇒ الخطوةُ تُفتح على «مخطّط» (كانت تُفتح على «منجز» فيُرفض الحفظُ الأول) */
+  if (typeof pickStatus === 'function' && pd.units.some(function (u) { return dentOpenExtractions(u.teeth).length > 0; })) pickStatus('planned');
 }
 
 /* ═════════════════════ الحفظ ═════════════════════ */
@@ -698,6 +700,11 @@ function dentSessionTouches(x, set) {
   return !!x.tooth_num && String(x.tooth_num).split(',').some(function (t) { return set[parseInt(t, 10)]; });
 }
 function dentIsImplantSess(x) { var k = dentSessKey(x); return !!k && typeof isImplantKey === 'function' && isImplantKey(k); }
+/* جلسةُ زرعةٍ مخطّطة على هذا السن — مرسومةً كانت أو جلسةً وحدها */
+function dentHasPlannedImplantSession(t) {
+  var tn = String(t);
+  return (typeof sessions !== 'undefined' && sessions ? sessions : []).some(function (x) { return dentPlannedOf(x) && String(x.tooth_num || '') === tn && dentIsImplantSess(x); });
+}
 function dentIsFixedAlt(x) {
   var k = dentSessKey(x);
   return !!k && ((typeof isImplantKey === 'function' && isImplantKey(k)) || isBridgeKey(k));
@@ -780,7 +787,9 @@ async function dentSave(cost, units, date, notes) {
   var impRival = false;
   if (status === 'planned') {
     var impT = [];
-    pd.units.forEach(function (x) { x.teeth.forEach(function (t) { var b = dentBareState(t); if (b.alt && b.implant) impT.push(t); }); });
+    /* v724: والزرعةُ المخطّطة التي لم تُرسم بعد (جلسةٌ وحدها — قلعُ سنّها ما زال مخطّطاً، فالجهازُ فوري) تُسأل عنها كالمرسومة؛
+       كان الاتجاهُ المعاكس (زرعةٌ بعد الجهاز) وحده يسأل */
+    pd.units.forEach(function (x) { x.teeth.forEach(function (t) { var b = dentBareState(t); if ((b.alt && b.implant) || dentHasPlannedImplantSession(t)) impT.push(t); }); });
     if (impT.length) impRival = await dentAskImplantRival(label, impT);
   }
   var made = [], firstSess = null, failMsg = '', pendingMade = [];
@@ -922,7 +931,9 @@ async function _dentRemoveUnit_inner(num) {
   /* جلسةُ الجهاز تُلتقط قبل الحذف (#664): المخطّطة تُسأل عنها، والمنجزةُ للمالك وحده */
   var s = dentSessionOfUnit(u), pl = [], done = [];
   if (s) { if ((s.status || 'completed') === 'planned') pl.push(s); else if ((s.status || 'completed') === 'completed') done.push(s); }
-  if (!await SyDialog.confirm({ message: 'إزالة «' + name + '» (' + area + ')؟\nلن يتغيّر شيء آخر — الأسنان تبقى مفقودة كما هي.'
+  /* v724: تحت الجهاز الفوري سنٌّ قائم قلعُه مخطّط — لا يُقال عنه «مفقود» */
+  if (!await SyDialog.confirm({ message: 'إزالة «' + name + '» (' + area + ')؟\n' + (dentOpenExtractions(u.teeth).length
+        ? 'لن يتغيّر شيء آخر — الأسنان وقلعُها المخطّط تبقى كما هي.' : 'لن يتغيّر شيء آخر — الأسنان تبقى مفقودة كما هي.')
       + removalSessionsNote(pl.length, done.length), danger: true })) return;
   var teeth = u.teeth.map(String);
   var d = await window.sb.from('teeth_status').delete()
@@ -942,7 +953,7 @@ function dentRemoveBtnHtml(n) {
   var u = dentUnitOf(n); if (!u) return '';
   var col = dentColors(u.key).stroke;
   return '<button class="topt dent-remove" style="border-color:' + escapeHtml(col) + ';color:' + escapeHtml(col) + ';font-weight:700;" '
-    + 'title="يزيل الجهاز عن كل أسنانه — الأسنان تبقى مفقودة" onclick="dentRemoveUnit(' + parseInt(n, 10) + ')">🦷 إزالة «' + escapeHtml(dentUnitName(u)) + '»</button>';
+    + 'title="' + (dentOpenExtractions(u.teeth).length ? 'يزيل الجهاز عن كل أسنانه — الأسنان وقلعُها المخطّط تبقى كما هي' : 'يزيل الجهاز عن كل أسنانه — الأسنان تبقى مفقودة') + '" onclick="dentRemoveUnit(' + parseInt(n, 10) + ')">🦷 إزالة «' + escapeHtml(dentUnitName(u)) + '»</button>';
 }
 
 /* ═════════════════════ خطّافاتُ الجلسة: الإنجاز والحذف ═════════════════════ */
