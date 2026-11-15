@@ -23,7 +23,7 @@
 /* ── Modal ── v448: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261115b"></script>
+<script src="theme.js?v=20261115c"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -253,6 +253,10 @@ tbody tr {
 }
 tbody tr:last-child { border-bottom: none; }
 tbody tr:hover { background: rgba(var(--green-rgb),0.04); }
+/* v727: الطلبُ ذو المراحل صفّان (صفُّه وصفُّ مراحله التابع) — الفاصلُ والتحويمُ للطلب كلّه */
+tbody tr.has-lst { border-bottom: none; }
+#ordersTable .lab-area { min-width: 0; }   /* عشرةُ أعمدة عند حدّ 1200px: صندوقُ الموضع لا يرفع أدنى عرضٍ للجدول — يتّسع متى وُجد متّسع */
+tbody tr.has-lst:hover + tr.lst-row, tbody tr.has-lst:has(+ tr.lst-row:hover) { background: rgba(var(--green-rgb),0.04); }
 td {
   padding: 12px 16px;
   font-size: 13px;
@@ -566,17 +570,17 @@ a.appt-badge:hover { background: rgba(var(--blue-rgb),0.28) !important; }
 html[data-sub-level="read"] :is([onclick*="openLabOrderModal("],[onclick*="openLabModal("],[onclick*="labTplSaveCurrent("],[onclick*="labTplDeleteSelected("],[onclick*="labClearDateSent("],[onclick*="labAiDraftOrder("],[onclick*="labAiSaveAndSend("],[onclick*="saveLabOrder("],[onclick*="saveLab("],[onclick*="saveLabPayment("],[onclick*="editLab("],[onclick*="delLab("],[onclick*="advanceLabOrder("],[onclick*="redoLabOrder("],[onclick*="undoLabStage("],[onclick*="editLabOrder("],[onclick*="delLabOrder("],[onclick*="delLabPayment("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261115b">
+<link rel="stylesheet" href="theme.css?v=20261115c">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261115b"></script>
-<script src="sy-modal.js?v=20261115b"></script>
-<script src="pay-methods.js?v=20261115b"></script>
-<script src="lab-redo.js?v=20261115b"></script>
-<script src="lab-stages.js?v=20261115b"></script>
-<script src="lab-due.js?v=20261115b"></script>
-<script src="lab-slip.js?v=20261115b"></script>
-<script src="lab-files.js?v=20261115b"></script>
-<script src="sidebar.js?v=20261115b"></script>
+<script src="supabase-init.js?v=20261115c"></script>
+<script src="sy-modal.js?v=20261115c"></script>
+<script src="pay-methods.js?v=20261115c"></script>
+<script src="lab-redo.js?v=20261115c"></script>
+<script src="lab-stages.js?v=20261115c"></script>
+<script src="lab-due.js?v=20261115c"></script>
+<script src="lab-slip.js?v=20261115c"></script>
+<script src="lab-files.js?v=20261115c"></script>
+<script src="sidebar.js?v=20261115c"></script>
 </head>
 <body>
 <script>
@@ -1638,8 +1642,9 @@ function renderTable() {
     var atRiskTag  = atRisk  ? '<span class="at-risk-tag" title="موعد المريض خلال يومين والمخبر لم يستلم العمل بعد">⏰ قارب الموعد</span>' : '';
     var rowClass = overdue ? 'row-overdue' : (atRisk ? 'row-at-risk' : '');
     var redoLine = window.SyLabRedo ? SyLabRedo.line(lo.id) : '';   /* M160: سطرُ دورات الإعادة (مُهرَّب) */
-    /* ج3-أ: سطرُ المراحل فوقه (مُهرَّب) — وزرُّ التراجع عن آخر مرحلة حين يصحّ (الطلبُ عند المخبر) */
-    if (window.SyLabStages) redoLine = SyLabStages.line(lo, { tail: (window.SyLabStages && SyLabStages.canUndo(lo) ? '<button type="button" class="lst-undo" onclick="undoLabStage(\'' + lo.id + '\')" title="يعيد الطلب إلى المرحلة السابقة كما كانت">↩️ تراجع عن المرحلة</button>' : '') }) + redoLine;
+    /* ج3-أ: سطرُ المراحل (مُهرَّب) — وزرُّ التراجع عن آخر مرحلة حين يصحّ (الطلبُ عند المخبر).
+       v727 (صور المالك): بالجدول صفٌّ تابع بعرض الجدول (tr.lst-row) — داخل خلية «نوع العمل» كان ينضغط عمودياً؛ بالبطاقة سطرٌ بعرضها. */
+    var stLine = window.SyLabStages ? SyLabStages.line(lo, { tail: (SyLabStages.canUndo(lo) ? '<button type="button" class="lst-undo" onclick="undoLabStage(\'' + lo.id + '\')" title="يعيد الطلب إلى المرحلة السابقة كما كانت">↩️ تراجع عن المرحلة</button>' : '') }) : '';
     var seatLink = labSeatLink(lo);   /* v527: بلا موعد تركيب — رابطُ حجزٍ يعبّي ولا يحفظ (#690) */
 
     // Linked-appointment badge — clickable when we can resolve the appt.
@@ -1661,7 +1666,7 @@ function renderTable() {
 
     /* ج3-ب: طلبُ الجهاز المتحرك بلا رقم سن — يُعرض فكُّه وأسنانُه من جلسته */
     var labArea = (window.SyLabSlip && SyLabSlip.areaOf) ? SyLabSlip.areaOf(lo) : null;
-    rows += '<tr class="' + rowClass + '">'
+    rows += '<tr class="' + rowClass + (stLine ? ' has-lst' : '') + '">'
       + '<td class="patient-link">' + apptBadge + pLink + (seatLink ? '<div>' + seatLink + '</div>' : '') + '</td>'
       + '<td>' + (lo.tooth_num ? '<span class="tooth-badge">سن ' + lo.tooth_num + '</span>' : (labArea ? '<span class="tooth-badge lab-area">' + escapeHtml(labArea.text) + '</span>' : '—')) + '</td>'
       + '<td>' + escapeHtml(lo.work_type || '—') + (window.SyLabFiles ? ' ' + SyLabFiles.badge(lo.id) : '') + redoLine + '</td>'
@@ -1672,7 +1677,8 @@ function renderTable() {
       + '<td style="text-align:left;color:var(--text2)">' + fmt(lo.cost) + ' ' + _rowLbl(lo) + '</td>'
       + '<td>' + pill + '</td>'
       + '<td style="white-space:nowrap;"><div class="sy-acts sy-slots" style="--sy-slots:__SY_SLOTS__">' + actions + '</div></td>'
-      + '</tr>';
+      + '</tr>'
+      + (stLine ? '<tr class="lst-row ' + rowClass + '"><td colspan="2"></td><td colspan="8">' + stLine + '</td></tr>' : '');
 
     cardHtml += '<div class="order-card' + (overdue ? ' overdue' : (atRisk ? ' at-risk' : '')) + '">'
       + '<div class="oc-row">'
@@ -1687,6 +1693,7 @@ function renderTable() {
       +   '<div><span class="lbl">الإرسال:</span><span class="val">' + fmtD(lo.date_sent) + '</span></div>'
       +   '<div><span class="lbl">الاستحقاق:</span><span class="val">' + overdueTag + atRiskTag + (lo.date_due ? fmtD(lo.date_due) : '—') + '</span></div>'
       +   '<div style="grid-column:1/-1;"><span class="lbl">التكلفة:</span><span class="val">' + fmt(lo.cost) + ' ' + _rowLbl(lo) + '</span></div>'
+      +   (stLine ? '<div style="grid-column:1/-1;">' + stLine + '</div>' : '')
       +   (redoLine ? '<div style="grid-column:1/-1;">' + redoLine + '</div>' : '')
       + '</div>'
       + '<div class="oc-actions sy-acts">' + actions + '</div>'

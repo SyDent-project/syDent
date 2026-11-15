@@ -142,7 +142,7 @@ function renderLabOrders() {
     updateLabsBadge();
     return;
   }
-  var rows = '';
+  var rows = '', _labRowN = 0;
   labOrders.forEach(function(lo){
     var st = LAB_STATUSES[lo.status] || LAB_STATUSES['sent'];
     var pill = '<span class="lab-pill tone tone-' + (st.tone || 'gray') + '">' + st.ar + '</span>';
@@ -167,29 +167,35 @@ function renderLabOrders() {
     }
     // v328: شارةُ السن بلا انكسار («سن» فوق «35» — صورة المالك).
     var toothChip = lo.tooth_num ? '<span class="tone tone-lime" style="border-width:1px;border-style:solid;padding:0 5px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;">سن ' + lo.tooth_num + '</span>' : '';
-    /* ج3-ب: طلبُ الجهاز المتحرك — فكُّه وأسنانُه مكان شارة السن (تلتفّ: النصُّ أطول من «سن 35») */
+    /* ج3-ب: طلبُ الجهاز المتحرك — فكُّه وأسنانُه مكان شارة السن · v727: صندوقٌ واحد (.lab-area بـtheme.css) يلتفّ نصُّه داخله */
     var _labAr = toothChip ? null : labOrderArea(lo);
-    if (_labAr) toothChip = '<span class="tone tone-lime lab-area" style="border-width:1px;border-style:solid;padding:0 5px;border-radius:10px;font-size:11px;font-weight:700;">' + escapeHtml(_labAr.text) + '</span>';
+    if (_labAr) toothChip = '<span class="tone tone-lime lab-area">' + escapeHtml(_labAr.text) + '</span>';
     // v328: سطرُ الموبايل — التاريخ · المخبر · اللون داخل خلية نوع العمل (m-cards بـpatient-profile.css).
     // الأعمدةُ نفسُها تبقى للديسكتوب وتُخفى تحت 600px (mc-hide)، فلا يتكرّر صفٌّ ولا زرّ.
     var mMeta = [toothChip, lo.date_sent ? escapeHtml(fmtD(lo.date_sent)) : 'غير مُرسَل', escapeHtml(String(labDisplay))];
     if (lo.shade) mMeta.push('لون ' + escapeHtml(String(lo.shade)));
-    rows += '<tr>'
+    /* v727 (صور المالك): سطرُ المراحل كان داخل خلية «نوع العمل» فينضغط عمودياً متى صار بالصف أربعةُ أزرار. بالجدول يصير صفاً
+       تابعاً بعرض الجدول (tr.lst-row)؛ وبالبطاقات (المضيفُ الضيّق) خليةٌ بعرض البطاقة فوق الأزرار (td.lst-cell) والصفُّ التابع مخفي.
+       التظليلُ المتناوب بالطلب لا بترتيب الصف (lab-z) — الصفُّ التابع يتبع طلبَه. */
+    var _stLine = window.SyLabStages ? SyLabStages.line(lo, { tail: (SyLabStages.canUndo(lo) ? '<button type="button" class="lst-undo" onclick="undoLabStage(\'' + lo.id + '\')" title="يعيد الطلب إلى المرحلة السابقة كما كانت">↩️ تراجع عن المرحلة</button>' : '') }) : '';
+    var _zCls = (_labRowN++ % 2) ? ' lab-z' : '';
+    rows += '<tr class="lab-row' + (_stLine ? ' has-lst' : '') + _zCls + '">'
       + '<td class="mc-hide">' + (lo.date_sent ? SyDT.cellRec(lo.date_sent, lo.created_at) : '—') + '</td>'   /* v481: تاريخُ الإرسال ووقتُه ظاهرين (كان تلميحاً يُقَصّ ويغطّي الصفّ التالي) */
       + '<td class="mc-hide">' + (toothChip || '—') + '</td>'
       + '<td class="mc-title">' + escapeHtml(lo.work_type || '—') + (window.SyLabFiles ? ' ' + SyLabFiles.badge(lo.id) : '')   /* v535 */
-      +   (window.SyLabStages ? SyLabStages.line(lo, { tail: (window.SyLabStages && SyLabStages.canUndo(lo) ? '<button type="button" class="lst-undo" onclick="undoLabStage(\'' + lo.id + '\')" title="يعيد الطلب إلى المرحلة السابقة كما كانت">↩️ تراجع عن المرحلة</button>' : '') }) : '')   /* ج3-أ: سطرُ المراحل (مُهرَّب) + التراجع عن آخر مرحلة */
       +   (window.SyLabRedo ? SyLabRedo.line(lo.id) : '')   /* M160: سطرُ دورات الإعادة (مُهرَّب) */
       +   '<div class="mc-only mc-meta">' + mMeta.filter(Boolean).map(function(x){ return '<span style="white-space:nowrap;">' + x + '</span>'; }).join(' · ') + '</div></td>'
       + '<td class="mc-hide" style="color:var(--text2)">' + escapeHtml(String(labDisplay)) + '</td>'
       + '<td class="mc-hide" style="color:var(--text2)">' + escapeHtml(String(lo.shade || '—')) + '</td>'
       + '<td class="mc-side2" style="text-align:left;color:var(--text2)">' + fmt(lo.cost) + ' ' + curLblOf(lo && lo.currency) + '</td>'   // M125 · v261: بالاتجاهين
       + '<td class="mc-side">' + pill + '</td>'
+      + (_stLine ? '<td class="mc-full lst-cell">' + _stLine + '</td>' : '')   /* البطاقات: سطرُ المراحل بعرض البطاقة فوق الأزرار (مخفيٌّ بالجدول) */
       + '<td class="mc-actions" style="white-space:nowrap;"><div class="sy-acts sy-slots" style="--sy-slots:__SY_SLOTS__">' + actions + '</div></td>'
-      + '</tr>';
+      + '</tr>'
+      + (_stLine ? '<tr class="lst-row' + _zCls + '"><td colspan="2"></td><td colspan="6">' + _stLine + '</td></tr>' : '');
   });
   rows = SySlots.finalize(rows, { 1: '160px', 2: '78px', 3: '82px', 4: '80px' });   // v484: تُطوى الخاناتُ غير المستعملة
-  el.innerHTML = '<div style="overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;" class="no-scrollbar"><table class="data-table m-cards">'
+  el.innerHTML = '<div style="overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;" class="no-scrollbar"><table class="data-table m-cards lab-pairs">'
     + '<thead><tr><th>تاريخ الإرسال</th><th>السن</th><th>نوع العمل</th><th>المخبر</th><th>اللون</th><th style="text-align:left;">التكلفة</th><th>الحالة</th><th></th></tr></thead>'
     + '<tbody>' + rows + '</tbody></table></div>';
   updateLabsBadge();

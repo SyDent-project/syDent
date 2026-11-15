@@ -1121,14 +1121,24 @@ body:has(.modal-overlay.show) #syFabDock { display: none !important; }
 /* ═══ /LAB REDO ═══ */
 /* ═══ LAB STAGES (ج3-أ · M206 · lab-stages.js) — سطرُ المراحل · منتقيها بنافذة الطلب · حوارُ المرحلة التالية ═══ */
 .lst-line { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 4px; font-size: 11.5px; font-weight: 600; line-height: 1.5; white-space: normal; }
+.lst-line .lst-g { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .lst-line .lst-st { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--text3); background: transparent; }
 .lst-line .lst-st.lst-done { color: var(--green); border-color: rgba(var(--green-rgb), 0.45); }
 .lst-line .lst-st.lst-cur { color: var(--blue); border-color: var(--blue); background: rgba(var(--blue-rgb), 0.12); font-weight: 700; }
 .lst-line .lst-state { font-weight: 600; opacity: .85; }
 .lst-line .lst-state::before { content: "· "; }
 .lst-sep { color: var(--text3); font-size: 11px; }
-.lst-undo { margin-inline-start: 4px; padding: 1px 7px; border-radius: 999px; border: 1px dashed var(--border2, var(--border)); background: transparent; color: var(--text2); font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer; width: auto; }
+.lst-undo { white-space: nowrap; margin-inline-start: 4px; padding: 1px 7px; border-radius: 999px; border: 1px dashed var(--border2, var(--border)); background: transparent; color: var(--text2); font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer; width: auto; }
 .lst-undo:hover { color: var(--text); border-color: var(--text2); }
+/* v727: سطرُ المراحل بصفٍّ تابع تحت صفّ الطلب (الجدولان): أفقيٌّ بعرض الجدول، فلا يضغط عمودَ «نوع العمل» حين تكثر أزرارُ الصف.
+   الخليتان: فراغٌ تحت العمودين الأولين ثم السطر — فيبدأ تحت «نوع العمل». */
+tr.lst-row > td { padding-top: 0 !important; padding-bottom: 10px; }
+tr.lst-row .lst-line { margin-top: 0; }
+tr.has-lst > td { border-bottom: none !important; padding-bottom: 5px; }
+/* v727: موضعُ الجهاز المتحرك بخانة السن — صندوقٌ واحد يلتفّ نصُّه داخله (لا شرائحَ مكسورة بين الأسطر). أدناه عرضُ «الفك السفلي»:
+   لا يزيد أدنى عرضٍ للجدول إلا قليلاً (جدولُ المخابر يعمل عند حدّه مع أربعة أزرار).
+   الألوانُ من الصنف المرافق (tone-lime بملف المريض · tooth-badge بصفحة المخابر). */
+.lab-area { display: inline-block; min-width: 86px; max-width: 190px; padding: 1px 7px; border-radius: 10px; border-width: 1px; border-style: solid; font-size: 11px; font-weight: 700; line-height: 1.6; white-space: normal; text-align: start; vertical-align: middle; }
 .lst-box:empty { display: none; }
 .lst-box .lst-lbl, .lst-dialog .lst-lbl { display: block; margin: 0 0 6px; font-size: 12.5px; font-weight: 700; color: var(--text2); }
 .lst-dialog .lst-lbl { margin-top: 14px; }
