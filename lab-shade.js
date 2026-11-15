@@ -2,7 +2,7 @@
    SyDent — lab-shade.js · دليلُ ألوان الأسنان بطلب المخبر
    ────────────────────────────────────────────────────────────────────────
    مصدرٌ واحد للسطحين (صفحة المخابر + تبويب المخابر ببطاقة المريض — #676).
-   زرٌّ بجانب حقل «اللون» يفتح منتقياً بثلاثة أدلّة معروفة: VITA classical (16) · VITA 3D-MASTER (29 مع التبييض) ·
+   زرٌّ بجانب حقل «اللون» (أيقونةٌ فقط حين يضيق الحقل — v729) يفتح منتقياً بثلاثة أدلّة معروفة: VITA classical (16) · VITA 3D-MASTER (29 مع التبييض) ·
    Ivoclar Chromascop (20). النقرُ يكتب رمزَ اللون بالحقل — والحقلُ يبقى نصاً حرّاً (أدلّةٌ أخرى، لونان، ملاحظة).
      • القيمةُ المكتوبة: «A2» · «3M2» · «Chromascop 210» (رمزُ Chromascop رقمٌ مجرّد، فيُكتب اسمُ دليله معه ليقرأه المخبر).
      • ألوانُ العيّنات على الشاشة **تقريبية** للتمييز بين الرموز لا لمطابقة اللون — المرجعُ الدليلُ الفعلي بضوء النهار،
@@ -144,7 +144,8 @@
     input.parentNode.insertBefore(wrap, input); wrap.appendChild(input);
     var b = document.createElement('button');
     b.type = 'button'; b.className = 'lsh-btn'; b.title = 'اختيار اللون من دليل الألوان';
-    b.innerHTML = '<span aria-hidden="true">🎨</span> <span>دليل الألوان</span>';
+    b.setAttribute('aria-label', b.title);                                   /* الاسمُ يبقى للقارئ حين يُخفى النص بالحقل الضيّق */
+    b.innerHTML = '<span aria-hidden="true">🎨</span> <span class="lsh-btn-t">دليل الألوان</span>';
     b.addEventListener('click', function () { open(input); });
     wrap.appendChild(b);
   }

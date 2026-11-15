@@ -176,6 +176,12 @@ async function suite(F) {
   H.attach(inp); H.attach(inp);
   const fld = inp.parentNode;
   ok(fld.className === 'lsh-field' && ws.document.querySelectorAll('.lsh-btn').length === 1 && ws.document.querySelectorAll('.lsh-field').length === 1 && fld.querySelector('.lsh-btn').type === 'button' && inp.id === 'labOrderShade', 'shade button: attached once, beside the same input');
+  /* v729: الحقلُ بعمودين يضيق ⇒ الزرُّ أيقونةٌ فقط (استعلامُ حاوية) — النصُّ بصنفه ليُخفى، والاسمُ بـaria-label ليبقى */
+  const sbt = fld.querySelector('.lsh-btn'), css = F['theme.css'];
+  ok(sbt.querySelectorAll('.lsh-btn-t').length === 1 && sbt.querySelector('.lsh-btn-t').textContent === 'دليل الألوان' && sbt.getAttribute('aria-label') === 'اختيار اللون من دليل الألوان' && sbt.title === sbt.getAttribute('aria-label'),
+    'shade button: its text carries the hideable class and its name stays in aria-label');
+  ok(/\.lsh-field \{[^}]*container: lshf \/ inline-size;/.test(css) && /@container lshf \(max-width: 300px\) \{[^@]*\.lsh-btn \.lsh-btn-t \{ display: none; \} \}/.test(css) && /\.lsh-field > input \{ flex: 1 1 auto; min-width: 0; \}/.test(css),
+    'theme.css: a narrow shade field shows an icon-only button — the width goes back to the value');
   let evs = 0; inp.addEventListener('input', () => evs++);
   inp.value = '3M2'; fld.querySelector('.lsh-btn').click();
   const dlg = () => ws.document.querySelector('.lsh-dialog');
@@ -289,6 +295,9 @@ const MUTANTS = [
   ['shade: Chromascop written as a bare number', rep('lab-shade.js', "v: 'Chromascop ' + code,", "v: code,")],
   ['shade: the pick does not notify the form', rep('lab-shade.js', "input.dispatchEvent(new Event('input', { bubbles: true })); ", "")],
   ['shade: the button is attached twice', rep('lab-shade.js', "    if (!input || input._lsh) return;", "    if (!input) return;")],
+  ['shade: the button text cannot be hidden in a narrow field', rep('lab-shade.js', '<span class="lsh-btn-t">', '<span>')],
+  ['shade: the icon-only button has no name', rep('lab-shade.js', "    b.setAttribute('aria-label', b.title);", "    void 0;")],
+  ['shade: the narrow-field rule watches no container', rep('theme.css', 'container: lshf / inline-size; }', '}')],
   ['shade: dialogs stack', rep('lab-shade.js', "if (!input || document.querySelector('.lsh-dialog')) return;", "if (!input) return;")],
   ['shade: free text marked as a guide shade', rep('lab-shade.js', "if (norm(items[k].v) === v) return", "if (v.indexOf(norm(items[k].v)) === 0) return")],
   ['perf: staged orders measured from the first send again', rep('labs.html', "    if (cyc) { cyc.forEach(function (c) { addCycle(o, c.sent, c.received, c.due); }); return; }\n", "")],
