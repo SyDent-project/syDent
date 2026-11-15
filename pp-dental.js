@@ -5291,6 +5291,7 @@ async function openToothModal(n, surface) {
   /* M202: الجهازُ المتحرك — زرُّ إزالته من أي سنٍّ يعوّضه (يزيل الوحدةَ كلها) */
   if (window.SyDenture && window.SyDenture.has(n) && !isSxSurface(currentSurface)) {
     _special = window.SyDenture.removeBtnHtml(n) + _special;
+    if (window.SyDentSvc) _special = window.SyDentSvc.btnHtml(n) + _special;   /* ج4-أ (M208): خدماتُ الجهاز قبل زرّ إزالته */
   }
   /* v491: زرُّ إزالةٍ **لكلِّ حالةٍ سريرية** على السن (أيّاً كان موضعها)، باسمها وموضعها —
      وحالةُ السطح المنقور أولاً. «⬜ سليم (إلغاء)» يبقى لإعادة السطح/السن سليماً. */
@@ -6322,6 +6323,8 @@ function pickToothTreatment(status, label) {
   // not where the user clicked. This way the list can stay unified.
   var tr = getTreatment(status);
   var tp = tr ? (tr.target_part || 'crown') : 'crown';
+  /* ج4-أ (M208): سياقُ خدمةِ جهازٍ متروك يُمحى مع كل اختيار — قبل أي مسارٍ يعود مبكراً */
+  if (window.SyDentSvc) window.SyDentSvc.clearPending();
   /* M202: الجهازُ المتحرك — منتقيه الخاص (الفك ثم الأسنان المعوَّضة)؛ وسياقٌ متروك من فتحةٍ سابقة يُمحى دائماً */
   if (window.SyDenture) {
     window.SyDenture.clearPending();
@@ -6330,6 +6333,16 @@ function pickToothTreatment(status, label) {
       window.__regionalPickerMode = false;
       closeModal('toothModal');
       window.SyDenture.openPicker(status, label, _dArch ? { arch: _dArch } : null);
+      return;
+    }
+  }
+  /* ج4-أ (M208): خدمةُ جهازٍ متحرك — علاجُ فكٍّ موسوم؛ جهازُه يُحدَّد ثم خطوةُ التكلفة */
+  if (window.SyDentSvc) {
+    if (window.SyDentSvc.isTreatment(tr)) {
+      var _svTooth = (currentTooth && !window.__regionalPickerMode) ? currentTooth : null;
+      window.__regionalPickerMode = false;
+      closeModal('toothModal');
+      window.SyDentSvc.start(status, label, _svTooth ? { tooth: _svTooth } : null);
       return;
     }
   }
@@ -6828,6 +6841,8 @@ async function _saveToothTreatment_inner() {
   // they appear only in the sessions list and timeline.
   /* M202: الجهازُ المتحرك جلسةُ فكٍّ + صفوفُ مخططٍ للأسنان المعوَّضة — مسارُه بـpp-denture.js (المالُ: الجلسةُ نفسها وإعادةُ التوزيع القائمة) */
   if (window.SyDenture && window.SyDenture.saveReady()) { await window.SyDenture.save(cost, units, date, notes); return; }
+  /* ج4-أ (M208): خدمةُ جهازٍ قائم — جلسةُ فكٍّ مربوطة بجهازها (وإضافةُ السن ترسمه) — مسارُها بـpp-denture-svc.js */
+  if (window.SyDentSvc && window.SyDentSvc.saveReady()) { await window.SyDentSvc.save(cost, units, date, notes); return; }
   if (pendingRegionalType === 'quadrant' || pendingRegionalType === 'arch' || pendingRegionalType === 'mouth') {
     // Build description that describes the region (no tooth number)
     var regAreaText, regDescription;

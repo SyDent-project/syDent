@@ -367,6 +367,7 @@ async function loadTreatmentsFromSupabase() {
                fill:_sanHex(t.fill), stroke:_sanHex(t.stroke), price:t.price, builtin:t.builtin, is_favorite:!!t.is_favorite,
                needs_lab: !!t.needs_lab,
                target_part: t.target_part || 'crown',
+               denture_svc: (t.denture_svc === 'service' || t.denture_svc === 'add') ? t.denture_svc : '',   /* M208: خدمةُ جهازٍ متحرك */
                is_active: t.is_active !== false,
                category: t.category || 'other',
                default_note: t.default_note || '',

@@ -3341,3 +3341,92 @@ Object.assign(window.SyI18nDict, {
     return (ic || '') + BADGE[base] + ' — ' + names.split('، ').map(nm).join(', ');
   }]);
 })();
+
+/* ── ج4-أ (M208): خدماتُ ما بعد تسليم الجهاز (pp-denture-svc.js · حقلُ الخدمة بصفحة العلاجات) ──
+   اسمُ العلاج واسمُ الجهاز بياناتُ عيادة تبقى كما كُتبت؛ الموضعُ والحالةُ وأسبابُ الرفض جداولُ مغلقة — قيمةٌ مجهولة لا تطابق
+   فيبقى السطرُ عربياً كاملاً. كتلةٌ مستقلة بجداولها: لا تُوسَّع جداولُ كتلة v722 ولا تتغيّر ترجمةُ نصٍّ قائم. */
+(function () {
+  var D = window.SyI18nDict, P = window.SyI18nPatterns;
+  var ARCH = { 'الفك العلوي': 'Upper jaw', 'الفك السفلي': 'Lower jaw' };
+  var A1 = '(?:الفك العلوي|الفك السفلي) — (?:كامل|السن \\d+|الأسنان \\d+(?:، \\d+)*)';
+  var TP = '(السن \\d+|الأسنان \\d+(?:، \\d+)*)';
+  function nums(x) { return x.replace(/،\s*/g, ', '); }
+  function area1(x) {
+    var m = x.match(/^(الفك العلوي|الفك السفلي) — (?:(كامل)|السن (\d+)|الأسنان (.+))$/);
+    return ARCH[m[1]] + ' — ' + (m[2] ? 'complete' : (m[3] ? 'tooth ' + m[3] : 'teeth ' + nums(m[4])));
+  }
+  function tp(x) { var m = x.match(/^(?:السن (\d+)|الأسنان (.+))$/); return m[1] ? 'tooth ' + m[1] : 'teeth ' + nums(m[2]); }
+  function cap(x) { return x.charAt(0).toUpperCase() + x.slice(1); }
+  var ST = { 'مخطط': 'planned', 'من عيادة أخرى': 'from another clinic', 'من عيادتنا': 'from our clinic', 'محوّل': 'referred' };
+  var esc = function (k) { return k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
+  /* لماذا لا تُسجَّل الخدمة على الجهاز */
+  var UWHY = {
+    'الجهاز لم يعد على المخطط': 'the denture is no longer on the chart',
+    'الجهاز ما زال مخطّطاً — أنجزه أولاً': 'the denture is still planned — complete it first',
+    'الجهاز الكامل يعوّض كل أسنان الفك — إضافة السن للجهاز الجزئي': 'a complete denture replaces every tooth of the jaw — adding a tooth is for a partial denture',
+    'الخدمة لم تعد بقائمة العلاجات': 'the service is no longer in the treatments list',
+    'غير متاح لهذا الجهاز': 'not available for this denture',
+    'لا جهاز متحرك على المخطط — سجّل الجهاز أولاً (ولو «موجود مسبقاً»)': 'no denture on the chart — record the denture first (even as «Existing»)'
+  };
+  var UWHY_RE = '(' + Object.keys(UWHY).map(esc).join('|') + ')';
+  /* حالةُ السن أمام «إضافة سن» — الأسبابُ التي تمرّ من فحص الجهاز (مزروع · ضمن جسر…) تترجمها كتلةُ v722 */
+  var SWHY = {
+    'ضمن الجهاز': 'part of the denture', 'يعوّضه جهاز آخر': 'replaced by another denture',
+    'قلعه مخطّط — يُضاف مخطّطاً': 'extraction planned — added as planned',
+    'عليه زرعة أو جسر مخطّط': 'has a planned implant or bridge', 'لا يقبل الإضافة': 'cannot be added'
+  };
+  var SWHY_RE = '(' + Object.keys(SWHY).map(esc).join('|') + ')';
+  var R = function (src) { return new RegExp(src); };
+
+  Object.assign(D, {
+    '🛠 خدمات الجهاز': '🛠 Denture services', 'خدمة جديدة': 'New service', 'سجل الخدمات': 'Service history',
+    'لا خدمات مسجّلة لهذا الجهاز بعد.': 'No services recorded for this denture yet.',
+    'لا خدمات جهاز بقائمة علاجاتك — أضفها من صفحة العلاجات بزر «الافتراضي»، أو أنشئ علاج «فك كامل» وعلّمه خدمةً لجهاز متحرك.':
+      'No denture services in your treatments list — add them from the Treatments page with the «Defaults» button, or create a «Full jaw» treatment and mark it as a denture service.',
+    'خدمة جهاز': 'Denture service',
+    '— الملوَّن ضمن الجهاز، والباهت لا يقبل الإضافة (انقره لمعرفة السبب).': '— coloured teeth are part of the denture; faded ones cannot be added (click one to see why).',
+    'لا أسنان مفقودة بهذا الفك تُضاف للجهاز — سجّل القلع على المخطط أولاً.': 'No missing teeth in this jaw can be added to the denture — record the extraction on the chart first.',
+    'خدمات الجهاز: تبطين · إصلاح · إضافة سن': 'Denture services: reline · repair · add a tooth',
+    'تبطين · إصلاح · إضافة سن — وسجلُّ خدمات الجهاز': 'Reline · repair · add a tooth — and the denture\'s service history',
+    '🦷 الجهاز لم يعد على المخطط': '🦷 The denture is no longer on the chart',
+    '🛠 خدمة الجهاز تُسجَّل «منجز» أو «مخطّط» فقط': '🛠 A denture service is recorded as «Done» or «Planned» only',
+    '⚠️ خدمات الجهاز تحتاج تحديث قاعدة البيانات — حدّث الصفحة وأعد المحاولة': '⚠️ Denture services need a database update — refresh the page and try again',
+    /* صفحةُ العلاجات */
+    'خدمة لجهاز متحرك': 'Service for a removable denture', 'لا — علاج فك عادي': 'No — a regular jaw treatment',
+    'خدمة لجهاز قائم (تبطين · إصلاح · تعديل)': 'Service for an existing denture (reline · repair · adjustment)',
+    'إضافة سن لجهاز جزئي': 'Add a tooth to a partial denture',
+    'خدمة الجهاز تُسجَّل من شريحة الجهاز ببطاقة المريض وتدخل سجلَّ خدماته.': 'A denture service is recorded from the denture chip on the patient card and joins its service history.',
+    'تُسجَّل على جهاز متحرك قائم وتدخل سجلَّ خدماته': 'Recorded on an existing removable denture and joins its service history',
+    '🛠 خدمة جهاز': '🛠 Denture service', '🛠 إضافة سن لجهاز': '🛠 Add tooth to denture'
+  });
+
+  P.push(
+    [R('^' + UWHY_RE + '$'), function (m, r) { return cap(UWHY[r]); }],
+    [R('^🛠 ' + UWHY_RE + '$'), function (m, r) { return '🛠 ' + cap(UWHY[r]); }],
+    [R('^⚠️ تغيّر المخطط — ' + UWHY_RE + '$'), function (m, r) { return '⚠️ The chart changed — ' + UWHY[r]; }],
+    [R('^' + SWHY_RE + '$'), function (m, r) { return cap(SWHY[r]); }],
+    [R('^🦷 السن (\\d+): ' + SWHY_RE + '$'), function (m, n, r) { return '🦷 Tooth ' + n + ': ' + SWHY[r]; }],
+    [R('^⚠️ تغيّر المخطط — السن (\\d+): ' + SWHY_RE + '$'), function (m, n, r) { return '⚠️ The chart changed — tooth ' + n + ': ' + SWHY[r]; }],
+    /* سطرُ الجهاز بنافذته وبقائمة «أيُّ جهاز؟»: الاسمُ يبقى، والموضعُ والحالةُ يُترجمان */
+    [R('^(.+) — (' + A1 + ')(?: · (مخطط|من عيادة أخرى|من عيادتنا|محوّل))?$'), function (m, n, a, st) { return n + ' — ' + area1(a) + (st ? ' · ' + ST[st] : ''); }],
+    [/^اختر الجهاز الذي تخصّه «(.+)»:$/, 'Choose the denture «$1» is for:'],
+    [/^«(.+)»: اختر السن الذي يُضاف للجهاز — المفقود وحده يقبل الإضافة\.$/, '«$1»: choose the tooth to add to the denture — only a missing tooth can be added.'],
+    /* السنُّ المضاف بسطر السجل */
+    [R('^' + TP + '$'), function (m, t) { return cap(tp(t)); }],
+    /* عنوانُ خطوة التكلفة */
+    [R('^🛠 (.+) — (.+) \\((' + A1 + ')\\)(?: — إضافة ' + TP + ')?$'), function (m, l, n, a, t) { return '🛠 ' + l + ' — ' + n + ' (' + area1(a) + ')' + (t ? ' — adding ' + tp(t) : ''); }],
+    /* رسائلُ الحفظ */
+    [R('^✅ تم تسجيل (.+) — أُضيف ' + TP + ' لرسم الجهاز$'), function (m, l, t) { return '✅ ' + l + ' recorded — ' + tp(t) + ' added to the denture drawing'; }],
+    [R('^✅ تم تسجيل (.+) مخطّطاً — ' + TP + ' يُضاف لرسم الجهاز عند الإنجاز$'), function (m, l, t) { return '✅ ' + l + ' recorded as planned — ' + tp(t) + ' joins the denture drawing on completion'; }],
+    [/^✅ تم تسجيل (.+) — (.+) \((الفك العلوي|الفك السفلي)\)$/, function (m, l, n, a) { return '✅ ' + l + ' recorded — ' + n + ' (' + ARCH[a].toLowerCase() + ')'; }],
+    [R('^🦷 (?:السن (\\d+) قلعه|الأسنان (\\d+(?:، \\d+)*) قلعها) مخطّط — سجّل الإضافة «مخطّط»، أو أنجز القلع أولاً$'), function (m, one, many) {
+      return '🦷 The extraction of ' + (one ? 'tooth ' + one : 'teeth ' + nums(many)) + ' is planned — record the addition as «Planned», or complete the extraction first';
+    }],
+    [/^⚠️ تعذّر إضافة السن لرسم الجهاز \(([\s\S]+)\) — لم تُحفظ الجلسة$/, '⚠️ Could not add the tooth to the denture drawing ($1) — the session was not saved'],
+    /* ملاحظةُ إنجاز «إضافة سن» (تلحق رسالةَ الإنجاز) */
+    [R('^✅ تم إكمال العلاج( • وأُكمل الموعد المرتبط تلقائياً)? • ⚠️ ' + TP + ' لم يُضف لرسم الجهاز — (السن لا يقبل الإضافة الآن|الجهاز لم يعد على المخطط)$'), function (m, appt, t, why) {
+      return '✅ Treatment completed' + (appt ? ' • and the linked appointment was completed automatically' : '')
+        + ' • ⚠️ ' + tp(t) + ' was not added to the denture drawing — ' + (why === 'الجهاز لم يعد على المخطط' ? 'the denture is no longer on the chart' : 'the tooth cannot be added now');
+    }]
+  );
+})();

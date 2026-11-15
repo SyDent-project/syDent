@@ -2299,7 +2299,7 @@ try {
      خامل)، وسطرُ CSS بـpatient-profile.css مولَّدٌ من قائمة الكتابة ويُقارَن حرفياً،
      ومعالجٌ جديد بلا تصنيف يُسقط الحارس فيُجبر صاحبه على القرار. */
   // سجلُّ معالجات بطاقة المريض لوضع القراءة — مصدرٌ واحد يُنسخ حرفياً إلى check-mirrors (V11)
-  const PP_FILES = ['patient-profile.html', 'pp-core.js', 'pp-clinical.js', 'pp-dental.js', 'pp-modules.js', 'pp-plan.js', 'pp-timeline.js', 'pp-appt.js', 'pp-extras.js', 'pp-wa.js', 'pp-intake.js', 'pp-portal.js', 'pp-xray.js', 'pp-denture.js'];
+  const PP_FILES = ['patient-profile.html', 'pp-core.js', 'pp-clinical.js', 'pp-dental.js', 'pp-modules.js', 'pp-plan.js', 'pp-timeline.js', 'pp-appt.js', 'pp-extras.js', 'pp-wa.js', 'pp-intake.js', 'pp-portal.js', 'pp-xray.js', 'pp-denture.js', 'pp-denture-svc.js'];
   const PP_WRITE = ['openApptModal', 'openNewSessionEntry', 'openModal', 'openWaHub', 'openPayModal', 'openEditModal', 'unlinkFromFamily', 'openFamilyLinkModal',
     'openPlannedApptModal', 'toggleBatchMode', 'toggleExamMode', 'toggleDraftMode', 'examUndo', 'batchApply', 'batchUndo', 'draftUndo', 'draftClearAll', 'draftSave',
     'draftSetWidth', 'draftSetEraser', 'perioDeleteExam', 'perioNewExam', 'perioSave', 'perioCreateExam', 'openObModal', 'openAdjustmentModal',
@@ -2342,6 +2342,7 @@ try {
     'xrCamClose', 'xrCamStart', 'xrCamMirror', 'xrCamShot', 'xrCamRemove', 'xrCamDone',   /* v642: داخل نافذة الكاميرا (مدخلاها محروسان) */
     'xrInboxClose', 'xrInboxAssign', 'xrInboxDismiss',
     'modeTxSetTab', 'modeMiniJump', 'modeMiniUndo', 'modeMiniExit',
+    'dsvOpenFromTooth' /* M208: زرُّ «خدمات الجهاز» داخل نافذة السن (مدخلُها openToothModal محروس) — يفتح سجلَّ الجهاز، وتسجيلُ الخدمة محروسٌ بأول سطر (dsvLocked) */,
     'dentArchToggle', 'dentArchBoth', 'dentToothToggle', 'dentToothWhy', 'dentOpenEdentulous'];   /* v712: شرائحُ التصنيف والسطرُ الرفيع داخل وضعَي الفحص/التحديد (مدخلاهما محروسان: toggleExamMode · toggleBatchMode) */   /* M202: داخل منتقي الجهاز المتحرك (مدخلُه محروس: openToothModal · toggleExamMode) */   /* M194: داخل نافذة الوارد (مدخلُها محروس) */   /* M192: داخل ورقة رفع الأشعة (مداخلُها محروسة) */
   const PP_ACT_WRITE = ['new', 'remind', 'rebook', 'stage', 'schedule', 'editplanned', 'delplanned'];
   const PP_ACT_READ = ['open', 'more'];
@@ -2542,7 +2543,7 @@ try {
     const LISTENERS = {
       'index.html': 3, 'patients.html': 19   /* v442: عدّاد أحرف نص الرسالة (input) — قراءة بحتة · C2: إغلاق قائمة «أدوات» (عرضٌ فقط) · C2: شرائح الفلاتر النشطة (onclick ×2، تصفيةٌ محلية بلا كتابة) */, 'appointments.html': 3   /* v439: مستمع إغلاق modalOverlay بنقرةٍ خارجية حُذف — كان يمحو نموذجاً معبّأً · v565: مستمعُ «+N» انتقل إلى SyDentBadgeCap بـtheme.js (قراءةٌ بحتة) */, 'appt-views.js': 7   /* v498: نقرُ فترةٍ محجوزة ⇒ openBlockModal (محروسة) */, 'appt-blocks.js': 0, 'appt-time.js': 0, 'appt-wa.js': 1   /* v443: عدّاد أحرف نص التذكير (input) — قراءة بحتة */,
       'appt-booking.js': 0, 'appt-modal.js': 0, 'patient-profile.html': 11   /* C2: إغلاق قائمة «أدوات» (عرضٌ فقط) */, 'pp-core.js': 0, 'pp-clinical.js': 0, 'pp-dental.js': 2,
-      'pp-modules.js': 5, 'pp-plan.js': 2   /* v611: إغلاقُ لوحة «المرحلة/بديل» بنقرةٍ خارجية أو Escape — قراءة بحتة */, 'pp-timeline.js': 0, 'pp-appt.js': 3, 'pp-extras.js': 2, 'pp-wa.js': 1, 'pp-intake.js': 0, 'pp-portal.js': 0, 'pp-denture.js': 0   /* M202: صفر مستمعات — كلُّ نقراته onclick مصنّفة أعلاه */, 'pp-xray.js': 1 /* v635: «paste» (خارج القائمة) · v642: keydown للالتقاط — يعمل فقط ونافذةُ الكاميرا مفتوحة (مدخلاها محروسان) */,   /* v408: عدّاد أحرف نص الرسالة (input) — قراءة بحتة */
+      'pp-modules.js': 5, 'pp-plan.js': 2   /* v611: إغلاقُ لوحة «المرحلة/بديل» بنقرةٍ خارجية أو Escape — قراءة بحتة */, 'pp-timeline.js': 0, 'pp-appt.js': 3, 'pp-extras.js': 2, 'pp-wa.js': 1, 'pp-intake.js': 0, 'pp-portal.js': 0, 'pp-denture.js': 0   /* M202: صفر مستمعات — كلُّ نقراته onclick مصنّفة أعلاه */, 'pp-denture-svc.js': 4   /* M208: نقرُ شريحة الجهاز ومفتاحُها (فتحُ سجلّه — قراءة) · نقرُ نافذة الجهاز ومفتاحُ Escape: اختيارُ الخدمة محروسٌ بأول سطر (dsvLocked ⇒ blockReadOnly) وما بعده لا يُبلَغ إلا منه، والحفظُ محروسٌ ثانيةً */, 'pp-xray.js': 1 /* v635: «paste» (خارج القائمة) · v642: keydown للالتقاط — يعمل فقط ونافذةُ الكاميرا مفتوحة (مدخلاها محروسان) */,   /* v408: عدّاد أحرف نص الرسالة (input) — قراءة بحتة */
       'treatments.html': 16, 'doctors.html': 1, 'employees.html': 5, 'payouts.html': 1, 'expenses.html': 4, 'inventory.html': 5   /* v569: نافذةُ «جهّز الطلبية» (نقرٌ + إدخال) — قراءة بحتة · v570: نافذةُ الجرد (نقرٌ + إدخال) — الاعتمادُ وحده كتابة وزرُّه مخفيٌّ بالقراءة ومحروس */,
       'labs.html': 4, 'accounting.html': 11   /* v546: تصديرُ Excel — قراءة بحتة */, 'provider-reports.html': 3   /* v539: نقرُ تبويب العلاجات (ترتيبٌ · تفاصيلُ جلسات) · v545: طباعةُ الملخّص ونسخُه — قراءة بحتة */, 'audit-log.html': 6, 'settings.html': 2, 'learn.html': 1
     };
@@ -2554,7 +2555,7 @@ try {
     });
     const regFiles = new Set(Object.keys(RO_REG).concat(PP_FILES, Object.keys(RO_PAGES).filter(k => !/سجل/.test(k))));
     regFiles.forEach(f => { if (!(f in LISTENERS)) miss(f + ': ملفٌّ مراجَع بلا عدِّ مستمعات'); });
-    if (nListeners !== 119) miss('مجموع المستمعات المراجَعة ' + nListeners + ' (المسجَّل 119)');   /* v642: +1 keydown كاميرا الفم · v611: +2 إغلاقُ لوحة الخطة · C2: إغلاق قائمة «أدوات» بالمرضى وملف المريض · شرائح الفلاتر ×2 */   /* v569: +2 نافذةُ الطلبية بالمخزون */   /* v565: مستمعُ شارات الموعد انتقل لـtheme.js المشترك */
+    if (nListeners !== 123) miss('مجموع المستمعات المراجَعة ' + nListeners + ' (المسجَّل 123)');   /* M208: +4 خدماتُ الجهاز (شريحتُه ونافذتُه — التسجيلُ محروس) · v642: +1 keydown كاميرا الفم · v611: +2 إغلاقُ لوحة الخطة · C2: إغلاق قائمة «أدوات» بالمرضى وملف المريض · شرائح الفلاتر ×2 */   /* v569: +2 نافذةُ الطلبية بالمخزون */   /* v565: مستمعُ شارات الموعد انتقل لـtheme.js المشترك */
     const tr = extractFunction(read('treatments.html'), 'wireDragAndDrop');
     if (!/\|\| !!\(window\.SyDentSub && window\.SyDentSub\.isReadOnly\(\)\);/.test(tr)) miss('treatments.html: الترتيب بالسحب متاح بوضع القراءة');
     const em = extractFunction(read('employees.html'), 'wireDragAndDrop');
