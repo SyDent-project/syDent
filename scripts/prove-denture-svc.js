@@ -127,10 +127,28 @@ function staticChecks(F) {
   ok(/denture_svc: \(t\.denture_svc === 'service' \|\| t\.denture_svc === 'add'\) \? t\.denture_svc : '',/.test(F['pp-core.js']), 'treatments loader carries the marker');
   ok(/if \(await _apptDentureAddOnComplete\(s, providerOverride\)\) return;/.test(AP) && AP.indexOf('if (await _apptDentureAddOnComplete(s, providerOverride)) return;') < AP.indexOf(".eq('unit_id', s.id).eq('surface', 'DENTURE').eq('status', 'planned').select('tooth_num');"),
     'appointments: the mirror runs before the denture path');
-  ok(/id="tDentSvc"/.test(TH) && /window\.__m208T = !!\(data && data\.length && Object\.prototype\.hasOwnProperty\.call\(data\[0\], 'denture_svc'\)\);/.test(TH)
-    && /if \(window\.__m208T\) updatePayload\.denture_svc = \(_savedTarget === 'arch'\) \? dentSvc : null;/.test(TH) && /if \(window\.__m208T\) insertPayload\.denture_svc = \(pickedTarget === 'arch'\) \? dentSvc : null;/.test(TH)
-    && /w\.style\.display = \(window\.__m208T && pickedTarget === 'arch'\) \? '' : 'none';/.test(TH),
-    'catalog page: the service field shows with «full jaw» only and is saved with it only (column-gated)');
+  /* صفحة العلاجات: بلاطتان صريحتان (طلبُ المالك: الحقلُ المخفيّ لم يُعثَر عليه) — التحويلُ بالاتجاهين يُنفَّذ من الملف */
+  const cutFn = (name) => { const i = TH.indexOf('function ' + name + '('), j = TH.indexOf('\n}\n', i); return (i > -1 && j > i) ? TH.slice(i, j + 2) : ''; };
+  let ui = null, db = null;
+  try { const c = {}; vm.createContext(c); vm.runInContext(cutFn('_normDentSvc') + '\n' + TH.slice(TH.indexOf('function _normDentSvc('), TH.indexOf('\n', TH.indexOf('function _normDentSvc('))) + '\n' + cutFn('uiTargetOf') + '\n' + cutFn('dbTargetOf') + '\nthis.ui = uiTargetOf; this.db = dbTargetOf;', c); ui = c.ui; db = c.db; } catch (e) { ui = null; }
+  const J = x => JSON.stringify(x);
+  ok(!!ui && ui({ target_part: 'arch', denture_svc: 'service' }) === 'denture_service' && ui({ target_part: 'arch', denture_svc: 'add' }) === 'denture_add' && ui({ target_part: 'arch', denture_svc: '' }) === 'arch' && ui({ target_part: 'arch' }) === 'arch'
+    && ui({ target_part: 'crown', denture_svc: 'service' }) === 'crown' && ui({ target_part: 'arch', denture_svc: 'zzz' }) === 'arch' && ui({}) === 'crown' && ui({ target_part: 'denture_partial' }) === 'denture_partial',
+    'catalog page: a marked jaw treatment shows as its own tile — a plain jaw treatment stays «jaw»');
+  ok(!!db && J(db('denture_service')) === J({ target_part: 'arch', denture_svc: 'service' }) && J(db('denture_add')) === J({ target_part: 'arch', denture_svc: 'add' }) && J(db('arch')) === J({ target_part: 'arch', denture_svc: null })
+    && J(db('crown')) === J({ target_part: 'crown', denture_svc: null }) && ['denture_service', 'denture_add', 'arch', 'mouth', 'crown', 'denture_full'].every(t => ui(db(t)) === t),
+    'catalog page: each tile saves a valid (target_part · marker) pair and round-trips — nothing but the two service tiles carries a marker');
+  ok(/<div class="target-opt" data-target="denture_service" data-m208 style="display:none;">/.test(TH) && /<div class="target-opt" data-target="denture_add" data-m208 style="display:none;">/.test(TH)
+    && TH.indexOf('data-target="denture_service"') > TH.indexOf('data-target="denture_partial"') && TH.indexOf('data-target="denture_add"') < TH.indexOf('data-target="quadrant"')
+    && /for \(var i = 0; i < ts\.length; i\+\+\) ts\[i\]\.style\.display = window\.__m208T \? '' : 'none';/.test(TH) && /window\.__m208T = !!\(data && data\.length && Object\.prototype\.hasOwnProperty\.call\(data\[0\], 'denture_svc'\)\);\n  syncDentSvcTiles\(\);/.test(TH)
+    && !/tDentSvc|dentSvcWrap/.test(TH), 'catalog page: two explicit tiles beside the denture tiles, hidden until the column exists — no hidden field left');
+  ok(/var _savedDb = dbTargetOf\(_savedUi\), _savedTarget = _savedDb\.target_part;/.test(TH) && /if \(window\.__m208T\) updatePayload\.denture_svc = _savedDb\.denture_svc;/.test(TH)
+    && /target_part: dbTargetOf\(pickedTarget\)\.target_part,/.test(TH) && /if \(window\.__m208T\) insertPayload\.denture_svc = dbTargetOf\(pickedTarget\)\.denture_svc;/.test(TH)
+    && (TH.match(/pickTarget\(uiTargetOf\(t\)\);/g) || []).length === 2 && /\? uiTargetOf\(existing\)/.test(TH) && !/target_part: pickedTarget,/.test(TH),
+    'catalog page: add, edit and duplicate all go through the one mapping (column-gated)');
+  ok(/uiTargetOf\(t\) !== activeFilter\) return false;/.test(TH) && /var k = uiTargetOf\(t\); byT\[k\]/.test(TH) && /var tp = targetMap\[uiTargetOf\(t\)\] \|\| targetMap\.crown;/.test(TH)
+    && /\['denture_service','خدمة جهاز'\], \['denture_add','إضافة سن لجهاز'\]/.test(TH) && /'denture_service': \{ text:'خدمة جهاز',  tone:'purple' \}/.test(TH) && /'denture_add':     \{ text:'إضافة سن لجهاز', tone:'purple' \}/.test(TH),
+    'catalog page: the filter chips and the card tag follow the same mapping');
   ok(/if \(res\.error && \/denture_svc\/i\.test\(res\.error\.message \|\| ''\)\) \{\n    rows = rows\.filter\(function\(r\)\{ return !r\.denture_svc; \}\);/.test(TH), 'catalog defaults: before the migration, services are deferred — never inserted as plain jaw treatments');
   ok(/'dentition_scope', 'denture_svc'\];/.test(F['scripts/check-catalog-parity.js']), 'catalog parity guard compares the marker');
   const CB = F['scripts/cache-bust.sh'];
@@ -205,6 +223,15 @@ async function behave(w, F) {
   ok(offBtn.getAttribute('aria-disabled') === 'true' && /الجهاز الكامل يعوّض كل أسنان الفك/.test(toasts()) && !!dlg() && !$('toothModal').classList.contains('open') && /لا خدمات مسجّلة لهذا الجهاز بعد/.test(dlg().textContent),
     'dialog: add-tooth is disabled for a complete denture, with its reason — and an empty history says so');
   click(dlg().querySelector('.modal-close'));
+
+  /* قائمةُ العلاجات تُحدَّث عند فتح النافذة (خدمةٌ أُضيفت بصفحة العلاجات والبطاقةُ مفتوحة) */
+  load(base());
+  const origLoad = w.loadTreatmentsFromSupabase; let loads = 0;
+  w.loadTreatmentsFromSupabase = function () { loads++; w.TREATMENTS.push(JSON.parse(JSON.stringify(T('denture-new', 'New SVC', 'arch', { denture_svc: 'service' })))); return Promise.resolve(); };
+  w.SyDentSvc.open('u-1'); const before = !!dlg().querySelector('[data-dsv-tx="denture-new"]');
+  await new Promise(res => setTimeout(res, 20));
+  ok(!before && loads === 1 && !!dlg().querySelector('[data-dsv-tx="denture-new"]'), 'dialog: the treatments list is refreshed on open — a service just added in the catalog appears');
+  w.loadTreatmentsFromSupabase = origLoad; w.TREATMENTS.pop(); click(dlg().querySelector('.modal-close'));
 
   /* ④ خدمةٌ عادية: جلسةُ فكٍّ مربوطة بالجهاز — صفر مساس بالمخطط */
   load(base());
@@ -461,8 +488,7 @@ function i18nChecks(strings, F) {
   try { t = i18nEngine(F); } catch (e) { ok(false, 'i18n: the engine loads'); return; }
   /* نصوصُ صفحة العلاجات (ثابتة بالـHTML والكود) */
   const TH = F['treatments.html'];
-  ['خدمة لجهاز متحرك', 'لا — علاج فك عادي', 'خدمة لجهاز قائم (تبطين · إصلاح · تعديل)', 'إضافة سن لجهاز جزئي', 'خدمة الجهاز تُسجَّل من شريحة الجهاز ببطاقة المريض وتدخل سجلَّ خدماته.',
-    'تُسجَّل على جهاز متحرك قائم وتدخل سجلَّ خدماته', '🛠 خدمة جهاز', '🛠 إضافة سن لجهاز'].forEach(x => { if (TH.indexOf(x.replace(/^🛠 /, '')) > -1) strings.push(x); else ok(false, 'i18n: catalog text missing from the page → ' + x); });
+  ['خدمة جهاز', 'إضافة سن لجهاز', 'تبطين · إصلاح · تعديل', 'للجهاز الجزئي فقط', '🦷 خدمة جهاز', '🦷 إضافة سن لجهاز'].forEach(x => { if (TH.indexOf(x.replace(/^🦷 /, '')) > -1) strings.push(x); else ok(false, 'i18n: catalog text missing from the page → ' + x); });
   const left = strings.filter(s => AR.test(t(s)));
   ok(strings.length >= 60 && left.length === 0, 'i18n: ' + strings.length + ' service texts through the real engine — no Arabic left' + (left.length ? ' → ' + left.slice(0, 5).map(x => x + ' ⇒ ' + t(x)).join(' | ') : ''));
   ok(t('🛠 Reline LAB — Partial ACR (الفك العلوي — الأسنان 14، 15)') === '🛠 Reline LAB — Partial ACR (Upper jaw — teeth 14, 15)'
@@ -518,6 +544,7 @@ const MUTANTS = [
   ['delete not scoped to the unit', rep(SV, "    .eq('unit_id', sess.denture_unit).eq('surface', DENT_SURFACE).in('tooth_num', add.map(String));", "    .eq('surface', DENT_SURFACE).in('tooth_num', add.map(String));")],
   ['history view decorates chips', rep(SV, "  if (!bar || !units || !units.length || window.__historyMode) return;", "  if (!bar || !units || !units.length) return;")],
   ['history view accepts a service', rep(SV, "  if (window.__historyMode) { showToast('🕰️ عرض تاريخي للقراءة فقط — أنهِ العرض للتعديل'); return true; }", "")],
+  ['dialog not refreshed after reloading the treatments', rep(SV, "      if (dsvDialog() === ov && ov._dsv && ov._dsv.view === 'home') dsvRender(ov);", "")],
   ['list entry skips choosing between dentures', rep(SV, "  if (ok.length === 1) { dsvBegin(ok[0], key, label, kind, null); return true; }", "  if (ok.length >= 1) { dsvBegin(ok[0], key, label, kind, null); return true; }")],
   ['profile: service session enters the denture hook', rep('patient-profile.html', "  if (sess && window.SyDentSvc && window.SyDentSvc.isSession(sess)) { await window.SyDentSvc.onSessionComplete(sess); return window.SyDentSvc.completeNote(sess); }\n", "")],
   ['profile: delete hook removed', rep('patient-profile.html', "    try { await window.SyDentSvc.onSessionDeleted(sess); } catch (e) { console.warn('delSession: denture service rows skipped:', e); }", "")],
@@ -537,7 +564,14 @@ const MUTANTS = [
   ['M208: a service may carry unit_teeth', rep(MG, "(tooth_num IS NULL AND arch IS NOT NULL AND unit_teeth IS NULL)", "(tooth_num IS NULL AND arch IS NOT NULL)")],
   ['M208: an existing catalog row drifted', rep(MG, "'جسر', 'ج', '#dc2626'", "'جسر', 'ج', '#dc2627'")],
   ['M208: signup function lost its safety net', rep(MG, "EXCEPTION WHEN OTHERS THEN", "-- no handler")],
-  ['catalog page: marker saved on a non-jaw treatment', rep('treatments.html', "insertPayload.denture_svc = (pickedTarget === 'arch') ? dentSvc : null;", "insertPayload.denture_svc = dentSvc;")],
+  ['catalog page: the service tile saved on a non-jaw target', rep('treatments.html', "if (ui === 'denture_service') return { target_part: 'arch', denture_svc: 'service' };", "if (ui === 'denture_service') return { target_part: 'mouth', denture_svc: 'service' };")],
+  ['catalog page: the add tile saved as a plain service', rep('treatments.html', "if (ui === 'denture_add') return { target_part: 'arch', denture_svc: 'add' };", "if (ui === 'denture_add') return { target_part: 'arch', denture_svc: 'service' };")],
+  ['catalog page: a plain jaw treatment shown as a service', rep('treatments.html', "return (tp === 'arch' && sv) ? (sv === 'add' ? 'denture_add' : 'denture_service') : tp;", "return (tp === 'arch') ? (sv === 'add' ? 'denture_add' : 'denture_service') : tp;")],
+  ['catalog page: editing drops the marker', rep('treatments.html', "updatePayload.denture_svc = _savedDb.denture_svc;", "updatePayload.denture_svc = null;")],
+  ['catalog page: adding ignores the tile', rep('treatments.html', "insertPayload.denture_svc = dbTargetOf(pickedTarget).denture_svc;", "insertPayload.denture_svc = null;")],
+  ['catalog page: editing opens on the wrong tile', rep('treatments.html', "  pickTarget(uiTargetOf(t));   /* M208: خدمةُ الجهاز ببلاطتها */", "  pickTarget(t.target_part || 'crown');")],
+  ['catalog page: tiles shown before the migration', rep('treatments.html', "ts[i].style.display = window.__m208T ? '' : 'none';", "ts[i].style.display = '';")],
+  ['catalog page: services still counted under the jaw filter', rep('treatments.html', "uiTargetOf(t) !== activeFilter) return false;", "(t.target_part || 'crown') !== activeFilter) return false;")],
   ['catalog defaults: services inserted unmarked before the migration', rep('treatments.html', "    rows = rows.filter(function(r){ return !r.denture_svc; });", "    rows.forEach(function(r){ delete r.denture_svc; });")],
   ['i18n: a service toast left untranslated', rep('i18n-en.js', "[R('^✅ تم تسجيل (.+) — أُضيف ' + TP + ' لرسم الجهاز$')", "[R('^✅ تم تسجيل (.+) — أُضيفت ' + TP + ' لرسم الجهاز$')")],
   ['i18n: the unit line half-translated on an unknown status', rep('i18n-en.js', "(?: · (مخطط|من عيادة أخرى|من عيادتنا|محوّل))?$'), function (m, n, a, st) { return n + ' — ' + area1(a) + (st ? ' · ' + ST[st] : ''); }]", "(?: · (.+))?$'), function (m, n, a, st) { return n + ' — ' + area1(a) + (st ? ' · ' + (ST[st] || st) : ''); }]")]
