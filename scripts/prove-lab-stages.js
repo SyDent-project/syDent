@@ -178,7 +178,7 @@ async function suite(F) {
     ok(/SyLabStages\.undo\(window\.sb, lo,/.test(und) && /if \(!data\) return;/.test(und), file + ': undo goes through SyLabStages.undo');
     ok(src.indexOf("SyLabStages.line(lo, { tail: (SyLabStages.canUndo(lo) ? '<button type=\"button\" class=\"lst-undo\" onclick=\"undoLabStage(\\'' + lo.id + '\\')\"") > -1, file + ': the row shows the stage line with its own undo button');
     ok(/workSelect: document\.getElementById\('labOrderWorkType'\), suggestFn: /.test(src) && !/_lstWired/.test(src), file + ': re-suggestion on work-type change is wired by the module');
-    ok(/labStagesMount\(null\);   \/\* ج3-أ \*\/\n  openModal\('labOrderModal'\);/.test(src) && /labStagesMount\(lo\);   \/\* ج3-أ \*\/\n  openModal\('labOrderModal'\);/.test(src), file + ': the picker is mounted on new and on edit');
+    ok(/labStagesMount\(null\);   \/\* ج3-أ \*\/\n  labStatusMount\(null\);   \/\* M207 \*\/\n  openModal\('labOrderModal'\);/.test(src) && /labStagesMount\(lo\);   \/\* ج3-أ \*\/\n  labStatusMount\(lo\);   \/\* M207 \*\/\n  openModal\('labOrderModal'\);/.test(src), file + ': the picker is mounted on new and on edit');
     const iP = src.indexOf("SyLabStages.applyToPayload(document.getElementById('labStagesBox'), payload, _prevLo);"), iW = src.indexOf(".update(payload).eq('id', id)");
     ok(iP > -1 && iW > iP && /if \(_stErr\) \{ showToast\('⚠️ ' \+ _stErr\); return; \}/.test(src), file + ': stages join the payload before the write · an invalid list stops the save');
   }
@@ -356,7 +356,7 @@ async function suite(F) {
     'pp-clinical.js: the stage line is a follower row under «work type» (table) and a full-width cell above the buttons (cards) — not inside the title cell');
   const lh = F['labs.html'];
   ok(lh.indexOf("+ (stLine ? '<tr class=\"lst-row ' + rowClass + '\"><td colspan=\"2\"></td><td colspan=\"8\">' + stLine + '</td></tr>' : '');") > -1 && lh.indexOf("rows += '<tr class=\"' + rowClass + (stLine ? ' has-lst' : '') + '\">'") > -1
-    && lh.indexOf("+ (window.SyLabFiles ? ' ' + SyLabFiles.badge(lo.id) : '') + redoLine + '</td>'") > -1 && lh.indexOf("(stLine ? '<div style=\"grid-column:1/-1;\">' + stLine + '</div>' : '')") > -1
+    && lh.indexOf("+ (window.SyLabFiles ? ' ' + SyLabFiles.badge(lo.id) : '') + redoLine + (window.SyLabStatus ? SyLabStatus.note(lo) : '') + '</td>'") > -1 && lh.indexOf("(stLine ? '<div style=\"grid-column:1/-1;\">' + stLine + '</div>' : '')") > -1
     && (lh.match(/<th[ >]/g) || []).length >= 10 && /tbody tr\.has-lst \{ border-bottom: none; \}/.test(lh) && /#ordersTable \.lab-area \{ min-width: 0; \}/.test(lh),
     'labs.html: the same follower row (it carries the overdue tint of its order) · the card keeps the line at full width · the redo line stays in the cell');
   const pcss = F['patient-profile.css'], tcss = F['theme.css'];

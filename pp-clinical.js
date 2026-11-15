@@ -184,6 +184,7 @@ function renderLabOrders() {
       + '<td class="mc-hide">' + (toothChip || '—') + '</td>'
       + '<td class="mc-title">' + escapeHtml(lo.work_type || '—') + (window.SyLabFiles ? ' ' + SyLabFiles.badge(lo.id) : '')   /* v535 */
       +   (window.SyLabRedo ? SyLabRedo.line(lo.id) : '')   /* M160: سطرُ دورات الإعادة (مُهرَّب) */
+      +   (window.SyLabStatus ? SyLabStatus.note(lo) : '')   /* M207: طلبٌ ملغى — متى ولماذا (مُهرَّب) */
       +   '<div class="mc-only mc-meta">' + mMeta.filter(Boolean).map(function(x){ return '<span style="white-space:nowrap;">' + x + '</span>'; }).join(' · ') + '</div></td>'
       + '<td class="mc-hide" style="color:var(--text2)">' + escapeHtml(String(labDisplay)) + '</td>'
       + '<td class="mc-hide" style="color:var(--text2)">' + escapeHtml(String(lo.shade || '—')) + '</td>'
@@ -720,6 +721,7 @@ async function openLabOrderModal(prefill) {
   try { window.SyDentCurPick.mount('labOrderCost'); } catch (e) {}   // M125
   labDueOpen(true);  /* v524: الاستحقاق التلقائي وسقفُ موعد التركيب (lab-due.js) */
   labStagesMount(null);   /* ج3-أ */
+  labStatusMount(null);   /* M207 */
   openModal('labOrderModal');
 }
 /* ج3-أ: منتقي المراحل بنافذة الطلب — طلبٌ جديد يُقترح له قالبٌ من نوع العمل (الجهازُ المتحرك؛ والفوريُّ من جلسته)،
@@ -739,6 +741,15 @@ function labStagesMount(lo) {
   SyLabStages.mount(document.getElementById('labStagesBox'), {
     order: lo, suggest: lo ? '' : labStagesSuggest(),
     workSelect: document.getElementById('labOrderWorkType'), suggestFn: labStagesSuggest
+  });
+}
+
+/* M207: قائمةُ الحالة بنافذة التعديل (مخفيةٌ للطلب الجديد وللمسودّة) + زرُّ دليل الألوان بحقل اللون (مرةً واحدة) */
+function labStatusMount(lo) {
+  if (window.SyLabShade) SyLabShade.attach(document.getElementById('labOrderShade'));
+  if (!window.SyLabStatus) return;
+  SyLabStatus.mount(document.getElementById('labStatusBox'), {
+    order: lo, labels: LAB_STATUSES, isFinal: !window.SyLabStages || SyLabStages.isFinal(lo)
   });
 }
 
@@ -826,6 +837,7 @@ async function editLabOrder(id) {
   try { window.SyDentCurPick.mount('labOrderCost'); } catch (e) {}   // M125
   labDueOpen(false);
   labStagesMount(lo);   /* ج3-أ */
+  labStatusMount(lo);   /* M207 */
   openModal('labOrderModal');
 }
 
@@ -1111,7 +1123,15 @@ async function _saveLabOrderInner() {
       var idx = labOrders.findIndex(function(x){ return x.id === id; });
       if (idx !== -1) labOrders[idx] = res.data;
     }
-    showToast('✅ تم تحديث الطلب');
+    /* M207: حالةٌ اختارها الطبيب من قائمة النافذة — بدالتها الذرّية بعد الحفظ (الحمولةُ لا تحمل الحالة — درس M127) */
+    var _stPick = (window.SyLabStatus && res.data) ? SyLabStatus.pending(document.getElementById('labStatusBox')) : null;
+    var _stRow = _stPick ? await SyLabStatus.apply(window.sb, res.data, _stPick, { labels: LAB_STATUSES, workType: res.data.work_type, patientName: (typeof patient !== 'undefined' && patient) ? patient.name : '' }) : null;
+    if (_stRow) {
+      var _stI = labOrders.findIndex(function(x){ return x.id === id; });
+      if (_stI !== -1) labOrders[_stI] = _stRow;
+    }
+    if (_stRow) showToast(_stRow.status === 'rejected' ? '🚫 أُلغي الطلب — لا تُحتسب كلفته' : '✅ تم تحديث الحالة إلى: ' + LAB_STATUSES[_stRow.status].ar);
+    else if (!_stPick) showToast('✅ تم تحديث الطلب');
   } else {
     /* M127: الحالة صارت مشتقّةً من تاريخ الإرسال بالحمولة نفسها (isDraft)،
        والإسنادُ الثابت 'sent' الذي كان هنا كان سيدوسها فيُحفَظ كلُّ طلبٍ
@@ -1241,7 +1261,8 @@ async function _advanceLabOrder_inner(id) {
   var wasRedo = lo.status === 'redo';
   if (nx.next === 'sent' && !wasRedo) update.date_sent = nowIso;
   const { data, error } = await window.sb.from('lab_orders')
-    .update(update).eq('id', id).eq('doctor_id', currentUser.id).select().single();
+    .update(update).eq('id', id).eq('doctor_id', currentUser.id).eq('status', lo.status).select().single();
+  /* v728 (مراجعة): الانتقالُ مشروطٌ بالحالة التي رآها الطبيب (.eq('status')) — تبويبٌ قديم لا يدوس حالةً تغيّرت (طلبٌ أُلغي لا «يُستلم») */
   if (error) { showToast('⚠️ فشل التحديث'); return; }
   if (wasRedo && window.SyLabRedo) SyLabRedo.markResent(id, nowIso);
   if (data) {

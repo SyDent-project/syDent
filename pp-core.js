@@ -239,7 +239,7 @@ var LAB_STATUSES = {
   'checked':   { ar: 'تم الفحص',              tone: 'green',  color: 'var(--green)', bg: 'rgba(var(--green-rgb),0.15)' },
   'delivered': { ar: 'تم التركيب',            tone: 'gray',   color: 'var(--text3)', bg: 'color-mix(in srgb, var(--text3) 15%, transparent)' },
   'redo':      { ar: 'إعادة',                  tone: 'orange', color: 'var(--orange)', bg: 'rgba(var(--orange-rgb),0.15)' },
-  'rejected':  { ar: 'مرفوض',                  tone: 'red',    color: 'var(--red)', bg: 'rgba(var(--red-rgb),0.15)' }
+  'rejected':  { ar: 'ملغى',                   tone: 'red',    color: 'var(--red)', bg: 'rgba(var(--red-rgb),0.15)' }
 };
 
 /* M127 — المُحدِّد الوحيد للمسودّة. دالةٌ لا شرطٌ مبعثر: ستّة مواضع ذمّة

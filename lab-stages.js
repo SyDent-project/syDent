@@ -80,6 +80,7 @@
     if (s === 'redo') return 'إعادة';
     if (s === 'received' || s === 'checked') return 'جاهزة';
     if (s === 'delivered') return 'تم التركيب';
+    if (s === 'rejected') return 'ملغى';   /* M207 */
     return '';
   }
 
@@ -206,6 +207,20 @@
     if (r.stages === null && !prev) return '';
     payload.stages = r.stages;
     return '';
+  }
+
+  /* دوراتُ المخبر المنتهية لطلبٍ بمراحل: كلُّ مرحلةٍ رحلةٌ كاملة (إرسال ← استلام) بتواريخها هي — تواريخُ الطلب نفسها تحمل
+     المرحلةَ الحالية وحدها و date_sent ثابتٌ على الإرسال الأول، فقياسُ مدّة المخبر منهما يخلط المراحل. [{sent, due, received}]
+     أو null لطلبٍ بلا مراحل (يُقاس كما كان). */
+  function cycles(lo) {
+    var L = list(lo); if (!L) return null;
+    var i = idx(lo), out = [];
+    L.forEach(function (st, k) {
+      var sent = k === 0 ? (st.sent || lo.date_sent) : st.sent;
+      if (k < i) { if (sent && st.received) out.push({ sent: sent, due: st.due || null, received: st.received }); }
+      else if (k === i && sent && lo.date_received) out.push({ sent: sent, due: lo.date_due || null, received: lo.date_received });
+    });
+    return out;
   }
 
   /* ج3-ب: المرحلةُ كما تُطبع بورقة المخبر — من المنتقي المفتوح (ما اختاره الطبيب الآن) وموضعُها من الطلب المحفوظ.
@@ -355,6 +370,6 @@
     MAX: MAX, MIN: MIN, NAMES: NAMES, TEMPLATES: TEMPLATES, template: template, suggest: suggest,
     has: has, list: list, idx: idx, cur: cur, isFinal: isFinal, nextStage: nextStage, canAdvance: canAdvance, canUndo: canUndo, next: next,
     stateText: stateText, disp: disp, line: line, mount: mount, resuggest: resuggest, read: read, applyToPayload: applyToPayload,
-    suggestDue: suggestDue, open: open, run: run, undo: undo, forSlip: forSlip
+    suggestDue: suggestDue, open: open, run: run, undo: undo, forSlip: forSlip, cycles: cycles
   };
 })();

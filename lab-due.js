@@ -63,8 +63,13 @@
     if (!labId || !workKey) return null;
     var xs = [];
     (rows || []).forEach(function (r) {
-      if (r.lab_id !== labId || r.treatment_key !== workKey || !r.date_sent || !r.date_received) return;
-      var n = workDaysBetween(String(r.date_sent).slice(0, 10), String(r.date_received).slice(0, 10), wd);
+      if (r.lab_id !== labId || r.treatment_key !== workKey) return;
+      var snt = r.date_sent, rec = r.date_received;
+      /* v728 (مراجعة ج3): طلبٌ تجاوز مرحلتَه الأولى — مدّةُ **المرحلة الأولى** من ختمها (الطلبُ الجديد يُقترح له استحقاقُ أولى
+         رحلاته)؛ تواريخُ الطلب للمرحلة الحالية وحدها و date_sent ثابتٌ على الإرسال الأول، فالفرقُ بينهما يجمع مراحلَ عدّة. */
+      if (Array.isArray(r.stages) && r.stage_idx > 0) { var f0 = r.stages[0] || {}; snt = f0.sent || r.date_sent; rec = f0.received || null; }
+      if (!snt || !rec) return;
+      var n = workDaysBetween(String(snt).slice(0, 10), String(rec).slice(0, 10), wd);
       if (n >= 1 && n <= MAX_DAYS) xs.push(n);
     });
     return xs.length >= MIN_SAMPLES ? { days: median(xs), n: xs.length } : null;
@@ -195,7 +200,7 @@
         else if (cs && cs.data && cs.data.booking_work_days != null) st.workDays = parseWorkDays(cs.data.booking_work_days);
       } catch (e) { console.warn('lab due work days:', e); }
       try {
-        var h = await sb.from('lab_orders').select('lab_id, treatment_key, date_sent, date_received')
+        var h = await sb.from('lab_orders').select('lab_id, treatment_key, date_sent, date_received, stages, stage_idx')
           .eq('doctor_id', uid).not('date_received', 'is', null).order('date_received', { ascending: false }).limit(300);
         if (h.error) console.warn('lab due history:', h.error); else st.hist = h.data || [];
       } catch (e) { console.warn('lab due history:', e); }

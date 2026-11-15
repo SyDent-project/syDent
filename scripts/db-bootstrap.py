@@ -73,6 +73,7 @@ AFTER_SNAPSHOT = [
     'migrations/204_ledger_sessions_unit_teeth.sql',   # no function: one nullable column + CHECK + a scoped backfill of denture sessions
     'migrations/205_portal_info_arch_teeth.sql',   # after 198 is safe: portal_info replaced in place and re-granted by name (PUBLIC revoked, anon + authenticated only) — the M191 grant, restated
     'migrations/206_lab_order_stages.sql',   # after 198 is safe: its trigger function is revoked from PUBLIC/anon/authenticated and the two RPCs are granted to authenticated only, all by name
+    'migrations/207_lab_order_status_control.sql',   # after 160 (it re-creates lab_orders_redo_cycle with one added condition) and 206; the RPC is granted to authenticated only, by name
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',

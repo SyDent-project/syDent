@@ -3300,6 +3300,30 @@ Object.assign(window.SyI18nDict, {
     '📤 مرحلة مخبر': '📤 Lab stage'
   });
 
+  /* ── M207: حالةُ الطلب من نافذته (lab-status.js) + دليلُ الألوان (lab-shade.js) ── */
+  Object.assign(D, {
+    'حالة الطلب': 'Order status', 'مسودة — لم تُرسل': 'Draft — not sent', 'سبب الإلغاء (اختياري)': 'Reason for cancelling (optional)',
+    'الطلب الملغى يبقى بسجله ولا تُحتسب كلفته على العيادة ولا يدخل ذمة المخبر. إن كان المخبر سيحاسبك عليه فلا تُلغِه.': 'A cancelled order stays on record, its cost is not counted for the clinic and it is not owed to the lab. If the lab will charge you for it, do not cancel it.',
+    'يعود الطلب كما كان قبل الإلغاء، وتعود كلفته للحساب.': 'The order goes back to how it was before cancelling, and its cost is counted again.',
+    'رجوع عن خطوة: يُمسح تاريخ ما بعدها.': 'Stepping back: the dates of the later steps are cleared.',
+    'يُسجَّل تاريخ اليوم للخطوات التي لم تُسجَّل.': 'Today is recorded for the steps that were not recorded.',
+    '⚠️ «تم التركيب» للمرحلة الأخيرة فقط': '⚠️ «Fitted» is for the last stage only',
+    '⚠️ فشل تغيير حالة الطلب — حاول مجدداً': '⚠️ Changing the order status failed — try again',
+    '⚠️ الطلب صار مسودة — حالته يحددها تاريخ الإرسال': '⚠️ The order is now a draft — its status follows the send date',
+    '🚫 أُلغي الطلب — لا تُحتسب كلفته': '🚫 Order cancelled — its cost is not counted',
+    '🔁 حالة طلب مخبر': '🔁 Lab order status',
+    'دليل الألوان': 'Shade guide', 'اختيار اللون من دليل الألوان': 'Pick the shade from the shade guide', 'بلا لون': 'No shade',
+    'ألوان الشاشة تقريبية — اعتمد دليل الألوان الفعلي تحت ضوء النهار.': 'Screen colours are approximate — rely on the physical shade guide in daylight.'
+  });
+  /* الحالاتُ جدولٌ مغلق: حالةٌ مجهولة لا تطابق، فيبقى السطرُ عربياً كاملاً */
+  var LST = ['مسودة — لم تُرسل', 'تم التسليم للمخبر', 'تم الاستلام من المخبر', 'تم الفحص', 'تم التركيب', 'إعادة', 'ملغى'].filter(function (k) { return D[k] != null; });
+  P.push(
+    [new RegExp('^✅ تم تحديث الحالة إلى: (' + LST.join('|') + ')$'), function (m, s) { return '✅ Status updated to: ' + D[s]; }],
+    /* سطرُ الطلب الملغى وتلميحُ نافذته: التاريخُ يبقى، والسببُ نصُّ الطبيب كما كتبه */
+    [/^🚫 أُلغي(?: ([\d\/]+))?(?: — (.+))?$/, function (m, d, why) { return '🚫 Cancelled' + (d ? ' ' + d : '') + (why ? ' — ' + why : ''); }],
+    [/^أُلغي(?: ([\d\/]+))?(?: — (.+?))?\. لا تُحتسب كلفته على العيادة\.$/, function (m, d, why) { return 'Cancelled' + (d ? ' ' + d : '') + (why ? ' — ' + why : '') + '. Its cost is not counted for the clinic.'; }]
+  );
+
   /* ── ج3-ب: تنبيهُ المخبر على الموعد (getApptLabBadge) — العنوانُ ثابت، وقد يلحقه اسمُ المرحلة («… — تجربة الأسنان، تسليم») ── */
   var BADGE = {
     'تنبيه: المخبر لم يصل قبل هذا الموعد (مرتبط مباشرة)': 'Warning: the lab work has not arrived before this appointment (linked directly)',
