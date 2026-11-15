@@ -167,6 +167,9 @@ function renderLabOrders() {
     }
     // v328: شارةُ السن بلا انكسار («سن» فوق «35» — صورة المالك).
     var toothChip = lo.tooth_num ? '<span class="tone tone-lime" style="border-width:1px;border-style:solid;padding:0 5px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;">سن ' + lo.tooth_num + '</span>' : '';
+    /* ج3-ب: طلبُ الجهاز المتحرك — فكُّه وأسنانُه مكان شارة السن (تلتفّ: النصُّ أطول من «سن 35») */
+    var _labAr = toothChip ? null : labOrderArea(lo);
+    if (_labAr) toothChip = '<span class="tone tone-lime lab-area" style="border-width:1px;border-style:solid;padding:0 5px;border-radius:10px;font-size:11px;font-weight:700;">' + escapeHtml(_labAr.text) + '</span>';
     // v328: سطرُ الموبايل — التاريخ · المخبر · اللون داخل خلية نوع العمل (m-cards بـpatient-profile.css).
     // الأعمدةُ نفسُها تبقى للديسكتوب وتُخفى تحت 600px (mc-hide)، فلا يتكرّر صفٌّ ولا زرّ.
     var mMeta = [toothChip, lo.date_sent ? escapeHtml(fmtD(lo.date_sent)) : 'غير مُرسَل', escapeHtml(String(labDisplay))];
@@ -649,8 +652,18 @@ function labSlipPrint() {
     lab: allLabs.find(function (x) { return x.id === labId; }) || null,
     teeth: (typeof labAiTeeth === 'function') ? labAiTeeth() : null,
     orderId: id || '', orders: labOrders,
-    redo: (id && window.SyLabRedo) ? SyLabRedo.list(id) : []
+    redo: (id && window.SyLabRedo) ? SyLabRedo.list(id) : [],
+    /* ج3-ب: موضعُ الجهاز من جلسته (طلبٌ محفوظ أو جديدٌ من الجلسة) + المرحلةُ المطلوبة الآن */
+    area: labOrderArea(id ? labOrders.find(function (x) { return x.id === id; }) : { session_id: pendingLabSessionId }),
+    stage: window.SyLabStages ? SyLabStages.forSlip(document.getElementById('labStagesBox'), id ? labOrders.find(function (x) { return x.id === id; }) : null) : null
   }));
+}
+/* ج3-ب: طلبُ الجهاز المتحرك بلا رقم سن — فكُّه وأسنانُه من جلسته المحمّلة (مصدرٌ واحد مع صفحة المخابر: SyLabSlip.area) */
+function labOrderArea(lo) {
+  if (!lo || lo.tooth_num || !lo.session_id || !window.SyLabSlip || !SyLabSlip.area) return null;
+  var list = (typeof sessions !== 'undefined' && Array.isArray(sessions)) ? sessions : [];
+  for (var i = 0; i < list.length; i++) { if (list[i] && list[i].id === lo.session_id) return SyLabSlip.area(list[i]); }
+  return null;
 }
 
 async function openLabOrderModal(prefill) {

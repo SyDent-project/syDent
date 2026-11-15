@@ -131,7 +131,7 @@ function cellHTML(day, ds, other, today, evts) {
   evts.slice(0, MAX_SHOW).forEach(e => {
     var _ec = getApptColor(e);
     var lb = getApptLabBadge(e);
-    var lbHtml = lb ? `<span style="margin-left:3px;" title="${lb.title/* xss-ok: getApptLabBadge عناوين ثابتة */}">${lb.icon}</span>` : '';
+    var lbHtml = lb ? `<span style="margin-left:3px;" title="${lb.title/* xss-ok: getApptLabBadge: عناوين ثابتة + اسمُ مرحلةٍ مهرَّب بالمصدر (stageTail) */}">${lb.icon}</span>` : '';
     evHTML += `<div class="cal-event" style="--bc:${_ec.fill};border-right:3px solid;" onclick="event.stopPropagation();editAppt('${e.id}')">${lbHtml}${fmtTime12(e.time)} ${escapeHtml((e.patient_name||'').split(' ')[0])}</div>`;
   });
   // Mobile dots
@@ -200,7 +200,7 @@ function renderDay() {
       // v280: tint from the rgb companion — `${color}22` only worked for hex and
       // silently produced no background for the var(--green) "ready" badge.
       var lbHtml = lb
-        ? `<span class="tone tone-${lb.tone/* xss-ok: ثابت */}" style="display:inline-block;border-width:1px;border-style:solid;padding:1px 7px;border-radius:12px;font-size:11px;font-weight:700;margin-right:6px;" title="${lb.title/* xss-ok: getApptLabBadge عناوين ثابتة */}">${lb.icon} ${lb.title.split(':')[0] || 'مخبر'/* xss-ok: عنوان ثابت */}</span>`
+        ? `<span class="tone tone-${lb.tone/* xss-ok: ثابت */}" style="display:inline-block;border-width:1px;border-style:solid;padding:1px 7px;border-radius:12px;font-size:11px;font-weight:700;margin-right:6px;" title="${lb.title/* xss-ok: getApptLabBadge: عناوين ثابتة + اسمُ مرحلةٍ مهرَّب بالمصدر (stageTail) */}">${lb.icon} ${lb.title.split(':')[0] || 'مخبر'/* xss-ok: عنوان ثابت + اسمُ مرحلةٍ مهرَّب بالمصدر */}</span>`
         : '';
       var ps = getApptProceduresSummary(e.id);
       var psHtml = ps
@@ -1021,7 +1021,7 @@ function renderList() {
     evts.forEach(e => {
       var lb = getApptLabBadge(e);
       var lbHtml = lb
-        ? `<span class="tone tone-${lb.tone/* xss-ok: ثابت */}" style="display:inline-block;border-width:1px;border-style:solid;padding:1px 7px;border-radius:12px;font-size:11px;font-weight:700;margin-right:6px;" title="${lb.title/* xss-ok: getApptLabBadge عناوين ثابتة */}">${lb.icon}</span>`
+        ? `<span class="tone tone-${lb.tone/* xss-ok: ثابت */}" style="display:inline-block;border-width:1px;border-style:solid;padding:1px 7px;border-radius:12px;font-size:11px;font-weight:700;margin-right:6px;" title="${lb.title/* xss-ok: getApptLabBadge: عناوين ثابتة + اسمُ مرحلةٍ مهرَّب بالمصدر (stageTail) */}">${lb.icon}</span>`
         : '';
       var ps = getApptProceduresSummary(e.id);
       var psHtml = ps

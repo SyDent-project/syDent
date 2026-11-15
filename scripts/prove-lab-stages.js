@@ -269,10 +269,83 @@ async function suite(F) {
     && E.t('1) طبعة نهائية — أُرسلت 20/10/2026 · استُلمت 25/10/2026 2) ' + CUSTOM + ' — أُرسلت 1/11/2026 3) تسليم') === '1) Final impression — sent 20/10/2026 · received 25/10/2026 2) ' + CUSTOM + ' — sent 1/11/2026 3) Fit',
     'i18n: wording — button, toast and the stage tooltip');
   ok(E.dict['تجربة'] === undefined && E.dict['تسليم'] === undefined && E.dict['المرحلة'] === undefined, 'i18n: no ambiguous single word («تجربة» is also a plan name) leaks into the shared dictionary');
+
+  /* ── (٩) ج3-ب: ورقةُ المخبر (المرحلة + موضعُ الجهاز) · خانةُ السن لطلب الجهاز · تنبيهُ الموعد · لوحةُ التحكم ── */
+  const ws = loadMod(F['lab-slip.js'] + '\n' + F['lab-stages.js']);
+  const L = ws.SyLabSlip, S3 = ws.SyLabStages, box3 = ws.document.getElementById('b');
+  const fullU = '17,16,15,14,13,12,11,21,22,23,24,25,26,27';
+  ok(L.area({ arch: 'U', unit_teeth: fullU }).text === 'الفك العلوي — كامل' && L.area({ arch: 'L', unit_teeth: '36,34,35' }).text === 'الفك السفلي — الأسنان 34، 35، 36'
+    && L.area({ arch: 'L', unit_teeth: '34' }).text === 'الفك السفلي — السن 34' && L.area({ arch: 'L', unit_teeth: '36,34' }).teeth.join(',') === '34,36',
+    'slip area: complete arch · sorted teeth · single tooth');
+  ok(L.area({ arch: 'U', unit_teeth: fullU, tooth_num: 14 }) === null && L.area({ arch: 'U', unit_teeth: '' }) === null && L.area({ arch: 'X', unit_teeth: '14' }) === null && L.area(null) === null
+    && L.area({ arch: 'U', unit_teeth: 'abc,99' }) === null, 'slip area: only a jaw session with unit teeth — anything else is null');
+  /* مرآةُ dentAreaText بـpp-denture.js: الدالةُ الأصل تُستخرج من ملفها الحيّ وتُقارَن */
+  const pd = F['pp-denture.js'], dctx = {}; vm.createContext(dctx);
+  vm.runInContext(pd.slice(pd.indexOf('var DENT_FULL_TEETH = {'), pd.indexOf('};', pd.indexOf('var DENT_FULL_TEETH = {')) + 2) + '\n'
+    + pd.match(/function dentArchLabel\(arch\) \{[^\n]*\}/)[0] + '\n' + fnSrc(pd, 'function dentIsFullSet(teeth, arch) {') + '\n' + fnSrc(pd, 'function dentAreaText(arch, teeth) {'), dctx);
+  ok([['U', fullU], ['L', '47,46,45,44,43,42,41,31,32,33,34,35,36,37'], ['U', '14,15,16'], ['L', '36'], ['U', '27,11'], ['U', fullU.replace('17,', '')]]
+    .every(([a, t]) => L.area({ arch: a, unit_teeth: t }).text === dctx.dentAreaText(a, t.split(','))), 'slip area: the same text as dentAreaText in pp-denture.js (mirror)');
+  const slipA = L.build({ patientName: 'P', workType: 'W', teeth: [34, 35], area: 'الفك السفلي — الأسنان 34، 35', stage: { name: 'تسجيل <b>', pos: 2, total: 4, all: ['طبعة نهائية', 'تسجيل <b>', 'تجربة الأسنان', 'تسليم'] } });
+  ok(/<th>الأسنان<\/th><td colspan="3">الفك السفلي — الأسنان 34، 35<\/td>/.test(slipA) && /<th>المرحلة المطلوبة<\/th><td colspan="3"><strong>تسجيل &lt;b&gt;<\/strong> <span class="lsl-muted">\(2 من 4\)<\/span>/.test(slipA)
+    && /طبعة نهائية ← تسجيل &lt;b&gt; ← تجربة الأسنان ← تسليم/.test(slipA) && slipA.indexOf('<b>') === -1 && (slipA.match(/lsl-t on/g) || []).length === 2,
+    'slip: the denture location replaces the bare numbers, its teeth are shaded, the requested stage and the sequence are printed — escaped');
+  const slipB = L.build({ patientName: 'P', workType: 'W', teeth: [14] });
+  ok(!/المرحلة المطلوبة/.test(slipB) && /<th>الأسنان<\/th><td colspan="3">14<\/td>/.test(slipB), 'slip: an order without stages or a denture prints exactly as before');
+  ws.document.body.insertAdjacentHTML('beforeend', '<select id="labOrderWorkType"><option value="k" selected>W</option></select><input id="labOrderTooth" value=""><input id="labOrderShade"><input id="labOrderDateSent"><input id="labOrderDateDue"><textarea id="labOrderNotes"></textarea>');
+  const ff = L.fromForm({ patientName: 'P', area: { text: 'الفك العلوي — كامل', teeth: [11, 12] }, stage: { name: 'x', pos: 1, total: 2 } });
+  ws.document.getElementById('labOrderTooth').value = '21';
+  const ff2 = L.fromForm({ patientName: 'P', area: { text: 'الفك العلوي — كامل', teeth: [11, 12] } });
+  ok(ff.area === 'الفك العلوي — كامل' && ff.teeth.join(',') === '11,12' && ff.stage.name === 'x' && ff2.area === '' && ff2.teeth.join(',') === '21' && ff2.stage === null,
+    'slip form: the session location is used only when the order has no tooth number');
+  const calls = [];
+  const fakeSb = { from: t => ({ select: c => ({ eq: (k, v) => ({ in: (k2, ids) => { calls.push([t, c, k, v, ids.slice()]); return Promise.resolve({ data: [{ id: 's1', arch: 'U', unit_teeth: fullU, tooth_num: null }, { id: 's2', arch: 'U', unit_teeth: null, tooth_num: null }], error: null }); } }) }) }) };
+  const ords = [{ id: 'a', session_id: 's1' }, { id: 'b', session_id: 's2' }, { id: 'c', session_id: 's3', tooth_num: 14 }, { id: 'd' }];
+  const got = await L.loadAreas(fakeSb, 'u1', ords), again = await L.loadAreas(fakeSb, 'u1', ords);
+  ok(got === true && again === false && calls.length === 1 && calls[0][0] === 'ledger_sessions' && calls[0][2] === 'doctor_id' && calls[0][3] === 'u1' && calls[0][4].join(',') === 's1,s2'
+    && L.areaOf(ords[0]).text === 'الفك العلوي — كامل' && L.areaOf(ords[1]) === null && L.areaOf(ords[2]) === null && L.areaOf(ords[3]) === null,
+    'slip areas: one tenant-scoped read for toothless session orders only · asked once · a normal jaw session gives nothing');
+  S3.mount(box3, { suggest: 'full' });
+  const fsNew = S3.forSlip(box3, null);
+  S3.mount(box3, { order: mk({ stage_idx: 2 }) });
+  const fsCur = S3.forSlip(box3, mk({ stage_idx: 2 }));
+  S3.mount(box3, { suggest: '' });
+  ok(fsNew.name === 'طبعة نهائية' && fsNew.pos === 1 && fsNew.total === 4 && fsNew.all.length === 4 && fsCur.name === 'تجربة الأسنان' && fsCur.pos === 3 && fsCur.total === 4 && S3.forSlip(box3, null) === null, 'slip stage: the first stage of a new order · the current one of a saved order · none without stages');
+  for (const [file, arr] of [['labs.html', 'allOrders'], ['pp-clinical.js', 'labOrders']]) {
+    const sp = fnSrc(F[file], 'function labSlipPrint() {') || '';
+    ok(/area: /.test(sp) && sp.indexOf("stage: window.SyLabStages ? SyLabStages.forSlip(document.getElementById('labStagesBox'), id ? " + arr + ".find(function (x) { return x.id === id; }) : null) : null") > -1, file + ': the slip gets the location and the requested stage');
+  }
+  ok(/SyLabSlip\.loadAreas\(window\.sb, currentUser\.id, allOrders\)\s+\.then\(function\(got\)\{ if \(got\) \{ try \{ renderTable\(\); \}/.test(F['labs.html'])
+    && F['labs.html'].indexOf("(labArea ? '<span class=\"tooth-badge lab-area\">' + escapeHtml(labArea.text) + '</span>' : '—')") > -1 && F['labs.html'].indexOf("(lo.tooth_num || (labArea ? escapeHtml(labArea.text) : '—'))") > -1,
+    'labs.html: denture orders show their jaw and teeth in the tooth cell (table and card) — loaded after the table, escaped');
+  ok(/function labOrderArea\(lo\) \{\n  if \(!lo \|\| lo\.tooth_num \|\| !lo\.session_id/.test(F['pp-clinical.js']) && F['pp-clinical.js'].indexOf("var _labAr = toothChip ? null : labOrderArea(lo);") > -1
+    && F['pp-clinical.js'].indexOf("' + escapeHtml(_labAr.text) + '</span>';") > -1, 'pp-clinical.js: the same location from the loaded session, in place of the tooth chip — escaped');
+  /* تنبيهُ المخبر على الموعد: الدالةُ الحيّة تُشغَّل على حالات */
+  const bctx = { labOrdersByAppt: {}, labOrdersByPatient: {}, dateStr: d => ymdLocal(d), escapeHtml: s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])) };
+  vm.createContext(bctx);
+  vm.runInContext(fnSrc(F['appt-time.js'], 'function labStageOpen(o) {') + '\n' + fnSrc(F['appt-time.js'], 'function labStageName(o) {') + '\n' + fnSrc(F['appointments.html'], 'function getApptLabBadge(appt) {'), bctx);
+  const badge = (orders, direct) => { bctx.labOrdersByAppt = direct === false ? {} : { A: orders }; bctx.labOrdersByPatient = direct === false ? { p1: orders } : {}; return bctx.getApptLabBadge({ id: 'A', patient_id: 'p1', date: addDays(2) }); };
+  const s3 = [{ n: 'تسجيل العضة' }, { n: 'تجربة <i>' }, { n: 'تسليم' }];
+  const bMid = badge([{ status: 'received', stages: s3, stage_idx: 1 }]), bFit = badge([{ status: 'checked', stages: s3, stage_idx: 2 }]), bOld = badge([{ status: 'checked' }]), bOldU = badge([{ status: 'checked' }], false);
+  ok(bMid.tone === 'green' && bMid.title === 'شغل المخبر جاهز لهذا الموعد — تجربة &lt;i&gt;' && bFit.title === 'شغل المخبر جاهز للتركيب في هذا الموعد — تسليم'
+    && bOld.title === 'شغل المخبر جاهز للتركيب في هذا الموعد' && bOldU.title === 'يوجد شغل جاهز للتركيب من المخبر',
+    'appointment badge: a received mid stage is ready for its visit (not «to fit») and named — escaped · the last stage and plain orders read as before');
+  const bLate = badge([{ status: 'sent', date_due: addDays(1), stages: s3, stage_idx: 0 }]), bPend = badge([{ status: 'sent', date_due: addDays(9), stages: s3, stage_idx: 0 }]), bPendOld = badge([{ status: 'received' }]),
+    bMix = badge([{ status: 'received', stages: s3, stage_idx: 0 }, { status: 'checked' }]);
+  ok(bLate.tone === 'red' && bLate.title === 'تنبيه: المخبر لم يصل قبل هذا الموعد (مرتبط مباشرة) — تسجيل العضة' && bPend.tone === 'blue' && bPend.title === 'طلب مخبر مرتبط بهذا الموعد — تسجيل العضة'
+    && bPendOld.tone === 'blue' && bPendOld.title === 'طلب مخبر مرتبط بهذا الموعد' && bMix.title === 'شغل المخبر جاهز للتركيب في هذا الموعد — تسجيل العضة',
+    'appointment badge: late and pending carry the stage · a plain received order is still pending · a mix keeps «to fit»');
+  ok((F['appt-views.js'].match(/اسمُ مرحلةٍ مهرَّب بالمصدر/g) || []).length === 4 && !/عناوين ثابتة \*\//.test(F['appt-views.js']), 'appt-views.js: the xss notes state the escaped stage name at every badge site');
+  ok(F['index.html'].indexOf("((Array.isArray(lo.stages) && lo.stage_idx != null && lo.stages[lo.stage_idx] && lo.stages[lo.stage_idx].n) ? ' · ' + labEsc(lo.stages[lo.stage_idx].n) : '')") > -1, 'dashboard: the active lab list names the current stage — escaped');
+  [bMid, bFit, bOld, bOldU, bLate, bPend, bPendOld, bMix].forEach(b => { const tt = b.title.replace('&lt;i&gt;', '<i>'); add(tt); add(b.icon + ' ' + tt.split(':')[0]); });
+  ['الفك العلوي — كامل', 'الفك السفلي — الأسنان 34، 35، 36', 'الفك السفلي — السن 34'].forEach(add);
+  const all9 = Object.keys(seen), left9 = all9.filter(s => AR.test(E.t(s).split(CUSTOM).join('').split('تجربة <i>').join('')));
+  ok(left9.length === 0 && E.t('🥽 شغل المخبر جاهز لهذا الموعد — تجربة الأسنان، تسليم') === '🥽 Lab work is ready for this appointment — Teeth try-in, Fit'
+    && E.t('طلب مخبر نشط') === 'Active lab order' && E.t('سن 14') === 'Tooth 14' && E.t('سن 14 سنة') === 'سن 14 سنة' && E.t('سن 9') === 'سن 9' && E.t('الفك السفلي — الأسنان 34، 35') === 'Lower jaw — teeth 34, 35' && E.t('الفك العلوي — كامل') === 'Upper jaw — complete',
+    'i18n (3b): badge titles with their stage tail and the bare denture location go through the real engine' + (left9.length ? ' → ' + left9.slice(0, 4).join(' | ') : ''));
 }
 
 const FILES = ['theme.js', 'i18n-en.js', 'lab-stages.js', 'labs.html', 'pp-clinical.js', 'pp-denture.js', 'patient-profile.html', 'patient-profile.css', 'appointments.html', 'appt-time.js', 'index.html', 'migrations/206_lab_order_stages.sql',
-  'accounting.html', 'provider-reports.html', 'scripts/cache-bust.sh', 'scripts/check-mirrors.js', 'scripts/db-bootstrap.py', 'db/schema.sql', 'theme.css', 'audit-log.html', 'pp-extras.js'];
+  'accounting.html', 'provider-reports.html', 'lab-slip.js', 'appt-views.js', 'scripts/cache-bust.sh', 'scripts/check-mirrors.js', 'scripts/db-bootstrap.py', 'db/schema.sql', 'theme.css', 'audit-log.html', 'pp-extras.js'];
 const base = {}; FILES.forEach(f => { base[f] = read(f); });
 const rep = (file, a, b) => F => { const o = Object.assign({}, F); o[file] = F[file].replace(a, b); return o; };
 
@@ -303,7 +376,22 @@ const MUTANTS = [
   ['i18n: stage toast pattern dropped', rep('i18n-en.js', "    [/^📤 أُرسلت مرحلة «(.+)» للمخبر$/, function (m, n) { return '📤 Stage «' + nm(n) + '» sent to the lab'; }],\n", "")],
   ['i18n: «تجربة» added to the shared dictionary', rep('i18n-en.js', "    'عند المخبر': 'at the lab',", "    'تجربة': 'Try-in', 'عند المخبر': 'at the lab',")],
   ['profile: script tag missing', F => Object.assign({}, F, { 'patient-profile.html': F['patient-profile.html'].replace(/<script src="lab-stages\.js\?v=[^"]+"><\/script>\n/, '') })],
-  ['read-only mode: undo left clickable', rep('labs.html', '[onclick*="undoLabStage("],', '')]
+  ['read-only mode: undo left clickable', rep('labs.html', '[onclick*="undoLabStage("],', '')],
+  /* ج3-ب */
+  ['3b slip: stage name unescaped', rep('lab-slip.js', "<strong>' + esc(d.stage.name) + '</strong>'", "<strong>' + d.stage.name + '</strong>'")],
+  ['3b slip area: a tooth session read as a denture', rep('lab-slip.js', "if (!sess || sess.tooth_num || !sess.unit_teeth", "if (!sess || !sess.unit_teeth")],
+  ['3b slip area: complete arch not recognised (mirror drift)', rep('lab-slip.js', "(full ? 'كامل' : ", "(false ? 'كامل' : ")],
+  ['3b slip areas: read without the tenant filter', rep('lab-slip.js', ".eq('doctor_id', uid).in('id', ids.slice(i, i + 100))", ".in('id', ids.slice(i, i + 100))")],
+  ['3b slip form: the location overrides a typed tooth', rep('lab-slip.js', "(!teeth.length && p.area && p.area.text)", "(p.area && p.area.text)")],
+  ['3b slip stage: always the first stage', rep('lab-stages.js', "var i = has(lo) ? Math.min(idx(lo), L.length - 1) : 0;", "var i = 0;")],
+  ['3b badge: a received mid stage still pending', rep('appointments.html', "if (o.status === 'checked' || (o.status === 'received' && mid)) {", "if (o.status === 'checked') {")],
+  ['3b badge: a mid stage announced as ready to fit', rep('appointments.html', "      if (!mid) readyFit = true;", "      readyFit = true;")],
+  ['3b badge: stage name unescaped', rep('appointments.html', "' — ' + escapeHtml(arr.join('، '))", "' — ' + arr.join('، ')")],
+  ['3b labs.html: location cell unescaped', rep('labs.html', "'<span class=\"tooth-badge lab-area\">' + escapeHtml(labArea.text) + '</span>'", "'<span class=\"tooth-badge lab-area\">' + labArea.text + '</span>'")],
+  ['3b pp-clinical.js: slip printed without the stage', rep('pp-clinical.js', "stage: window.SyLabStages ? SyLabStages.forSlip(document.getElementById('labStagesBox'), id ? labOrders.find(function (x) { return x.id === id; }) : null) : null", "stage: null")],
+  ['3b dashboard: stage name unescaped', rep('index.html', "' · ' + labEsc(lo.stages[lo.stage_idx].n)", "' · ' + lo.stages[lo.stage_idx].n")],
+  ['3b i18n: badge stage-tail pattern dropped', rep('i18n-en.js', "+ ') — (.+)$'), function (m, ic, base, names)", "+ ') — NEVER(.+)$'), function (m, ic, base, names)")],
+  ['3b i18n: bare location pattern dropped', rep('i18n-en.js', "    [R('^(' + A1 + ')$'), function (m, a) { return area(a); }],\n", "")]
 ];
 
 (async () => {

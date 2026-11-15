@@ -306,6 +306,12 @@ var _phase8cInFlight = false; // double-click guard across the whole flow
 function labStageOpen(o) {
   return !!(o && Array.isArray(o.stages) && o.stage_idx != null && o.stage_idx < o.stages.length - 1);
 }
+/* ج3-ب: اسمُ المرحلة الحالية كما حُفظ (فارغٌ لطلبٍ بلا مراحل) — لعناوين تنبيه المخبر على الموعد؛ المستدعي يهرّبه */
+function labStageName(o) {
+  if (!o || !Array.isArray(o.stages) || o.stage_idx == null) return '';
+  var s = o.stages[o.stage_idx];
+  return (s && s.n) ? String(s.n).replace(/\s+/g, ' ').trim().slice(0, 40) : '';
+}
 async function autoDeliverLinkedLabs(apptId) {
   var result = { updated: 0, failed: 0 };
   if (!apptId) return result;

@@ -51,6 +51,38 @@
     }).map(function (o) { return o.tooth_num; }).join(','));
   }
 
+  /* ج3-ب: موضعُ الجهاز المتحرك من جلسته (جلسةُ فكٍّ بلا رقم سن وأسنانُها بـunit_teeth — M204). مرآةُ dentAreaText بـpp-denture.js
+     (يثبتها prove-denture): «الفك العلوي — كامل» · «الفك السفلي — الأسنان 34، 35». غيرُ جلسة الجهاز ⇒ null. */
+  var FULL = { U: [11, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27], L: [31, 32, 33, 34, 35, 36, 37, 41, 42, 43, 44, 45, 46, 47] };
+  function area(sess) {
+    if (!sess || sess.tooth_num || !sess.unit_teeth || (sess.arch !== 'U' && sess.arch !== 'L')) return null;
+    var teeth = String(sess.unit_teeth).split(',').map(function (t) { return parseInt(t, 10); })
+      .filter(function (t) { return t >= 11 && t <= 48; }).sort(function (a, b) { return a - b; });
+    if (!teeth.length) return null;
+    var arch = sess.arch === 'U' ? 'الفك العلوي' : 'الفك السفلي';
+    var full = FULL[sess.arch].every(function (t) { return teeth.indexOf(t) !== -1; });
+    return { text: arch + ' — ' + (full ? 'كامل' : (teeth.length === 1 ? 'السن ' : 'الأسنان ') + teeth.join('، ')), teeth: teeth };
+  }
+  /* جلساتُ الطلبات التي بلا رقم سن (صفحةُ المخابر لا تحمّل الجلسات) — ثانويٌّ لا يؤخّر الجدول؛ { session_id: {text, teeth} } */
+  var areas = {}, areasAsked = {};
+  function areaOf(lo) { return (lo && lo.session_id && !lo.tooth_num && areas[lo.session_id]) || null; }
+  async function loadAreas(sb, uid, orders) {
+    var ids = [];
+    (orders || []).forEach(function (o) {
+      if (o && o.session_id && !o.tooth_num && !areasAsked[o.session_id]) { areasAsked[o.session_id] = 1; ids.push(o.session_id); }
+    });
+    if (!ids.length || !sb || !uid) return false;
+    var got = false;
+    for (var i = 0; i < ids.length; i += 100) {
+      try {
+        var r = await sb.from('ledger_sessions').select('id, arch, unit_teeth, tooth_num').eq('doctor_id', uid).in('id', ids.slice(i, i + 100));
+        if (r.error) { console.warn('lab slip areas:', r.error); continue; }   /* #240: لا بلعٌ صامت */
+        (r.data || []).forEach(function (s) { var a = area(s); if (a) { areas[s.id] = a; got = true; } });
+      } catch (e) { console.warn('lab slip areas:', e); }
+    }
+    return got;
+  }
+
   function chart(teeth) {
     var kids = teeth.some(function (t) { return t >= 51; });
     var rows = kids ? [UPPER_D, LOWER_D] : [UPPER, LOWER];
@@ -63,7 +95,7 @@
     }).join('') + '</tbody></table>';
   }
 
-  /* d: { clinic, providerName, orderNo, patientName, lab:{name,phone}, workType, teeth[], shade, sent, due, notes, redo:[] } */
+  /* d: { clinic, providerName, orderNo, patientName, lab:{name,phone}, workType, teeth[], area, stage:{name,pos,total,all[]}, shade, sent, due, notes, redo:[] } */
   function build(d) {
     var c = d.clinic || {};
     var h = '<div class="lsl-page" dir="rtl">';
@@ -82,7 +114,13 @@
     h += '</div>';
     h += '<table class="lsl-grid"><tbody>';
     h += '<tr><th>نوع العمل</th><td colspan="3"><strong>' + esc(d.workType || '—') + '</strong></td></tr>';
-    h += '<tr><th>الأسنان</th><td colspan="3">' + (d.teeth && d.teeth.length ? esc(d.teeth.join('، ')) : '—') + '</td></tr>';
+    h += '<tr><th>الأسنان</th><td colspan="3">' + (d.area ? esc(d.area) : (d.teeth && d.teeth.length ? esc(d.teeth.join('، ')) : '—')) + '</td></tr>';
+    /* ج3-ب: المرحلةُ المطلوبة من المخبر الآن + تسلسلُ المراحل (المخبر يعرف ما يُعيده لهذه الزيارة) */
+    if (d.stage && d.stage.name) {
+      h += '<tr><th>المرحلة المطلوبة</th><td colspan="3"><strong>' + esc(d.stage.name) + '</strong>'
+        + (d.stage.total ? ' <span class="lsl-muted">(' + esc(d.stage.pos) + ' من ' + esc(d.stage.total) + ')</span>' : '')
+        + ((d.stage.all && d.stage.all.length) ? '<div class="lsl-muted">' + d.stage.all.map(esc).join(' ← ') + '</div>' : '') + '</td></tr>';
+    }
     h += '<tr><th>اللون</th><td>' + esc(d.shade || '—') + '</td><th>تاريخ الإرسال</th><td>' + esc(numDate(d.sent) || '—') + '</td></tr>';
     h += '<tr><th>مطلوب قبل</th><td colspan="3"' + (d.due ? ' class="lsl-due"' : '') + '>' + esc(numDate(d.due) || '—') + '</td></tr>';
     h += '</tbody></table>';
@@ -120,18 +158,22 @@
     return String(el.options[el.selectedIndex].text || '').replace(/\s*\((?:معطل|غير نشط)\)\s*$/, '').trim();
   }
 
-  /* من حقول المودال. p: { patientName, providerName, lab, teeth, orderId, orders, redo } — يُرجع رسالةَ خطأ أو '' */
+  /* من حقول المودال. p: { patientName, providerName, lab, teeth, orderId, orders, redo, area:{text,teeth}, stage } */
   function fromForm(p) {
     p = p || {};
     var work = selText('labOrderWorkType');
     /* دفعةٌ محفوظة (أكثر من سن) ⇒ أسنانُها كلها؛ وإلا حقلُ السن الحالي (قد يكون عُدِّل قبل الطباعة) */
     var bt = (p.orderId && p.orders) ? batchTeeth(p.orders, p.orderId) : [];
     var teeth = bt.length > 1 ? bt : parseTeeth(p.teeth != null ? p.teeth : val('labOrderTooth'));
+    /* ج3-ب: طلبُ الجهاز المتحرك بلا رقم سن ⇒ موضعُه وأسنانُه من جلسته (المخطّط يظلّلها) */
+    var ar = (!teeth.length && p.area && p.area.text) ? p.area : null;
+    if (ar) teeth = (ar.teeth || []).slice();
     return {
       clinic: clinic || {}, providerName: p.providerName || selText('labOrderProvider'),
       orderNo: p.orderId ? String(p.orderId).replace(/-/g, '').slice(0, 8).toUpperCase() : '',
       patientName: p.patientName || '', lab: p.lab || null, workType: work,
-      teeth: teeth, shade: val('labOrderShade'), sent: val('labOrderDateSent'), due: val('labOrderDateDue'),
+      teeth: teeth, area: ar ? ar.text : '', stage: p.stage || null,
+      shade: val('labOrderShade'), sent: val('labOrderDateSent'), due: val('labOrderDateDue'),
       notes: val('labOrderNotes'), redo: p.redo || []
     };
   }
@@ -157,5 +199,6 @@
   }
 
   window.SyLabSlip = { build: build, parseTeeth: parseTeeth, batchTeeth: batchTeeth, prefetch: prefetch, fromForm: fromForm, check: check, print: print,
+    area: area, areaOf: areaOf, loadAreas: loadAreas,
     _setClinic: function (c) { clinic = c; } };
 })();

@@ -1959,6 +1959,7 @@ async function loadLabOrdersCard(uid, patientsList) {
       +     '<div class="lab-name">' + labEsc(p.name || '—') + '</div>'
       +     '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">'
       +       labEsc(lo.work_type || '—')
+      +       ((Array.isArray(lo.stages) && lo.stage_idx != null && lo.stages[lo.stage_idx] && lo.stages[lo.stage_idx].n) ? ' · ' + labEsc(lo.stages[lo.stage_idx].n) : '')   /* ج3-ب: المرحلةُ الحالية */
       +       (lo.tooth_num ? ' — سن ' + labEsc(lo.tooth_num) : '')
       +       (lo.lab_name ? ' — ' + labEsc(lo.lab_name) : '')
       +     '</div>'
