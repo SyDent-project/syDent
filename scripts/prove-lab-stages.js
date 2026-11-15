@@ -176,7 +176,7 @@ async function suite(F) {
     ok(iS > -1 && iS < iL && /SyLabStages\.run\(window\.sb, lo, \{/.test(adv) && /appts: labStageAppts\(/.test(adv) && /if \(!_stRow\) return;/.test(adv), file + ': advance goes through SyLabStages.run before any status write');
     ok(!/stage_idx\s*:/.test(src) && !/lab_order_next_stage|lab_order_prev_stage/.test(src), file + ': no direct stage write — the module and its RPCs only');
     ok(/SyLabStages\.undo\(window\.sb, lo,/.test(und) && /if \(!data\) return;/.test(und), file + ': undo goes through SyLabStages.undo');
-    ok(src.indexOf("SyLabStages.line(lo, { tail: (window.SyLabStages && SyLabStages.canUndo(lo) ? '<button type=\"button\" class=\"lst-undo\" onclick=\"undoLabStage(\\'' + lo.id + '\\')\"") > -1, file + ': the row shows the stage line with its own undo button');
+    ok(src.indexOf("SyLabStages.line(lo, { tail: (SyLabStages.canUndo(lo) ? '<button type=\"button\" class=\"lst-undo\" onclick=\"undoLabStage(\\'' + lo.id + '\\')\"") > -1, file + ': the row shows the stage line with its own undo button');
     ok(/workSelect: document\.getElementById\('labOrderWorkType'\), suggestFn: /.test(src) && !/_lstWired/.test(src), file + ': re-suggestion on work-type change is wired by the module');
     ok(/labStagesMount\(null\);   \/\* ج3-أ \*\/\n  openModal\('labOrderModal'\);/.test(src) && /labStagesMount\(lo\);   \/\* ج3-أ \*\/\n  openModal\('labOrderModal'\);/.test(src), file + ': the picker is mounted on new and on edit');
     const iP = src.indexOf("SyLabStages.applyToPayload(document.getElementById('labStagesBox'), payload, _prevLo);"), iW = src.indexOf(".update(payload).eq('id', id)");
@@ -342,6 +342,33 @@ async function suite(F) {
   ok(left9.length === 0 && E.t('🥽 شغل المخبر جاهز لهذا الموعد — تجربة الأسنان، تسليم') === '🥽 Lab work is ready for this appointment — Teeth try-in, Fit'
     && E.t('طلب مخبر نشط') === 'Active lab order' && E.t('سن 14') === 'Tooth 14' && E.t('سن 14 سنة') === 'سن 14 سنة' && E.t('سن 9') === 'سن 9' && E.t('الفك السفلي — الأسنان 34، 35') === 'Lower jaw — teeth 34, 35' && E.t('الفك العلوي — كامل') === 'Upper jaw — complete',
     'i18n (3b): badge titles with their stage tail and the bare denture location go through the real engine' + (left9.length ? ' → ' + left9.slice(0, 4).join(' | ') : ''));
+
+  /* ── (١٠) v727 (صور المالك): سطرُ المراحل صفٌّ تابع بعرض الجدول — لا ينضغط بخلية «نوع العمل»؛ شريحةٌ لا تنكسر؛ موضعُ الجهاز صندوقٌ واحد ── */
+  const ln10 = S.line(mk({ status: 'sent' }), { tail: UNDO });
+  ok((ln10.match(/<span class="lst-g">/g) || []).length === 4 && (ln10.match(/<span class="lst-sep">›<\/span><\/span>/g) || []).length === 3 && !/<\/span><span class="lst-sep">›<\/span><span class="lst-g">/.test(ln10)
+    && /\.lst-line \.lst-g \{[^}]*white-space: nowrap;/.test(F['theme.css']) && /\.lst-undo \{ white-space: nowrap;/.test(F['theme.css']),
+    'line: every stage and its arrow are one unbreakable group — the line wraps between stages only');
+  const pc = F['pp-clinical.js'], rl = fnSrc(pc, 'function renderLabOrders() {') || '';
+  ok(rl.indexOf("+ (_stLine ? '<tr class=\"lst-row' + _zCls + '\"><td colspan=\"2\"></td><td colspan=\"6\">' + _stLine + '</td></tr>' : '');") > -1
+    && rl.indexOf("+ (_stLine ? '<td class=\"mc-full lst-cell\">' + _stLine + '</td>' : '')") > -1 && rl.indexOf("<td class=\"mc-full lst-cell\">") < rl.indexOf("<td class=\"mc-actions\"")
+    && rl.indexOf("rows += '<tr class=\"lab-row' + (_stLine ? ' has-lst' : '') + _zCls + '\">'") > -1 && (rl.match(/SyLabStages\.line\(/g) || []).length === 1 && !/<td class="mc-title">[^\n]*_stLine/.test(rl)
+    && rl.indexOf('<table class="data-table m-cards lab-pairs">') > -1 && (rl.match(/<th[ >]/g) || []).length === 8,
+    'pp-clinical.js: the stage line is a follower row under «work type» (table) and a full-width cell above the buttons (cards) — not inside the title cell');
+  const lh = F['labs.html'];
+  ok(lh.indexOf("+ (stLine ? '<tr class=\"lst-row ' + rowClass + '\"><td colspan=\"2\"></td><td colspan=\"8\">' + stLine + '</td></tr>' : '');") > -1 && lh.indexOf("rows += '<tr class=\"' + rowClass + (stLine ? ' has-lst' : '') + '\">'") > -1
+    && lh.indexOf("+ (window.SyLabFiles ? ' ' + SyLabFiles.badge(lo.id) : '') + redoLine + '</td>'") > -1 && lh.indexOf("(stLine ? '<div style=\"grid-column:1/-1;\">' + stLine + '</div>' : '')") > -1
+    && (lh.match(/<th[ >]/g) || []).length >= 10 && /tbody tr\.has-lst \{ border-bottom: none; \}/.test(lh) && /#ordersTable \.lab-area \{ min-width: 0; \}/.test(lh),
+    'labs.html: the same follower row (it carries the overdue tint of its order) · the card keeps the line at full width · the redo line stays in the cell');
+  const pcss = F['patient-profile.css'], tcss = F['theme.css'];
+  ok(/tr\.lst-row > td \{ padding-top: 0 !important;/.test(tcss) && /tr\.has-lst > td \{ border-bottom: none !important;/.test(tcss)
+    && /\.data-table td\.lst-cell\{display:none;\}/.test(pcss) && /\.data-table\.m-cards tbody tr\.lst-row\{display:none;\}/.test(pcss)
+    && /\.data-table\.lab-pairs tbody tr\.lab-z td\{background:/.test(pcss) && /\.data-table\.m-cards\.lab-pairs tbody tr\.lab-z\{background:/.test(pcss)
+    && /\.data-table\.m-cards\.lab-pairs tbody tr:nth-child\(even\)\{background:transparent;\}/.test(pcss) && /tr\.has-lst:hover \+ tr\.lst-row td/.test(pcss),
+    'css: the follower row belongs to its order — one separator, zebra and hover by order; hidden in cards where the cell shows instead');
+  ok(/\.lab-area \{ display: inline-block; min-width: 86px; max-width: 190px;[^}]*white-space: normal;/.test(tcss) && pc.indexOf("toothChip = '<span class=\"tone tone-lime lab-area\">' + escapeHtml(_labAr.text) + '</span>';") > -1
+    && lh.indexOf("'<span class=\"tooth-badge lab-area\">' + escapeHtml(labArea.text) + '</span>'") > -1, 'denture location: one box that wraps inside (no chip broken across lines) on both pages — escaped');
+  ok(/@container mc \(max-width:1020px\)\{/.test(pcss) && !/@container mc \(max-width:880px\)/.test(pcss) && /\.data-table\.lab-pairs th,\.data-table\.lab-pairs td\{padding-inline:8px;\}/.test(pcss),
+    'patient lab table: cards below its real width (1020px, four-button row) — no clipped buttons behind a hidden scroll');
 }
 
 const FILES = ['theme.js', 'i18n-en.js', 'lab-stages.js', 'labs.html', 'pp-clinical.js', 'pp-denture.js', 'patient-profile.html', 'patient-profile.css', 'appointments.html', 'appt-time.js', 'index.html', 'migrations/206_lab_order_stages.sql',
@@ -391,7 +418,18 @@ const MUTANTS = [
   ['3b pp-clinical.js: slip printed without the stage', rep('pp-clinical.js', "stage: window.SyLabStages ? SyLabStages.forSlip(document.getElementById('labStagesBox'), id ? labOrders.find(function (x) { return x.id === id; }) : null) : null", "stage: null")],
   ['3b dashboard: stage name unescaped', rep('index.html', "' · ' + labEsc(lo.stages[lo.stage_idx].n)", "' · ' + lo.stages[lo.stage_idx].n")],
   ['3b i18n: badge stage-tail pattern dropped', rep('i18n-en.js', "+ ') — (.+)$'), function (m, ic, base, names)", "+ ') — NEVER(.+)$'), function (m, ic, base, names)")],
-  ['3b i18n: bare location pattern dropped', rep('i18n-en.js', "    [R('^(' + A1 + ')$'), function (m, a) { return area(a); }],\n", "")]
+  ['3b i18n: bare location pattern dropped', rep('i18n-en.js', "    [R('^(' + A1 + ')$'), function (m, a) { return area(a); }],\n", "")],
+  /* v727 */
+  ['v727 line: the arrow is a loose item again', rep('lab-stages.js', "+ (k < L.length - 1 ? '<span class=\"lst-sep\">›</span>' : '') + '</span>');", "+ '</span>' + (k < L.length - 1 ? '<span class=\"lst-sep\">›</span>' : ''));")],
+  ['v727 css: stage chips may break inside', rep('theme.css', ".lst-line .lst-g { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }", ".lst-line .lst-g { display: inline-flex; align-items: center; gap: 4px; }")],
+  ['v727 pp-clinical.js: the line back inside the title cell', rep('pp-clinical.js', "      + (_stLine ? '<tr class=\"lst-row' + _zCls + '\"><td colspan=\"2\"></td><td colspan=\"6\">' + _stLine + '</td></tr>' : '');", ";")],
+  ['v727 pp-clinical.js: cards lose the stage line', rep('pp-clinical.js', "      + (_stLine ? '<td class=\"mc-full lst-cell\">' + _stLine + '</td>' : '')", "")],
+  ['v727 labs.html: no follower row', rep('labs.html', "      + (stLine ? '<tr class=\"lst-row ' + rowClass + '\"><td colspan=\"2\"></td><td colspan=\"8\">' + stLine + '</td></tr>' : '');", ";")],
+  ['v727 labs.html: the card drops the stage line', rep('labs.html', "      +   (stLine ? '<div style=\"grid-column:1/-1;\">' + stLine + '</div>' : '')\n", "")],
+  ['v727 css: the follower row shows twice in cards', rep('patient-profile.css', "  .data-table.m-cards tbody tr.lst-row{display:none;}\n", "")],
+  ['v727 css: the card cell shows in the table too', rep('patient-profile.css', ".data-table td.lst-cell{display:none;}", ".data-table td.lst-cell{}")],
+  ['v727 css: the location chip breaks across lines again', rep('theme.css', ".lab-area { display: inline-block; min-width: 86px;", ".lab-area { display: inline; min-width: 86px;")],
+  ['v727 css: table kept below its real width', rep('patient-profile.css', "@container mc (max-width:1020px){", "@container mc (max-width:880px){")]
 ];
 
 (async () => {

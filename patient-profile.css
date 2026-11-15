@@ -303,6 +303,13 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 :root[data-theme="light"] .data-table tbody tr:nth-child(even) td{background:color-mix(in srgb, var(--text) 3%, transparent);}
 :root[data-theme="light"] .data-table tr:hover td{background:rgba(var(--green-rgb),0.09);}
 :root[data-theme="light"] .data-table th{background:var(--bg3);border-bottom:1px solid var(--border2);}
+/* v727: جدولُ المخابر — للطلب ذي المراحل صفٌّ تابع (tr.lst-row) تحت صفّه، فالتظليلُ المتناوب والتحويمُ بالطلب (lab-z) لا بترتيب الصف */
+.data-table td.lst-cell{display:none;}   /* بالجدول السطرُ بصفّه التابع؛ هذه الخلية للبطاقات وحدها */
+.data-table.lab-pairs th,.data-table.lab-pairs td{padding-inline:8px;}   /* كجدول الجلسات (sess-table): ثمانيةُ أعمدة وأربعةُ أزرار — الحشوُ الجانبي 16px كان يأكل ما يلزم «نوع العمل» وخانةَ السن */
+:root[data-theme="light"] .data-table.lab-pairs tbody tr td{background:transparent;}
+:root[data-theme="light"] .data-table.lab-pairs tbody tr.lab-z td{background:color-mix(in srgb, var(--text) 3%, transparent);}
+.data-table.lab-pairs tbody tr:hover td,.data-table.lab-pairs tbody tr.has-lst:hover + tr.lst-row td,.data-table.lab-pairs tbody tr.has-lst:has(+ tr.lst-row:hover) td{background:rgba(var(--green-rgb),0.06);}
+:root[data-theme="light"] .data-table.lab-pairs tbody tr:hover td,:root[data-theme="light"] .data-table.lab-pairs tbody tr.has-lst:hover + tr.lst-row td,:root[data-theme="light"] .data-table.lab-pairs tbody tr.has-lst:has(+ tr.lst-row:hover) td{background:rgba(var(--green-rgb),0.09);}
 .tag{display:inline-block;padding:2px 9px;border:1px solid transparent;border-radius:20px;font-size:11px;font-weight:700;}
 .tag-blue{background:var(--blue-bg);color:var(--blue-fg);border-color:var(--blue-bd);}
 .tag-green{background:var(--green-bg);color:var(--green-fg);border-color:var(--green-bd);}
@@ -798,12 +805,13 @@ body.ai-on #aiHubBtn{display:inline-block;}
    كلُّ صفٍّ من جدول .m-cards بطاقةً بشبكة: العنوان يمين · الحالة/المبلغ يسار · أسطرٌ كاملة
    · الأزرار بسطرها ملفوفة. الـDOM نفسُه (صفٌّ واحد وأزرارٌ واحدة) — الديسكتوب بلا تغيير. */
 .mc-only{display:none;}
-/* المضيف حاويةُ استعلام (container query): جدولُ المخابر يحتاج ~875px فيصير بطاقاتٍ متى ضاق
+/* المضيف حاويةُ استعلام (container query): جدولُ المخابر يحتاج ~1015px (صفٌّ بأربعة أزرار — قيسَ v727؛ كان الحدُّ 880 فينزلق
+   الجدولُ بين 880 و1015 وزرُّ الحذف خارج الشاشة) فيصير بطاقاتٍ متى ضاق
    مضيفُه عنها — الموبايل والآيباد واللابتوب الصغير مع السايد بار. الجداولُ الثلاثة الأخرى
    تتّسع على التابلت، فمضيفُها لا يصير حاويةً إلا تحت 600px ⇒ كتلةُ قواعدٍ واحدة للحالتين. */
 #labOrdersContent{container:mc / inline-size;}
 @media(max-width:600px){ #rxList,#postopList,#paymentsContent,#adjustmentsContent{container:mc / inline-size;} }   /* v471: المدفوعات والتسويات بطاقاتٌ أيضاً */   /* v353: #sessionsContent صار حاويةً دائمة (أدناه) */
-@container mc (max-width:880px){
+@container mc (max-width:1020px){
   .data-table.m-cards,.data-table.m-cards tbody{display:block;width:100%;min-width:0;}
   .data-table.m-cards thead{display:none;}
   .data-table.m-cards tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;row-gap:6px;align-items:start;padding:12px 14px;border-bottom:1px solid var(--border);}
@@ -821,6 +829,12 @@ body.ai-on #aiHubBtn{display:inline-block;}
   .data-table.m-cards td.mc-full[data-label]::before{content:attr(data-label) ': ';color:var(--text3);font-weight:600;}
   .data-table.m-cards td.mc-actions{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;align-items:center;white-space:normal !important;padding-top:10px;margin-top:4px;border-top:1px dashed var(--border);}
   .data-table.m-cards .mc-only{display:block;}
+  /* v727: بالبطاقات سطرُ المراحل خليةٌ بعرض البطاقة (td.lst-cell) — الصفُّ التابع مخفي، والتظليلُ والفاصلُ بالطلب */
+  .data-table.m-cards td.lst-cell .lst-line{margin-top:0;}
+  .data-table.m-cards tbody tr.lst-row{display:none;}
+  :root[data-theme="light"] .data-table.m-cards.lab-pairs tbody tr:nth-child(even){background:transparent;}
+  :root[data-theme="light"] .data-table.m-cards.lab-pairs tbody tr.lab-z{background:color-mix(in srgb, var(--text) 3%, transparent);}
+  .data-table.m-cards.lab-pairs tbody tr.has-lst:nth-last-child(2){border-bottom:none;}
   .data-table.m-cards .mc-meta{margin-top:3px;font-size:12px;font-weight:400;color:var(--text2);line-height:1.9;}
 }
 /* ── v353: جدول الجلسات بأعمدة (طلب المالك) ──

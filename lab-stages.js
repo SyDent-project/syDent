@@ -92,13 +92,14 @@
       var name = esc(disp(st));
       var inner = (cls === 'lst-done' ? '<span class="lst-ok">✓</span> ' : '') + '<span class="lst-n">' + name + '</span>'
         + ((cls === 'lst-cur' && stateText(lo)) ? ' <span class="lst-state">' + esc(stateText(lo)) + '</span>' : '');
-      parts.push('<span class="lst-st ' + cls + '">' + inner + '</span>');
+      /* الشريحةُ وسهمُها مجموعةٌ واحدة: السطرُ يلتفّ بين المراحل فقط — لا شريحةَ تنكسر من داخلها ولا سهمَ يبدأ سطراً */
+      parts.push('<span class="lst-g"><span class="lst-st ' + cls + '">' + inner + '</span>' + (k < L.length - 1 ? '<span class="lst-sep">›</span>' : '') + '</span>');
       var sent = k === 0 ? (st.sent || lo.date_sent) : st.sent, rec = k === i && !done ? lo.date_received : st.received;
       tip.push((k + 1) + ') ' + cleanName(st.n) + (sent ? ' — أُرسلت ' + numDate(sent) : '') + (rec ? ' · استُلمت ' + numDate(rec) : ''));
     });
     /* tail: زرُّ «تراجع عن المرحلة» تبنيه الصفحةُ نفسها (معالجُها وسجلُّ وضع القراءة عندها) — يُلحق كما هو */
     var tail = (opts && opts.tail && canUndo(lo)) ? ' ' + opts.tail : '';
-    return '<div class="lst-line" title="' + esc(tip.join('\n')) + '">' + parts.join('<span class="lst-sep">›</span>') + tail + '</div>';
+    return '<div class="lst-line" title="' + esc(tip.join('\n')) + '">' + parts.join('') + tail + '</div>';
   }
 
   /* ── منتقي المراحل داخل نافذة الطلب ── */
