@@ -16,11 +16,11 @@
 /* ── Modal ── v447: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261115f"></script>
+<script src="theme.js?v=20261115g"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261115f"></script>
-<script src="sy-modal.js?v=20261115f"></script>
-<script src="sidebar.js?v=20261115f"></script>
+<script src="supabase-init.js?v=20261115g"></script>
+<script src="sy-modal.js?v=20261115g"></script>
+<script src="sidebar.js?v=20261115g"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -271,7 +271,7 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
 }
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261115f">
+<link rel="stylesheet" href="theme.css?v=20261115g">
 </head>
 <body>
 <div class="main" id="sbMainContent">
@@ -421,6 +421,18 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
             <div class="target-title">جهاز جزئي</div>
             <div class="target-sub">يعوّض أسناناً مفقودة</div>
           </div>
+          <!-- M208 (ج4-أ): خدماتُ الجهاز — بلاطتان صريحتان (طلبُ المالك 15/11/2026: الحقلُ المخفيّ تحت «فك كامل» لم يُعثَر عليه).
+               بالقاعدة: علاجُ فكٍّ موسوم (target_part='arch' + denture_svc) — المطابقةُ بـuiTargetOf/dbTargetOf. مخفيتان حتى يوجد العمود. -->
+          <div class="target-opt" data-target="denture_service" data-m208 style="display:none;">
+            <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-m" d="M7 36C7 14 15 5 24 5C33 5 41 14 41 36L34 36C34 20 30 13 24 13C18 13 14 20 14 36Z"/><path class="tg-a tg-am" d="M10.5 34C10.5 16 17 9 24 9C31 9 37.5 16 37.5 34"/><path class="tg-h" d="M20.5 40.5L27 34M27 34a4.2 4.2 0 1 0 5.6-5.6l-2.6 2.6-2.4-.6-.6-2.4 2.6-2.6A4.2 4.2 0 0 0 27 34Z"/></svg>
+            <div class="target-title">خدمة جهاز</div>
+            <div class="target-sub">تبطين · إصلاح · تعديل</div>
+          </div>
+          <div class="target-opt" data-target="denture_add" data-m208 style="display:none;">
+            <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-m" d="M7 36C7 14 15 5 24 5C33 5 41 14 41 36L34 36C34 20 30 13 24 13C18 13 14 20 14 36Z"/><path class="tg-a tg-am" d="M10.5 34C10.5 16 17 9 24 9C31 9 37.5 16 37.5 34"/><path class="tg-a tg-ah" d="M10.5 34C10.5 27 11 22 13 17"/><path class="tg-h" d="M29 26v12M23 32h12"/></svg>
+            <div class="target-title">إضافة سن لجهاز</div>
+            <div class="target-sub">للجهاز الجزئي فقط</div>
+          </div>
           <!-- Phase 3 Feature G: regional treatment areas -->
           <div class="target-opt" data-target="quadrant">
             <svg class="tg-ic" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><path class="tg-a tg-am" d="M10 18C10 8 17 4 24 4"/><path class="tg-a tg-ah" d="M24 4C31 4 38 8 38 18"/><path class="tg-a tg-am" d="M10 30C10 40 17 44 24 44C31 44 38 40 38 30"/></svg>
@@ -438,16 +450,6 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
             <div class="target-sub">فحص، تنظيف</div>
             </div>
           </div>
-        </div>
-        <!-- M208 (ج4-أ): خدمةُ جهازٍ متحرك — يظهر مع «فك كامل» فقط، ومخفيٌّ حتى يوجد العمود -->
-        <div class="form-group" id="dentSvcWrap" style="display:none;">
-          <label for="tDentSvc">خدمة لجهاز متحرك</label>
-          <select id="tDentSvc">
-            <option value="" selected>لا — علاج فك عادي</option>
-            <option value="service">خدمة لجهاز قائم (تبطين · إصلاح · تعديل)</option>
-            <option value="add">إضافة سن لجهاز جزئي</option>
-          </select>
-          <div class="fhint">خدمة الجهاز تُسجَّل من شريحة الجهاز ببطاقة المريض وتدخل سجلَّ خدماته.</div>
         </div>
         <div class="form-row">
           <!-- M146: مخفيٌّ حتى يوجد العمود -->
@@ -657,7 +659,7 @@ async function loadTreatments() {
   if (_dsW) _dsW.style.display = window.__m146T ? '' : 'none';
   // M208 detection: denture_svc — نفس عقد «انشر قبل الهجرة».
   window.__m208T = !!(data && data.length && Object.prototype.hasOwnProperty.call(data[0], 'denture_svc'));
-  syncDentSvcVisibility();
+  syncDentSvcTiles();
   // M151 detection: accepts_units — نفس عقد «انشر قبل الهجرة».
   window.__m151T = !!(data && data.length && Object.prototype.hasOwnProperty.call(data[0], 'accepts_units'));
   var _auW = document.getElementById('acceptsUnitsWrap');
@@ -724,6 +726,7 @@ var TARGET_CHIPS = [
   ['crown','تاج (سطح)'], ['crown_full','تاج كامل'], ['root','جذر'], ['whole','سن كامل'],
   ['extraction','قلع'], ['implant','زراعة'], ['bridge','جسر'],
   ['denture_full','جهاز كامل'], ['denture_partial','جهاز جزئي'],   /* M202 */
+  ['denture_service','خدمة جهاز'], ['denture_add','إضافة سن لجهاز'],   /* M208 */
   ['quadrant','ربع'], ['arch','فك'], ['mouth','فم كامل']
 ];
 var FLAG_CHIPS = [
@@ -746,7 +749,7 @@ function treatMatches(t, skip) {
   // المعطّلُ مخفيٌّ افتراضياً؛ مفتاح «معطّلة» يعرض المعطّلَ وحده
   var wantInactive = (skip === 'flag:inactive') ? false : activeFlags.inactive;
   if ((t.is_active === false) !== wantInactive) return false;
-  if (skip !== 'target' && activeFilter !== 'all' && (t.target_part || 'crown') !== activeFilter) return false;
+  if (skip !== 'target' && activeFilter !== 'all' && uiTargetOf(t) !== activeFilter) return false;   /* M208: خدمةُ الجهاز بشريحتها لا بشريحة «فك» */
   if (skip !== 'cat' && activeCat !== 'all' && (t.category || 'other') !== activeCat) return false;
   for (var f in activeFlags) {
     if (f === 'inactive' || !activeFlags[f] || skip === 'flag:' + f) continue;
@@ -794,7 +797,7 @@ function renderFilterBar(shown) {
   catEl.innerHTML = h;
   // يطبَّق على
   var poolT = treatments.filter(function(t){ return treatMatches(t, 'target'); });
-  var byT = {}; poolT.forEach(function(t){ var k = t.target_part || 'crown'; byT[k] = (byT[k] || 0) + 1; });
+  var byT = {}; poolT.forEach(function(t){ var k = uiTargetOf(t); byT[k] = (byT[k] || 0) + 1; });
   h = _chipHtml('target', 'all', 'الكل', poolT.length, activeFilter === 'all');
   for (i = 0; i < TARGET_CHIPS.length; i++) { n = byT[TARGET_CHIPS[i][0]] || 0; if (n || activeFilter === TARGET_CHIPS[i][0]) h += _chipHtml('target', TARGET_CHIPS[i][0], TARGET_CHIPS[i][1], n, activeFilter === TARGET_CHIPS[i][0]); }
   tgtEl.innerHTML = h;
@@ -916,23 +919,21 @@ function render() {
       'implant':    { text:'زراعة',       tone:'blue' },
       'denture_full':    { text:'جهاز كامل',  tone:'purple' },   /* M202 */
       'denture_partial': { text:'جهاز جزئي',  tone:'purple' },
+      'denture_service': { text:'خدمة جهاز',  tone:'purple' },   /* M208 */
+      'denture_add':     { text:'إضافة سن لجهاز', tone:'purple' },
       'both':       { text:'تاج وجذر',    tone:'orange' },
       // Phase 3 Feature G: regional treatment areas (no specific tooth)
       'quadrant':   { text:'ربع',         tone:'lime' },
       'arch':       { text:'فك',          tone:'green' },
       'mouth':      { text:'فم كامل',     tone:'cyan' }
     };
-    var tp = targetMap[t.target_part] || targetMap.crown;
+    var tp = targetMap[uiTargetOf(t)] || targetMap.crown;
     var targetTag = '<span class="treat-target-tag cbadge tone tone-' + tp.tone + '" style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-right:4px;">🦷 ' + tp.text + '</span>';
     var catTag = '<span class="tone tone-gray" style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;border-width:1px;border-style:solid;margin-right:4px;">' + (CAT_MAP[t.category] || CAT_MAP.other) + '</span>';
     var dentTag = (t.dentition_scope === 'primary')
       ? '<span class="cbadge tone tone-purple" title="يظهر على الأسنان اللبنية فقط" style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-right:4px;">🧒 لبني</span>'
       : (t.dentition_scope === 'permanent')
       ? '<span class="cbadge tone tone-blue" title="يظهر على الأسنان الدائمة فقط" style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-right:4px;">🦷 دائم</span>'
-      : '';
-    /* M208: خدمةُ جهازٍ متحرك (علاجُ فكٍّ موسوم) */
-    var svcTag = (t.target_part === 'arch' && t.denture_svc)
-      ? '<span class="cbadge tone tone-purple" title="تُسجَّل على جهاز متحرك قائم وتدخل سجلَّ خدماته" style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-right:4px;">🛠 ' + (t.denture_svc === 'add' ? 'إضافة سن لجهاز' : 'خدمة جهاز') + '</span>'
       : '';
     var isInactive = (t.is_active === false);
     var inactiveStyle = isInactive ? 'opacity:.55;' : '';
@@ -951,7 +952,7 @@ function render() {
           + '<div class="treat-swatch" style="' + iconBg + 'border:2px solid ' + fg + ';"></div>'
           + '<div class="treat-head-main">'
             + '<div class="treat-name">' + escapeHtml(t.name) + '</div>'
-            + '<div class="treat-tags">' + labTag + ' ' + targetTag + ' ' + catTag + ' ' + dentTag + ' ' + svcTag + ' ' + inactiveBadge + '</div>'
+            + '<div class="treat-tags">' + labTag + ' ' + targetTag + ' ' + catTag + ' ' + dentTag + ' ' + inactiveBadge + '</div>'
             + laymanRow
           + '</div>'
           + favStar
@@ -1040,7 +1041,7 @@ var TARGET_DEFAULTS_BY_CATEGORY = {
   diagnostic:      'mouth',
   orthodontics:    'arch'
 };
-var TARGET_TOAST_NAMES = { root:'جذر السن', crown:'سطح من التاج', extraction:'قلع', crown_full:'التاج كامل', implant:'زراعة', mouth:'فم كامل', arch:'فك كامل', denture_full:'جهاز كامل', denture_partial:'جهاز جزئي' };
+var TARGET_TOAST_NAMES = { root:'جذر السن', crown:'سطح من التاج', extraction:'قلع', crown_full:'التاج كامل', implant:'زراعة', mouth:'فم كامل', arch:'فك كامل', denture_service:'خدمة جهاز', denture_add:'إضافة سن لجهاز', denture_full:'جهاز كامل', denture_partial:'جهاز جزئي' };
 // True once the user picks a target manually; we then stop overriding it on
 // category change. Reset at every ADD-modal open; edit/duplicate lock it.
 var userTouchedTarget = false;
@@ -1227,7 +1228,6 @@ function openAddModal() {
   var _peA = document.getElementById('tPostExt'); if (_peA) _peA.checked = false;
   var _auA = document.getElementById('tAcceptsUnits'); if (_auA) _auA.checked = false;   /* M151 */
   var _dsA = document.getElementById('tDentScope'); if (_dsA) _dsA.value = 'all';
-  var _dvA = document.getElementById('tDentSvc'); if (_dvA) _dvA.value = '';   /* M208 */
   document.getElementById('tCategory').value = 'restorative';
   document.getElementById('tDefaultNote').value = '';
   userTouchedLabToggle = false;  // new treatment — allow smart category defaults
@@ -1256,7 +1256,6 @@ function editTreatment(id) {
   var _peE = document.getElementById('tPostExt'); if (_peE) _peE.checked = !!t.post_extraction;
   var _auE = document.getElementById('tAcceptsUnits'); if (_auE) _auE.checked = !!t.accepts_units;   /* M151 */
   var _dsE = document.getElementById('tDentScope'); if (_dsE) _dsE.value = _normDentScope(t.dentition_scope);
-  var _dvE = document.getElementById('tDentSvc'); if (_dvE) _dvE.value = _normDentSvc(t.denture_svc);   /* M208 */
   document.getElementById('tCategory').value = t.category || 'other';
   document.getElementById('tDefaultNote').value = t.default_note || '';
   userTouchedLabToggle = true;  // editing existing — preserve current lab value
@@ -1279,7 +1278,7 @@ function editTreatment(id) {
     nameInput.title = '';
   }
   pickColor(t.fill, t.stroke);
-  pickTarget(t.target_part || 'crown');
+  pickTarget(uiTargetOf(t));   /* M208: خدمةُ الجهاز ببلاطتها */
   setTargetLock(isProtectedTreatment(t));   // chart-geometry treatments: target is fixed
   renderOverrideRows(t.price_overrides || {});
   updatePreview();
@@ -1294,13 +1293,23 @@ function pickTarget(target) {
     if (o.getAttribute('data-target') === target) o.classList.add('selected');
     else o.classList.remove('selected');
   }
-  syncDentSvcVisibility();
 }
-/* M208: «خدمة لجهاز متحرك» تخصّ علاجَ الفك وحده — تظهر معه (والعمودُ موجود) وتختفي مع غيره. القيمةُ لا تُحفظ إلا مع «فك كامل». */
+/* M208: خدمةُ الجهاز بالواجهة «نوعُ تطبيق» بلاطتُه الخاصة، وبالقاعدة علاجُ فكٍّ موسوم — مصدرٌ واحد للتحويل بالاتجاهين.
+   (لا قيمةَ جديدة بـtarget_part: كلُّ شاشةٍ أخرى تعامل المجهول «سطحَ تاج».) */
 function _normDentSvc(v) { return (v === 'service' || v === 'add') ? v : ''; }
-function syncDentSvcVisibility() {
-  var w = document.getElementById('dentSvcWrap');
-  if (w) w.style.display = (window.__m208T && pickedTarget === 'arch') ? '' : 'none';
+function uiTargetOf(t) {
+  var sv = _normDentSvc(t && t.denture_svc), tp = (t && t.target_part) || 'crown';
+  return (tp === 'arch' && sv) ? (sv === 'add' ? 'denture_add' : 'denture_service') : tp;
+}
+function dbTargetOf(ui) {
+  if (ui === 'denture_service') return { target_part: 'arch', denture_svc: 'service' };
+  if (ui === 'denture_add') return { target_part: 'arch', denture_svc: 'add' };
+  return { target_part: ui, denture_svc: null };
+}
+/* البلاطتان مخفيتان حتى يوجد العمود (نشرٌ قبل الترحيل) */
+function syncDentSvcTiles() {
+  var ts = document.querySelectorAll('.target-opt[data-m208]');
+  for (var i = 0; i < ts.length; i++) ts[i].style.display = window.__m208T ? '' : 'none';
 }
 
 /* Lock/unlock the «يطبَّق على» grid for protected (chart-geometry) treatments.
@@ -1337,7 +1346,6 @@ function duplicateTreatment(id) {
   var _peD = document.getElementById('tPostExt'); if (_peD) _peD.checked = !!t.post_extraction;
   var _auD = document.getElementById('tAcceptsUnits'); if (_auD) _auD.checked = !!t.accepts_units;   /* M151 */
   var _dsD = document.getElementById('tDentScope'); if (_dsD) _dsD.value = _normDentScope(t.dentition_scope);
-  var _dvD = document.getElementById('tDentSvc'); if (_dvD) _dvD.value = _normDentSvc(t.denture_svc);   /* M208 */
   userTouchedLabToggle = true;  // duplicate copies original's lab value — don't override
   userTouchedTarget = true;     // duplicate copies original's target — don't override
   userTouchedDentScope = true;  // M146
@@ -1348,7 +1356,7 @@ function duplicateTreatment(id) {
   nameInputDup.style.cursor = '';
   nameInputDup.title = '';
   pickColor(t.fill, t.stroke);
-  pickTarget(t.target_part || 'crown');
+  pickTarget(uiTargetOf(t));   /* M208: خدمةُ الجهاز ببلاطتها */
   setTargetLock(false);   // duplicate = new custom treatment, target fully editable
   updatePreview();
   renderOverrideRows(t.price_overrides || {});
@@ -1698,8 +1706,6 @@ async function _saveTreatment_inner() {
   var postExt = !!(_peEl && _peEl.checked);
   var _dsEl = document.getElementById('tDentScope');
   var dentScope = _normDentScope(_dsEl ? _dsEl.value : 'all');   /* M146 */
-  var _dvEl = document.getElementById('tDentSvc');
-  var dentSvc = _normDentSvc(_dvEl ? _dvEl.value : '') || null;   /* M208: يُحفظ مع «فك كامل» وحده */
   var _auEl = document.getElementById('tAcceptsUnits');
   var acceptsUnits = !!(_auEl && _auEl.checked);   /* M151 */
   var category = document.getElementById('tCategory').value;
@@ -1728,14 +1734,15 @@ async function _saveTreatment_inner() {
       // treatment keeps its stored target_part regardless of the picker state
       // (covers DOM tampering / any future path that forgets setTargetLock).
       var existing = treatments.find(function(x){ return x.id === editingId; });
-      var _savedTarget = (existing && isProtectedTreatment(existing))
-        ? (existing.target_part || pickedTarget)
+      var _savedUi = (existing && isProtectedTreatment(existing))
+        ? uiTargetOf(existing)
         : pickedTarget;
+      var _savedDb = dbTargetOf(_savedUi), _savedTarget = _savedDb.target_part;   /* M208: البلاطةُ ← (target_part · denture_svc) */
       var _newCur = window.SyDentCurPick.read('tPrice');
       var updatePayload = { name: name, price: price, price_overrides: newOverrides || {}, currency: _newCur, label: label, fill: pickedFill, stroke: pickedStroke, needs_lab: needsLab, lab_days: labDays, target_part: _savedTarget, category: category, default_note: defaultNote, layman_name: laymanName || null, updated_at: new Date().toISOString() };
       if (window.__m61T) updatePayload.post_extraction = postExt;  // M61-gated
       if (window.__m146T) updatePayload.dentition_scope = dentScope;  // M146-gated
-      if (window.__m208T) updatePayload.denture_svc = (_savedTarget === 'arch') ? dentSvc : null;  // M208-gated
+      if (window.__m208T) updatePayload.denture_svc = _savedDb.denture_svc;  // M208-gated
       if (window.__m151T) updatePayload.accepts_units = acceptsUnits;  // M151-gated
       var updRes = await window.sb
         .from('treatments')
@@ -1802,7 +1809,7 @@ async function _saveTreatment_inner() {
         fill: pickedFill, stroke: pickedStroke,
         needs_lab: needsLab,
         lab_days: labDays,   /* M161 */
-        target_part: pickedTarget,
+        target_part: dbTargetOf(pickedTarget).target_part,   /* M208 */
         category: category,
         default_note: defaultNote,
         layman_name: laymanName || null,
@@ -1812,7 +1819,7 @@ async function _saveTreatment_inner() {
       };
       if (window.__m61T) insertPayload.post_extraction = postExt;  // M61-gated
       if (window.__m146T) insertPayload.dentition_scope = dentScope;  // M146-gated
-      if (window.__m208T) insertPayload.denture_svc = (pickedTarget === 'arch') ? dentSvc : null;  // M208-gated
+      if (window.__m208T) insertPayload.denture_svc = dbTargetOf(pickedTarget).denture_svc;  // M208-gated
       if (window.__m151T) insertPayload.accepts_units = acceptsUnits;  // M151-gated
       var insRes = await window.sb
         .from('treatments')

@@ -116,7 +116,7 @@ function dsvRender(ov) {
   var txs = dsvTreatments(), hist = dsvSessions(u), why = dsvUnitWhy(u, '');
   h += '<div class="dsv-h">خدمة جديدة</div>';
   if (why) h += '<div class="dsv-note dsv-warn">' + escapeHtml(why) + '</div>';
-  else if (!txs.length) h += '<div class="dsv-note">لا خدمات جهاز بقائمة علاجاتك — أضفها من صفحة العلاجات بزر «الافتراضي»، أو أنشئ علاج «فك كامل» وعلّمه خدمةً لجهاز متحرك.</div>';
+  else if (!txs.length) h += '<div class="dsv-note">لا خدمات جهاز بقائمة علاجاتك — أضفها من صفحة العلاجات بزر «الافتراضي»، أو أنشئ علاجاً واختر له «خدمة جهاز».</div>';
   else {
     h += '<div class="dsv-list">';
     txs.forEach(function (t) {
@@ -184,7 +184,13 @@ function dsvOpenDialog(state) {
 function dsvOpen(unitId) {
   var u = dsvUnit(unitId);
   if (!u) { showToast('🦷 الجهاز لم يعد على المخطط'); return; }
-  dsvOpenDialog({ view: 'home', unitId: u.id, key: null, label: '', teeth: [] });
+  var ov = dsvOpenDialog({ view: 'home', unitId: u.id, key: null, label: '', teeth: [] });
+  /* قائمةُ العلاجات قد تكون تغيّرت بصفحة العلاجات والبطاقةُ مفتوحة (خدمةٌ أُضيفت للتوّ) — تُحدَّث كما يفعل مودالُ السن عند كل فتح */
+  if (typeof loadTreatmentsFromSupabase === 'function') {
+    Promise.resolve().then(loadTreatmentsFromSupabase).then(function () {
+      if (dsvDialog() === ov && ov._dsv && ov._dsv.view === 'home') dsvRender(ov);
+    }).catch(function (e) { console.warn('denture services: treatments refresh skipped:', e); });
+  }
 }
 function dsvOpenFromTooth(n) {
   var u = dentUnitOf(n);

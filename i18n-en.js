@@ -3381,8 +3381,8 @@ Object.assign(window.SyI18nDict, {
   Object.assign(D, {
     '🛠 خدمات الجهاز': '🛠 Denture services', 'خدمة جديدة': 'New service', 'سجل الخدمات': 'Service history',
     'لا خدمات مسجّلة لهذا الجهاز بعد.': 'No services recorded for this denture yet.',
-    'لا خدمات جهاز بقائمة علاجاتك — أضفها من صفحة العلاجات بزر «الافتراضي»، أو أنشئ علاج «فك كامل» وعلّمه خدمةً لجهاز متحرك.':
-      'No denture services in your treatments list — add them from the Treatments page with the «Defaults» button, or create a «Full jaw» treatment and mark it as a denture service.',
+    'لا خدمات جهاز بقائمة علاجاتك — أضفها من صفحة العلاجات بزر «الافتراضي»، أو أنشئ علاجاً واختر له «خدمة جهاز».':
+      'No denture services in your treatments list — add them from the Treatments page with the «Defaults» button, or create a treatment and choose «Denture service» for it.',
     'خدمة جهاز': 'Denture service',
     '— الملوَّن ضمن الجهاز، والباهت لا يقبل الإضافة (انقره لمعرفة السبب).': '— coloured teeth are part of the denture; faded ones cannot be added (click one to see why).',
     'لا أسنان مفقودة بهذا الفك تُضاف للجهاز — سجّل القلع على المخطط أولاً.': 'No missing teeth in this jaw can be added to the denture — record the extraction on the chart first.',
@@ -3391,13 +3391,9 @@ Object.assign(window.SyI18nDict, {
     '🦷 الجهاز لم يعد على المخطط': '🦷 The denture is no longer on the chart',
     '🛠 خدمة الجهاز تُسجَّل «منجز» أو «مخطّط» فقط': '🛠 A denture service is recorded as «Done» or «Planned» only',
     '⚠️ خدمات الجهاز تحتاج تحديث قاعدة البيانات — حدّث الصفحة وأعد المحاولة': '⚠️ Denture services need a database update — refresh the page and try again',
-    /* صفحةُ العلاجات */
-    'خدمة لجهاز متحرك': 'Service for a removable denture', 'لا — علاج فك عادي': 'No — a regular jaw treatment',
-    'خدمة لجهاز قائم (تبطين · إصلاح · تعديل)': 'Service for an existing denture (reline · repair · adjustment)',
-    'إضافة سن لجهاز جزئي': 'Add a tooth to a partial denture',
-    'خدمة الجهاز تُسجَّل من شريحة الجهاز ببطاقة المريض وتدخل سجلَّ خدماته.': 'A denture service is recorded from the denture chip on the patient card and joins its service history.',
-    'تُسجَّل على جهاز متحرك قائم وتدخل سجلَّ خدماته': 'Recorded on an existing removable denture and joins its service history',
-    '🛠 خدمة جهاز': '🛠 Denture service', '🛠 إضافة سن لجهاز': '🛠 Add tooth to denture'
+    /* صفحةُ العلاجات: بلاطتا «يطبَّق على» وشريحتا الفلتر وشارةُ البطاقة */
+    'إضافة سن لجهاز': 'Add tooth to denture', 'تبطين · إصلاح · تعديل': 'Reline · repair · adjustment', 'للجهاز الجزئي فقط': 'Partial dentures only',
+    '🦷 خدمة جهاز': '🦷 Denture service', '🦷 إضافة سن لجهاز': '🦷 Add tooth to denture'
   });
 
   P.push(
