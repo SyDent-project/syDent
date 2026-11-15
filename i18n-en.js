@@ -3172,6 +3172,10 @@ Object.assign(window.SyI18nDict, {
     [/^✅ تم تسجيل (.+?) للفكين \(جلسة لكل فك\)$/, '✅ $1 recorded for both jaws (one session per jaw)'],
     [/^اختر الفك — (.+)$/, 'Choose the jaw — $1'],
     /* a denture session named by its location in lists (2c: timeline title · plan card) — the name stays, the location is translated */
+    /* 3b: the location alone — the tooth cell of a denture lab order (labs page · patient lab tab) — and the plain tooth
+       badge beside it («سن 14»: a whole node of the word and an FDI number, so no other sentence is touched) */
+    [R('^(' + A1 + ')$'), function (m, a) { return area(a); }],
+    [/^سن ([1-8][1-8])$/, 'Tooth $1'],
     [R('^(.+?) — (' + A1 + ')$'), function (m, n, a) { return n + ' — ' + area(a); }],
     [R('^(.+) \\((' + A1 + ')\\)( ×\\d+)?$'), function (m, n, a, x) { return n + ' (' + area(a) + ')' + (x || ''); }],
     /* a bare name with its option — last, so the fuller lines above are tried first */
@@ -3295,4 +3299,21 @@ Object.assign(window.SyI18nDict, {
     '⚠️ فشل التراجع — حاول مجدداً': '⚠️ Undo failed — try again',
     '📤 مرحلة مخبر': '📤 Lab stage'
   });
+
+  /* ── ج3-ب: تنبيهُ المخبر على الموعد (getApptLabBadge) — العنوانُ ثابت، وقد يلحقه اسمُ المرحلة («… — تجربة الأسنان، تسليم») ── */
+  var BADGE = {
+    'تنبيه: المخبر لم يصل قبل هذا الموعد (مرتبط مباشرة)': 'Warning: the lab work has not arrived before this appointment (linked directly)',
+    'تنبيه: طلب مخبر لم يصل قبل الموعد': 'Warning: a lab order has not arrived before the appointment',
+    'شغل المخبر جاهز للتركيب في هذا الموعد': 'Lab work is ready to fit at this appointment',
+    'يوجد شغل جاهز للتركيب من المخبر': 'Lab work is ready to fit',
+    'شغل المخبر جاهز لهذا الموعد': 'Lab work is ready for this appointment',
+    'يوجد شغل جاهز من المخبر': 'Lab work is ready',
+    'طلب مخبر مرتبط بهذا الموعد': 'Lab order linked to this appointment',
+    'طلب مخبر نشط': 'Active lab order'
+  };
+  Object.keys(BADGE).forEach(function (k) { if (D[k] == null) D[k] = BADGE[k]; });
+  var BADGE_RE = Object.keys(BADGE).map(function (k) { return k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|');
+  P.push([new RegExp('^((?:⚠️|🥽) )?(' + BADGE_RE + ') — (.+)$'), function (m, ic, base, names) {
+    return (ic || '') + BADGE[base] + ' — ' + names.split('، ').map(nm).join(', ');
+  }]);
 })();

@@ -23,7 +23,7 @@
 /* ── Modal ── v448: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261115a"></script>
+<script src="theme.js?v=20261115b"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -566,17 +566,17 @@ a.appt-badge:hover { background: rgba(var(--blue-rgb),0.28) !important; }
 html[data-sub-level="read"] :is([onclick*="openLabOrderModal("],[onclick*="openLabModal("],[onclick*="labTplSaveCurrent("],[onclick*="labTplDeleteSelected("],[onclick*="labClearDateSent("],[onclick*="labAiDraftOrder("],[onclick*="labAiSaveAndSend("],[onclick*="saveLabOrder("],[onclick*="saveLab("],[onclick*="saveLabPayment("],[onclick*="editLab("],[onclick*="delLab("],[onclick*="advanceLabOrder("],[onclick*="redoLabOrder("],[onclick*="undoLabStage("],[onclick*="editLabOrder("],[onclick*="delLabOrder("],[onclick*="delLabPayment("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261115a">
+<link rel="stylesheet" href="theme.css?v=20261115b">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261115a"></script>
-<script src="sy-modal.js?v=20261115a"></script>
-<script src="pay-methods.js?v=20261115a"></script>
-<script src="lab-redo.js?v=20261115a"></script>
-<script src="lab-stages.js?v=20261115a"></script>
-<script src="lab-due.js?v=20261115a"></script>
-<script src="lab-slip.js?v=20261115a"></script>
-<script src="lab-files.js?v=20261115a"></script>
-<script src="sidebar.js?v=20261115a"></script>
+<script src="supabase-init.js?v=20261115b"></script>
+<script src="sy-modal.js?v=20261115b"></script>
+<script src="pay-methods.js?v=20261115b"></script>
+<script src="lab-redo.js?v=20261115b"></script>
+<script src="lab-stages.js?v=20261115b"></script>
+<script src="lab-due.js?v=20261115b"></script>
+<script src="lab-slip.js?v=20261115b"></script>
+<script src="lab-files.js?v=20261115b"></script>
+<script src="sidebar.js?v=20261115b"></script>
 </head>
 <body>
 <script>
@@ -1223,6 +1223,11 @@ async function loadAll() {
     SyLabRedo.load(window.sb, allOrders.map(function(o){ return o.id; }))
       .then(function(){ try { renderTable(); renderLabs(); } catch (e) { console.warn('lab redo render:', e); } });   /* v532: الإعادةُ تدخل أداءَ المخبر */
   }
+  /* ج3-ب: موضعُ طلب الجهاز المتحرك (فكّه وأسنانه) من جلسته — ثانويّ لا يؤخّر الجدول (#687) */
+  if (window.SyLabSlip && SyLabSlip.loadAreas && allOrders.length) {
+    SyLabSlip.loadAreas(window.sb, currentUser.id, allOrders)
+      .then(function(got){ if (got) { try { renderTable(); } catch (e) { console.warn('lab areas render:', e); } } });
+  }
   /* v535: عدّادُ المرفقات لسطر كل طلب — ثانويّ لا يؤخّر الجدول (#687) */
   if (window.SyLabFiles && allOrders.length) {
     SyLabFiles.loadCounts(window.sb, allOrders.map(function(o){ return o.id; }))
@@ -1654,9 +1659,11 @@ function renderTable() {
       }
     }
 
+    /* ج3-ب: طلبُ الجهاز المتحرك بلا رقم سن — يُعرض فكُّه وأسنانُه من جلسته */
+    var labArea = (window.SyLabSlip && SyLabSlip.areaOf) ? SyLabSlip.areaOf(lo) : null;
     rows += '<tr class="' + rowClass + '">'
       + '<td class="patient-link">' + apptBadge + pLink + (seatLink ? '<div>' + seatLink + '</div>' : '') + '</td>'
-      + '<td>' + (lo.tooth_num ? '<span class="tooth-badge">سن ' + lo.tooth_num + '</span>' : '—') + '</td>'
+      + '<td>' + (lo.tooth_num ? '<span class="tooth-badge">سن ' + lo.tooth_num + '</span>' : (labArea ? '<span class="tooth-badge lab-area">' + escapeHtml(labArea.text) + '</span>' : '—')) + '</td>'
       + '<td>' + escapeHtml(lo.work_type || '—') + (window.SyLabFiles ? ' ' + SyLabFiles.badge(lo.id) : '') + redoLine + '</td>'
       + '<td style="color:var(--text2)">' + escapeHtml(labNm) + '</td>'
       + '<td style="color:var(--text2)">' + escapeHtml(lo.shade || '—') + '</td>'
@@ -1673,7 +1680,7 @@ function renderTable() {
       +   pill
       + '</div>'
       + '<div class="oc-info">'
-      +   '<div><span class="lbl">السن:</span><span class="val">' + (lo.tooth_num || '—') + '</span></div>'
+      +   '<div><span class="lbl">السن:</span><span class="val">' + (lo.tooth_num || (labArea ? escapeHtml(labArea.text) : '—')) + '</span></div>'
       +   '<div><span class="lbl">العمل:</span><span class="val">' + escapeHtml(lo.work_type || '—') + (window.SyLabFiles ? ' ' + SyLabFiles.badge(lo.id) : '') + '</span></div>'
       +   '<div><span class="lbl">المخبر:</span><span class="val">' + escapeHtml(labNm) + '</span></div>'
       +   '<div><span class="lbl">اللون:</span><span class="val">' + escapeHtml(lo.shade || '—') + '</span></div>'
@@ -2137,7 +2144,10 @@ function labSlipPrint() {
     lab: allLabs.find(function (x) { return x.id === labId; }) || null,
     teeth: (typeof labAiTeeth === 'function') ? labAiTeeth() : null,
     orderId: id || '', orders: allOrders,
-    redo: (id && window.SyLabRedo) ? SyLabRedo.list(id) : []
+    redo: (id && window.SyLabRedo) ? SyLabRedo.list(id) : [],
+    /* ج3-ب: موضعُ الجهاز من جلسته + المرحلةُ المطلوبة الآن */
+    area: (id && SyLabSlip.areaOf) ? SyLabSlip.areaOf(allOrders.find(function (x) { return x.id === id; })) : null,
+    stage: window.SyLabStages ? SyLabStages.forSlip(document.getElementById('labStagesBox'), id ? allOrders.find(function (x) { return x.id === id; }) : null) : null
   }));
 }
 

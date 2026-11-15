@@ -21,28 +21,28 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261115a"></script>
-<link rel="stylesheet" href="appointments.css?v=20261115a">
+<script src="theme.js?v=20261115b"></script>
+<link rel="stylesheet" href="appointments.css?v=20261115b">
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261115a">
+<link rel="stylesheet" href="theme.css?v=20261115b">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261115a"></script>
-<script src="sy-modal.js?v=20261115a"></script>
-<script src="appt-conflict.js?v=20261115a"></script>
-<script src="pt-reliability.js?v=20261115a"></script>
-<script src="sched-blocks.js?v=20261115a"></script>
-<script src="appt-blocks.js?v=20261115a"></script>
-<script src="appt-series.js?v=20261115a"></script>
-<script src="appt-family.js?v=20261115a"></script>
-<script src="sidebar.js?v=20261115a"></script>
-<script src="inv-consume.js?v=20261115a"></script>
-<script src="timepicker.js?v=20261115a"></script>
-<script src="appt-booking.js?v=20261115a"></script>
-<script src="appt-portal.js?v=20261115a"></script>
-<script src="appt-wa.js?v=20261115a"></script>
-<script src="appt-time.js?v=20261115a"></script>
-<script src="appt-views.js?v=20261115a"></script>
-<script src="appt-modal.js?v=20261115a"></script>
+<script src="supabase-init.js?v=20261115b"></script>
+<script src="sy-modal.js?v=20261115b"></script>
+<script src="appt-conflict.js?v=20261115b"></script>
+<script src="pt-reliability.js?v=20261115b"></script>
+<script src="sched-blocks.js?v=20261115b"></script>
+<script src="appt-blocks.js?v=20261115b"></script>
+<script src="appt-series.js?v=20261115b"></script>
+<script src="appt-family.js?v=20261115b"></script>
+<script src="sidebar.js?v=20261115b"></script>
+<script src="inv-consume.js?v=20261115b"></script>
+<script src="timepicker.js?v=20261115b"></script>
+<script src="appt-booking.js?v=20261115b"></script>
+<script src="appt-portal.js?v=20261115b"></script>
+<script src="appt-wa.js?v=20261115b"></script>
+<script src="appt-time.js?v=20261115b"></script>
+<script src="appt-views.js?v=20261115b"></script>
+<script src="appt-modal.js?v=20261115b"></script>
 </head>
 <body>
 <script>
@@ -1104,38 +1104,41 @@ function getApptLabBadge(appt) {
     return false;
   }
 
-  direct.forEach(function(o){
-    if (o.status === 'checked') hasReady = true;
-    else if (o.status === 'sent' || o.status === 'received') {
-      hasPending = true;
-      if (isOrderLate(o, true)) hasOverdue = true;
+  /* ج3-ب: طلبٌ بمراحل — اسمُ مرحلته يلحق العنوان، ومرحلةٌ وسطى «استُلمت» جاهزةٌ لزيارتها (لا خطوةَ فحصٍ قبل الأخيرة:
+     زرُّ الصف بعد الاستلام «للمخبر: المرحلة التالية») فلا تُعدّ معلّقة، وعنوانُها «جاهز لهذا الموعد» لا «جاهز للتركيب». */
+  var readyFit = false, stReady = [], stLate = [], stPend = [];
+  function note(arr, o) { var n = labStageName(o); if (n && arr.indexOf(n) === -1) arr.push(n); }
+  function classify(o, linkedDirectly) {
+    var mid = labStageOpen(o);
+    if (o.status === 'checked' || (o.status === 'received' && mid)) {
+      hasReady = true; note(stReady, o);
+      if (!mid) readyFit = true;
+    } else if (o.status === 'sent' || o.status === 'received') {
+      hasPending = true; note(stPend, o);
+      if (isOrderLate(o, linkedDirectly)) { hasOverdue = true; note(stLate, o); }
     }
-  });
-  unassigned.forEach(function(o){
-    if (o.status === 'checked') hasReady = true;
-    else if (o.status === 'sent' || o.status === 'received') {
-      hasPending = true;
-      if (isOrderLate(o, false)) hasOverdue = true;
-    }
-  });
+  }
+  function stageTail(arr) { return arr.length ? ' — ' + escapeHtml(arr.join('، ')) : ''; }
+  direct.forEach(function(o){ classify(o, true); });
+  unassigned.forEach(function(o){ classify(o, false); });
 
   // Priority: overdue (red) > ready (green) > pending (blue dot if soon)
   if (hasOverdue) {
     return {
       icon: '⚠️',
       color: 'var(--red)', rgb: '--red-rgb', tone: 'red',
-      title: hasDirect
+      title: (hasDirect
         ? 'تنبيه: المخبر لم يصل قبل هذا الموعد (مرتبط مباشرة)'
-        : 'تنبيه: طلب مخبر لم يصل قبل الموعد'
+        : 'تنبيه: طلب مخبر لم يصل قبل الموعد') + stageTail(stLate)
     };
   }
   if (hasReady) {
     return {
       icon: '🥽',
       color: 'var(--green)', rgb: '--green-rgb', tone: 'green',
-      title: hasDirect
-        ? 'شغل المخبر جاهز للتركيب في هذا الموعد'
-        : 'يوجد شغل جاهز للتركيب من المخبر'
+      title: (readyFit
+        ? (hasDirect ? 'شغل المخبر جاهز للتركيب في هذا الموعد' : 'يوجد شغل جاهز للتركيب من المخبر')
+        : (hasDirect ? 'شغل المخبر جاهز لهذا الموعد' : 'يوجد شغل جاهز من المخبر')) + stageTail(stReady)
     };
   }
   // Pending but not overdue → subtle blue dot only if appt is within 3 days
@@ -1147,9 +1150,9 @@ function getApptLabBadge(appt) {
       return {
         icon: '🥽',
         color: 'var(--blue)', rgb: '--blue-rgb', tone: 'blue',
-        title: hasDirect
+        title: (hasDirect
           ? 'طلب مخبر مرتبط بهذا الموعد'
-          : 'طلب مخبر نشط'
+          : 'طلب مخبر نشط') + stageTail(stPend)
       };
     }
   }

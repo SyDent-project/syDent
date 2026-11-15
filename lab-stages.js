@@ -207,6 +207,15 @@
     return '';
   }
 
+  /* ج3-ب: المرحلةُ كما تُطبع بورقة المخبر — من المنتقي المفتوح (ما اختاره الطبيب الآن) وموضعُها من الطلب المحفوظ.
+     الورقةُ للمخبر ⇒ الأسماءُ كما حُفظت (عربية) لا disp. بلا مراحل ⇒ null. */
+  function forSlip(box, lo) {
+    var r = read(box), L = (r && Array.isArray(r.stages)) ? r.stages : (r && r.stages === undefined ? list(lo) : null);
+    if (!L || L.length < MIN) return null;
+    var i = has(lo) ? Math.min(idx(lo), L.length - 1) : 0;
+    return { name: cleanName(L[i].n), pos: i + 1, total: L.length, all: L.map(function (s) { return cleanName(s.n); }) };
+  }
+
   /* اقتراحُ الاستحقاق للمرحلة التالية: مدّةُ المرحلة المنتهية (إرسالها ← استحقاقها/استلامها) — 1..60 يوماً */
   function suggestDue(lo, today) {
     var st = cur(lo); if (!st) return '';
@@ -345,6 +354,6 @@
     MAX: MAX, MIN: MIN, NAMES: NAMES, TEMPLATES: TEMPLATES, template: template, suggest: suggest,
     has: has, list: list, idx: idx, cur: cur, isFinal: isFinal, nextStage: nextStage, canAdvance: canAdvance, canUndo: canUndo, next: next,
     stateText: stateText, disp: disp, line: line, mount: mount, resuggest: resuggest, read: read, applyToPayload: applyToPayload,
-    suggestDue: suggestDue, open: open, run: run, undo: undo
+    suggestDue: suggestDue, open: open, run: run, undo: undo, forSlip: forSlip
   };
 })();
