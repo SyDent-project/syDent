@@ -61,7 +61,7 @@ const FILES = ['labs.html', 'lab-due.js'];
 const base = {}; FILES.forEach(f => { base[f] = read(f); });
 const rep = (f, a, b) => F => Object.assign({}, F, { [f]: F[f].replace(a, b) });
 const MUTANTS = [
-  ['first cycle ignored', rep('labs.html', 'var rec = first ? first.prev_date_received : o.date_received;', 'var rec = o.date_received;')],
+  ['first cycle ignored', rep('labs.html', 'addCycle(o, o.date_sent, first ? first.prev_date_received : o.date_received, first ? first.prev_date_due : o.date_due);', 'addCycle(o, o.date_sent, o.date_received, first ? first.prev_date_due : o.date_due);')],
   ['rejected counted', rep('labs.html', "o.date_sent && o.status !== 'rejected' && !_labIsDraft(o)", 'o.date_sent && !_labIsDraft(o)')],
   ['on the due day is late', rep('labs.html', "if (r10 <= String(due).slice(0, 10)) onTime++;", "if (r10 < String(due).slice(0, 10)) onTime++;")],
   ['redo status without a cycle ignored', rep('labs.html', "if (R.length || o.status === 'redo') redoN++;", 'if (R.length) redoN++;')],

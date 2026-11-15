@@ -323,7 +323,8 @@ async function autoDeliverLinkedLabs(apptId) {
       try {
         var labRes = await window.sb.from('lab_orders')
           .update({ status: 'delivered', date_delivered: new Date().toISOString() })
-          .eq('id', lo.id).eq('doctor_id', currentUser.id);
+          .eq('id', lo.id).eq('doctor_id', currentUser.id)
+          .in('status', ['sent', 'received', 'checked']);   /* v728: القائمةُ المحمّلة قد تكون قديمة — طلبٌ أُلغي أو سُلّم بعدها لا يُمسّ */
         if (labRes.error) {
           result.failed++;
           console.warn('autoDeliverLinkedLabs err:', labRes.error);

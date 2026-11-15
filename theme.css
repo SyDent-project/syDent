@@ -1206,6 +1206,33 @@ tr.has-lst > td { border-bottom: none !important; padding-bottom: 5px; }
 .lsl-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg2); color: var(--text); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .lsl-btn:hover { border-color: var(--green); color: var(--green); }
 /* ═══ /LAB SLIP ═══ */
+/* ═══ LAB STATUS (lab-status.js · M207) — حالةُ الطلب بنافذة تعديله ═══ */
+.lsx-box .lsx-sel { width: 100%; }
+.lsx-box .lsx-reason { margin-top: 8px; width: 100%; }
+.lsx-box .lsx-hint { margin-top: 6px; font-size: 11.5px; color: var(--text3); line-height: 1.7; }
+.lsx-box .lsx-hint:empty { display: none; }
+.lsx-box .lsx-hint.lsx-warn { color: var(--orange); font-weight: 600; }
+.lsx-note { margin-top: 4px; font-size: 11.5px; font-weight: 600; color: var(--red); line-height: 1.6; overflow-wrap: anywhere; }
+/* ═══ /LAB STATUS ═══ */
+/* ═══ LAB SHADE (lab-shade.js) — دليلُ ألوان الأسنان بطلب المخبر ═══ */
+.lsh-field { display: flex; gap: 8px; align-items: stretch; }
+.lsh-field > input { flex: 1 1 auto; min-width: 0; }
+.lsh-btn { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; padding: 0 12px; min-height: 40px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg2); color: var(--text); font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; width: auto; }
+.lsh-btn:hover { border-color: var(--green); color: var(--green); }
+.lsh-dialog .lsh-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 12px; background: var(--bg3); }
+.lsh-dialog .lsh-tab { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 4px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--text2); font-family: inherit; cursor: pointer; width: auto; min-width: 0; }
+.lsh-dialog .lsh-tab .lsh-brand { font-size: 10.5px; font-weight: 600; opacity: .8; direction: ltr; }
+.lsh-dialog .lsh-tab .lsh-name { font-size: 13px; font-weight: 800; direction: ltr; }
+.lsh-dialog .lsh-tab.lsh-tab-on { background: var(--bg2); color: var(--text); border-color: var(--border); }
+.lsh-dialog .lsh-pane { margin-top: 12px; direction: ltr; }
+.lsh-dialog .lsh-grid { display: grid; grid-template-columns: repeat(var(--lsh-cols, 5), minmax(0, 1fr)); gap: 6px; justify-items: center; }
+.lsh-dialog .lsh-sw { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 2px 3px; width: 100%; max-width: 62px; min-width: 0; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text); font-family: inherit; cursor: pointer; }
+.lsh-dialog .lsh-sw:hover, .lsh-dialog .lsh-sw:focus-visible { border-color: var(--border2, var(--border)); background: var(--bg3); outline: none; }
+.lsh-dialog .lsh-sw.lsh-on { border-color: var(--green); background: rgba(var(--green-rgb), 0.12); }
+.lsh-dialog .lsh-chip { display: block; width: 100%; max-width: 40px; aspect-ratio: 5 / 6; border-radius: 46% 46% 30% 30% / 52% 52% 24% 24%; border: 1px solid rgba(0, 0, 0, 0.18); }
+.lsh-dialog .lsh-code { font-size: 11px; font-weight: 700; line-height: 1.2; direction: ltr; white-space: nowrap; }
+.lsh-dialog .lsh-note { margin-top: 12px; font-size: 11.5px; color: var(--text3); line-height: 1.7; }
+/* ═══ /LAB SHADE ═══ */
 /* ═══ LAB FILES (v535 · lab-files.js · M162) — مرفقاتُ طلب المخبر ═══ */
 .lfs-box .lfs-opt { font-weight: 500; color: var(--text3); font-size: 11px; }
 .lfs-list { display: flex; flex-wrap: wrap; gap: 8px; }

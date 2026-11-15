@@ -2702,7 +2702,8 @@ async function recordDashApptTime(apptId, fieldKey, btnEl) {
             try {
               var lq = window.sb.from('lab_orders')
                 .update({ status: 'delivered', date_delivered: new Date().toISOString() })
-                .eq('id', lab.id);
+                .eq('id', lab.id)
+                .in('status', ['sent', 'received', 'checked']);   /* v728: طلبٌ أُلغي أو سُلّم بعد تحميل القائمة لا يُمسّ */
               if (_dashUid) lq = lq.eq('doctor_id', _dashUid);
               var lr = await lq;
               if (lr.error) { labFailed++; console.warn('dashboard lab deliver err:', lr.error); }
