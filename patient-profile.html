@@ -43,6 +43,7 @@
 <script src="pp-clinical.js?v=20261115e"></script>
 <script src="pp-dental.js?v=20261115e"></script>
 <script src="pp-denture.js?v=20261115e"></script>
+<script src="pp-denture-svc.js?v=20261115e"></script>
 <script src="pp-plan.js?v=20261115e"></script>
 <script src="pp-timeline.js?v=20261115e"></script>
 <script src="pp-appt.js?v=20261115e"></script>
@@ -4837,6 +4838,10 @@ async function _delSession_inner(id, opts) {
   if (sess && window.SyDenture) {
     try { await window.SyDenture.onSessionDeleted(sess); } catch (e) { console.warn('delSession: denture rows skipped:', e); }
   }
+  /* ج4-أ (M208): حذفُ «إضافة سن» منجزة يعيد رسمَ الجهاز كما كان قبلها */
+  if (sess && window.SyDentSvc) {
+    try { await window.SyDentSvc.onSessionDeleted(sess); } catch (e) { console.warn('delSession: denture service rows skipped:', e); }
+  }
   /* M145-b: حذفُ جلسة جسرٍ مخطّط له بديلٌ باقٍ ⇒ المخطط يتبع الجسر الباقي (لا بديل ⇒ صفر مساس). */
   if (sess && (sess.status || 'completed') === 'planned' && String(sess.tooth_num || '').indexOf(',') !== -1 && typeof bridgeChartResync === 'function') {
     var _bridgeFollowed = false;
@@ -4971,6 +4976,8 @@ function ppIngestToothRow(t) {
 }
 async function syncToothStatusOnComplete(sess) {
   /* M202: جلسةُ الجهاز المتحرك جلسةُ فكٍّ (بلا tooth_num) — إنجازُها يقلب صفوفَ وحدتها المخطّطة (مرآتُه بصفحة المواعيد) */
+  /* ج4-أ (M208): «إضافة سن» مخطّطة لجهازٍ قائم — إنجازُها يُدرج أسنانَها برسم الجهاز (مرآتُه بصفحة المواعيد) */
+  if (sess && window.SyDentSvc && window.SyDentSvc.isSession(sess)) { await window.SyDentSvc.onSessionComplete(sess); return window.SyDentSvc.completeNote(sess); }
   if (sess && !sess.tooth_num && window.SyDenture) { await window.SyDenture.onSessionComplete(sess); return window.SyDenture.completeNote ? window.SyDenture.completeNote(sess) : ''; }
   if (!sess || !sess.tooth_num) return '';
   if (typeof isUnitLedgerSession === 'function' && isUnitLedgerSession(sess)) return await syncUnitRowsOnComplete(sess);

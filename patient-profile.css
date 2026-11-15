@@ -1255,6 +1255,29 @@ html[data-sub-level="read"] .spc-caret,html[data-sub-level="read"] .spc-panel{di
 .dent-banner{margin-top:-8px;}
 /* v722: شريحةُ الجهاز تلتفّ إن ضاقت الشاشة (اسمٌ طويل أو الواجهة الإنجليزية) — لا تُقصّ خارجها */
 .dent-banner .dent-chip{white-space:normal;max-width:100%;text-align:center;}
+/* ج4-أ (M208): شريحةُ الجهاز زرٌّ يفتح خدماتِه + نافذةُ الجهاز (سجلّ · خدمة جديدة · منتقي السن المضاف) */
+.dent-banner .dsv-chip{cursor:pointer;}
+.dent-banner .dsv-chip:hover,.dent-banner .dsv-chip:focus-visible{filter:brightness(1.08);box-shadow:0 0 0 2px rgba(var(--green-rgb),.25);outline:none;}
+.dsv-badge{display:inline-flex;align-items:center;gap:2px;margin-inline-start:6px;padding:0 6px;border-radius:6px;background:var(--bg2);color:var(--text2);font-size:10.5px;font-weight:700;border:1px solid var(--border);}
+.dsv-dialog .dsv-unit{font-size:13px;font-weight:700;color:var(--text);padding:8px 10px;border-radius:10px;background:var(--bg3);line-height:1.7;}
+.dsv-dialog .dsv-h{margin:14px 0 6px;font-size:12px;font-weight:800;color:var(--text2);}
+.dsv-dialog .dsv-hint{margin:10px 0 8px;font-size:12.5px;line-height:1.8;color:var(--text2);}
+.dsv-dialog .dsv-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;}
+.dsv-dialog .dsv-tx{display:flex;align-items:center;justify-content:center;gap:4px;min-height:42px;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;text-align:center;line-height:1.5;width:auto;}
+.dsv-dialog .dsv-tx:hover{border-color:var(--green);color:var(--green);}
+.dsv-dialog .dsv-tx.dsv-tx-off{opacity:.45;cursor:not-allowed;}
+.dsv-dialog .dsv-tx.dsv-tx-off:hover{border-color:var(--border);color:var(--text);}
+.dsv-dialog .dsv-note{font-size:12.5px;line-height:1.8;color:var(--text2);margin-top:8px;}
+.dsv-dialog .dsv-note b{color:var(--text);}
+.dsv-dialog .dsv-note.dsv-warn{color:var(--red);}
+.dsv-dialog .dsv-hist{display:flex;flex-direction:column;gap:4px;}
+.dsv-dialog .dsv-row{display:flex;align-items:baseline;gap:8px;padding:7px 10px;border-radius:9px;background:var(--bg3);font-size:12.5px;}
+.dsv-dialog .dsv-date{flex:0 0 auto;color:var(--text2);font-weight:700;direction:ltr;}
+.dsv-dialog .dsv-what{flex:1 1 auto;min-width:0;color:var(--text);font-weight:700;overflow-wrap:anywhere;}
+.dsv-dialog .dsv-add{font-weight:600;color:var(--text2);}
+.dsv-dialog .dsv-st{flex:0 0 auto;padding:0 6px;border-radius:6px;background:rgba(var(--blue-rgb),0.16);color:var(--blue);font-size:10.5px;font-weight:700;}
+.dsv-dialog .dent-t.dsv-own{background:rgba(var(--green-rgb),.16);border-color:rgba(var(--green-rgb),.5);color:var(--text);cursor:default;}
+.dsv-dialog .dsv-grid{margin-top:4px;}
 .nse-legend i.x{position:relative;opacity:.7;}
 .nse-legend i.x::after{content:'';position:absolute;left:2px;right:2px;top:4px;height:1px;background:var(--text2);}
 .nse-legend i.im{border-color:var(--purple);}

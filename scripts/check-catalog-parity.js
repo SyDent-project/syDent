@@ -37,7 +37,7 @@ const MIG_NAME = MIG ? path.basename(MIG) : '(لا ملف)';
 
 const FIELDS = ['treatment_key', 'name', 'label', 'fill', 'stroke', 'price', 'builtin',
                 'needs_lab', 'target_part', 'category', 'sort_order', 'post_extraction',
-                'is_favorite', 'is_active', 'layman_name', 'dentition_scope'];
+                'is_favorite', 'is_active', 'layman_name', 'dentition_scope', 'denture_svc'];
 
 const errors = [];
 function fail(msg) { errors.push(msg); }
@@ -129,8 +129,10 @@ if (js && sql) {
     js.forEach((jr, i) => {
       const sr = sql[i];
       FIELDS.forEach(f => {
-        const a = (f === 'layman_name') ? (jr[f] || '') : jr[f];
-        const b = (f === 'layman_name') ? (sr[f] || '') : sr[f];
+        /* M208: denture_svc غائبٌ بالـJS عن غير خدمات الجهاز و NULL بالـSQL — يُطبَّعان فارغاً */
+        const nul = (v) => (v == null || v === 'NULL') ? '' : v;
+        const a = (f === 'layman_name') ? (jr[f] || '') : (f === 'denture_svc' ? nul(jr[f]) : jr[f]);
+        const b = (f === 'layman_name') ? (sr[f] || '') : (f === 'denture_svc' ? nul(sr[f]) : sr[f]);
         if (a !== b) {
           fail('اختلاف [' + (jr.treatment_key || i) + '] · ' + f +
                ': JS=' + JSON.stringify(a) + ' · SQL=' + JSON.stringify(b));

@@ -153,6 +153,11 @@ function dentSessTeeth(s) {
 /* ج2-ج: موضعُ جلسة الجهاز كما يُقرأ بكل قائمة («الفك العلوي — الأسنان 14، 15» · «الفك السفلي — كامل») — من أسنانها (M204)، لا من
    وصفها الحرّ. فارغٌ لأي جلسةٍ ليست جلسةَ جهاز، فيبقى نصُّ المستدعي كما كان (جلسةُ فكٍّ عادية = اسمُ الفك وحده). */
 function dentSessWhere(s) {
+  /* ج4-أ (M208): «إضافة سن» لجهازٍ قائم — موضعُها أسنانُها المضافة (denture_add)، بالصيغة نفسها */
+  if (s && !s.tooth_num && s.denture_add && (s.arch === 'U' || s.arch === 'L')) {
+    var at = String(s.denture_add).split(',').map(function (t) { return parseInt(t, 10); }).filter(function (t) { return t >= 11 && t <= 48; });
+    if (at.length) return dentAreaText(s.arch, at);
+  }
   if (!s || s.tooth_num || !s.unit_teeth || (s.arch !== 'U' && s.arch !== 'L')) return '';
   var teeth = dentSessTeeth(s);
   return teeth.length ? dentAreaText(s.arch, teeth) : '';
@@ -1143,6 +1148,7 @@ function dentPaint() {
   var bar = document.getElementById('dentureBanner');
   if (bar) { bar.innerHTML = units.length ? dentBannerHtml(units) + dentPendingBannerHtml(pend) : ''; bar.style.display = units.length ? 'flex' : 'none'; }
   if (!units.length) return;
+  if (bar && window.SyDentSvc) window.SyDentSvc.decorate(bar, units);   /* ج4-أ: الشريحةُ تفتح خدماتِ جهازها */
   dentPaintPendingTips(pend);
   units.forEach(function (u) {
     var row = dentArchRow(u.arch);

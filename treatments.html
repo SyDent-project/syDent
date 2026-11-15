@@ -439,6 +439,16 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
             </div>
           </div>
         </div>
+        <!-- M208 (ج4-أ): خدمةُ جهازٍ متحرك — يظهر مع «فك كامل» فقط، ومخفيٌّ حتى يوجد العمود -->
+        <div class="form-group" id="dentSvcWrap" style="display:none;">
+          <label for="tDentSvc">خدمة لجهاز متحرك</label>
+          <select id="tDentSvc">
+            <option value="" selected>لا — علاج فك عادي</option>
+            <option value="service">خدمة لجهاز قائم (تبطين · إصلاح · تعديل)</option>
+            <option value="add">إضافة سن لجهاز جزئي</option>
+          </select>
+          <div class="fhint">خدمة الجهاز تُسجَّل من شريحة الجهاز ببطاقة المريض وتدخل سجلَّ خدماته.</div>
+        </div>
         <div class="form-row">
           <!-- M146: مخفيٌّ حتى يوجد العمود -->
           <div class="form-group" id="dentScopeWrap">
@@ -645,6 +655,9 @@ async function loadTreatments() {
   window.__m146T = !!(data && data.length && Object.prototype.hasOwnProperty.call(data[0], 'dentition_scope'));
   var _dsW = document.getElementById('dentScopeWrap');
   if (_dsW) _dsW.style.display = window.__m146T ? '' : 'none';
+  // M208 detection: denture_svc — نفس عقد «انشر قبل الهجرة».
+  window.__m208T = !!(data && data.length && Object.prototype.hasOwnProperty.call(data[0], 'denture_svc'));
+  syncDentSvcVisibility();
   // M151 detection: accepts_units — نفس عقد «انشر قبل الهجرة».
   window.__m151T = !!(data && data.length && Object.prototype.hasOwnProperty.call(data[0], 'accepts_units'));
   var _auW = document.getElementById('acceptsUnitsWrap');
@@ -674,6 +687,7 @@ async function loadTreatments() {
       builtin: t.builtin,
       post_extraction: !!t.post_extraction,
       dentition_scope: _normDentScope(t.dentition_scope),   /* M146 */
+      denture_svc: _normDentSvc(t.denture_svc),   /* M208 */
       accepts_units: !!t.accepts_units,   /* M151 */
       is_favorite: !!t.is_favorite,
       needs_lab: !!t.needs_lab,
@@ -916,6 +930,10 @@ function render() {
       : (t.dentition_scope === 'permanent')
       ? '<span class="cbadge tone tone-blue" title="يظهر على الأسنان الدائمة فقط" style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-right:4px;">🦷 دائم</span>'
       : '';
+    /* M208: خدمةُ جهازٍ متحرك (علاجُ فكٍّ موسوم) */
+    var svcTag = (t.target_part === 'arch' && t.denture_svc)
+      ? '<span class="cbadge tone tone-purple" title="تُسجَّل على جهاز متحرك قائم وتدخل سجلَّ خدماته" style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-right:4px;">🛠 ' + (t.denture_svc === 'add' ? 'إضافة سن لجهاز' : 'خدمة جهاز') + '</span>'
+      : '';
     var isInactive = (t.is_active === false);
     var inactiveStyle = isInactive ? 'opacity:.55;' : '';
     var inactiveBadge = isInactive ? '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(160,160,160,.2);color:var(--text2);border:1px solid var(--text3);margin-right:4px;">⏸️ معطّل</span>' : '';
@@ -933,7 +951,7 @@ function render() {
           + '<div class="treat-swatch" style="' + iconBg + 'border:2px solid ' + fg + ';"></div>'
           + '<div class="treat-head-main">'
             + '<div class="treat-name">' + escapeHtml(t.name) + '</div>'
-            + '<div class="treat-tags">' + labTag + ' ' + targetTag + ' ' + catTag + ' ' + dentTag + ' ' + inactiveBadge + '</div>'
+            + '<div class="treat-tags">' + labTag + ' ' + targetTag + ' ' + catTag + ' ' + dentTag + ' ' + svcTag + ' ' + inactiveBadge + '</div>'
             + laymanRow
           + '</div>'
           + favStar
@@ -1209,6 +1227,7 @@ function openAddModal() {
   var _peA = document.getElementById('tPostExt'); if (_peA) _peA.checked = false;
   var _auA = document.getElementById('tAcceptsUnits'); if (_auA) _auA.checked = false;   /* M151 */
   var _dsA = document.getElementById('tDentScope'); if (_dsA) _dsA.value = 'all';
+  var _dvA = document.getElementById('tDentSvc'); if (_dvA) _dvA.value = '';   /* M208 */
   document.getElementById('tCategory').value = 'restorative';
   document.getElementById('tDefaultNote').value = '';
   userTouchedLabToggle = false;  // new treatment — allow smart category defaults
@@ -1237,6 +1256,7 @@ function editTreatment(id) {
   var _peE = document.getElementById('tPostExt'); if (_peE) _peE.checked = !!t.post_extraction;
   var _auE = document.getElementById('tAcceptsUnits'); if (_auE) _auE.checked = !!t.accepts_units;   /* M151 */
   var _dsE = document.getElementById('tDentScope'); if (_dsE) _dsE.value = _normDentScope(t.dentition_scope);
+  var _dvE = document.getElementById('tDentSvc'); if (_dvE) _dvE.value = _normDentSvc(t.denture_svc);   /* M208 */
   document.getElementById('tCategory').value = t.category || 'other';
   document.getElementById('tDefaultNote').value = t.default_note || '';
   userTouchedLabToggle = true;  // editing existing — preserve current lab value
@@ -1274,6 +1294,13 @@ function pickTarget(target) {
     if (o.getAttribute('data-target') === target) o.classList.add('selected');
     else o.classList.remove('selected');
   }
+  syncDentSvcVisibility();
+}
+/* M208: «خدمة لجهاز متحرك» تخصّ علاجَ الفك وحده — تظهر معه (والعمودُ موجود) وتختفي مع غيره. القيمةُ لا تُحفظ إلا مع «فك كامل». */
+function _normDentSvc(v) { return (v === 'service' || v === 'add') ? v : ''; }
+function syncDentSvcVisibility() {
+  var w = document.getElementById('dentSvcWrap');
+  if (w) w.style.display = (window.__m208T && pickedTarget === 'arch') ? '' : 'none';
 }
 
 /* Lock/unlock the «يطبَّق على» grid for protected (chart-geometry) treatments.
@@ -1310,6 +1337,7 @@ function duplicateTreatment(id) {
   var _peD = document.getElementById('tPostExt'); if (_peD) _peD.checked = !!t.post_extraction;
   var _auD = document.getElementById('tAcceptsUnits'); if (_auD) _auD.checked = !!t.accepts_units;   /* M151 */
   var _dsD = document.getElementById('tDentScope'); if (_dsD) _dsD.value = _normDentScope(t.dentition_scope);
+  var _dvD = document.getElementById('tDentSvc'); if (_dvD) _dvD.value = _normDentSvc(t.denture_svc);   /* M208 */
   userTouchedLabToggle = true;  // duplicate copies original's lab value — don't override
   userTouchedTarget = true;     // duplicate copies original's target — don't override
   userTouchedDentScope = true;  // M146
@@ -1562,7 +1590,15 @@ const CLINIC_CATALOG = [
     { treatment_key:'denture-full', name:'جهاز متحرك كامل', label:'ك', fill:'#e11d74', stroke:'#9d174d', price:0, builtin:false, needs_lab:true, target_part:'denture_full', category:'prosth_removable', sort_order:30, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان كامل' },
     { treatment_key:'denture-partial-acrylic', name:'جهاز متحرك جزئي (أكريل)', label:'ج', fill:'#f4728f', stroke:'#be123c', price:0, builtin:false, needs_lab:true, target_part:'denture_partial', category:'prosth_removable', sort_order:31, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان جزئي' },
     { treatment_key:'denture-partial-metal', name:'جهاز متحرك جزئي (هيكل معدني)', label:'ج', fill:'#9aa8bd', stroke:'#56657b', price:0, builtin:false, needs_lab:true, target_part:'denture_partial', category:'prosth_removable', sort_order:32, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان جزئي بهيكل معدني' },
-    { treatment_key:'denture-partial-flex', name:'جهاز متحرك جزئي (مرن)', label:'ج', fill:'#b45309', stroke:'#78350f', price:0, builtin:false, needs_lab:true, target_part:'denture_partial', category:'prosth_removable', sort_order:33, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان جزئي مرن' }
+    { treatment_key:'denture-partial-flex', name:'جهاز متحرك جزئي (مرن)', label:'ج', fill:'#b45309', stroke:'#78350f', price:0, builtin:false, needs_lab:true, target_part:'denture_partial', category:'prosth_removable', sort_order:33, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'طقم أسنان جزئي مرن' },
+    /* M208 (ج4-أ): خدماتُ ما بعد تسليم الجهاز — علاجُ فكٍّ موسومٌ بـdenture_svc (service: على جهازٍ قائم · add: إضافةُ سنٍّ لجزئي) */
+    { treatment_key:'denture-reline-chair', name:'تبطين جهاز (بالعيادة)', label:'ط', fill:'#f9a8d4', stroke:'#be185d', price:0, builtin:false, needs_lab:false, target_part:'arch', category:'prosth_removable', sort_order:34, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'تعديل قاعدة الطقم لتثبت أكثر', denture_svc:'service' },
+    { treatment_key:'denture-reline-lab', name:'تبطين جهاز (مخبري)', label:'ط', fill:'#f472b6', stroke:'#9d174d', price:0, builtin:false, needs_lab:true, target_part:'arch', category:'prosth_removable', sort_order:35, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'تجديد قاعدة الطقم بالمخبر', denture_svc:'service' },
+    { treatment_key:'denture-repair', name:'إصلاح كسر جهاز', label:'ص', fill:'#e2607a', stroke:'#9f1239', price:0, builtin:false, needs_lab:true, target_part:'arch', category:'prosth_removable', sort_order:36, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'إصلاح كسر بالطقم', denture_svc:'service' },
+    { treatment_key:'denture-tooth-replace', name:'تبديل سن مكسور بالجهاز', label:'س', fill:'#fda4af', stroke:'#be123c', price:0, builtin:false, needs_lab:true, target_part:'arch', category:'prosth_removable', sort_order:37, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'تبديل سن مكسور بالطقم', denture_svc:'service' },
+    { treatment_key:'denture-add-tooth', name:'إضافة سن لجهاز جزئي', label:'+', fill:'#e879f9', stroke:'#86198f', price:0, builtin:false, needs_lab:true, target_part:'arch', category:'prosth_removable', sort_order:38, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'إضافة سن للطقم الجزئي', denture_svc:'add' },
+    { treatment_key:'denture-clasp', name:'إضافة أو إصلاح ضمة', label:'ض', fill:'#94a3b8', stroke:'#475569', price:0, builtin:false, needs_lab:true, target_part:'arch', category:'prosth_removable', sort_order:39, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'إضافة أو إصلاح مشبك الطقم', denture_svc:'service' },
+    { treatment_key:'denture-adjust', name:'تعديل جهاز', label:'ع', fill:'#fbcfe8', stroke:'#be185d', price:0, builtin:false, needs_lab:false, target_part:'arch', category:'prosth_removable', sort_order:40, post_extraction:false, dentition_scope:'permanent', is_favorite:false, is_active:true, layman_name:'تعديل الطقم لإزالة نقاط الضغط', denture_svc:'service' }
 ];
 
 /* resetToDefaults (below) additively restores the default catalogue. */
@@ -1592,6 +1628,12 @@ async function insertMissingDefaults() {
   rows.sort(function(a, b){ return (a.sort_order || 0) - (b.sort_order || 0); });
   for (var _r = 0; _r < rows.length; _r++) rows[_r].sort_order = _base + _r + 1;
   var res = await window.sb.from('treatments').insert(rows);
+  // M208: العمودُ غائب (نشرٌ قبل الترحيل) ⇒ خدماتُ الجهاز تُؤجَّل (بلا وسمها تصير علاجَ فكٍّ عادياً) ويُعاد الباقي مرةً.
+  if (res.error && /denture_svc/i.test(res.error.message || '')) {
+    rows = rows.filter(function(r){ return !r.denture_svc; });
+    if (!rows.length) return { added: 0, error: null };
+    res = await window.sb.from('treatments').insert(rows);
+  }
   // M146: العمودُ غائب (نشرٌ قبل الترحيل) ⇒ يُسقَط الحقل ويُعاد مرةً — قبل فحص M61 لأن رسالة
   // PostgREST تسمّي العمودَ الغائب، فلا يُسقَط post_extraction بذنب dentition_scope.
   if (res.error && /dentition_scope/i.test(res.error.message || '')) {
@@ -1656,6 +1698,8 @@ async function _saveTreatment_inner() {
   var postExt = !!(_peEl && _peEl.checked);
   var _dsEl = document.getElementById('tDentScope');
   var dentScope = _normDentScope(_dsEl ? _dsEl.value : 'all');   /* M146 */
+  var _dvEl = document.getElementById('tDentSvc');
+  var dentSvc = _normDentSvc(_dvEl ? _dvEl.value : '') || null;   /* M208: يُحفظ مع «فك كامل» وحده */
   var _auEl = document.getElementById('tAcceptsUnits');
   var acceptsUnits = !!(_auEl && _auEl.checked);   /* M151 */
   var category = document.getElementById('tCategory').value;
@@ -1691,6 +1735,7 @@ async function _saveTreatment_inner() {
       var updatePayload = { name: name, price: price, price_overrides: newOverrides || {}, currency: _newCur, label: label, fill: pickedFill, stroke: pickedStroke, needs_lab: needsLab, lab_days: labDays, target_part: _savedTarget, category: category, default_note: defaultNote, layman_name: laymanName || null, updated_at: new Date().toISOString() };
       if (window.__m61T) updatePayload.post_extraction = postExt;  // M61-gated
       if (window.__m146T) updatePayload.dentition_scope = dentScope;  // M146-gated
+      if (window.__m208T) updatePayload.denture_svc = (_savedTarget === 'arch') ? dentSvc : null;  // M208-gated
       if (window.__m151T) updatePayload.accepts_units = acceptsUnits;  // M151-gated
       var updRes = await window.sb
         .from('treatments')
@@ -1767,6 +1812,7 @@ async function _saveTreatment_inner() {
       };
       if (window.__m61T) insertPayload.post_extraction = postExt;  // M61-gated
       if (window.__m146T) insertPayload.dentition_scope = dentScope;  // M146-gated
+      if (window.__m208T) insertPayload.denture_svc = (pickedTarget === 'arch') ? dentSvc : null;  // M208-gated
       if (window.__m151T) insertPayload.accepts_units = acceptsUnits;  // M151-gated
       var insRes = await window.sb
         .from('treatments')

@@ -23,7 +23,7 @@ const { JSDOM, VirtualConsole } = require('jsdom');
 cp.execFileSync('node', [path.join(__dirname, 'dom-smoke', 'build-harness.js')], { stdio: 'ignore' });
 const HARNESS = fs.readFileSync(path.join(__dirname, 'dom-smoke', '.out', 'harness.html'), 'utf8');
 
-const FILES = ['migrations/204_ledger_sessions_unit_teeth.sql', 'pp-denture.js', 'pp-dental.js', 'pp-modules.js', 'pp-core.js', 'pp-clinical.js', 'pp-wa.js', 'patient-profile.html', 'patient-profile.css',
+const FILES = ['migrations/208_denture_services.sql', 'migrations/204_ledger_sessions_unit_teeth.sql', 'pp-denture.js', 'pp-dental.js', 'pp-modules.js', 'pp-core.js', 'pp-clinical.js', 'pp-wa.js', 'patient-profile.html', 'patient-profile.css',
   'appointments.html', 'treatments.html', 'rpt-treat.js', 'migrations/202_removable_prosthetics_core.sql', 'migrations/203_removable_prosthetics_category.sql', 'db/schema.sql', 'scripts/db-bootstrap.py',
   'scripts/cache-bust.sh', 'scripts/check-mirrors.js', 'i18n-en.js', 'theme.js', 'pp-plan.js', 'pp-timeline.js', 'pp-appt.js', 'pp-extras.js'];
 const LIVE = {}; FILES.forEach(f => { LIVE[f] = fs.readFileSync(path.join(ROOT, f), 'utf8'); });
@@ -183,7 +183,8 @@ function staticChecks(over) {
     && /'prosth_removable':true,/.test(TR) && /prosth_removable:'denture_partial',/.test(TR)
     && /'surgical','prosthodontics','prosth_removable',\s*'implantology'/.test(RT) && /'prosthodontics':\s+'🔗 تعويضات ثابتة',\s*'prosth_removable':'🧩 تعويضات متحركة'/.test(RT)
     && /prosthodontics:'🔗 تعويضات ثابتة', prosth_removable:'🧩 تعويضات متحركة'/.test(PDn) && /'surgical','prosthodontics','prosth_removable','implantology'/.test(PDn);
-  r.schemaMirror = seg(SCH) !== null && seg(SCH) === seg(M3)
+  /* M208 (ج4-أ): الكتالوجُ المرجعي صار بـM208 (33 → 40 + عمود denture_svc) — المرآةُ تتبع أحدثَ ترحيلٍ يحمل العلامتين */
+  r.schemaMirror = seg(SCH) !== null && seg(SCH) === seg(F('migrations/208_denture_services.sql'))
     && /"treatments_target_part_check" CHECK[^\n]*'mouth'::"text", 'denture_full'::"text", 'denture_partial'::"text"\]/.test(SCH)
     && /"teeth_status_surface_check" CHECK[^\n]*'SOCKET'::"text", 'DENTURE'::"text"/.test(SCH);
   /* M204: عمودُ أسنان الجهاز على جلسته — إضافيٌّ عرضي + تعبئةٌ محصورة بجلسات الأجهزة · ومرآتُه · وخطةُ البناء */
@@ -195,7 +196,7 @@ function staticChecks(over) {
     && /'migrations\/203_removable_prosthetics_category\.sql',[^\n]*\n\s+'migrations\/204_ledger_sessions_unit_teeth\.sql',/.test(F('scripts/db-bootstrap.py'));
   r.bootstrapPlan = /'migrations\/201_expense_system_category_supplier_link\.sql',[^\n]*\n\s+'migrations\/202_removable_prosthetics_core\.sql',[^\n]*\n\s+'migrations\/203_removable_prosthetics_category\.sql',/.test(F('scripts/db-bootstrap.py'));
   /* صفحة العلاجات: الكتالوج · البلاطتان · الفلتر · الشارة · الحماية */
-  const cat = (TR.match(/\{ treatment_key:'denture-[a-z-]+',[^\n]*\}/g) || []);
+  const cat = (TR.match(/\{ treatment_key:'denture-[a-z-]+',[^\n]*\}/g) || []).filter(x => /target_part:'denture_(full|partial)'/.test(x));   /* خدماتُ M208 علاجاتُ فكّ — يحرسها prove-denture-svc */
   r.treatCatalog = cat.length === 4 && cat.every(x => /price:0, builtin:false, needs_lab:true, target_part:'denture_(full|partial)', category:'prosth_removable', sort_order:3[0-3],/.test(x) && /dentition_scope:'permanent'/.test(x));
   r.treatTargetUi = /data-target="denture_full"/.test(TR) && /data-target="denture_partial"/.test(TR) && /\['denture_full','جهاز كامل'\], \['denture_partial','جهاز جزئي'\]/.test(TR)
     && /'denture_full':\s+\{ text:'جهاز كامل'/.test(TR) && /'denture_partial':\s+\{ text:'جهاز جزئي'/.test(TR);
