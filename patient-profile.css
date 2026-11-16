@@ -171,7 +171,8 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 .chart-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
 .chart-card-title{font-size:14px;font-weight:700;color:var(--green);}
 /* C2: labelled chart controls — each group says what it changes */
-.chart-toolbar{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 24px;margin:0 auto 12px;}
+/* v738 (طلب المالك 16/11/2026 — لقطةُ الحاسوب): «زاوية العرض» فوق «إظهار العلاجات» بكل الشاشات — كانتا جنباً لجنب على الحاسوب وفوق بعض على الهاتف وحده */
+.chart-toolbar{display:flex;flex-direction:column;align-items:center;gap:12px;margin:0 auto 12px;}
 .chart-tool{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;max-width:100%;}
 .chart-tool__label{font-size:11.5px;font-weight:600;color:var(--text2);}
 .chart-tool--modes{margin:0 auto 8px;}
