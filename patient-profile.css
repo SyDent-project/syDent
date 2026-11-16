@@ -1225,6 +1225,10 @@ html[data-sub-level="read"] .spc-caret,html[data-sub-level="read"] .spc-panel{di
 .nse-row{display:grid;grid-template-columns:repeat(8,1fr) 10px repeat(8,1fr);gap:4px;align-items:stretch;}
 .nse-row.nse-primary{grid-template-columns:repeat(5,1fr) 10px repeat(5,1fr);}
 .nse-mid{width:2px;justify-self:center;border-radius:2px;background:var(--border2,var(--border));}
+/* v737 (قرار المالك 16/11/2026): اتجاهُ الأسنان واحدٌ بكل اللغات — يمينُ المريض يسارَ الشاشة (كمنتقي الأشعة xr-chart). الواجهةُ الإنجليزية تفرض ltr
+   على كل عنصر (theme.css) فكانت صفوفُ المخطط ومنتقياتُ الأسنان وجدولُ اللثة تنقلب مرآةً (18 يمينَ الشاشة). الصفُّ وحده rtl — ترتيبُ خاناته —
+   ومحتوى كلِّ خانةٍ يبقى ltr بقاعدة theme.css نفسها. النوعيّةُ (div./table.) أعلى من قاعدة theme.css المحمَّلة بعد هذا الملف. */
+html.lang-en body div.jaw-row,html.lang-en body div.nse-row,html.lang-en body table.perio-grid{direction:rtl !important;}
 .nse-t{padding:8px 0;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;}
 .nse-t:hover{border-color:var(--green);background:rgba(var(--green-rgb),.12);}
 .nse-t.nse-x{color:var(--text2);text-decoration:line-through;opacity:.7;}

@@ -235,6 +235,17 @@ function staticChecks(over) {
   r.apptPendingDentureMirror = /\.eq\('status', 'planned'\)\.select\('tooth_num'\);\s+if \(u\.error\) \{[^}]*return; \}\s+if \(\(u\.data \|\| \[\]\)\.length\) return;\s+await _apptDrawPendingDenture\(s, providerOverride\);/.test(AP)
     && /if \(ls\.error \|\| !ls\.data \|\| !ls\.data\.unit_teeth \|\| !ls\.data\.treatment_key\) return;/.test(AP) && /if \(mine\.error \|\| \(mine\.data \|\| \[\]\)\.length\) return;/.test(AP)
     && /\.eq\('surface', 'DENTURE'\)\.in\('unit_id', units\);/.test(AP) && /treatment_key: ls\.data\.treatment_key, status: 'completed', provider_id: prov, unit_id: s\.id, review_at: null \};/.test(AP);
+  /* v737: خطأُ رسم الجهاز عند الإنجاز ⇒ الجلسةُ تعود «مخطّطة» قبل السجلّ والتوزيع (ملف المريض)، وتُعدّ مما لم يكتمل (صفحة المواعيد) */
+  { const PPc = F('patient-profile.html'), iHook = PPc.indexOf('var _tsNote = await syncToothStatusOnComplete(sess);'),
+      iBack = PPc.indexOf('if (window.SyDenture && window.SyDenture.drawFailed && window.SyDenture.drawFailed(sess)) {', iHook), iAudit = PPc.indexOf("window.logAudit('session.complete'", iHook),
+      iRe = PPc.indexOf('await reallocatePatientFunds();', iHook), blk = (iBack > -1 && iAudit > iBack) ? PPc.slice(iBack, iAudit) : '';
+    r.completionRollbackOnDrawFailure = iHook > -1 && iBack > iHook && iBack < iAudit && iBack < iRe
+      && /\.update\(\{ status: 'planned' \}\)\s+\.eq\('id', sessionId\)\.eq\('doctor_id', currentUser\.id\);\s+if \(!uBack\.error\) \{\s+sess\.status = 'planned';/.test(blk)
+      && blk.indexOf("showToast('⚠️ تعذّر رسم الجهاز على المخطط — لم يُنجَز العلاج. تحقّق من الاتصال وأعد المحاولة');") > -1 && blk.indexOf("_tsNote = '⚠️ تعذّر رسم الجهاز على المخطط — حدّث الصفحة وراجع المخطط';") > -1
+      && /\n      return;\n    \}/.test(blk) && /window\.SyDenture\.clearDrawFail\(sess\);/.test(blk);
+    r.apptRollbackOnDrawFailure = /_apptDentFail = false;\n    try \{ await _apptSyncToothStatusOnComplete\(/.test(AP)
+      && /if \(_apptDentFail\) \{[\s\S]{0,300}?var backPatch = \{ status: 'planned' \};[\s\S]{0,500}?if \(!uBack\.error\) \{ failed\+\+; continue; \}[\s\S]{0,160}?\n    completedForDeduct\.push\(s\);\n  \}/.test(AP)
+      && /if \(u\.error\) \{ console\.warn\('denture rows complete warn:', u\.error\); _apptDentFail = true; return; \}/.test(AP); }
   r.fixedSaveHook = /if \(newSess && window\.SyDenture\) \{ try \{ await window\.SyDenture\.onFixedSessionSaved\(newSess\); \}/.test(F('pp-dental.js'));
   /* التسجيل: كسرُ الكاش ×2 · وضعُ القراءة */
   const CB = F('scripts/cache-bust.sh');
@@ -301,6 +312,17 @@ async function behave(w, hasDenture) {
   const regHtml = $('toothOptsContainer').innerHTML;
   r.regionalListsDenture = regHtml.indexOf(T_FULL.name) > -1 && regHtml.indexOf(T_PART.name) > -1 && regHtml.indexOf(T_ARCH.name) > -1 && /جهاز متحرك/.test($('toothModalTitle').textContent);
   w.closeModal('toothModal'); w.eval('window.__regionalPickerMode = false;');
+  /* v737: اسمُ علاجٍ جماعي فيه فاصلةٌ عليا وشرطةٌ مائلة — زرُّه يعمل ويمرّر الاسمَ حرفياً ولا يُنفَّذ منه شيء (طبقتا التهريب كقائمة السن — #195) */
+  { const qName = "x');window.__pwnReg=1;//O'B\\";
+    w.TREATMENTS.push(Object.assign({}, JSON.parse(JSON.stringify(T_ARCH)), { treatment_key: 'arch-q', id: 'arch-q', name: qName }));
+    w.eval('window.__regionalPickerMode = true;'); await w.openToothModal(null, null);
+    const qBtn = Array.from($('toothOptsContainer').querySelectorAll('[onclick]')).filter(b => b.getAttribute('onclick').indexOf("'arch-q'") > -1)[0];
+    const qPick = w.pickToothTreatment; let qGot = null, qErr = '';
+    w.pickToothTreatment = (k, l) => { qGot = [k, l]; };
+    try { if (qBtn) qBtn.click(); } catch (e) { qErr = String(e); }
+    w.pickToothTreatment = qPick;
+    r.regionalNameIsInertInOnclick = !!qBtn && !!qGot && qGot[0] === 'arch-q' && qGot[1] === qName && w.__pwnReg !== 1 && !qErr;
+    w.TREATMENTS.pop(); w.closeModal('toothModal'); w.eval('window.__regionalPickerMode = false;'); }
   /* القائمةُ المسموحة كاملةً (_txAllowed) لا التبويبُ الظاهر وحده */
   const allowed = () => w.eval('_txAllowed.map(function(t){ return t.id; })');
   await w.openToothModal(36, 'O'); const stIds = allowed();
@@ -666,6 +688,25 @@ async function behave(w, hasDenture) {
   r.completingReplacementSwapsDrawing = done2 === true && swapped.length === 2 && swapped.every(x => x.unit_id === rS.id && x.status === 'completed' && x.treatment_key === T_PMET.id)
     && swapDel.filters.some(f => f[0] === 'eq' && f[1] === 'surface' && f[2] === 'DENTURE') && swapDel.filters.some(f => f[0] === 'in' && f[1] === 'tooth_num' && f[2].join() === '46,47')
     && DB('teeth_status').filter(x => x.surface === 'WHOLE').length === 2 && w.SyDenture.pendingSessions().length === 0;
+  /* v737: إنجازُ المعلّق وكتابةُ رسمه تفشل ⇒ رسمُ القديم يعود (v721) والجلسةُ تُوسَم «تعذّر رسمُها» — الصفحةُ تعيدها مخطّطة */
+  load(oldRows); await pickOver('planned'); w.renderTeeth();
+  { const fS = DB('ledger_sessions')[0] || {};
+    w.__FAIL = (st) => (st.table === 'teeth_status' && st.op === 'insert' && Array.isArray(st.payload) && st.payload[0].unit_id !== 'u-old') ? 'network' : null;
+    const doneF = await S('(async function(){ sessions[0].status = "completed"; return await SyDenture.onSessionComplete(sessions[0]); })()'); w.__FAIL = null;
+    const backF = DB('teeth_status').filter(x => x.surface === 'DENTURE');
+    const flagged = w.SyDenture.drawFailed({ id: fS.id }) === true && w.SyDenture.drawFailed({ id: 'other' }) === false;
+    w.SyDenture.clearDrawFail({ id: fS.id });
+    r.failedCompletionSwapIsFlagged = doneF === false && !!fS.id && backF.length === 2 && backF.every(x => x.unit_id === 'u-old' && x.status === 'existing_other') && flagged && w.SyDenture.drawFailed({ id: fS.id }) === false; }
+  /* … وكذلك جهازٌ مخطّط مرسوم تعذّر قلبُ صفوفه: الصفوفُ تبقى مخطّطة والجلسةُ تُوسَم */
+  load([X(46), X(47)]); w.SyDenture.openPicker(T_PART.id, T_PART.name, { arch: 'L' }); await w.SyDenture.confirmPick(); w.pickStatus('planned'); $('toothCost').value = '1'; await w.saveToothTreatment();
+  { const pS = DB('ledger_sessions')[0] || {}, drawn = DB('teeth_status').filter(x => x.surface === 'DENTURE' && x.unit_id === pS.id).length;
+    w.__FAIL = (st) => (st.table === 'teeth_status' && st.op === 'update') ? 'network' : null;
+    const doneP = await S('(async function(){ sessions[0].status = "completed"; return await SyDenture.onSessionComplete(sessions[0]); })()'); w.__FAIL = null;
+    r.failedCompletionFlipIsFlagged = drawn === 2 && doneP === false && DB('teeth_status').filter(x => x.surface === 'DENTURE').every(x => x.status === 'planned') && w.SyDenture.drawFailed({ id: pS.id }) === true;
+    w.SyDenture.clearDrawFail({ id: pS.id });
+    /* إنجازٌ ناجح لا يوسَم */
+    const doneOk = await S('(async function(){ return await SyDenture.onSessionComplete(sessions[0]); })()');
+    r.successfulCompletionIsNotFlagged = doneOk === true && w.SyDenture.drawFailed({ id: pS.id }) === false && DB('teeth_status').filter(x => x.surface === 'DENTURE').every(x => x.status === 'completed'); }
   /* جلسةُ فكٍّ ليست جهازاً (تبييض) لا ترسم شيئاً عند إنجازها */
   w.__OPS = []; r.archSessionCompletionDrawsNothing = (await w.SyDenture.onSessionComplete({ id: 'w1', patient_id: 'pat-1', tooth_num: null, arch: 'L', treatment_key: 'whitening', status: 'completed' })) === false && w.__OPS.length === 0;
   /* (٣) منجزٌ فوق قائم = تبديلٌ فوري بتأكيد؛ الرفضُ صفرُ كتابة */
@@ -993,6 +1034,9 @@ function i18nChecks(strings, over) {
   r.i18nTreatmentNamesKept = renamed.length === 0;
   /* صياغاتٌ بعينها: المنطقة المتعددة · العدّ · وسمُ الخيار · قائمةُ الأسباب · ذيلُ الإزالة · الفكّان */
   const SPOT = [
+    /* v737: رسالتا تعذّر رسم الجهاز عند الإنجاز — النصُّ نفسه بالصفحة (r.completionRollbackOnDrawFailure) */
+    ['⚠️ تعذّر رسم الجهاز على المخطط — لم يُنجَز العلاج. تحقّق من الاتصال وأعد المحاولة', '⚠️ The denture could not be drawn on the chart — the treatment was not completed. Check the connection and try again'],
+    ['✅ تم إكمال العلاج • وأُكمل الموعد المرتبط تلقائياً • ⚠️ تعذّر رسم الجهاز على المخطط — حدّث الصفحة وراجع المخطط', '✅ Treatment completed • and the linked appointment was completed automatically • ⚠️ the denture could not be drawn on the chart — refresh the page and review the chart'],
     [X + ' · الفك السفلي · سنّان · مخطط — بديل [خيار ب]', X + ' · Lower jaw · 2 teeth · planned — alternative [option B]'],
     ['✅ تم تسجيل ' + X + ' — الفك العلوي — كامل · الفك السفلي — كامل (جلسة لكل فك)', '✅ ' + X + ' recorded — Upper jaw — complete · Lower jaw — complete (one session per jaw)'],
     ['لا يقبل جهازاً كاملاً — 21 (ضمن جسر)، 24 (قلعه مخطّط — أنجز القلع أولاً). سجّله جهازاً جزئياً على الأسنان المفقودة.', 'Cannot take a complete denture — 21 (part of a bridge), 24 (extraction planned — complete the extraction first). Record it as a partial denture on the missing teeth.'],
@@ -1147,6 +1191,13 @@ function i18nChecks(strings, over) {
     ['pending-tip-missing', D, "  dentPaintPendingTips(pend);\n", ''],
     ['pending-tip-duplicated', D, "        for (var i = 0; i < had.length; i++) { if (had[i].getAttribute('data-dent-pending') === String(s.id)) return; }\n", ''],
     ['pending-kind-always-alt', D, "return ov.some(function (u) { return u.st === 'planned'; }) ? 'alt' : 'replace';\n}", "return 'alt';\n}"],
+    ['v737-regional-name-single-layer', PD, "escapeHtml(String(tR.name || '').replace(/\\\\/g, '\\\\\\\\').replace(/'/g, \"\\\\'\")) + '\\')\">'   /* in-memory TREATMENTS", "escapeHtml(tR.name) + '\\')\">'   /* in-memory TREATMENTS"],
+    ['v737-failed-swap-not-flagged', D, "console.warn('dentDrawCompleted:', wErr); dentMarkDrawFail(sess.id); return false;", "console.warn('dentDrawCompleted:', wErr); return false;"],
+    ['v737-failed-flip-not-flagged', D, "console.warn('dentOnSessionComplete warn:', u.error); dentMarkDrawFail(sess.id); return false;", "console.warn('dentOnSessionComplete warn:', u.error); return false;"],
+    ['v737-profile-keeps-undrawn-completed', PH, "  if (window.SyDenture && window.SyDenture.drawFailed && window.SyDenture.drawFailed(sess)) {\n    window.SyDenture.clearDrawFail(sess);", "  if (false) {\n    window.SyDenture.clearDrawFail(sess);"],
+    ['v737-profile-rollback-after-realloc', PH, "  var _tsNote = await syncToothStatusOnComplete(sess);\n", "  var _tsNote = await syncToothStatusOnComplete(sess);\n  await reallocatePatientFunds();\n"],
+    ['v737-appt-keeps-undrawn-completed', AP, "    if (_apptDentFail) {\n      _apptDentFail = false;", "    if (false) {\n      _apptDentFail = false;"],
+    ['v737-appt-flip-error-not-flagged', AP, "console.warn('denture rows complete warn:', u.error); _apptDentFail = true; return; }", "console.warn('denture rows complete warn:', u.error); return; }"],
     ['appt-pending-mirror-removed', AP, "  await _apptDrawPendingDenture(s, providerOverride);\n", ''],
     ['appt-pending-redraws-drawn-unit', AP, "  if (mine.error || (mine.data || []).length) return;\n", ''],
     ['m204-backfill-unscoped', 'migrations/204_ledger_sessions_unit_teeth.sql', "   AND s.tooth_num IS NULL\n", ''],

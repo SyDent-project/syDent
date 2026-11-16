@@ -55,6 +55,12 @@ var DENT_BLEED_EPS = 0.15;
 var dentureMap = {};        // سن → { key, st, unit, prov } — الحيّ
 var _dentLiveRef = null;    // الخريطةُ الحيّة أثناء العرض التاريخي
 var pendingDenture = null;  // سياقُ المنتقي/الخطوة الثانية (يُستهلك عند الحفظ)
+/* v737: جلسةٌ أُنجزت وتعذّر رسمُ جهازها (أو سنِّها المضاف) — خطأُ كتابة لا رفضُ قاعدة. تقرؤها صفحةُ المريض بعد خطّاف الإنجاز
+   فتعيد الجلسةَ «مخطّطة»: لا إنجازَ بلا رسمه (كان يبقى «منجزاً» بلا رسمٍ وبلا تنبيه، ولا طريقَ لرسمه بعدها). */
+var _dentDrawFail = {};
+function dentMarkDrawFail(id) { if (id) _dentDrawFail[String(id)] = true; }
+function dentDrawFailed(sess) { return !!(sess && sess.id && _dentDrawFail[String(sess.id)]); }
+function dentClearDrawFail(sess) { if (sess && sess.id) delete _dentDrawFail[String(sess.id)]; }
 
 /* ── مساندُ النوع ── */
 function dentIsTp(tp) { return tp === 'denture_full' || tp === 'denture_partial'; }
@@ -755,7 +761,7 @@ async function dentSettlePending() {
 async function dentDrawCompleted(sess) {
   var teeth = dentSessTeeth(sess); if (!teeth.length) return false;
   var wErr = await dentSwapRows(dentOverlapUnits(teeth), { teeth: teeth }, dentSessKey(sess), 'completed', sess.id, sess.provider_id || null);
-  if (wErr) { console.warn('dentDrawCompleted:', wErr); return false; }
+  if (wErr) { console.warn('dentDrawCompleted:', wErr); dentMarkDrawFail(sess.id); return false; }   /* v737 */
   return true;
 }
 async function dentSave(cost, units, date, notes) {
@@ -976,7 +982,7 @@ async function dentOnSessionComplete(sess) {
   var u = await window.sb.from('teeth_status').update({ status: 'completed', review_at: null })
     .eq('doctor_id', currentUser.id).eq('patient_id', sess.patient_id || patientId)
     .eq('unit_id', sess.id).eq('surface', DENT_SURFACE).eq('status', 'planned');
-  if (u && u.error) { console.warn('dentOnSessionComplete warn:', u.error); return false; }
+  if (u && u.error) { console.warn('dentOnSessionComplete warn:', u.error); dentMarkDrawFail(sess.id); return false; }   /* v737 */
   hit.forEach(function (tn) { dentureMap[tn].st = 'completed'; });
   return true;
 }
@@ -1207,6 +1213,7 @@ window.SyDenture = {
   removeBtnHtml: dentRemoveBtnHtml,
   onSessionComplete: dentOnSessionComplete, onSessionDeleted: dentOnSessionDeleted, examUndo: dentExamUndo,
   completeNote: dentCompleteNote, sessWhere: dentSessWhere, printLine: dentPrintLine,
+  markDrawFail: dentMarkDrawFail, drawFailed: dentDrawFailed, clearDrawFail: dentClearDrawFail,   /* v737 */
   isImmediate: function (s) { return dentOpenExtractions(dentSessTeeth(s)).length > 0; },   /* ج3-أ: قالبُ مراحل المخبر للجهاز الفوري */
   restoreMissing: dentRestoreMissing,
   onFixedSessionSaved: dentOnFixedSessionSaved, settlePending: dentSettlePending, pendingSessions: dentPendingSessions,

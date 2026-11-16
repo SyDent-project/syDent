@@ -411,6 +411,14 @@ async function behave(w, F) {
   let note = await w.__completeHook(w.eval('sessions[0]'));
   ok(note === '' && ops('teeth_status', 'insert').length === 1 && ops('teeth_status', 'insert')[0].payload[0].tooth_num === '16' && ops('teeth_status', 'insert')[0].payload[0].unit_id === 'u-1' && ops('teeth_status', 'insert')[0].payload[0].provider_id === 'd9'
     && ops('teeth_status', 'update').length === 0 && w.SyDenture.has(16), 'complete: a planned add-tooth draws its tooth into the unit — and never enters the denture hook');
+  /* v737: خطأُ كتابةٍ عند رسم السن المضاف ⇒ الجلسةُ تُوسَم لتعيدها الصفحةُ مخطّطة؛ رفضُ القاعدة (سنٌّ لم يعد يقبل) ليس خطأً */
+  load(base(), [SESS('s-addf', { denture_unit: 'u-1', denture_add: '16', status: 'planned' })]);
+  w.__FAIL = st => (st.table === 'teeth_status' && st.op === 'insert') ? 'network' : null;
+  await w.__completeHook(w.eval('sessions[0]')); w.__FAIL = null;
+  const flagAdd = w.SyDenture.drawFailed({ id: 's-addf' }) === true && !w.SyDenture.has(16); w.SyDenture.clearDrawFail({ id: 's-addf' });
+  load(base().concat([row(16, 'DENTURE', (base().filter(x => x.surface === 'DENTURE')[0] || {}).treatment_key, 'completed', 'u-9')]), [SESS('s-addr', { denture_unit: 'u-1', denture_add: '16', status: 'planned' })]);
+  await w.__completeHook(w.eval('sessions[0]'));
+  ok(flagAdd && w.SyDenture.drawFailed({ id: 's-addr' }) === false, 'complete: a write error while drawing the added tooth is flagged for rollback — a tooth that no longer qualifies is not');
   load(base(), [SESS('s-svc', { denture_unit: 'u-1', status: 'planned' })]);
   note = await w.__completeHook(w.eval('sessions[0]'));
   ok(note === '' && w.__OPS.length === 0, 'complete: a plain service writes nothing');
@@ -577,6 +585,58 @@ async function apptMirror(F) {
   ok(await m.run(sArg, null) === false && m.ops.filter(o => o.op === 'insert').length === 0, 'appointments mirror: before the migration (missing column) it steps aside');
 }
 
+/* v737 — مرآةُ إنجاز الجهاز المعلّق بصفحة المواعيد (_apptDrawPendingDenture) تُنفَّذ حرفياً على قاعدةٍ بالذاكرة: التبديلُ يرسم الجديد،
+   وفشلُ كتابته يعيد القديم كما كان (مرآةُ dentSwapRows — v721) ويُعلِم الحلقة؛ بلا لقطةٍ لا إزالة. ومرآةُ «إضافة سن» تُعلِم بفشل كتابتها. */
+async function apptSwapMirror(F) {
+  const AP = F['appointments.html'];
+  const cut = (name) => { const a = AP.indexOf('async function ' + name + '('), b = AP.indexOf('\n}\n', a); return (a > -1 && b > a) ? AP.slice(a, b + 2) : ''; };
+  const kp = (() => { const a = AP.indexOf('function _apptKeyPart(key) {'), b = AP.indexOf('\n}\n', a); return AP.slice(a, b + 2); })();
+  const src = cut('_apptDrawPendingDenture'), srcAdd = cut('_apptDentureAddOnComplete');
+  if (!src || !srcAdd) { ok(false, 'appointments swap mirror: function not found'); return; }
+  const mk = (rows, sess, failOn) => {
+    const db = { teeth_status: JSON.parse(JSON.stringify(rows)), ledger_sessions: JSON.parse(JSON.stringify(sess)) }, opsL = [];
+    const match = (r, fs) => fs.every(f => f[0] === 'eq' ? String(r[f[1]]) === String(f[2]) : f[0] === 'is' ? (r[f[1]] == null) : f[2].map(String).indexOf(String(r[f[1]])) !== -1);
+    const key = r => [r.doctor_id, r.patient_id, r.tooth_num, r.surface].join('|');
+    const Q = table => { const st = { table, op: 'select', filters: [], payload: null, single: false };
+      const api = { select: () => api, insert: p => { st.op = 'insert'; st.payload = p; return api; }, upsert: p => { st.op = 'upsert'; st.payload = p; return api; }, delete: () => { st.op = 'delete'; return api; },
+        eq: (k, v) => { st.filters.push(['eq', k, v]); return api; }, in: (k, v) => { st.filters.push(['in', k, v]); return api; }, is: (k, v) => { st.filters.push(['is', k, v]); return api; },
+        maybeSingle: () => { st.single = true; return api; },
+        then: (res, rej) => Promise.resolve().then(() => { opsL.push({ table, op: st.op, payload: st.payload });
+          if (failOn && failOn(st, opsL)) return { data: null, error: { message: 'network' } };
+          if (st.op === 'insert') { if (st.payload.some(r => db[table].some(x => key(x) === key(r)))) return { data: null, error: { message: 'duplicate key' } }; st.payload.forEach(r => db[table].push(r)); return { data: null, error: null }; }
+          if (st.op === 'upsert') { st.payload.forEach(r => { const i = db[table].findIndex(x => key(x) === key(r)); if (i > -1) db[table][i] = r; else db[table].push(r); }); return { data: null, error: null }; }
+          const hits = db[table].filter(r => match(r, st.filters));
+          if (st.op === 'delete') { db[table] = db[table].filter(r => hits.indexOf(r) === -1); return { data: null, error: null }; }
+          return { data: st.single ? (hits[0] || null) : JSON.parse(JSON.stringify(hits)), error: null }; }).then(res, rej) };
+      return api; };
+    const ctx = { window: { sb: { from: Q } }, currentUser: { id: 'doc-1' }, console: { warn() {}, error() {} }, getTreatment: () => null };
+    vm.createContext(ctx); vm.runInContext('var _apptDentFail = false;\n' + kp + '\n' + src + '\n' + srcAdd + '\nthis.run = _apptDrawPendingDenture; this.runAdd = _apptDentureAddOnComplete; this.failed = function(){ return _apptDentFail; };', ctx);
+    return { run: ctx.run, runAdd: ctx.runAdd, failed: ctx.failed, db: () => db, ops: opsL };
+  };
+  const R = (t, sf, key, st, unit, extra) => Object.assign({ doctor_id: 'doc-1', patient_id: 'pat-1', tooth_num: String(t), surface: sf, treatment_key: key, status: st || 'completed', unit_id: unit || null }, extra || {});
+  const old = [R(14, 'DENTURE', 'denture-partial-acrylic', 'existing_other', 'u-old', { provider_id: 'd1', dx_key: null }), R(15, 'DENTURE', 'denture-partial-acrylic', 'existing_other', 'u-old', { provider_id: 'd1', dx_key: null }),
+    R(24, 'DENTURE', 'denture-partial-acrylic', 'existing_other', 'u-old', { provider_id: 'd1', dx_key: null }), R(14, 'WHOLE', 'extracted'), R(15, 'WHOLE', 'extracted'), R(24, 'WHOLE', 'extracted')];
+  const S = [{ id: 's-new', doctor_id: 'doc-1', patient_id: 'pat-1', unit_teeth: '14,15', treatment_key: 'denture-partial-metal', provider_id: 'd7', status: 'completed' }];
+  const sArg = { id: 's-new', patient_id: 'pat-1' }, dent = m => m.db().teeth_status.filter(r => r.surface === 'DENTURE');
+  let m = mk(old, S); await m.run(sArg, null);
+  ok(dent(m).length === 2 && dent(m).every(r => r.unit_id === 's-new' && r.status === 'completed' && r.treatment_key === 'denture-partial-metal' && r.provider_id === 'd7') && m.failed() === false
+    && m.db().teeth_status.filter(r => r.surface === 'WHOLE').length === 3, 'appointments swap mirror: the pending denture takes the chart from the whole old unit (extraction rows untouched)');
+  m = mk(old, S, st => st.table === 'teeth_status' && st.op === 'insert'); await m.run(sArg, null);
+  ok(JSON.stringify(dent(m).sort((a, b) => a.tooth_num - b.tooth_num)) === JSON.stringify(old.slice(0, 3)) && m.failed() === true && m.ops.filter(o => o.op === 'upsert').length === 1,
+    'appointments swap mirror: a failed write puts the old drawing back exactly as it was and flags the session for rollback');
+  m = mk(old, S, (st, all) => st.table === 'teeth_status' && st.op === 'select' && all.filter(o => o.table === 'teeth_status' && o.op === 'select').length === 3); await m.run(sArg, null);
+  ok(JSON.stringify(dent(m)) === JSON.stringify(old.slice(0, 3)) && m.ops.filter(o => o.op === 'delete' || o.op === 'insert').length === 0 && m.failed() === true,
+    'appointments swap mirror: no snapshot — nothing is removed');
+  m = mk(old, S, st => st.table === 'teeth_status' && st.op === 'delete'); await m.run(sArg, null);
+  ok(JSON.stringify(dent(m)) === JSON.stringify(old.slice(0, 3)) && m.ops.filter(o => o.op === 'insert').length === 0 && m.failed() === true, 'appointments swap mirror: a failed removal writes nothing and is flagged');
+  /* «إضافة سن»: فشلُ الكتابة يُعلِم، والرفضُ لا */
+  const addS = [{ id: 's-add', doctor_id: 'doc-1', patient_id: 'pat-1', denture_unit: 'u-old', denture_add: '16', provider_id: 'd7' }];
+  m = mk(old.concat([R(16, 'WHOLE', 'extracted')]), addS, st => st.table === 'teeth_status' && st.op === 'insert');
+  const addRes = await m.runAdd({ id: 's-add', patient_id: 'pat-1' }, null), addFlag = m.failed();
+  m = mk(old.concat([R(16, 'O', 'treated')]), addS); await m.runAdd({ id: 's-add', patient_id: 'pat-1' }, null);
+  ok(addRes === true && addFlag === true && m.failed() === false, 'appointments mirror: a write error while adding the tooth is flagged — a tooth that no longer qualifies is not');
+}
+
 function i18nEngine(F) {
   const store = { 'sydent.lang': 'en' }, el = () => ({ getAttribute: () => null, setAttribute() {}, closest: () => null, nodeName: 'DIV' });
   const ctx = { console, setTimeout: () => 0, localStorage: { getItem: k => store[k] || null, setItem: (k, v) => { store[k] = v; } },
@@ -622,6 +682,7 @@ async function suite(F) {
   try { strings = await behave(w, F); } catch (e) { ok(false, 'behaviour ran to the end → ' + String(e && e.stack || e).split('\n').slice(0, 3).join(' / ')); }
   w.close();
   await apptMirror(F);
+  await apptSwapMirror(F);
   i18nChecks(strings, F);
 }
 
@@ -694,6 +755,11 @@ const MUTANTS = [
   ['banner decorated without a denture', rep('pp-denture.js', "  if (!units.length) return;\n  if (bar && window.SyDentSvc) window.SyDentSvc.decorate(bar, units);", "  if (bar && window.SyDentSvc) window.SyDentSvc.decorate(bar, units);\n  if (!units.length) return;")],
   ['sessWhere ignores added teeth', rep('pp-denture.js', "    if (at.length) return dentAreaText(s.arch, at);", "    if (at.length) return '';")],
   ['loader drops the marker', rep('pp-core.js', "denture_svc: (t.denture_svc === 'service' || t.denture_svc === 'add') ? t.denture_svc : '',", "denture_svc: '',")],
+  ['v737 service: a failed add-tooth draw is not flagged', rep('pp-denture-svc.js', "if (window.SyDenture && window.SyDenture.markDrawFail) window.SyDenture.markDrawFail(sess.id); return false; }", "return false; }")],
+  ['v737 appointments: failed swap leaves the chart empty', rep('appointments.html', "console.warn('pending denture rows warn:', ins.error); _apptDentFail = true; await _restoreOld(); }", "console.warn('pending denture rows warn:', ins.error); _apptDentFail = true; }")],
+  ['v737 appointments: failed swap not flagged', rep('appointments.html', "console.warn('pending denture rows warn:', ins.error); _apptDentFail = true; await _restoreOld(); }", "console.warn('pending denture rows warn:', ins.error); await _restoreOld(); }")],
+  ['v737 appointments: old unit removed without a snapshot', rep('appointments.html', "    if (s1.error) { console.warn('pending denture snapshot warn:', s1.error); _apptDentFail = true; return; }\n", "")],
+  ['v737 appointments: failed add-tooth write not flagged', rep('appointments.html', "console.warn('denture add rows warn:', ins.error); _apptDentFail = true; }", "console.warn('denture add rows warn:', ins.error); }")],
   ['appointments: mirror not called', rep('appointments.html', "  if (await _apptDentureAddOnComplete(s, providerOverride)) return;   /* ج4-أ (M208): خدمةُ جهازٍ قائم — ليست جهازاً */\n", "")],
   ['appointments: a tooth under another denture is added', rep('appointments.html', "r.surface === 'DENTURE' || r.surface === 'PONTIC' || r.surface === 'SPACER'", "r.surface === 'PONTIC' || r.surface === 'SPACER'")],
   ['appointments: a standing tooth is added', rep('appointments.html', "    return parts.length > 0 && parts.every(function(p){ return p === 'extraction'; });", "    return true;")],

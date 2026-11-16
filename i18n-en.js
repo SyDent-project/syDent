@@ -1323,6 +1323,7 @@ Object.assign(window.SyI18nDict, {
   "مقلوع": "Extracted",
   "مزروع": "Implant",
   "🦷 علاج جماعي (ربع / فك / فم / جهاز متحرك)": "🦷 Group treatment (quadrant / jaw / mouth / removable denture)",
+  "علاج جماعي (ربع / فك / فم / جهاز متحرك)": "Group treatment (quadrant / jaw / mouth / removable denture)",
   "🦷 فك أدرد": "🦷 Edentulous jaw",
   "يعلّم أسنان الفك القائمة مفقودةً بكبسة واحدة": "Marks the standing teeth of a jaw as missing in one tap",
   "📝 جلسة بلا سن (استشارة · أشعة · أخرى)": "📝 Session without a tooth (consultation · X-ray · other)",
@@ -3220,6 +3221,7 @@ Object.assign(window.SyI18nDict, {
     '🦷 لا أسنان قائمة تُعلَّم بالفك المختار': '🦷 No standing teeth to mark in the chosen jaw',
     '⚠️ تعذّر قراءة حالة الأسنان — لم يتغيّر شيء، أعد المحاولة': '⚠️ Could not read the teeth\'s state — nothing changed, try again',
     '⚠️ لم تُحفظ الإزالة — تحقّق من الاتصال وأعد المحاولة': '⚠️ The removal was not saved — check the connection and try again',
+    '⚠️ تعذّر رسم الجهاز على المخطط — لم يُنجَز العلاج. تحقّق من الاتصال وأعد المحاولة': '⚠️ The denture could not be drawn on the chart — the treatment was not completed. Check the connection and try again',   /* v737 */
     '⚠️ لم يُحفظ الجهاز': '⚠️ The denture was not saved',
     '↩️ أُلغي تسجيل الجهاز': '↩️ The denture record was undone',
     '↩️ أُلغي «فك أدرد» — عادت الأسنان كما كانت': '↩️ «Edentulous jaw» was undone — the teeth are back as they were',
@@ -3426,6 +3428,11 @@ Object.assign(window.SyI18nDict, {
     [/^\((\d+) قالباً\)$/, '($1 templates)'],
     [/^لا قوالب خاصة بعد\. مكتبة SyDent الجاهزة \((\d+) قالباً\) متاحة بأعلى نافذة «تعليمات جديدة» — ولتخصيص أحدها: اختره، عدّل النص، وفعّل «حفظ هذه التعليمات كقالب»\.$/,
       'No templates of your own yet. The SyDent ready-made library ($1 templates) is at the top of the «New instructions» window — to customise one: pick it, edit the text, and tick «Save these instructions as a template».'],
+    /* v737: تعذّر رسمُ الجهاز وتعذّر التراجعُ عن الإنجاز معه (تلحق رسالةَ الإنجاز) */
+    [R('^✅ تم إكمال العلاج( • وأُكمل الموعد المرتبط تلقائياً)? • ⚠️ تعذّر رسم الجهاز على المخطط — حدّث الصفحة وراجع المخطط$'), function (m, appt) {
+      return '✅ Treatment completed' + (appt ? ' • and the linked appointment was completed automatically' : '')
+        + ' • ⚠️ the denture could not be drawn on the chart — refresh the page and review the chart';
+    }],
     /* ملاحظةُ إنجاز «إضافة سن» (تلحق رسالةَ الإنجاز) */
     [R('^✅ تم إكمال العلاج( • وأُكمل الموعد المرتبط تلقائياً)? • ⚠️ ' + TP + ' لم يُضف لرسم الجهاز — (السن لا يقبل الإضافة الآن|الجهاز لم يعد على المخطط)$'), function (m, appt, t, why) {
       return '✅ Treatment completed' + (appt ? ' • and the linked appointment was completed automatically' : '')

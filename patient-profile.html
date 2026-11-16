@@ -5130,6 +5130,23 @@ async function _completeSessionFromProfile_inner(sessionId) {
   //    بصفحة المواعيد.
   var _tsNote = await syncToothStatusOnComplete(sess);
 
+  /* v737: جهازٌ متحرك (أو سنٌّ مضاف له) تعذّر رسمُه — خطأُ كتابة — ⇒ الجلسةُ تعود «مخطّطة» قبل أي أثرٍ آخر (سجلّ · توزيع · موعد).
+     كانت تبقى «منجزة» بلا رسمها وبرسالة «تم إكمال العلاج»، ولا طريقَ بعدها لرسم الجهاز. فشلُ التراجع نفسه يُقال صراحةً. */
+  if (window.SyDenture && window.SyDenture.drawFailed && window.SyDenture.drawFailed(sess)) {
+    window.SyDenture.clearDrawFail(sess);
+    var uBack = await window.sb.from('ledger_sessions')
+      .update({ status: 'planned' })
+      .eq('id', sessionId).eq('doctor_id', currentUser.id);
+    if (!uBack.error) {
+      sess.status = 'planned';
+      renderTeeth(); renderStats(); renderSessions(); renderRecentSessions(); renderTimeline();
+      showToast('⚠️ تعذّر رسم الجهاز على المخطط — لم يُنجَز العلاج. تحقّق من الاتصال وأعد المحاولة');
+      return;
+    }
+    console.warn('completeSessionFromProfile: denture rollback failed:', uBack.error);
+    _tsNote = '⚠️ تعذّر رسم الجهاز على المخطط — حدّث الصفحة وراجع المخطط';
+  }
+
   // 3) Phase 5 audit log
   if (window.logAudit) {
     window.logAudit('session.complete', {

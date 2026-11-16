@@ -172,6 +172,14 @@ async function suite(F) {
   for (const file of ['labs.html', 'pp-clinical.js']) {
     const src = F[file], adv = fnSrc(src, 'async function _advanceLabOrder_inner(id) {') || '', und = fnSrc(src, 'async function _undoLabStage_inner(id) {') || '';
     ok(src.indexOf("var nx = (window.SyLabStages && SyLabStages.next(lo)) || LAB_NEXT_STATUS[lo.status];") > -1, file + ': the row asks the stage module before the status ladder');
+    /* v737: اسمُ المرحلة التالية نصُّ العيادة (مرحلةٌ مخصّصة) — السطرُ الحيّ لزرّ الخطوة يُنفَّذ باسمٍ فيه HTML: يصل مهرَّباً، لا عنصرَ منه */
+    const mBtn = src.match(/actions \+= ('<button class="sy-act sy-act-primary" data-slot="1"'[^\n]*?'<\/button>');/);
+    const escH = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    let btnHtml = '';
+    const loX = mk({ status: 'received', stage_idx: 0, stages: [{ k: 'bite', n: 'تسجيل العضة' }, { n: '<img src=x onerror=alert(1)>' }] });
+    if (mBtn) { try { btnHtml = new Function('lo', 'nx', 'canRedo', 'escapeHtml', 'return ' + mBtn[1] + ';')(loX, S.next(mk({ status: 'received', stage_idx: 0, stages: [{ k: 'bite', n: 'تسجيل العضة' }, { n: '<img src=x onerror=alert(1)>' }] })), true, escH); } catch (e) { btnHtml = ''; } }
+    ok(!!btnHtml && btnHtml.indexOf('<img') === -1 && btnHtml.indexOf('📤 للمخبر: &lt;img src=x onerror=alert(1)&gt;</button>') > -1 && /onclick="advanceLabOrder\('o1'\)"/.test(btnHtml),
+      file + ': the next stage name reaches the step button escaped — clinic text never becomes HTML');
     const iS = adv.indexOf('if (window.SyLabStages && SyLabStages.next(lo)) {'), iL = adv.indexOf('var nx = LAB_NEXT_STATUS[lo.status];');
     ok(iS > -1 && iS < iL && /SyLabStages\.run\(window\.sb, lo, \{/.test(adv) && /appts: labStageAppts\(/.test(adv) && /if \(!_stRow\) return;/.test(adv), file + ': advance goes through SyLabStages.run before any status write');
     ok(!/stage_idx\s*:/.test(src) && !/lab_order_next_stage|lab_order_prev_stage/.test(src), file + ': no direct stage write — the module and its RPCs only');
@@ -429,6 +437,8 @@ const MUTANTS = [
   ['v727 css: the follower row shows twice in cards', rep('patient-profile.css', "  .data-table.m-cards tbody tr.lst-row{display:none;}\n", "")],
   ['v727 css: the card cell shows in the table too', rep('patient-profile.css', ".data-table td.lst-cell{display:none;}", ".data-table td.lst-cell{}")],
   ['v727 css: the location chip breaks across lines again', rep('theme.css', ".lab-area { display: inline-block; min-width: 86px;", ".lab-area { display: inline; min-width: 86px;")],
+  ['v737: the stage name enters the step button unescaped', rep('lab-stages.js', "label: '📤 للمخبر: ' + esc(cleanName(nextStage(lo).n)) };", "label: '📤 للمخبر: ' + cleanName(nextStage(lo).n) };")],
+  ['v737 labs.html: the step button no longer comes from the stage module', rep('labs.html', "' onclick=\"advanceLabOrder(\\'' + lo.id + '\\')\">' + nx.label + '</button>';", "' onclick=\"advanceLabOrder(\\'' + lo.id + '\\')\">' + lo.stages[lo.stage_idx + 1].n + '</button>';")],
   ['v727 css: table kept below its real width', rep('patient-profile.css', "@container mc (max-width:1020px){", "@container mc (max-width:880px){")]
 ];
 

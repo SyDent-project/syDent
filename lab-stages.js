@@ -69,9 +69,11 @@
   function canAdvance(lo) { return !!nextStage(lo) && (lo.status === 'received' || lo.status === 'checked'); }
   function canUndo(lo) { return has(lo) && idx(lo) > 0 && lo.status === 'sent'; }
   /* زرُّ الخطوة للطلب ذي المراحل: بعد الاستلام يُرسل للمرحلة التالية — لا «تم الفحص/التركيب» قبل الأخيرة */
+  /* v737: label يدخل زرَّ الصف HTML كما هو بالسطحين (كتسميات LAB_NEXT_STATUS الثابتة) — واسمُ المرحلة نصُّ العيادة (مرحلةٌ مخصّصة)،
+     فيُهرَّب هنا عند المصدر الواحد: كان يصل الزرَّ خاماً فيصير HTML. لا يُقرأ label نصّاً خاماً بأي موضع. */
   function next(lo) {
     if (!canAdvance(lo)) return null;
-    return { next: 'stage', label: '📤 للمخبر: ' + cleanName(nextStage(lo).n) };
+    return { next: 'stage', label: '📤 للمخبر: ' + esc(cleanName(nextStage(lo).n)) };
   }
   function stateText(lo) {
     var s = lo.status;

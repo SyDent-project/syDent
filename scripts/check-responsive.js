@@ -76,8 +76,51 @@ const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.css': '
     }
     await ctx.close();
   }
+  /* v737 (قرار المالك 16/11/2026): اتجاهُ الأسنان واحدٌ بكل اللغات — يمينُ المريض (17 · 47) يسارَ الشاشة. الواجهةُ الإنجليزية تفرض ltr على كل عنصر،
+     فكانت صفوفُ المخطط ومنتقي الأسنان وجدولُ اللثة تنقلب مرآةً. يُقاس الموضعُ المرسوم فعلاً بالعربية وبالإنجليزية (سلوكٌ لا نصُّ CSS). */
+  for (const lang of ['ar', 'en']) {
+    const ctx = await browser.newContext({ viewport: { width: 1366, height: 860 }, locale: 'ar' });
+    await ctx.addInitScript(l => { try { localStorage.setItem('sydent.auth', '{"x":1}'); localStorage.setItem('sydent.lang', l); } catch (e) {} }, lang);
+    await ctx.route('**/*', r => {
+      const u = new URL(r.request().url());
+      if (u.hostname !== 'local.test') return r.abort();
+      const p = u.pathname === '/' ? '/index.html' : u.pathname;
+      if (p.includes('supabase-2')) return r.fulfill({ body: stub, contentType: 'application/javascript' });
+      const f = path.join(DIST, p);
+      if (!f.startsWith(DIST) || !fs.existsSync(f)) return r.fulfill({ status: 404, body: '' });
+      return r.fulfill({ body: fs.readFileSync(f), contentType: TYPES[path.extname(f)] || 'application/octet-stream' });
+    });
+    const pg = await ctx.newPage();
+    await pg.goto('http://local.test/patient-profile.html?id=demo');
+    await pg.waitForTimeout(1500);
+    const o = await pg.evaluate(async () => {
+      const left = el => { const r = el && el.getBoundingClientRect(); return (r && r.width > 0) ? r.left : null; };
+      const q = sel => left(document.querySelector(sel));
+      const byText = (root, sel, t) => left(Array.prototype.filter.call(root ? root.querySelectorAll(sel) : [], x => x.textContent.trim() === t && x.getBoundingClientRect().width > 0)[0]);
+      const out = { dir: document.documentElement.dir };
+      out.facial = [q('.tooth-cell[data-tooth-cell="17"]'), q('.tooth-cell[data-tooth-cell="27"]')];
+      out.occlusal = [q('.occ-cell[data-occ-cell="17"]'), q('.occ-cell[data-occ-cell="27"]')];
+      out.lower = [q('.tooth-cell[data-tooth-cell="47"]'), q('.tooth-cell[data-tooth-cell="37"]')];
+      try { await openNewSessionEntry(); } catch (e) {}
+      await new Promise(r => setTimeout(r, 300));
+      const grid = document.querySelector('.modal-overlay.open .nse-grid');
+      out.picker = [byText(grid, '.nse-t', '17'), byText(grid, '.nse-t', '27')];
+      try { renderPerioGrid(); } catch (e) {}
+      for (let e = document.getElementById('perioUpper'); e && e !== document.body; e = e.parentElement) if (getComputedStyle(e).display === 'none') e.style.display = 'block';
+      out.perio = [byText(document.getElementById('perioUpper'), 'th', '17'), byText(document.getElementById('perioUpper'), 'th', '27')];
+      return out;
+    });
+    for (const k of ['facial', 'occlusal', 'lower', 'picker', 'perio']) {
+      checked++;
+      const [a, b] = o[k];
+      if (a == null || b == null) bad.push('اتجاه الأسنان (' + lang + ') — ' + k + ': لم يُرسم');
+      else if (!(a < b)) bad.push('اتجاه الأسنان (' + lang + ', dir=' + o.dir + ') — ' + k + ': مقلوب (يمين المريض على يمين الشاشة)');
+    }
+    if (lang === 'en' && o.dir !== 'ltr') bad.push('اتجاه الأسنان — الواجهة الإنجليزية لم تُفعَّل بالفحص (dir=' + o.dir + ')');
+    await ctx.close();
+  }
   await browser.close();
   bad.forEach(b => console.log('FAIL', b));
-  console.log((bad.length ? '❌' : '✅') + ' فحص الشاشات: ' + (checked - bad.length) + '/' + checked + ' (' + PAGES.length + ' صفحة × ' + WIDTHS.join('/') + 'px)');
+  console.log((bad.length ? '❌' : '✅') + ' فحص الشاشات: ' + (checked - bad.length) + '/' + checked + ' (' + PAGES.length + ' صفحة × ' + WIDTHS.join('/') + 'px · اتجاه الأسنان بالعربية والإنجليزية)');
   process.exit(bad.length ? 1 : 0);
 })().catch(e => { console.log('❌ فحص الشاشات تعطّل: ' + e.message); process.exit(1); });
