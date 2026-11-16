@@ -3422,6 +3422,10 @@ Object.assign(window.SyI18nDict, {
       return '🦷 The extraction of ' + (one ? 'tooth ' + one : 'teeth ' + nums(many)) + ' is planned — record the addition as «Planned», or complete the extraction first';
     }],
     [/^⚠️ تعذّر إضافة السن لرسم الجهاز \(([\s\S]+)\) — لم تُحفظ الجلسة$/, '⚠️ Could not add the tooth to the denture drawing ($1) — the session was not saved'],
+    /* نموذجُ التعليمات (v736): عدّادُ المكتبة وحالةُ «لا قوالب خاصة» — نصّان يُبنيان بعدد قوالب المكتبة وكانا بلا ترجمة */
+    [/^\((\d+) قالباً\)$/, '($1 templates)'],
+    [/^لا قوالب خاصة بعد\. مكتبة SyDent الجاهزة \((\d+) قالباً\) متاحة بأعلى نافذة «تعليمات جديدة» — ولتخصيص أحدها: اختره، عدّل النص، وفعّل «حفظ هذه التعليمات كقالب»\.$/,
+      'No templates of your own yet. The SyDent ready-made library ($1 templates) is at the top of the «New instructions» window — to customise one: pick it, edit the text, and tick «Save these instructions as a template».'],
     /* ملاحظةُ إنجاز «إضافة سن» (تلحق رسالةَ الإنجاز) */
     [R('^✅ تم إكمال العلاج( • وأُكمل الموعد المرتبط تلقائياً)? • ⚠️ ' + TP + ' لم يُضف لرسم الجهاز — (السن لا يقبل الإضافة الآن|الجهاز لم يعد على المخطط)$'), function (m, appt, t, why) {
       return '✅ Treatment completed' + (appt ? ' • and the linked appointment was completed automatically' : '')

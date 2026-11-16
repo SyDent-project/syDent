@@ -603,6 +603,15 @@ function i18nChecks(strings, F) {
   ok(t('Partial ACR — الفك العلوي — السن 99 · حالة مجهولة') === 'Partial ACR — الفك العلوي — السن 99 · حالة مجهولة' && t('🛠 سبب مجهول') === '🛠 سبب مجهول', 'i18n: unknown values stay fully Arabic (closed tables)');
   ok(strings.indexOf('📋 تعليمات للمريض') > -1 && t('📋 تعليمات للمريض') === '📋 Patient instructions', 'i18n: the instructions button was rendered, collected and translated');
   ok(t('تعليمات جاهزة لأشيع العلاجات — اخترها ثم عدّل النص كما تشاء قبل الحفظ.') === 'Ready-made instructions for the most common treatments — pick one, then edit the text as you like before saving.', 'i18n: the instructions hint is translated');
+  /* v736: نصّا العدّاد وحالة «لا قوالب خاصة» يُبنيان من الكود نفسه بعدد المكتبة الحقيقي ويمرّان بالمحرّك (#782) */
+  const PCs = F['pp-clinical.js'];
+  const mC = /cnt\.textContent = '(\()' \+ POST_OP_LIBRARY\.length \+ '( قالباً\))';/.exec(PCs);
+  const mE = /font-size:13px;">(لا قوالب خاصة بعد\. مكتبة SyDent الجاهزة \()' \+ POST_OP_LIBRARY\.length \+ '( قالباً\) متاحة[^<]+)<\/div><\/div>';/.exec(PCs);
+  let libN = 0; try { const a = PCs.indexOf('var POST_OP_LIBRARY = ['), b = PCs.indexOf('\n];', a); libN = new Function(PCs.slice(a, b + 3) + ';return POST_OP_LIBRARY.length;')(); } catch (e) { libN = 0; }
+  const built = (mC && mE) ? [1, libN, 100].map(n => [mC[1] + n + mC[2], mE[1] + n + mE[2]]) : [];
+  ok(libN === 22 && built.length === 3 && built.every(p => !AR.test(t(p[0])) && !AR.test(t(p[1])))
+    && t(mC[1] + libN + mC[2]) === '(22 templates)' && /^No templates of your own yet\. The SyDent ready-made library \(22 templates\) /.test(t(mE[1] + libN + mE[2])),
+    'i18n: the library count and the «no templates yet» text, built from the code with the real count, come out fully English' + (built.length ? ' → ' + t(built[1][0]) : ' → source texts not found'));
 }
 
 async function suite(F) {
@@ -704,6 +713,9 @@ const MUTANTS = [
   ['catalog page: tiles shown before the migration', rep('treatments.html', "ts[i].style.display = window.__m208T ? '' : 'none';", "ts[i].style.display = '';")],
   ['catalog page: services still counted under the jaw filter', rep('treatments.html', "uiTargetOf(t) !== activeFilter) return false;", "(t.target_part || 'crown') !== activeFilter) return false;")],
   ['catalog defaults: services inserted unmarked before the migration', rep('treatments.html', "    rows = rows.filter(function(r){ return !r.denture_svc; });", "    rows.forEach(function(r){ delete r.denture_svc; });")],
+  ['i18n: the library count left untranslated', rep('i18n-en.js', "[/^\\((\\d+) قالباً\\)$/, '($1 templates)'],", "")],
+  ['i18n: the «no templates yet» text left untranslated', rep('i18n-en.js', "[/^لا قوالب خاصة بعد\\. مكتبة SyDent الجاهزة", "[/^لا قوالب خاصه بعد\\. مكتبة SyDent الجاهزة")],
+  ['i18n: the count wording drifts from the dictionary', rep('pp-clinical.js', "if (cnt) cnt.textContent = '(' + POST_OP_LIBRARY.length + ' قالباً)';", "if (cnt) cnt.textContent = '(' + POST_OP_LIBRARY.length + ' قالب)';")],
   ['i18n: the instructions button left untranslated', rep('i18n-en.js', "'📋 تعليمات للمريض': '📋 Patient instructions',", "")],
   ['i18n: a service toast left untranslated', rep('i18n-en.js', "[R('^✅ تم تسجيل (.+) — أُضيف ' + TP + ' لرسم الجهاز$')", "[R('^✅ تم تسجيل (.+) — أُضيفت ' + TP + ' لرسم الجهاز$')")],
   ['i18n: the unit line half-translated on an unknown status', rep('i18n-en.js', "(?: · (مخطط|من عيادة أخرى|من عيادتنا|محوّل))?$'), function (m, n, a, st) { return n + ' — ' + area1(a) + (st ? ' · ' + ST[st] : ''); }]", "(?: · (.+))?$'), function (m, n, a, st) { return n + ' — ' + area1(a) + (st ? ' · ' + (ST[st] || st) : ''); }]")]
