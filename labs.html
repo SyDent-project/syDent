@@ -3104,6 +3104,10 @@ async function labAiDraftOrder() {
     if (rawNotes) payload.notes = rawNotes;
     if (dueDate) payload.due_date = dueDate;
     if (_labAiClinicName) payload.clinic_name = _labAiClinicName;
+    /* ج4-ب: المرحلةُ المطلوبة الآن وموضعُ الجهاز (فكّ/أسنان) من نموذج الطلب — labAiContext لكل سطحٍ على بياناته (خارج المرآة) */
+    var ctxAi = (typeof labAiContext === 'function') ? labAiContext() : null;
+    if (ctxAi && ctxAi.area) payload.area = ctxAi.area;
+    if (ctxAi && ctxAi.stage) payload.stage = ctxAi.stage;
     var resp = await window.sb.functions.invoke('ai-assist', {
       body: { feature: 'lab_order_draft', input: payload }
     });
@@ -3172,6 +3176,15 @@ async function labAiSaveAndSend() {
   } else {
     if (w) w.close();
   }
+}
+/* ج4-ب: سياقُ الصياغة من نموذج الطلب — موضعُ الجهاز (SyLabSlip.areaOf: طلبُ جهازٍ أو خدمتِه) والمرحلةُ المطلوبة الآن (SyLabStages.forSlip).
+   خارج مرآة دوال الصياغة عمداً: كلُّ سطحٍ يقرأ طلبَه من مصدره (هنا allOrders). نصوصٌ فقط، بلا أي معرّف. */
+function labAiContext() {
+  var id = document.getElementById('labOrderId').value;
+  var lo = id ? allOrders.find(function (x) { return x.id === id; }) : null;
+  var ar = (lo && window.SyLabSlip && SyLabSlip.areaOf) ? SyLabSlip.areaOf(lo) : null;
+  var st = window.SyLabStages ? SyLabStages.forSlip(document.getElementById('labStagesBox'), lo) : null;
+  return { area: ar ? ar.text : '', stage: st ? (st.name + ' (' + st.pos + ' من ' + st.total + ')') : '' };
 }
 function labAiTeeth() {
   /* دفعة التحديد المتعدد (M86-lab): pendingLabBatchUnits تحمل كل الأسنان

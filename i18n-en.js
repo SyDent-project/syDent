@@ -3387,6 +3387,7 @@ Object.assign(window.SyI18nDict, {
     '— الملوَّن ضمن الجهاز، والباهت لا يقبل الإضافة (انقره لمعرفة السبب).': '— coloured teeth are part of the denture; faded ones cannot be added (click one to see why).',
     'لا أسنان مفقودة بهذا الفك تُضاف للجهاز — سجّل القلع على المخطط أولاً.': 'No missing teeth in this jaw can be added to the denture — record the extraction on the chart first.',
     'خدمات الجهاز: تبطين · إصلاح · إضافة سن': 'Denture services: reline · repair · add a tooth',
+    '📋 تعليمات للمريض': '📋 Patient instructions',
     'تبطين · إصلاح · إضافة سن — وسجلُّ خدمات الجهاز': 'Reline · repair · add a tooth — and the denture\'s service history',
     '🦷 الجهاز لم يعد على المخطط': '🦷 The denture is no longer on the chart',
     '🛠 خدمة الجهاز تُسجَّل «منجز» أو «مخطّط» فقط': '🛠 A denture service is recorded as «Done» or «Planned» only',
