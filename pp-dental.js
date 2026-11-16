@@ -5001,7 +5001,7 @@ async function openToothModal(n, surface) {
         ? '<div style="font-size:11px;color:var(--cyan);margin-top:2px;font-weight:500;">👤 ' + escapeHtml(tR.layman_name.trim()) + '</div>'
         : '';
       htmlR += '<button class="topt" style="border-color:' + tR.fill + ';background:' + tR.fill + '22;" '
-            + 'onclick="pickToothTreatment(\'' + tR.id + '\',\'' + escapeHtml(tR.name) + '\')">'   /* in-memory TREATMENTS: key lives on .id */
+            + 'onclick="pickToothTreatment(\'' + tR.id + '\',\'' + escapeHtml(String(tR.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")) + '\')">'   /* in-memory TREATMENTS: key lives on .id · v737: JS-string escape (\\ then ') + escapeHtml — the onclick attr needs both layers (as the single-tooth list) */
             + '<span class="topt-label" style="display:inline-block;width:20px;height:20px;border-radius:4px;background:' + tR.fill + ';border:1px solid ' + tR.stroke + ';margin-left:6px;vertical-align:middle;"></span>'
             + '<span>' + escapeHtml(tR.name) + '</span>'
             + laymanLineR

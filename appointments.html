@@ -21,28 +21,28 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261116d"></script>
-<link rel="stylesheet" href="appointments.css?v=20261116d">
+<script src="theme.js?v=20261116e"></script>
+<link rel="stylesheet" href="appointments.css?v=20261116e">
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261116d">
+<link rel="stylesheet" href="theme.css?v=20261116e">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261116d"></script>
-<script src="sy-modal.js?v=20261116d"></script>
-<script src="appt-conflict.js?v=20261116d"></script>
-<script src="pt-reliability.js?v=20261116d"></script>
-<script src="sched-blocks.js?v=20261116d"></script>
-<script src="appt-blocks.js?v=20261116d"></script>
-<script src="appt-series.js?v=20261116d"></script>
-<script src="appt-family.js?v=20261116d"></script>
-<script src="sidebar.js?v=20261116d"></script>
-<script src="inv-consume.js?v=20261116d"></script>
-<script src="timepicker.js?v=20261116d"></script>
-<script src="appt-booking.js?v=20261116d"></script>
-<script src="appt-portal.js?v=20261116d"></script>
-<script src="appt-wa.js?v=20261116d"></script>
-<script src="appt-time.js?v=20261116d"></script>
-<script src="appt-views.js?v=20261116d"></script>
-<script src="appt-modal.js?v=20261116d"></script>
+<script src="supabase-init.js?v=20261116e"></script>
+<script src="sy-modal.js?v=20261116e"></script>
+<script src="appt-conflict.js?v=20261116e"></script>
+<script src="pt-reliability.js?v=20261116e"></script>
+<script src="sched-blocks.js?v=20261116e"></script>
+<script src="appt-blocks.js?v=20261116e"></script>
+<script src="appt-series.js?v=20261116e"></script>
+<script src="appt-family.js?v=20261116e"></script>
+<script src="sidebar.js?v=20261116e"></script>
+<script src="inv-consume.js?v=20261116e"></script>
+<script src="timepicker.js?v=20261116e"></script>
+<script src="appt-booking.js?v=20261116e"></script>
+<script src="appt-portal.js?v=20261116e"></script>
+<script src="appt-wa.js?v=20261116e"></script>
+<script src="appt-time.js?v=20261116e"></script>
+<script src="appt-views.js?v=20261116e"></script>
+<script src="appt-modal.js?v=20261116e"></script>
 </head>
 <body>
 <script>
@@ -2697,6 +2697,9 @@ async function _apptDrawPendingImplant(s, tn) {
   }, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
   if (r.error) console.warn('_apptDrawPendingImplant row:', r.error);
 }
+/* v737: خطأُ كتابةٍ أثناء رسم جهازٍ متحرك (أو سنِّه المضاف) عند الإنجاز — تقرؤه حلقةُ إكمال الموعد فتعيد تلك الجلسةَ «مخطّطة»
+   وتعدّها مما لم يكتمل (مرآةُ SyDenture.drawFailed بملف المريض). رفضُ القاعدة (سنٌّ لم يعد يقبل · جهازٌ أُزيل) ليس خطأً. */
+var _apptDentFail = false;
 /* M202 — مرآةُ SyDenture.onSessionComplete بملف المريض: جلسةُ الجهاز المتحرك جلسةُ فكٍّ (بلا tooth_num) وصفوفُ
    وحدتها على المخطط تحمل معرّفَ الجلسة نفسه (unit_id) ⇒ إنجازُها يقلب تلك الصفوف المخطّطة وحدها. */
 async function _apptSyncDentureRowsOnComplete(s, providerOverride) {
@@ -2707,7 +2710,7 @@ async function _apptSyncDentureRowsOnComplete(s, providerOverride) {
   var u = await window.sb.from('teeth_status').update(patch)
     .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id)
     .eq('unit_id', s.id).eq('surface', 'DENTURE').eq('status', 'planned').select('tooth_num');
-  if (u.error) { console.warn('denture rows complete warn:', u.error); return; }
+  if (u.error) { console.warn('denture rows complete warn:', u.error); _apptDentFail = true; return; }
   if ((u.data || []).length) return;
   await _apptDrawPendingDenture(s, providerOverride);
 }
@@ -2722,12 +2725,12 @@ async function _apptDentureAddOnComplete(s, providerOverride) {
   if (!teeth.length) return true;
   var un = await window.sb.from('teeth_status').select('tooth_num,treatment_key,status')
     .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('unit_id', ls.data.denture_unit).eq('surface', 'DENTURE');
-  if (un.error) { console.warn('denture add unit warn:', un.error); return true; }
+  if (un.error) { console.warn('denture add unit warn:', un.error); _apptDentFail = true; return true; }
   var base = (un.data || [])[0];
   if (!base || base.status === 'planned') return true;   /* الجهازُ أُزيل أو ما زال مخطّطاً ⇒ لا رسم */
   var cur = await window.sb.from('teeth_status').select('tooth_num,surface,treatment_key')
     .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).in('tooth_num', teeth);
-  if (cur.error) { console.warn('denture add teeth warn:', cur.error); return true; }
+  if (cur.error) { console.warn('denture add teeth warn:', cur.error); _apptDentFail = true; return true; }
   var free = teeth.filter(function(t){
     var rows = (cur.data || []).filter(function(r){ return String(r.tooth_num) === t; });
     if (rows.some(function(r){ return r.surface === 'DENTURE' || r.surface === 'PONTIC' || r.surface === 'SPACER'; })) return false;
@@ -2740,7 +2743,7 @@ async function _apptDentureAddOnComplete(s, providerOverride) {
     return { doctor_id: currentUser.id, patient_id: s.patient_id, tooth_num: t, surface: 'DENTURE',
              treatment_key: base.treatment_key, status: base.status, provider_id: prov, unit_id: ls.data.denture_unit, review_at: null };
   }));
-  if (ins.error) console.warn('denture add rows warn:', ins.error);
+  if (ins.error) { console.warn('denture add rows warn:', ins.error); _apptDentFail = true; }
   return true;
 }
 /* ج2-ب (M204) — مرآةُ dentDrawCompleted بملف المريض: جلسةُ جهازٍ «معلّقة» (جهازٌ مخطّط فوق جهازٍ قائم — أسنانُها على الجلسة
@@ -2757,25 +2760,44 @@ async function _apptDrawPendingDenture(s, providerOverride) {
   if (mine.error || (mine.data || []).length) return;
   var ov = await window.sb.from('teeth_status').select('tooth_num,unit_id')
     .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('surface', 'DENTURE').in('tooth_num', teeth);
-  if (ov.error) { console.warn('pending denture overlap warn:', ov.error); return; }
+  if (ov.error) { console.warn('pending denture overlap warn:', ov.error); _apptDentFail = true; return; }
   var units = [], loose = [];
   (ov.data || []).forEach(function(r){ if (r.unit_id) { if (units.indexOf(r.unit_id) === -1) units.push(r.unit_id); } else loose.push(String(r.tooth_num)); });
+  /* v737 — مرآةُ dentSwapRows (v721): لقطةُ صفوف القديم كاملةً قبل إزالتها؛ فشلُ كتابة الجديد يعيدها كما كانت. بلا لقطةٍ لا إزالة. */
+  var oldRows = [];
+  if (units.length) {
+    var s1 = await window.sb.from('teeth_status').select('*')
+      .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('surface', 'DENTURE').in('unit_id', units);
+    if (s1.error) { console.warn('pending denture snapshot warn:', s1.error); _apptDentFail = true; return; }
+    oldRows = oldRows.concat(s1.data || []);
+  }
+  if (loose.length) {
+    var s2 = await window.sb.from('teeth_status').select('*')
+      .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('surface', 'DENTURE').is('unit_id', null).in('tooth_num', loose);
+    if (s2.error) { console.warn('pending denture snapshot warn:', s2.error); _apptDentFail = true; return; }
+    oldRows = oldRows.concat(s2.data || []);
+  }
+  var _restoreOld = async function(){
+    if (!oldRows.length) return;
+    var back = await window.sb.from('teeth_status').upsert(oldRows, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
+    if (back.error) console.error('pending denture restore failed:', back.error);
+  };
   if (units.length) {
     var d1 = await window.sb.from('teeth_status').delete()
       .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('surface', 'DENTURE').in('unit_id', units);
-    if (d1.error) { console.warn('pending denture clear warn:', d1.error); return; }
+    if (d1.error) { console.warn('pending denture clear warn:', d1.error); _apptDentFail = true; return; }
   }
   if (loose.length) {
     var d2 = await window.sb.from('teeth_status').delete()
       .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('surface', 'DENTURE').in('tooth_num', loose);
-    if (d2.error) { console.warn('pending denture clear warn:', d2.error); return; }
+    if (d2.error) { console.warn('pending denture clear warn:', d2.error); _apptDentFail = true; await _restoreOld(); return; }
   }
   var prov = providerOverride || ls.data.provider_id || null;
   var ins = await window.sb.from('teeth_status').insert(teeth.map(function(t){
     return { doctor_id: currentUser.id, patient_id: s.patient_id, tooth_num: t, surface: 'DENTURE',
              treatment_key: ls.data.treatment_key, status: 'completed', provider_id: prov, unit_id: s.id, review_at: null };
   }));
-  if (ins.error) console.warn('pending denture rows warn:', ins.error);
+  if (ins.error) { console.warn('pending denture rows warn:', ins.error); _apptDentFail = true; await _restoreOld(); }
 }
 async function _apptSyncToothStatusOnComplete(s, providerOverride) {
   if (s && !s.tooth_num) { await _apptSyncDentureRowsOnComplete(s, providerOverride); return; }   /* M202 */
@@ -2964,11 +2986,24 @@ async function completeApptWithProcedures(apptIdParam, sessionIdsFilter) {
       .update(sessPatch)
       .eq('id', s.id).eq('doctor_id', currentUser.id);
     if (u1.error) { failed++; console.error('session complete err:', u1.error); continue; }
-    completedForDeduct.push(s);
     // 2) مزامنة صفّ المخطّط — v260: مطابقةٌ بالعلاج (مرآة syncToothStatusOnComplete
     //    ببطاقة المريض). كانت تقلب أيَّ صفٍّ مخطّط على السطح.
+    _apptDentFail = false;
     try { await _apptSyncToothStatusOnComplete(s, (unifyProviders && apptProviderId) ? apptProviderId : null); }
     catch (e) { console.warn('teeth_status complete warn:', e); }
+    /* v737: جهازٌ متحرك تعذّر رسمُه (خطأُ كتابة) ⇒ جلستُه تعود «مخطّطة» بحالتها وطبيبها وتُعدّ مما لم يكتمل — لا إنجازَ بلا رسمه.
+       الموعدُ يُكمل كما هو (قرارُ المالك: الإكمالُ لا يعلق) والرسالةُ تقول «اكتمل ن من م». فشلُ التراجع ⇒ تبقى منجزة ويُسجَّل. */
+    if (_apptDentFail) {
+      _apptDentFail = false;
+      var backPatch = { status: 'planned' };
+      if (unifyProviders && apptProviderId) backPatch.provider_id = s.provider_id || null;   /* الطبيبُ كما كان قبل التوحيد */
+      var uBack = await window.sb.from('ledger_sessions')
+        .update(backPatch)
+        .eq('id', s.id).eq('doctor_id', currentUser.id);
+      if (!uBack.error) { failed++; continue; }
+      console.error('denture session rollback err:', uBack.error);
+    }
+    completedForDeduct.push(s);
   }
 
   // 2b) P2 (فحص المحاسبة الشامل): الجلسات صارت مكتملة ⇒ الرصيد المقدّم للمريض

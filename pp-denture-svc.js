@@ -420,7 +420,7 @@ async function dsvOnSessionComplete(sess) {
   var ok = add.filter(function (t) { return dsvToothState(u, t).ok; });
   if (!ok.length) return false;
   var err = await dsvWriteAdd(u, ok, sess.provider_id || null, sess.patient_id);
-  if (err) { console.warn('dsvOnSessionComplete warn:', err); return false; }
+  if (err) { console.warn('dsvOnSessionComplete warn:', err); if (window.SyDenture && window.SyDenture.markDrawFail) window.SyDenture.markDrawFail(sess.id); return false; }   /* v737: خطأُ كتابة ⇒ الجلسةُ تعود مخطّطة */
   return true;
 }
 /* نصٌّ يُلحق برسالة الإنجاز: سنٌّ لم يدخل الرسم (الجهازُ أُزيل أو السنُّ تغيّر) أو دخله وقلعُه ما زال مخطّطاً — فارغٌ لغير ذلك */
