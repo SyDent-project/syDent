@@ -155,6 +155,17 @@ function staticChecks(F) {
   ok((CB.match(/pp-denture-svc\\\.js/g) || []).length === 2 && /pp-denture-svc\.js/.test(CB.split('\n').slice(0, 20).join('\n')), 'cache-bust: the module is a fleet asset (both expressions + the header list)');
   ok(/'pp-denture-svc\.js'/.test(F['scripts/check-modal-behaviour.js']), 'modal behaviour guard scans the module');
   ok(/prove-denture-svc\.js" --self-test/.test(F['scripts/validate.sh']), 'validate.sh runs this prover');
+  /* v733: موضعُ الخدمة بطلب المخبر (جدولُ الطلبات · ورقةُ المخبر) — المصدرُ الواحد SyLabSlip.area يُنفَّذ من ملفه */
+  let LS = null; try { const c = { console }; c.window = c; c.document = {}; vm.createContext(c); vm.runInContext(F['lab-slip.js'], c); LS = c.SyLabSlip; } catch (e) { LS = null; }
+  const AJ = x => JSON.stringify(x);
+  ok(!!LS && AJ(LS.area({ arch: 'U', denture_unit: 'u' })) === AJ({ text: 'الفك العلوي', teeth: [] }) && AJ(LS.area({ arch: 'L', denture_unit: 'u', denture_add: '36,34' })) === AJ({ text: 'الفك السفلي — الأسنان 34، 36', teeth: [34, 36] })
+    && AJ(LS.area({ arch: 'U', denture_unit: 'u', denture_add: '16' })) === AJ({ text: 'الفك العلوي — السن 16', teeth: [16] }),
+    'lab area: a service order shows the denture jaw, an add-tooth order its added teeth');
+  ok(!!LS && LS.area({ arch: 'U' }) === null && LS.area({ arch: 'U', denture_unit: 'u', tooth_num: '16' }) === null && LS.area({ arch: 'X', denture_unit: 'u' }) === null && LS.area({ denture_unit: 'u' }) === null
+    && LS.area({ arch: 'U', unit_teeth: '14,15' }).text === 'الفك العلوي — الأسنان 14، 15', 'lab area: a plain jaw session still has none, and a denture session keeps its own');
+  ok(/\.select\('id, arch, unit_teeth, tooth_num, denture_unit, denture_add'\)/.test(F['lab-slip.js']) && /if \(r\.error && \/denture_unit\|denture_add\/\.test\(r\.error\.message \|\| ''\)\) r = await sb\.from\('ledger_sessions'\)\.select\('id, arch, unit_teeth, tooth_num'\)/.test(F['lab-slip.js']),
+    'lab area: the labs page loads the link columns — and falls back before the migration so denture areas are not lost');
+  ok(/if \(openLab\) window\._pendingMatDeduct = \{ k: key, l: label, m: made\.length, s: matIds \};/.test(DN), 'denture save: the stock prompt is deferred behind the lab form too');
   const CSS = F['patient-profile.css'];
   ok(/\.dent-banner \.dsv-chip\{cursor:pointer;\}/.test(CSS) && /\.dsv-dialog \.dsv-tx\{/.test(CSS) && /\.dsv-dialog \.dent-t\.dsv-own\{/.test(CSS), 'css: chip, dialog and picker kits');
 }
@@ -233,6 +244,32 @@ async function behave(w, F) {
   ok(!before && loads === 1 && !!dlg().querySelector('[data-dsv-tx="denture-new"]'), 'dialog: the treatments list is refreshed on open — a service just added in the catalog appears');
   w.loadTreatmentsFromSupabase = origLoad; w.TREATMENTS.pop(); click(dlg().querySelector('.modal-close'));
 
+  /* v733: الفحصُ الأولي والتحديدُ المتعدد يعطّلان حارسَ الحفظ — الخدمةُ المبدوءة من الشريحة كانت تُحفظ جلسةَ فكٍّ بلا ربط.
+     المدخلُ يرفض بكل وضعٍ ترفض به «جلسة جديدة» (المسودة · الفحص · التحديد · حسابٌ غير نشط)، ونافذةُ السجل تبقى للقراءة */
+  const MODES = [['__examMode', 'أنهِ وضع الفحص الأولي أولاً'], ['__batchMode', 'أنهِ وضع التحديد المتعدد أولاً'], ['__draftMode', 'أغلق المسودة أولاً']];
+  for (const [flag, msg] of MODES) {
+    load(base()); w.eval('window.' + flag + ' = true;'); w.__TOASTS.length = 0;
+    w.SyDentSvc.open('u-1'); const dm = dlg();
+    if (dm) click(dm.querySelector('[data-dsv-tx="denture-adjust"]'));
+    const viaList = w.SyDentSvc.start(T_ADJ.id, T_ADJ.name, null);
+    ok(!!dm && !$('toothModal').classList.contains('open') && w.eval('pendingDentSvc') === null && w.__OPS.length === 0 && viaList === true && toasts().split(msg).length === 3,
+      'chart mode ' + flag + ': the history opens for reading, but no service starts — from the window or from the list');
+    w.eval('window.' + flag + ' = false;'); if (dlg()) click(dlg().querySelector('.modal-close'));
+  }
+  load(base()); w.eval('window.' + '__examMode = true;');
+  w.SyDentSvc.open('u-1'); click(dlg().querySelector('[data-dsv-tx="denture-add-tooth"]'));
+  ok(!dlg().querySelector('[data-dsv-tooth]') && w.__OPS.length === 0, 'chart mode: add-tooth does not reach its picker either');
+  w.eval('window.__examMode = false;'); click(dlg().querySelector('.modal-close'));
+  load(base()); w.eval('window.SyDentLock = { isDoctorAccountInactive: function () { return true; } };'); w.__TOASTS.length = 0;
+  w.SyDentSvc.open('u-1'); click(dlg().querySelector('[data-dsv-tx="denture-adjust"]'));
+  ok(!$('toothModal').classList.contains('open') && /حسابك غير نشط — لا يمكن تسجيل جلسات جديدة/.test(toasts()) && w.__OPS.length === 0, 'inactive locked doctor: no service starts');
+  w.eval('window.SyDentLock = undefined;'); click(dlg().querySelector('.modal-close'));
+  /* وضعٌ بدأ بعد اختيار الخدمة (سياقٌ قائم): الخطوةُ لا تُفتح بلا حارس حفظها */
+  load(base()); w.eval("pendingDentSvc = { key: 'denture-adjust', label: 'Adjust DENT', kind: 'service', unit: { id: 'u-1' }, teeth: [], picking: false }; window.__batchMode = true;");
+  w.eval('dsvStep2()');
+  ok(!$('toothModal').classList.contains('open') && w.eval('pendingDentSvc') === null, 'chart mode entered mid-flow: the cost step does not open and the context is dropped');
+  w.eval('window.__batchMode = false;');
+
   /* ④ خدمةٌ عادية: جلسةُ فكٍّ مربوطة بالجهاز — صفر مساس بالمخطط */
   load(base());
   w.SyDentSvc.open('u-1'); click(dlg().querySelector('[data-dsv-tx="denture-reline-lab"]'));
@@ -254,6 +291,13 @@ async function behave(w, F) {
   w.SyDentSvc.open('u-1'); click(dlg().querySelector('[data-dsv-tx="denture-reline-lab"]')); w.pickStatus('planned'); await w.saveRegionalAndOpenLab();
   ok(w.__LAB.length === 1 && w.__LAB[0].session_id === DB('ledger_sessions')[0].id && w.__LAB[0].treatment_key === 'denture-reline-lab' && w.__LAB[0].draft === true && /^Partial ACR — الفك العلوي — الأسنان 14، 15/.test(w.__LAB[0].notes)
     && DB('ledger_sessions')[0].status === 'planned' && w.__MAT.length === 0, 'service + lab: the order opens on the session, names the denture — a planned service is a draft');
+  /* v733: خدمةٌ منجزة مع المخبر — سؤالُ خصم المواد يُؤجَّل لإغلاق نموذج المخبر (لا نافذتان فوق بعض) */
+  load(base()); w.eval('window._pendingMatDeduct = null;');
+  w.SyDentSvc.open('u-1'); click(dlg().querySelector('[data-dsv-tx="denture-reline-lab"]')); await w.saveRegionalAndOpenLab();
+  const pmd = w.eval('window._pendingMatDeduct');
+  ok(w.__LAB.length === 1 && w.__LAB[0].draft === false && w.__MAT.length === 0 && !!pmd && pmd.k === 'denture-reline-lab' && pmd.m === 1 && pmd.s.length === 1 && pmd.s[0] === DB('ledger_sessions')[0].id,
+    'service + lab (completed): the stock prompt waits for the lab form to close');
+  w.eval('window._pendingMatDeduct = null;');
   /* الحالاتُ غير المالية مرفوضة بصفر كتابة */
   load(base());
   w.SyDentSvc.open('u-1'); click(dlg().querySelector('[data-dsv-tx="denture-adjust"]')); w.pickStatus('existing_other'); await w.saveToothTreatment();
@@ -545,6 +589,16 @@ const MUTANTS = [
   ['history view decorates chips', rep(SV, "  if (!bar || !units || !units.length || window.__historyMode) return;", "  if (!bar || !units || !units.length) return;")],
   ['history view accepts a service', rep(SV, "  if (window.__historyMode) { showToast('🕰️ عرض تاريخي للقراءة فقط — أنهِ العرض للتعديل'); return true; }", "")],
   ['dialog not refreshed after reloading the treatments', rep(SV, "      if (dsvDialog() === ov && ov._dsv && ov._dsv.view === 'home') dsvRender(ov);", "")],
+  ['exam mode lets a service start (saved unlinked)', rep(SV, "  if (window.__examMode) { showToast('🩺 أنهِ وضع الفحص الأولي أولاً'); return true; }\n", "")],
+  ['batch mode lets a service start (saved unlinked)', rep(SV, "  if (window.__batchMode) { showToast('☑️ أنهِ وضع التحديد المتعدد أولاً'); return true; }\n", "")],
+  ['draft mode lets a service start', rep(SV, "  if (window.__draftMode) { showToast('✏️ أغلق المسودة أولاً'); return true; }\n", "")],
+  ['inactive locked doctor records a service', rep(SV, "    showToast('🔒 حسابك غير نشط — لا يمكن تسجيل جلسات جديدة'); return true;", "    return false;")],
+  ['the cost step opens inside a chart mode', rep(SV, "  if (dsvLocked()) { pendingDentSvc = null; return; }   /* وضعٌ بدأ بين النافذة والخطوة — لا خطوةَ بلا حارس حفظها */\n", "")],
+  ['stock prompt stacked over the lab form', rep(SV, "    if (openLab) window._pendingMatDeduct = { k: key, l: label, m: 1, s: [sess.id] };\n    else {", "    {")],
+  ['lab area: a service order has no location', rep('lab-slip.js', "    if (sess.denture_unit) {", "    if (false) {")],
+  ['lab area: add-tooth shows the jaw only', rep('lab-slip.js', "      return add.length ? { text: jaw + ' — ' + (add.length === 1 ? 'السن ' : 'الأسنان ') + add.join('، '), teeth: add } : { text: jaw, teeth: [] };", "      return { text: jaw, teeth: [] };")],
+  ['lab area: every jaw session gets a location', rep('lab-slip.js', "    if (!sess.unit_teeth) return null;\n", "    if (!sess.unit_teeth) return { text: 'x', teeth: [] };\n")],
+  ['lab area: link columns not loaded on the labs page', rep('lab-slip.js', ".select('id, arch, unit_teeth, tooth_num, denture_unit, denture_add')", ".select('id, arch, unit_teeth, tooth_num')")],
   ['list entry skips choosing between dentures', rep(SV, "  if (ok.length === 1) { dsvBegin(ok[0], key, label, kind, null); return true; }", "  if (ok.length >= 1) { dsvBegin(ok[0], key, label, kind, null); return true; }")],
   ['profile: service session enters the denture hook', rep('patient-profile.html', "  if (sess && window.SyDentSvc && window.SyDentSvc.isSession(sess)) { await window.SyDentSvc.onSessionComplete(sess); return window.SyDentSvc.completeNote(sess); }\n", "")],
   ['profile: delete hook removed', rep('patient-profile.html', "    try { await window.SyDentSvc.onSessionDeleted(sess); } catch (e) { console.warn('delSession: denture service rows skipped:', e); }", "")],

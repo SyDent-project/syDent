@@ -406,7 +406,7 @@ const MUTANTS = [
   ['read-only mode: undo left clickable', rep('labs.html', '[onclick*="undoLabStage("],', '')],
   /* ج3-ب */
   ['3b slip: stage name unescaped', rep('lab-slip.js', "<strong>' + esc(d.stage.name) + '</strong>'", "<strong>' + d.stage.name + '</strong>'")],
-  ['3b slip area: a tooth session read as a denture', rep('lab-slip.js', "if (!sess || sess.tooth_num || !sess.unit_teeth", "if (!sess || !sess.unit_teeth")],
+  ['3b slip area: a tooth session read as a denture', rep('lab-slip.js', "if (!sess || sess.tooth_num || (sess.arch !== 'U' && sess.arch !== 'L')) return null;", "if (!sess || (sess.arch !== 'U' && sess.arch !== 'L')) return null;")],   /* v733: السطرُ انقسم (خدمةُ الجهاز قبل فحص unit_teeth) */
   ['3b slip area: complete arch not recognised (mirror drift)', rep('lab-slip.js', "(full ? 'كامل' : ", "(false ? 'كامل' : ")],
   ['3b slip areas: read without the tenant filter', rep('lab-slip.js', ".eq('doctor_id', uid).in('id', ids.slice(i, i + 100))", ".in('id', ids.slice(i, i + 100))")],
   ['3b slip form: the location overrides a typed tooth', rep('lab-slip.js', "(!teeth.length && p.area && p.area.text)", "(p.area && p.area.text)")],

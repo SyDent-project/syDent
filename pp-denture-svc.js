@@ -61,9 +61,17 @@ function dsvToothState(u, t) {
   if (s.alt) return { ok: false, why: 'عليه زرعة أو جسر مخطّط' };
   return { ok: false, why: s.why || 'لا يقبل الإضافة' };
 }
+/* بوّاباتُ التسجيل = بوّاباتُ «جلسة جديدة» و«علاج جماعي» حرفياً (openNewSessionEntry). v733: الفحصُ الأولي والتحديدُ المتعدد
+   يعطّلان حارسَ الحفظ (dsvSaveReady) فكانت الخدمةُ المبدوءة من الشريحة تُحفظ جلسةَ فكٍّ بلا ربط — المدخلُ يرفض قبل أن يبدأ. */
 function dsvLocked() {
   if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return true;   /* وضعُ القراءة: لا تسجيل */
+  if (window.__draftMode) { showToast('✏️ أغلق المسودة أولاً'); return true; }
   if (window.__historyMode) { showToast('🕰️ عرض تاريخي للقراءة فقط — أنهِ العرض للتعديل'); return true; }
+  if (window.__examMode) { showToast('🩺 أنهِ وضع الفحص الأولي أولاً'); return true; }
+  if (window.__batchMode) { showToast('☑️ أنهِ وضع التحديد المتعدد أولاً'); return true; }
+  if (window.SyDentLock && window.SyDentLock.isDoctorAccountInactive && window.SyDentLock.isDoctorAccountInactive()) {
+    showToast('🔒 حسابك غير نشط — لا يمكن تسجيل جلسات جديدة'); return true;
+  }
   return false;
 }
 function dsvClearPending() { pendingDentSvc = null; }
@@ -217,6 +225,7 @@ function dsvStart(key, label, ctx) {
   return true;
 }
 function dsvPickUnit(ov, unitId) {
+  if (dsvLocked()) return;
   var st = ov._dsv, u = dsvUnit(unitId), tr = getTreatment(st.key), kind = dsvKind(tr);
   var why = kind ? dsvUnitWhy(u, kind) : 'الخدمة لم تعد بقائمة العلاجات';
   if (why) { showToast('🛠 ' + why); return; }
@@ -242,6 +251,7 @@ function dsvBegin(u, key, label, kind, ov) {
   dsvStep2();
 }
 function dsvConfirmAdd(ov) {
+  if (dsvLocked()) return;
   var st = ov._dsv, u = dsvUnit(st.unitId);
   if (!u) { dsvClose(); return; }
   var teeth = st.teeth.filter(function (t) { return dsvToothState(u, t).ok; });
@@ -253,6 +263,7 @@ function dsvConfirmAdd(ov) {
 /* الخطوةُ الثانية = خطوةُ «علاج الفك» القائمة حرفياً (التكلفة · الحالة · الطبيب · التاريخ · زر المخبر)، بعنوانٍ يسمّي الجهاز */
 function dsvStep2() {
   var p = pendingDentSvc; if (!p) return;
+  if (dsvLocked()) { pendingDentSvc = null; return; }   /* وضعٌ بدأ بين النافذة والخطوة — لا خطوةَ بلا حارس حفظها */
   var u = dsvUnit(p.unit.id); if (!u) { pendingDentSvc = null; return; }
   if (window.SyDenture) window.SyDenture.clearPending();   /* سياقُ جهازٍ متروك لا يخطف الحفظ */
   pendingToothStatus = p.key; pendingToothLabel = p.label;
@@ -376,8 +387,12 @@ async function dsvSave(cost, units, date, notes) {
     showToast('✅ تم تسجيل ' + label + ' — ' + unitName + ' (' + dentArchLabel(u.arch) + ')');
   }
   if (status === 'completed' && typeof maybePromptMaterialDeduction === 'function') {
-    try { await maybePromptMaterialDeduction(key, label, 1, [sess.id]); }
-    catch (e) { console.warn('denture service material deduction skipped:', e); }
+    /* v733: نموذجُ المخبر فُتح للتوّ ⇒ سؤالُ الخصم يُؤجَّل لإغلاقه (closeModal('labOrderModal')) — لا نافذتان فوق بعض (نمطُ مسار السن) */
+    if (openLab) window._pendingMatDeduct = { k: key, l: label, m: 1, s: [sess.id] };
+    else {
+      try { await maybePromptMaterialDeduction(key, label, 1, [sess.id]); }
+      catch (e) { console.warn('denture service material deduction skipped:', e); }
+    }
   }
 }
 

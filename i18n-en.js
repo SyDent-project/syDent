@@ -3391,6 +3391,8 @@ Object.assign(window.SyI18nDict, {
     '🦷 الجهاز لم يعد على المخطط': '🦷 The denture is no longer on the chart',
     '🛠 خدمة الجهاز تُسجَّل «منجز» أو «مخطّط» فقط': '🛠 A denture service is recorded as «Done» or «Planned» only',
     '⚠️ خدمات الجهاز تحتاج تحديث قاعدة البيانات — حدّث الصفحة وأعد المحاولة': '⚠️ Denture services need a database update — refresh the page and try again',
+    /* بوّابةُ الحساب غير النشط (نصُّ «جلسة جديدة» نفسه — كان بلا ترجمة) */
+    '🔒 حسابك غير نشط — لا يمكن تسجيل جلسات جديدة': '🔒 Your account is inactive — new sessions cannot be recorded',
     /* صفحةُ العلاجات: بلاطتا «يطبَّق على» وشريحتا الفلتر وشارةُ البطاقة */
     'إضافة سن لجهاز': 'Add tooth to denture', 'تبطين · إصلاح · تعديل': 'Reline · repair · adjustment', 'للجهاز الجزئي فقط': 'Partial dentures only',
     '🦷 خدمة جهاز': '🦷 Denture service', '🦷 إضافة سن لجهاز': '🦷 Add tooth to denture'
