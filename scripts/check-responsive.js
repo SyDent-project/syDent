@@ -108,6 +108,10 @@ const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.css': '
       try { renderPerioGrid(); } catch (e) {}
       for (let e = document.getElementById('perioUpper'); e && e !== document.body; e = e.parentElement) if (getComputedStyle(e).display === 'none') e.style.display = 'block';
       out.perio = [byText(document.getElementById('perioUpper'), 'th', '17'), byText(document.getElementById('perioUpper'), 'th', '27')];
+      /* v738 (طلب المالك 16/11/2026): «زاوية العرض» فوق «إظهار العلاجات» على الحاسوب أيضاً — تُقاس المجموعتان كما رُسمتا */
+      const tool = id => { const e = document.getElementById(id), t = e && e.closest('.chart-tool'); return t ? t.getBoundingClientRect() : null; };
+      const va = tool('occViewSeg'), sf = tool('statusFilterSeg');
+      out.filters = (va && sf && va.width > 0 && sf.width > 0) ? [Math.round(va.bottom), Math.round(sf.top), Math.round((va.left + va.right) / 2 - (sf.left + sf.right) / 2)] : null;
       return out;
     });
     for (const k of ['facial', 'occlusal', 'lower', 'picker', 'perio']) {
@@ -116,6 +120,9 @@ const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.css': '
       if (a == null || b == null) bad.push('اتجاه الأسنان (' + lang + ') — ' + k + ': لم يُرسم');
       else if (!(a < b)) bad.push('اتجاه الأسنان (' + lang + ', dir=' + o.dir + ') — ' + k + ': مقلوب (يمين المريض على يمين الشاشة)');
     }
+    checked++;
+    if (!o.filters) bad.push('فلاتر المخطط (' + lang + '): لم تُرسم');
+    else if (!(o.filters[0] <= o.filters[1]) || Math.abs(o.filters[2]) > 2) bad.push('فلاتر المخطط (' + lang + ', 1366px): «زاوية العرض» ليست فوق «إظهار العلاجات» بمحورٍ واحد (' + o.filters.join(' · ') + ')');
     if (lang === 'en' && o.dir !== 'ltr') bad.push('اتجاه الأسنان — الواجهة الإنجليزية لم تُفعَّل بالفحص (dir=' + o.dir + ')');
     await ctx.close();
   }
