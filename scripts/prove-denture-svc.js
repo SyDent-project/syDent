@@ -264,6 +264,34 @@ async function behave(w, F) {
   const hr = [].slice.call(d1.querySelectorAll('.dsv-row'));
   ok(hr.length === 2 && /Add TOOTH/.test(hr[0].textContent) && /السن 16/.test(hr[0].querySelector('.dsv-add').textContent) && !!hr[0].querySelector('.dsv-st') && /Reline LAB/.test(hr[1].textContent) && !hr[1].querySelector('.dsv-st'),
     'dialog: the history is this denture only, newest first — planned flagged, added tooth named');
+
+  /* ③-ب v739 (M209): الضمّات بنافذة الجهاز الجزئي — مقترحةٌ تلقائياً (13 وحده: 16 مفقود) · نقرةُ السن تضيف أو تلغي وتُحفظ فوراً */
+  const tk = () => new Promise(res => setTimeout(res, 5));
+  const cb = n => dlg().querySelector('[data-dsv-clasp="' + n + '"]');
+  const dRows = () => DB('teeth_status').filter(x => x.surface === 'DENTURE' && x.unit_id === 'u-1');
+  ok(!!d1.querySelector('.dsv-clasp-grid') && d1.querySelectorAll('[data-dsv-clasp]').length === 16 && d1.classList.contains('sy-m-md') && !d1.classList.contains('sy-m-sm')
+    && cb(13).classList.contains('dsv-clasp-on') && cb(13).getAttribute('aria-pressed') === 'true' && cb(12).classList.contains('dent-miss') && cb(12).getAttribute('aria-pressed') === 'false'
+    && cb(14).classList.contains('dsv-own') && cb(15).classList.contains('dsv-own') && [16, 24, 26].every(n => cb(n).classList.contains('dent-off') && cb(n).getAttribute('aria-disabled') === 'true')
+    && d1.querySelectorAll('.dsv-clasp-on').length === 1 && /مقترحة تلقائياً على الأسنان المجاورة للفراغ/.test(d1.textContent) && !d1.querySelector('.dsv-clasp-auto'),
+    'clasps: the partial denture window lists the jaw — the suggested clasp is on, denture teeth are marked, unfit teeth are disabled');
+  w.__OPS = []; click(cb(12)); await tk();
+  ok(ops('teeth_status', 'update').length === 1 && dRows().length === 2 && dRows().every(x => x.denture_clasps === '12,13') && cb(12).classList.contains('dsv-clasp-on') && cb(13).classList.contains('dsv-clasp-on')
+    && /قائمة الطبيب/.test(dlg().textContent) && !!dlg().querySelector('.dsv-clasp-auto') && !!doc.querySelector('.tooth-cell[data-tooth-cell="12"] g.dent-clasp')
+    && ops('ledger_sessions', 'insert').length === 0 && w.__REALLOC === 0 && $('dentureBanner').querySelector('.dent-clasps').textContent === 'ضمّات: 12، 13',
+    'clasps: clicking a tooth adds a clasp — one update on every denture row, no session, the chart and the chip follow');
+  click(cb(13)); await tk();
+  ok(dRows().every(x => x.denture_clasps === '12') && !cb(13).classList.contains('dsv-clasp-on') && !doc.querySelector('.tooth-cell[data-tooth-cell="13"] g.dent-clasp'), 'clasps: clicking a clasped tooth removes its clasp');
+  click(dlg().querySelector('.dsv-clasp-auto')); await tk();
+  ok(dRows().every(x => x.denture_clasps === null) && cb(13).classList.contains('dsv-clasp-on') && !cb(12).classList.contains('dsv-clasp-on') && !dlg().querySelector('.dsv-clasp-auto') && /مقترحة تلقائياً/.test(dlg().textContent),
+    'clasps: «automatic suggestion» drops the dentist list and the suggestion returns');
+  w.__OPS = []; w.__TOASTS.length = 0; click(cb(16)); await tk(); click(cb(14)); await tk();
+  ok(w.__OPS.length === 0 && /السن 16: لا يحمل ضمّة/.test(toasts()) && /السن 14: ضمن الجهاز/.test(toasts()), 'clasps: a missing tooth and a denture tooth are refused with the reason, nothing is written');
+  w.__OPS = []; w.eval('window.__examMode = true'); click(cb(12)); await tk(); w.eval('window.__examMode = false');
+  const subK = w.SyDentSub.blockReadOnly; w.SyDentSub.blockReadOnly = () => true; click(cb(12)); await tk(); w.SyDentSub.blockReadOnly = subK;
+  ok(w.__OPS.length === 0 && dRows().every(x => x.denture_clasps === null), 'clasps: no edit in initial-exam mode or on a read-only subscription');
+  w.SyDentSvc.open('u-2'); w.__grabSvc();
+  ok(!dlg().querySelector('.dsv-clasp-grid') && !dlg().querySelector('[data-dsv-clasp]') && dlg().classList.contains('sy-m-sm'), 'clasps: a complete denture window has no clasp section');
+  w.SyDentSvc.open('u-1'); w.__grabSvc();
   click(d1.querySelector('.modal-close'));
   ok(!dlg(), 'dialog: closes');
   /* الجهازُ الكامل: «إضافة سن» معطّلة بسببها */
@@ -779,6 +807,14 @@ const MUTANTS = [
   ['catalog page: tiles shown before the migration', rep('treatments.html', "ts[i].style.display = window.__m208T ? '' : 'none';", "ts[i].style.display = '';")],
   ['catalog page: services still counted under the jaw filter', rep('treatments.html', "uiTargetOf(t) !== activeFilter) return false;", "(t.target_part || 'crown') !== activeFilter) return false;")],
   ['catalog defaults: services inserted unmarked before the migration', rep('treatments.html', "    rows = rows.filter(function(r){ return !r.denture_svc; });", "    rows.forEach(function(r){ delete r.denture_svc; });")],
+  ['clasps: the section is missing from the denture window', rep(SV, "  h += dsvClaspHtml(u);\n", "")],
+  ['clasps: a click is not saved', rep(SV, "    if (cl) { dsvClaspClick(ov, parseInt(cl.getAttribute('data-dsv-clasp'), 10), false); return; }", "    if (cl) { return; }")],
+  ['clasps: offered on a complete denture', rep(SV, "function dsvClaspUnit(u) { return !!(u && typeof dentIsPartialUnit === 'function' && dentIsPartialUnit(u)); }", "function dsvClaspUnit(u) { return !!u; }")],
+  ['clasps: editable in initial-exam mode', rep(SV, "  if (dsvLocked() || st.busy) return;", "  if (st.busy) return;")],
+  ['clasps: no way back to the suggestion', rep(SV, "  if (!dentClaspIsAuto(u)) h += '<button", "  if (false) h += '<button")],
+  ['clasps: an unfit tooth is accepted silently', rep(SV, "    if (!dentClaspOk(n)) { showToast('🦷 السن ' + n + ': لا يحمل ضمّة (مفقود أو مزروع أو قلعه مخطّط)'); return; }\n", "")],
+  ['i18n: the clasp hint left untranslated', rep('i18n-en.js', "    '↺ الاقتراح التلقائي': '↺ Automatic suggestion',\n", "")],
+  ['i18n: the unfit-tooth reason left untranslated', rep('i18n-en.js', "    'لا يحمل ضمّة (مفقود أو مزروع أو قلعه مخطّط)': 'cannot carry a clasp (missing, implant or planned extraction)'\n", "")],
   ['i18n: the library count left untranslated', rep('i18n-en.js', "[/^\\((\\d+) قالباً\\)$/, '($1 templates)'],", "")],
   ['i18n: the «no templates yet» text left untranslated', rep('i18n-en.js', "[/^لا قوالب خاصة بعد\\. مكتبة SyDent الجاهزة", "[/^لا قوالب خاصه بعد\\. مكتبة SyDent الجاهزة")],
   ['i18n: the count wording drifts from the dictionary', rep('pp-clinical.js', "if (cnt) cnt.textContent = '(' + POST_OP_LIBRARY.length + ' قالباً)';", "if (cnt) cnt.textContent = '(' + POST_OP_LIBRARY.length + ' قالب)';")],

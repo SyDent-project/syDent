@@ -88,11 +88,41 @@ function dsvClose() {
   ov.remove();
   if (!document.querySelector('.modal-overlay.sy-m.open')) document.body.classList.remove('sy-modal-lock');
 }
+/* v739 (M209): الضمّات بنافذة الجهاز الجزئي — مقترحةٌ تلقائياً، ونقرةُ السن تضيف ضمّةً أو تلغيها (تُحفظ فوراً) */
+function dsvClaspUnit(u) { return !!(u && typeof dentIsPartialUnit === 'function' && dentIsPartialUnit(u)); }
+function dsvClaspHtml(u) {
+  if (!dsvClaspUnit(u)) return '';
+  var row = dentArchRow(u.arch), on = dentClasps(u), h = '<div class="dsv-h">الضمّات</div><div class="nse-row dent-row dsv-clasp-grid">';
+  for (var i = 0; i < row.length; i++) {
+    if (i === row.length / 2) h += '<span class="nse-mid"></span>';
+    var t = row[i], own = u.teeth.indexOf(t) !== -1, ok = !own && dentClaspOk(t), has = on.indexOf(t) !== -1;
+    h += '<button type="button" class="nse-t dent-t' + (own ? ' dsv-own' : (ok ? (has ? ' dsv-clasp-on' : ' dent-miss') : ' dent-off')) + '" data-dsv-clasp="' + t + '"'
+      + (ok ? ' aria-pressed="' + (has ? 'true' : 'false') + '"' : ' aria-disabled="true"') + '>' + t + '</button>';
+  }
+  h += '</div><div class="dsv-note">' + (dentClaspIsAuto(u) ? 'مقترحة تلقائياً على الأسنان المجاورة للفراغ' : 'قائمة الطبيب') + ' — انقر السن لإضافة ضمّة أو إلغائها.</div>';
+  if (!dentClaspIsAuto(u)) h += '<button type="button" class="dsv-clasp-auto" data-dsv-act="clasp-auto">↺ الاقتراح التلقائي</button>';
+  return h;
+}
+/* النقرة: كتابةٌ واحدة ثم إعادةُ رسم النافذة من الحالة المحفوظة. قفلٌ يمنع نقرتين متراكبتين */
+async function dsvClaspClick(ov, n, auto) {
+  var st = ov._dsv, u = dsvUnit(st.unitId); if (!u) { dsvClose(); return; }
+  if (dsvLocked() || st.busy) return;
+  if (!auto) {
+    if (u.teeth.indexOf(n) !== -1) { showToast('🦷 السن ' + n + ': ضمن الجهاز'); return; }
+    if (!dentClaspOk(n)) { showToast('🦷 السن ' + n + ': لا يحمل ضمّة (مفقود أو مزروع أو قلعه مخطّط)'); return; }
+  }
+  st.busy = true;
+  try { if (auto) await dentClaspSave(u, null); else await dentClaspToggle(u, n); }
+  finally { st.busy = false; }
+  if (dsvDialog() === ov && ov._dsv && ov._dsv.view === 'home') dsvRender(ov);
+}
 /* view: 'home' (سجلّ + خدمات) · 'add' (منتقي السن) · 'units' (أيُّ جهاز؟) */
 function dsvRender(ov) {
   var st = ov._dsv, body = ov.querySelector('.dsv-body'), foot = ov.querySelector('.dsv-foot'), h = '';
   /* شبكةُ الأسنان تحتاج عرضاً (سابقةُ منتقي الجهاز: sm ← md) — وتعود النافذةُ كما كانت خارجها */
-  ov.classList.toggle('sy-m-md', st.view === 'add'); ov.classList.toggle('sy-m-sm', st.view !== 'add');
+  /* v739: صفُّ الضمّات بالواجهة الرئيسية لجهازٍ جزئي شبكةُ أسنانٍ أيضاً */
+  var wide = st.view === 'add' || (st.view === 'home' && dsvClaspUnit(dsvUnit(st.unitId)));
+  ov.classList.toggle('sy-m-md', !!wide); ov.classList.toggle('sy-m-sm', !wide);
   if (st.view === 'units') {
     h += '<div class="dsv-hint">اختر الجهاز الذي تخصّه «' + escapeHtml(st.label) + '»:</div><div class="dsv-list">';
     st.units.forEach(function (u) { h += '<button type="button" class="dsv-tx" data-dsv-unit="' + escapeHtml(String(u.id)) + '">' + escapeHtml(dsvUnitLine(u)) + '</button>'; });
@@ -122,6 +152,7 @@ function dsvRender(ov) {
     body.innerHTML = h; return;
   }
   var txs = dsvTreatments(), hist = dsvSessions(u), why = dsvUnitWhy(u, '');
+  h += dsvClaspHtml(u);
   h += '<div class="dsv-h">خدمة جديدة</div>';
   if (why) h += '<div class="dsv-note dsv-warn">' + escapeHtml(why) + '</div>';
   else if (!txs.length) h += '<div class="dsv-note">لا خدمات جهاز بقائمة علاجاتك — أضفها من صفحة العلاجات بزر «الافتراضي»، أو أنشئ علاجاً واختر له «خدمة جهاز».</div>';
@@ -183,6 +214,8 @@ function dsvOpenDialog(state) {
       if (tx.getAttribute('aria-disabled') === 'true') { showToast('🛠 ' + (tx.getAttribute('title') || 'غير متاح لهذا الجهاز')); return; }
       dsvPickTx(ov, tx.getAttribute('data-dsv-tx')); return;
     }
+    var cl = t.closest('[data-dsv-clasp]');
+    if (cl) { dsvClaspClick(ov, parseInt(cl.getAttribute('data-dsv-clasp'), 10), false); return; }
     var th = t.closest('[data-dsv-tooth]');
     if (th) {
       var u = dsvUnit(st.unitId), n = parseInt(th.getAttribute('data-dsv-tooth'), 10); if (!u) { dsvClose(); return; }
@@ -194,6 +227,7 @@ function dsvOpenDialog(state) {
     var act = t.closest('[data-dsv-act]'); if (!act) return;                   /* النقرُ الخارجي لا يُغلق — كبقية النوافذ */
     var a = act.getAttribute('data-dsv-act');
     if (a === 'instr') { dsvInstructions(st.unitId); return; }
+    if (a === 'clasp-auto') { dsvClaspClick(ov, 0, true); return; }
     if (a === 'back') { st.view = 'home'; st.key = null; st.teeth = []; dsvRender(ov); }
     else if (a === 'next') dsvConfirmAdd(ov);
     else dsvClose();
@@ -459,6 +493,7 @@ function dsvDecorate(bar, units) {
     chip.setAttribute('role', 'button'); chip.setAttribute('tabindex', '0');
     chip.setAttribute('data-dsv-open', String(u.id));
     chip.setAttribute('title', 'خدمات الجهاز: تبطين · إصلاح · إضافة سن');
+    if (dsvClaspUnit(u)) chip.setAttribute('title', 'الضمّات وخدمات الجهاز: تبطين · إصلاح · إضافة سن');
     chip.insertAdjacentHTML('beforeend', '<span class="dsv-badge">🛠' + (n ? ' ' + n : '') + '</span>');
   }
   if (bar._dsvBound) return;
