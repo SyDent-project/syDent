@@ -1551,7 +1551,7 @@ Object.assign(window.SyI18nDict, {
   "إدارة قوالب الروشتات": "Manage prescription templates",
   "📚 مكتبة SyDent الجاهزة": "📚 SyDent ready-made library",
   "— اختر تعليمات جاهزة —": "— Choose ready-made instructions —",
-  "تعليمات مراجَعة طبياً لأشيع العلاجات — اخترها ثم عدّل النص كما تشاء قبل الحفظ.": "Medically reviewed instructions for the most common treatments — pick one, then edit the text as you like before saving.",
+  "تعليمات جاهزة لأشيع العلاجات — اخترها ثم عدّل النص كما تشاء قبل الحفظ.": "Ready-made instructions for the most common treatments — pick one, then edit the text as you like before saving.",
   "📁 قوالبي الخاصة": "📁 My templates",
   "مرتبط بنوع علاج (اختياري)": "Linked to a treatment type (optional)",
   "— عام (بلا ربط) —": "— General (not linked) —",

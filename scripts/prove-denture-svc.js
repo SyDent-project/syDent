@@ -181,7 +181,10 @@ function staticChecks(F) {
   ok(!!L22 && /لا ماء ساخن ولا مبيّضات ولا معجون أسنان عادي/.test(L22.body) && /المؤقتة تُشطف بالماء ولا تُفرك بالفرشاة/.test(L22.body) && /لا تلصقه بنفسك/.test(L22.body)
     && !/أضعف عند مكان الكسر|أضيق من قبل/.test(L22.body), 'reline/repair template: sourced care rules only — the unsourced statements are not in it');
   ok([L21, L22].every(x => !!x && !/\d+\s*(?:ملغ|مغ|mg|حبة|حبتين)|باراسيتامول|ايبوبروفين|إيبوبروفين|أموكسيسيلين|مضاد حيوي/.test(x.body)), 'new templates: no drug names and no doses (library rule)');
-  ok(/تصحيحُ سجلّ \(16\/11\/2026\)/.test(PC) && /المالك \(طبيب أسنان\) قال صراحةً إنه لم\s+يراجع نصوص المكتبة/.test(PC), 'library header: the false «reviewed by the owner» claim is corrected in place');
+  ok(/سجلُّ المراجعة \(16\/11\/2026\)/.test(PC) && /«انا ما راجعت شي»/.test(PC) && /«راجعت التعليمات انا»/.test(PC), 'library header: the review record carries both of the owner\'s statements, dated');
+  const PPH = F['patient-profile.html'];
+  ok(/<div class="po-lib-hint">تعليمات جاهزة لأشيع العلاجات — اخترها ثم عدّل النص كما تشاء قبل الحفظ\.<\/div>/.test(PPH) && !/مراجَعة طبياً/.test(PPH) && !/مراجَعة طبياً/.test(F['i18n-en.js'].replace(/\/\*[\s\S]*?\*\//g, '')),
+    'instructions form: the hint says «ready-made» — no «medically reviewed» claim on the page or in the dictionary (owner, 16/11/2026)');
   const cutLab = (src, name) => { const a = src.indexOf('function ' + name + '('), b = src.indexOf('\n}\n', a); return (a > -1 && b > a) ? src.slice(a, b + 2) : ''; };
   const runCtx = (code, env) => { const c = Object.assign({ window: {}, console }, env); c.window = c; vm.createContext(c); vm.runInContext(code + '\nthis.out = labAiContext();', c); return c.out; };
   const fakeDoc = id => ({ getElementById: k => k === 'labOrderId' ? { value: id } : { id: k } });
@@ -599,6 +602,7 @@ function i18nChecks(strings, F) {
     && t('Partial ACR — الفك السفلي — كامل · من عيادة أخرى') === 'Partial ACR — Lower jaw — complete · from another clinic', 'i18n: clinic names stay as written — numbers and places survive');
   ok(t('Partial ACR — الفك العلوي — السن 99 · حالة مجهولة') === 'Partial ACR — الفك العلوي — السن 99 · حالة مجهولة' && t('🛠 سبب مجهول') === '🛠 سبب مجهول', 'i18n: unknown values stay fully Arabic (closed tables)');
   ok(strings.indexOf('📋 تعليمات للمريض') > -1 && t('📋 تعليمات للمريض') === '📋 Patient instructions', 'i18n: the instructions button was rendered, collected and translated');
+  ok(t('تعليمات جاهزة لأشيع العلاجات — اخترها ثم عدّل النص كما تشاء قبل الحفظ.') === 'Ready-made instructions for the most common treatments — pick one, then edit the text as you like before saving.', 'i18n: the instructions hint is translated');
 }
 
 async function suite(F) {
@@ -665,7 +669,9 @@ const MUTANTS = [
   ['library: immediate template lets the patient remove it on day one', rep('pp-clinical.js', "أبقِ الجهاز في فمك ولا تنزعه، حتى عند النوم في الليلة الأولى", "انزع الجهاز عند النوم من الليلة الأولى")],
   ['library: the unsourced weakness claim is back', rep('pp-clinical.js', "اتصل بالعيادة إذا: انكسر الجهاز أو أحد مشابكه (لا تلصقه بنفسك)", "الجهاز المُصلَح أضعف عند مكان الكسر. اتصل بالعيادة إذا: انكسر الجهاز أو أحد مشابكه (لا تلصقه بنفسك)")],
   ['library: an existing template id reused', rep('pp-clinical.js', '"id": "lib22"', '"id": "lib14"')],
-  ['library: the review claim restored', rep('pp-clinical.js', "🔴 تصحيحُ سجلّ (16/11/2026)", "ملاحظة")],
+  ['library: the review record dropped', rep('pp-clinical.js', "🔴 سجلُّ المراجعة (16/11/2026)", "ملاحظة")],
+  ['instructions form: the «medically reviewed» claim is back', rep('patient-profile.html', "تعليمات جاهزة لأشيع العلاجات", "تعليمات مراجَعة طبياً لأشيع العلاجات")],
+  ['i18n: the new hint left untranslated', rep('i18n-en.js', '"تعليمات جاهزة لأشيع العلاجات — اخترها ثم عدّل النص كما تشاء قبل الحفظ."', '"تعليمات جاهزه"')],
   ['lab draft: labs page drops the stage', rep('labs.html', "stage: st ? (st.name + ' (' + st.pos + ' من ' + st.total + ')') : '' };\n}\nfunction labAiTeeth() {", "stage: '' };\n}\nfunction labAiTeeth() {")],
   ['lab draft: patient card ignores a new order from its session', rep('pp-clinical.js', "labOrderArea(lo || { session_id: (typeof pendingLabSessionId !== 'undefined') ? pendingLabSessionId : null })", "labOrderArea(lo)")],
   ['lab draft: the location is not sent', rep('labs.html', "    if (ctxAi && ctxAi.area) payload.area = ctxAi.area;\n", "")],
