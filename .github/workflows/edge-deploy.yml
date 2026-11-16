@@ -24,6 +24,10 @@
 #   ANTHROPIC_API_KEY سر منصّة (Edge Functions secrets) — لا يُلمس هنا.
 #
 # النشر بدون Docker: --use-api (تجميع عبر Management API مباشرة).
+#
+# --yes (16/11/2026): الـCLI من الإصدار 3 يطلب تأكيداً قبل النشر ويرفض بلا طرفية
+#   («Confirmation required … Re-run with --yes») — فشل النشر الأول بعد v734 لهذا السبب
+#   (آخر نجاح 19/10/2026 على الإصدار 2). version: latest يبقى كما هو؛ قفزةٌ رئيسية أخرى قد تكسره ثانيةً.
 # ════════════════════════════════════════════════════════════════════════
 name: Edge Functions Deploy
 
@@ -61,16 +65,16 @@ jobs:
           version: latest
 
       - name: Deploy admin-ops (verify_jwt OFF)
-        run: supabase functions deploy admin-ops --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+        run: supabase functions deploy admin-ops --project-ref "$PROJECT_REF" --no-verify-jwt --use-api --yes
 
       - name: Deploy ai-assist (verify_jwt OFF)
-        run: supabase functions deploy ai-assist --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+        run: supabase functions deploy ai-assist --project-ref "$PROJECT_REF" --no-verify-jwt --use-api --yes
 
       - name: Deploy portal-xray (verify_jwt OFF)
-        run: supabase functions deploy portal-xray --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+        run: supabase functions deploy portal-xray --project-ref "$PROJECT_REF" --no-verify-jwt --use-api --yes
 
       - name: Deploy bridge (verify_jwt OFF)
-        run: supabase functions deploy bridge --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+        run: supabase functions deploy bridge --project-ref "$PROJECT_REF" --no-verify-jwt --use-api --yes
 
       - name: Summary
         run: |
