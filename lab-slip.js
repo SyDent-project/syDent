@@ -55,7 +55,16 @@
      (يثبتها prove-denture): «الفك العلوي — كامل» · «الفك السفلي — الأسنان 34، 35». غيرُ جلسة الجهاز ⇒ null. */
   var FULL = { U: [11, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27], L: [31, 32, 33, 34, 35, 36, 37, 41, 42, 43, 44, 45, 46, 47] };
   function area(sess) {
-    if (!sess || sess.tooth_num || !sess.unit_teeth || (sess.arch !== 'U' && sess.arch !== 'L')) return null;
+    if (!sess || sess.tooth_num || (sess.arch !== 'U' && sess.arch !== 'L')) return null;
+    /* ج4-أ (M208 · v733): خدمةُ جهازٍ قائم (تبطين · إصلاح…) — موضعُها فكُّ الجهاز، و«إضافة سن» أسنانُها المضافة (denture_add) بالصيغة نفسها.
+       كانت الخدمةُ بلا موضع بجدول الطلبات وورقة المخبر (الفكُّ بالملاحظات فقط، ومن زرّ 🥽 بصفّ الجلسة لا شيء). */
+    if (sess.denture_unit) {
+      var jaw = sess.arch === 'U' ? 'الفك العلوي' : 'الفك السفلي';
+      var add = String(sess.denture_add || '').split(',').map(function (t) { return parseInt(t, 10); })
+        .filter(function (t) { return t >= 11 && t <= 48; }).sort(function (a, b) { return a - b; });
+      return add.length ? { text: jaw + ' — ' + (add.length === 1 ? 'السن ' : 'الأسنان ') + add.join('، '), teeth: add } : { text: jaw, teeth: [] };
+    }
+    if (!sess.unit_teeth) return null;
     var teeth = String(sess.unit_teeth).split(',').map(function (t) { return parseInt(t, 10); })
       .filter(function (t) { return t >= 11 && t <= 48; }).sort(function (a, b) { return a - b; });
     if (!teeth.length) return null;
@@ -75,7 +84,9 @@
     var got = false;
     for (var i = 0; i < ids.length; i += 100) {
       try {
-        var r = await sb.from('ledger_sessions').select('id, arch, unit_teeth, tooth_num').eq('doctor_id', uid).in('id', ids.slice(i, i + 100));
+        var r = await sb.from('ledger_sessions').select('id, arch, unit_teeth, tooth_num, denture_unit, denture_add').eq('doctor_id', uid).in('id', ids.slice(i, i + 100));
+        /* عمودا M208 غائبان (قاعدةٌ قبل الترحيل) ⇒ يُعاد بالأعمدة القديمة: مواضعُ الأجهزة لا تضيع بذنب الخدمات */
+        if (r.error && /denture_unit|denture_add/.test(r.error.message || '')) r = await sb.from('ledger_sessions').select('id, arch, unit_teeth, tooth_num').eq('doctor_id', uid).in('id', ids.slice(i, i + 100));
         if (r.error) { console.warn('lab slip areas:', r.error); continue; }   /* #240: لا بلعٌ صامت */
         (r.data || []).forEach(function (s) { var a = area(s); if (a) { areas[s.id] = a; got = true; } });
       } catch (e) { console.warn('lab slip areas:', e); }

@@ -887,8 +887,13 @@ async function dentSave(cost, units, date, notes) {
       + (immAll.length ? ' — جهاز فوري: سنُّه يُرسم بعد إنجاز القلع' : ''));
   }
   if (status === 'completed' && firstSess && typeof maybePromptMaterialDeduction === 'function') {
-    try { await maybePromptMaterialDeduction(key, label, made.length, made.map(function (m) { return m.sess ? m.sess.id : null; })); }
-    catch (e) { console.warn('denture material deduction skipped:', e); }
+    var matIds = made.map(function (m) { return m.sess ? m.sess.id : null; });
+    /* v733: نموذجُ المخبر فُتح للتوّ ⇒ سؤالُ الخصم يُؤجَّل لإغلاقه (closeModal('labOrderModal')) — لا نافذتان فوق بعض (نمطُ مسار السن) */
+    if (openLab) window._pendingMatDeduct = { k: key, l: label, m: made.length, s: matIds };
+    else {
+      try { await maybePromptMaterialDeduction(key, label, made.length, matIds); }
+      catch (e) { console.warn('denture material deduction skipped:', e); }
+    }
   }
 }
 /* الفحصُ الأولي: جهازٌ قائم يُسجَّل بحالة الشريط (موجود/عيادتنا · موجود/عيادة أخرى) — صفوفُ مخططٍ بلا جلسة */
