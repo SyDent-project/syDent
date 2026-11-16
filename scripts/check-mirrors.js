@@ -893,7 +893,7 @@ try {
   if (KIT.indexOf(KPAR + ' > :is(.modal-box, .modal, .modal-card)') === -1) {
     stMism++; bad('theme.css (عُدّة النوافذ): قاعدة تراجع/تعطيل الأب (:has) مفقودة');
   }
-  [['appointments.html', 5] /* v501: نافذةُ الحجوزات تُحقن من appt-blocks.js */, ['patients.html', 4], ['patient-profile.html', 40] /* C3b: المواد ورقم الدفعة · v595: +ppIntakeModal (M177) · v635: +xrUpModal (M192) · v637: +xrGalModal · v642: +xrCamModal · v643: +xrInboxModal */,
+  [['appointments.html', 5] /* v501: نافذةُ الحجوزات تُحقن من appt-blocks.js */, ['patients.html', 4], ['patient-profile.html', 42] /* M210: +fuModal +fuPickModal (جلسةُ المتابعة) · C3b: المواد ورقم الدفعة · v595: +ppIntakeModal (M177) · v635: +xrUpModal (M192) · v637: +xrGalModal · v642: +xrCamModal · v643: +xrInboxModal */,
    ['treatments.html', 2], ['doctors.html', 1], ['employees.html', 2], ['payouts.html', 1],
    ['expenses.html', 2], ['inventory.html', 7] /* C3: نافذةُ الطلبيات والموردين · C3b: تتبّعُ الدفعة */, ['labs.html', 3],
    ['provider-reports.html', 3], ['audit-log.html', 1],
@@ -2299,7 +2299,7 @@ try {
      خامل)، وسطرُ CSS بـpatient-profile.css مولَّدٌ من قائمة الكتابة ويُقارَن حرفياً،
      ومعالجٌ جديد بلا تصنيف يُسقط الحارس فيُجبر صاحبه على القرار. */
   // سجلُّ معالجات بطاقة المريض لوضع القراءة — مصدرٌ واحد يُنسخ حرفياً إلى check-mirrors (V11)
-  const PP_FILES = ['patient-profile.html', 'pp-core.js', 'pp-clinical.js', 'pp-dental.js', 'pp-modules.js', 'pp-plan.js', 'pp-timeline.js', 'pp-appt.js', 'pp-extras.js', 'pp-wa.js', 'pp-intake.js', 'pp-portal.js', 'pp-xray.js', 'pp-denture.js', 'pp-denture-svc.js'];
+  const PP_FILES = ['patient-profile.html', 'pp-core.js', 'pp-clinical.js', 'pp-dental.js', 'pp-modules.js', 'pp-plan.js', 'pp-timeline.js', 'pp-appt.js', 'pp-extras.js', 'pp-wa.js', 'pp-intake.js', 'pp-portal.js', 'pp-xray.js', 'pp-denture.js', 'pp-denture-svc.js', 'pp-followup.js'];
   const PP_WRITE = ['openApptModal', 'openNewSessionEntry', 'openModal', 'openWaHub', 'openPayModal', 'openEditModal', 'unlinkFromFamily', 'openFamilyLinkModal',
     'openPlannedApptModal', 'toggleBatchMode', 'toggleExamMode', 'toggleDraftMode', 'examUndo', 'batchApply', 'batchUndo', 'draftUndo', 'draftClearAll', 'draftSave',
     'draftSetWidth', 'draftSetEraser', 'perioDeleteExam', 'perioNewExam', 'perioSave', 'perioCreateExam', 'openObModal', 'openAdjustmentModal',
@@ -2324,9 +2324,10 @@ try {
     'pfToggleShare',   /* M193: مشاركةُ صورةٍ مع المريض ببوابته */
     'pfLiveCam', 'xrGalCam',   /* v642: كاميرا الفم بالمتصفح (من التبويب ومن معرض السن) */
     'pfCapture', 'xrGalCapture', 'xrCancelRequest', 'xrInboxOpen',   /* M194: التقاطٌ من الجهاز · إلغاءُ الطلب · واردُ الأجهزة */
+    'fuOpenPicker', 'fuOpen', 'fuSave',   /* M210: جلسةُ متابعة — مدخلُها من «جلسة جديدة» · زرُّ الصف · الحفظ */
     'ppFlagsToggleEdit', 'ppFlagToggle', 'renewToothWatch'];
   // عناصرُ تحمل بيانات (سنٌّ بالمخطط · نقطةُ نزف · شريحةُ مراقبة · سجلُّ زرعة) — تبقى ظاهرة ويحرسها أولُ سطرٍ بالدالة
-  const PP_GUARD = ['openToothModal', 'openImplantLog', 'perioBop', 'endToothWatch'];
+  const PP_GUARD = ['openToothModal', 'openImplantLog', 'perioBop', 'endToothWatch', 'fuSetState' /* M210: شارةُ حالة العلاج بيانٌ يبقى ظاهراً بالقراءة — الضغطُ محروس */];
   const PP_READ = ['switchTab', 'openPatientLots', 'switchTabByName', 'famFilter', 'printChart', 'showDentSeg', 'toggleHistoryMode', 'historyStep', 'historyGo',
     'historyToday', 'onTlTypeChip', 'onTlDateRangeChange', 'onTlSearchInput', 'onTlLoadMore', 'perioPickExam', 'perioToggleCompare', 'perioRunCompare', 'perioPrint',
     'pfApplyToothFilter', 'pfSetSeg', 'xrOpenGallery', 'xrGalView', 'xrGalPick', 'xrGalCompare', 'xrGalToFiles', 'xrGalClose', 'closeModal', 'openPrintChoice', 'doPrintRecord', 'openStatementModal', 'printTreatmentPlan', 'copyTreatmentPlan',
@@ -2342,6 +2343,7 @@ try {
     'xrCamClose', 'xrCamStart', 'xrCamMirror', 'xrCamShot', 'xrCamRemove', 'xrCamDone',   /* v642: داخل نافذة الكاميرا (مدخلاها محروسان) */
     'xrInboxClose', 'xrInboxAssign', 'xrInboxDismiss',
     'modeTxSetTab', 'modeMiniJump', 'modeMiniUndo', 'modeMiniExit',
+    'fuStepPick', 'fuPickBase',   /* M210: داخل نافذتَي المتابعة (مدخلاهما fuOpen · fuOpenPicker كتابةٌ مخفيّة بالقراءة ومحروسان بـfuLocked) */
     'dsvOpenFromTooth' /* M208: زرُّ «خدمات الجهاز» داخل نافذة السن (مدخلُها openToothModal محروس) — يفتح سجلَّ الجهاز، وتسجيلُ الخدمة محروسٌ بأول سطر (dsvLocked) */,
     'dentArchToggle', 'dentArchBoth', 'dentToothToggle', 'dentToothWhy', 'dentOpenEdentulous'];   /* v712: شرائحُ التصنيف والسطرُ الرفيع داخل وضعَي الفحص/التحديد (مدخلاهما محروسان: toggleExamMode · toggleBatchMode) */   /* M202: داخل منتقي الجهاز المتحرك (مدخلُه محروس: openToothModal · toggleExamMode) */   /* M194: داخل نافذة الوارد (مدخلُها محروس) */   /* M192: داخل ورقة رفع الأشعة (مداخلُها محروسة) */
   const PP_ACT_WRITE = ['new', 'remind', 'rebook', 'stage', 'schedule', 'editplanned', 'delplanned'];
@@ -2543,7 +2545,7 @@ try {
     const LISTENERS = {
       'index.html': 3, 'patients.html': 19   /* v442: عدّاد أحرف نص الرسالة (input) — قراءة بحتة · C2: إغلاق قائمة «أدوات» (عرضٌ فقط) · C2: شرائح الفلاتر النشطة (onclick ×2، تصفيةٌ محلية بلا كتابة) */, 'appointments.html': 3   /* v439: مستمع إغلاق modalOverlay بنقرةٍ خارجية حُذف — كان يمحو نموذجاً معبّأً · v565: مستمعُ «+N» انتقل إلى SyDentBadgeCap بـtheme.js (قراءةٌ بحتة) */, 'appt-views.js': 7   /* v498: نقرُ فترةٍ محجوزة ⇒ openBlockModal (محروسة) */, 'appt-blocks.js': 0, 'appt-time.js': 0, 'appt-wa.js': 1   /* v443: عدّاد أحرف نص التذكير (input) — قراءة بحتة */,
       'appt-booking.js': 0, 'appt-modal.js': 0, 'patient-profile.html': 11   /* C2: إغلاق قائمة «أدوات» (عرضٌ فقط) */, 'pp-core.js': 0, 'pp-clinical.js': 0, 'pp-dental.js': 2,
-      'pp-modules.js': 5, 'pp-plan.js': 2   /* v611: إغلاقُ لوحة «المرحلة/بديل» بنقرةٍ خارجية أو Escape — قراءة بحتة */, 'pp-timeline.js': 0, 'pp-appt.js': 3, 'pp-extras.js': 2, 'pp-wa.js': 1, 'pp-intake.js': 0, 'pp-portal.js': 0, 'pp-denture.js': 0   /* M202: صفر مستمعات — كلُّ نقراته onclick مصنّفة أعلاه */, 'pp-denture-svc.js': 4   /* M208: نقرُ شريحة الجهاز ومفتاحُها (فتحُ سجلّه — قراءة) · نقرُ نافذة الجهاز ومفتاحُ Escape: اختيارُ الخدمة محروسٌ بأول سطر (dsvLocked ⇒ blockReadOnly) وما بعده لا يُبلَغ إلا منه، والحفظُ محروسٌ ثانيةً */, 'pp-xray.js': 1 /* v635: «paste» (خارج القائمة) · v642: keydown للالتقاط — يعمل فقط ونافذةُ الكاميرا مفتوحة (مدخلاها محروسان) */,   /* v408: عدّاد أحرف نص الرسالة (input) — قراءة بحتة */
+      'pp-modules.js': 5, 'pp-plan.js': 2   /* v611: إغلاقُ لوحة «المرحلة/بديل» بنقرةٍ خارجية أو Escape — قراءة بحتة */, 'pp-timeline.js': 0, 'pp-appt.js': 3, 'pp-extras.js': 2, 'pp-wa.js': 1, 'pp-intake.js': 0, 'pp-portal.js': 0, 'pp-denture.js': 0   /* M202: صفر مستمعات — كلُّ نقراته onclick مصنّفة أعلاه */, 'pp-followup.js': 0   /* M210: صفر مستمعات — كلُّ نقراته onclick مصنّفة أعلاه */, 'pp-denture-svc.js': 4   /* M208: نقرُ شريحة الجهاز ومفتاحُها (فتحُ سجلّه — قراءة) · نقرُ نافذة الجهاز ومفتاحُ Escape: اختيارُ الخدمة محروسٌ بأول سطر (dsvLocked ⇒ blockReadOnly) وما بعده لا يُبلَغ إلا منه، والحفظُ محروسٌ ثانيةً */, 'pp-xray.js': 1 /* v635: «paste» (خارج القائمة) · v642: keydown للالتقاط — يعمل فقط ونافذةُ الكاميرا مفتوحة (مدخلاها محروسان) */,   /* v408: عدّاد أحرف نص الرسالة (input) — قراءة بحتة */
       'treatments.html': 16, 'doctors.html': 1, 'employees.html': 5, 'payouts.html': 1, 'expenses.html': 4, 'inventory.html': 5   /* v569: نافذةُ «جهّز الطلبية» (نقرٌ + إدخال) — قراءة بحتة · v570: نافذةُ الجرد (نقرٌ + إدخال) — الاعتمادُ وحده كتابة وزرُّه مخفيٌّ بالقراءة ومحروس */,
       'labs.html': 4, 'accounting.html': 11   /* v546: تصديرُ Excel — قراءة بحتة */, 'provider-reports.html': 3   /* v539: نقرُ تبويب العلاجات (ترتيبٌ · تفاصيلُ جلسات) · v545: طباعةُ الملخّص ونسخُه — قراءة بحتة */, 'audit-log.html': 6, 'settings.html': 2, 'learn.html': 1
     };

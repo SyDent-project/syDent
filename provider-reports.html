@@ -1116,7 +1116,7 @@ async function _fetchAllPR(buildQuery) {
 async function fetchCtx(lo, hi, statusList, withTreat) {
   var uid = currentUser.id;
   // v539: سياقُ «الفترة السابقة» يحمل هويةَ العلاج أيضاً لمقارنة تبويب العلاجات (قراءةٌ عرضية، لا رقمٌ مالي).
-  var sCols = 'id,cost,provider_id,patient_id,status,currency,date' + (withTreat ? ',type,treatment_key,description' : '');
+  var sCols = 'id,cost,provider_id,patient_id,status,currency,date,parent_id' + (withTreat ? ',type,treatment_key,description' : '');   /* M210: parent_id — المتابعةُ لا تُعدّ إجراءً بالفترة السابقة أيضاً */
   /* DeepCode #1 (v552): القراءاتُ الأربع مستقلة — تُطلَق معاً (جولةٌ لا أربع) وتُحسَم بالترتيب نفسه،
      فأولُ خطأٍ يُرمى هو نفسُه كما كان؛ والتوزيعاتُ (embed) خطؤها يذهب لمسارها البديل كما كان. */
   var _cS = _prSettle(_fetchAllPR(function(){
@@ -1428,7 +1428,7 @@ function computeProviderStats(provId) {
     if (provId === '_unassigned') return !s.provider_id;
     return s.provider_id === provId;
   });
-  var sessionCount = provSessions.length;
+  var sessionCount = provSessions.filter(function(s){ return !s.parent_id; }).length;   /* M210: جلسةُ المتابعة زيارةٌ توثّق علاجاً قائماً (cost = 0) — لا تُعدّ إجراءً فلا تُميّع «عدد الجلسات» ومتوسّطَها */
   var production = provSessions.reduce(function(sum, s){ return sum + (Number(s.cost) || 0); }, 0);
 
   // 2. Lab cost: explicit per-provider attribution via provider_id (Migration 73).
@@ -1510,7 +1510,7 @@ function clinicTotals() {
   var lab = 0;
   for (var li = 0; li < labOrders.length; li++) lab += Number(labOrders[li].cost) || 0;
   return {
-    sessions: sessions.length,
+    sessions: sessions.filter(function(s){ return !s.parent_id; }).length,   /* M210: بلا جلسات المتابعة — تعريفُ computeProviderStats نفسه */
     production: sessions.reduce(function(sum, s){ return sum + (Number(s.cost) || 0); }, 0),
     collection: payments.reduce(function(sum, p){ return sum + (Number(p.amount) || 0); }, 0),
     lab: lab

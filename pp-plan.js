@@ -913,6 +913,7 @@ function stmtAllRows() {
   var rows = [];
   (sessions || []).forEach(function(s){
     if ((s.status || 'completed') === 'planned') return;   // المخطّط تقدير — ليس مستحقاً
+    if (s.parent_id) return;   // M210: جلسةُ المتابعة بلا مال — ليست حركةً بكشف الحساب
     var label = s.type || s.description || 'جلسة علاج';
     if (s.tooth_num != null) label += ' (سن ' + s.tooth_num + ')';
     rows.push({ date: s.date || String(s.created_at||'').slice(0,10), ca: s.created_at || '',

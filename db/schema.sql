@@ -2255,6 +2255,8 @@ CREATE TABLE IF NOT EXISTS "public"."ledger_sessions" (
     "unit_teeth" "text",
     "denture_unit" "uuid",
     "denture_add" "text",
+    "parent_id" "uuid",
+    "followup_state" "text",
     CONSTRAINT "ledger_sessions_arch_valid" CHECK ((("arch" IS NULL) OR ("arch" = ANY (ARRAY['U'::"text", 'L'::"text"])))),
     CONSTRAINT "ledger_sessions_cost_nonneg" CHECK ((("cost" IS NULL) OR ("cost" >= (0)::numeric))),
     CONSTRAINT "ledger_sessions_currency_valid" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))),
@@ -2265,6 +2267,8 @@ CREATE TABLE IF NOT EXISTS "public"."ledger_sessions" (
     CONSTRAINT "ledger_sessions_surface_check" CHECK ((("surface" IS NULL) OR (("surface" ~ '^M?[OI]?D?B?L?V?$'::"text") AND ("surface" <> ''::"text")) OR ("surface" = ANY (ARRAY['WHOLE'::"text", 'PONTIC'::"text", 'CROWN_FULL'::"text", 'BRIDGE'::"text", 'SPACER'::"text", 'SOCKET'::"text", 'R1'::"text", 'R2'::"text", 'R3'::"text", 'R1R2'::"text", 'R1R3'::"text", 'R2R3'::"text", 'R1R2R3'::"text"])))),
     CONSTRAINT "ledger_sessions_denture_add_format" CHECK ((("denture_add" IS NULL) OR (("denture_add" ~ '^[1-4][1-8](,[1-4][1-8]){0,13}$'::"text") AND ("denture_unit" IS NOT NULL)))),
     CONSTRAINT "ledger_sessions_denture_unit_shape" CHECK ((("denture_unit" IS NULL) OR (("tooth_num" IS NULL) AND ("arch" IS NOT NULL) AND ("unit_teeth" IS NULL)))),
+    CONSTRAINT "ledger_sessions_followup_shape" CHECK ((("parent_id" IS NULL) OR (("parent_id" <> "id") AND ("cost" IS NOT NULL) AND ("cost" = (0)::numeric) AND ("status" = ANY (ARRAY['completed'::"text", 'planned'::"text"])) AND ("tooth_num" IS NULL) AND ("surface" IS NULL) AND ("treatment_key" IS NULL) AND ("quadrant" IS NULL) AND ("arch" IS NULL) AND ("unit_teeth" IS NULL) AND ("denture_unit" IS NULL) AND ("denture_add" IS NULL) AND ("plan_option" IS NULL) AND ("phase" IS NULL) AND ("units" IS NULL) AND ("ortho_start" IS NULL) AND ("ortho_months" IS NULL) AND ("followup_state" IS NULL)))),
+    CONSTRAINT "ledger_sessions_followup_state_valid" CHECK ((("followup_state" IS NULL) OR (("followup_state" = ANY (ARRAY['open'::"text", 'closed'::"text"])) AND ("parent_id" IS NULL) AND ("status" = 'completed'::"text")))),
     CONSTRAINT "ledger_sessions_unit_teeth_format" CHECK ((("unit_teeth" IS NULL) OR (("unit_teeth" ~ '^[1-4][1-8](,[1-4][1-8]){0,15}$'::"text") AND ("tooth_num" IS NULL)))),
     CONSTRAINT "ledger_sessions_units_range" CHECK ((("units" IS NULL) OR (("units" >= 1) AND ("units" <= 99))))
 );
@@ -2286,6 +2290,14 @@ COMMENT ON COLUMN "public"."ledger_sessions"."unit_teeth" IS 'أسنان الج�
 
 
 COMMENT ON COLUMN "public"."ledger_sessions"."units" IS 'عدد وحدات البند (أشعة ×4، جلسات تبييض ×3…). عرضيٌّ بحت: cost يبقى الإجمالي المخزَّن، فلا يدخل units أي حساب مالي (FIFO/computeFinancials). NULL أو 1 = وحدة واحدة.';
+
+
+
+COMMENT ON COLUMN "public"."ledger_sessions"."parent_id" IS 'M210: الجلسةُ الأساسية التي تكملها جلسةُ المتابعة هذه (مستوى واحد). NULL = جلسةٌ عادية. صفُّ المتابعة cost = 0 وبلا سنّ/سطح/مفتاح — عرضيٌّ: لا يدخل أي حساب مالي.';
+
+
+
+COMMENT ON COLUMN "public"."ledger_sessions"."followup_state" IS 'M210: على الجلسة الأساسية وحدها — open (قيد الإنجاز) · closed (اكتمل العلاج) · NULL (بلا متابعات). عرضيٌّ: لا يدخل أي حساب مالي.';
 
 
 
@@ -3051,6 +3063,7 @@ CREATE TABLE IF NOT EXISTS "public"."treatments" (
     "dentition_scope" "text" DEFAULT 'all'::"text" NOT NULL,
     "accepts_units" boolean DEFAULT false NOT NULL,
     "denture_svc" "text",
+    "multi_visit" boolean,
     CONSTRAINT "treatments_currency_valid" CHECK (("currency" = ANY (ARRAY['SYP'::"text", 'USD'::"text"]))),
     CONSTRAINT "treatments_denture_svc_check" CHECK ((("denture_svc" IS NULL) OR (("denture_svc" = ANY (ARRAY['service'::"text", 'add'::"text"])) AND ("target_part" = 'arch'::"text")))),
     CONSTRAINT "treatments_dentition_scope_check" CHECK (("dentition_scope" = ANY (ARRAY['all'::"text", 'primary'::"text", 'permanent'::"text"]))),
@@ -3934,6 +3947,10 @@ CREATE INDEX "idx_sessions_appointment" ON "public"."ledger_sessions" USING "btr
 
 
 
+CREATE INDEX "idx_sessions_parent" ON "public"."ledger_sessions" USING "btree" ("parent_id") WHERE ("parent_id" IS NOT NULL);
+
+
+
 CREATE INDEX "idx_sessions_arch" ON "public"."ledger_sessions" USING "btree" ("patient_id", "arch") WHERE ("arch" IS NOT NULL);
 
 
@@ -4526,6 +4543,11 @@ ALTER TABLE ONLY "public"."ledger_sessions"
 
 ALTER TABLE ONLY "public"."ledger_sessions"
     ADD CONSTRAINT "ledger_sessions_doctor_id_fkey" FOREIGN KEY ("doctor_id") REFERENCES "public"."doctors"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."ledger_sessions"
+    ADD CONSTRAINT "ledger_sessions_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "public"."ledger_sessions"("id") ON DELETE CASCADE;
 
 
 

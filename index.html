@@ -4106,7 +4106,7 @@ async function nlTopTreatments(o, q){
   // treatment_key فارغ بكل الصفوف، وdescription موضعُ السنّ لا اسم العلاج
   // («السن رقم 27 — كل الجذور»)، فالتجميع والعرض على type وحده.
   var r = await window.SyDentFetchAll(function(){   // v548: مصفّحة (#699)
-    var sel = window.sb.from('ledger_sessions').select('type,description,status,date').eq('doctor_id', uid);
+    var sel = window.sb.from('ledger_sessions').select('type,description,status,date,parent_id').eq('doctor_id', uid);
     if (pr) sel = sel.gte('date', pr.from).lte('date', pr.to);
     return sel;
   });
@@ -4117,6 +4117,7 @@ async function nlTopTreatments(o, q){
     if (st === 'planned') return;                        // المنفَّذة فقط
     var name = String(s.type || '').trim() || 'غير مصنّف';
     if (name === 'رسم عدم الحضور' || s.description === 'رسم عدم الحضور') return;   // صف رسم لا علاج
+    if (s.parent_id) return;   // M210: جلسةُ متابعة — علاجُها معدودٌ بجلسته الأساسية
     cnt[name] = (cnt[name] || 0) + 1;
   });
   var rows = Object.keys(cnt).map(function(k){ return { name: k, n: cnt[k] }; })

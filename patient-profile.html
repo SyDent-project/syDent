@@ -44,6 +44,7 @@
 <script src="pp-dental.js?v=20261116f"></script>
 <script src="pp-denture.js?v=20261116f"></script>
 <script src="pp-denture-svc.js?v=20261116f"></script>
+<script src="pp-followup.js?v=20261116f"></script>
 <script src="pp-plan.js?v=20261116f"></script>
 <script src="pp-timeline.js?v=20261116f"></script>
 <script src="pp-appt.js?v=20261116f"></script>
@@ -771,7 +772,44 @@
       <div class="nse-alt">
         <button type="button" class="topt" onclick="nseRegional()">🦷 علاج جماعي (ربع / فك / فم / جهاز متحرك)</button>
         <button type="button" class="topt" onclick="nseFree()">📝 جلسة بلا سن (استشارة · أشعة · أخرى)</button>
+        <button type="button" class="topt" onclick="fuOpenPicker()">↪ جلسة متابعة (استكمال علاج سابق — بلا تكلفة)</button>   <!-- M210 -->
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: جلسة متابعة (M210 · ج1) — جلسةٌ تكمل علاجاً سابقاً على حسابه نفسه: بلا تكلفة وبلا موضعٍ خاص (تقرأه من أساسيتها).
+     النموذج والمراجعة بـpp-followup.js و migrations/210_followup_sessions.sql. -->
+<div class="modal-overlay sy-m sy-m-md" id="fuModal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>جلسة متابعة</h3><button class="modal-close" onclick="closeModal('fuModal')">✕</button></div>
+    <div class="modal-body">
+      <div id="fuBase" class="fu-base"></div>
+      <div class="form-row">
+        <div class="form-group"><label>التاريخ</label><input type="date" id="fuDate"></div>
+        <div class="form-group" id="fuProviderGroup" style="display:none;">
+          <label>الطبيب المعالج</label>
+          <select id="fuProvider"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>ما تمّ في هذه الجلسة</label>
+        <div id="fuSteps" class="fu-steps"></div>
+        <input type="text" id="fuStep" maxlength="80" placeholder="مثال: غسل أقنية وضماد دوائي">
+      </div>
+      <div class="form-group"><label>ملاحظات (اختياري)</label><textarea id="fuNotes" maxlength="2000" placeholder="أي ملاحظات سريرية…"></textarea></div>
+      <label class="fu-last"><input type="checkbox" id="fuLast"><span>آخر جلسة — اكتمل العلاج</span></label>
+      <div class="fu-hint">جلسة المتابعة بلا تكلفة — حساب العلاج على جلسته الأساسية.</div>
+    </div>
+    <div class="modal-foot"><button class="btn-cancel-m" onclick="closeModal('fuModal')">إلغاء</button><button class="btn-save-m" id="fuSaveBtn" onclick="fuSave()">حفظ جلسة المتابعة</button></div>
+  </div>
+</div>
+<div class="modal-overlay sy-m sy-m-md" id="fuPickModal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>جلسة متابعة — اختر العلاج</h3><button class="modal-close" onclick="closeModal('fuPickModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="fu-hint fu-hint-top">اختر العلاج الذي تكمله هذه الجلسة — العلاجات قيد الإنجاز أولاً.</div>
+      <div id="fuPickList" class="fu-pick"></div>
     </div>
   </div>
 </div>
@@ -4182,6 +4220,7 @@ function renderSessions() {
   var DASH_ = '<span class="sess-dash">—</span>';
   var _visits = (typeof planVisits === 'function') ? planVisits() : [];   // v410: تُحسب مرّةً للجدول كله
   var _tableRows = (typeof sessionsForTable === 'function') ? sessionsForTable(sessions) : sessions;   /* v611: المخطّط أولاً بالخيار ثم المرحلة */
+  if (typeof fuOrder === 'function') _tableRows = fuOrder(_tableRows);   /* M210: كلُّ متابعةٍ تحت أساسيتها */
   _tableRows.forEach(function(s) {
     /* v353: جدولٌ بأعمدة (طلب المالك): التاريخ · العلاج · السن · الحالة · الطبيب · الدفع ·
        التفاصيل (الوصف + الملاحظة + الموعد/المخبر) · التكلفة · الأزرار. عرضٌ بحت — الحساب
@@ -4201,10 +4240,14 @@ function renderSessions() {
     } else if (s.arch && ARCH_LABELS[s.arch]) {
       whereBadge = '<span class="sess-chip tone tone-lime" title="' + ARCH_LABELS[s.arch] + '">🦷 ' + ARCH_LABELS[s.arch] + '</span>';
     }
+    /* M210: صفُّ المتابعة — ترقيمُه بين أخواته وموضعُه من أساسيته (لا سنَّ له بالقاعدة)؛ الأساسيةُ تحمل شارةَ حالة العلاج */
+    var _fuC = (typeof fuIsChild === 'function') && fuIsChild(s);
+    if (_fuC) { var _fuV = fuChildView(s); typeBadge = _fuV.type; whereBadge = _fuV.where; }
     var st = s.status || 'completed';
     var stLbl = STATUS_LABELS[st] || st;
     var stTone = (typeof STATUS_TONES !== 'undefined' && STATUS_TONES[st]) || 'blue';
     var stBadge = '<span class="sess-chip cbadge tone tone-' + stTone + '">' + stLbl + '</span>';
+    if (!_fuC && typeof fuStateBadge === 'function') stBadge += fuStateBadge(s);
     // C: plan-phase chips — planned sessions only. Display-only field (phase
     // never enters FIFO / balances). v597: المرحلةُ والبديلُ بضابطٍ واحد مسمّى (pp-plan.js
     // planRowCtlHtml) بدل صفّين من الشرائح؛ الكتابةُ ما زالت setSessionPhase/setSessionOption.
@@ -4268,7 +4311,7 @@ function renderSessions() {
     if (apptBadge || labBadge) detHtml += '<div class="sess-links">' + apptBadge + labBadge + '</div>';
     // v478: التاريخُ أرقاماً وتحته وقتُ التسجيل إن سُجّلت الجلسة بيومها (SyDT.cellRec — لا وقتَ مُخترَع)
     var dateHtml = (window.SyDT) ? SyDT.cellRec(s.date, s.created_at) : escapeHtml(fmtD(s.date));
-    rows += '<tr data-test="pp-session-row">'
+    rows += '<tr data-test="pp-session-row"' + (_fuC ? ' class="fu-row"' : '') + '>'
       + '<td class="sc-date">' + dateHtml + '</td>'   // v481: وقتُ التسجيل ظاهرٌ بالخانة نفسها (لا تلميحَ عائمٌ يُقَصّ)
       + '<td class="sc-type">' + typeBadge + '</td>'
       + '<td class="sc-chip' + (whereBadge ? '' : ' sc-empty') + '">' + (whereBadge || DASH_) + '</td>'
@@ -4276,14 +4319,15 @@ function renderSessions() {
       + (showProviderCol ? '<td class="sc-chip' + (provBadge ? '' : ' sc-empty') + '">' + (provBadge || DASH_) + '</td>' : '')
       + '<td class="sc-chip' + (paidBadge ? '' : ' sc-empty') + '">' + (paidBadge || DASH_) + '</td>'
       + '<td class="sc-details' + (detHtml ? '' : ' sc-empty') + '">' + (detHtml || DASH_) + '</td>'
-      + '<td class="sc-cost sess-cost" style="color:' + costColor + ';">' + fmt(s.cost) + ' ' + _rowLbl(s)
+      + (_fuC ? '<td class="sc-cost sess-cost fu-cost" title="جلسة المتابعة بلا تكلفة — حساب العلاج على جلسته الأساسية">ضمن الأساسية'   /* M210 */
+        : '<td class="sc-cost sess-cost" style="color:' + costColor + ';">' + fmt(s.cost) + ' ' + _rowLbl(s))
       +   ((typeof sessUnitsOf === 'function' && sessUnitsOf(s) > 1)   /* v425 (M150): العدد عرضيٌّ — الإجمالي هو المخزَّن */
             ? '<span class="unit-chip" title="' + sessUnitsOf(s) + ' وحدات — المبلغ المعروض هو الإجمالي">×' + sessUnitsOf(s) + '</span>' : '')
       +   '</td>'
       + '<td class="sc-actions sess-actions"><div class="sy-acts sy-slots" style="--sy-slots:__SY_SLOTS__">'   /* v482: إكمال · مخبر · حذف بأعمدةٍ ثابتة؛ v484: تُطوى غيرُ المستعملة (SySlots) */
       +   (s.status === 'planned'
           ? '<button class="sy-act sy-act-primary" data-slot="1"' + (_labSt === 'can' ? '' : ' data-span-if="2"') + ' onclick="completeSessionFromProfile(\'' + s.id + '\')" title="إكمال هذا العلاج (تحويل من مخطّط إلى منجز)">✅ إكمال</button>'
-          : '')
+          : ((typeof fuRowButton === 'function') ? fuRowButton(s, _labSt !== 'can') : ''))   /* M210: خانةُ الخطوة التالية — «إكمال» للمخطّط و«متابعة» للمنجز */
       +   (_labSt === 'can'
           ? '<button class="sy-act" data-slot="2" onclick="ppSessionOpenLab(\'' + s.id + '\')" title="إنشاء طلب مخبر لهذه الجلسة">🥽 مخبر</button>'
           : '')
@@ -4594,6 +4638,11 @@ function renderRecentSessions() {
         regionalBadge = ' <span class="tone tone-lime" style="border-width:1px;border-style:solid;padding:0 5px;border-radius:10px;font-size:10px;font-weight:700;" title="' + ARCH_LABELS[s.arch] + '">🦷 ' + ARCH_LABELS[s.arch] + '</span>';
       }
     }
+    /* M210: جلسةُ المتابعة بلا موضعٍ خاص — تحمل موضعَ أساسيتها (باهتاً) */
+    if (typeof fuIsChild === 'function' && fuIsChild(s)) {
+      var _fuRW = fuWhereText(fuBaseOf(s));
+      if (_fuRW) regionalBadge = ' <span class="tone tone-gray" style="border-width:1px;border-style:solid;padding:0 5px;border-radius:10px;font-size:10px;font-weight:700;">' + escapeHtml(_fuRW) + '</span>';
+    }
     // Match renderSessions: color cost by payment status when splits exist
     var sessPaid = computeSessionPaid(s.id);
     var sessCost = parseFloat(s.cost) || 0;
@@ -4611,7 +4660,9 @@ function renderRecentSessions() {
     html += '<div class="irow" style="flex-direction:column;align-items:stretch;gap:4px;">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'
         + '<span style="font-weight:700;color:var(--text);font-size:13px;">' + typeBadge + toothBadge + regionalBadge + '</span>'
-        + '<span style="color:' + costColor + ';font-weight:700;font-size:13px;white-space:nowrap;"' + (costTitle ? ' title="' + costTitle + '"' : '') + '>' + fmt(s.cost) + ' ' + _rowLbl(s) + '</span>'
+        + ((typeof fuIsChild === 'function' && fuIsChild(s))   /* M210: المتابعةُ بلا تكلفة — لا «0» أحمر */
+            ? '<span class="fu-cost" style="font-size:12px;white-space:nowrap;">ضمن الأساسية</span>'
+            : '<span style="color:' + costColor + ';font-weight:700;font-size:13px;white-space:nowrap;"' + (costTitle ? ' title="' + costTitle + '"' : '') + '>' + fmt(s.cost) + ' ' + _rowLbl(s) + '</span>')
       + '</div>'
       + '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);">'
         + '<span>' + escapeHtml(s.description || '—') + '</span>'
@@ -4712,7 +4763,10 @@ async function _delSession_inner(id, opts) {
     return;
   }
   // M145: adoptPlanOption يؤكّد مرة واحدة للدفعة كلها ثم يمرّر skipConfirm.
-  if (!(opts && opts.skipConfirm === true) && !await SyDialog.confirm({ message: 'حذف هذه الجلسة؟', danger: true })) return;
+  /* M210: حذفُ الأساسية يحذف متابعاتِها معها (ON DELETE CASCADE) — يُقال صراحةً قبل التأكيد */
+  var _fuKids = (sess && typeof fuChildren === 'function' && !sess.parent_id) ? fuChildren(sess.id) : [];
+  var _fuTail = _fuKids.length ? '\n\n' + fuDeleteNote(_fuKids.length) : '';
+  if (!(opts && opts.skipConfirm === true) && !await SyDialog.confirm({ message: 'حذف هذه الجلسة؟' + _fuTail, danger: true })) return;
 
   // Delete the session itself. payment_splits.session_id has ON DELETE SET NULL
   // — surviving splits become orphans (session_id=NULL) but we immediately
@@ -4732,11 +4786,16 @@ async function _delSession_inner(id, opts) {
       entityId: id,
       patientId: patientId,
       patientName: (patient && patient.name) || '',
-      description: 'حذف جلسة: ' + (sess.type || '') + ' — ' + (sess.cost || 0) + ' ' + _rowLbl(sess),
+      description: 'حذف جلسة: ' + (sess.type || '') + ' — ' + (sess.cost || 0) + ' ' + _rowLbl(sess) + (_fuKids.length ? ' (+ ' + _fuKids.length + ' متابعة)' : ''),
       oldValue: { type: sess.type, cost: sess.cost, date: sess.date, tooth_num: sess.tooth_num, status: sess.status }
     });
   }
-  sessions = sessions.filter(function(s){ return s.id !== id; });
+  sessions = sessions.filter(function(s){ return s.id !== id && s.parent_id !== id; });   /* M210: ومتابعاتُها (حذفتها القاعدة) */
+  /* M210: آخرُ متابعةٍ حُذفت ⇒ الأساسيةُ جلسةٌ عادية من جديد (مرآةُ trg_followup_after_delete) */
+  if (sess && sess.parent_id && !sessions.some(function(s){ return s.parent_id === sess.parent_id; })) {
+    var _fuB = sessions.find(function(s){ return s.id === sess.parent_id; });
+    if (_fuB) _fuB.followup_state = null;
+  }
 
   // Rebuild all splits chronologically — handles every edge case automatically.
   await reallocatePatientFunds();

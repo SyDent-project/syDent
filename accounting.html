@@ -1144,7 +1144,7 @@ async function loadSessions(from, to) {
   // status='completed'. Planned sessions are excluded — they're not real
   // production yet (parity with OpenDental Total Prod definition).
   var res = await _pagedAcc(function(){ return window.sb.from('ledger_sessions')
-    .select('id, patient_id, provider_id, tooth_num, cost, date, status, type, currency')
+    .select('id, patient_id, provider_id, tooth_num, cost, date, status, type, currency, parent_id')
     .eq('doctor_id', currentUser.id)
     .eq('status', 'completed')
     .gte('date', from)
@@ -1155,7 +1155,8 @@ async function loadSessions(from, to) {
     sessions = [];
     return;
   }
-  sessions = res.data || [];
+  /* M210: جلساتُ المتابعة بلا مال (cost = 0) وعلاجُها معدودٌ بجلسته الأساسية — خارج الإنتاج وعدِّ الجلسات هنا */
+  sessions = (res.data || []).filter(function(s){ return !s.parent_id; });
 }
 
 async function loadPayments(from, to) {

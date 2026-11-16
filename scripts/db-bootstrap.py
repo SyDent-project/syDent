@@ -75,6 +75,7 @@ AFTER_SNAPSHOT = [
     'migrations/206_lab_order_stages.sql',   # after 198 is safe: its trigger function is revoked from PUBLIC/anon/authenticated and the two RPCs are granted to authenticated only, all by name
     'migrations/207_lab_order_status_control.sql',   # after 160 (it re-creates lab_orders_redo_cycle with one added condition) and 206; the RPC is granted to authenticated only, by name
     'migrations/208_denture_services.sql',   # after 203/204: handle_new_doctor replaced in place (catalog 33 -> 40 + denture_svc), two nullable session columns whose check names unit_teeth; no grant, no RPC
+    'migrations/210_followup_sessions.sql',   # after 204 and 208 (its shape check names unit_teeth, denture_unit, denture_add): two nullable session columns + a self FK, one nullable catalog column, two triggers, two RPCs granted to authenticated only, by name
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',
