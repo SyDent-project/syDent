@@ -20,7 +20,8 @@ const HARNESS = fs.readFileSync(path.join(__dirname, 'dom-smoke', '.out', 'harne
 
 const FILES = ['pp-denture-svc.js', 'pp-denture.js', 'pp-dental.js', 'pp-core.js', 'patient-profile.html', 'patient-profile.css', 'appointments.html', 'treatments.html',
   'migrations/208_denture_services.sql', 'migrations/203_removable_prosthetics_category.sql', 'db/schema.sql', 'scripts/db-bootstrap.py', 'scripts/cache-bust.sh',
-  'scripts/check-catalog-parity.js', 'scripts/check-modal-behaviour.js', 'scripts/validate.sh', 'scripts/prove-denture.js', 'i18n-en.js', 'theme.js', 'lab-slip.js'];
+  'scripts/check-catalog-parity.js', 'scripts/check-modal-behaviour.js', 'scripts/validate.sh', 'scripts/prove-denture.js', 'i18n-en.js', 'theme.js', 'lab-slip.js',
+  'labs.html', 'pp-clinical.js', 'supabase/functions/ai-assist/index.ts'];
 const LIVE = {}; FILES.forEach(f => { LIVE[f] = fs.readFileSync(path.join(ROOT, f), 'utf8'); });
 
 /* القاعدةُ الوهمية والخطّافاتُ مصدرُها مثبتُ الجهاز نفسه (لا نسخةَ ثانية تنحرف) */
@@ -166,6 +167,41 @@ function staticChecks(F) {
   ok(/\.select\('id, arch, unit_teeth, tooth_num, denture_unit, denture_add'\)/.test(F['lab-slip.js']) && /if \(r\.error && \/denture_unit\|denture_add\/\.test\(r\.error\.message \|\| ''\)\) r = await sb\.from\('ledger_sessions'\)\.select\('id, arch, unit_teeth, tooth_num'\)/.test(F['lab-slip.js']),
     'lab area: the labs page loads the link columns — and falls back before the migration so denture areas are not lost');
   ok(/if \(openLab\) window\._pendingMatDeduct = \{ k: key, l: label, m: made\.length, s: matIds \};/.test(DN), 'denture save: the stock prompt is deferred behind the lab form too');
+  /* ── ج4-ب: تعليماتُ المريض للجهاز · سياقُ صياغة أمر المخبر (المرحلة والموضع) ── */
+  const PC = F['pp-clinical.js'], LB = F['labs.html'], AI = F['supabase/functions/ai-assist/index.ts'];
+  let LIB = null; try { const a = PC.indexOf('var POST_OP_LIBRARY = ['), b = PC.indexOf('\n];', a); LIB = new Function(PC.slice(a, b + 3) + ';return POST_OP_LIBRARY;')(); } catch (e) { LIB = null; }
+  const byId = id => (LIB || []).filter(x => x.id === id)[0];
+  const ids = (LIB || []).map(x => x.id), L21 = byId('lib21'), L22 = byId('lib22');
+  ok(!!LIB && LIB.length === 22 && new Set(ids).size === 22 && ids.indexOf('lib21') === ids.indexOf('lib13') + 1 && ids.indexOf('lib22') === ids.indexOf('lib13') + 2
+    && !!L21 && !!L22 && L21.treatment_key === null && L22.treatment_key === null && /الجهاز الفوري/.test(L21.name) && /تبطين أو إصلاح/.test(L22.name),
+    'instructions library: two denture templates added right after the denture-care one — ids unique, never reused');
+  ok(!!L21 && /أول 24 ساعة:\n• أبقِ الجهاز في فمك ولا تنزعه، حتى عند النوم في الليلة الأولى/.test(L21.body) && /انزعه عند النوم واحفظه في كوب ماء، ما لم يطلب منك طبيبك إبقاءه في الليالي الأولى/.test(L21.body)
+    && /يُعالَج بتبطين الجهاز، وغالباً يُستبدَل بجهاز نهائي بعد 6 إلى 12 شهراً/.test(L21.body) && /لا ماء ساخن ولا معجون أسنان عادي/.test(L21.body) && /اتصل بالعيادة إذا:/.test(L21.body),
+    'immediate-denture template: 24 hours without removing it, night removal afterwards, reline and replacement window — as the NHS leaflets say');
+  ok(!!L22 && /لا ماء ساخن ولا مبيّضات ولا معجون أسنان عادي/.test(L22.body) && /المؤقتة تُشطف بالماء ولا تُفرك بالفرشاة/.test(L22.body) && /لا تلصقه بنفسك/.test(L22.body)
+    && !/أضعف عند مكان الكسر|أضيق من قبل/.test(L22.body), 'reline/repair template: sourced care rules only — the unsourced statements are not in it');
+  ok([L21, L22].every(x => !!x && !/\d+\s*(?:ملغ|مغ|mg|حبة|حبتين)|باراسيتامول|ايبوبروفين|إيبوبروفين|أموكسيسيلين|مضاد حيوي/.test(x.body)), 'new templates: no drug names and no doses (library rule)');
+  ok(/تصحيحُ سجلّ \(16\/11\/2026\)/.test(PC) && /المالك \(طبيب أسنان\) قال صراحةً إنه لم\s+يراجع نصوص المكتبة/.test(PC), 'library header: the false «reviewed by the owner» claim is corrected in place');
+  const cutLab = (src, name) => { const a = src.indexOf('function ' + name + '('), b = src.indexOf('\n}\n', a); return (a > -1 && b > a) ? src.slice(a, b + 2) : ''; };
+  const runCtx = (code, env) => { const c = Object.assign({ window: {}, console }, env); c.window = c; vm.createContext(c); vm.runInContext(code + '\nthis.out = labAiContext();', c); return c.out; };
+  const fakeDoc = id => ({ getElementById: k => k === 'labOrderId' ? { value: id } : { id: k } });
+  const stg = { forSlip: (box, lo) => (lo && lo.staged) ? { name: 'تجربة الأسنان', pos: 2, total: 3, all: [] } : null };
+  let cL = null, cL0 = null, cP = null, cPn = null;
+  try {
+    cL = runCtx(cutLab(LB, 'labAiContext'), { document: fakeDoc('o1'), allOrders: [{ id: 'o1', staged: true }], SyLabSlip: { areaOf: lo => lo.id === 'o1' ? { text: 'الفك العلوي — الأسنان 14، 15', teeth: [14, 15] } : null }, SyLabStages: stg });
+    cL0 = runCtx(cutLab(LB, 'labAiContext'), { document: fakeDoc(''), allOrders: [], SyLabSlip: { areaOf: () => null }, SyLabStages: stg });
+    cP = runCtx(cutLab(PC, 'labAiContext'), { document: fakeDoc('o1'), labOrders: [{ id: 'o1', staged: true, session_id: 's1' }], pendingLabSessionId: null, labOrderArea: lo => (lo && lo.session_id === 's1') ? { text: 'الفك السفلي', teeth: [] } : null, SyLabStages: stg });
+    cPn = runCtx(cutLab(PC, 'labAiContext'), { document: fakeDoc(''), labOrders: [], pendingLabSessionId: 's9', labOrderArea: lo => (lo && lo.session_id === 's9') ? { text: 'الفك العلوي — السن 16', teeth: [16] } : null, SyLabStages: stg });
+  } catch (e) { cL = null; }
+  ok(!!cL && cL.area === 'الفك العلوي — الأسنان 14، 15' && cL.stage === 'تجربة الأسنان (2 من 3)' && cL0.area === '' && cL0.stage === ''
+    && !!cP && cP.area === 'الفك السفلي' && cP.stage === 'تجربة الأسنان (2 من 3)' && cPn.area === 'الفك العلوي — السن 16' && cPn.stage === '',
+    'lab draft context: each surface reads the denture location and the stage due now from its own order — a new order from a session too');
+  const callRe = /var ctxAi = \(typeof labAiContext === 'function'\) \? labAiContext\(\) : null;\n    if \(ctxAi && ctxAi\.area\) payload\.area = ctxAi\.area;\n    if \(ctxAi && ctxAi\.stage\) payload\.stage = ctxAi\.stage;/;
+  ok(callRe.test(LB) && callRe.test(PC), 'lab draft: both surfaces send the location and the stage');
+  ok(/const area = String\(input\?\.area \|\| ""\)\.slice\(0, 120\);/.test(AI) && /const stage = String\(input\?\.stage \|\| ""\)\.slice\(0, 80\);/.test(AI)
+    && /\(stage \? "المرحلة المطلوبة الآن: " \+ stage \+ "\\n" : ""\)/.test(AI) && /\(area \? "موضع العمل: " \+ area \+ "\\n" : ""\)/.test(AI)
+    && /«المرحلة المطلوبة:»/.test(AI) && /موضع العمل كما وصل حرفياً/.test(AI), 'assistant: the lab draft receives the stage and the location (bounded text) and has a line for each');
+  ok(/inAr: nfWord\("جهاز\|اجهزه"\)/.test(AI) && /\(inOnly \? inOnly\.test\(inN\) : false\)/.test(AI), 'assistant: denture vocabulary — any «جهاز» in the input allows denture words (prove-ai-note-faith runs the cases)');
   const CSS = F['patient-profile.css'];
   ok(/\.dent-banner \.dsv-chip\{cursor:pointer;\}/.test(CSS) && /\.dsv-dialog \.dsv-tx\{/.test(CSS) && /\.dsv-dialog \.dent-t\.dsv-own\{/.test(CSS), 'css: chip, dialog and picker kits');
 }
@@ -269,6 +305,29 @@ async function behave(w, F) {
   w.eval('dsvStep2()');
   ok(!$('toothModal').classList.contains('open') && w.eval('pendingDentSvc') === null, 'chart mode entered mid-flow: the cost step does not open and the context is dropped');
   w.eval('window.__batchMode = false;');
+
+  /* ج4-ب: «📋 تعليمات للمريض» — تفتح نافذةَ التعليمات على قالب المكتبة المناسب للجهاز */
+  const instrProbe = async (rows, unitId) => {
+    load(rows);
+    const sel = doc.getElementById('postOpLibraryPick') || doc.body.appendChild(Object.assign(doc.createElement('select'), { id: 'postOpLibraryPick', innerHTML: '<option value=""></option><option value="lib13">a</option><option value="lib21">b</option>' }));
+    sel.value = '';
+    w.__INSTR = { opened: 0, applied: [] };
+    w.openPostOpModal = function () { w.__INSTR.opened++; return Promise.resolve(); };
+    w.postOpLibraryGet = function (id) { return (id === 'lib13' || id === 'lib21') ? { id: id } : null; };
+    w.postOpApplyLibrary = function (id) { w.__INSTR.applied.push(id); };
+    w.SyDentSvc.open(unitId); w.__grabSvc();
+    const b = dlg().querySelector('[data-dsv-act="instr"]');
+    if (b) click(b);
+    await new Promise(res => setTimeout(res, 10));
+    return { btn: !!b, opened: w.__INSTR.opened, applied: w.__INSTR.applied.join(','), pick: sel.value, dialog: !!dlg() };
+  };
+  const i1 = await instrProbe(base(), 'u-1');
+  const i2 = await instrProbe([X(14), X(15, 'planned'), D(14, 'u-i', T_PART.id, 'planned'), D(15, 'u-i', T_PART.id, 'planned')], 'u-i');
+  ok(i1.btn && i1.opened === 1 && i1.applied === 'lib13' && i1.pick === 'lib13' && !i1.dialog, 'instructions: the denture window opens the instructions form on the denture-care template');
+  ok(i2.btn && i2.opened === 1 && i2.applied === 'lib21' && i2.pick === 'lib21', 'instructions: an immediate denture (planned extraction under it) opens on the immediate-denture template');
+  w.openPostOpModal = undefined; load(base()); w.SyDentSvc.open('u-1');
+  ok(!dlg().querySelector('[data-dsv-act="instr"]'), 'instructions: no button where the instructions form does not exist');
+  click(dlg().querySelector('.modal-close'));
 
   /* ④ خدمةٌ عادية: جلسةُ فكٍّ مربوطة بالجهاز — صفر مساس بالمخطط */
   load(base());
@@ -539,6 +598,7 @@ function i18nChecks(strings, F) {
     && t('✅ تم تسجيل Add TOOTH — أُضيف السن 16 لرسم الجهاز') === '✅ Add TOOTH recorded — tooth 16 added to the denture drawing'
     && t('Partial ACR — الفك السفلي — كامل · من عيادة أخرى') === 'Partial ACR — Lower jaw — complete · from another clinic', 'i18n: clinic names stay as written — numbers and places survive');
   ok(t('Partial ACR — الفك العلوي — السن 99 · حالة مجهولة') === 'Partial ACR — الفك العلوي — السن 99 · حالة مجهولة' && t('🛠 سبب مجهول') === '🛠 سبب مجهول', 'i18n: unknown values stay fully Arabic (closed tables)');
+  ok(strings.indexOf('📋 تعليمات للمريض') > -1 && t('📋 تعليمات للمريض') === '📋 Patient instructions', 'i18n: the instructions button was rendered, collected and translated');
 }
 
 async function suite(F) {
@@ -599,6 +659,17 @@ const MUTANTS = [
   ['lab area: add-tooth shows the jaw only', rep('lab-slip.js', "      return add.length ? { text: jaw + ' — ' + (add.length === 1 ? 'السن ' : 'الأسنان ') + add.join('، '), teeth: add } : { text: jaw, teeth: [] };", "      return { text: jaw, teeth: [] };")],
   ['lab area: every jaw session gets a location', rep('lab-slip.js', "    if (!sess.unit_teeth) return null;\n", "    if (!sess.unit_teeth) return { text: 'x', teeth: [] };\n")],
   ['lab area: link columns not loaded on the labs page', rep('lab-slip.js', ".select('id, arch, unit_teeth, tooth_num, denture_unit, denture_add')", ".select('id, arch, unit_teeth, tooth_num')")],
+  ['instructions: an immediate denture gets the general template', rep(SV, "return (u && dentOpenExtractions(u.teeth).length) ? 'lib21' : 'lib13'; }", "return 'lib13'; }")],
+  ['instructions: the template is not applied', rep(SV, "{ pick.value = lid; postOpApplyLibrary(lid); }", "{ pick.value = lid; }")],
+  ['instructions: the dialog stays open under the form', rep(SV, "  dsvClose();\n  await openPostOpModal();", "  await openPostOpModal();")],
+  ['library: immediate template lets the patient remove it on day one', rep('pp-clinical.js', "أبقِ الجهاز في فمك ولا تنزعه، حتى عند النوم في الليلة الأولى", "انزع الجهاز عند النوم من الليلة الأولى")],
+  ['library: the unsourced weakness claim is back', rep('pp-clinical.js', "اتصل بالعيادة إذا: انكسر الجهاز أو أحد مشابكه (لا تلصقه بنفسك)", "الجهاز المُصلَح أضعف عند مكان الكسر. اتصل بالعيادة إذا: انكسر الجهاز أو أحد مشابكه (لا تلصقه بنفسك)")],
+  ['library: an existing template id reused', rep('pp-clinical.js', '"id": "lib22"', '"id": "lib14"')],
+  ['library: the review claim restored', rep('pp-clinical.js', "🔴 تصحيحُ سجلّ (16/11/2026)", "ملاحظة")],
+  ['lab draft: labs page drops the stage', rep('labs.html', "stage: st ? (st.name + ' (' + st.pos + ' من ' + st.total + ')') : '' };\n}\nfunction labAiTeeth() {", "stage: '' };\n}\nfunction labAiTeeth() {")],
+  ['lab draft: patient card ignores a new order from its session', rep('pp-clinical.js', "labOrderArea(lo || { session_id: (typeof pendingLabSessionId !== 'undefined') ? pendingLabSessionId : null })", "labOrderArea(lo)")],
+  ['lab draft: the location is not sent', rep('labs.html', "    if (ctxAi && ctxAi.area) payload.area = ctxAi.area;\n", "")],
+  ['assistant: the stage is dropped from the lab draft', rep('supabase/functions/ai-assist/index.ts', '(stage ? "المرحلة المطلوبة الآن: " + stage + "\\n" : "") +', '')],
   ['list entry skips choosing between dentures', rep(SV, "  if (ok.length === 1) { dsvBegin(ok[0], key, label, kind, null); return true; }", "  if (ok.length >= 1) { dsvBegin(ok[0], key, label, kind, null); return true; }")],
   ['profile: service session enters the denture hook', rep('patient-profile.html', "  if (sess && window.SyDentSvc && window.SyDentSvc.isSession(sess)) { await window.SyDentSvc.onSessionComplete(sess); return window.SyDentSvc.completeNote(sess); }\n", "")],
   ['profile: delete hook removed', rep('patient-profile.html', "    try { await window.SyDentSvc.onSessionDeleted(sess); } catch (e) { console.warn('delSession: denture service rows skipped:', e); }", "")],
@@ -627,6 +698,7 @@ const MUTANTS = [
   ['catalog page: tiles shown before the migration', rep('treatments.html', "ts[i].style.display = window.__m208T ? '' : 'none';", "ts[i].style.display = '';")],
   ['catalog page: services still counted under the jaw filter', rep('treatments.html', "uiTargetOf(t) !== activeFilter) return false;", "(t.target_part || 'crown') !== activeFilter) return false;")],
   ['catalog defaults: services inserted unmarked before the migration', rep('treatments.html', "    rows = rows.filter(function(r){ return !r.denture_svc; });", "    rows.forEach(function(r){ delete r.denture_svc; });")],
+  ['i18n: the instructions button left untranslated', rep('i18n-en.js', "'📋 تعليمات للمريض': '📋 Patient instructions',", "")],
   ['i18n: a service toast left untranslated', rep('i18n-en.js', "[R('^✅ تم تسجيل (.+) — أُضيف ' + TP + ' لرسم الجهاز$')", "[R('^✅ تم تسجيل (.+) — أُضيفت ' + TP + ' لرسم الجهاز$')")],
   ['i18n: the unit line half-translated on an unknown status', rep('i18n-en.js', "(?: · (مخطط|من عيادة أخرى|من عيادتنا|محوّل))?$'), function (m, n, a, st) { return n + ' — ' + area1(a) + (st ? ' · ' + ST[st] : ''); }]", "(?: · (.+))?$'), function (m, n, a, st) { return n + ' — ' + area1(a) + (st ? ' · ' + (ST[st] || st) : ''); }]")]
 ];

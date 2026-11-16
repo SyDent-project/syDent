@@ -265,7 +265,14 @@ const NF_GROUPS = [
   { key: "ortho", label: "تقويم", ar: nfWord("تقويم"), la: /\bortho\w*/i, implies: [] },
   { key: "scaling", label: "تقليح", ar: nfWord("تقليح|قلح|جير"), la: /\b(?:scaling|prophy\w*)\b/i, implies: [] },
   { key: "veneer", label: "قشور", ar: nfWord("قشره|قشور|فينير|فنير"), la: /\bveneers?\b/i, implies: [] },
-  { key: "denture", label: "طقم", ar: nfWord("طقم|اطقم|بدله"), la: /\bdentures?\b/i, implies: [] },
+  { key: "denture", label: "طقم/جهاز متحرك",
+    // ج4-ب: اسمُ العلاج بالمنصة «جهاز متحرك كامل/جزئي» وخدماتُه «تبطين جهاز · إصلاح كسر جهاز…» — العائلةُ كانت تعرف «طقم/بدلة»
+    // وحدهما، فملاحظةٌ صحيحة تقول «طقم» عن جهازٍ متحرك كانت تُرفض. inAr يُقرأ على المدخل وحده: أيُّ «جهاز» فيه يسمح بمفردات
+    // الطقم (اتجاهٌ لا يرفض شيئاً). و ar (للمدخل والمخرج) صيغٌ لا لبس فيها — «جهاز التقويم المتحرك» ليس طقماً، و«تبطين»
+    // و«ضمة» ليستا عائلةً هنا عمداً: «تبطين القاع قرب اللب» مصطلحُ حشوات، و«ضمة آدم» تقويم.
+    ar: nfWord("طقم|اطقم|بدله|جهاز (?:ال)?كامل|جهاز (?:ال)?جزيي|جهاز (?:ال)?فوري|متحرك (?:ال)?كامل|متحرك (?:ال)?جزيي"),
+    inAr: nfWord("جهاز|اجهزه"),
+    la: /\bdentures?\b/i, implies: [] },
 ];
 const NF_TOOTH_RUN = /(?:سن|اسنان|ضرس|اضراس|رحي|ناب|قاطع|ثنيه|ضاحك)(?:ين|ان)?(?: رقم| رقمي)?:? ?((?:\d{2}(?!\d)(?: ?[،,\-–] ?| و ?| ?و)?)+)/g;
 function sessionNoteIssues(treatment: string, notes: string, text: string): string[] {
@@ -276,7 +283,8 @@ function sessionNoteIssues(treatment: string, notes: string, text: string): stri
   if (core && outN.indexOf(nfNorm(core)) < 0) issues.push("لم يُذكر اسم العلاج «" + core + "» حرفياً");
   const allowed: Record<string, boolean> = {};
   for (const g of NF_GROUPS) {
-    if (g.ar.test(inN) || g.la.test(inN)) { allowed[g.key] = true; for (const k of g.implies) allowed[k] = true; }
+    const inOnly = (g as { inAr?: RegExp }).inAr;
+    if (g.ar.test(inN) || g.la.test(inN) || (inOnly ? inOnly.test(inN) : false)) { allowed[g.key] = true; for (const k of g.implies) allowed[k] = true; }
   }
   for (const g of NF_GROUPS) {
     if (!allowed[g.key] && (g.ar.test(outN) || g.la.test(outN))) issues.push("ذُكر إجراءٌ غير مسجّل: " + g.label);
@@ -733,14 +741,18 @@ const SYSTEM_PROMPTS: Record<string, string> = {
   lab_order_draft:
     "أنت تكتب أمر عمل مخبري (Lab Order) رسمياً من عيادة أسنان إلى مخبر " +
     "أسنان، بالعربية الفصحى المبسّطة، بصيغة رسالة جاهزة للإرسال. ستصلك " +
-    "مواصفات الطبيب: نوع العمل، وقد يصلك رقم السن واللون وتاريخ التسليم " +
+    "مواصفات الطبيب: نوع العمل، وقد يصلك رقم السن أو موضع العمل (الفك " +
+    "والأسنان لجهازٍ متحرك) والمرحلة المطلوبة الآن واللون وتاريخ التسليم " +
     "المطلوب واسم العيادة وكلمات الطبيب الخام (مادة/تصميم/ملاحظات).\n\n" +
     "البنية الإلزامية بالترتيب — كل بند في سطر مستقل بعنوانه، ولا يُكتب " +
     "إلا البند الذي وردت له معلومة فعلاً:\n" +
     "السطر الأول «أمر عمل مخبري — [اسم العيادة]» (وبلا اسم عيادة يُكتفى " +
     "بـ«أمر عمل مخبري»)، ثم «التاريخ: {التاريخ}» (اتركه حرفياً — يُستبدل " +
     "لاحقاً)، ثم «المريض: {الاسم}» (اتركه حرفياً — يُستبدل لاحقاً)، ثم " +
-    "«نوع العمل:»، ثم «السن/الأسنان:»، ثم «المادة:»، ثم «اللون:»، ثم " +
+    "«نوع العمل:»، ثم «المرحلة المطلوبة:» (كما وصلت حرفياً — اسمُ المرحلة " +
+    "وترتيبُها مثل «تجربة الأسنان (2 من 3)»)، ثم «السن/الأسنان:» (رقم السن، " +
+    "أو موضع العمل كما وصل حرفياً مثل «الفك العلوي — الأسنان 14، 15»)، ثم " +
+    "«المادة:»، ثم «اللون:»، ثم " +
     "«تعليمات التصميم والإطباق:»، ثم «ملاحظات:»، ثم «تاريخ التسليم " +
     "المطلوب:»، ثم سطر ختامي ثابت: «لأي استفسار حول الحالة يُرجى التواصل " +
     "مع العيادة قبل البدء بالعمل.»\n\n" +
@@ -1234,13 +1246,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const workType = String(input?.work_type || "").slice(0, 200);
     if (!workType) return json(400, { error: "empty_input" });
     const tooth = String(input?.tooth || "").slice(0, 120);
+    // ج4-ب: موضعُ الجهاز المتحرك (فكّ/أسنان) والمرحلةُ المطلوبة الآن — من نموذج الطلب، بلا أي معرّف مريض
+    const area = String(input?.area || "").slice(0, 120);
+    const stage = String(input?.stage || "").slice(0, 80);
     const shade = String(input?.shade || "").slice(0, 100);
     const rawNotes = String(input?.notes || "").slice(0, 600);
     const dueDate = String(input?.due_date || "").slice(0, 20);
     const clinicName = String(input?.clinic_name || "").slice(0, 120);
     userContent =
       "نوع العمل: " + workType + "\n" +
+      (stage ? "المرحلة المطلوبة الآن: " + stage + "\n" : "") +
       (tooth ? "رقم السن: " + tooth + "\n" : "") +
+      (area ? "موضع العمل: " + area + "\n" : "") +
       (shade ? "اللون: " + shade + "\n" : "") +
       (dueDate ? "تاريخ التسليم المطلوب: " + dueDate + "\n" : "") +
       (clinicName ? "اسم العيادة: " + clinicName + "\n" : "") +

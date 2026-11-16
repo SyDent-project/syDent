@@ -23,7 +23,7 @@
 /* ── Modal ── v448: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261116a"></script>
+<script src="theme.js?v=20261116b"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -570,19 +570,19 @@ a.appt-badge:hover { background: rgba(var(--blue-rgb),0.28) !important; }
 html[data-sub-level="read"] :is([onclick*="openLabOrderModal("],[onclick*="openLabModal("],[onclick*="labTplSaveCurrent("],[onclick*="labTplDeleteSelected("],[onclick*="labClearDateSent("],[onclick*="labAiDraftOrder("],[onclick*="labAiSaveAndSend("],[onclick*="saveLabOrder("],[onclick*="saveLab("],[onclick*="saveLabPayment("],[onclick*="editLab("],[onclick*="delLab("],[onclick*="advanceLabOrder("],[onclick*="redoLabOrder("],[onclick*="undoLabStage("],[onclick*="editLabOrder("],[onclick*="delLabOrder("],[onclick*="delLabPayment("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261116a">
+<link rel="stylesheet" href="theme.css?v=20261116b">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261116a"></script>
-<script src="sy-modal.js?v=20261116a"></script>
-<script src="pay-methods.js?v=20261116a"></script>
-<script src="lab-redo.js?v=20261116a"></script>
-<script src="lab-stages.js?v=20261116a"></script>
-<script src="lab-status.js?v=20261116a"></script>
-<script src="lab-shade.js?v=20261116a"></script>
-<script src="lab-due.js?v=20261116a"></script>
-<script src="lab-slip.js?v=20261116a"></script>
-<script src="lab-files.js?v=20261116a"></script>
-<script src="sidebar.js?v=20261116a"></script>
+<script src="supabase-init.js?v=20261116b"></script>
+<script src="sy-modal.js?v=20261116b"></script>
+<script src="pay-methods.js?v=20261116b"></script>
+<script src="lab-redo.js?v=20261116b"></script>
+<script src="lab-stages.js?v=20261116b"></script>
+<script src="lab-status.js?v=20261116b"></script>
+<script src="lab-shade.js?v=20261116b"></script>
+<script src="lab-due.js?v=20261116b"></script>
+<script src="lab-slip.js?v=20261116b"></script>
+<script src="lab-files.js?v=20261116b"></script>
+<script src="sidebar.js?v=20261116b"></script>
 </head>
 <body>
 <script>
@@ -3104,6 +3104,10 @@ async function labAiDraftOrder() {
     if (rawNotes) payload.notes = rawNotes;
     if (dueDate) payload.due_date = dueDate;
     if (_labAiClinicName) payload.clinic_name = _labAiClinicName;
+    /* ج4-ب: المرحلةُ المطلوبة الآن وموضعُ الجهاز (فكّ/أسنان) من نموذج الطلب — labAiContext لكل سطحٍ على بياناته (خارج المرآة) */
+    var ctxAi = (typeof labAiContext === 'function') ? labAiContext() : null;
+    if (ctxAi && ctxAi.area) payload.area = ctxAi.area;
+    if (ctxAi && ctxAi.stage) payload.stage = ctxAi.stage;
     var resp = await window.sb.functions.invoke('ai-assist', {
       body: { feature: 'lab_order_draft', input: payload }
     });
@@ -3172,6 +3176,15 @@ async function labAiSaveAndSend() {
   } else {
     if (w) w.close();
   }
+}
+/* ج4-ب: سياقُ الصياغة من نموذج الطلب — موضعُ الجهاز (SyLabSlip.areaOf: طلبُ جهازٍ أو خدمتِه) والمرحلةُ المطلوبة الآن (SyLabStages.forSlip).
+   خارج مرآة دوال الصياغة عمداً: كلُّ سطحٍ يقرأ طلبَه من مصدره (هنا allOrders). نصوصٌ فقط، بلا أي معرّف. */
+function labAiContext() {
+  var id = document.getElementById('labOrderId').value;
+  var lo = id ? allOrders.find(function (x) { return x.id === id; }) : null;
+  var ar = (lo && window.SyLabSlip && SyLabSlip.areaOf) ? SyLabSlip.areaOf(lo) : null;
+  var st = window.SyLabStages ? SyLabStages.forSlip(document.getElementById('labStagesBox'), lo) : null;
+  return { area: ar ? ar.text : '', stage: st ? (st.name + ' (' + st.pos + ' من ' + st.total + ')') : '' };
 }
 function labAiTeeth() {
   /* دفعة التحديد المتعدد (M86-lab): pendingLabBatchUnits تحمل كل الأسنان

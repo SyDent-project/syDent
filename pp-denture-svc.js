@@ -146,8 +146,21 @@ function dsvRender(ov) {
     });
     h += '</div>';
   }
-  foot.innerHTML = '<button type="button" class="btn-sy-cancel" data-dsv-act="close" data-sy-close>إغلاق</button>';
+  /* ج4-ب: تعليماتُ المريض لهذا الجهاز — تفتح نافذةَ التعليمات على قالب المكتبة المناسب (الفوري أو العناية العامة) */
+  foot.innerHTML = ((typeof openPostOpModal === 'function') ? '<button type="button" class="btn-sy-cancel" data-dsv-act="instr">📋 تعليمات للمريض</button>' : '')
+    + '<button type="button" class="btn-sy-cancel" data-dsv-act="close" data-sy-close>إغلاق</button>';
   body.innerHTML = h;
+}
+/* قالبُ المكتبة المناسب للجهاز: فوريٌّ (تحته قلعٌ مخطّط) ⇒ lib21، وإلا العنايةُ بالجهاز المتحرك lib13. الطبيبُ يبدّله أو يعدّل نصَّه قبل الحفظ */
+function dsvInstrTemplate(u) { return (u && dentOpenExtractions(u.teeth).length) ? 'lib21' : 'lib13'; }
+async function dsvInstructions(unitId) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;   /* إنشاءُ تعليماتٍ كتابة */
+  if (typeof openPostOpModal !== 'function') return;
+  var lid = dsvInstrTemplate(dsvUnit(unitId));
+  dsvClose();
+  await openPostOpModal();
+  var pick = document.getElementById('postOpLibraryPick');
+  if (pick && typeof postOpLibraryGet === 'function' && postOpLibraryGet(lid) && typeof postOpApplyLibrary === 'function') { pick.value = lid; postOpApplyLibrary(lid); }
 }
 function dsvOpenDialog(state) {
   if (dsvDialog()) dsvClose();
@@ -180,6 +193,7 @@ function dsvOpenDialog(state) {
     }
     var act = t.closest('[data-dsv-act]'); if (!act) return;                   /* النقرُ الخارجي لا يُغلق — كبقية النوافذ */
     var a = act.getAttribute('data-dsv-act');
+    if (a === 'instr') { dsvInstructions(st.unitId); return; }
     if (a === 'back') { st.view = 'home'; st.key = null; st.teeth = []; dsvRender(ov); }
     else if (a === 'next') dsvConfirmAdd(ov);
     else dsvClose();
