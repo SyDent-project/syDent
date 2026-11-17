@@ -267,11 +267,13 @@ def run():
                 ok(tag + ': «＋ متابعة» بخانة العلاج للمنجز متعدّد الجلسات وحده', chips == want, chips)
             ok(tag + ': صفرُ خطأ JS', not errs, errs[:3])
             pg.close()
-        # ═══ 3-ب) الجلسات لا تخرج من بطاقتها (صورة المالك 17/11/2026: لابتوب 1280 + الشريط الجانبي ⇒ بطاقةٌ بعرض 984 · عمود «الطبيب») ═══
-        for label, planned in (('منجزة متعدّدة الجلسات + مخبر', False), ('ومعها بندٌ مخطّط (خانةُ «إكمال»)', True)):
-            tag = 'الجلسات ببطاقة 984px (' + label + ')'
-            pg, errs = mkpage('patient-profile.html', 1280)
-            fit = pg.evaluate("""(planned) => {
+        # ═══ 3-ب) الجلسات لا تخرج من بطاقتها (صورة المالك 17/11/2026: لابتوب + الشريط الجانبي · عمود «الطبيب») ═══
+        #   بطاقة 1070 (1366 + الشريط): يتّسع بهامش ≥ 40px — العرضُ يختلف بخطوط الجهاز فلا يُقاس على حافّة البكسل.
+        #   بطاقة 984 (1280 + الشريط): قد يُمرَّر — لكن داخل البطاقة دائماً، والصفحة لا تتجاوز النافذة.
+        for label, planned, cardw in (('منجزة متعدّدة الجلسات + مخبر', False, 1070), ('منجزة متعدّدة الجلسات + مخبر', False, 984), ('ومعها بندٌ مخطّط (خانةُ «إكمال»)', True, 984)):
+            tag = 'الجلسات ببطاقة ' + str(cardw) + 'px (' + label + ')'
+            pg, errs = mkpage('patient-profile.html', 1366 if cardw > 1000 else 1280)
+            fit = pg.evaluate("""([planned, cardw]) => {
               try {
                 TREATMENTS.push({ treatment_key: 'fit-endo', id: 'fit-endo', name: 'معالجة لبية', category: 'endodontics', is_active: true },
                                 { treatment_key: 'fit-den', id: 'fit-den', name: 'جهاز متحرك جزئي (أكريل)', category: 'prosth_removable', is_active: true });
@@ -285,17 +287,18 @@ def run():
                 window._ppSessLabState = s => s._lab; window._ppSessLabIsDraft = () => false;
                 const sc = document.getElementById('sessionsContent');
                 for (let t = sc; t && t !== document.body; t = t.parentElement) { if (getComputedStyle(t).display === 'none') t.style.display = 'block'; }
-                const card = sc.closest('.card') || sc.parentElement; card.style.width = '984px'; card.style.maxWidth = '984px';
+                const card = sc.closest('.card') || sc.parentElement; card.style.width = cardw + 'px'; card.style.maxWidth = cardw + 'px';
                 renderSessions();
                 const tbl = sc.querySelector('table');
-                return { sw: sc.scrollWidth, cw: sc.clientWidth, doc: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth,
+                tbl.style.minWidth = '0'; tbl.style.width = '0px'; const tmin = tbl.getBoundingClientRect().width; tbl.style.minWidth = ''; tbl.style.width = '';   /* أصغرُ عرضٍ للجدول (min-content) */
+                return { tmin: Math.round(tmin), sw: sc.scrollWidth, cw: sc.clientWidth, doc: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth,
                          ox: getComputedStyle(sc).overflowX, doctors: !!Array.from(tbl.querySelectorAll('th')).find(th => /الطبيب/.test(th.textContent)) };
               } catch (e) { return { err: String(e) }; }
-            }""", planned)
+            }""", [planned, cardw])
             ok(tag + ': العارض يعمل وعمودُ الطبيب ظاهر', 'err' not in fit and fit.get('doctors'), fit)
             if 'err' not in fit:
-                if not planned:
-                    ok(tag + ': الجدولُ يتّسع لبطاقته بلا تمرير', fit['sw'] <= fit['cw'] + 1, fit)
+                if cardw > 1000:
+                    ok(tag + ': الجدولُ يتّسع لبطاقته بهامش ≥ 40px', fit['sw'] <= fit['cw'] + 1 and fit.get('tmin', 0) <= fit['cw'] - 40, fit)
                 ok(tag + ': لا شيءَ يخرج من البطاقة — أعرضُ منها يُمرَّر داخلها', fit['ox'] == 'auto' and fit['doc'] <= fit['vw'], fit)
             ok(tag + ': صفرُ خطأ JS', not errs, errs[:3])
             pg.close()
