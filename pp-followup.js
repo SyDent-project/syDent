@@ -161,9 +161,39 @@ function fuStateBadge(s) {
     ? '<button type="button" class="sess-chip cbadge tone tone-orange fu-state" onclick="fuSetState(\'' + s.id + '\',\'closed\')" title="العلاج قيد الإنجاز — اضغط عند اكتماله">قيد الإنجاز · ' + n + '</button>'
     : '<button type="button" class="sess-chip cbadge tone tone-green fu-state" onclick="fuSetState(\'' + s.id + '\',\'open\')" title="اكتمل العلاج — اضغط لإعادة فتحه">اكتمل · ' + n + '</button>';
 }
-/* زرُّ «متابعة» بخانة الخطوة التالية (خانةُ «إكمال» للمخطّط — لا يجتمعان بصفٍّ واحد) */
+/* القائمةُ المنسدلة تحت الأساسية (طلب المالك 17/11/2026): المتابعاتُ مطويّةٌ افتراضياً، وزرُّ «المتابعات (N)» بخانة العلاج
+   يفتحها ويطويها بلا إعادة رسم. الحالةُ بالذاكرة للصفحة المفتوحة؛ حفظُ متابعةٍ يفتح مجموعتَها. عرضٌ فقط — يعمل بالقراءة فقط. */
+var _fuExpanded = {};
+function fuIsExpanded(baseId) { return !!_fuExpanded[baseId]; }
+function fuToggleChip(s) {
+  if (!s || fuIsChild(s)) return '';
+  var n = fuChildren(s.id).length;
+  if (!n) return '';
+  var open = fuIsExpanded(s.id);
+  return '<button type="button" class="fu-toggle" data-test="pp-fu-toggle" data-fu-toggle="' + fuEsc(s.id) + '" aria-expanded="' + open + '" onclick="fuToggle(\'' + s.id + '\')"'
+    + ' title="' + (open ? 'إخفاء جلسات المتابعة' : 'عرض جلسات المتابعة') + '"><span class="fu-chev" aria-hidden="true"></span>المتابعات (' + n + ')</button>';
+}
+/* صفُّ المتابعة: مطويٌّ ما لم تُفتح مجموعةُ أساسيته */
+function fuRowAttrs(s) {
+  return ' class="fu-row' + (fuIsExpanded(s.parent_id) ? '' : ' fu-hidden') + '" data-fu-parent="' + fuEsc(s.parent_id) + '"';
+}
+function fuToggle(baseId) {
+  if (!baseId) return;
+  var open = !fuIsExpanded(baseId);
+  _fuExpanded[baseId] = open;
+  var esc = (window.CSS && CSS.escape) ? CSS.escape(String(baseId)) : String(baseId).replace(/"/g, '\\"');
+  document.querySelectorAll('tr[data-fu-parent="' + esc + '"]').forEach(function (tr) { tr.classList.toggle('fu-hidden', !open); });
+  document.querySelectorAll('[data-fu-toggle="' + esc + '"]').forEach(function (b) {
+    b.setAttribute('aria-expanded', String(open));
+    b.title = open ? 'إخفاء جلسات المتابعة' : 'عرض جلسات المتابعة';
+  });
+}
+/* زرُّ «متابعة» بخانة الخطوة التالية (خانةُ «إكمال» للمخطّط — لا يجتمعان بصفٍّ واحد).
+   يظهر للعلاج متعدّد الجلسات (قرار المالك ٣: اللبية · التيجان · الجسور · الزرع · الأجهزة · التقويم) أو لما بدأ متابعاتٍ فعلاً؛
+   غيرُه (قلع · حشوة · خدمة جهاز…) يُتابَع من «جلسة جديدة» ← «جلسة متابعة» — فلا تزدحم خانةُ الأزرار بكل صف. */
 function fuRowButton(s, spanIf2) {
   if (!fuCanFollow(s)) return '';
+  if (!fuMultiVisit(fuTreatmentOf(s)) && !fuState(s) && !fuChildren(s.id).length) return '';
   return '<button class="sy-act" data-slot="1"' + (spanIf2 ? ' data-span-if="2"' : '') + ' data-test="pp-session-followup" data-en="＋ Follow-up" onclick="fuOpen(\'' + s.id + '\')" title="تسجيل جلسة متابعة لهذا العلاج — بلا تكلفة">＋ متابعة</button>';   /* «＋» بلا اتجاه (سهمٌ لليمين يُقرأ «رجوع» بالعربية) · data-en: «متابعة» وحدها بالقاموس = Continue */
 }
 
@@ -275,6 +305,7 @@ async function _fuSave_inner() {
   sessions.unshift(child);
   if (typeof sortByDateDesc === 'function') sortByDateDesc(sessions);
   base.followup_state = res.data.state || (last ? 'closed' : 'open');
+  _fuExpanded[base.id] = true;   /* القائمةُ تنفتح على ما سُجّل للتو */
   /* «آخر زيارة»: المتابعةُ زيارةٌ حصلت — كلُّ مسارات تسجيل الجلسة تحرّكها (saveSession · مودال السن · العلاج الجماعي · الجهاز).
      فشلُها لا يمسّ الجلسة المحفوظة: يُسجَّل بالكونسول والقيمةُ المحلية تبقى كما بالقاعدة. */
   if (typeof patient !== 'undefined' && patient && (!patient.last_visit || date > patient.last_visit)) {
