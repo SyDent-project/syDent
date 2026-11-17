@@ -118,6 +118,23 @@ async function dsvClaspClick(ov, n, auto) {
   finally { st.busy = false; }
   if (dsvDialog() === ov && ov._dsv && ov._dsv.view === 'home') dsvRender(ov);
 }
+/* v749 (مراجعةُ المالك 18/11/2026 لنوافذ العلاج): أين تظهر خدمةُ الجهاز بنافذة السن — حيث يوجد جهازٌ قائم بفك السن:
+   «إضافة سن» على السن الذي يقبل الإضافة لجهازٍ جزئي بفكّه (مفقود · قلعُه مخطّط) — لا على السن القائم؛
+   الضمّةُ حيث بفكّه جهازٌ جزئي؛ وباقي الخدمات حيث بفكّه أيُّ جهاز (على سنّ الجهاز نفسه أيضاً). فكٌّ بلا جهاز ⇒ لا خدمات.
+   «علاج جماعي» (بلا سن) يعرضها كلَّها كما كان. */
+function dsvJawUnits(n) {
+  var ar = dentArchOf(n);
+  return dentUnits().filter(function (u) { return !!u.id && u.arch === ar && u.st !== 'planned'; });
+}
+function dsvAllowedOnTooth(t, n) {
+  var kind = dsvKind(t); if (!kind) return true;
+  if (!n || window.__regionalPickerMode) return true;
+  n = parseInt(n, 10);
+  var us = dsvJawUnits(n);
+  if (kind === 'add') return us.some(function (u) { return dsvClaspUnit(u) && !dentIsFullSet(u.teeth, u.arch) && dsvToothState(u, n).ok; });
+  if (t.id === DENT_CLASP_SVC_KEY) return us.some(function (u) { return dsvClaspUnit(u); });
+  return us.length > 0;
+}
 /* v741 — خدمةُ «إضافة أو إصلاح ضمة» على جهازٍ جزئي تمرّ بمنتقي السن (المالك 17/11/2026). السنُّ الجديد تُضاف ضمّتُه لرسم الجهاز عند
    حفظ الجلسة منجزةً، والسنُّ الذي عليه ضمّة = إصلاحٌ لا يغيّر الرسم. الخدمةُ على جهازٍ كامل (أو بلا سنٍّ قائمٍ بالفك) تبقى كما كانت. */
 function dsvClaspTeethOk(u) { return dentArchRow(u.arch).filter(function (t) { return u.teeth.indexOf(t) === -1 && dentClaspOk(t); }); }
@@ -307,12 +324,16 @@ function dsvStart(key, label, ctx) {
   label = label || tr.name;
   var fromTooth = (ctx && ctx.tooth && dentHas(ctx.tooth)) ? dentUnitOf(ctx.tooth) : null;
   var cand = fromTooth ? [fromTooth] : dentUnits();
-  /* v745: الضمّةُ من نافذة سنٍّ قائم ⇒ أجهزةُ فكّه الجزئية وحدها، والسنُّ نفسُه محدَّدٌ بمنتقي الضمّة */
+  /* v745: الضمّةُ من نافذة سنٍّ قائم ⇒ أجهزةُ فكّه الجزئية وحدها، والسنُّ نفسُه محدَّدٌ بمنتقي الضمّة.
+     v749: كلُّ خدمةٍ من نافذة سنٍّ ليس سنَّ جهاز ⇒ جهازُ فكّه (إن وُجد)، و«إضافة سن» تحدّد السنَّ نفسَه */
   var pre = null;
-  if (key === DENT_CLASP_SVC_KEY && ctx && ctx.tooth && !fromTooth) {
+  if (ctx && ctx.tooth && !fromTooth) {
     var ar = dentArchOf(ctx.tooth);
-    cand = cand.filter(function (u) { return u.arch === ar; });
-    if (!cand.some(function (u) { return !!u.id && dsvClaspUnit(u); })) { showToast('🛠 لا جهاز جزئي ب' + dentArchLabel(ar) + ' — الضمّة للجهاز الجزئي'); return true; }
+    var jaw = cand.filter(function (u) { return u.arch === ar; });
+    if (key === DENT_CLASP_SVC_KEY) {
+      cand = jaw;
+      if (!cand.some(function (u) { return !!u.id && dsvClaspUnit(u); })) { showToast('🛠 لا جهاز جزئي ب' + dentArchLabel(ar) + ' — الضمّة للجهاز الجزئي'); return true; }
+    } else if (jaw.length) cand = jaw;
     pre = parseInt(ctx.tooth, 10);
   }
   var ok = cand.filter(function (u) { return !dsvUnitWhy(u, kind, key); });
@@ -343,7 +364,7 @@ function dsvPickTx(ov, key) {
 /* بعد معرفة الخدمة والجهاز: «إضافة سن» تمرّ بمنتقي السن، وغيرُها يذهب لخطوة التكلفة */
 function dsvBegin(u, key, label, kind, ov, pre) {
   if (kind === 'add') {
-    var state = { view: 'add', unitId: u.id, key: key, label: label, teeth: [] };
+    var state = { view: 'add', unitId: u.id, key: key, label: label, teeth: (pre && dentArchOf(pre) === u.arch && dsvToothState(u, pre).ok) ? [pre] : [] };
     if (ov) { ov._dsv = state; dsvRender(ov); } else dsvOpenDialog(state);
     return;
   }
@@ -480,6 +501,9 @@ async function dsvSave(cost, units, date, notes) {
     var claspCur = dentClasps(u);
     claspNew = clasp.filter(function (t) { return claspCur.indexOf(t) === -1; });
     if (claspNew.length && status === 'completed') claspDrew = await dentClaspSave(u, claspCur.concat(claspNew));
+    /* v749: ضمّةٌ جديدة مخطّطة ⇒ قائمةُ الرسم تُثبَّت كما هي الآن (الاقتراحُ يصير قائمةً صريحة، والرسمُ لا يتغيّر) — فيضيف
+       إنجازُها السنَّ الجديد إليها بدقّة من ملف المريض ومن صفحة المواعيد (التي لا تحسب الاقتراح) */
+    else if (claspNew.length && dentClaspIsAuto(u)) await dentClaspSave(u, claspCur);
   }
   sessions.unshift(sess); sortByDateDesc(sessions);
   if (window.logAudit) {
@@ -516,7 +540,7 @@ async function dsvSave(cost, units, date, notes) {
       : '✅ تم تسجيل ' + label + ' مخطّطاً — ' + dentTeethPhrase(add) + ' يُضاف لرسم الجهاز عند الإنجاز');
   } else if (clasp.length) {
     var cph = dentClaspPhrase(clasp);
-    if (status !== 'completed') showToast('✅ تم تسجيل ' + label + ' مخطّطاً — ' + cph + (claspNew.length ? ' — أضفها لرسم الجهاز من قسم «الضمّات» عند الإنجاز' : ''));
+    if (status !== 'completed') showToast('✅ تم تسجيل ' + label + ' مخطّطاً — ' + cph + (claspNew.length ? ' — تُرسم عند الإنجاز' : ''));
     else if (!claspNew.length) showToast('✅ تم تسجيل ' + label + ' — ' + cph);
     else if (claspDrew) showToast('✅ تم تسجيل ' + label + ' — ' + cph + ' — أُضيفت لرسم الجهاز');
     else showToast('⚠️ تم تسجيل ' + label + ' — ' + cph + ' — تعذّر تحديث رسم الجهاز، أضفها من قسم «الضمّات»');
@@ -537,6 +561,15 @@ async function dsvSave(cost, units, date, notes) {
 /* إنجازُ «إضافة سن» مخطّطة يُدرج أسنانَها بالجهاز — مرآتُه بصفحة المواعيد (_apptDentureAddOnComplete). خدمةٌ بلا أسنان = صفر مساس */
 async function dsvOnSessionComplete(sess) {
   if (!dsvIsSession(sess)) return false;
+  /* v749: إنجازُ خدمة ضمّةٍ مخطّطة يرسم ضمّتَها الجديدة (مرآتُه بصفحة المواعيد _apptClaspOnComplete) — عرضيٌّ: فشلُه لا يعيد الجلسة */
+  var ct = dentSessClasp(sess);
+  if (ct.length) {
+    var cu = dsvUnit(sess.denture_unit);
+    if (!cu || cu.st === 'planned' || !dsvClaspUnit(cu)) return false;
+    var cc = dentClasps(cu);
+    var cn = ct.filter(function (t) { return cc.indexOf(t) === -1 && cu.teeth.indexOf(t) === -1 && dentClaspOk(t); });
+    return cn.length ? await dentClaspSave(cu, cc.concat(cn)) : false;
+  }
   var add = dsvTeeth(sess); if (!add.length) return false;
   var u = dsvUnit(sess.denture_unit);
   if (!u || u.st === 'planned') return false;
@@ -631,5 +664,5 @@ window.SyDentSvc = {
   start: dsvStart, open: dsvOpen, clearPending: dsvClearPending,
   saveReady: dsvSaveReady, save: dsvSave,
   onSessionComplete: dsvOnSessionComplete, completeNote: dsvCompleteNote, onSessionDeleted: dsvOnSessionDeleted,
-  decorate: dsvDecorate, btnHtml: dsvBtnHtml, claspBtnHtml: dsvClaspBtnHtml
+  decorate: dsvDecorate, btnHtml: dsvBtnHtml, claspBtnHtml: dsvClaspBtnHtml, allowedOnTooth: dsvAllowedOnTooth
 };
