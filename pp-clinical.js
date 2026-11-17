@@ -1335,7 +1335,9 @@ async function _delLabOrder_inner(id) {
   showToast('🗑 تم حذف الطلب');
 }
 
-var saveToothAndOpenLab = ppGuarded('saveToothAndOpenLab', _saveToothAndOpenLab_inner, 'جارٍ الحفظ…');   /* v284: قفل + انشغال */
+var saveToothAndOpenLab = ppGuarded('saveToothAndOpenLab', function () {   /* v284: قفل + انشغال · M211: «يحتاج جلسات متابعة» يُغلّف الحفظ من الخارج */
+  return (typeof fuNeedRun === 'function') ? fuNeedRun(_saveToothAndOpenLab_inner, this, arguments) : _saveToothAndOpenLab_inner.apply(this, arguments);
+}, 'جارٍ الحفظ…');
 async function _saveToothAndOpenLab_inner() {
   // بوابة الخطة قبل أي كتابة: لو حرسنا فتح المودال وحده لانحفظ العلاج ثم لم
   // يُفتح مودال المخبر بصمت — نصف عملية محيّرة.

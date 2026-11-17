@@ -18,7 +18,7 @@ let jsdomOk = true; try { require.resolve('jsdom'); } catch (e) { jsdomOk = fals
 if (!jsdomOk) { console.warn('⚠️  jsdom غائبة — تخطّي مثبت جلسات المتابعة (npm install jsdom --no-save)'); process.exit(0); }
 const { JSDOM, VirtualConsole } = require('jsdom');
 
-const FILES = ['pp-followup.js', 'patient-profile.html', 'patient-profile.css', 'pp-plan.js', 'pp-timeline.js', 'pp-core.js', 'pp-dental.js', 'supabase-init.js',
+const FILES = ['migrations/211_followup_need.sql', 'treatments.html', 'pp-clinical.js', 'pp-followup.js', 'patient-profile.html', 'patient-profile.css', 'pp-plan.js', 'pp-timeline.js', 'pp-core.js', 'pp-dental.js', 'supabase-init.js',
   'provider-reports.html', 'rpt-treat.js', 'acc-daysheet.js', 'accounting.html', 'index.html', 'i18n-en.js', 'theme.js', 'pp-extras.js', 'guides.js',
   'migrations/210_followup_sessions.sql', 'db/schema.sql', 'scripts/db-bootstrap.py', 'scripts/cache-bust.sh', 'scripts/check-mirrors.js',
   'scripts/check-modal-behaviour.js', 'scripts/validate.sh', 'scripts/followup-db.sql'];
@@ -133,6 +133,8 @@ function page(F) {
     function openModal(id) { var e = document.getElementById(id); if (e) e.classList.add('open'); }
     function closeModal(id) { var e = document.getElementById(id); if (e) e.classList.remove('open'); }
     function renderTimeline() { window.__tl++; }
+    var pendingToothStatus = null, pendingTreatStatus = 'completed';   /* نافذةُ السن (pp-dental.js) */
+    function isConditionKey(k) { return k === 'caries'; }
     function renderInfo() { window.__ri++; }
     window.SyDentSub = { blockReadOnly: function () { return window.__ro; }, isReadOnly: function () { return window.__ro; } };
     window.SyDialog = { confirm: function (o) { window.__DIALOGS.push(o); return Promise.resolve(window.__confirm); } };
@@ -152,9 +154,11 @@ function page(F) {
         window.__DB.push(c); b.__state = a.p_close ? 'closed' : 'open';
         return Promise.resolve({ data: { session: JSON.parse(JSON.stringify(c)), state: b.__state }, error: null });
       }
-      if (fn === 'session_followup_set_state') {
-        if (!b || b.parent_id || !window.__DB.some(function (x) { return x.parent_id === b.id; })) return Promise.resolve({ data: null, error: { message: 'followup_base_invalid' } });
-        b.__state = a.p_state; return Promise.resolve({ data: { id: b.id, state: a.p_state }, error: null });
+      if (fn === 'session_followup_set_state') {   /* M211: open بلا متابعات · closed يشترطها · null يمسح أساسيةً بلا متابعات */
+        var kids = !!b && window.__DB.some(function (x) { return x.parent_id === b.id; });
+        if (!b || b.parent_id || (b.status || 'completed') !== 'completed' || (a.p_state === 'closed' && !kids)) return Promise.resolve({ data: null, error: { message: 'followup_base_invalid' } });
+        if (a.p_state == null && kids) return Promise.resolve({ data: null, error: { message: 'followup_base_has_children' } });
+        b.__state = a.p_state == null ? null : a.p_state; return Promise.resolve({ data: { id: b.id, state: b.__state }, error: null });
       }
       return Promise.resolve({ data: null, error: { message: 'PGRST202 unknown function' } });
     } };
@@ -176,7 +180,8 @@ function page(F) {
     extractFunction(PP, 'renderSessions'), extractFunction(PP, 'renderRecentSessions'), extractFunction(PP, 'sessFitCheck'),
     F['pp-followup.js']
   ].map(x => '<script>' + x.replace(/<\/script/gi, '<\\/script') + '</script>').join('\n');
-  return '<!doctype html><html dir="rtl" lang="ar"><body><div id="sessionsContent"></div><div id="recentSessionsList"></div>' + entry + modals
+  const need = between(PP, '<!-- M211 (ج2-أ)', '<div class="form-group" id="providerPickerGroup"', 'مفتاح «يحتاج جلسات متابعة»');
+  return '<!doctype html><html dir="rtl" lang="ar"><body><div id="sessionsContent"></div><div id="recentSessionsList"></div>' + need + entry + modals
     + '<script>' + stubs + '</script>' + real + '</body></html>';
 }
 function boot(F) {
@@ -197,7 +202,7 @@ function grab(w, sel, bag) {
 }
 
 async function run(F) {
-  const out = [], ok = (c, m) => out.push([!!c, m]);
+  const out = [], ok = (c, m) => out.push([!!c, m]), bag0 = [];
   const guard = async (name, fn) => { try { await fn(); } catch (e) { ok(false, name + ' — threw: ' + (e && e.message)); } };
 
   /* ═══ (١) العقدُ الثابت ═══ */
@@ -396,6 +401,97 @@ async function run(F) {
     const tip = 'علاجٌ يمتدّ على زيارات (غسل أقنية، أو تحضير ثم تركيب)؟ اضغط «＋ متابعة» بجانب جلسته في تبويب الجلسات — تُسجَّل مربوطةً به وبلا تكلفة جديدة.';
     const en = engine(F)(tip);
     ok(F['guides.js'].indexOf("'" + tip + "'") > -1 && !!en && !AR.test(en) && /＋ Follow-up/.test(en), 'section guide: the patient-card guide names follow-up sessions, in English too');
+  });
+
+  /* ═══ (٣-ج) ج2-أ: «يحتاج جلسات متابعة» (M211) ═══ */
+  await guard('need', async () => {
+    const M = F['migrations/211_followup_need.sql'], TH = F['treatments.html'], FU = F['pp-followup.js'], PD = F['pp-dental.js'], PCL = F['pp-clinical.js'], PCO = F['pp-core.js'];
+    const fnM = between(M, 'CREATE OR REPLACE FUNCTION public.session_followup_set_state', 'END $$;', 'M211');
+    ok(/SECURITY INVOKER/.test(fnM) && /IF p_state IS NOT NULL AND NOT \(p_state = ANY \(ARRAY\['open'::text, 'closed'::text\]\)\)/.test(fnM)
+      && /IF p_state = 'closed' AND NOT kids THEN\s+RAISE EXCEPTION 'followup_base_invalid'/.test(fnM) && /IF p_state IS NULL AND kids THEN\s+RAISE EXCEPTION 'followup_base_has_children'/.test(fnM)
+      && /WHERE id = p_session AND doctor_id = \(SELECT auth\.uid\(\)\) FOR UPDATE/.test(fnM) && /COALESCE\(b\.status, 'completed'\) <> 'completed'/.test(fnM)
+      && !/NOT EXISTS \(SELECT 1 FROM public\.ledger_sessions c WHERE c\.parent_id = b\.id\)\) THEN/.test(fnM),
+      'M211: «open» needs no follow-up; «closed» still needs one; NULL clears a childless base only; same tenant check, still INVOKER');
+    ok(/REVOKE ALL ON FUNCTION public\.session_followup_set_state\(uuid, text\) FROM PUBLIC, anon;/.test(M) && /GRANT EXECUTE ON FUNCTION public\.session_followup_set_state\(uuid, text\) TO authenticated;/.test(M)
+      && /'migrations\/210_followup_sessions\.sql',[^\n]*\n\s+'migrations\/211_followup_need\.sql',/.test(F['scripts/db-bootstrap.py']), 'M211: grants restated (authenticated only) and the bootstrap applies it right after M210');
+    /* المرآة ومسارُ القراءة */
+    const mirror = n => extractFunction(n === 'fu' ? FU : TH, 'fuMultiVisitDefault') + (n === 'fu' ? FU : TH).match(/var FU_MULTI_CATS = \{[^}]*\};/)[0];
+    ok(mirror('fu') === mirror('th'), 'treatments page: FU_MULTI_CATS and fuMultiVisitDefault are byte-identical to pp-followup.js');
+    ok(/multi_visit: \(t\.multi_visit === true \|\| t\.multi_visit === false\) \? t\.multi_visit : null/.test(PCO) && /multi_visit: \(t\.multi_visit === true \|\| t\.multi_visit === false\) \? t\.multi_visit : null/.test(TH),
+      'the clinic choice reaches the patient card (pp-core map) and the treatments page (it was never read before)');
+    ok(/window\.__m210T = !!\(data && data\.length && Object\.prototype\.hasOwnProperty\.call\(data\[0\], 'multi_visit'\)\)/.test(TH)
+      && /if \(window\.__m210T\) updatePayload\.multi_visit = userTouchedMultiVisit \? document\.getElementById\('tMultiVisit'\)\.checked : _mvStored;/.test(TH)
+      && /if \(window\.__m210T\) insertPayload\.multi_visit = userTouchedMultiVisit \? document\.getElementById\('tMultiVisit'\)\.checked : _mvStored;/.test(TH)
+      && ['openAddModal', 'editTreatment', 'duplicateTreatment'].every(n => /openMultiVisit\((null|t)\);/.test(extractFunction(TH, n))),
+      'treatments page: gated on the column, the switch is set on add/edit/duplicate, and an untouched switch saves what was stored (null follows the category)');
+    /* الصفحةُ نفسُها: الافتراضُ يتبع التصنيف والخدمة، والصريحُ يغلبه، واللمسُ يثبّته */
+    const T = (() => { const c = { document: { getElementById: id => c.__el[id] || null }, __el: {} };
+      c.__el.tMultiVisit = { checked: false }; c.__el.tCategory = { value: 'restorative' }; vm.createContext(c);
+      vm.runInContext(TH.match(/var FU_MULTI_CATS = \{[^}]*\};/)[0] + extractFunction(TH, 'fuMultiVisitDefault') + extractFunction(TH, 'multiVisitOf')
+        + 'var pickedTarget = "crown"; function dbTargetOf(u){ return { denture_svc: u === "denture_service" ? "service" : null }; }\nvar userTouchedMultiVisit = false, _mvStored = null;'
+        + extractFunction(TH, 'syncMultiVisit') + extractFunction(TH, 'openMultiVisit'), c); return c; })();
+    const cb = T.__el.tMultiVisit, cat = T.__el.tCategory;
+    cat.value = 'endodontics'; T.openMultiVisit(null); const a1 = cb.checked; cat.value = 'surgical'; T.syncMultiVisit(); const a2 = cb.checked;
+    cat.value = 'prosth_removable'; T.pickedTarget = 'denture_service'; T.syncMultiVisit(); const a3 = cb.checked; T.pickedTarget = 'crown';
+    T.openMultiVisit({ multi_visit: false }); cat.value = 'endodontics'; T.syncMultiVisit(); const a4 = cb.checked;
+    T.openMultiVisit(null); T.userTouchedMultiVisit = true; cb.checked = false; cat.value = 'implantology'; T.syncMultiVisit(); const a5 = cb.checked;
+    ok(a1 === true && a2 === false && a3 === false && a4 === false && a5 === false && T.multiVisitOf({ category: 'surgical', multi_visit: true }) === true && T.multiVisitOf({ category: 'endodontics' }) === true,
+      'treatments page: the switch follows the category (endo on · surgery off · denture service off), a stored choice wins, and a touched switch is never overwritten');
+    /* الحفظُ يُغلَّف من الخارج — الدالتان الداخليتان كما هما */
+    ok(/var saveToothTreatment = ppGuarded\('saveToothTreatment', function \(\) \{[^\n]*\n  return \(typeof fuNeedRun === 'function'\) \? fuNeedRun\(_saveToothTreatment_inner, this, arguments\) : _saveToothTreatment_inner\.apply\(this, arguments\);/.test(PD)
+      && /var saveToothAndOpenLab = ppGuarded\('saveToothAndOpenLab', function \(\) \{[^\n]*\n  return \(typeof fuNeedRun === 'function'\) \? fuNeedRun\(_saveToothAndOpenLab_inner, this, arguments\) : _saveToothAndOpenLab_inner\.apply\(this, arguments\);/.test(PCL),
+      'both tooth-window save buttons are wrapped from outside; their inner save paths are unchanged');
+    ok(/if \(typeof fuNeedSync === 'function'\) fuNeedSync\(false\);/.test(extractFunction(PD, 'pickStatus')) && /fuNeedSync\(true\)/.test(extractFunction(PD, 'pickToothTreatment')) && /fuNeedSync\(true\)/.test(extractFunction(PD, 'proceedToRegionalStep2')),
+      'the switch is reset when a treatment is opened (tooth and regional) and follows the status');
+
+    /* السلوك بالصفحة الوهمية */
+    const w = await boot(F), d = w.document, box = d.getElementById('fuNeedBox'), need = d.getElementById('fuNeed');
+    const sync = (key, st, reset) => { w.eval('pendingToothStatus = ' + JSON.stringify(key) + '; pendingTreatStatus = ' + JSON.stringify(st) + ';'); w.fuNeedSync(reset); };
+    sync('root-canal', 'completed', true); const b1 = [box.style.display !== 'none', need.checked];
+    sync('treated', 'completed', true); const b2 = [box.style.display !== 'none', need.checked];
+    sync('root-canal', 'planned', true); const b3 = [box.style.display === 'none', w.fuNeedWanted()];
+    sync('root-canal', 'completed', true); need.checked = false; sync('root-canal', 'planned', false); sync('root-canal', 'completed', false); const b4 = need.checked;
+    sync('caries', 'completed', true); const b5 = box.style.display === 'none';
+    ok(b1.join() === 'true,true' && b2.join() === 'true,false' && b3.join() === 'true,false' && b4 === false && b5,
+      'tooth window: shown for a completed treatment only (not planned, not a clinical condition), on by default for endo, off for a filling, and a status flip keeps the doctor\'s choice');
+    /* fuNeedRun: الجديدُ المنجز يُعلَّم «قيد الإنجاز» — واحدٌ لكل وحدة */
+    w.__load(seed()); w.renderSessions(); const nR = w.__RPC.length;
+    const save = rows => async () => { rows.forEach(r => { w.__sessions().unshift(r); w.__DB.push(JSON.parse(JSON.stringify(r))); }); };
+    sync('root-canal', 'completed', true);
+    await w.fuNeedRun(save([S('n1', { type: 'RCT', treatment_key: 'root-canal', tooth_num: '46', cost: 6000, date: TODAY }),
+                            S('u1', { type: 'Crown PFM', treatment_key: 'crown', tooth_num: '14', cost: 4000, date: TODAY, unit_id: 'U9' }),
+                            S('u2', { type: 'Crown PFM', treatment_key: 'crown', tooth_num: '15', cost: 4000, date: TODAY, unit_id: 'U9' }),
+                            S('np', { type: 'Filling', treatment_key: 'treated', status: 'planned', tooth_num: '24', cost: 1000, date: TODAY })]), null, []);
+    await tick(w);
+    const calls = w.__RPC.slice(nR), byId = id => w.__sessions().find(x => x.id === id);
+    ok(calls.length === 2 && calls.every(c => c.fn === 'session_followup_set_state' && c.a.p_state === 'open') && calls.some(c => c.a.p_session === 'n1') && calls.filter(c => /^u/.test(c.a.p_session)).length === 1
+      && byId('n1').followup_state === 'open' && [byId('u1').followup_state, byId('u2').followup_state].filter(Boolean).join() === 'open' && !byId('np').followup_state
+      && /قيد الإنجاز/.test(w.__TOASTS.slice(-1)[0]), 'save with the switch on: each new completed treatment becomes «قيد الإنجاز» — once per bridge unit, never a planned row');
+    const rN = rows(w).find(x => /RCT/.test(txt(x.querySelector('.sc-type'))) && /46/.test(txt(x)));
+    ok(rN && txt(rN.querySelector('button.fu-state')) === 'قيد الإنجاز' && /fuSetState\('n1','none'\)/.test(rN.querySelector('button.fu-state').getAttribute('onclick')) && !!rN.querySelector('[data-test="pp-session-followup"]') && !rN.querySelector('[data-test="pp-fu-toggle"]'),
+      'the table shows «قيد الإنجاز» (no count yet; clicking it clears the need) with «＋ متابعة», and no empty toggle');
+    grab(w, '#sessionsContent .fu-state, #fuNeedBox', bag0);
+    /* «لا يحتاج متابعة» */
+    w.__confirm = false; await w.fuSetState('n1', 'none'); ok(byId('n1').followup_state === 'open' && w.__DIALOGS.slice(-1)[0].confirmText === 'لا يحتاج متابعة', 'clearing asks first; cancel changes nothing');
+    w.__confirm = true; await w.fuSetState('n1', 'none'); await tick(w);
+    const lastCall = w.__RPC.slice(-1)[0];
+    ok(lastCall.fn === 'session_followup_set_state' && lastCall.a.p_state === null && byId('n1').followup_state === null && !rows(w).find(x => /46/.test(txt(x))).querySelector('button.fu-state')
+      && w.__AUDIT.slice(-1)[0].action === 'session.edit', 'confirmed: the RPC clears the state (p_state null), the badge goes, and the change is audited');
+    w.__DIALOGS.forEach(o => { [o.title, o.confirmText].concat(String(o.message || '').split('\n')).forEach(t => { if (t && AR.test(t)) bag0.push({ t }); }); });
+    /* المفتاحُ مطفأ ⇒ لا شيء · فشلُ القاعدة ⇒ الجلسةُ تبقى وتنبيه */
+    const n2 = w.__RPC.length; need.checked = false;
+    await w.fuNeedRun(save([S('n2', { type: 'RCT', treatment_key: 'root-canal', tooth_num: '47', cost: 6000, date: TODAY })]), null, []);
+    ok(w.__RPC.length === n2 && !byId('n2').followup_state, 'switch off: the save is untouched — no state call');
+    need.checked = true; w.__rpcFail = 'boom';
+    await w.fuNeedRun(save([S('n3', { type: 'RCT', treatment_key: 'root-canal', tooth_num: '45', cost: 6000, date: TODAY })]), null, []); w.__rpcFail = null;
+    ok(!!byId('n3') && !byId('n3').followup_state && /تعذّر تعليمها/.test(w.__TOASTS.slice(-1)[0]), 'a failed mark keeps the saved session and says so');
+    w.__TOASTS.forEach(t => bag0.push({ t }));
+    const tE = engine(F), leftE = [];
+    bag0.forEach(x => { const o = tE(String(x.t).replace(/\s+/g, ' ').trim()); if (o == null || AR.test(o)) leftE.push(x.t); });
+    ['يحتاج جلسات متابعة', 'علاجٌ يمتدّ على أكثر من زيارة: يُسجَّل «قيد الإنجاز»، وتُضاف زياراته اللاحقة من «＋ متابعة» بلا تكلفة.', '🔁 متعدد الجلسات']
+      .forEach(t => { if (TH.indexOf(t) < 0) leftE.push('missing in treatments.html: ' + t); else { const o = tE(t); if (o == null || AR.test(o)) leftE.push(t); } });
+    ok(bag0.length >= 6 && leftE.length === 0, 'English: the switch, the badge, the dialog, the toasts and the treatments-page texts are fully translated' + (leftE.length ? ' — ' + leftE.slice(0, 3).join(' | ') : ''));
+    w.close();
   });
 
   /* ═══ (٤) السلوك + (٥) الإنجليزية ═══ */
@@ -671,6 +767,30 @@ const MUT = [
   ['save leaves the group folded', rep('pp-followup.js', "  _fuExpanded[base.id] = true;", '')],
   ['folded rows still shown (CSS)', rep('patient-profile.css', ".sess-table tr.fu-row.fu-hidden{display:none;}", '')],
   ['toggle count untranslated', rep('i18n-en.js', "    [/^المتابعات \\((\\d+)\\)$/, 'Follow-ups ($1)'],\n", '')],
+  ['M211: open still needs a follow-up', rep('migrations/211_followup_need.sql', "  IF p_state = 'closed' AND NOT kids THEN", "  IF NOT kids THEN")],
+  ['M211: clearing allowed with follow-ups', rep('migrations/211_followup_need.sql', "  IF p_state IS NULL AND kids THEN", "  IF false THEN")],
+  ['M211: definer', rep('migrations/211_followup_need.sql', "RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER", "RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER")],
+  ['M211: anon keeps execute', rep('migrations/211_followup_need.sql', "FROM PUBLIC, anon;", "FROM PUBLIC;")],
+  ['M211 not bootstrapped', rep('scripts/db-bootstrap.py', "    'migrations/211_followup_need.sql',", "    #'migrations/211_followup_need.sql',")],
+  ['treatments-page default drifts', rep('treatments.html', "var FU_MULTI_CATS = { endodontics: 1,", "var FU_MULTI_CATS = { surgical: 1, endodontics: 1,")],
+  ['patient card ignores the clinic choice', rep('pp-core.js', "               multi_visit: (t.multi_visit === true || t.multi_visit === false) ? t.multi_visit : null,", "               multi_visit: null,")],
+  ['untouched switch overwrites the stored value', rep('treatments.html', "if (window.__m210T) updatePayload.multi_visit = userTouchedMultiVisit ? document.getElementById('tMultiVisit').checked : _mvStored;", "if (window.__m210T) updatePayload.multi_visit = document.getElementById('tMultiVisit').checked;")],
+  ['touched switch overwritten by the category', rep('treatments.html', "  if (!cb || userTouchedMultiVisit) return;", "  if (!cb) return;")],
+  ['stored choice ignored on the page', rep('treatments.html', "  if (_mvStored === true || _mvStored === false) { cb.checked = _mvStored; return; }", "")],
+  ['denture service multi-visit by default', rep('treatments.html', "cb.checked = fuMultiVisitDefault({ category: cat, denture_svc: dbTargetOf(pickedTarget).denture_svc });", "cb.checked = fuMultiVisitDefault({ category: cat, denture_svc: null });")],
+  ['tooth save not wrapped', rep('pp-dental.js', "  return (typeof fuNeedRun === 'function') ? fuNeedRun(_saveToothTreatment_inner, this, arguments) : _saveToothTreatment_inner.apply(this, arguments);", "  return _saveToothTreatment_inner.apply(this, arguments);")],
+  ['lab save not wrapped', rep('pp-clinical.js', "  return (typeof fuNeedRun === 'function') ? fuNeedRun(_saveToothAndOpenLab_inner, this, arguments) : _saveToothAndOpenLab_inner.apply(this, arguments);", "  return _saveToothAndOpenLab_inner.apply(this, arguments);")],
+  ['switch not reset on a new treatment', rep('pp-dental.js', "  if (typeof fuNeedSync === 'function') fuNeedSync(true);   /* M211 */\n", "")],
+  ['switch shown for a planned treatment', rep('pp-followup.js', "box.style.display = (t && st === 'completed' && !cond) ? '' : 'none';", "box.style.display = (t && !cond) ? '' : 'none';")],
+  ['status flip resets the choice', rep('pp-followup.js', "if (reset || cb.getAttribute('data-key') !== String(key)) {", "if (true) {")],
+  ['every bridge unit marked', rep('pp-followup.js', "    if (seen[g]) return;\n", "")],
+  ['planned rows marked', rep('pp-followup.js', "    if ((s.status || 'completed') !== 'completed') return;\n    var g =", "    var g =")],
+  ['marks without the switch', rep('pp-followup.js', "  if (want) { try { await fuMarkNeed(before); }", "  if (true) { try { await fuMarkNeed(before); }")],
+  ['failed mark claims success', rep('pp-followup.js', "    if (res && !res.error && res.data) { list[i].followup_state = 'open'; ok++; }", "    list[i].followup_state = 'open'; ok++;")],
+  ['clear without asking', rep('pp-followup.js', "    confirmText: 'لا يحتاج متابعة', danger: false\n  })) return;", "    confirmText: 'لا يحتاج متابعة', danger: false\n  }) && false) return;")],
+  ['clear sends a value', rep('pp-followup.js', "{ p_session: base.id, p_state: null }", "{ p_session: base.id, p_state: 'none' }")],
+  ['childless badge closes instead of clearing', rep('pp-followup.js', "onclick=\"fuSetState(\\'' + s.id + '\\',\\'none\\')\"", "onclick=\"fuSetState(\\'' + s.id + '\\',\\'closed\\')\"")],
+  ['switch label untranslated', rep('i18n-en.js', "    'يحتاج جلسات متابعة': 'Needs follow-up sessions',   /* treatments.html */\n", "")],
   ['state badge hidden in read-only', rep('patient-profile.css', '[onclick*="fuSave("],', '[onclick*="fuSave("],[onclick*="fuSetState("],')]
 ];
 

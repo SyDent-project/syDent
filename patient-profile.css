@@ -1590,6 +1590,10 @@ html[data-sub-level="read"] .wend-chip{cursor:default;}
 .fu-cost{color:var(--text3);font-weight:600;font-size:11.5px;}
 .sess-table tr.fu-row.fu-hidden{display:none;}   /* المتابعاتُ مطويّةٌ تحت أساسيتها حتى يُضغط «المتابعات (N)» */
 .fu-chips{display:flex;flex-wrap:wrap;gap:4px;margin-block-start:5px;}
+.form-group.fu-need .fu-need-row{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:color-mix(in srgb, var(--accent,var(--text)) 5%, transparent);cursor:pointer;font-weight:400;margin:0;}   /* M211: «يحتاج جلسات متابعة» بنافذة السن */
+.fu-need-row input{inline-size:18px;block-size:18px;margin:2px 0 0;flex:0 0 auto;accent-color:var(--accent,var(--green));cursor:pointer;}
+.fu-need-txt{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--text);}
+.fu-need-s{font-size:11.5px;color:var(--text2);}
 .fu-add{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-family:inherit;font-size:11.5px;font-weight:700;line-height:1.5;color:var(--accent,var(--text));background:color-mix(in srgb, var(--accent,var(--text)) 8%, transparent);border:1px solid color-mix(in srgb, var(--accent,var(--text)) 35%, transparent);cursor:pointer;white-space:nowrap;}
 .fu-add:hover{background:color-mix(in srgb, var(--accent,var(--text)) 14%, transparent);}
 .fu-toggle{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:20px;font-family:inherit;font-size:11.5px;font-weight:700;line-height:1.5;color:var(--text2);background:transparent;border:1px solid var(--border);cursor:pointer;white-space:nowrap;}

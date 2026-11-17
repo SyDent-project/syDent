@@ -20,41 +20,41 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261118a"></script>
+<script src="theme.js?v=20261118b"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261118a"></script>
-<script src="sy-modal.js?v=20261118a"></script>
-<script src="lab-redo.js?v=20261118a"></script>
-<script src="lab-stages.js?v=20261118a"></script>
-<script src="lab-status.js?v=20261118a"></script>
-<script src="lab-shade.js?v=20261118a"></script>
-<script src="lab-due.js?v=20261118a"></script>
-<script src="lab-slip.js?v=20261118a"></script>
-<script src="lab-files.js?v=20261118a"></script>
-<script src="pay-methods.js?v=20261118a"></script>
-<script src="appt-conflict.js?v=20261118a"></script>
-<script src="sidebar.js?v=20261118a"></script>
-<script src="ref-pick.js?v=20261118a"></script>
-<script src="inv-consume.js?v=20261118a"></script>
-<script src="inv-trace.js?v=20261118a"></script>
-<script src="timepicker.js?v=20261118a"></script>
-<script src="pp-modules.js?v=20261118a"></script>
-<script src="pp-wa.js?v=20261118a"></script>
-<script src="pp-clinical.js?v=20261118a"></script>
-<script src="pp-dental.js?v=20261118a"></script>
-<script src="pp-denture.js?v=20261118a"></script>
-<script src="pp-denture-svc.js?v=20261118a"></script>
-<script src="pp-followup.js?v=20261118a"></script>
-<script src="pp-plan.js?v=20261118a"></script>
-<script src="pp-timeline.js?v=20261118a"></script>
-<script src="pp-appt.js?v=20261118a"></script>
-<script src="pp-core.js?v=20261118a"></script>
-<script src="pp-extras.js?v=20261118a"></script>
-<script src="pp-intake.js?v=20261118a"></script>
-<script src="pp-portal.js?v=20261118a"></script>
-<script src="xray-viewer.js?v=20261118a"></script>
-<script src="pp-xray.js?v=20261118a"></script>
-<link rel="stylesheet" href="patient-profile.css?v=20261118a">
+<script src="supabase-init.js?v=20261118b"></script>
+<script src="sy-modal.js?v=20261118b"></script>
+<script src="lab-redo.js?v=20261118b"></script>
+<script src="lab-stages.js?v=20261118b"></script>
+<script src="lab-status.js?v=20261118b"></script>
+<script src="lab-shade.js?v=20261118b"></script>
+<script src="lab-due.js?v=20261118b"></script>
+<script src="lab-slip.js?v=20261118b"></script>
+<script src="lab-files.js?v=20261118b"></script>
+<script src="pay-methods.js?v=20261118b"></script>
+<script src="appt-conflict.js?v=20261118b"></script>
+<script src="sidebar.js?v=20261118b"></script>
+<script src="ref-pick.js?v=20261118b"></script>
+<script src="inv-consume.js?v=20261118b"></script>
+<script src="inv-trace.js?v=20261118b"></script>
+<script src="timepicker.js?v=20261118b"></script>
+<script src="pp-modules.js?v=20261118b"></script>
+<script src="pp-wa.js?v=20261118b"></script>
+<script src="pp-clinical.js?v=20261118b"></script>
+<script src="pp-dental.js?v=20261118b"></script>
+<script src="pp-denture.js?v=20261118b"></script>
+<script src="pp-denture-svc.js?v=20261118b"></script>
+<script src="pp-followup.js?v=20261118b"></script>
+<script src="pp-plan.js?v=20261118b"></script>
+<script src="pp-timeline.js?v=20261118b"></script>
+<script src="pp-appt.js?v=20261118b"></script>
+<script src="pp-core.js?v=20261118b"></script>
+<script src="pp-extras.js?v=20261118b"></script>
+<script src="pp-intake.js?v=20261118b"></script>
+<script src="pp-portal.js?v=20261118b"></script>
+<script src="xray-viewer.js?v=20261118b"></script>
+<script src="pp-xray.js?v=20261118b"></script>
+<link rel="stylesheet" href="patient-profile.css?v=20261118b">
 <style>
 /* v270: رأسُ البطاقة للمريض ثنائي العملة — سطرٌ لكل طبقة بوسمه ولونه (كانت الطبقة
    الثانية مخفيّةً بتلميحِ hover لا يراه أحد). صفحيٌّ عمداً لا في patient-profile.css. */
@@ -79,7 +79,7 @@
 :root[data-theme="light"] .perio-arch-title.perio-arch-lower{border-top:2px dashed #7d8fa6;}   /* v345: أوضح بالفاتح */
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261118a">
+<link rel="stylesheet" href="theme.css?v=20261118b">
 </head>
 <body>
 <script>
@@ -1259,6 +1259,13 @@
             <button type="button" class="status-opt" data-rev=""   onclick="pickReviewMonths(null)">بلا</button>
           </div>
         </div>
+        <!-- M211 (ج2-أ): «يحتاج جلسات متابعة» — للعلاج المنجز؛ قيمتُه الأولى من العلاج (fuNeedSync)، ويُطبَّق بعد الحفظ (fuNeedRun) -->
+        <div class="form-group fu-need" id="fuNeedBox" style="display:none;">
+          <label class="fu-need-row" for="fuNeed">
+            <input type="checkbox" id="fuNeed">
+            <span class="fu-need-txt"><b>🔁 يحتاج جلسات متابعة</b><span class="fu-need-s">يُسجَّل «قيد الإنجاز»، وتُضاف زياراته اللاحقة من «＋ متابعة» بلا تكلفة</span></span>
+          </label>
+        </div>
         <div class="form-group" id="providerPickerGroup" style="display:none;">
           <label>الطبيب المعالج</label>
           <select id="toothProvider" onchange="onProviderChange()" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-family:Cairo,sans-serif;font-size:14px;"></select>
@@ -2268,9 +2275,12 @@ if (IS_DEMO) (function installDemoSandbox(){
     var fid = args && (name === 'session_followup_add' ? args.p_parent : args.p_session);
     var fb = rows('ledger_sessions').filter(function(r){ return String(r.id) === String(fid); })[0];
     if (!fb || fb.parent_id || (fb.status || 'completed') !== 'completed') return bad;
-    if (name === 'session_followup_set_state'){
-      if ((args.p_state !== 'open' && args.p_state !== 'closed') || !rows('ledger_sessions').some(function(r){ return r.parent_id === fb.id; })) return bad;
-      fb.followup_state = args.p_state;
+    if (name === 'session_followup_set_state'){   /* M211: open بلا متابعات · closed يشترطها · null يمسح أساسيةً بلا متابعات */
+      var fk = rows('ledger_sessions').some(function(r){ return r.parent_id === fb.id; });
+      if (args.p_state != null && args.p_state !== 'open' && args.p_state !== 'closed') return { data:null, error:{ code:'P0001', message:'followup_state_invalid' } };
+      if (args.p_state === 'closed' && !fk) return bad;
+      if (args.p_state == null && fk) return { data:null, error:{ code:'P0001', message:'followup_base_has_children' } };
+      fb.followup_state = args.p_state == null ? null : args.p_state;
       return { data:{ id: fb.id, state: fb.followup_state }, error:null };
     }
     if (!args.p_date || (fb.date && String(args.p_date) < String(fb.date).slice(0, 10))) return { data:null, error:{ code:'P0001', message:'followup_date_invalid' } };

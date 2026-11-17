@@ -3507,6 +3507,19 @@ Object.assign(window.SyI18nDict, {
     'أول جلسة متابعة لهذا العلاج': 'First follow-up session for this treatment',
     'تسجيل جلسة متابعة لهذا العلاج — بلا تكلفة': 'Record a follow-up session for this treatment — no charge',
     'عرض جلسات المتابعة': 'Show the follow-up sessions', 'إخفاء جلسات المتابعة': 'Hide the follow-up sessions',
+    /* M211 (ج2-أ): «يحتاج جلسات متابعة» */
+    '🔁 يحتاج جلسات متابعة': '🔁 Needs follow-up sessions',
+    'يحتاج جلسات متابعة': 'Needs follow-up sessions',   /* treatments.html */
+    'علاجٌ يمتدّ على أكثر من زيارة: يُسجَّل «قيد الإنجاز»، وتُضاف زياراته اللاحقة من «＋ متابعة» بلا تكلفة.': 'A treatment that takes more than one visit: it is recorded «In progress», and its later visits are added from «＋ Follow-up» at no charge.',
+    '🔁 متعدد الجلسات': '🔁 Multi-visit',
+    'يُسجَّل «قيد الإنجاز»، وتُضاف زياراته اللاحقة من «＋ متابعة» بلا تكلفة': 'Recorded as «In progress»; its later visits are added from «＋ Follow-up» at no charge',
+    'العلاج يحتاج جلسات متابعة — اضغط إن لم يعد يحتاجها': 'The treatment needs follow-up sessions — click if it no longer does',
+    'قيد الإنجاز': 'In progress',
+    'لا يحتاج متابعة': 'No follow-up needed',
+    'إلغاء «قيد الإنجاز» عن هذا العلاج؟ يبقى مسجّلاً كجلسةٍ منجزة عادية، ويمكن إضافة متابعةٍ له لاحقاً.': 'Remove «In progress» from this treatment? It stays recorded as a plain completed session, and a follow-up can still be added later.',
+    '✅ العلاج لا يحتاج متابعة': '✅ The treatment needs no follow-up',
+    '🔁 العلاج قيد الإنجاز — سجّل زياراته اللاحقة من «＋ متابعة»': '🔁 The treatment is in progress — record its later visits from «＋ Follow-up»',
+    '⚠️ حُفظت الجلسة، وتعذّر تعليمها «قيد الإنجاز» — علّمها من «＋ متابعة»': '⚠️ The session was saved, but could not be marked «In progress» — mark it from «＋ Follow-up»',
     'علاجٌ يمتدّ على زيارات (غسل أقنية، أو تحضير ثم تركيب)؟ اضغط «＋ متابعة» بجانب جلسته في تبويب الجلسات — تُسجَّل مربوطةً به وبلا تكلفة جديدة.': 'A treatment that takes several visits (canal irrigation, or preparation then fitting)? Click “＋ Follow-up” next to its session in the Sessions tab — it is recorded linked to it, with no new charge.',   /* guides.js — دليل ملف المريض */
     'العلاج قيد الإنجاز — اضغط عند اكتماله': 'The treatment is in progress — click when it is complete',
     'اكتمل العلاج — اضغط لإعادة فتحه': 'The treatment is complete — click to reopen it',

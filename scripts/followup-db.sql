@@ -4,7 +4,7 @@
 -- LOCAL THROWAWAY DATABASE ONLY (see scripts/lab-stages-db.sql for how to build it). It refuses to run when
 -- `patients` has rows, and everything is rolled back.
 --     psql -v ON_ERROR_STOP=1 -d <db> -f scripts/followup-db.sql
--- 45 checks on the real trigger chain and both RPCs (shape · one level · fixed link · base protection · state ·
+-- 51 checks on the real trigger chain and both RPCs (M210 + M211) (shape · one level · fixed link · base protection · state ·
 -- cascade · whole-patient and whole-clinic deletes · dates · provider ownership · currency) + 6 RLS checks (owner · other tenant · anon).
 BEGIN;
 DO $$ BEGIN IF (SELECT count(*) FROM public.patients) > 0 THEN RAISE EXCEPTION 'followup-db: empty local database only'; END IF; END $$;
@@ -95,15 +95,29 @@ BEGIN
   BEGIN PERFORM public.session_followup_add(b, current_date, docx, NULL, NULL, false); r := r || ' c28=FAIL';
     EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' c28=' || (SQLERRM = 'followup_provider_invalid'); END;
   r := r || ' c29=' || ((SELECT count(*) FROM public.ledger_sessions WHERE parent_id = b) = 3);
-  -- the state: only the two values, only on a completed base that has follow-ups, never on a follow-up
+  -- the state: only the two values, on a completed base, never on a follow-up ('closed' needs a follow-up — M211)
   j := public.session_followup_set_state(b, 'closed');
   r := r || ' c30=' || ((j->>'state') = 'closed' AND (SELECT followup_state FROM public.ledger_sessions WHERE id = b) = 'closed');
   j := public.session_followup_set_state(b, 'open');
   r := r || ' c31=' || ((SELECT followup_state FROM public.ledger_sessions WHERE id = b) = 'open');
   BEGIN PERFORM public.session_followup_set_state(b, 'done'); r := r || ' c32=FAIL';
     EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' c32=' || (SQLERRM = 'followup_state_invalid'); END;
-  BEGIN PERFORM public.session_followup_set_state(n0, 'open'); r := r || ' c33=FAIL';
-    EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' c33=' || (SQLERRM = 'followup_base_invalid'); END;
+  -- M211: «يحتاج جلسات متابعة» — 'open' without follow-ups; 'closed' still needs one; NULL clears a childless base only
+  j := public.session_followup_set_state(n0, 'open');
+  r := r || ' c33=' || ((j->>'state') = 'open' AND (SELECT followup_state FROM public.ledger_sessions WHERE id = n0) = 'open');
+  BEGIN PERFORM public.session_followup_set_state(n0, 'closed'); r := r || ' c33b=FAIL';
+    EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' c33b=' || (SQLERRM = 'followup_base_invalid'); END;
+  UPDATE public.ledger_sessions SET status = 'planned' WHERE id = n0;   -- M210 guard: a childless base that is no longer completed loses its state
+  r := r || ' c33c=' || ((SELECT followup_state IS NULL FROM public.ledger_sessions WHERE id = n0));
+  UPDATE public.ledger_sessions SET status = 'completed' WHERE id = n0;
+  PERFORM public.session_followup_set_state(n0, 'open');
+  j := public.session_followup_set_state(n0, NULL);
+  r := r || ' c33d=' || ((j->>'state') IS NULL AND (SELECT followup_state FROM public.ledger_sessions WHERE id = n0) IS NULL);
+  BEGIN PERFORM public.session_followup_set_state(b, NULL); r := r || ' c33e=FAIL';
+    EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' c33e=' || (SQLERRM = 'followup_base_has_children'); END;
+  r := r || ' c33f=' || ((SELECT followup_state FROM public.ledger_sessions WHERE id = b) = 'open');
+  BEGIN PERFORM public.session_followup_set_state(bp, 'open'); r := r || ' c33g=FAIL';
+    EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' c33g=' || (SQLERRM = 'followup_base_invalid'); END;
   BEGIN PERFORM public.session_followup_set_state(c1, 'open'); r := r || ' c34=FAIL';
     EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' c34=' || (SQLERRM = 'followup_base_invalid'); END;
   BEGIN UPDATE public.ledger_sessions SET followup_state = 'open' WHERE id = c1; r := r || ' c35=FAIL';
@@ -133,7 +147,7 @@ BEGIN
   -- the catalog flag is a free tri-state
   r := r || ' c42=' || ((SELECT count(*) FROM public.treatments WHERE doctor_id = d AND multi_visit IS NOT NULL) = 0);
 
-  IF r ~ 'FAIL|=false' OR r !~ 'c42=true' OR (length(r) - length(replace(r, '=true', ''))) / 5 <> 45 THEN RAISE EXCEPTION 'followup-db FAILED:%', r; END IF;
+  IF r ~ 'FAIL|=false' OR r !~ 'c42=true' OR (length(r) - length(replace(r, '=true', ''))) / 5 <> 51 THEN RAISE EXCEPTION 'followup-db FAILED:%', r; END IF;
   RAISE NOTICE 'followup-db:%', r;
 END $t$;
 
