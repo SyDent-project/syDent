@@ -44,13 +44,24 @@ var DENT_FULL_TEETH = {
 };
 /* مستوى قاعدة الجهاز بإحداثيات خلية السن (viewBox 0 0 100 210، قبل قلب الفك العلوي):
    أعمقُ حدٍّ مينائي-ملاطي بالتشريح = 80 ⇒ الرابطُ على 90 لا يمسّ سطوحَ تاج سنٍّ قائم. */
-var DENT_BASE_BOTTOM = 97;
-var DENT_CONN_Y = 90;
-/* امتدادُ القاعدة نحو الجار = نصفُ الفراغ بين الخليتين بالضبط (+ε) — القاعدتان تتلاقيان بلا تراكب (التراكبُ يُغمّق اللونَ
-   الشفّاف عند كل وصلة). القيمُ مرآةُ patient-profile.css (.jaw-row gap · .midline) ويحرسها prove-denture. */
+var DENT_BASE_BOTTOM = 104;   // طرفُ جناح القاعدة
+var DENT_GUM_TOP = 44;        // أعلى حليمةٍ ممكنة (بدايةُ تدرّج اللثة — ثابتٌ لكل الخلايا كي لا يختلف اللونُ عند الوصلة)
+var DENT_PAPILLA = 15;        // ارتفاعُ الحليمة اللثوية فوق عنق السن
+/* v739: الواصلُ الرئيسي صفيحةٌ بعرض 14 وحدة تمرّ خلف الأسنان (كان خطاً 3.2 أمامها على y=90) */
+var DENT_CONN_T = 69, DENT_CONN_B = 83;
+/* المنظر الإطباقي: حدودُ خلية السن بـviewBox، وحدُّ الصفيحة اللساني/الحنكي، وبدايةُ تدرّجها */
+var DENT_OCC_X0 = 16.67, DENT_OCC_X1 = 83.33, DENT_OCC_SPAN = 66.67, DENT_OCC_PLATE = 92, DENT_OCC_GRAD_T = 14;
+var DENT_STEEL = '#55637a', DENT_STEEL_HI = '#cfd7e2';
+/* v739 (M209): الضمّاتُ المقترحة تلقائياً — رباعيٌّ بحدٍّ أقصى 4 (قرارُ المالك 17/11/2026 بعد مراجعة McCracken/Davenport) */
+var DENT_CLASP_MAX = 4;
+/* امتدادُ القاعدة نحو الجار = نصفُ الفراغ بين الخليتين + تراكبٌ صغير. v739: تحت كل قطعةٍ خلفيةٌ مصمتة بلون المخطط، فالتراكبُ
+   لا يغمّق اللونَ الشفّاف عند الوصلة (كان ε = 0.15 لتفاديه ويترك خطاً شعرياً). القيمُ مرآةُ patient-profile.css
+   (.jaw-row gap · .midline) ويحرسها prove-denture. */
 var DENT_ROW_GAP_PX = { permanent: 4, mixed: 7, primary: 11 };
 var DENT_MIDLINE_PX = 14;   // عرضُ الخط الناصف (2) + هامشاه (6 + 6)
-var DENT_BLEED_EPS = 0.15;
+var DENT_BLEED_EPS = 0.9, DENT_BLEED_EPS_OCC = 0.7;
+/* عبر المنتصف الخطُّ الناصف (2px) يُرسم بين الخليتين — التراكبُ هناك أكبر كي تغطّيه الخليةُ اللاحقة كلَّه */
+var DENT_BLEED_EPS_MID = 3, DENT_BLEED_EPS_MID_OCC = 2;
 
 var dentureMap = {};        // سن → { key, st, unit, prov } — الحيّ
 var _dentLiveRef = null;    // الخريطةُ الحيّة أثناء العرض التاريخي
@@ -106,7 +117,8 @@ function dentTake(row) {
   if (!row || row.surface !== DENT_SURFACE) return false;
   dentureMap[String(row.tooth_num)] = {
     key: row.treatment_key, st: row.status || 'completed',
-    unit: row.unit_id || null, prov: row.provider_id || null
+    unit: row.unit_id || null, prov: row.provider_id || null,
+    clasps: (row.denture_clasps === null || row.denture_clasps === undefined) ? null : String(row.denture_clasps)   /* M209: null = اقتراحٌ تلقائي */
   };
   return true;
 }
@@ -126,8 +138,10 @@ function dentUnits() {
     var d = dentureMap[tn]; if (!d) return;
     var arch = dentArchOf(tn);
     var gid = d.unit ? ('u:' + d.unit) : ('k:' + d.key + '|' + arch + '|' + d.st);
-    if (!groups[gid]) { groups[gid] = { id: d.unit || null, key: d.key, st: d.st, arch: arch, teeth: [] }; order.push(gid); }
+    if (!groups[gid]) { groups[gid] = { id: d.unit || null, key: d.key, st: d.st, arch: arch, teeth: [], clasps: null }; order.push(gid); }
     groups[gid].teeth.push(parseInt(tn, 10));
+    /* M209: قائمةُ الضمّات الصريحة تُكتب على كل صفوف الوحدة؛ أولُ صفٍّ يحملها يكفي (سنٌّ أُضيف لاحقاً صفُّه بلا قائمة) */
+    if (groups[gid].clasps === null && d.clasps !== null && d.clasps !== undefined) groups[gid].clasps = String(d.clasps);
   });
   return order.map(function (g) { groups[g].teeth = dentSortTeeth(groups[g].teeth, groups[g].arch); return groups[g]; });
 }
@@ -146,6 +160,80 @@ function dentSessionOfUnit(u) {
   if (!u || !u.id || typeof sessions === 'undefined' || !sessions) return null;
   for (var i = 0; i < sessions.length; i++) { if (sessions[i] && sessions[i].id === u.id) return sessions[i]; }
   return null;
+}
+
+/* ═════════════════════ الضمّات (v739 · M209) ═════════════════════
+   المالك (16–17/11/2026): «الجهاز المتحرك ما له ضمّات… المفروض الطبيب يحدّد مكان الضمّات» ⇒ «خلي الضمّات اقتراح تلقائي وإذا أراد
+   الدكتور بيضيف أو بيلغي ضمّة — بدي شي احترافي ومبسّط وسهل التعامل» ⇒ «توصياتك».
+   المراجع: التصميمُ الرباعي (ضمّةٌ على كل طرفٍ من الفراغ المحصور — مدرسةُ McCracken) · Davenport وزملاؤه BDJ 2001 (السرجُ الحرّ
+   ضمّتُه على السن المجاور له؛ المحصورُ ضمّةٌ على طرفٍ واحد على الأقل) · «ضمّةٌ على كل دعامة» خطأٌ شائع ⇒ حدٌّ أقصى 4.
+   النموذج: teeth_status.denture_clasps على صفوف الجهاز — NULL = الاقتراحُ التلقائي (يتبع المخطط الحيّ: كلُّ جهازٍ قائمٍ يأخذه بلا
+   ترحيل بيانات)، ونصٌّ (ولو فارغاً) = قائمةُ الطبيب الصريحة. لا صفَّ على السن الداعم نفسه ⇒ لا تزاحمَ مع محوِ صفوفه. */
+function dentIsPartialUnit(u) {
+  var t = (u && typeof getTreatment === 'function') ? getTreatment(u.key) : null;
+  return t ? t.target_part === 'denture_partial' : (!!u && !dentIsFullSet(u.teeth, u.arch));
+}
+/* سنٌّ يحمل ضمّة: قائمٌ بتاجه بالفم (طبيعيٌّ أو دعامةُ جسر) — لا مفقود ولا مزروع ولا دمية ولا قلعُه مخطّط ولا يعوّضه جهاز */
+function dentClaspOk(n) {
+  n = parseInt(n, 10);
+  if (!(n >= 11 && n <= 48) || dentHas(n)) return false;
+  var s = dentBareState(n);
+  if (s.standing) return true;
+  var sm = teethMap[String(n)] || {};
+  return !s.ok && !s.implant && !isBridgeKey(sm.PONTIC) && isBridgeKey(sm.WHOLE)
+    && !(typeof chartPonticSet !== 'undefined' && chartPonticSet && chartPonticSet[n]);
+}
+function dentClaspParse(v) {
+  var out = [];
+  String(v === null || v === undefined ? '' : v).split(',').forEach(function (x) { var t = parseInt(x, 10); if (t >= 11 && t <= 48 && out.indexOf(t) === -1) out.push(t); });
+  return out;
+}
+/* الاقتراحُ: كلُّ سنٍّ قائم ملاصقٍ لسرج (الحرُّ ⇒ الإنسيُّ وحده؛ المحصورُ ⇒ الطرفان)، وبكل جهةٍ من الفك الأبعدُ خلفاً والأبعدُ أماماً
+   فقط ⇒ أربعٌ على الأكثر (رباعي). */
+function dentClaspAuto(u) {
+  if (!u || !dentIsPartialUnit(u)) return [];
+  var row = dentArchRow(u.arch), cand = [], out = [], half = row.length / 2;
+  u.teeth.forEach(function (t) {
+    var i = row.indexOf(t); if (i < 0) return;
+    [row[i - 1], row[i + 1]].forEach(function (nb) {
+      if (nb !== undefined && u.teeth.indexOf(nb) === -1 && cand.indexOf(nb) === -1 && dentClaspOk(nb)) cand.push(nb);
+    });
+  });
+  [true, false].forEach(function (first) {
+    var c = cand.filter(function (t) { return (row.indexOf(t) < half) === first; }).sort(function (a, b) { return row.indexOf(a) - row.indexOf(b); });
+    if (c.length > DENT_CLASP_MAX / 2) c = [c[0], c[c.length - 1]];
+    out = out.concat(c);
+  });
+  return dentSortTeeth(out, u.arch);
+}
+/* ضمّاتُ الوحدة المرسومة: قائمةُ الطبيب إن وُجدت وإلا الاقتراح — ودائماً ما زال سنُّها يحمل ضمّة (سنٌّ قُلع لاحقاً يسقط من الرسم) */
+function dentClasps(u) {
+  if (!u || !dentIsPartialUnit(u)) return [];
+  var list = (u.clasps !== null && u.clasps !== undefined) ? dentClaspParse(u.clasps) : dentClaspAuto(u);
+  return dentSortTeeth(list.filter(function (t) { return dentArchOf(t) === u.arch && u.teeth.indexOf(t) === -1 && dentClaspOk(t); }), u.arch);
+}
+function dentClaspIsAuto(u) { return !u || u.clasps === null || u.clasps === undefined; }
+/* حفظُ قائمة الطبيب (مصفوفة) أو العودةُ للاقتراح (null): تحديثٌ واحد لكل صفوف الوحدة. يعيد true عند النجاح */
+async function dentClaspSave(u, list) {
+  if (!u || !u.teeth || !u.teeth.length) return false;
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return false;   /* وضعُ القراءة: لا كتابة */
+  if (window.__historyMode) { showToast('🕰️ عرض تاريخي للقراءة فقط — أنهِ العرض للتعديل'); return false; }
+  var val = (list === null) ? null : dentTeethCsv(list.filter(function (t) { return dentArchOf(t) === u.arch && u.teeth.indexOf(parseInt(t, 10)) === -1; }));
+  var r = await window.sb.from('teeth_status').update({ denture_clasps: val })
+    .eq('doctor_id', currentUser.id).eq('patient_id', patientId).eq('surface', DENT_SURFACE)
+    .in('tooth_num', u.teeth.map(String));
+  if (r && r.error) { console.error('dentClaspSave:', r.error); showToast('❌ تعذّر حفظ الضمّات: ' + (r.error.message || 'خطأ بالاتصال')); return false; }
+  u.teeth.forEach(function (t) { if (dentureMap[String(t)]) dentureMap[String(t)].clasps = val; });
+  if (typeof renderTeeth === 'function') renderTeeth();
+  return true;
+}
+/* نقرةُ سنٍّ بنافذة الجهاز: تضيف ضمّةً أو تلغيها — من القائمة المرسومة الآن (اقتراحاً كانت أو قائمةَ الطبيب) */
+async function dentClaspToggle(u, n) {
+  n = parseInt(n, 10);
+  if (!u || !dentIsPartialUnit(u)) return false;
+  var cur = dentClasps(u), i = cur.indexOf(n);
+  if (i === -1) { if (!dentClaspOk(n) || dentArchOf(n) !== u.arch) return false; cur.push(n); } else cur.splice(i, 1);
+  return await dentClaspSave(u, cur);
 }
 
 /* ── ج2-ب: جلسةُ الجهاز وأسنانُها (unit_teeth — M204) ── */
@@ -1049,40 +1137,273 @@ function dentTipRow(u, n) {
     + escapeHtml(dentUnitName(u)) + dentStatusBadge(u.st) + escapeHtml(dentOptBadgeText(dentSessionOfUnit(u)))
     + ((n && dentOpenExtractions([n]).length) ? ' <span class="dent-imm">فوري — بعد القلع</span>' : '') + '</div>';
 }
-/* خليةُ السن وجهياً: القاعدةُ (بلون إطار العلاج) + السنُّ الصناعي (بلون العلاج) على السن المعوَّض؛
-   وعلى سنٍّ بين طرفَي الجهاز خطٌّ رابط فقط. الحالةُ بالشكل (txPaint/txPathAttrs — v595). */
-/* امتدادٌ بوحدات الخلية (100 = عرضُها) نحو جارٍ يبعد فراغاً واحداً، أو فراغين وخطاً ناصفاً إن كان عبر المنتصف */
+/* ═════════════════════ الرسم الجديد (v739 — قرارُ المالك 16–17/11/2026 بعد ثلاث نسخ بروتوتايب) ═════════════════════
+   • اللثة (المنظر الوجهي، كاملاً وجزئياً): حافّةٌ منحنية حول عنق كل سن وحليمةٌ بين السنّين وأطرافٌ مدوّرة — قطعةٌ لكل خلية
+     تلتقي مع جارتها على ارتفاعٍ واحد؛ تحتها خلفيةٌ مصمتة بلون المخطط ⇒ التراكبُ عند الوصلة لا يغمّق أي حالة.
+   • الواصل الرئيسي (الجزئي): صفيحةٌ عريضة تمرّ **خلف** الأسنان القائمة (تُدرج قبل رسم السن)، وبالمنظر الإطباقي قاعدةُ السرج
+     + صفيحةٌ على الجهة الحنكية/اللسانية. الجهازُ الكامل إطباقياً: الأسنانُ وحدها كما كان.
+   • الضمّة: ذراعٌ واحد بسيط يخرج من جسم الجهاز (طرف السرج الملاصق، وإلا الواصل) ويلتفّ على السن.
+   • خلايا امتداد الجهاز بلا فلتر CSS (ظلُّ خليةٍ على جارتها = خطٌّ عند كل وصلة)؛ ظلُّ السن القائم يبقى بفلتر SVG على مجموعته. */
 function dentBleed(n, acrossMidline) {
   var mode = (typeof dentitionMode !== 'undefined' && DENT_ROW_GAP_PX[dentitionMode]) ? dentitionMode : 'permanent';
   var gap = DENT_ROW_GAP_PX[mode], px = acrossMidline ? (DENT_MIDLINE_PX + 2 * gap) / 2 : gap / 2;
   var w = (typeof cellWidth === 'function' ? cellWidth(n) : 60) || 60;
-  return Math.round((px * 100 / w + DENT_BLEED_EPS) * 100) / 100;
+  return Math.round((px * 100 / w + (acrossMidline ? DENT_BLEED_EPS_MID : DENT_BLEED_EPS)) * 100) / 100;
 }
-/* bandOnly (ج2-أ): دميةُ جسرٍ مرسومةٌ على الخلية (بديلٌ بالخطة) ⇒ القاعدةُ وحدها — رسمُ الدمية يبقى ظاهراً. الزرعةُ ليست منها (v719): الجهازُ يركب عليها */
-function dentFacialLayer(n, u, inUnit, bleedRight, bleedLeft, midRight, midLeft, bandOnly) {
-  var c = dentColors(u.key), st = u.st, inner = '';
-  var x1 = bleedLeft ? -dentBleed(n, midLeft) : 6, x2 = bleedRight ? 100 + dentBleed(n, midRight) : 94;
-  if (inUnit) {
-    var anat = toothAnatomy(n);
-    var y = anat.cervicalY - 3;
-    inner += txRectSvg(x1, y, x2 - x1, DENT_BASE_BOTTOM - y, txPaint(st, c.stroke, c.stroke, 'dnb' + n), null, 'class="dent-base"');
-    if (!bandOnly) {
-      var a = txPathAttrs(st, c.fill, c.stroke, 'dn' + n, 0.92);
-      inner += a.defs + '<path class="dent-tooth" d="' + anat.outlineD + '" ' + a.attrs
-        + (/stroke=/.test(a.attrs) ? '' : ' stroke="' + c.stroke + '" stroke-width="1.2"') + ' stroke-linejoin="round"/>';
-    }
-  } else {
-    inner += '<line class="dent-conn" x1="' + x1 + '" y1="' + DENT_CONN_Y + '" x2="' + x2 + '" y2="' + DENT_CONN_Y
-      + '" stroke="' + c.stroke + '" stroke-width="3.2" stroke-linecap="butt"' + txRingDash(st) + '/>';
+/* المنظر الإطباقي: viewBox الخلية 66.67 وحدة لعرضها */
+function dentBleedOcc(n, acrossMidline) {
+  var mode = (typeof dentitionMode !== 'undefined' && DENT_ROW_GAP_PX[dentitionMode]) ? dentitionMode : 'permanent';
+  var gap = DENT_ROW_GAP_PX[mode], px = acrossMidline ? (DENT_MIDLINE_PX + 2 * gap) / 2 : gap / 2;
+  var w = (typeof cellWidth === 'function' ? cellWidth(n) : 60) || 60;
+  return Math.round((px * DENT_OCC_SPAN / w + (acrossMidline ? DENT_BLEED_EPS_MID_OCC : DENT_BLEED_EPS_OCC)) * 100) / 100;
+}
+function dentR(v) { return Math.round(v * 100) / 100; }
+function dentHex(c) { return /^#[0-9a-fA-F]{6}$/.test(String(c || '')); }
+/* مزجُ لونين (hex حصراً — توكنُ الثيم يبقى كما هو بلا تدرّج) */
+function dentMix(a, b, t) {
+  if (!dentHex(a) || !dentHex(b)) return a;
+  var out = '#';
+  for (var i = 0; i < 3; i++) {
+    var x = parseInt(a.substr(1 + i * 2, 2), 16), y = parseInt(b.substr(1 + i * 2, 2), 16), v = Math.round(x + (y - x) * t);
+    out += (v < 16 ? '0' : '') + v.toString(16);
   }
-  return '<g class="dent-layer" data-dent-unit="' + escapeHtml(u.id || u.key) + '" data-dent-key="' + escapeHtml(u.key) + '" data-dent-status="' + escapeHtml(st) + '" pointer-events="none"'
-    + (u.arch === 'U' ? ' transform="translate(0,210) scale(1,-1)"' : '') + '>' + inner + '</g>';
+  return out;
 }
-function dentOccLayer(n, u) {
-  var c = dentColors(u.key), G = occGeom(n);
-  var a = txPathAttrs(u.st, c.fill, c.stroke, 'dno' + n, 0.92);
-  return '<g class="dent-layer" data-dent-unit="' + escapeHtml(u.id || u.key) + '" data-dent-key="' + escapeHtml(u.key) + '" data-dent-status="' + escapeHtml(u.st) + '" pointer-events="none">' + a.defs
-    + '<path class="dent-tooth" d="' + G.outline + '" ' + a.attrs + (/stroke=/.test(a.attrs) ? '' : ' stroke="' + c.stroke + '" stroke-width="1.2"') + ' stroke-linejoin="round"/></g>';
+/* بنّاءُ مسار: f = الشكلُ المغلق (التعبئة) · s = حدودُه الظاهرة فقط (الوصلةُ مع الجار بلا خط) */
+function DentPath(x, y) { this.f = 'M' + dentR(x) + ',' + dentR(y); this.s = this.f; }
+DentPath.prototype.seg = function (d, ex, ey, stroke) { this.f += ' ' + d; this.s += (stroke === false) ? ' M' + dentR(ex) + ',' + dentR(ey) : ' ' + d; return this; };
+DentPath.prototype.L = function (x, y, stroke) { return this.seg('L' + dentR(x) + ',' + dentR(y), x, y, stroke); };
+DentPath.prototype.Q = function (cx, cy, x, y) { return this.seg('Q' + dentR(cx) + ',' + dentR(cy) + ' ' + dentR(x) + ',' + dentR(y), x, y); };
+DentPath.prototype.C = function (a, b, c, d, x, y) { return this.seg('C' + dentR(a) + ',' + dentR(b) + ' ' + dentR(c) + ',' + dentR(d) + ' ' + dentR(x) + ',' + dentR(y), x, y); };
+/* جسمُ الجهاز (لثة · واصل · قاعدة): تعبئةٌ **مصمتة** بكل حالة — المنجزُ بتدرّجٍ خفيف، والمخطّطُ تهشيرٌ خلفيتُه بلون أرضية المخطط،
+   والباقي لونُه ممزوجٌ بلون الأرضية بنسبة شفافية الحالة (v595) ⇒ تراكبُ قطعتين عند وصلة الخلايا لا يغمّق ولا يترك خطاً. ثم الحدّ. */
+function dentBody(cls, pb, st, c, y1, y2, pid, attrs, extra) {
+  var d = pb.f + ' Z', out = '', a = attrs ? ' ' + attrs : '', back = 'var(--dent-back,var(--bg2))';
+  if (!st || st === 'completed') {
+    var top = dentMix(c.stroke, c.fill, cls === 'dent-conn' ? 0.35 : 0.5), edge = dentMix(c.stroke, '#000000', 0.28);
+    out += '<defs><linearGradient id="' + pid + '" gradientUnits="userSpaceOnUse" x1="0" y1="' + dentR(y1) + '" x2="0" y2="' + dentR(y2) + '"><stop offset="0" stop-color="' + top + '"/><stop offset="1" stop-color="' + c.stroke + '"/></linearGradient></defs>'
+      + '<path class="' + cls + '" d="' + d + '" fill="url(#' + pid + ')"' + a + '/>' + (extra || '')
+      + '<path class="dent-edge" d="' + pb.s + '" fill="none" stroke="' + edge + '" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>';
+  } else {
+    var p = txPaint(st, c.stroke, c.stroke, pid);
+    if (st === 'planned') {
+      out += '<defs><pattern id="' + pid + '" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" style="fill:' + back + '"/><rect width="2.2" height="5" fill="' + c.stroke + '"/></pattern></defs>'
+        + '<path class="' + cls + '" d="' + d + '" fill="url(#' + pid + ')"' + a + '/>';
+    } else {
+      out += '<path class="' + cls + '" d="' + d + '" fill="' + c.stroke + '" fill-opacity="' + p.fo + '" style="fill:color-mix(in srgb, ' + c.stroke + ' ' + Math.round(p.fo * 100) + '%, ' + back + ');fill-opacity:1"' + a + '/>';
+    }
+    if (p.stroke) out += '<path class="dent-edge" d="' + pb.s + '" fill="none" stroke="' + p.stroke + '" stroke-width="' + p.sw + '"' + (p.dash ? ' stroke-dasharray="' + p.dash + '"' : '') + ' stroke-linejoin="round" stroke-linecap="round"/>';
+  }
+  return out;
+}
+/* السنُّ الصناعي: خلفيتُه تغطّي خطَّ شبح السن المقلوع تحته، ثم شكلُ الحالة كما كان (txPathAttrs) */
+function dentToothSvg(d, st, c, pid) {
+  var a = txPathAttrs(st, c.fill, c.stroke, pid, 0.92);
+  return '<path class="dent-back dent-back-t" d="' + d + '"/>' + a.defs + '<path class="dent-tooth" d="' + d + '" ' + a.attrs
+    + (/stroke=/.test(a.attrs) ? '' : ' stroke="' + c.stroke + '" stroke-width="1.2"') + ' stroke-linejoin="round"/>';
+}
+function dentWire(d, st, w) {
+  var s = '<path class="dent-wire" d="' + d + '" fill="none" stroke="' + DENT_STEEL + '" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round"' + txRingDash(st) + '/>';
+  if (!st || st === 'completed') s += '<path d="' + d + '" fill="none" stroke="' + DENT_STEEL_HI + '" stroke-width="' + dentR(w * 0.28) + '" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>';
+  return s;
+}
+/* سياقُ وحدةٍ على صفّها: الجاران على الشاشة (الصفُّ يُرسم من اليمين إلى اليسار: السابقُ بالمصفوفة على اليمين) */
+function dentCtx(u, clasps) {
+  var row = dentArchRow(u.arch), set = {}, idx = [];
+  u.teeth.forEach(function (t) { set[t] = 1; var i = row.indexOf(t); if (i >= 0) idx.push(i); });
+  /* الامتداد: أسنانُ الجهاز + كلُّ ضمّةٍ ليست ملاصقةً لسرج (الواصلُ يصل إليها)؛ الملاصقةُ تخرج من السرج نفسه */
+  var all = idx.slice();
+  (clasps || []).forEach(function (t) {
+    var i = row.indexOf(t); if (i < 0 || set[row[i - 1]] || set[row[i + 1]]) return;
+    all.push(i);
+  });
+  var mid = row.length / 2;
+  return {
+    u: u, row: row, set: set, partial: dentIsPartialUnit(u),
+    lo: all.length ? Math.min.apply(null, all) : -1, hi: all.length ? Math.max.apply(null, all) : -1,
+    has: function (t) { return t != null && !!set[t]; },
+    inSpan: function (t) { var i = row.indexOf(t); return i >= 0 && i >= this.lo && i <= this.hi; },
+    left: function (n) { return row[row.indexOf(n) + 1]; }, right: function (n) { return row[row.indexOf(n) - 1]; },
+    midLeft: function (n) { return row.indexOf(n) === mid - 1; }, midRight: function (n) { return row.indexOf(n) === mid; },
+    /* طرفُ الامتداد على سنٍّ قائم (ضمّةٌ بعيدة): الواصلُ ينتهي خلف السن لا عند حدّ خليته */
+    endLeft: function (n) { return row.indexOf(n) === this.hi; }, endRight: function (n) { return row.indexOf(n) === this.lo; }
+  };
+}
+/* ── المنظر الوجهي (إحداثيات الخلية 0..100 × 0..210، التاجُ أعلى؛ الفكُّ العلوي يُقلب بالمجموعة) ── */
+function dentGumFacial(n, cx, c, st) {
+  var a = toothAnatomy(n), nl = cx.left(n), nr = cx.right(n), Lf = cx.has(nl), Rf = cx.has(nr);
+  var xL = Lf ? -dentBleed(n, cx.midLeft(n)) : 5, xR = Rf ? 100 + dentBleed(n, cx.midRight(n)) : 95;
+  var Z = a.cervicalY - 1.5, w = (a.cejR - a.cejL) / 2, B = DENT_BASE_BOTTOM;
+  /* الحليمة: قمّةٌ مدوّرة على الحدّ المشترك — ارتفاعٌ واحد للجارين ⇒ اتصالٌ بلا درجة */
+  var pL = Lf ? Math.min(a.cervicalY, toothAnatomy(nl).cervicalY) - DENT_PAPILLA : a.cervicalY - DENT_PAPILLA + 4;
+  var pR = Rf ? Math.min(a.cervicalY, toothAnatomy(nr).cervicalY) - DENT_PAPILLA : a.cervicalY - DENT_PAPILLA + 4;
+  var sx = Lf ? xL : xL + 6, ex = Rf ? xR : xR - 6;
+  var pb = new DentPath(sx, pL);
+  pb.C(sx + (50 - sx) * 0.3, pL, 50 - w * 0.9, Z, 50, Z).C(50 + w * 0.9, Z, ex - (ex - 50) * 0.3, pR, ex, pR);
+  if (Rf) pb.L(xR, B, false); else pb.Q(xR, pR, xR, pR + 6).L(xR, B - 10).Q(xR, B, xR - 10, B);
+  pb.L(Lf ? xL : xL + 10, B);
+  if (Lf) pb.L(xL, pL, false); else pb.Q(xL, B, xL, B - 10).L(xL, pL + 6).Q(xL, pL, sx, pL);
+  /* بروزُ الجذر: إضاءةٌ ناعمة تحت كل سن (للمنجز فقط — داخل dentBody). معرّفُها يبدأ بـ«hi»: مسطِّحُ الطباعة (printChart) يعدّ
+     تدرّجاتِ hi زينةً شفافة فيحذفها — بغيرها تُطبع الإضاءةُ بقعةً بيضاء مصمتة */
+  var hi = '<defs><radialGradient id="hidn' + n + '"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>'
+    + '<ellipse cx="50" cy="' + dentR((Z + B) / 2 + 2) + '" rx="' + dentR(w * 0.95) + '" ry="' + dentR((B - Z) * 0.5) + '" fill="url(#hidn' + n + ')"/>';
+  return dentBody('dent-base', pb, st, c, DENT_GUM_TOP, B, 'dnb' + n, 'data-x1="' + dentR(xL) + '" data-x2="' + dentR(xR) + '" data-pl="' + dentR(pL) + '" data-pr="' + dentR(pR) + '"', hi);
+}
+function dentConnFacial(n, c, st, x1, x2, pid) {
+  var pb = new DentPath(x1, DENT_CONN_T);
+  pb.L(x2, DENT_CONN_T).L(x2, DENT_CONN_B, false).L(x1, DENT_CONN_B).L(x1, DENT_CONN_T, false);
+  return dentBody('dent-conn', pb, st, c, DENT_CONN_T, DENT_CONN_B, pid, 'data-x1="' + dentR(x1) + '" data-x2="' + dentR(x2) + '"');
+}
+/* near: 'L' أو 'R' = جهةُ الجهاز على الشاشة · adj: السنُّ ملاصقٌ لسرج (الضمّة تخرج من داخل قاعدته) وإلا فمن الواصل خلفه */
+function dentClaspFacial(n, cx, near, adj, st) {
+  var a = toothAnatomy(n), w = (a.cejR - a.cejL) / 2, cv = a.cervicalY, s = near === 'L' ? 1 : -1;
+  var edge = near === 'L' ? a.cejL - 2 : a.cejR + 2;
+  var gap = 2 * (dentBleed(n, near === 'L' ? cx.midLeft(n) : cx.midRight(n)) - DENT_BLEED_EPS);
+  var x0 = adj ? (near === 'L' ? -(gap + 6.5) : 100 + gap + 6.5) : (near === 'L' ? -2 : 102), y0 = (DENT_CONN_T + DENT_CONN_B) / 2;   /* 6.5 = داخل طرف القاعدة (5) بوحدةٍ ونصف */
+  var d = 'M' + dentR(x0) + ',' + y0 + ' C' + dentR(edge - s * 9) + ',' + y0 + ' ' + dentR(edge - s * 7) + ',' + dentR(cv - 18) + ' ' + dentR(edge + s * 3) + ',' + dentR(cv - 18)
+    + ' C' + dentR(50 - s * w * 0.15) + ',' + dentR(cv - 20) + ' ' + dentR(50 + s * w * 0.4) + ',' + dentR(cv - 17) + ' ' + dentR(50 + s * w * 0.72) + ',' + dentR(cv - 9);
+  return '<g class="dent-clasp-arm" data-x0="' + dentR(x0) + '">' + dentWire(d, st, 5.8) + '</g>';
+}
+/* ── المنظر الإطباقي (viewBox 16.67..83.33). الأشكالُ العامة بالإحداثيات «العلوية» (الدهليزي أعلى، اللساني/الحنكي أسفل)
+      وتُقلب للفك السفلي بمجموعتها؛ السنُّ الصناعي والضمّة بإحداثيات السن الحقيقية. ── */
+function dentBuccE(n) { var g = occGeom(n).bbox; return dentArchOf(n) === 'U' ? g.y0 : 100 - g.y1; }
+function dentLingE(n) { var g = occGeom(n).bbox; return dentArchOf(n) === 'U' ? g.y1 : 100 - g.y0; }
+function dentBaseOcc(n, cx, c, st) {
+  var nl = cx.left(n), nr = cx.right(n), yl = DENT_OCC_PLATE;
+  function side(nb) { return cx.has(nb) ? 'join' : (cx.inSpan(nb) ? 'conn' : 'end'); }
+  var sL = side(nl), sR = side(nr);
+  /* الجناحُ الدهليزي يتبع انتفاخَ كل سن (أعرض عند الأرحاء، أنحف عند القواطع) */
+  function yb(m) { return dentBuccE(m) - 6; }
+  var ybC = yb(n), ybL = sL === 'join' ? (ybC + yb(nl)) / 2 : ybC, ybR = sR === 'join' ? (ybC + yb(nr)) / 2 : ybC;
+  var bL = DENT_OCC_X0 - dentBleedOcc(n, cx.midLeft(n)), bR = DENT_OCC_X1 + dentBleedOcc(n, cx.midRight(n)), cL = 21, cR = 79, r = 10;
+  var x0 = sL === 'join' ? bL : cL + r, x1 = sR === 'join' ? bR : cR - r;
+  var pb = new DentPath(x0, ybL);
+  pb.C(x0 + (50 - x0) * 0.5, ybL, 38, ybC, 50, ybC).C(62, ybC, x1 - (x1 - 50) * 0.5, ybR, x1, ybR);
+  if (sR === 'join') pb.L(bR, yl, false);
+  else if (sR === 'end') pb.Q(cR, ybR, cR, ybR + r).L(cR, yl - r).Q(cR, yl, cR - r, yl);
+  else { var ycR = dentLingE(nr) - 4; pb.Q(cR, ybR, cR, ybR + r).L(cR, ycR - 7).Q(cR, ycR, cR + 6, ycR).L(bR, ycR).L(bR, yl, false); }
+  pb.L(sL === 'end' ? cL + r : bL, yl);
+  if (sL === 'join') pb.L(bL, ybL, false);
+  else if (sL === 'end') pb.Q(cL, yl, cL, yl - r).L(cL, ybL + r).Q(cL, ybL, cL + r, ybL);
+  else { var ycL = dentLingE(nl) - 4; pb.L(bL, ycL, false).L(cL - 6, ycL).Q(cL, ycL, cL, ycL - 7).L(cL, ybL + r).Q(cL, ybL, cL + r, ybL); }
+  return dentBody('dent-plate', pb, st, c, DENT_OCC_GRAD_T, yl, 'dnp' + n, 'data-side="' + sL + ',' + sR + '"');
+}
+/* سنٌّ قائم ضمن امتداد الجهاز: الصفيحةُ تندسّ قليلاً تحت حافّته اللسانية */
+function dentConnOcc(n, cx, c, st) {
+  var nl = cx.left(n), nr = cx.right(n), T = dentLingE(n) - 4, yl = DENT_OCC_PLATE;
+  var bL = DENT_OCC_X0 - dentBleedOcc(n, cx.midLeft(n)), bR = DENT_OCC_X1 + dentBleedOcc(n, cx.midRight(n));
+  var tL = cx.has(nl) ? T : (T + dentLingE(nl) - 4) / 2, tR = cx.has(nr) ? T : (T + dentLingE(nr) - 4) / 2;
+  var eL = cx.endLeft(n), eR = cx.endRight(n), pb;
+  if (eL || eR) {
+    /* طرفُ الصفيحة تحت السن: نصفُ الخلية من جهة الجهاز، بطرفٍ مدوّر */
+    var xa = eL ? 50 : bL, xb = eR ? 50 : bR, ta = eL ? T : tL, tb = eR ? T : tR;
+    pb = new DentPath(xa, ta);
+    pb.L(xb, tb);
+    if (eR) pb.Q(xb + 8, tb, xb + 8, tb + 8).L(xb + 8, yl - 8).Q(xb + 8, yl, xb, yl); else pb.L(xb, yl, false);
+    pb.L(xa, yl);
+    if (eL) pb.Q(xa - 8, yl, xa - 8, yl - 8).L(xa - 8, ta + 8).Q(xa - 8, ta, xa, ta); else pb.L(xa, ta, false);
+  } else {
+    pb = new DentPath(bL, tL);
+    pb.C(bL + (50 - bL) * 0.5, tL, 38, T, 50, T).C(62, T, bR - (bR - 50) * 0.5, tR, bR, tR).L(bR, yl, false).L(bL, yl).L(bL, tL, false);
+  }
+  return dentBody('dent-plate', pb, st, c, DENT_OCC_GRAD_T, yl, 'dnp' + n, 'data-side="conn,conn"');
+}
+/* نقاطُ محيط السن الإطباقي من مساره (M + منحنياتُ C) — حسابٌ صرف بلا DOM */
+var _dentOccPts = {};
+function dentOccPoints(n) {
+  if (_dentOccPts[n]) return _dentOccPts[n];
+  var nums = String(occGeom(n).outline).match(/-?\d+(?:\.\d+)?/g) || [], v = nums.map(parseFloat), pts = [];
+  if (v.length < 8) return (_dentOccPts[n] = []);
+  var px = v[0], py = v[1];
+  for (var i = 2; i + 5 < v.length; i += 6) {
+    for (var k = 0; k < 8; k++) {
+      var t = k / 8, m = 1 - t;
+      pts.push([m * m * m * px + 3 * m * m * t * v[i] + 3 * m * t * t * v[i + 2] + t * t * t * v[i + 4],
+                m * m * m * py + 3 * m * m * t * v[i + 1] + 3 * m * t * t * v[i + 3] + t * t * t * v[i + 5]]);
+    }
+    px = v[i + 4]; py = v[i + 5];
+  }
+  return (_dentOccPts[n] = pts);
+}
+function dentClaspOcc(n, cx, near, adj, st) {
+  var pts = dentOccPoints(n), N = pts.length; if (N < 8) return '';
+  var upper = dentArchOf(n) === 'U', i, iN = 0, iF = 0, ox = 0, oy = 0;
+  for (i = 0; i < N; i++) {
+    ox += pts[i][0] / N; oy += pts[i][1] / N;
+    if (near === 'L' ? pts[i][0] < pts[iN][0] : pts[i][0] > pts[iN][0]) iN = i;
+    if (near === 'L' ? pts[i][0] > pts[iF][0] : pts[i][0] < pts[iF][0]) iF = i;
+  }
+  function route(dir) { var a = [], k = iN, guard = 0; while (guard++ <= N) { a.push(pts[k]); if (k === iF) break; k = (k + dir + N) % N; } return a; }
+  var r1 = route(1), r2 = route(-1);
+  var m1 = r1[Math.floor(r1.length / 2)][1], m2 = r2[Math.floor(r2.length / 2)][1];
+  var bucc = (upper ? m1 < m2 : m1 > m2) ? r1 : r2, ling = bucc === r1 ? r2 : r1;
+  function off(p) { var vx = p[0] - ox, vy = p[1] - oy, l = Math.sqrt(vx * vx + vy * vy) || 1; return [p[0] + vx / l * 1.6, p[1] + vy / l * 1.6]; }
+  var chain = [], j, x0;
+  if (adj) {
+    var gap = 2 * (dentBleedOcc(n, near === 'L' ? cx.midLeft(n) : cx.midRight(n)) - DENT_BLEED_EPS_OCC);
+    x0 = near === 'L' ? (DENT_OCC_X0 - gap - (DENT_OCC_X1 - 79)) - 1 : (DENT_OCC_X1 + gap + (21 - DENT_OCC_X0)) + 1;   /* طرفُ قاعدة السرج المجاور */
+    chain.push([x0, pts[iN][1]]);
+  } else {
+    var kL = 0;
+    for (j = 0; j < ling.length; j++) if (upper ? ling[j][1] > ling[kL][1] : ling[j][1] < ling[kL][1]) kL = j;
+    x0 = ling[kL][0];
+    chain.push([x0, ling[kL][1] + (upper ? 6 : -6)]);                                    /* داخل الصفيحة من الجهة اللسانية */
+    for (j = kL; j > 0; j--) chain.push(off(ling[j]));
+  }
+  var m = Math.floor(bucc.length * 0.74);
+  for (j = 0; j <= m; j++) chain.push(off(bucc[j]));
+  var d = '';
+  chain.forEach(function (p, k) { d += (k ? ' L' : 'M') + dentR(p[0]) + ',' + dentR(p[1]); });
+  return '<g class="dent-clasp-arm" data-x0="' + dentR(x0) + '">' + dentWire(d, st, 4.2) + '</g>';
+}
+function dentLayerHtml(u, cls, inner, flip) {
+  return '<g class="' + cls + '" data-dent-unit="' + escapeHtml(u.id || u.key) + '" data-dent-key="' + escapeHtml(u.key) + '" data-dent-status="' + escapeHtml(u.st) + '" pointer-events="none"'
+    + (flip ? ' transform="' + flip + '"' : '') + '>' + inner + '</g>';
+}
+/* خليةُ السن وجهياً. داخل الجهاز: الواصلُ (إن جاورها سنٌّ قائم ضمن الامتداد) ثم السنُّ الصناعي ثم اللثة فوق عنقه.
+   bandOnly: دميةُ جسرٍ/زرعةٌ بديلة/سنٌّ قلعُه مخطّط ⇒ اللثةُ وحدها. خارج الجهاز وضمن امتداده: الواصلُ وحده (يُدرج خلف السن). */
+function dentFacialLayer(n, cx, inUnit, bandOnly) {
+  var u = cx.u, c = dentColors(u.key), st = u.st, inner = '';
+  var bl = dentBleed(n, cx.midLeft(n)), br = dentBleed(n, cx.midRight(n));
+  if (inUnit) {
+    if (!cx.has(cx.left(n)) && cx.inSpan(cx.left(n))) inner += dentConnFacial(n, c, st, -bl, 14, 'dncl' + n);
+    if (!cx.has(cx.right(n)) && cx.inSpan(cx.right(n))) inner += dentConnFacial(n, c, st, 86, 100 + br, 'dncr' + n);
+    if (!bandOnly) inner += dentToothSvg(toothAnatomy(n).outlineD, st, c, 'dn' + n);
+    inner += dentGumFacial(n, cx, c, st);
+  } else {
+    inner += dentConnFacial(n, c, st, cx.endLeft(n) ? 50 : -bl, cx.endRight(n) ? 50 : 100 + br, 'dnc' + n);
+  }
+  return dentLayerHtml(u, 'dent-layer', inner, u.arch === 'U' ? 'translate(0,210) scale(1,-1)' : '');
+}
+/* المنظر الإطباقي. الجزئي: قاعدةُ السرج (أو الصفيحةُ خلف سنٍّ قائم) + السنُّ الصناعي. الكامل: السنُّ الصناعي وحده. */
+function dentOccLayer(n, cx, inUnit, toothToo) {
+  var u = cx.u, c = dentColors(u.key), st = u.st, inner = '';
+  if (cx.partial) inner += '<g' + (u.arch === 'L' ? ' transform="translate(0,100) scale(1,-1)"' : '') + '>' + (inUnit ? dentBaseOcc(n, cx, c, st) : dentConnOcc(n, cx, c, st)) + '</g>';
+  if (inUnit && toothToo) inner += dentToothSvg(occGeom(n).outline, st, c, 'dno' + n);
+  return inner ? dentLayerHtml(u, 'dent-layer', inner, '') : '';
+}
+/* خليةٌ ضمن امتداد جهاز: فلترُ CSS يُرفع عن الـsvg (صنف dent-flat — ظلُّ خليةٍ على جارتها يرسم خطاً عند كل وصلة) وظلُّ ما فيه
+   يبقى بفلتر SVG على مجموعةٍ تضمّ محتواه الأصلي. تعريفُ الفلتر **داخل الـsvg نفسه** (لا بمخزنٍ مشترك): نسخةُ الطباعة ولقطةُ
+   المسودة تنسخان الـsvg وحده فتبقى إشارتُه صالحة. لونُ الظل من CSS (‎.dent-fxc) والسماتُ احتياطٌ للنسخة المستقلّة. */
+function dentFlatten(svg, occ, n) {
+  if (!svg || svg.classList.contains('dent-flat')) return;
+  svg.classList.add('dent-flat');
+  var kids = [], i, ch;
+  for (i = 0; i < svg.children.length; i++) {
+    ch = svg.children[i];
+    var tag = (ch.tagName || '').toLowerCase();
+    if (tag === 'defs' || tag === 'title' || (ch.classList && (ch.classList.contains('dent-layer') || ch.classList.contains('dent-clasp')))) continue;
+    kids.push(ch);
+  }
+  if (!kids.length) return;
+  var fid = (occ ? 'dfxo' : 'dfxf') + parseInt(n, 10);
+  var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  g.setAttribute('class', 'dent-fx'); g.setAttribute('filter', 'url(#' + fid + ')');
+  svg.insertBefore(g, kids[0]);
+  for (i = 0; i < kids.length; i++) g.appendChild(kids[i]);
+  svg.insertAdjacentHTML('afterbegin', '<defs class="dent-fxd"><filter id="' + fid + '" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">'
+    + '<feGaussianBlur in="SourceAlpha" stdDeviation="' + (occ ? 1.3 : 1.9) + '"/><feOffset dy="' + (occ ? 1.6 : 2.4) + '" result="b"/>'
+    + '<feFlood class="dent-fxc" flood-color="#000" flood-opacity=".15"/><feComposite in2="b" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>');
 }
 function dentBannerHtml(units) {
   return units.map(function (u) {
@@ -1091,8 +1412,16 @@ function dentBannerHtml(units) {
     var st = (u.st && u.st !== 'completed') ? ' · ' + escapeHtml((typeof STATUS_LABELS !== 'undefined' && STATUS_LABELS[u.st]) || u.st) : '';
     return '<span class="ortho-chip dent-chip" style="color:' + c.fill + ';' + (hex ? 'background:' + c.fill + '1a;border-color:' + c.fill + '55;' : '') + '">'
       + escapeHtml(dentUnitName(u)) + ' · ' + dentArchLabel(u.arch) + ' · ' + (full ? 'كامل' : dentTeethWord(u.teeth.length)) + st
-      + (dentOpenExtractions(u.teeth).length ? ' · فوري' : '') + escapeHtml(dentOptBadgeText(dentSessionOfUnit(u))) + '</span>';
+      + (dentOpenExtractions(u.teeth).length ? ' · فوري' : '') + escapeHtml(dentOptBadgeText(dentSessionOfUnit(u))) + dentClaspChip(u) + '</span>';
   }).join('');
+}
+/* v739: أسنانُ الضمّات بشريحة الجهاز — عقدةُ نصٍّ مستقلة (الفاصلُ من CSS) كي يبقى نصُّ الشريحة الأصلي كما يعرفه القاموس */
+function dentClaspChip(u) {
+  var cl = dentClasps(u);
+  return cl.length ? '<span class="dent-clasps">' + (cl.length === 1 ? 'ضمّة: ' : 'ضمّات: ') + cl.slice().sort(function (a, b) { return a - b; }).join('، ') + '</span>' : '';
+}
+function dentClaspTipRow(u) {
+  return '<div class="tip-row dent-tip-clasp"><span class="tip-dot" style="background:' + DENT_STEEL + '"></span><b>ضمّة:</b> ' + escapeHtml(dentUnitName(u)) + '</div>';
 }
 /* الزرعةُ المخطّطة على هذا السن وسمُها بالخطة يخالف وسمَ جلسة هذا الجهاز ⇒ هما بديلان لا تركيبٌ واحد */
 function dentImplantIsRival(n, u) {
@@ -1162,13 +1491,10 @@ function dentPaint() {
   if (bar && window.SyDentSvc) window.SyDentSvc.decorate(bar, units);   /* ج4-أ: الشريحةُ تفتح خدماتِ جهازها */
   dentPaintPendingTips(pend);
   units.forEach(function (u) {
-    var row = dentArchRow(u.arch);
-    var idx = u.teeth.map(function (t) { return row.indexOf(t); }).filter(function (i) { return i >= 0; });
-    if (!idx.length) return;
-    var lo = Math.min.apply(null, idx), hi = Math.max.apply(null, idx), mid = row.length / 2;
-    for (var i = lo; i <= hi; i++) {
-      var n = row[i], inUnit = u.teeth.indexOf(n) !== -1;
-      /* الصفُّ يُرسم من اليمين إلى اليسار: الجارُ السابق بالمصفوفة على اليمين، واللاحقُ على اليسار */
+    var clasps = dentClasps(u), cx = dentCtx(u, clasps), row = cx.row, uid = String(u.id || u.key);
+    if (cx.lo < 0) return;
+    for (var i = cx.lo; i <= cx.hi; i++) {
+      var n = row[i], inUnit = cx.has(n);
       var cell = document.querySelector('.tooth-cell[data-tooth-cell="' + n + '"]');
       var svg = cell ? cell.querySelector('svg.tooth-shape') : null;
       /* ج2-أ: السنُّ الصناعي يُرسم على شبح السن المقلوع؛ فوق دمية جسر (بديلٌ بالخطة) تُرسم القاعدةُ فقط.
@@ -1176,7 +1502,22 @@ function dentPaint() {
       var ghost = !!(cell && cell.classList.contains('extract-cell'));
       /* v721: زرعةٌ هي **بديلُ** الجهاز بالخطة (وسمان مختلفان) تبقى بتاجها والقاعدةُ وحدها فوقها — كدمية الجسر */
       var onImplant = !!(cell && cell.classList.contains('implant-cell')) && !dentImplantIsRival(n, u);
-      if (svg && !dentLayerOf(svg, u)) svg.insertAdjacentHTML('beforeend', dentFacialLayer(n, u, inUnit, i > lo, i < hi, i === mid, i === mid - 1, !(ghost || onImplant)));
+      if (svg && !dentLayerOf(svg, u)) {
+        cell.classList.add('dent-in');
+        dentFlatten(svg, false, n);
+        /* v739: داخل الجهاز الطبقةُ فوق الرسم؛ وعلى سنٍّ قائم ضمن الامتداد الواصلُ **خلف** السن (يُدرج قبل رسمه) */
+        svg.insertAdjacentHTML(inUnit ? 'beforeend' : 'afterbegin', dentFacialLayer(n, cx, inUnit, !(ghost || onImplant)));
+      }
+      var oc = document.querySelector('.occ-cell[data-occ-cell="' + n + '"]');
+      var osvg = oc ? oc.querySelector('svg.tooth-shape') : null;
+      var toothToo = inUnit && (ghost || onImplant);
+      /* v739: الجزئي يرسم قاعدتَه وصفيحتَه إطباقياً بكل خلايا امتداده؛ الكامل سنُّه الصناعي وحده كما كان (قرارُ المالك) */
+      if (osvg && (cx.partial || toothToo) && !dentLayerOf(osvg, u)) {
+        if (cx.partial) { oc.classList.add('dent-in'); dentFlatten(osvg, true, n); }
+        if (inUnit && onImplant) dentHideOccImplant(osvg);
+        var oh = dentOccLayer(n, cx, inUnit, toothToo);
+        if (oh) osvg.insertAdjacentHTML(toothToo ? 'beforeend' : 'afterbegin', oh);
+      }
       if (!inUnit) continue;
       if (onImplant && svg) dentHideImplantCrown(svg);
       /* v711 (قرارُ المالك 13/11/2026): السنُّ الذي يعوّضه الجهاز لا يحمل نقطةَ «موجود مسبقاً» الرمادية — 14 نقطةً فوق جهازٍ كامل
@@ -1190,15 +1531,24 @@ function dentPaint() {
         cell.setAttribute('title', (cell.getAttribute('title') || ('السن ' + n)) + ' · جهاز متحرك: ' + dentUnitName(u));
         cell.setAttribute('data-dent-title', '1');
       }
-      var oc = document.querySelector('.occ-cell[data-occ-cell="' + n + '"]');
-      var osvg = oc ? oc.querySelector('svg.tooth-shape') : null;
-      if ((ghost || onImplant) && osvg && !dentLayerOf(osvg, u)) {
-        if (onImplant) dentHideOccImplant(osvg);
-        osvg.insertAdjacentHTML('beforeend', dentOccLayer(n, u));
-      }
       var otip = oc ? oc.querySelector('.tooth-tip') : null;
       if (otip && !otip.querySelector('.dent-tip')) otip.insertAdjacentHTML('afterbegin', dentTipRow(u, n));
     }
+    /* v739: الضمّات — فوق السن الداعم بالمنظرين، وسطرٌ بتلميحه */
+    clasps.forEach(function (t) {
+      var ti = row.indexOf(t), best = null, bd = 99;
+      u.teeth.forEach(function (x) { var d = Math.abs(row.indexOf(x) - ti); if (d < bd) { bd = d; best = x; } });
+      var near = row.indexOf(best) > ti ? 'L' : 'R', adj = cx.has(cx.left(t)) || cx.has(cx.right(t));
+      var has = function (sv) { var gs = sv.querySelectorAll('g.dent-clasp'); for (var k = 0; k < gs.length; k++) { if (gs[k].getAttribute('data-dent-unit') === uid) return true; } return false; };
+      var fc = document.querySelector('.tooth-cell[data-tooth-cell="' + t + '"]'), fs = fc ? fc.querySelector('svg.tooth-shape') : null;
+      if (fs && !has(fs)) fs.insertAdjacentHTML('beforeend', dentLayerHtml(u, 'dent-clasp', dentClaspFacial(t, cx, near, adj, u.st), u.arch === 'U' ? 'translate(0,210) scale(1,-1)' : ''));
+      var occ = document.querySelector('.occ-cell[data-occ-cell="' + t + '"]'), os = occ ? occ.querySelector('svg.tooth-shape') : null;
+      if (os && !has(os)) os.insertAdjacentHTML('beforeend', dentLayerHtml(u, 'dent-clasp', dentClaspOcc(t, cx, near, adj, u.st), ''));
+      [fc, occ].forEach(function (cl) {
+        var tp = cl ? cl.querySelector('.tooth-tip') : null;
+        if (tp && !tp.querySelector('.dent-tip-clasp')) tp.insertAdjacentHTML('beforeend', dentClaspTipRow(u));
+      });
+    });
   });
 }
 
@@ -1218,5 +1568,7 @@ window.SyDenture = {
   restoreMissing: dentRestoreMissing,
   onFixedSessionSaved: dentOnFixedSessionSaved, settlePending: dentSettlePending, pendingSessions: dentPendingSessions,
   paint: dentPaint,
+  /* v739 (M209): الضمّات */
+  isPartialUnit: dentIsPartialUnit, clasps: dentClasps, claspAuto: dentClaspAuto, claspOk: dentClaspOk, claspIsAuto: dentClaspIsAuto, claspSave: dentClaspSave, claspToggle: dentClaspToggle,
   map: function () { return dentureMap; }
 };

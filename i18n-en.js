@@ -3375,7 +3375,9 @@ Object.assign(window.SyI18nDict, {
   var SWHY = {
     'ضمن الجهاز': 'part of the denture', 'يعوّضه جهاز آخر': 'replaced by another denture',
     'قلعه مخطّط — يُضاف مخطّطاً': 'extraction planned — added as planned',
-    'عليه زرعة أو جسر مخطّط': 'has a planned implant or bridge', 'لا يقبل الإضافة': 'cannot be added'
+    'عليه زرعة أو جسر مخطّط': 'has a planned implant or bridge', 'لا يقبل الإضافة': 'cannot be added',
+    /* v739 (M209): سنٌّ لا يحمل ضمّة */
+    'لا يحمل ضمّة (مفقود أو مزروع أو قلعه مخطّط)': 'cannot carry a clasp (missing, implant or planned extraction)'
   };
   var SWHY_RE = '(' + Object.keys(SWHY).map(esc).join('|') + ')';
   var R = function (src) { return new RegExp(src); };
@@ -3398,7 +3400,13 @@ Object.assign(window.SyI18nDict, {
     '🔒 حسابك غير نشط — لا يمكن تسجيل جلسات جديدة': '🔒 Your account is inactive — new sessions cannot be recorded',
     /* صفحةُ العلاجات: بلاطتا «يطبَّق على» وشريحتا الفلتر وشارةُ البطاقة */
     'إضافة سن لجهاز': 'Add tooth to denture', 'تبطين · إصلاح · تعديل': 'Reline · repair · adjustment', 'للجهاز الجزئي فقط': 'Partial dentures only',
-    '🦷 خدمة جهاز': '🦷 Denture service', '🦷 إضافة سن لجهاز': '🦷 Add tooth to denture'
+    '🦷 خدمة جهاز': '🦷 Denture service', '🦷 إضافة سن لجهاز': '🦷 Add tooth to denture',
+    /* v739 (M209): الضمّات — شريحةُ الجهاز · تلميحُ السن الداعم · قسمُها بنافذة الجهاز */
+    'الضمّات': 'Clasps', 'ضمّة:': 'Clasp:',
+    'مقترحة تلقائياً على الأسنان المجاورة للفراغ — انقر السن لإضافة ضمّة أو إلغائها.': 'Suggested automatically on the teeth next to the gap — click a tooth to add or remove a clasp.',
+    'قائمة الطبيب — انقر السن لإضافة ضمّة أو إلغائها.': 'The dentist\'s own list — click a tooth to add or remove a clasp.',
+    '↺ الاقتراح التلقائي': '↺ Automatic suggestion',
+    'الضمّات وخدمات الجهاز: تبطين · إصلاح · إضافة سن': 'Clasps and denture services: reline · repair · add a tooth'
   });
 
   P.push(
@@ -3414,6 +3422,9 @@ Object.assign(window.SyI18nDict, {
     [/^«(.+)»: اختر السن الذي يُضاف للجهاز — المفقود وحده يقبل الإضافة\.$/, '«$1»: choose the tooth to add to the denture — only a missing tooth can be added.'],
     /* السنُّ المضاف بسطر السجل */
     [R('^' + TP + '$'), function (m, t) { return cap(tp(t)); }],
+    /* v739 (M209): أسنانُ الضمّات بشريحة الجهاز (عقدةُ نصٍّ مستقلة) ورسالةُ تعذّر الحفظ */
+    [/^(ضمّة|ضمّات): (\d+(?:، \d+)*)$/, function (m, k, l) { return (k === 'ضمّة' ? 'Clasp: ' : 'Clasps: ') + nums(l); }],
+    [/^❌ تعذّر حفظ الضمّات: ([\s\S]+)$/, function (m, e) { return '❌ Could not save the clasps: ' + (e === 'خطأ بالاتصال' ? 'connection error' : e); }],
     /* عنوانُ خطوة التكلفة */
     [R('^🛠 (.+) — (.+) \\((' + A1 + ')\\)(?: — إضافة ' + TP + ')?$'), function (m, l, n, a, t) { return '🛠 ' + l + ' — ' + n + ' (' + area1(a) + ')' + (t ? ' — adding ' + tp(t) : ''); }],
     /* رسائلُ الحفظ */

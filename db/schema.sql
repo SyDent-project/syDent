@@ -2944,12 +2944,18 @@ CREATE TABLE IF NOT EXISTS "public"."teeth_status" (
     "provider_id" "uuid",
     "review_at" "date",
     "unit_id" "uuid",
+    "denture_clasps" "text",
+    CONSTRAINT "teeth_status_denture_clasps_format" CHECK ((("denture_clasps" IS NULL) OR (("surface" = 'DENTURE'::"text") AND ("denture_clasps" ~ '^([1-4][1-8](,[1-4][1-8]){0,15})?$'::"text")))),
     CONSTRAINT "teeth_status_status_check" CHECK (("status" = ANY (ARRAY['planned'::"text", 'completed'::"text", 'existing_current'::"text", 'existing_other'::"text", 'referred'::"text", 'condition'::"text"]))),
     CONSTRAINT "teeth_status_surface_check" CHECK (((("surface" ~ '^M?[OI]?D?B?L?V?$'::"text") AND ("surface" <> ''::"text")) OR ("surface" = ANY (ARRAY['WHOLE'::"text", 'PONTIC'::"text", 'CROWN_FULL'::"text", 'BRIDGE'::"text", 'SPACER'::"text", 'SOCKET'::"text", 'DENTURE'::"text", 'COND'::"text", 'R1'::"text", 'R2'::"text", 'R3'::"text", 'R1R2'::"text", 'R1R3'::"text", 'R2R3'::"text", 'R1R2R3'::"text"]))))
 );
 
 
 ALTER TABLE "public"."teeth_status" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."teeth_status"."denture_clasps" IS 'ضمّات الجهاز المتحرك الجزئي على صفوف وحدته (surface = DENTURE): NULL = اقتراح تلقائي من المخطط · نص فارغ = بلا ضمّات · «13,17» = أسنان الضمّات (FDI تصاعدياً). عرضيٌّ بحت: لا يدخل أي حساب مالي.';
+
 
 
 COMMENT ON COLUMN "public"."teeth_status"."review_at" IS 'Scheduled follow-up date for status=''condition'' rows (مراقبة). Cleared (null) when the surface is re-saved with any other status.';
