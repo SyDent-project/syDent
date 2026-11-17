@@ -366,6 +366,7 @@ async function loadTreatmentsFromSupabase() {
       return { id:t.treatment_key, dbId:t.id, name:t.name, label:t.label,
                fill:_sanHex(t.fill), stroke:_sanHex(t.stroke), price:t.price, builtin:t.builtin, is_favorite:!!t.is_favorite,
                needs_lab: !!t.needs_lab,
+               multi_visit: (t.multi_visit === true || t.multi_visit === false) ? t.multi_visit : null,   /* M210: قرارُ العيادة؛ null = افتراضُ التصنيف (fuMultiVisit) */
                target_part: t.target_part || 'crown',
                denture_svc: (t.denture_svc === 'service' || t.denture_svc === 'add') ? t.denture_svc : '',   /* M208: خدمةُ جهازٍ متحرك */
                is_active: t.is_active !== false,

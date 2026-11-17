@@ -4709,6 +4709,7 @@ function pickStatus(s) {
   }
   /* v712: مودالُ «تطبيق» بالتحديد المتعدد يتبع الحالة — «موجود مسبقاً» توثيقٌ لا جلسة */
   if (window.__batchMode === true && typeof batchDocUi === 'function') batchDocUi();
+  if (typeof fuNeedSync === 'function') fuNeedSync(false);   /* M211: «يحتاج جلسات متابعة» للمنجز وحده */
 }
 
 /* ── Composite surface chips (multi-select) ──────────────────────────────────
@@ -6187,6 +6188,7 @@ function proceedToRegionalStep2(status, label) {
     if (b.getAttribute('data-status') === 'completed') b.classList.add('selected');
     else b.classList.remove('selected');
   });
+  if (typeof fuNeedSync === 'function') fuNeedSync(true);   /* M211 */
   // Defensive cost field reset (mirrors Feature F's modal init logic)
   var costEl = document.getElementById('toothCost');
   if (costEl) {
@@ -6455,6 +6457,7 @@ function pickToothTreatment(status, label) {
     if (b.getAttribute('data-status') === 'completed') b.classList.add('selected');
     else b.classList.remove('selected');
   });
+  if (typeof fuNeedSync === 'function') fuNeedSync(true);   /* M211 */
   // Phase 3 Feature F: defensively reset cost field's readonly state in case the
   // previous modal session set it to readonly (e.g. user picked 'مراقبة' last time).
   // A: also hide the review-date box + reset its default (status resets to 'completed').
@@ -6817,7 +6820,9 @@ async function saveBatchAndOpenLab() {
   finally { _batchOpenLabAfterSave = false; }
 }
 
-var saveToothTreatment = ppGuarded('saveToothTreatment', _saveToothTreatment_inner, 'جارٍ الحفظ…');   /* v284: قفل + انشغال */
+var saveToothTreatment = ppGuarded('saveToothTreatment', function () {   /* v284: قفل + انشغال · M211: «يحتاج جلسات متابعة» يُغلّف الحفظ من الخارج */
+  return (typeof fuNeedRun === 'function') ? fuNeedRun(_saveToothTreatment_inner, this, arguments) : _saveToothTreatment_inner.apply(this, arguments);
+}, 'جارٍ الحفظ…');
 async function _saveToothTreatment_inner() {
   // Phase 4.1: defense-in-depth — block if locked doctor is inactive
   if (window.SyDentLock && window.SyDentLock.isDoctorAccountInactive && window.SyDentLock.isDoctorAccountInactive()) {

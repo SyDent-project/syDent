@@ -1259,6 +1259,13 @@
             <button type="button" class="status-opt" data-rev=""   onclick="pickReviewMonths(null)">بلا</button>
           </div>
         </div>
+        <!-- M211 (ج2-أ): «يحتاج جلسات متابعة» — للعلاج المنجز؛ قيمتُه الأولى من العلاج (fuNeedSync)، ويُطبَّق بعد الحفظ (fuNeedRun) -->
+        <div class="form-group fu-need" id="fuNeedBox" style="display:none;">
+          <label class="fu-need-row" for="fuNeed">
+            <input type="checkbox" id="fuNeed">
+            <span class="fu-need-txt"><b>🔁 يحتاج جلسات متابعة</b><span class="fu-need-s">يُسجَّل «قيد الإنجاز»، وتُضاف زياراته اللاحقة من «＋ متابعة» بلا تكلفة</span></span>
+          </label>
+        </div>
         <div class="form-group" id="providerPickerGroup" style="display:none;">
           <label>الطبيب المعالج</label>
           <select id="toothProvider" onchange="onProviderChange()" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-family:Cairo,sans-serif;font-size:14px;"></select>
@@ -2268,9 +2275,12 @@ if (IS_DEMO) (function installDemoSandbox(){
     var fid = args && (name === 'session_followup_add' ? args.p_parent : args.p_session);
     var fb = rows('ledger_sessions').filter(function(r){ return String(r.id) === String(fid); })[0];
     if (!fb || fb.parent_id || (fb.status || 'completed') !== 'completed') return bad;
-    if (name === 'session_followup_set_state'){
-      if ((args.p_state !== 'open' && args.p_state !== 'closed') || !rows('ledger_sessions').some(function(r){ return r.parent_id === fb.id; })) return bad;
-      fb.followup_state = args.p_state;
+    if (name === 'session_followup_set_state'){   /* M211: open بلا متابعات · closed يشترطها · null يمسح أساسيةً بلا متابعات */
+      var fk = rows('ledger_sessions').some(function(r){ return r.parent_id === fb.id; });
+      if (args.p_state != null && args.p_state !== 'open' && args.p_state !== 'closed') return { data:null, error:{ code:'P0001', message:'followup_state_invalid' } };
+      if (args.p_state === 'closed' && !fk) return bad;
+      if (args.p_state == null && fk) return { data:null, error:{ code:'P0001', message:'followup_base_has_children' } };
+      fb.followup_state = args.p_state == null ? null : args.p_state;
       return { data:{ id: fb.id, state: fb.followup_state }, error:null };
     }
     if (!args.p_date || (fb.date && String(args.p_date) < String(fb.date).slice(0, 10))) return { data:null, error:{ code:'P0001', message:'followup_date_invalid' } };

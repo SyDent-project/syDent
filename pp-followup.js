@@ -157,6 +157,8 @@ function fuStateBadge(s) {
   var st = fuState(s);
   if (!st) return '';
   var n = fuChildren(s.id).length;
+  if (st === 'open' && !n)   /* M211: «يحتاج جلسات متابعة» عند التسجيل — قيد الإنجاز قبل أول متابعة؛ الضغطُ يلغي الحاجة */
+    return '<button type="button" class="sess-chip cbadge tone tone-orange fu-state" onclick="fuSetState(\'' + s.id + '\',\'none\')" title="العلاج يحتاج جلسات متابعة — اضغط إن لم يعد يحتاجها">قيد الإنجاز</button>';
   return st === 'open'
     ? '<button type="button" class="sess-chip cbadge tone tone-orange fu-state" onclick="fuSetState(\'' + s.id + '\',\'closed\')" title="العلاج قيد الإنجاز — اضغط عند اكتماله">قيد الإنجاز · ' + n + '</button>'
     : '<button type="button" class="sess-chip cbadge tone tone-green fu-state" onclick="fuSetState(\'' + s.id + '\',\'open\')" title="اكتمل العلاج — اضغط لإعادة فتحه">اكتمل · ' + n + '</button>';
@@ -343,7 +345,8 @@ async function fuSetState(baseId, state) {
 var _fuSetStateRun = (typeof ppGuarded === 'function') ? ppGuarded('fuSetState', _fuSetState_inner, 'جارٍ الحفظ…') : _fuSetState_inner;
 async function _fuSetState_inner(baseId, state) {
   var base = fuList().filter(function (s) { return s && s.id === baseId; })[0];
-  if (!base || fuIsChild(base) || (state !== 'open' && state !== 'closed')) return;
+  if (!base || fuIsChild(base) || (state !== 'open' && state !== 'closed' && state !== 'none')) return;
+  if (state === 'none') return fuClearNeed(base);
   var closing = state === 'closed';
   if (!await SyDialog.confirm({
     title: closing ? 'اكتمال العلاج' : 'إعادة فتح العلاج',
@@ -362,6 +365,76 @@ async function _fuSetState_inner(baseId, state) {
   }
   fuRerender();
   showToast(closing ? '✅ اكتمل العلاج' : '✅ أُعيد فتح العلاج');
+}
+
+/* M211: «لا يحتاج متابعة» — أساسيةٌ بلا متابعات تعود جلسةً عادية (القاعدةُ ترفضها إن صارت لها متابعات) */
+async function fuClearNeed(base) {
+  if (fuChildren(base.id).length) return;
+  if (!await SyDialog.confirm({
+    title: 'لا يحتاج متابعة', message: 'إلغاء «قيد الإنجاز» عن هذا العلاج؟ يبقى مسجّلاً كجلسةٍ منجزة عادية، ويمكن إضافة متابعةٍ له لاحقاً.',
+    confirmText: 'لا يحتاج متابعة', danger: false
+  })) return;
+  var res = await window.sb.rpc('session_followup_set_state', { p_session: base.id, p_state: null });
+  if (res.error || !res.data) { console.warn('followup clear failed:', res.error); showToast('⚠️ تعذّر تغيير حالة العلاج'); return; }
+  base.followup_state = null;
+  if (window.logAudit) {
+    window.logAudit('session.edit', {
+      entityId: base.id, patientId: patientId, patientName: (patient && patient.name) || '',
+      description: 'لا يحتاج متابعة: ' + fuBaseLabel(base), newValue: { followup_state: null }
+    });
+  }
+  fuRerender();
+  showToast('✅ العلاج لا يحتاج متابعة');
+}
+
+/* ── (٦) «يحتاج جلسات متابعة» بنافذة العلاج (ج2-أ · M211) ──────────────────
+   المفتاحُ يظهر للعلاج المنجز بنافذة السن، وقيمتُه الأولى من العلاج نفسه (fuMultiVisit: قرارُ العيادة أو افتراضُ التصنيف).
+   الحفظُ نفسُه لا يتغيّر (كلُّ فروعه كما هي): يُغلَّف من الخارج — لقطةٌ للجلسات قبله، وبعده تُعلَّم الجلساتُ المنجزةُ الجديدة
+   «قيد الإنجاز» (واحدةٌ لكل وحدة جسر/جهاز). فشلُ التعليم لا يمسّ الجلسة المحفوظة. */
+function fuNeedSync(reset) {
+  var box = document.getElementById('fuNeedBox'), cb = document.getElementById('fuNeed');
+  if (!box || !cb) return;
+  var key = (typeof pendingToothStatus !== 'undefined') ? pendingToothStatus : null;
+  var t = (key && typeof getTreatment === 'function') ? getTreatment(key) : null;
+  var st = (typeof pendingTreatStatus !== 'undefined') ? pendingTreatStatus : '';
+  var cond = (typeof isConditionKey === 'function') && isConditionKey(key);
+  box.style.display = (t && st === 'completed' && !cond) ? '' : 'none';
+  if (reset || cb.getAttribute('data-key') !== String(key)) { cb.checked = fuMultiVisit(t); cb.setAttribute('data-key', String(key)); }
+}
+function fuNeedWanted() {
+  var box = document.getElementById('fuNeedBox'), cb = document.getElementById('fuNeed');
+  return !!(box && cb && box.style.display !== 'none' && cb.checked);
+}
+/* الجلساتُ المنجزةُ الجديدة منذ اللقطة — الأولى من كل وحدة (جسر/جهاز بصفوفٍ متعدّدة = علاجٌ واحد) */
+function fuNewBases(before) {
+  var seen = {}, out = [];
+  fuList().forEach(function (s) {
+    if (!s || !s.id || before[s.id] || fuIsChild(s) || fuIsFee(s) || fuState(s)) return;
+    if ((s.status || 'completed') !== 'completed') return;
+    var g = s.unit_id || s.denture_unit || s.id;
+    if (seen[g]) return;
+    seen[g] = 1; out.push(s);
+  });
+  return out;
+}
+async function fuMarkNeed(before) {
+  var list = fuNewBases(before), ok = 0;
+  for (var i = 0; i < list.length; i++) {
+    var res = await window.sb.rpc('session_followup_set_state', { p_session: list[i].id, p_state: 'open' });
+    if (res && !res.error && res.data) { list[i].followup_state = 'open'; ok++; }
+    else console.warn('followup need failed:', res && res.error);
+  }
+  if (!list.length) return;
+  fuRerender();
+  showToast(ok === list.length ? '🔁 العلاج قيد الإنجاز — سجّل زياراته اللاحقة من «＋ متابعة»' : '⚠️ حُفظت الجلسة، وتعذّر تعليمها «قيد الإنجاز» — علّمها من «＋ متابعة»');
+}
+/* يُغلّف حفظ نافذة السن (saveToothTreatment · saveToothAndOpenLab) */
+async function fuNeedRun(inner, self, args) {
+  var want = fuNeedWanted(), before = {};
+  if (want) fuList().forEach(function (s) { if (s && s.id) before[s.id] = 1; });
+  var r = await inner.apply(self, args);
+  if (want) { try { await fuMarkNeed(before); } catch (e) { console.warn('followup need failed:', e); } }
+  return r;
 }
 
 function fuRerender() {

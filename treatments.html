@@ -518,6 +518,16 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
             <span class="lab-toggle-switch"><input type="checkbox" id="tNeedsLab"><span class="lab-toggle-slider"></span></span>
           </label>
         </div>
+        <!-- M210/M211 (ج2-أ): «يحتاج جلسات متابعة» — treatments.multi_visit (NULL = افتراضُ التصنيف) · مخفيٌّ حتى يوجد العمود -->
+        <div class="form-group" id="multiVisitWrap" style="display:none;">
+          <label class="tgl">
+            <span class="tgl-txt">
+              <span class="tgl-t">يحتاج جلسات متابعة</span>
+              <span class="tgl-s">علاجٌ يمتدّ على أكثر من زيارة: يُسجَّل «قيد الإنجاز»، وتُضاف زياراته اللاحقة من «＋ متابعة» بلا تكلفة.</span>
+            </span>
+            <span class="lab-toggle-switch"><input type="checkbox" id="tMultiVisit"><span class="lab-toggle-slider"></span></span>
+          </label>
+        </div>
         <!-- M161: مدّةُ المخبر المعتادة — مصدرُ الاستحقاق التلقائي بطلب المخبر (lab-due.js)؛ تظهر مع «يحتاج مخبر» -->
         <div class="form-group" id="tLabDaysGroup" hidden>
           <label for="tLabDays">مدّة المخبر المعتادة <span class="opt">أيام دوام · اختياري</span></label>
@@ -660,6 +670,10 @@ async function loadTreatments() {
   // M208 detection: denture_svc — نفس عقد «انشر قبل الهجرة».
   window.__m208T = !!(data && data.length && Object.prototype.hasOwnProperty.call(data[0], 'denture_svc'));
   syncDentSvcTiles();
+  // M210 detection: multi_visit — نفس عقد «انشر قبل الهجرة».
+  window.__m210T = !!(data && data.length && Object.prototype.hasOwnProperty.call(data[0], 'multi_visit'));
+  var _mvW = document.getElementById('multiVisitWrap');
+  if (_mvW) _mvW.style.display = window.__m210T ? '' : 'none';
   // M151 detection: accepts_units — نفس عقد «انشر قبل الهجرة».
   window.__m151T = !!(data && data.length && Object.prototype.hasOwnProperty.call(data[0], 'accepts_units'));
   var _auW = document.getElementById('acceptsUnitsWrap');
@@ -693,6 +707,7 @@ async function loadTreatments() {
       accepts_units: !!t.accepts_units,   /* M151 */
       is_favorite: !!t.is_favorite,
       needs_lab: !!t.needs_lab,
+      multi_visit: (t.multi_visit === true || t.multi_visit === false) ? t.multi_visit : null,   /* M210: null = افتراضُ التصنيف */
       lab_days: (t.lab_days >= 1 && t.lab_days <= 60) ? Number(t.lab_days) : null,   /* M161 */
       target_part: t.target_part || 'crown',
       sort_order: t.sort_order,
@@ -908,6 +923,7 @@ function render() {
     var bg = t.fill, fg = t.stroke;
     var iconBg = 'background:' + bg + ';';
     var bar = 'background:' + bg + ';';
+    var mvTag = (window.__m210T && multiVisitOf(t)) ? '<span class="treat-lab-tag treat-mv-tag" title="يحتاج جلسات متابعة">🔁 متعدد الجلسات</span>' : '';   /* M210 */
     var labTag = t.needs_lab ? '<span class="treat-lab-tag">🥽 مخبر' + (t.lab_days ? ' · ' + t.lab_days + ' ' + (t.lab_days <= 10 && t.lab_days > 2 ? 'أيام' : 'يوم') : '') + '</span>' : '';   /* M161 */
     var targetMap = {   // v367: unified tones (theme.css) — same look as every other status chip
       'crown':      { text:'سطح تاج',     tone:'yellow' },
@@ -952,7 +968,7 @@ function render() {
           + '<div class="treat-swatch" style="' + iconBg + 'border:2px solid ' + fg + ';"></div>'
           + '<div class="treat-head-main">'
             + '<div class="treat-name">' + escapeHtml(t.name) + '</div>'
-            + '<div class="treat-tags">' + labTag + ' ' + targetTag + ' ' + catTag + ' ' + dentTag + ' ' + inactiveBadge + '</div>'
+            + '<div class="treat-tags">' + labTag + ' ' + mvTag + ' ' + targetTag + ' ' + catTag + ' ' + dentTag + ' ' + inactiveBadge + '</div>'
             + laymanRow
           + '</div>'
           + favStar
@@ -1024,6 +1040,27 @@ var LAB_DEFAULTS_BY_CATEGORY = {
 // True once the user toggles the lab checkbox themselves; we then stop
 // overriding it on category change. Reset at every modal open.
 var userTouchedLabToggle = false;
+
+/* M210/M211 (ج2-أ): «يحتاج جلسات متابعة» — treatments.multi_visit: true/false قرارُ العيادة · null = افتراضُ التصنيف.
+   FU_MULTI_CATS وfuMultiVisitDefault مرآةٌ بايت-بايت لـpp-followup.js (قرار المالك ٣ — 17/11/2026؛ prove-followup يحرس التطابق).
+   الحفظُ يكتب القيمة الصريحة إذا لمس المستخدمُ المفتاح وحده؛ غيرُ الملموس يبقى كما خُزّن (null يتبع التصنيف). */
+var FU_MULTI_CATS = { endodontics: 1, prosthodontics: 1, prosth_cosmetic: 1, prosth_removable: 1, implantology: 1, orthodontics: 1 };
+function fuMultiVisitDefault(t) {
+  return !!t && !t.denture_svc && FU_MULTI_CATS[String(t.category || '')] === 1;
+}
+function multiVisitOf(t) {
+  if (!t) return false;
+  return (t.multi_visit === true || t.multi_visit === false) ? t.multi_visit : fuMultiVisitDefault(t);
+}
+var userTouchedMultiVisit = false, _mvStored = null;
+function syncMultiVisit() {
+  var cb = document.getElementById('tMultiVisit');
+  if (!cb || userTouchedMultiVisit) return;
+  if (_mvStored === true || _mvStored === false) { cb.checked = _mvStored; return; }
+  var cat = (document.getElementById('tCategory') || {}).value || 'other';
+  cb.checked = fuMultiVisitDefault({ category: cat, denture_svc: dbTargetOf(pickedTarget).denture_svc });
+}
+function openMultiVisit(t) { _mvStored = (t && (t.multi_visit === true || t.multi_visit === false)) ? t.multi_visit : null; userTouchedMultiVisit = false; syncMultiVisit(); }
 
 // ── Smart "يطبق على" default by category (mirror of the lab pattern above) ──
 // Clear-cut categories only; pediatric/other are mixed → no default (absent keys no-op).
@@ -1238,6 +1275,7 @@ function openAddModal() {
   setTargetLock(false);   // add = new treatment, target fully editable
   renderOverrideRows({});
   updatePreview();
+  openMultiVisit(null);   /* M210 */
   openModal();
 }
 
@@ -1282,6 +1320,7 @@ function editTreatment(id) {
   setTargetLock(isProtectedTreatment(t));   // chart-geometry treatments: target is fixed
   renderOverrideRows(t.price_overrides || {});
   updatePreview();
+  openMultiVisit(t);   /* M210 */
   openModal();
 }
 
@@ -1293,6 +1332,7 @@ function pickTarget(target) {
     if (o.getAttribute('data-target') === target) o.classList.add('selected');
     else o.classList.remove('selected');
   }
+  syncMultiVisit();   /* M210: خدمةُ الجهاز ليست متعددة الجلسات افتراضياً */
 }
 /* M208: خدمةُ الجهاز بالواجهة «نوعُ تطبيق» بلاطتُه الخاصة، وبالقاعدة علاجُ فكٍّ موسوم — مصدرٌ واحد للتحويل بالاتجاهين.
    (لا قيمةَ جديدة بـtarget_part: كلُّ شاشةٍ أخرى تعامل المجهول «سطحَ تاج».) */
@@ -1360,6 +1400,7 @@ function duplicateTreatment(id) {
   setTargetLock(false);   // duplicate = new custom treatment, target fully editable
   updatePreview();
   renderOverrideRows(t.price_overrides || {});
+  openMultiVisit(t);   /* M210 */
   openModal();
   /* M125: النسخة ترث عملة المصدر (openModal يركّب المبدّل بعملة العيادة لأن editingId=null) */
   try { window.SyDentCurPick.set('tPrice', (t.currency === 'USD') ? 'USD' : 'SYP'); } catch (e) {}
@@ -1744,6 +1785,7 @@ async function _saveTreatment_inner() {
       if (window.__m146T) updatePayload.dentition_scope = dentScope;  // M146-gated
       if (window.__m208T) updatePayload.denture_svc = _savedDb.denture_svc;  // M208-gated
       if (window.__m151T) updatePayload.accepts_units = acceptsUnits;  // M151-gated
+      if (window.__m210T) updatePayload.multi_visit = userTouchedMultiVisit ? document.getElementById('tMultiVisit').checked : _mvStored;  // M210-gated: غيرُ الملموس كما خُزّن
       var updRes = await window.sb
         .from('treatments')
         .update(updatePayload)
@@ -1821,6 +1863,7 @@ async function _saveTreatment_inner() {
       if (window.__m146T) insertPayload.dentition_scope = dentScope;  // M146-gated
       if (window.__m208T) insertPayload.denture_svc = dbTargetOf(pickedTarget).denture_svc;  // M208-gated
       if (window.__m151T) insertPayload.accepts_units = acceptsUnits;  // M151-gated
+      if (window.__m210T) insertPayload.multi_visit = userTouchedMultiVisit ? document.getElementById('tMultiVisit').checked : _mvStored;  // M210-gated: الجديدُ غيرُ الملموس null (يتبع التصنيف)
       var insRes = await window.sb
         .from('treatments')
         .insert(insertPayload);
@@ -1942,6 +1985,8 @@ document.getElementById('tNeedsLab').addEventListener('change', function() {
   userTouchedLabToggle = true;
   syncLabDaysVisibility();   /* M161 */
 });
+document.getElementById('tCategory').addEventListener('change', syncMultiVisit);   /* M210 */
+document.getElementById('tMultiVisit').addEventListener('change', function() { userTouchedMultiVisit = true; });
 
 // Search input
 var searchInputEl = document.getElementById('treatSearch');
