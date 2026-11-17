@@ -772,7 +772,7 @@
       <div class="nse-alt">
         <button type="button" class="topt" onclick="nseRegional()">🦷 علاج جماعي (ربع / فك / فم / جهاز متحرك)</button>
         <button type="button" class="topt" onclick="nseFree()">📝 جلسة بلا سن (استشارة · أشعة · أخرى)</button>
-        <button type="button" class="topt" onclick="fuOpenPicker()">↪ جلسة متابعة (استكمال علاج سابق — بلا تكلفة)</button>   <!-- M210 -->
+        <button type="button" class="topt" onclick="fuOpenPicker()">🔗 جلسة متابعة (استكمال علاج سابق — بلا تكلفة)</button>   <!-- M210 -->
       </div>
     </div>
   </div>
@@ -2260,6 +2260,36 @@ if (IS_DEMO) (function installDemoSandbox(){
   };
   var _idc = 0;
   function rows(t){ if (!DB[t]) DB[t] = []; return DB[t]; }
+  /* M210: جلساتُ المتابعة بالبطاقة التجريبية — مرآةُ دلالة القاعدة بالذاكرة (migrations/210_followup_sessions.sql):
+     الأساسيةُ منجزة وليست متابعة · صفُّ المتابعة cost = 0 وبلا موضع · الحالةُ على الأساسية · الحذفُ يسحب المتابعات
+     وآخرُ متابعةٍ تُحذف تعيد الأساسية عادية. */
+  function demoFollowupRpc(name, args){
+    var bad = { data:null, error:{ code:'P0001', message:'followup_base_invalid' } };
+    var fid = args && (name === 'session_followup_add' ? args.p_parent : args.p_session);
+    var fb = rows('ledger_sessions').filter(function(r){ return String(r.id) === String(fid); })[0];
+    if (!fb || fb.parent_id || (fb.status || 'completed') !== 'completed') return bad;
+    if (name === 'session_followup_set_state'){
+      if ((args.p_state !== 'open' && args.p_state !== 'closed') || !rows('ledger_sessions').some(function(r){ return r.parent_id === fb.id; })) return bad;
+      fb.followup_state = args.p_state;
+      return { data:{ id: fb.id, state: fb.followup_state }, error:null };
+    }
+    if (!args.p_date || (fb.date && String(args.p_date) < String(fb.date).slice(0, 10))) return { data:null, error:{ code:'P0001', message:'followup_date_invalid' } };
+    var fc = { id:'demo-x' + (++_idc), doctor_id: fb.doctor_id, patient_id: fb.patient_id, type:'متابعة — ' + (fb.type || 'علاج'),
+               description: args.p_step || null, cost:0, date: args.p_date, notes: args.p_notes || null, status:'completed',
+               provider_id: args.p_provider || fb.provider_id || null, appointment_id:null, treatment_key:null, tooth_num:null, surface:null,
+               currency: fb.currency, parent_id: fb.id, followup_state:null, created_at: new Date().toISOString() };
+    rows('ledger_sessions').push(fc);
+    fb.followup_state = args.p_close ? 'closed' : 'open';
+    return { data:{ session: Object.assign({}, fc), state: fb.followup_state }, error:null };
+  }
+  function demoFollowupAfterDelete(gone){
+    var ids = gone.map(function(r){ return r.id; });
+    DB.ledger_sessions = rows('ledger_sessions').filter(function(r){ return ids.indexOf(r.parent_id) === -1; });
+    gone.forEach(function(g){
+      if (!g.parent_id || rows('ledger_sessions').some(function(r){ return r.parent_id === g.parent_id; })) return;
+      rows('ledger_sessions').forEach(function(r){ if (r.id === g.parent_id) r.followup_state = null; });
+    });
+  }
   function passOwner(col){ return col === 'doctor_id' || col === 'owner_id'; }
   function match(row, f){
     if (f.op === 'eq')  return passOwner(f.col) ? true : String(row[f.col]) === String(f.val);
@@ -2305,6 +2335,7 @@ if (IS_DEMO) (function installDemoSandbox(){
       if (b._op === 'update'){ hit.forEach(function(r){ Object.assign(r, b._patch); }); return done(hit); }
       if (b._op === 'delete'){
         DB[b._t] = list.filter(function(r){ return hit.indexOf(r) === -1; });
+        if (b._t === 'ledger_sessions') demoFollowupAfterDelete(hit);   /* M210 */
         return done(hit);
       }
       // select
@@ -2453,6 +2484,7 @@ if (IS_DEMO) (function installDemoSandbox(){
       });
       return Promise.resolve({ data: ins, error: null });
     }
+    if (name === 'session_followup_add' || name === 'session_followup_set_state') return Promise.resolve(demoFollowupRpc(name, args || {}));   /* M210 */
     return Promise.resolve({ data: null, error: { code:'PGRST202', message:'function ' + name + ' not found (demo)' } });
   };
   real.functions = { invoke: function(){ return Promise.resolve({ data:null, error:{ message:'الميزات الذكية غير متاحة في البطاقة التجريبية' } }); } };

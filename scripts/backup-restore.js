@@ -6,7 +6,8 @@
    database (including ones edited after the backup) are left alone and only missing rows come
    back. User triggers of the table are switched off for the insert and back on in the same
    transaction (no audit rows, no updated_at rewrite, no signup seeding); foreign keys stay on,
-   so files run parent tables first. Photos and files are not in the backup; they live in Storage.
+   so files run parent tables first, and inside a table that points at itself (SELF_PARENT) the
+   rows pointed at come before the rows that point at them. Photos and files are not in the backup; they live in Storage.
 
    Each SQL file is self-contained: a pg_temp helper reads the target's own column types, so
    jsonb/array cells (written as JSON text) are parsed back, generated columns and columns the
@@ -120,6 +121,27 @@ begin
 end $f$;
 `;
 
+/* Tables whose rows point at other rows of the same table (table → column). The backup is read
+   ordered by id, so a row can sit in an earlier file than the row it points at; two files that
+   each hold a row the other one needs can then never be inserted in either order. parentsFirst
+   keeps the backup order and only moves each row after the row it points at.
+   prove-backup-restore checks this list against the self foreign keys in db/schema.sql. */
+const SELF_PARENT = { ledger_sessions: 'parent_id' };
+function parentsFirst(rows, col) {
+  const byId = new Map();
+  rows.forEach(r => { if (r.id !== null && r.id !== undefined) byId.set(String(r.id), r); });
+  const depth = new Map();
+  const d = (r, seen) => {
+    const k = String(r.id);
+    if (depth.has(k)) return depth.get(k);
+    const p = (r[col] === null || r[col] === undefined) ? null : byId.get(String(r[col]));
+    const v = (!p || p === r || seen.has(k)) ? 0 : d(p, seen.add(k)) + 1;
+    depth.set(k, v);
+    return v;
+  };
+  return rows.map((r, i) => [d(r, new Set()), i, r]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => x[2]);
+}
+
 /* Builds { compare, files: [{ name, sql, table, rows }], report } without touching the database. */
 function plan(backup, opts) {
   opts = opts || {};
@@ -129,7 +151,7 @@ function plan(backup, opts) {
   backup.tables.forEach(tb => {
     if (opts.only && opts.only.indexOf(tb.table) < 0) return;
     if (!tb.rows.length) return;
-    const rows = tb.rows.map(r => {
+    let rows = tb.rows.map(r => {
       const o = {};
       Object.keys(r).forEach(c => {
         let v = r[c];
@@ -139,6 +161,7 @@ function plan(backup, opts) {
       });
       return o;
     });
+    if (SELF_PARENT[tb.table]) rows = parentsFirst(rows, SELF_PARENT[tb.table]);
     if ('id' in rows[0]) {
       const ids = JSON.stringify(rows.map(r => r.id).filter(x => x !== null).map(String));
       const tag = quoteTag(ids);
@@ -178,4 +201,4 @@ function main() {
 if (require.main === module) {
   try { main(); } catch (e) { console.error('✗ ' + e.message); process.exit(1); }
 }
-module.exports = { loadXLSX, readBackup, plan, HELPERS, FORMAT };
+module.exports = { loadXLSX, readBackup, plan, HELPERS, FORMAT, SELF_PARENT, parentsFirst };

@@ -146,6 +146,7 @@ async function aiPatientSummary() {
       if (s.date) parts.push(s.date);
       if (s.type) parts.push(s.type);
       if (s.tooth_num !== null && s.tooth_num !== undefined && s.tooth_num !== '') parts.push((typeof sessionToothChipText === 'function') ? sessionToothChipText(s.tooth_num, s.surface) : 'سن ' + s.tooth_num);   /* v584 */
+      if (typeof fuAiParts === 'function') parts = parts.concat(fuAiParts(s));   /* M210: جلسةُ المتابعة بموضع أساسيتها وما تمّ فيها */
       if (s.status && s.status !== 'completed') parts.push('[' + s.status + ']');
       var line = '- ' + parts.join(' · ');
       if (s.notes) line += ' — ' + String(s.notes).slice(0, 200);
@@ -567,6 +568,7 @@ function _aiRefTreatmentLines() {
       if (s.date) parts.push(s.date);
       if (s.type) parts.push(s.type);
       if (s.tooth_num !== null && s.tooth_num !== undefined && s.tooth_num !== '') parts.push((typeof sessionToothChipText === 'function') ? sessionToothChipText(s.tooth_num, s.surface) : 'سن ' + s.tooth_num);   /* v584 */
+      if (typeof fuAiParts === 'function') parts = parts.concat(fuAiParts(s));   /* M210 */
       var line = '- ' + parts.join(' · ');
       if (s.notes) line += ' — ' + String(s.notes).slice(0, 150);
       var st = s.status || 'completed';

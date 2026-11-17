@@ -131,6 +131,14 @@ function fuBaseLabel(base) {
   var w = fuWhereText(base);
   return String(base.type || 'علاج') + (w ? ' — ' + w : '');
 }
+/* سطرُ المتابعة للمساعد الذكي (ملخّص المريض · كتاب الإحالة): موضعُ أساسيتها وما تمّ فيها — نصٌّ خام يُضاف لأجزاء السطر */
+function fuAiParts(s) {
+  if (!fuIsChild(s)) return [];
+  var out = [], w = fuWhereText(fuBaseOf(s));
+  if (w) out.push(w);
+  if (s.description) out.push(String(s.description).slice(0, 80));
+  return out;
+}
 function fuEsc(v) { return (typeof escapeHtml === 'function') ? escapeHtml(v) : String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
 function fuDate(d) { return (typeof fmtD === 'function') ? fmtD(d) : String(d || '').slice(0, 10); }
 
@@ -140,7 +148,7 @@ function fuChildView(s) {
   var base = fuBaseOf(s), n = fuIndex(s), w = base ? fuWhereText(base) : '';
   return {
     base: base,
-    type: '<span class="fu-tag" title="' + fuEsc(base ? 'جلسة متابعة لـ ' + fuBaseLabel(base) : 'جلسة متابعة') + '"><span class="fu-arrow" aria-hidden="true">↳</span> متابعة' + (n ? ' ' + n : '') + '</span>',
+    type: '<span class="fu-tag" title="' + fuEsc(base ? 'جلسة متابعة لـ ' + fuBaseLabel(base) : 'جلسة متابعة') + '"><span class="fu-arrow" aria-hidden="true"></span>متابعة' + (n ? ' ' + n : '') + '</span>',   /* الزاويةُ مرسومةٌ بالـCSS: تتبع اتجاه الصفحة ولا تتعلّق بخطّ الجهاز */
     where: w ? '<span class="sess-chip tone tone-gray">' + fuEsc(w) + '</span>' : ''
   };
 }
@@ -156,7 +164,7 @@ function fuStateBadge(s) {
 /* زرُّ «متابعة» بخانة الخطوة التالية (خانةُ «إكمال» للمخطّط — لا يجتمعان بصفٍّ واحد) */
 function fuRowButton(s, spanIf2) {
   if (!fuCanFollow(s)) return '';
-  return '<button class="sy-act" data-slot="1"' + (spanIf2 ? ' data-span-if="2"' : '') + ' data-test="pp-session-followup" data-en="↪ Follow-up" onclick="fuOpen(\'' + s.id + '\')" title="تسجيل جلسة متابعة لهذا العلاج — بلا تكلفة">↪ متابعة</button>';   /* data-en: «متابعة» وحدها بالقاموس = Continue */
+  return '<button class="sy-act" data-slot="1"' + (spanIf2 ? ' data-span-if="2"' : '') + ' data-test="pp-session-followup" data-en="＋ Follow-up" onclick="fuOpen(\'' + s.id + '\')" title="تسجيل جلسة متابعة لهذا العلاج — بلا تكلفة">＋ متابعة</button>';   /* «＋» بلا اتجاه (سهمٌ لليمين يُقرأ «رجوع» بالعربية) · data-en: «متابعة» وحدها بالقاموس = Continue */
 }
 
 /* ── (٤) النوافذ ─────────────────────────────────────────────────────────── */
@@ -267,6 +275,13 @@ async function _fuSave_inner() {
   sessions.unshift(child);
   if (typeof sortByDateDesc === 'function') sortByDateDesc(sessions);
   base.followup_state = res.data.state || (last ? 'closed' : 'open');
+  /* «آخر زيارة»: المتابعةُ زيارةٌ حصلت — كلُّ مسارات تسجيل الجلسة تحرّكها (saveSession · مودال السن · العلاج الجماعي · الجهاز).
+     فشلُها لا يمسّ الجلسة المحفوظة: يُسجَّل بالكونسول والقيمةُ المحلية تبقى كما بالقاعدة. */
+  if (typeof patient !== 'undefined' && patient && (!patient.last_visit || date > patient.last_visit)) {
+    var lv = await window.sb.from('patients').update({ last_visit: date }).eq('id', patientId).eq('doctor_id', currentUser.id);
+    if (lv && lv.error) console.warn('followup last_visit failed:', lv.error);
+    else patient.last_visit = date;
+  }
   if (window.logAudit) {
     window.logAudit('session.create', {
       entityId: child.id, patientId: patientId, patientName: (patient && patient.name) || '',
@@ -311,6 +326,7 @@ async function _fuSetState_inner(baseId, state) {
 }
 
 function fuRerender() {
+  if (typeof renderInfo === 'function') renderInfo();   /* «آخر زيارة» ببطاقة المعلومات */
   if (typeof renderSessions === 'function') renderSessions();
   if (typeof renderRecentSessions === 'function') renderRecentSessions();
   if (typeof renderTimeline === 'function') renderTimeline();

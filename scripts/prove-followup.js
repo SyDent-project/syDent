@@ -19,7 +19,7 @@ if (!jsdomOk) { console.warn('⚠️  jsdom غائبة — تخطّي مثبت �
 const { JSDOM, VirtualConsole } = require('jsdom');
 
 const FILES = ['pp-followup.js', 'patient-profile.html', 'patient-profile.css', 'pp-plan.js', 'pp-timeline.js', 'pp-core.js', 'pp-dental.js', 'supabase-init.js',
-  'provider-reports.html', 'rpt-treat.js', 'acc-daysheet.js', 'accounting.html', 'index.html', 'i18n-en.js', 'theme.js',
+  'provider-reports.html', 'rpt-treat.js', 'acc-daysheet.js', 'accounting.html', 'index.html', 'i18n-en.js', 'theme.js', 'pp-extras.js', 'guides.js',
   'migrations/210_followup_sessions.sql', 'db/schema.sql', 'scripts/db-bootstrap.py', 'scripts/cache-bust.sh', 'scripts/check-mirrors.js',
   'scripts/check-modal-behaviour.js', 'scripts/validate.sh', 'scripts/followup-db.sql'];
 const LIVE = {}; FILES.forEach(f => { LIVE[f] = fs.readFileSync(path.join(ROOT, f), 'utf8'); });
@@ -116,7 +116,7 @@ function page(F) {
   const entry = between(PP, '<div class="modal-overlay sy-m sy-m-md" id="newSessionEntryModal">', '<div class="modal-overlay sy-m sy-m-md" id="fuModal">', 'نافذة «جلسة جديدة»').replace(/<!--[\s\S]*?-->/g, '');
   const sydt = between(SI, 'window.SyDT = (function () {', '/* ═══ SySlots', 'SyDT'), slots = between(SI, 'window.SySlots = {', '/* ═══════════════ SyLive', 'SySlots');
   const stubs = `
-    window.__TOASTS = []; window.__RPC = []; window.__AUDIT = []; window.__DIALOGS = []; window.__confirm = true; window.__rpcFail = null; window.__ro = false; window.__tl = 0;
+    window.__TOASTS = []; window.__RPC = []; window.__AUDIT = []; window.__DIALOGS = []; window.__confirm = true; window.__rpcFail = null; window.__ro = false; window.__tl = 0; window.__ri = 0; window.__UPD = []; window.__updFail = null;
     var currentUser = { id: 'doc-1' }, patientId = 'pat-1', patient = { id: 'pat-1', name: 'Test Patient' };
     var sessions = [], payments = [], adjustments = [], paymentSplits = [];
     var TREATMENTS = ${JSON.stringify(TREATS)};
@@ -133,6 +133,7 @@ function page(F) {
     function openModal(id) { var e = document.getElementById(id); if (e) e.classList.add('open'); }
     function closeModal(id) { var e = document.getElementById(id); if (e) e.classList.remove('open'); }
     function renderTimeline() { window.__tl++; }
+    function renderInfo() { window.__ri++; }
     window.SyDentSub = { blockReadOnly: function () { return window.__ro; }, isReadOnly: function () { return window.__ro; } };
     window.SyDialog = { confirm: function (o) { window.__DIALOGS.push(o); return Promise.resolve(window.__confirm); } };
     window.logAudit = function (a, o) { window.__AUDIT.push({ action: a, o: o }); };
@@ -157,6 +158,11 @@ function page(F) {
       }
       return Promise.resolve({ data: null, error: { message: 'PGRST202 unknown function' } });
     } };
+    /* patients.update(...).eq().eq() — «آخر زيارة» بعد حفظ المتابعة */
+    window.sb.from = function (t) { return { update: function (v) { var q = { t: t, v: v, eq: [] }; var th = {
+      eq: function (c, x) { q.eq.push(c + '=' + x); return th; },
+      then: function (res, rej) { window.__UPD.push(q); return Promise.resolve({ data: null, error: window.__updFail ? { message: window.__updFail } : null }).then(res, rej); } }; return th; } }; };
+    window.__patient = function () { return patient; };
     window.__load = function (rows) { sessions = JSON.parse(JSON.stringify(rows)); window.__DB = JSON.parse(JSON.stringify(rows)); };
     window.__sessions = function () { return sessions; };
   `;
@@ -329,6 +335,69 @@ async function run(F) {
     ok(/\(parseFloat\(s\.cost\) \|\| 0\) > 0 && _rowCur\(s\) === _splitEditing\.cur/.test(extractFunction(PP, 'openSplitEditor')), 'the manual split editor never offers a zero-cost row');
   });
 
+  /* ═══ (٣-ب) مراجعة ج1: البطاقة التجريبية · المساعد الذكي · الدليل · الأسهم ═══ */
+  await guard('review', async () => {
+    const PP = F['patient-profile.html'], FU = F['pp-followup.js'], PX = F['pp-extras.js'], CSS = F['patient-profile.css'];
+    /* مرآةُ M210 بالبطاقة التجريبية — الدالّتان الحقيقيتان على مخزنٍ بالذاكرة */
+    const mk = list => { const c = { console, Date, Object, String, JSON }; vm.createContext(c);
+      vm.runInContext('var DB = { ledger_sessions: ' + JSON.stringify(list) + ' }, _idc = 0; function rows(t){ if (!DB[t]) DB[t] = []; return DB[t]; }\n'
+        + extractFunction(PP, 'demoFollowupRpc') + '\n' + extractFunction(PP, 'demoFollowupAfterDelete')
+        + '\nfunction del(id){ var hit = rows("ledger_sessions").filter(function(r){ return r.id === id; }); DB.ledger_sessions = rows("ledger_sessions").filter(function(r){ return r.id !== id; }); demoFollowupAfterDelete(hit); }', c);
+      return c; };
+    const D = mk([S('b1', { type: 'RCT', tooth_num: '36', cost: 7000, date: '2026-11-08', currency: 'USD', provider_id: 'd1' }), S('pl', { status: 'planned' }), S('k0', { parent_id: 'b9' }), S('b9', {})]);
+    const all = () => vm.runInContext('DB.ledger_sessions', D), by = id => all().find(x => x.id === id);
+    const add = a => D.demoFollowupRpc('session_followup_add', Object.assign({ p_parent: 'b1', p_date: '2026-11-09', p_provider: null, p_step: 'Irrigation', p_notes: null, p_close: false }, a));
+    const r1 = add({}), c1 = r1.data && r1.data.session;
+    ok(!r1.error && c1 && c1.parent_id === 'b1' && c1.cost === 0 && c1.tooth_num === null && c1.surface === null && c1.treatment_key === null && c1.status === 'completed' && c1.type === 'متابعة — RCT'
+      && c1.description === 'Irrigation' && c1.currency === 'USD' && c1.provider_id === 'd1' && c1.patient_id === 'pat-1' && r1.data.state === 'open' && by('b1').followup_state === 'open' && !!by(c1.id),
+      'demo card: a follow-up is stored in memory in the database shape (no money, no place, base in progress)');
+    ok(add({ p_close: true, p_provider: 'd2' }).data.state === 'closed' && by('b1').followup_state === 'closed' && all().filter(x => x.parent_id === 'b1')[1].provider_id === 'd2', 'demo card: «last session» closes the treatment; the chosen doctor is kept');
+    const n0 = all().length;
+    ok([add({ p_parent: 'pl' }), add({ p_parent: 'k0' }), add({ p_parent: 'nope' })].every(x => x.data === null && x.error.message === 'followup_base_invalid')
+      && add({ p_date: '2026-11-07' }).error.message === 'followup_date_invalid' && add({ p_date: null }).error.message === 'followup_date_invalid' && all().length === n0,
+      'demo card: a planned row, a follow-up, an unknown row or a date before the base is refused and nothing is stored');
+    const st = (id, v) => D.demoFollowupRpc('session_followup_set_state', { p_session: id, p_state: v });
+    ok(st('b1', 'open').data.state === 'open' && by('b1').followup_state === 'open' && !!st('b1', 'paused').error && !!st('pl', 'open').error && !!st(c1.id, 'closed').error && by('b1').followup_state === 'open',
+      'demo card: the state changes on a base that has follow-ups only, to open/closed only');
+    D.del(c1.id); ok(by('b1').followup_state === 'open' && all().filter(x => x.parent_id === 'b1').length === 1, 'demo card: deleting one of two follow-ups keeps the treatment in progress');
+    D.del(all().find(x => x.parent_id === 'b1').id); ok(by('b1').followup_state === null, 'demo card: deleting the last follow-up returns the base to a plain session');
+    D.del('b9'); ok(!by('b9') && !by('k0') && !!by('b1'), 'demo card: deleting a base removes its follow-ups with it');
+    /* الصندوقُ التجريبي الحقيقي كاملاً فوق عميلٍ وهمي: النداءان والحذف يمرّان بالعميل المرقَّع نفسه، ولا شيء يصل العميل الحقيقي */
+    const bi = PP.indexOf('var IS_DEMO = '), bj = PP.indexOf('\n})();', bi), realCalls = [];
+    const fake = { from: t => { realCalls.push('from:' + t); const q = { select: () => q, eq: () => q, order: () => q, then: r => Promise.resolve({ data: [], error: null }).then(r) }; return q; },
+      rpc: n => { realCalls.push('rpc:' + n); return Promise.resolve({ data: null, error: null }); }, functions: {}, storage: {}, channel: () => ({}), auth: {} };
+    const el = () => ({ style: {}, setAttribute() {}, appendChild() {}, addEventListener() {}, classList: { add() {}, remove() {} } });
+    const sc = { window: { sb: fake, addEventListener() {} }, patientId: 'demo', console: { log() {}, warn() {}, error() {} }, Date, Promise, Object, JSON, String, Array, Math, setTimeout,
+      document: { addEventListener() {}, getElementById: () => null, querySelector: () => null, createElement: el, body: el(), readyState: 'complete' } };
+    vm.createContext(sc); vm.runInContext(PP.slice(bi, bj) + '\n})();', sc);
+    const sb = sc.window.sb, sess = async () => (await sb.from('ledger_sessions').select('*').eq('patient_id', 'demo')).data, td = new Date().toISOString().slice(0, 10);
+    const dBase = (await sess()).find(x => (x.status || 'completed') === 'completed'), dN = (await sess()).length;
+    const dAdd = await sb.rpc('session_followup_add', { p_parent: dBase.id, p_date: td, p_provider: null, p_step: 'غسل أقنية', p_notes: null, p_close: false });
+    const dKid = dAdd.data && dAdd.data.session;
+    ok(!dAdd.error && dKid && dKid.parent_id === dBase.id && dKid.cost === 0 && dAdd.data.state === 'open' && (await sess()).length === dN + 1 && (await sess()).find(x => x.id === dBase.id).followup_state === 'open',
+      'demo card (real sandbox): saving a follow-up works — no «database update needed»');
+    const dUp = await sb.from('patients').update({ last_visit: td }).eq('id', 'demo').eq('doctor_id', 'any-doctor');
+    ok(!dUp.error && (await sb.from('patients').select('*').eq('id', 'demo').single()).data.last_visit === td, 'demo card (real sandbox): last visit moves in memory');
+    ok((await sb.rpc('session_followup_set_state', { p_session: dBase.id, p_state: 'closed' })).data.state === 'closed', 'demo card (real sandbox): the state badge works');
+    await sb.from('ledger_sessions').delete().eq('id', dKid.id).eq('doctor_id', 'any-doctor');
+    ok((await sess()).length === dN && (await sess()).find(x => x.id === dBase.id).followup_state === null, 'demo card (real sandbox): deleting the only follow-up returns the base to a plain session');
+    await sb.rpc('session_followup_add', { p_parent: dBase.id, p_date: td, p_provider: null, p_step: 'x', p_notes: null, p_close: true });
+    await sb.from('ledger_sessions').delete().eq('id', dBase.id);
+    ok((await sess()).length === dN - 1 && !(await sess()).some(x => x.parent_id === dBase.id), 'demo card (real sandbox): deleting the base removes its follow-ups');
+    ok((await sb.rpc('some_other_function', {})).error.code === 'PGRST202' && realCalls.length === 0, 'demo card (real sandbox): unknown calls stay refused and nothing reaches the real client (' + realCalls.join() + ')');
+    /* المساعد الذكي */
+    ok(PX.split("if (typeof fuAiParts === 'function') parts = parts.concat(fuAiParts(s));").length === 3 && extractFunction(PX, 'aiPatientSummary').indexOf('fuAiParts(s)') > -1 && extractFunction(PX, '_aiRefTreatmentLines').indexOf('fuAiParts(s)') > -1,
+      'AI summary and referral letter both add the follow-up place and step');
+    /* الأسهم: لا رمزَ اتجاهٍ بالواجهة — «＋» للزر، وزاويةٌ بخصائص منطقية للوسم */
+    const arrowCss = (CSS.match(/\.fu-arrow\{[^}]*\}/) || [''])[0];
+    ok(!/[↪↳]/.test(FU) && PP.indexOf('🔗 جلسة متابعة (استكمال علاج سابق — بلا تكلفة)') > -1 && !/↪ جلسة متابعة/.test(PP), 'no direction glyph in the button, the tag or the entry');
+    ok(/border-inline-start:2px solid/.test(arrowCss) && /border-block-end:2px solid/.test(arrowCss) && !/border-(left|right)|margin-(left|right)/.test(arrowCss), 'the tag corner uses logical sides — it follows the page direction');
+    /* الدليل */
+    const tip = 'علاجٌ يمتدّ على زيارات (غسل أقنية، أو تحضير ثم تركيب)؟ اضغط «＋ متابعة» بجانب جلسته في تبويب الجلسات — تُسجَّل مربوطةً به وبلا تكلفة جديدة.';
+    const en = engine(F)(tip);
+    ok(F['guides.js'].indexOf("'" + tip + "'") > -1 && !!en && !AR.test(en) && /＋ Follow-up/.test(en), 'section guide: the patient-card guide names follow-up sessions, in English too');
+  });
+
   /* ═══ (٤) السلوك + (٥) الإنجليزية ═══ */
   await guard('dom', async () => {
     const w = await boot(F), d = w.document, bag = [];
@@ -340,7 +409,7 @@ async function run(F) {
     ok(!!rowOf('RCT').querySelector('[data-test="pp-session-followup"]') && !rowOf('Filling').querySelector('[data-test="pp-session-followup"]') && /إكمال/.test(txt(rowOf('Filling')))
       && !rowOf('رسم موعد').querySelector('[data-test="pp-session-followup"]') && !rowOf('رصيد سابق').querySelector('[data-test="pp-session-followup"]'), 'planned shows «إكمال»; fee and opening balance take no follow-up');
     const btn = rowOf('RCT').querySelector('[data-test="pp-session-followup"]');
-    ok(btn.getAttribute('data-slot') === '1' && btn.className === 'sy-act' && btn.getAttribute('data-en') === '↪ Follow-up' && rowOf('Filling').querySelector('[data-slot="1"]').className.indexOf('sy-act-primary') > -1,
+    ok(btn.getAttribute('data-slot') === '1' && btn.className === 'sy-act' && btn.getAttribute('data-en') === '＋ Follow-up' && txt(btn) === '＋ متابعة' && rowOf('Filling').querySelector('[data-slot="1"]').className.indexOf('sy-act-primary') > -1,
       'the button shares the next-step column with «إكمال» and is neutral (not the green primary)');
     ok(rowOf('Crown PFM').querySelectorAll('[data-slot]').length === 2 && !/fu-state/.test(rowOf('RCT').innerHTML), 'a plain completed row: follow-up + delete, and no state badge yet');
     const OWN = '#sessionsContent .fu-tag, #sessionsContent .fu-cost, #sessionsContent button.fu-state, #sessionsContent [data-test="pp-session-followup"], #sessionsContent .fu-row .sc-details, #sessionsContent .fu-row td:nth-child(3), #recentSessionsList .fu-cost, #recentSessionsList .tone-gray, #newSessionEntryModal [onclick="fuOpenPicker()"]';   /* سطحُ الميزة وحده — باقي الجدول نصوصٌ قائمة تنتظر المرحلة الثانية من الترجمة */
@@ -377,9 +446,12 @@ async function run(F) {
     const kid = w.__sessions().find(x => x.parent_id === 'b1'), base = w.__sessions().find(x => x.id === 'b1');
     ok(!!kid && kid.cost === 0 && !kid.tooth_num && base.followup_state === 'open' && !d.getElementById('fuModal').classList.contains('open') && w.__tl >= 1, 'saved: the row joins the list, the base is in progress, the window closes, the timeline refreshes');
     ok(w.__AUDIT.length === 1 && w.__AUDIT[0].action === 'session.create' && /جلسة متابعة: RCT — سن 36 — غسل أقنية/.test(w.__AUDIT[0].o.description), 'audit trail names the base and the step');
+    ok(w.__UPD.length === 1 && w.__UPD[0].t === 'patients' && JSON.stringify(w.__UPD[0].v) === '{"last_visit":"2026-11-09"}' && w.__UPD[0].eq.join() === 'id=pat-1,doctor_id=doc-1'
+      && w.__patient().last_visit === '2026-11-09' && w.__ri >= 1, 'last visit: a follow-up is a visit — the patient row moves to its date (scoped to the patient and the clinic) and the info card refreshes');
     r = rows(w);
     const iB = r.findIndex(x => /RCT/.test(txt(x.querySelector('.sc-type'))) && !x.classList.contains('fu-row')), kr = r[iB + 1];
-    ok(r.length === 7 && kr && kr.classList.contains('fu-row') && /↳\s*متابعة 1/.test(txt(kr.querySelector('.sc-type'))), 'the follow-up row sits directly under its base as «متابعة 1»');
+    ok(r.length === 7 && kr && kr.classList.contains('fu-row') && txt(kr.querySelector('.sc-type')) === 'متابعة 1' && !!kr.querySelector('.fu-tag > .fu-arrow[aria-hidden="true"]') && kr.querySelector('.fu-arrow').textContent === '',
+      'the follow-up row sits directly under its base as «متابعة 1», its corner drawn by CSS (no arrow glyph)');
     ok(/سن 36/.test(txt(kr.querySelectorAll('td')[2])) && /tone-gray/.test(kr.querySelectorAll('td')[2].innerHTML) && txt(kr.querySelector('.sc-cost')) === 'ضمن الأساسية' && !/\b0\b/.test(txt(kr.querySelector('.sc-cost'))),
       'its place is the base place (muted) and its cost cell says «ضمن الأساسية», never a red 0');
     ok(/غسل أقنية/.test(txt(kr.querySelector('.sc-details'))) && /Dressing placed/.test(txt(kr.querySelector('.sc-details'))) && /Dr Two/.test(txt(kr)) && !kr.querySelector('.sc-cost[style]'), 'step, note and the follow-up\'s own doctor are shown');
@@ -395,6 +467,7 @@ async function run(F) {
     grab(w, '#fuModal', bag);
     d.getElementById('fuStep').value = 'Obturation'; d.getElementById('fuLast').checked = true; await w.fuSave(); await tick(w);
     r = rows(w);
+    ok(w.__UPD.length === 2 && w.__patient().last_visit === TODAY, 'last visit: a later follow-up moves it forward');
     ok(w.__RPC[1].a.p_close === true && w.__sessions().find(x => x.id === 'b1').followup_state === 'closed' && txt(d.querySelector('button.fu-state')) === 'اكتمل · 2' && /tone-green/.test(d.querySelector('button.fu-state').className)
       && /اكتمل العلاج/.test(w.__TOASTS.slice(-1)[0]), '«آخر جلسة» closes the treatment: «اكتمل · 2»');
     ok(r.filter(x => x.classList.contains('fu-row')).map(x => txt(x.querySelector('.sc-type')).replace(/[^\d]/g, '')).join() === '1,2', 'two follow-ups numbered in order under the base');
@@ -431,6 +504,20 @@ async function run(F) {
     ok(!d.getElementById('fuModal').classList.contains('open') && !d.getElementById('fuPickModal').classList.contains('open') && w.__RPC.length === nR, 'read-only subscription: nothing opens, nothing is written');
     w.__ro = false; w.__historyMode = true; w.fuOpen('b1'); ok(!d.getElementById('fuModal').classList.contains('open') && /عرض تاريخي/.test(w.__TOASTS.slice(-1)[0]), 'history view is read-only');
     w.__historyMode = false; w.fuOpen('pl'); w.fuOpen('fee'); w.fuOpen('c1'); ok(!d.getElementById('fuModal').classList.contains('open') && /لا تقبل متابعة/.test(w.__TOASTS.slice(-1)[0]), 'planned, fee and follow-up rows cannot be followed');
+
+    /* «آخر زيارة»: لا ترجع للخلف · فشلُ كتابتها لا يمسّ الجلسة المحفوظة ولا يُطبَّق محلياً */
+    const nU = w.__UPD.length, nS = w.__sessions().length;
+    w.fuOpen('b2'); d.getElementById('fuDate').value = '2026-11-11'; d.getElementById('fuStep').value = 'Try-in'; await w.fuSave(); await tick(w);
+    ok(w.__sessions().length === nS + 1 && w.__UPD.length === nU && w.__patient().last_visit === TODAY, 'last visit: an earlier-dated follow-up is saved and does not move it back');
+    w.__patient().last_visit = '2026-11-01'; w.__updFail = 'boom';
+    w.fuOpen('b2'); d.getElementById('fuDate').value = '2026-11-12'; d.getElementById('fuStep').value = 'Fit'; await w.fuSave(); await tick(w);
+    ok(w.__sessions().length === nS + 2 && w.__UPD.length === nU + 1 && w.__patient().last_visit === '2026-11-01' && /سُجّلت جلسة المتابعة/.test(w.__TOASTS.slice(-1)[0]) && !d.getElementById('fuModal').classList.contains('open'),
+      'last visit: a failed write leaves the saved session in place and the local value as the database has it');
+    w.__updFail = null;
+    /* المساعد الذكي: سطرُ المتابعة بموضع أساسيتها وما تمّ فيها */
+    const aiK = w.__sessions().find(x => x.parent_id === 'b1' && x.description === 'غسل أقنية');
+    ok(JSON.stringify(w.fuAiParts(aiK)) === '["سن 36","غسل أقنية"]' && w.fuAiParts(w.__sessions().find(x => x.id === 'b1')).length === 0
+      && JSON.stringify(w.fuAiParts(S('long', { parent_id: 'gone', description: 'x'.repeat(200) }))) === JSON.stringify(['x'.repeat(80)]), 'AI lines: a follow-up adds its base place and its step (capped); a base adds nothing');
 
     /* الهروب */
     const evil = seed(); evil[0].type = '<img src=x onerror="window.__xss=1">'; evil.push(S('ke', { parent_id: 'b1', type: 'متابعة — x', description: '<b id="xssd">d</b>', notes: '<i id="xssn">n</i>', date: '2026-11-09' }));
@@ -515,7 +602,31 @@ const MUT = [
   ['an ambiguous word enters the shared dictionary', rep('i18n-en.js', "'ترميم نهائي': 'Final restoration', ", "'ترميم نهائي': 'Final restoration', 'تجربة': 'Try-in', ")],
   ['single-word chip without its own English', rep('pp-followup.js', "(FU_STEP_EN[st] ? ' data-en=\"' + fuEsc(FU_STEP_EN[st]) + '\"' : '')", "''")],
   ['numbered tag loses its pattern', rep('i18n-en.js', "    [/^متابعة (\\d+)$/, 'Follow-up $1'],\n", '')],
-  ['button translated as «Continue»', rep('pp-followup.js', ' data-en="↪ Follow-up"', '')],
+  ['button translated as «Continue»', rep('pp-followup.js', ' data-en="＋ Follow-up"', '')],
+  ['last visit not moved', rep('pp-followup.js', '(!patient.last_visit || date > patient.last_visit)) {', 'false) {')],
+  ['last visit moves backwards', rep('pp-followup.js', '(!patient.last_visit || date > patient.last_visit)) {', 'true) {')],
+  ['last visit not scoped to the clinic', rep('pp-followup.js', "update({ last_visit: date }).eq('id', patientId).eq('doctor_id', currentUser.id)", "update({ last_visit: date }).eq('id', patientId)")],
+  ['failed last-visit write applied locally', rep('pp-followup.js', '    else patient.last_visit = date;', '    patient.last_visit = date;')],
+  ['info card not refreshed', rep('pp-followup.js', "  if (typeof renderInfo === 'function') renderInfo();", '')],
+  ['demo: follow-up carries money', rep('patient-profile.html', "description: args.p_step || null, cost:0, date: args.p_date", "description: args.p_step || null, cost: fb.cost, date: args.p_date")],
+  ['demo: follow-up carries a tooth', rep('patient-profile.html', "treatment_key:null, tooth_num:null, surface:null,\n               currency: fb.currency, parent_id: fb.id", "treatment_key:null, tooth_num: fb.tooth_num, surface:null,\n               currency: fb.currency, parent_id: fb.id")],
+  ['demo: follow-up of a follow-up', rep('patient-profile.html', "if (!fb || fb.parent_id || (fb.status || 'completed') !== 'completed') return bad;", "if (!fb || (fb.status || 'completed') !== 'completed') return bad;")],
+  ['demo: follow-up of a planned row', rep('patient-profile.html', "if (!fb || fb.parent_id || (fb.status || 'completed') !== 'completed') return bad;", "if (!fb || fb.parent_id) return bad;")],
+  ['demo: date before the base', rep('patient-profile.html', "(fb.date && String(args.p_date) < String(fb.date).slice(0, 10))", "false")],
+  ['demo: close flag dropped', rep('patient-profile.html', "fb.followup_state = args.p_close ? 'closed' : 'open';", "fb.followup_state = 'open';")],
+  ['demo: calls not routed', rep('patient-profile.html', "    if (name === 'session_followup_add' || name === 'session_followup_set_state') return Promise.resolve(demoFollowupRpc(name, args || {}));   /* M210 */\n", '')],
+  ['demo: delete leaves follow-ups', rep('patient-profile.html', "DB.ledger_sessions = rows('ledger_sessions').filter(function(r){ return ids.indexOf(r.parent_id) === -1; });", '')],
+  ['demo: base stays in progress with no follow-up', rep('patient-profile.html', "if (r.id === g.parent_id) r.followup_state = null;", '')],
+  ['demo: delete not mirrored', rep('patient-profile.html', "        if (b._t === 'ledger_sessions') demoFollowupAfterDelete(hit);   /* M210 */\n", '')],
+  ['AI line drops the step', rep('pp-followup.js', "  if (s.description) out.push(String(s.description).slice(0, 80));\n", '')],
+  ['AI line drops the place', rep('pp-followup.js', "  if (w) out.push(w);\n  if (s.description)", "  if (s.description)")],
+  ['AI summary ignores follow-ups', rep('pp-extras.js', "      if (typeof fuAiParts === 'function') parts = parts.concat(fuAiParts(s));   /* M210: جلسةُ المتابعة بموضع أساسيتها وما تمّ فيها */\n", '')],
+  ['referral letter ignores follow-ups', rep('pp-extras.js', "      if (typeof fuAiParts === 'function') parts = parts.concat(fuAiParts(s));   /* M210 */\n", '')],
+  ['arrow glyph back in the tag', rep('pp-followup.js', '<span class="fu-arrow" aria-hidden="true"></span>متابعة', '<span class="fu-arrow" aria-hidden="true">↳</span> متابعة')],
+  ['arrow glyph back on the button', rep('pp-followup.js', '>＋ متابعة</button>', '>↪ متابعة</button>')],
+  ['tag corner drawn with physical sides', rep('patient-profile.css', 'border-inline-start:2px solid var(--text3);border-block-end:2px solid var(--text3)', 'border-right:2px solid var(--text3);border-block-end:2px solid var(--text3)')],
+  ['guide tip untranslated', rep('i18n-en.js', "    'علاجٌ يمتدّ على زيارات (غسل أقنية، أو تحضير ثم تركيب)؟", "    'x علاجٌ يمتدّ على زيارات (غسل أقنية، أو تحضير ثم تركيب)؟")],
+  ['guide tip removed', rep('guides.js', "        'علاجٌ يمتدّ على زيارات (غسل أقنية، أو تحضير ثم تركيب)؟", "        'x علاجٌ يمتدّ على زيارات (غسل أقنية، أو تحضير ثم تركيب)؟")],
   ['state badge hidden in read-only', rep('patient-profile.css', '[onclick*="fuSave("],', '[onclick*="fuSave("],[onclick*="fuSetState("],')]
 ];
 

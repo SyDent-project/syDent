@@ -2,7 +2,9 @@
    Round trip on synthetic rows through a real .xlsx (vendor SheetJS, the same aoa_to_sheet path as
    SyDentXlsx.save): every value comes back as PostgREST returned it, null stays apart from '',
    secret columns never reach the file, a table that failed to read keeps the sheets aligned, and
-   the restore SQL is additive (ON CONFLICT DO NOTHING) with user triggers switched back on.
+   the restore SQL is additive (ON CONFLICT DO NOTHING) with user triggers switched back on, and a
+   row that points at another row of its own table (a follow-up session → its base, M210) is
+   restored after it.
    --self-test also runs mutants that each must be caught. */
 'use strict';
 const fs = require('fs');
@@ -10,6 +12,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const IX0 = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const RS0 = fs.readFileSync(path.join(ROOT, 'scripts', 'backup-restore.js'), 'utf8');
+const SCHEMA = fs.readFileSync(path.join(ROOT, 'db', 'schema.sql'), 'utf8');
 
 const UID = '11111111-2222-4333-8444-555555555555';
 const NEW = '99999999-8888-4777-8666-555555555555';
@@ -19,7 +22,11 @@ const FIX = {
     { id: 'p1', doctor_id: UID, name: 'مريض\nبسطرين', notes: '', allergies: null, flags: { vip: true }, phone: '0933000000', payment_manual: false },
     { id: 'p2', doctor_id: UID, name: 'نص فيه $sydent_restore$', notes: 'x', allergies: '', flags: null, phone: '09', payment_manual: true }
   ],
-  ledger_sessions: [{ id: 's1', doctor_id: UID, patient_id: 'p1', cost: 1250000.5, tooth_num: '11', notes: '' }],
+  /* backup order is by id: the follow-up 's0' sorts before its base 's1' */
+  ledger_sessions: [
+    { id: 's0', doctor_id: UID, patient_id: 'p1', cost: 0, tooth_num: null, notes: '', parent_id: 's1' },
+    { id: 's1', doctor_id: UID, patient_id: 'p1', cost: 1250000.5, tooth_num: '11', notes: '', parent_id: null }
+  ],
   teeth_status: [{ doctor_id: UID, patient_id: 'p1', tooth_num: '11', surface: 'B', treatment_key: 'treated' }]
 };
 const FAILED = 'appointments';
@@ -72,7 +79,14 @@ function run(ix, rs) {
   ok(byT.patients && byT.patients[0].notes === '' && byT.patients[0].allergies === null, "null stays null and '' stays ''");
 
   const p = R.plan(b, { chunk: 1 });
-  ok(p.files.length === 5, 'chunking: one file per row with --chunk 1');
+  ok(p.files.length === 6, 'chunking: one file per row with --chunk 1');
+  const at = id => p.files.findIndex(f => f.table === 'ledger_sessions' && f.sql.indexOf('"id":"' + id + '"') >= 0);
+  ok(at('s1') >= 0 && at('s0') > at('s1'), 'a follow-up session is restored after its base (self foreign key, parent first)');
+  const chain = R.parentsFirst([{ id: 'c', up: 'b' }, { id: 'b', up: 'a' }, { id: 'x', up: null }, { id: 'a', up: null }, { id: 'o', up: 'gone' }, { id: 'l1', up: 'l2' }, { id: 'l2', up: 'l1' }], 'up').map(r => r.id).join();
+  ok(chain === 'x,a,o,b,l2,c,l1', 'parents first: stable, any depth, a missing parent or a loop does not hang (' + chain + ')');
+  const selfFk = {};
+  SCHEMA.replace(/ALTER TABLE ONLY "public"\."(\w+)"\s+ADD CONSTRAINT "\w+" FOREIGN KEY \("(\w+)"\) REFERENCES "public"\."(\w+)"\("id"\)/g, (m, t, c, ref) => { if (t === ref) selfFk[t] = c; return m; });
+  ok(Object.keys(selfFk).length >= 1 && JSON.stringify(selfFk) === JSON.stringify(R.SELF_PARENT), 'SELF_PARENT lists every self foreign key of db/schema.sql (' + JSON.stringify(selfFk) + ')');
   ok(p.files.every(f => /on conflict do nothing/.test(f.sql)), 'restore is additive (ON CONFLICT DO NOTHING)');
   ok(p.files.every(f => /disable trigger user/.test(f.sql) && /enable trigger user/.test(f.sql)), 'user triggers off for the insert and back on');
   ok(p.files.every(f => /^begin;/.test(f.sql) && /commit;\n$/.test(f.sql)), 'each file is one transaction');
@@ -91,7 +105,10 @@ const MUTANTS = [
   ['failed table not noted', 'ix', "if (res.error) { notes.push([t[2], t[0], '', 'تعذّرت القراءة']); return; }", 'if (res.error) return;'],
   ['restore overwrites', 'rs', "'on conflict do nothing returning 1)", "'returning 1)"],
   ['triggers left off', 'rs', "execute format('alter table public.%I enable trigger user', t);", ''],
-  ['owner not rewritten', 'rs', 'if (opts.toOwner && backup.uid && v === backup.uid) v = opts.toOwner;', '']
+  ['owner not rewritten', 'rs', 'if (opts.toOwner && backup.uid && v === backup.uid) v = opts.toOwner;', ''],
+  ['follow-up restored in backup order', 'rs', 'if (SELF_PARENT[tb.table]) rows = parentsFirst(rows, SELF_PARENT[tb.table]);', ''],
+  ['self foreign key not listed', 'rs', "const SELF_PARENT = { ledger_sessions: 'parent_id' };", 'const SELF_PARENT = {};'],
+  ['parents-first sort unstable by depth', 'rs', 'a[0] - b[0] || a[1] - b[1]', 'a[1] - b[1]']
 ];
 
 const base = run(IX0, RS0);
