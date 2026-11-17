@@ -390,7 +390,8 @@ async function fuClearNeed(base) {
 /* ── (٦) «يحتاج جلسات متابعة» بنافذة العلاج (ج2-أ · M211) ──────────────────
    المفتاحُ يظهر للعلاج المنجز بنافذة السن، وقيمتُه الأولى من العلاج نفسه (fuMultiVisit: قرارُ العيادة أو افتراضُ التصنيف).
    الحفظُ نفسُه لا يتغيّر (كلُّ فروعه كما هي): يُغلَّف من الخارج — لقطةٌ للجلسات قبله، وبعده تُعلَّم الجلساتُ المنجزةُ الجديدة
-   «قيد الإنجاز» (واحدةٌ لكل وحدة جسر/جهاز). فشلُ التعليم لا يمسّ الجلسة المحفوظة. */
+   «قيد الإنجاز». كلُّ جلسةٍ علاجٌ بذاته: الجسرُ جلسةٌ واحدة (unit_teeth)، والجهازُ جلسةٌ لكل فكّ، والدفعةُ جلسةٌ لكل سن.
+   فشلُ التعليم لا يمسّ الجلسة المحفوظة. */
 function fuNeedSync(reset) {
   var box = document.getElementById('fuNeedBox'), cb = document.getElementById('fuNeed');
   if (!box || !cb) return;
@@ -405,17 +406,11 @@ function fuNeedWanted() {
   var box = document.getElementById('fuNeedBox'), cb = document.getElementById('fuNeed');
   return !!(box && cb && box.style.display !== 'none' && cb.checked);
 }
-/* الجلساتُ المنجزةُ الجديدة منذ اللقطة — الأولى من كل وحدة (جسر/جهاز بصفوفٍ متعدّدة = علاجٌ واحد) */
+/* الجلساتُ المنجزةُ الجديدة منذ اللقطة (لا مخطّطة · لا متابعة · لا رسم · لا ما له حالةٌ أصلاً) */
 function fuNewBases(before) {
-  var seen = {}, out = [];
-  fuList().forEach(function (s) {
-    if (!s || !s.id || before[s.id] || fuIsChild(s) || fuIsFee(s) || fuState(s)) return;
-    if ((s.status || 'completed') !== 'completed') return;
-    var g = s.unit_id || s.denture_unit || s.id;
-    if (seen[g]) return;
-    seen[g] = 1; out.push(s);
+  return fuList().filter(function (s) {
+    return !!s && !!s.id && !before[s.id] && !fuIsChild(s) && !fuIsFee(s) && !fuState(s) && (s.status || 'completed') === 'completed';
   });
-  return out;
 }
 async function fuMarkNeed(before) {
   var list = fuNewBases(before), ok = 0;
