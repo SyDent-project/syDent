@@ -3406,8 +3406,14 @@ Object.assign(window.SyI18nDict, {
     'مقترحة تلقائياً على الأسنان المجاورة للفراغ — انقر السن لإضافة ضمّة أو إلغائها.': 'Suggested automatically on the teeth next to the gap — click a tooth to add or remove a clasp.',
     'قائمة الطبيب — انقر السن لإضافة ضمّة أو إلغائها.': 'The dentist\'s own list — click a tooth to add or remove a clasp.',
     '↺ الاقتراح التلقائي': '↺ Automatic suggestion',
-    'الضمّات وخدمات الجهاز: تبطين · إصلاح · إضافة سن': 'Clasps and denture services: reline · repair · add a tooth'
+    'الضمّات وخدمات الجهاز: تبطين · إصلاح · إضافة سن': 'Clasps and denture services: reline · repair · add a tooth',
+    /* v741: منتقي سنّ الضمّة بخدمة «إضافة أو إصلاح ضمة» */
+    '— الرمادي عليه ضمّة (اختره للإصلاح)، والسن الجديد تُضاف ضمّته لرسم الجهاز.': '— a grey tooth already has a clasp (pick it for a repair); a new tooth gets its clasp added to the denture drawing.'
   });
+  /* v741: سنُّ الضمّة كما يُكتب بوصف جلستها وموضعها («الفك العلوي — ضمّة على السن 13») */
+  var CL = '(ضمّة على السن \\d+|ضمّات على الأسنان \\d+(?:، \\d+)*)';
+  var C1 = '(الفك العلوي|الفك السفلي) — ' + CL;
+  function cl(x) { var m = x.match(/^(?:ضمّة على السن (\d+)|ضمّات على الأسنان (.+))$/); return m[1] ? 'clasp on tooth ' + m[1] : 'clasps on teeth ' + nums(m[2]); }
 
   P.push(
     [R('^' + UWHY_RE + '$'), function (m, r) { return cap(UWHY[r]); }],
@@ -3425,6 +3431,24 @@ Object.assign(window.SyI18nDict, {
     /* v739 (M209): أسنانُ الضمّات بشريحة الجهاز (عقدةُ نصٍّ مستقلة) ورسالةُ تعذّر الحفظ */
     [/^(ضمّة|ضمّات): (\d+(?:، \d+)*)$/, function (m, k, l) { return (k === 'ضمّة' ? 'Clasp: ' : 'Clasps: ') + nums(l); }],
     [/^❌ تعذّر حفظ الضمّات: ([\s\S]+)$/, function (m, e) { return '❌ Could not save the clasps: ' + (e === 'خطأ بالاتصال' ? 'connection error' : e); }],
+    /* v741: خدمةُ الضمّة بسنّها — المنتقي · العنوان · الموضع بالقوائم · رسائلُ الحفظ */
+    [/^«(.+)»: اختر السن الذي تُركَّب عليه الضمّة أو تُصلَّح\.$/, '«$1»: choose the tooth the clasp is fitted on or repaired.'],
+    [R('^🛠 (.+) — (.+) \\((' + A1 + ')\\) — ' + CL + '$'), function (m, l, n, a, c) { return '🛠 ' + l + ' — ' + n + ' (' + area1(a) + ') — ' + cl(c); }],
+    [R('^' + C1 + '$'), function (m, a, c) { return ARCH[a] + ' — ' + cl(c); }],
+    [R('^✅ تم تسجيل (.+?) — ' + C1 + ' — أكمل بيانات المخبر$'), function (m, l, a, c) { return '✅ ' + l + ' recorded — ' + ARCH[a] + ' — ' + cl(c) + ' — complete the lab details'; }],
+    [R('^✅ تم تسجيل (.+) مخطّطاً — ' + CL + '( — أضفها لرسم الجهاز من قسم «الضمّات» عند الإنجاز)?$'), function (m, l, c, later) {
+      return '✅ ' + l + ' recorded as planned — ' + cl(c) + (later ? ' — add it to the denture drawing from the «Clasps» section on completion' : '');
+    }],
+    [R('^✅ تم تسجيل (.+) — ' + CL + '( — أُضيفت لرسم الجهاز)?$'), function (m, l, c, drew) { return '✅ ' + l + ' recorded — ' + cl(c) + (drew ? ' — added to the denture drawing' : ''); }],
+    [R('^⚠️ تم تسجيل (.+) — ' + CL + ' — تعذّر تحديث رسم الجهاز، أضفها من قسم «الضمّات»$'), function (m, l, c) {
+      return '⚠️ ' + l + ' recorded — ' + cl(c) + ' — the denture drawing could not be updated; add it from the «Clasps» section';
+    }],
+    /* سطرُ جلستها بقائمة «إزالة الجهاز» (مرآةُ سطر كتلة v722 بموضع الضمّة) */
+    [R('^– (.+) / ' + C1 + '(?: — ([\\d/.-]+))? — ([\\d.,]+) (ل\\.س|\\$)(?: \\(مدفوع عليها ([\\d.,]+)\\))?(?: \\[خيار ([أبج])\\])?$'), function (m, n, a, c, dt, v, cur, paid, o) {
+      return '– ' + n + ' / ' + ARCH[a] + ' — ' + cl(c) + (dt ? ' — ' + dt : '') + ' — ' + v + ' ' + (cur === '$' ? '$' : 'SYP') + (paid ? ' (' + paid + ' paid on it)' : '') + (o ? ' [option ' + { 'أ': 'A', 'ب': 'B', 'ج': 'C' }[o] + ']' : '');
+    }],
+    [R('^(.+?) — ' + C1 + '$'), function (m, n, a, c) { return n + ' — ' + ARCH[a] + ' — ' + cl(c); }],
+    [R('^(.+) \\(' + C1 + '\\)( ×\\d+)?$'), function (m, n, a, c, x) { return n + ' (' + ARCH[a] + ' — ' + cl(c) + ')' + (x || ''); }],
     /* عنوانُ خطوة التكلفة */
     [R('^🛠 (.+) — (.+) \\((' + A1 + ')\\)(?: — إضافة ' + TP + ')?$'), function (m, l, n, a, t) { return '🛠 ' + l + ' — ' + n + ' (' + area1(a) + ')' + (t ? ' — adding ' + tp(t) : ''); }],
     /* رسائلُ الحفظ */

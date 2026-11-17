@@ -236,6 +236,22 @@ async function dentClaspToggle(u, n) {
   return await dentClaspSave(u, cur);
 }
 
+/* v741 — خدمةُ «إضافة أو إصلاح ضمة» تسمّي سنَّها (المالك 17/11/2026: «ضفت ضمّة بس ما قدرت حدّد على أي سن»). بلا عمودٍ جديد: السنُّ
+   يُكتب بوصف الجلسة بصيغةٍ واحدة مغلقة، ويُقرأ منها بمطابقةٍ صارمة (مفتاحُ الخدمة + ربطُ الجهاز + اسمُ الفك نفسه) — وصفٌ عُدّل باليد
+   لا يطابق فتعود الجلسةُ جلسةَ فكٍّ عادية. */
+var DENT_CLASP_SVC_KEY = 'denture-clasp';
+function dentClaspPhrase(teeth) {
+  var nums = teeth.map(function (t) { return parseInt(t, 10); }).sort(function (x, y) { return x - y; });
+  return (nums.length === 1 ? 'ضمّة على السن ' : 'ضمّات على الأسنان ') + nums.join('، ');
+}
+function dentSessClasp(s) {
+  if (!s || s.tooth_num || !s.denture_unit || s.treatment_key !== DENT_CLASP_SVC_KEY || (s.arch !== 'U' && s.arch !== 'L')) return [];
+  var m = String(s.description || '').match(/^(.+) — (?:ضمّة على السن (\d\d)|ضمّات على الأسنان (\d\d(?:، \d\d)+))$/);
+  if (!m || m[1] !== dentArchLabel(s.arch)) return [];
+  var teeth = String(m[2] || m[3]).split('، ').map(function (t) { return parseInt(t, 10); });
+  return teeth.every(function (t) { return t >= 11 && t <= 48 && dentArchOf(t) === s.arch; }) ? teeth : [];
+}
+
 /* ── ج2-ب: جلسةُ الجهاز وأسنانُها (unit_teeth — M204) ── */
 function dentTeethCsv(teeth) {
   return teeth.map(function (t) { return parseInt(t, 10); }).sort(function (a, b) { return a - b; }).join(',');
@@ -252,6 +268,9 @@ function dentSessWhere(s) {
     var at = String(s.denture_add).split(',').map(function (t) { return parseInt(t, 10); }).filter(function (t) { return t >= 11 && t <= 48; });
     if (at.length) return dentAreaText(s.arch, at);
   }
+  /* v741: خدمةُ الضمّة — موضعُها سنُّ الضمّة («الفك العلوي — ضمّة على السن 13») */
+  var ct = dentSessClasp(s);
+  if (ct.length) return dentArchLabel(s.arch) + ' — ' + dentClaspPhrase(ct);
   if (!s || s.tooth_num || !s.unit_teeth || (s.arch !== 'U' && s.arch !== 'L')) return '';
   var teeth = dentSessTeeth(s);
   return teeth.length ? dentAreaText(s.arch, teeth) : '';
@@ -1562,7 +1581,7 @@ window.SyDenture = {
   saveReady: dentSaveReady, save: dentSave,
   removeBtnHtml: dentRemoveBtnHtml,
   onSessionComplete: dentOnSessionComplete, onSessionDeleted: dentOnSessionDeleted, examUndo: dentExamUndo,
-  completeNote: dentCompleteNote, sessWhere: dentSessWhere, printLine: dentPrintLine,
+  completeNote: dentCompleteNote, sessWhere: dentSessWhere, sessClasp: dentSessClasp, claspPhrase: dentClaspPhrase, printLine: dentPrintLine,
   markDrawFail: dentMarkDrawFail, drawFailed: dentDrawFailed, clearDrawFail: dentClearDrawFail,   /* v737 */
   isImmediate: function (s) { return dentOpenExtractions(dentSessTeeth(s)).length > 0; },   /* ج3-أ: قالبُ مراحل المخبر للجهاز الفوري */
   restoreMissing: dentRestoreMissing,

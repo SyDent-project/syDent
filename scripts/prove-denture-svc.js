@@ -564,6 +564,90 @@ async function behave(w, F) {
   ok(!$('dentureBanner').querySelector('[data-dsv-open]') && hm === true && /عرض تاريخي للقراءة فقط/.test(toasts()) && !$('toothModal').classList.contains('open'), 'history view: read-only — chips are not buttons and the entry is refused');
   w.eval('window.__historyMode = false;');
 
+  /* ⑭ v741: خدمةُ «إضافة أو إصلاح ضمة» تمرّ بسنّها — السنُّ الجديد يدخل رسمَ الجهاز مع الجلسة المنجزة، وسنٌّ عليه ضمّة = إصلاحٌ بلا مساس بالرسم */
+  const tC = w.TREATMENTS.filter(t => t.id === 'denture-clasp')[0]; tC.is_active = true; tC.name = 'Clasp SVC';
+  const tk2 = () => new Promise(res => setTimeout(res, 5));
+  const ct = n => dlg().querySelector('[data-dsv-ctooth="' + n + '"]');
+  const dR = () => DB('teeth_status').filter(x => x.surface === 'DENTURE' && x.unit_id === 'u-1');
+  const pickClasp = (...teeth) => { w.SyDentSvc.open('u-1'); click(dlg().querySelector('[data-dsv-tx="denture-clasp"]')); teeth.forEach(n => click(ct(n))); };
+  load(base()); pickClasp();
+  ok(!!dlg() && !$('toothModal').classList.contains('open') && w.eval('pendingDentSvc') === null && dlg().querySelectorAll('[data-dsv-ctooth]').length === 16 && dlg().classList.contains('sy-m-md')
+    && /dsv-own/.test(ct(14).className) && /dsv-own/.test(ct(15).className) && /dsv-clasp-on/.test(ct(13).className) && /dent-miss/.test(ct(12).className)
+    && [16, 24, 26].every(n => /dent-off/.test(ct(n).className) && ct(n).getAttribute('aria-disabled') === 'true') && dlg().querySelector('[data-dsv-act="next"]').disabled === true
+    && /«Clasp SVC»: اختر السن الذي تُركَّب عليه الضمّة أو تُصلَّح\./.test(dlg().textContent) && !dlg().querySelector('[data-dsv-clasp]'),
+    'clasp service: on a partial denture it opens the tooth picker first — clasped tooth marked, denture teeth locked, unfit teeth disabled');
+  w.__TOASTS.length = 0; click(ct(16)); click(ct(14));
+  ok(/🦷 السن 16: لا يحمل ضمّة/.test(toasts()) && /🦷 السن 14: ضمن الجهاز/.test(toasts()) && !dlg().querySelector('.dent-on') && dlg().querySelector('[data-dsv-act="next"]').disabled === true, 'clasp service: an unfit tooth and a denture tooth are refused with the reason');
+  w.__TOASTS.length = 0; w.dsvConfirmClasp(dlg());
+  ok(!!dlg() && !$('toothModal').classList.contains('open') && /اختر سناً واحداً على الأقل/.test(toasts()), 'clasp service: no tooth — no cost step');
+  click(ct(12)); const cOn = /dent-on/.test(ct(12).className) && ct(12).getAttribute('aria-pressed') === 'true' && dlg().querySelector('[data-dsv-act="next"]').disabled === false && /السن 12/.test(dlg().querySelector('.dsv-note b').textContent);
+  click(ct(12)); const cOff = !/dent-on/.test(ct(12).className); click(ct(12));
+  click(dlg().querySelector('[data-dsv-act="next"]')); w.__grabSvc();
+  ok(cOn && cOff && !dlg() && $('toothModal').classList.contains('open') && /^🛠 Clasp SVC — Partial ACR \(الفك العلوي — الأسنان 14، 15\) — ضمّة على السن 12$/.test($('toothStep2Title').textContent) && w.SyDentSvc.saveReady() === true,
+    'clasp service: the tooth toggles, and the cost step names it');
+  $('toothCost').value = '5000'; await w.saveToothTreatment(); await tk2();
+  s = DB('ledger_sessions')[0];
+  ok(DB('ledger_sessions').length === 1 && s.denture_unit === 'u-1' && s.treatment_key === 'denture-clasp' && s.description === 'الفك العلوي — ضمّة على السن 12' && s.tooth_num === null && s.arch === 'U' && Number(s.cost) === 5000
+    && !('denture_add' in s) && !('unit_teeth' in s), 'clasp service (completed): one denture session — its description names the clasp tooth');
+  ok(ops('teeth_status', 'update').length === 1 && dR().length === 2 && dR().every(x => x.denture_clasps === '12,13') && ops('teeth_status', 'insert').length === 0 && ops('teeth_status', 'delete').length === 0
+    && !!doc.querySelector('.tooth-cell[data-tooth-cell="12"] g.dent-clasp') && !!doc.querySelector('.tooth-cell[data-tooth-cell="13"] g.dent-clasp')
+    && /✅ تم تسجيل Clasp SVC — ضمّة على السن 12 — أُضيفت لرسم الجهاز/.test(toasts()) && w.__REALLOC === 1 && w.__AUDIT.length === 1 && w.__AUDIT[0].d.newValue.clasp === '12',
+    'clasp service (completed): the new clasp joins the drawing beside the ones already drawn — one update, nothing else on the chart');
+  ok(w.SyDenture.sessWhere(s) === 'الفك العلوي — ضمّة على السن 12' && w.SyDenture.sessClasp(s).join(',') === '12', 'sessWhere: a clasp service is located by its clasp tooth');
+  w.SyDentSvc.open('u-1');
+  ok(/Clasp SVC/.test(dlg().querySelector('.dsv-row').textContent) && dlg().querySelector('.dsv-row .dsv-add').textContent === 'السن 12', 'dialog history: the clasp service names its tooth');
+  click(dlg().querySelector('.modal-close'));
+  /* إصلاح: سنٌّ عليه ضمّة أصلاً — الرسمُ لا يُمسّ (يبقى على الاقتراح التلقائي) */
+  load(base()); pickClasp(13); click(dlg().querySelector('[data-dsv-act="next"]')); await w.saveToothTreatment(); await tk2();
+  ok(DB('ledger_sessions').length === 1 && DB('ledger_sessions')[0].description === 'الفك العلوي — ضمّة على السن 13' && ops('teeth_status', 'update').length === 0 && dR().every(x => x.denture_clasps == null)
+    && /✅ تم تسجيل Clasp SVC — ضمّة على السن 13( \|\||$)/.test(toasts()) && !/أُضيفت لرسم الجهاز/.test(toasts()), 'clasp service (repair): a tooth that already carries a clasp leaves the drawing untouched');
+  /* مخطّطة: لا رسم — والرسالةُ تدلّ على قسم «الضمّات» */
+  load(base()); pickClasp(13, 12); click(dlg().querySelector('[data-dsv-act="next"]')); w.pickStatus('planned'); await w.saveToothTreatment(); await tk2();
+  ok(DB('ledger_sessions').length === 1 && DB('ledger_sessions')[0].status === 'planned' && DB('ledger_sessions')[0].description === 'الفك العلوي — ضمّات على الأسنان 12، 13' && ops('teeth_status', 'update').length === 0
+    && dR().every(x => x.denture_clasps == null) && !doc.querySelector('.tooth-cell[data-tooth-cell="12"] g.dent-clasp')
+    && /✅ تم تسجيل Clasp SVC مخطّطاً — ضمّات على الأسنان 12، 13 — أضفها لرسم الجهاز من قسم «الضمّات» عند الإنجاز/.test(toasts())
+    && w.SyDenture.sessWhere(DB('ledger_sessions')[0]) === 'الفك العلوي — ضمّات على الأسنان 12، 13', 'clasp service (planned): the session is saved and the drawing is not touched');
+  /* تعذّر الرسم: الجلسةُ تبقى (الضمّاتُ عرضيّة) والفشلُ يُعلَن */
+  load(base()); pickClasp(12); click(dlg().querySelector('[data-dsv-act="next"]'));
+  w.__FAIL = st => (st.table === 'teeth_status' && st.op === 'update') ? 'boom' : null;
+  await w.saveToothTreatment(); await tk2(); w.__FAIL = null;
+  ok(DB('ledger_sessions').length === 1 && ops('ledger_sessions', 'delete').length === 0 && w.__REALLOC === 1 && dR().every(x => x.denture_clasps == null)
+    && /⚠️ تم تسجيل Clasp SVC — ضمّة على السن 12 — تعذّر تحديث رسم الجهاز، أضفها من قسم «الضمّات»/.test(toasts()) && !/أُضيفت لرسم الجهاز/.test(toasts()) && !$('toothModal').classList.contains('open'),
+    'clasp service: a failed drawing keeps the session and says so');
+  /* المخططُ تغيّر بين المنتقي والحفظ: السنُّ قُلع */
+  load(base()); pickClasp(12); click(dlg().querySelector('[data-dsv-act="next"]'));
+  w.eval("teethMap['12'] = { WHOLE: 'extracted', __status: { WHOLE: 'completed' } };"); w.__OPS = []; w.__TOASTS.length = 0;
+  await w.saveToothTreatment(); await tk2();
+  ok(w.__OPS.length === 0 && DB('ledger_sessions').length === 0 && /⚠️ تغيّر المخطط — السن 12: لا يحمل ضمّة/.test(toasts()), 'clasp service: a tooth extracted before saving stops the save with zero writes');
+  /* مع المخبر: الطلبُ يسمّي سنَّ الضمّة والرسمُ يُحدَّث */
+  load(base()); pickClasp(12); click(dlg().querySelector('[data-dsv-act="next"]')); await w.saveRegionalAndOpenLab(); await tk2();
+  ok(w.__LAB.length === 1 && /^Partial ACR — الفك العلوي — الأسنان 14، 15 — ضمّة على السن 12/.test(w.__LAB[0].notes) && dR().every(x => x.denture_clasps === '12,13')
+    && /✅ تم تسجيل Clasp SVC — الفك العلوي — ضمّة على السن 12 — أكمل بيانات المخبر/.test(toasts()), 'clasp service + lab: the order names the clasp tooth and the drawing follows');
+  w.eval('window._pendingMatDeduct = null;');
+  /* جهازٌ كامل: لا سنَّ يحمل ضمّة ⇒ الخدمةُ كما كانت (خطوةُ التكلفة مباشرة) */
+  load(base()); w.SyDentSvc.open('u-2'); click(dlg().querySelector('[data-dsv-tx="denture-clasp"]')); w.__grabSvc();
+  const fullDirect = !dlg() && $('toothModal').classList.contains('open') && /^🛠 Clasp SVC — Complete DENT \(الفك السفلي — كامل\)$/.test($('toothStep2Title').textContent);
+  await w.saveToothTreatment(); await tk2();
+  ok(fullDirect && DB('ledger_sessions')[0].description === 'الفك السفلي — كامل' && w.SyDenture.sessWhere(DB('ledger_sessions')[0]) === '' && ops('teeth_status', 'update').length === 0, 'clasp service on a complete denture: no picker — the service is recorded as before');
+  /* وحدةٌ نوعُها «كامل» لا تمرّ بالمنتقي ولو بقيت أسنانٌ قائمة بفكّها (لا ضمّات تُرسم لها) */
+  load([X(14), X(15), D(14, 'u-f', T_FULL.id), D(15, 'u-f', T_FULL.id)]); w.SyDentSvc.open('u-f'); click(dlg().querySelector('[data-dsv-tx="denture-clasp"]'));
+  ok(!dlg() && $('toothModal').classList.contains('open'), 'clasp service: a complete-type denture never gets the clasp picker');
+  w.closeModal('toothModal'); w.eval('pendingDentSvc = null;');
+  /* من قائمة العلاجات: الجهازُ يُختار ثم السن · «رجوع» يعيد لواجهة الجهاز */
+  load(base()); w.SyDentSvc.start('denture-clasp', 'Clasp SVC', null); w.__grabSvc();
+  const unitsFirst = !!dlg().querySelector('[data-dsv-unit="u-1"]'); click(dlg().querySelector('[data-dsv-unit="u-1"]'));
+  const thenTeeth = dlg().querySelectorAll('[data-dsv-ctooth]').length === 16; click(dlg().querySelector('[data-dsv-act="back"]'));
+  ok(unitsFirst && thenTeeth && !dlg().querySelector('[data-dsv-ctooth]') && !!dlg().querySelector('.dsv-clasp-grid'), 'clasp service from the treatments list: the denture, then the tooth — «back» returns to the denture window');
+  click(dlg().querySelector('.modal-close'));
+  /* القراءةُ من الوصف صارمة: وصفٌ معدَّل أو خدمةٌ أخرى أو فكٌّ آخر ⇒ جلسةُ فكٍّ عادية */
+  const CS = (d, extra) => SESS('c', Object.assign({ denture_unit: 'u-1', treatment_key: 'denture-clasp', description: d }, extra || {}));
+  ok(w.SyDenture.sessClasp(CS('الفك العلوي — ضمّة على السن 13')).join(',') === '13' && w.SyDenture.sessClasp(CS('الفك العلوي — ضمّات على الأسنان 12، 13')).join(',') === '12,13'
+    && w.SyDenture.sessWhere(CS('نص حر — ضمّة على السن 13')) === '' && w.SyDenture.sessWhere(CS('الفك العلوي — ضمّة على السن 13 وملاحظة')) === ''
+    && w.SyDenture.sessWhere(CS('الفك العلوي — ضمّة على السن 13', { treatment_key: 'denture-reline-lab' })) === '' && w.SyDenture.sessWhere(CS('الفك العلوي — ضمّة على السن 33')) === ''
+    && w.SyDenture.sessWhere(CS('الفك العلوي — ضمّة على السن 13', { denture_unit: null })) === '' && w.SyDenture.sessWhere(CS('الفك العلوي — ضمّة على السن 13', { tooth_num: '13' })) === '',
+    'sessWhere: the clasp tooth is read only from the exact text this service writes — an edited description, another service or another jaw falls back to the jaw');
+  tC.is_active = false; tC.name = 'Clasp OFF';
+
   ok((w.__ERRORS || []).length === 0, 'no JS errors on the page' + ((w.__ERRORS || []).length ? ' → ' + String(w.__ERRORS[0]).slice(0, 160) : ''));
   return Object.keys(w.__I18N);
 }
@@ -736,6 +820,35 @@ const MUTANTS = [
   ['save without revalidating the denture', rep(SV, "  if (why) { showToast('⚠️ تغيّر المخطط — ' + why); return; }", "")],
   ['save without revalidating the teeth', rep(SV, "      if (!ts.ok) { showToast('⚠️ تغيّر المخطط — السن ' + add[i] + ': ' + ts.why); return; }", "")],
   ['stale context saves', rep(SV, "    && pendingRegionalType === 'arch' && pendingToothStatus === p.key && !currentTooth", "    && !currentTooth")],
+  ['clasp service skips the tooth picker', rep(SV, "  if (dsvClaspPick(u, key)) {   /* v741", "  if (false) {   /* v741")],
+  ['complete-type denture gets the clasp picker', rep(SV, "return key === DENT_CLASP_SVC_KEY && dsvClaspUnit(u) && dsvClaspTeethOk(u).length > 0;", "return key === DENT_CLASP_SVC_KEY && dsvClaspTeethOk(u).length > 0;")],
+  ['every denture service asks for a clasp tooth', rep(SV, "return key === DENT_CLASP_SVC_KEY && dsvClaspUnit(u)", "return dsvClaspUnit(u)")],
+  ['unfit tooth accepted for a clasp', rep(SV, "  return dentClaspOk(n) ? '' : 'لا يحمل ضمّة (مفقود أو مزروع أو قلعه مخطّط)';", "  return '';")],
+  ['denture tooth accepted for a clasp', rep(SV, "  if (u.teeth.indexOf(n) !== -1) return 'ضمن الجهاز';\n  return dentClaspOk(n)", "  return dentClaspOk(n)")],
+  ['clasp step opens with no tooth', rep(SV, "  if (!teeth.length) { showToast('⚠️ اختر سناً واحداً على الأقل'); return; }\n  dsvClose();\n  pendingDentSvc = { key: st.key, label: st.label, kind: 'service'", "  dsvClose();\n  pendingDentSvc = { key: st.key, label: st.label, kind: 'service'")],
+  ['cost step does not name the clasp tooth', rep(SV, "    + ((p.clasp && p.clasp.length) ? ' — ' + dentClaspPhrase(p.clasp) : '');", "    ;")],
+  ['clasp tooth not written in the description', rep(SV, "  var area = clasp.length ? dentArchLabel(u.arch) + ' — ' + dentClaspPhrase(clasp) : dentAreaText(u.arch, add.length ? add : u.teeth);", "  var area = dentAreaText(u.arch, add.length ? add : u.teeth);")],
+  ['new clasp not drawn', rep(SV, "    if (claspNew.length && status === 'completed') claspDrew = await dentClaspSave(u, claspCur.concat(claspNew));", "")],
+  ['planned clasp drawn immediately', rep(SV, "    if (claspNew.length && status === 'completed') claspDrew", "    if (claspNew.length) claspDrew")],
+  ['clasp repair rewrites the drawing', rep(SV, "    claspNew = clasp.filter(function (t) { return claspCur.indexOf(t) === -1; });", "    claspNew = clasp.slice();")],
+  ['new clasp replaces the drawn ones', rep(SV, "claspDrew = await dentClaspSave(u, claspCur.concat(claspNew));", "claspDrew = await dentClaspSave(u, claspNew);")],
+  ['save without revalidating the clasp tooth', rep(SV, "    if (cwhy) { showToast('⚠️ تغيّر المخطط — السن ' + clasp[ck] + ': ' + cwhy); return; }", "")],
+  ['failed clasp drawing reported as drawn', rep(SV, "    else if (claspDrew) showToast(", "    else if (true) showToast(")],
+  ['lab order does not name the clasp tooth', rep(SV, " + (clasp.length ? ' — ' + dentClaspPhrase(clasp) : '') + (notes ? ' — ' + notes : ''),", " + (notes ? ' — ' + notes : ''),")],
+  ['clasp tooth not audited', rep(SV, ", add: add.join(','), clasp: clasp.join(',') }", ", add: add.join(',') }")],
+  ['history does not name the clasp tooth', rep(SV, "      if (!add.length) add = dentSessClasp(s);   /* v741: خدمةُ الضمّة تسمّي سنَّها */\n", "")],
+  ['sessWhere trusts an edited description', rep('pp-denture.js', "  if (!m || m[1] !== dentArchLabel(s.arch)) return [];", "  if (!m) return [];")],
+  ['sessWhere reads a clasp from any service', rep('pp-denture.js', "!s.denture_unit || s.treatment_key !== DENT_CLASP_SVC_KEY || (s.arch", "!s.denture_unit || (s.arch")],
+  ['sessWhere reads a clasp from a session with no denture', rep('pp-denture.js', "if (!s || s.tooth_num || !s.denture_unit || s.treatment_key !== DENT_CLASP_SVC_KEY", "if (!s || s.tooth_num || s.treatment_key !== DENT_CLASP_SVC_KEY")],
+  ['sessWhere accepts a clasp tooth of the other jaw', rep('pp-denture.js', "return t >= 11 && t <= 48 && dentArchOf(t) === s.arch; }) ? teeth : [];", "return t >= 11 && t <= 48; }) ? teeth : [];")],
+  ['sessWhere ignores the clasp service', rep('pp-denture.js', "  if (ct.length) return dentArchLabel(s.arch) + ' — ' + dentClaspPhrase(ct);\n", "")],
+  ['i18n: the clasp picker hint left untranslated', rep('i18n-en.js', "[/^«(.+)»: اختر السن الذي تُركَّب عليه الضمّة أو تُصلَّح\\.$/, '«$1»: choose the tooth the clasp is fitted on or repaired.'],", "")],
+  ['i18n: the clasp picker note left untranslated', rep('i18n-en.js', "    '— الرمادي عليه ضمّة (اختره للإصلاح)، والسن الجديد تُضاف ضمّته لرسم الجهاز.': '— a grey tooth already has a clasp (pick it for a repair); a new tooth gets its clasp added to the denture drawing.'\n", "")],
+  ['i18n: the clasp cost-step title left untranslated', rep('i18n-en.js', "    [R('^🛠 (.+) — (.+) \\\\((' + A1 + ')\\\\) — ' + CL + '$')", "    [R('^🛠 (.+) — (.+) \\\\((' + A1 + ')\\\\) — x' + CL + '$')")],
+  ['i18n: a clasp save toast left untranslated', rep('i18n-en.js', "    [R('^✅ تم تسجيل (.+) — ' + CL + '( — أُضيفت لرسم الجهاز)?$')", "    [R('^✅ تم تسجيل (.+) — x' + CL + '( — أُضيفت لرسم الجهاز)?$')")],
+  ['i18n: the planned clasp toast left untranslated', rep('i18n-en.js', "    [R('^✅ تم تسجيل (.+) مخطّطاً — ' + CL + '(", "    [R('^✅ تم تسجيل (.+) مخطّطاً — x' + CL + '(")],
+  ['i18n: the failed clasp drawing toast left untranslated', rep('i18n-en.js', "    [R('^⚠️ تم تسجيل (.+) — ' + CL + ' — تعذّر", "    [R('^⚠️ تم تسجيل (.+) — x' + CL + ' — تعذّر")],
+  ['i18n: the clasp lab toast left untranslated', rep('i18n-en.js', "    [R('^✅ تم تسجيل (.+?) — ' + C1 + ' — أكمل بيانات المخبر$')", "    [R('^✅ تم تسجيل (.+?) — x' + C1 + ' — أكمل بيانات المخبر$')")],
   ['context not consumed after saving', rep(SV, "  var openLab = (typeof _regOpenLabAfterSave !== 'undefined') && _regOpenLabAfterSave === true;\n  pendingDentSvc = null;", "  var openLab = (typeof _regOpenLabAfterSave !== 'undefined') && _regOpenLabAfterSave === true;")],
   ['funds not reallocated', rep(SV, "  await reallocatePatientFunds();\n", "")],
   ['lab order opened without the session', rep(SV, "      session_id: sess.id, treatment_key: key,", "      session_id: null, treatment_key: key,")],

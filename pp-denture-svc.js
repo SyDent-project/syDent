@@ -116,12 +116,21 @@ async function dsvClaspClick(ov, n, auto) {
   finally { st.busy = false; }
   if (dsvDialog() === ov && ov._dsv && ov._dsv.view === 'home') dsvRender(ov);
 }
-/* view: 'home' (سجلّ + خدمات) · 'add' (منتقي السن) · 'units' (أيُّ جهاز؟) */
+/* v741 — خدمةُ «إضافة أو إصلاح ضمة» على جهازٍ جزئي تمرّ بمنتقي السن (المالك 17/11/2026). السنُّ الجديد تُضاف ضمّتُه لرسم الجهاز عند
+   حفظ الجلسة منجزةً، والسنُّ الذي عليه ضمّة = إصلاحٌ لا يغيّر الرسم. الخدمةُ على جهازٍ كامل (أو بلا سنٍّ قائمٍ بالفك) تبقى كما كانت. */
+function dsvClaspTeethOk(u) { return dentArchRow(u.arch).filter(function (t) { return u.teeth.indexOf(t) === -1 && dentClaspOk(t); }); }
+function dsvClaspPick(u, key) { return key === DENT_CLASP_SVC_KEY && dsvClaspUnit(u) && dsvClaspTeethOk(u).length > 0; }
+/* لماذا لا يحمل السنُّ ضمّة — فارغٌ إن قُبل */
+function dsvClaspWhy(u, n) {
+  if (u.teeth.indexOf(n) !== -1) return 'ضمن الجهاز';
+  return dentClaspOk(n) ? '' : 'لا يحمل ضمّة (مفقود أو مزروع أو قلعه مخطّط)';
+}
+/* view: 'home' (سجلّ + خدمات) · 'add' (منتقي السن) · 'clasp' (سنُّ الضمّة) · 'units' (أيُّ جهاز؟) */
 function dsvRender(ov) {
   var st = ov._dsv, body = ov.querySelector('.dsv-body'), foot = ov.querySelector('.dsv-foot'), h = '';
   /* شبكةُ الأسنان تحتاج عرضاً (سابقةُ منتقي الجهاز: sm ← md) — وتعود النافذةُ كما كانت خارجها */
   /* v739: صفُّ الضمّات بالواجهة الرئيسية لجهازٍ جزئي شبكةُ أسنانٍ أيضاً */
-  var wide = st.view === 'add' || (st.view === 'home' && dsvClaspUnit(dsvUnit(st.unitId)));
+  var wide = st.view === 'add' || st.view === 'clasp' || (st.view === 'home' && dsvClaspUnit(dsvUnit(st.unitId)));
   ov.classList.toggle('sy-m-md', !!wide); ov.classList.toggle('sy-m-sm', !wide);
   if (st.view === 'units') {
     h += '<div class="dsv-hint">اختر الجهاز الذي تخصّه «' + escapeHtml(st.label) + '»:</div><div class="dsv-list">';
@@ -151,6 +160,21 @@ function dsvRender(ov) {
       + '<button type="button" class="btn-sy-ok" data-dsv-act="next"' + (st.teeth.length ? '' : ' disabled') + '>متابعة</button>';
     body.innerHTML = h; return;
   }
+  if (st.view === 'clasp') {
+    var crow = dentArchRow(u.arch), con = dentClasps(u);
+    h += '<div class="dsv-hint">«' + escapeHtml(st.label) + '»: اختر السن الذي تُركَّب عليه الضمّة أو تُصلَّح.</div><div class="nse-row dent-row dsv-grid">';
+    for (var ci = 0; ci < crow.length; ci++) {
+      if (ci === crow.length / 2) h += '<span class="nse-mid"></span>';
+      var ct = crow[ci], cw = dsvClaspWhy(u, ct), csel = st.teeth.indexOf(ct) !== -1, chas = con.indexOf(ct) !== -1;
+      h += '<button type="button" class="nse-t dent-t' + (u.teeth.indexOf(ct) !== -1 ? ' dsv-own' : (!cw ? (csel ? ' dent-on' : (chas ? ' dsv-clasp-on' : ' dent-miss')) : ' dent-off')) + '" data-dsv-ctooth="' + ct + '"'
+        + (cw ? ' aria-disabled="true" title="' + escapeHtml(cw) + '"' : ' aria-pressed="' + (csel ? 'true' : 'false') + '"') + '>' + ct + '</button>';
+    }
+    h += '</div><div class="dsv-note">المحدَّد: <b>' + (st.teeth.length ? escapeHtml(dentTeethPhrase(dentSortTeeth(st.teeth, u.arch))) : 'لا شيء')
+      + '</b> — الرمادي عليه ضمّة (اختره للإصلاح)، والسن الجديد تُضاف ضمّته لرسم الجهاز.</div>';
+    foot.innerHTML = '<button type="button" class="btn-sy-cancel" data-dsv-act="back">رجوع</button>'
+      + '<button type="button" class="btn-sy-ok" data-dsv-act="next"' + (st.teeth.length ? '' : ' disabled') + '>متابعة</button>';
+    body.innerHTML = h; return;
+  }
   var txs = dsvTreatments(), hist = dsvSessions(u), why = dsvUnitWhy(u, '');
   h += dsvClaspHtml(u);
   h += '<div class="dsv-h">خدمة جديدة</div>';
@@ -171,6 +195,7 @@ function dsvRender(ov) {
     h += '<div class="dsv-hist">';
     hist.forEach(function (s) {
       var add = dsvTeeth(s), planned = (s.status || 'completed') === 'planned';
+      if (!add.length) add = dentSessClasp(s);   /* v741: خدمةُ الضمّة تسمّي سنَّها */
       h += '<div class="dsv-row"><span class="dsv-date">' + escapeHtml(dsvDate(s.date)) + '</span><span class="dsv-what">' + escapeHtml(s.type || 'خدمة جهاز')
         + (add.length ? ' <span class="dsv-add">' + escapeHtml(dentTeethPhrase(add)) + '</span>' : '') + '</span>'
         + (planned ? '<span class="dsv-st">' + escapeHtml((typeof STATUS_LABELS !== 'undefined' && STATUS_LABELS.planned) || 'مخطط') + '</span>' : '') + '</div>';
@@ -216,6 +241,14 @@ function dsvOpenDialog(state) {
     }
     var cl = t.closest('[data-dsv-clasp]');
     if (cl) { dsvClaspClick(ov, parseInt(cl.getAttribute('data-dsv-clasp'), 10), false); return; }
+    var cth = t.closest('[data-dsv-ctooth]');
+    if (cth) {
+      var cu = dsvUnit(st.unitId), cn = parseInt(cth.getAttribute('data-dsv-ctooth'), 10); if (!cu) { dsvClose(); return; }
+      var cwhy = dsvClaspWhy(cu, cn);
+      if (cwhy) { showToast('🦷 السن ' + cn + ': ' + cwhy); return; }
+      var cj = st.teeth.indexOf(cn); if (cj === -1) st.teeth.push(cn); else st.teeth.splice(cj, 1);
+      dsvRender(ov); return;
+    }
     var th = t.closest('[data-dsv-tooth]');
     if (th) {
       var u = dsvUnit(st.unitId), n = parseInt(th.getAttribute('data-dsv-tooth'), 10); if (!u) { dsvClose(); return; }
@@ -229,7 +262,7 @@ function dsvOpenDialog(state) {
     if (a === 'instr') { dsvInstructions(st.unitId); return; }
     if (a === 'clasp-auto') { dsvClaspClick(ov, 0, true); return; }
     if (a === 'back') { st.view = 'home'; st.key = null; st.teeth = []; dsvRender(ov); }
-    else if (a === 'next') dsvConfirmAdd(ov);
+    else if (a === 'next') { if (st.view === 'clasp') dsvConfirmClasp(ov); else dsvConfirmAdd(ov); }
     else dsvClose();
   });
   ov.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.stopPropagation(); dsvClose(); } });
@@ -294,8 +327,23 @@ function dsvBegin(u, key, label, kind, ov) {
     if (ov) { ov._dsv = state; dsvRender(ov); } else dsvOpenDialog(state);
     return;
   }
+  if (dsvClaspPick(u, key)) {   /* v741: خدمةُ الضمّة تمرّ بسنّها */
+    var cst = { view: 'clasp', unitId: u.id, key: key, label: label, teeth: [] };
+    if (ov) { ov._dsv = cst; dsvRender(ov); } else dsvOpenDialog(cst);
+    return;
+  }
   if (ov) dsvClose();
-  pendingDentSvc = { key: key, label: label, kind: kind, unit: { id: u.id }, teeth: [], picking: false };
+  pendingDentSvc = { key: key, label: label, kind: kind, unit: { id: u.id }, teeth: [], clasp: [], picking: false };
+  dsvStep2();
+}
+function dsvConfirmClasp(ov) {
+  if (dsvLocked()) return;
+  var st = ov._dsv, u = dsvUnit(st.unitId);
+  if (!u) { dsvClose(); return; }
+  var teeth = st.teeth.filter(function (t) { return !dsvClaspWhy(u, t); });
+  if (!teeth.length) { showToast('⚠️ اختر سناً واحداً على الأقل'); return; }
+  dsvClose();
+  pendingDentSvc = { key: st.key, label: st.label, kind: 'service', unit: { id: u.id }, teeth: [], clasp: dentSortTeeth(teeth, u.arch), picking: false };
   dsvStep2();
 }
 function dsvConfirmAdd(ov) {
@@ -305,7 +353,7 @@ function dsvConfirmAdd(ov) {
   var teeth = st.teeth.filter(function (t) { return dsvToothState(u, t).ok; });
   if (!teeth.length) { showToast('⚠️ اختر سناً واحداً على الأقل'); return; }
   dsvClose();
-  pendingDentSvc = { key: st.key, label: st.label, kind: 'add', unit: { id: u.id }, teeth: dentSortTeeth(teeth, u.arch), picking: false };
+  pendingDentSvc = { key: st.key, label: st.label, kind: 'add', unit: { id: u.id }, teeth: dentSortTeeth(teeth, u.arch), clasp: [], picking: false };
   dsvStep2();
 }
 /* الخطوةُ الثانية = خطوةُ «علاج الفك» القائمة حرفياً (التكلفة · الحالة · الطبيب · التاريخ · زر المخبر)، بعنوانٍ يسمّي الجهاز */
@@ -321,7 +369,8 @@ function dsvStep2() {
   proceedToRegionalStep2(p.key, p.label);
   var ti = document.getElementById('toothStep2Title');
   if (ti) ti.textContent = '🛠 ' + p.label + ' — ' + dentUnitName(u) + ' (' + dentAreaText(u.arch, u.teeth) + ')'
-    + (p.kind === 'add' ? ' — إضافة ' + dentTeethPhrase(p.teeth) : '');
+    + (p.kind === 'add' ? ' — إضافة ' + dentTeethPhrase(p.teeth) : '')
+    + ((p.clasp && p.clasp.length) ? ' — ' + dentClaspPhrase(p.clasp) : '');
   /* إضافةٌ على سنٍّ قلعُه مخطّط لا تُسجَّل إلا مخطّطة ⇒ الخطوةُ تُفتح على «مخطّط» (درس v724) */
   if (p.kind === 'add' && typeof pickStatus === 'function' && p.teeth.some(function (t) { return !!dsvToothState(u, t).imm; })) pickStatus('planned');
 }
@@ -366,7 +415,13 @@ async function dsvSave(cost, units, date, notes) {
       return;
     }
   }
-  var area = dentAreaText(u.arch, add.length ? add : u.teeth);
+  /* v741: سنُّ الضمّة يُعاد فحصُه لحظةَ الحفظ — سنٌّ قُلع أو دخل الجهاز بين النافذة والحفظ يوقف الحفظ بسببه */
+  var clasp = (p.clasp || []).slice();
+  for (var ck = 0; ck < clasp.length; ck++) {
+    var cwhy = dsvClaspWhy(u, clasp[ck]);
+    if (cwhy) { showToast('⚠️ تغيّر المخطط — السن ' + clasp[ck] + ': ' + cwhy); return; }
+  }
+  var area = clasp.length ? dentArchLabel(u.arch) + ' — ' + dentClaspPhrase(clasp) : dentAreaText(u.arch, add.length ? add : u.teeth);
   var payload = {
     doctor_id: currentUser.id, patient_id: patientId,
     type: label, description: area,
@@ -398,12 +453,20 @@ async function dsvSave(cost, units, date, notes) {
     }
     drew = true;
   }
+  /* v741: ضمّةُ سنٍّ جديد تدخل رسمَ الجهاز مع الجلسة المنجزة (قائمةُ الطبيب = المرسومُ الآن + الجديد). عرضيٌّ بحت: تعذّرُ الرسم لا
+     يسحب الجلسة — يُعلَن والطبيبُ يضيفها من قسم «الضمّات». المخطّطةُ لا ترسم. */
+  var claspNew = [], claspDrew = false;
+  if (clasp.length) {
+    var claspCur = dentClasps(u);
+    claspNew = clasp.filter(function (t) { return claspCur.indexOf(t) === -1; });
+    if (claspNew.length && status === 'completed') claspDrew = await dentClaspSave(u, claspCur.concat(claspNew));
+  }
   sessions.unshift(sess); sortByDateDesc(sessions);
   if (window.logAudit) {
     window.logAudit('session.create', {
       entityId: sess.id, patientId: patientId, patientName: (patient && patient.name) || '',
       description: 'إضافة جلسة (' + area + '): ' + label + ' — ' + cost + ' ' + _rowLbl(sess),
-      newValue: { type: label, cost: cost, date: date, status: status, provider_id: pendingProviderId, scope: 'denture_service', unit: u.id, add: add.join(',') }
+      newValue: { type: label, cost: cost, date: date, status: status, provider_id: pendingProviderId, scope: 'denture_service', unit: u.id, add: add.join(','), clasp: clasp.join(',') }
     });
   }
   await reallocatePatientFunds();
@@ -423,7 +486,7 @@ async function dsvSave(cost, units, date, notes) {
   if (openLab) {
     openLabOrderModal({
       session_id: sess.id, treatment_key: key,
-      notes: unitName + ' — ' + dentAreaText(u.arch, u.teeth) + (add.length ? ' — إضافة ' + dentTeethPhrase(add) : '') + (notes ? ' — ' + notes : ''),
+      notes: unitName + ' — ' + dentAreaText(u.arch, u.teeth) + (add.length ? ' — إضافة ' + dentTeethPhrase(add) : '') + (clasp.length ? ' — ' + dentClaspPhrase(clasp) : '') + (notes ? ' — ' + notes : ''),
       provider_id: pendingProviderId || null,
       draft: status !== 'completed'
     });
@@ -431,6 +494,12 @@ async function dsvSave(cost, units, date, notes) {
   } else if (add.length) {
     showToast(drew ? '✅ تم تسجيل ' + label + ' — أُضيف ' + dentTeethPhrase(add) + ' لرسم الجهاز'
       : '✅ تم تسجيل ' + label + ' مخطّطاً — ' + dentTeethPhrase(add) + ' يُضاف لرسم الجهاز عند الإنجاز');
+  } else if (clasp.length) {
+    var cph = dentClaspPhrase(clasp);
+    if (status !== 'completed') showToast('✅ تم تسجيل ' + label + ' مخطّطاً — ' + cph + (claspNew.length ? ' — أضفها لرسم الجهاز من قسم «الضمّات» عند الإنجاز' : ''));
+    else if (!claspNew.length) showToast('✅ تم تسجيل ' + label + ' — ' + cph);
+    else if (claspDrew) showToast('✅ تم تسجيل ' + label + ' — ' + cph + ' — أُضيفت لرسم الجهاز');
+    else showToast('⚠️ تم تسجيل ' + label + ' — ' + cph + ' — تعذّر تحديث رسم الجهاز، أضفها من قسم «الضمّات»');
   } else {
     showToast('✅ تم تسجيل ' + label + ' — ' + unitName + ' (' + dentArchLabel(u.arch) + ')');
   }
