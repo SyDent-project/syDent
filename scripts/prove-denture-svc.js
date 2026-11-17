@@ -15,6 +15,7 @@ const ROOT = path.resolve(__dirname, '..');
 let jsdomOk = true; try { require.resolve('jsdom'); } catch (e) { jsdomOk = false; }
 if (!jsdomOk) { console.warn('⚠️  jsdom غائبة — تخطّي مثبت خدمات الجهاز (npm install jsdom --no-save)'); process.exit(0); }
 const { JSDOM, VirtualConsole } = require('jsdom');
+const POOL = require('./mutant-pool');   /* الطفراتُ على كل الأنوية + التوقّفُ عند أول توكيدٍ أحمر */
 cp.execFileSync('node', [path.join(__dirname, 'dom-smoke', 'build-harness.js')], { stdio: 'ignore' });
 const HARNESS = fs.readFileSync(path.join(__dirname, 'dom-smoke', '.out', 'harness.html'), 'utf8');
 
@@ -77,8 +78,9 @@ const T_ADD = T('denture-add-tooth', 'Add TOOTH', 'arch', { denture_svc: 'add', 
 const T_ARCH = T('whitening', 'Whitening', 'arch', { category: 'cosmetic' });
 const T_OFF = T('denture-clasp', 'Clasp OFF', 'arch', { denture_svc: 'service', is_active: false });
 
-let pass = 0, fail = 0;
-function ok(c, name) { if (c) pass++; else { fail++; console.log('  ✗ ' + name); } }
+let pass = 0, fail = 0, BAILING = false;
+/* بتشغيل الطفرات يقف عند أول توكيدٍ أحمر — توكيدٌ واحد يكفي لإثبات أن الطفرة تعضّ (mutant-pool.js) */
+function ok(c, name) { if (c) pass++; else { fail++; if (BAILING) throw POOL.BAIL; console.log('  ✗ ' + name); } }
 
 function staticChecks(F) {
   const M = F['migrations/208_denture_services.sql'], S = F['pp-denture-svc.js'], PD = F['pp-dental.js'], DN = F['pp-denture.js'], PH = F['patient-profile.html'], AP = F['appointments.html'], TH = F['treatments.html'];
@@ -791,8 +793,9 @@ async function suite(F) {
   const over = {}; ['pp-denture-svc.js', 'pp-denture.js', 'pp-dental.js', 'pp-core.js', 'patient-profile.html'].forEach(f => { if (F[f] !== LIVE[f]) over[f] = F[f]; });
   const w = await boot(over);
   let strings = [];
-  try { strings = await behave(w, F); } catch (e) { ok(false, 'behaviour ran to the end → ' + String(e && e.stack || e).split('\n').slice(0, 3).join(' / ')); }
-  w.close();
+  try {
+    try { strings = await behave(w, F); } catch (e) { if (e === POOL.BAIL) throw e; ok(false, 'behaviour ran to the end → ' + String(e && e.stack || e).split('\n').slice(0, 3).join(' / ')); }
+  } finally { w.close(); }
   await apptMirror(F);
   await apptSwapMirror(F);
   i18nChecks(strings, F);
@@ -940,14 +943,19 @@ const MUTANTS = [
   await suite(LIVE);
   const basePass = pass, baseFail = fail;
   if (process.argv.indexOf('--self-test') !== -1 || process.argv.indexOf('--mutants') !== -1) {
-    let bit = 0;
-    for (const [name, mut] of MUTANTS) {
+    /* كل طفرةٍ مستقلة ⇒ تتوزّع على الأنوية، وكلٌّ منها يقف عند أول توكيدٍ أحمر */
+    const pool = await POOL.runMutants(MUTANTS, async ([name, mut]) => {
       pass = 0; fail = 0;
-      const log = console.log; console.log = () => {};
-      try { await suite(mut(LIVE)); } catch (e) { fail++; if (/mutant anchor missing/.test(String(e))) { console.log = log; console.log('MUTANT ANCHOR MISSING:', name); console.log = () => {}; fail = 0; } }
-      console.log = log;
-      if (fail > 0) bit++; else console.log('MUTANT SURVIVED:', name);
-    }
+      let F2;
+      try { F2 = mut(LIVE); } catch (e) { if (/mutant anchor missing/.test(String(e))) { console.log('MUTANT ANCHOR MISSING:', name); return false; } return true; }
+      const log = console.log; console.log = () => {}; BAILING = true;
+      try { await suite(F2); } catch (e) { fail++; }
+      finally { console.log = log; BAILING = false; }
+      return fail > 0;
+    });
+    pool.dull.forEach(i => console.log('MUTANT SURVIVED:', MUTANTS[i][0]));
+    if (pool.failed.length) console.log('MUTANT WORKER FAILED:', pool.failed.join(', '));
+    const bit = pool.failed.length ? -1 : pool.bit;
     pass = basePass; fail = baseFail;
     const allBit = bit === MUTANTS.length;
     console.log((fail === 0 && allBit ? '✅' : '❌') + ' prove-denture-svc: ' + pass + '/' + (pass + fail) + ' · mutants ' + bit + '/' + MUTANTS.length);
