@@ -459,14 +459,16 @@ async function run(F) {
     const save = rows => async () => { rows.forEach(r => { w.__sessions().unshift(r); w.__DB.push(JSON.parse(JSON.stringify(r))); }); };
     sync('root-canal', 'completed', true);
     await w.fuNeedRun(save([S('n1', { type: 'RCT', treatment_key: 'root-canal', tooth_num: '46', cost: 6000, date: TODAY }),
-                            S('u1', { type: 'Crown PFM', treatment_key: 'crown', tooth_num: '14', cost: 4000, date: TODAY, unit_id: 'U9' }),
-                            S('u2', { type: 'Crown PFM', treatment_key: 'crown', tooth_num: '15', cost: 4000, date: TODAY, unit_id: 'U9' }),
+                            S('br', { type: 'Bridge', treatment_key: 'crown', tooth_num: null, unit_teeth: '14,15,16', cost: 12000, date: TODAY }),   /* الجسرُ جلسةٌ واحدة (unit_teeth) */
+                            S('du', { type: 'Denture', treatment_key: 'denture-adjust', arch: 'U', cost: 9000, date: TODAY }),
+                            S('dl', { type: 'Denture', treatment_key: 'denture-adjust', arch: 'L', cost: 9000, date: TODAY }),   /* جهازٌ لكل فكّ */
+                            S('fz', { type: 'رسم موعد لم يحضر', cost: 500, date: TODAY }),
                             S('np', { type: 'Filling', treatment_key: 'treated', status: 'planned', tooth_num: '24', cost: 1000, date: TODAY })]), null, []);
     await tick(w);
     const calls = w.__RPC.slice(nR), byId = id => w.__sessions().find(x => x.id === id);
-    ok(calls.length === 2 && calls.every(c => c.fn === 'session_followup_set_state' && c.a.p_state === 'open') && calls.some(c => c.a.p_session === 'n1') && calls.filter(c => /^u/.test(c.a.p_session)).length === 1
-      && byId('n1').followup_state === 'open' && [byId('u1').followup_state, byId('u2').followup_state].filter(Boolean).join() === 'open' && !byId('np').followup_state
-      && /قيد الإنجاز/.test(w.__TOASTS.slice(-1)[0]), 'save with the switch on: each new completed treatment becomes «قيد الإنجاز» — once per bridge unit, never a planned row');
+    ok(calls.length === 4 && calls.every(c => c.fn === 'session_followup_set_state' && c.a.p_state === 'open') && calls.map(c => c.a.p_session).sort().join() === 'br,dl,du,n1'
+      && ['n1', 'br', 'du', 'dl'].every(i => byId(i).followup_state === 'open') && !byId('np').followup_state && !byId('fz').followup_state
+      && /قيد الإنجاز/.test(w.__TOASTS.slice(-1)[0]), 'save with the switch on: each new completed session becomes «قيد الإنجاز» (a bridge is one session, a denture one per arch) — never a planned row or a fee');
     const rN = rows(w).find(x => /RCT/.test(txt(x.querySelector('.sc-type'))) && /46/.test(txt(x)));
     ok(rN && txt(rN.querySelector('button.fu-state')) === 'قيد الإنجاز' && /fuSetState\('n1','none'\)/.test(rN.querySelector('button.fu-state').getAttribute('onclick')) && !!rN.querySelector('[data-test="pp-session-followup"]') && !rN.querySelector('[data-test="pp-fu-toggle"]'),
       'the table shows «قيد الإنجاز» (no count yet; clicking it clears the need) with «＋ متابعة», and no empty toggle');
@@ -783,8 +785,9 @@ const MUT = [
   ['switch not reset on a new treatment', rep('pp-dental.js', "  if (typeof fuNeedSync === 'function') fuNeedSync(true);   /* M211 */\n", "")],
   ['switch shown for a planned treatment', rep('pp-followup.js', "box.style.display = (t && st === 'completed' && !cond) ? '' : 'none';", "box.style.display = (t && !cond) ? '' : 'none';")],
   ['status flip resets the choice', rep('pp-followup.js', "if (reset || cb.getAttribute('data-key') !== String(key)) {", "if (true) {")],
-  ['every bridge unit marked', rep('pp-followup.js', "    if (seen[g]) return;\n", "")],
-  ['planned rows marked', rep('pp-followup.js', "    if ((s.status || 'completed') !== 'completed') return;\n    var g =", "    var g =")],
+  ['fees marked', rep('pp-followup.js', "!fuIsChild(s) && !fuIsFee(s) && !fuState(s)", "!fuIsChild(s) && !fuState(s)")],
+  ['planned rows marked', rep('pp-followup.js', " && (s.status || 'completed') === 'completed';\n  });", ";\n  });")],
+  ['old sessions marked', rep('pp-followup.js', "return !!s && !!s.id && !before[s.id] &&", "return !!s && !!s.id &&")],
   ['marks without the switch', rep('pp-followup.js', "  if (want) { try { await fuMarkNeed(before); }", "  if (true) { try { await fuMarkNeed(before); }")],
   ['failed mark claims success', rep('pp-followup.js', "    if (res && !res.error && res.data) { list[i].followup_state = 'open'; ok++; }", "    list[i].followup_state = 'open'; ok++;")],
   ['clear without asking', rep('pp-followup.js', "    confirmText: 'لا يحتاج متابعة', danger: false\n  })) return;", "    confirmText: 'لا يحتاج متابعة', danger: false\n  }) && false) return;")],
