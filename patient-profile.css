@@ -288,7 +288,9 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 .occ-cell:hover .tooth-shape{filter:drop-shadow(0 0 4px var(--green));}
 .hide-row{display:none!important;}
 .seg{display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
-.seg button{background:transparent;color:var(--text2);border:0;padding:6px 13px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;}
+/* v744 (طلب المالك 17/11/2026 — صورةُ الحاسوب): الخيارُ غيرُ المختار بلون النص الأساسي لا الثانوي الباهت · وتظليلٌ خفيف عند المرور يقول إنه قابلٌ للنقر */
+.seg button{background:transparent;color:var(--text);border:0;padding:6px 13px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s;}
+.seg button:not(.active):hover{background:color-mix(in srgb, var(--text) 8%, transparent);}
 .seg button.active{background:var(--green);color:var(--on-accent);}
 .chart-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;justify-content:center;}
 .leg{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);}
