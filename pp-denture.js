@@ -188,17 +188,36 @@ function dentClaspParse(v) {
   String(v === null || v === undefined ? '' : v).split(',').forEach(function (x) { var t = parseInt(x, 10); if (t >= 11 && t <= 48 && out.indexOf(t) === -1) out.push(t); });
   return out;
 }
-/* الاقتراحُ: كلُّ سنٍّ قائم ملاصقٍ لسرج (الحرُّ ⇒ الإنسيُّ وحده؛ المحصورُ ⇒ الطرفان)، وبكل جهةٍ من الفك الأبعدُ خلفاً والأبعدُ أماماً
-   فقط ⇒ أربعٌ على الأكثر (رباعي). */
+/* v745 — الاقتراحُ (قرارُ المالك 17/11/2026: «المفروض الضمات التلقائية تظهر عالاسنان الانسية فقط» ثم «ازا الضمة رح تطلع على
+   القواطع فبتتحول تلقائي عالوحشي فقط بهذه الحالة، اما باقي الحالات عالانسي»): ضمّةٌ واحدة لكل سرج على دعامته **الإنسية** —
+   السنُّ الملاصقُ للسرج من جهة الخط الناصف (أو عبره) — فإن كانت قاطعاً (1 أو 2) فعلى دعامته **الوحشية** بدلاً منها، وإن كانت
+   الوحشيةُ قاطعاً أيضاً أو غائبة (سرجٌ حرّ) فلا ضمّةَ تلقائية للسرج. سرجٌ يعبر الخط الناصف بلا دعامةٍ إنسية: طرفاه الوحشيّان ما لم
+   يكونا قاطعين. الدعامةُ التي لا تحمل ضمّة (مزروعة · مفقودة…) لا تُستبدل.
+   ثم بكل جهةٍ من الفك الأبعدُ خلفاً والأبعدُ أماماً فقط ⇒ أربعٌ على الأكثر. الطبيبُ يضيف ويلغي من نافذة الجهاز أو نافذة السن. */
+function dentIsIncisor(n) { var d = parseInt(n, 10) % 10; return d === 1 || d === 2; }
+/* الجارُ nb ملاصقٌ للسن t من السرج: إنسيٌّ إن كان عبر الخط الناصف أو أقربَ منه إليه بالجهة نفسها */
+function dentIsMesialTo(nb, t) {
+  var qa = Math.floor(nb / 10), qb = Math.floor(t / 10);
+  return qa !== qb || (nb % 10) < (t % 10);
+}
 function dentClaspAuto(u) {
   if (!u || !dentIsPartialUnit(u)) return [];
   var row = dentArchRow(u.arch), cand = [], out = [], half = row.length / 2;
-  u.teeth.forEach(function (t) {
-    var i = row.indexOf(t); if (i < 0) return;
-    [row[i - 1], row[i + 1]].forEach(function (nb) {
-      if (nb !== undefined && u.teeth.indexOf(nb) === -1 && cand.indexOf(nb) === -1 && dentClaspOk(nb)) cand.push(nb);
-    });
-  });
+  var inSaddle = function (i) { return i >= 0 && i < row.length && u.teeth.indexOf(row[i]) !== -1; };
+  for (var i = 0; i < row.length; i++) {
+    if (!inSaddle(i) || inSaddle(i - 1)) continue;          /* بدايةُ سرج (أقصى يسار الصف) */
+    var j = i; while (inSaddle(j + 1)) j++;                  /* نهايتُه */
+    var ends = [];
+    if (i - 1 >= 0) ends.push({ nb: row[i - 1], t: row[i] });
+    if (j + 1 < row.length) ends.push({ nb: row[j + 1], t: row[j] });
+    var mes = null, dis = [];
+    ends.forEach(function (e) { if (dentIsMesialTo(e.nb, e.t)) mes = e.nb; else dis.push(e.nb); });
+    /* سرجٌ يعبر الخط الناصف لا دعامةَ إنسيةً له: طرفاه وحشيّان ⇒ كلُّ طرفٍ ليس قاطعاً */
+    var picks = (mes === null) ? dis.filter(function (t) { return !dentIsIncisor(t); })
+      : (!dentIsIncisor(mes) ? [mes] : dis.filter(function (t) { return !dentIsIncisor(t); }));
+    picks.forEach(function (t) { if (dentClaspOk(t) && cand.indexOf(t) === -1) cand.push(t); });
+    i = j;
+  }
   [true, false].forEach(function (first) {
     var c = cand.filter(function (t) { return (row.indexOf(t) < half) === first; }).sort(function (a, b) { return row.indexOf(a) - row.indexOf(b); });
     if (c.length > DENT_CLASP_MAX / 2) c = [c[0], c[c.length - 1]];
