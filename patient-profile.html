@@ -4275,7 +4275,7 @@ function renderSessions() {
     /* M210: صفُّ المتابعة — ترقيمُه بين أخواته وموضعُه من أساسيته (لا سنَّ له بالقاعدة)؛ الأساسيةُ تحمل شارةَ حالة العلاج */
     var _fuC = (typeof fuIsChild === 'function') && fuIsChild(s);
     if (_fuC) { var _fuV = fuChildView(s); typeBadge = _fuV.type; whereBadge = _fuV.where; }
-    else if (typeof fuToggleChip === 'function') typeBadge += fuToggleChip(s);   /* M210: «المتابعات (N)» — تفتح القائمة المطويّة تحت الأساسية */
+    else if (typeof fuCellChips === 'function') typeBadge += fuCellChips(s);   /* M210: «＋ متابعة» و«المتابعات (N)» بخانة العلاج — لا بعمود الأزرار */
     var st = s.status || 'completed';
     var stLbl = STATUS_LABELS[st] || st;
     var stTone = (typeof STATUS_TONES !== 'undefined' && STATUS_TONES[st]) || 'blue';
@@ -4360,7 +4360,7 @@ function renderSessions() {
       + '<td class="sc-actions sess-actions"><div class="sy-acts sy-slots" style="--sy-slots:__SY_SLOTS__">'   /* v482: إكمال · مخبر · حذف بأعمدةٍ ثابتة؛ v484: تُطوى غيرُ المستعملة (SySlots) */
       +   (s.status === 'planned'
           ? '<button class="sy-act sy-act-primary" data-slot="1"' + (_labSt === 'can' ? '' : ' data-span-if="2"') + ' onclick="completeSessionFromProfile(\'' + s.id + '\')" title="إكمال هذا العلاج (تحويل من مخطّط إلى منجز)">✅ إكمال</button>'
-          : ((typeof fuRowButton === 'function') ? fuRowButton(s, _labSt !== 'can') : ''))   /* M210: خانةُ الخطوة التالية — «إكمال» للمخطّط و«متابعة» للمنجز */
+          : '')   /* M210: «＋ متابعة» بخانة العلاج (fuCellChips) — خانةٌ ثالثة هنا أخرجت الجدولَ من بطاقته */
       +   (_labSt === 'can'
           ? '<button class="sy-act" data-slot="2" onclick="ppSessionOpenLab(\'' + s.id + '\')" title="إنشاء طلب مخبر لهذه الجلسة">🥽 مخبر</button>'
           : '')

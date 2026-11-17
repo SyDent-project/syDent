@@ -245,7 +245,7 @@ async function run(F) {
     ok((PP.match(/id="fuModal"/g) || []).length === 1 && (PP.match(/id="fuPickModal"/g) || []).length === 1 && /onclick="fuOpenPicker\(\)"/.test(PP) && /id="fuSaveBtn" onclick="fuSave\(\)"/.test(PP), 'both windows and the «جلسة جديدة» entry exist once');
     ok(!/id="fu(Cost|Price)"/.test(PP) && !/fuCost|p_cost/.test(F['pp-followup.js'].replace(/fu-cost/g, '')), 'the follow-up window has no cost field at all');
     const rs = extractFunction(PP, 'renderSessions');
-    ok(/_tableRows = fuOrder\(_tableRows\)/.test(rs) && /fuChildView\(s\)/.test(rs) && /fuStateBadge\(s\)/.test(rs) && /fuRowButton\(s, _labSt !== 'can'\)/.test(rs) && /class="sc-cost sess-cost fu-cost"/.test(rs),
+    ok(/_tableRows = fuOrder\(_tableRows\)/.test(rs) && /fuChildView\(s\)/.test(rs) && /fuStateBadge\(s\)/.test(rs) && /fuCellChips\(s\)/.test(rs) && !/fuRowButton|fuAddChip/.test(rs.slice(rs.indexOf('sc-actions'))) && /class="sc-cost sess-cost fu-cost"/.test(rs),
       'renderSessions: order · child view · state badge · row button · cost cell');
     const del = extractFunction(PP, '_delSession_inner');
     ok(/fuChildren\(sess\.id\)/.test(del) && /var _fuTail = _fuKids\.length \? '\\n\\n' \+ fuDeleteNote\(_fuKids\.length\) : '';/.test(del) && /SyDialog\.confirm\(\{ message: 'حذف هذه الجلسة؟' \+ _fuTail, danger: true \}\)/.test(del)
@@ -410,9 +410,11 @@ async function run(F) {
     ok(!!rowOf('RCT').querySelector('[data-test="pp-session-followup"]') && !rowOf('Filling').querySelector('[data-test="pp-session-followup"]') && /إكمال/.test(txt(rowOf('Filling')))
       && !rowOf('رسم موعد').querySelector('[data-test="pp-session-followup"]') && !rowOf('رصيد سابق').querySelector('[data-test="pp-session-followup"]'), 'planned shows «إكمال»; fee and opening balance take no follow-up');
     const btn = rowOf('RCT').querySelector('[data-test="pp-session-followup"]');
-    ok(btn.getAttribute('data-slot') === '1' && btn.className === 'sy-act' && btn.getAttribute('data-en') === '＋ Follow-up' && txt(btn) === '＋ متابعة' && rowOf('Filling').querySelector('[data-slot="1"]').className.indexOf('sy-act-primary') > -1,
-      'the button shares the next-step column with «إكمال» and is neutral (not the green primary)');
-    ok(rowOf('Crown PFM').querySelectorAll('[data-slot]').length === 2 && !/fu-state/.test(rowOf('RCT').innerHTML), 'a plain completed row: follow-up + delete, and no state badge yet');
+    ok(btn && btn.closest('td.sc-type') && !btn.hasAttribute('data-slot') && btn.className === 'fu-add' && btn.getAttribute('data-en') === '＋ Follow-up' && txt(btn) === '＋ متابعة'
+      && rowOf('Filling').querySelector('[data-slot="1"]').className.indexOf('sy-act-primary') > -1,
+      'the follow-up button sits in the treatment cell, not in the action column («إكمال» keeps its slot)');
+    ok(rowOf('Crown PFM').querySelectorAll('[data-slot]').length === 1 && !!rowOf('Crown PFM').querySelector('[data-slot="3"]') && !rowOf('RCT').querySelector('.sc-actions [data-test="pp-session-followup"]')
+      && !/fu-state/.test(rowOf('RCT').innerHTML), 'a completed row keeps the action column it had before follow-ups (delete only here), and no state badge yet');
     const OWN = '#sessionsContent .fu-toggle, #sessionsContent .fu-tag, #sessionsContent .fu-cost, #sessionsContent button.fu-state, #sessionsContent [data-test="pp-session-followup"], #sessionsContent .fu-row .sc-details, #sessionsContent .fu-row td:nth-child(3), #recentSessionsList .fu-cost, #recentSessionsList .tone-gray, #newSessionEntryModal [onclick="fuOpenPicker()"]';   /* سطحُ الميزة وحده — باقي الجدول نصوصٌ قائمة تنتظر المرحلة الثانية من الترجمة */
     grab(w, OWN, bag);
 
@@ -542,6 +544,8 @@ async function run(F) {
     ok(!!d.querySelector('#sessionsContent [data-fu-toggle="fr"]') && !!Array.from(d.querySelectorAll('#sessionsContent tr[data-test="pp-session-row"]')).find(x => /Consult/.test(txt(x.querySelector('.sc-type'))) && !x.classList.contains('fu-row')).querySelector('[data-test="pp-session-followup"]'),
       'a plain treatment that already has follow-ups (from «جلسة جديدة») keeps its toggle and its «متابعة» button');
     grab(w, OWN, bag); tgl().click(); grab(w, OWN, bag);
+    ok(/#sessionsContent\{container:mc \/ inline-size;overflow-x:auto;max-width:100%;\}/.test(F['patient-profile.css']) && /@container mc \(max-width:1100px\)\{ \.sess-table th,\.sess-table td\{padding-inline:5px;\}/.test(F['patient-profile.css']),
+      'the sessions table stays inside its card: scrolls within it at worst, tighter padding between the card layout and full width');
     ok(/\.sess-table tr\.fu-row\.fu-hidden\{display:none;\}/.test(F['patient-profile.css']) && /\.fu-chev\{[^}]*border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate\(45deg\)/.test(F['patient-profile.css']),
       'dropdown CSS: folded rows are hidden; the chevron points down/up (no left/right meaning)');
 
@@ -602,8 +606,9 @@ const MUT = [
   ['red zero in the cost cell', rep('patient-profile.html', "      + (_fuC ? '<td class=\"sc-cost sess-cost fu-cost\"", "      + (false ? '<td class=\"sc-cost sess-cost fu-cost\"")],
   ['child keeps its stored type', rep('patient-profile.html', 'if (_fuC) { var _fuV = fuChildView(s); typeBadge = _fuV.type; whereBadge = _fuV.where; }', '')],
   ['no state badge', rep('patient-profile.html', "    if (!_fuC && typeof fuStateBadge === 'function') stBadge += fuStateBadge(s);\n", '')],
-  ['row button gone', rep('patient-profile.html', "((typeof fuRowButton === 'function') ? fuRowButton(s, _labSt !== 'can') : '')", "''")],
-  ['button green like «إكمال»', rep('pp-followup.js', '<button class="sy-act" data-slot="1"', '<button class="sy-act sy-act-primary" data-slot="1"')],
+  ['row button gone', rep('patient-profile.html', "    else if (typeof fuCellChips === 'function') typeBadge += fuCellChips(s);", '')],
+  ['follow-up button back in the action column', rep('patient-profile.html', "          : '')   /* M210: «＋ متابعة» بخانة العلاج", "          : fuAddChip(s).replace('class=\"fu-add\"', 'class=\"sy-act\" data-slot=\"1\"'))   /* M210: «＋ متابعة» بخانة العلاج")],
+  ['table spills out of its card', rep('patient-profile.css', "#sessionsContent{container:mc / inline-size;overflow-x:auto;max-width:100%;}", "#sessionsContent{container:mc / inline-size;}")],
   ['save without the RPC', rep('pp-followup.js', "window.sb.rpc('session_followup_add', {", "window.sb.rpc('session_followup_addx', {")],
   ['close flag dropped', rep('pp-followup.js', 'p_notes: notes || null, p_close: last', 'p_notes: notes || null, p_close: false')],
   ['future date accepted', rep('pp-followup.js', "  if (date > toDay()) { showToast('⚠️ تاريخ المتابعة في المستقبل — سجّلها يوم إجرائها'); return; }\n", '')],
@@ -653,13 +658,14 @@ const MUT = [
   ['tag corner drawn with physical sides', rep('patient-profile.css', 'border-inline-start:2px solid var(--text3);border-block-end:2px solid var(--text3)', 'border-right:2px solid var(--text3);border-block-end:2px solid var(--text3)')],
   ['guide tip untranslated', rep('i18n-en.js', "    'علاجٌ يمتدّ على زيارات (غسل أقنية، أو تحضير ثم تركيب)؟", "    'x علاجٌ يمتدّ على زيارات (غسل أقنية، أو تحضير ثم تركيب)؟")],
   ['guide tip removed', rep('guides.js', "        'علاجٌ يمتدّ على زيارات (غسل أقنية، أو تحضير ثم تركيب)؟", "        'x علاجٌ يمتدّ على زيارات (غسل أقنية، أو تحضير ثم تركيب)؟")],
-  ['follow-up button on every completed row', rep('pp-followup.js', "  if (!fuMultiVisit(fuTreatmentOf(s)) && !fuState(s) && !fuChildren(s.id).length) return '';\n", '')],
+  ['follow-up button on every completed row', rep('pp-followup.js', "  if (!fuMultiVisit(fuTreatmentOf(s)) && !fuState(s) && !fuChildren(s.id).length) return '';\n  return '<button type=\"button\" class=\"fu-add\"", "  return '<button type=\"button\" class=\"fu-add\"")],
   ['button lost on a plain treatment that has follow-ups', rep('pp-followup.js', "!fuMultiVisit(fuTreatmentOf(s)) && !fuState(s) && !fuChildren(s.id).length", "!fuMultiVisit(fuTreatmentOf(s))")],
   ['dropdown open by default', rep('pp-followup.js', "(fuIsExpanded(s.parent_id) ? '' : ' fu-hidden')", "''")],
   ['toggle does nothing', rep('pp-followup.js', "tr.classList.toggle('fu-hidden', !open); });", "});")],
   ['toggle opens every group', rep('pp-followup.js', "if (tr.getAttribute('data-fu-parent') === id) tr.classList", "tr.classList")],
   ['toggle chip not updated', rep('pp-followup.js', "    if (b.getAttribute('data-fu-toggle') !== id) return;\n    b.setAttribute('aria-expanded', String(open));", "    b.setAttribute('aria-expanded', 'false');")],
-  ['no toggle on the base', rep('patient-profile.html', "    else if (typeof fuToggleChip === 'function') typeBadge += fuToggleChip(s);", '')],
+  ['no toggle on the base', rep('pp-followup.js', "var h = fuAddChip(s) + fuToggleChip(s);", "var h = fuAddChip(s);")],
+  ['mid widths keep the wide padding', rep('patient-profile.css', "@container mc (max-width:1100px){ .sess-table th,.sess-table td{padding-inline:5px;}", "@container mc (max-width:1px){ .sess-table th,.sess-table td{padding-inline:5px;}")],
   ['save leaves the group folded', rep('pp-followup.js', "  _fuExpanded[base.id] = true;", '')],
   ['folded rows still shown (CSS)', rep('patient-profile.css', ".sess-table tr.fu-row.fu-hidden{display:none;}", '')],
   ['toggle count untranslated', rep('i18n-en.js', "    [/^المتابعات \\((\\d+)\\)$/, 'Follow-ups ($1)'],\n", '')],
