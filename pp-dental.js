@@ -5293,6 +5293,8 @@ async function openToothModal(n, surface) {
     _special = window.SyDenture.removeBtnHtml(n) + _special;
     if (window.SyDentSvc) _special = window.SyDentSvc.btnHtml(n) + _special;   /* ج4-أ (M208): خدماتُ الجهاز قبل زرّ إزالته */
   }
+  /* v745: ضمّةُ الجهاز الجزئي على سنٍّ قائم — إلغاؤها أو رسمُها من نافذة السن (فارغٌ بلا جهازٍ جزئي بالفك) */
+  if (window.SyDentSvc && window.SyDentSvc.claspBtnHtml && !isSxSurface(currentSurface)) _special = window.SyDentSvc.claspBtnHtml(n) + _special;
   /* v491: زرُّ إزالةٍ **لكلِّ حالةٍ سريرية** على السن (أيّاً كان موضعها)، باسمها وموضعها —
      وحالةُ السطح المنقور أولاً. «⬜ سليم (إلغاء)» يبقى لإعادة السطح/السن سليماً. */
   if (typeof conditionRowsOf === 'function') {

@@ -1310,6 +1310,14 @@ html.lang-en body div.jaw-row,html.lang-en body div.nse-row,html.lang-en body ta
 .dsv-dialog .dent-t.dsv-clasp-on:hover{background:#55637a;}
 .dsv-dialog .dsv-clasp-auto{margin-top:8px;display:inline-flex;align-items:center;gap:4px;min-height:38px;padding:6px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--green);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;width:auto;}
 .dsv-dialog .dsv-clasp-auto:hover{border-color:var(--green);}
+/* v745: منتقي سنّ خدمة الضمّة — مفتاحُ الألوان · رابطُ تعديل الرسم · زرُّ الضمّة بنافذة السن */
+.dsv-dialog .dsv-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;font-size:12px;color:var(--text2);}
+.dsv-dialog .dsv-lg{display:inline-flex;align-items:center;gap:5px;}
+.dsv-dialog .dsv-lg-sw{display:inline-block;inline-size:12px;block-size:12px;border-radius:4px;}
+.dsv-dialog .dsv-lg-on{background:#55637a;}
+.dsv-dialog .dsv-lg-sel{background:var(--green);}
+.dsv-dialog .dsv-clasp-sel b{color:var(--text);}
+.topt.dsv-clasp-tbtn{border-color:var(--text2);color:var(--text);font-weight:700;}
 .nse-legend i.x{position:relative;opacity:.7;}
 .nse-legend i.x::after{content:'';position:absolute;left:2px;right:2px;top:4px;height:1px;background:var(--text2);}
 .nse-legend i.im{border-color:var(--purple);}

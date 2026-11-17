@@ -3368,7 +3368,9 @@ Object.assign(window.SyI18nDict, {
     'الجهاز الكامل يعوّض كل أسنان الفك — إضافة السن للجهاز الجزئي': 'a complete denture replaces every tooth of the jaw — adding a tooth is for a partial denture',
     'الخدمة لم تعد بقائمة العلاجات': 'the service is no longer in the treatments list',
     'غير متاح لهذا الجهاز': 'not available for this denture',
-    'لا جهاز متحرك على المخطط — سجّل الجهاز أولاً (ولو «موجود مسبقاً»)': 'no denture on the chart — record the denture first (even as «Existing»)'
+    'لا جهاز متحرك على المخطط — سجّل الجهاز أولاً (ولو «موجود مسبقاً»)': 'no denture on the chart — record the denture first (even as «Existing»)',
+    /* v745: خدمةُ الضمّة على جهازٍ كامل */
+    'الجهاز الكامل بلا ضمّات — الضمّة للجهاز الجزئي': 'a complete denture has no clasps — clasps are for a partial denture'
   };
   var UWHY_RE = '(' + Object.keys(UWHY).map(esc).join('|') + ')';
   /* حالةُ السن أمام «إضافة سن» — الأسبابُ التي تمرّ من فحص الجهاز (مزروع · ضمن جسر…) تترجمها كتلةُ v722 */
@@ -3403,12 +3405,16 @@ Object.assign(window.SyI18nDict, {
     '🦷 خدمة جهاز': '🦷 Denture service', '🦷 إضافة سن لجهاز': '🦷 Add tooth to denture',
     /* v739 (M209): الضمّات — شريحةُ الجهاز · تلميحُ السن الداعم · قسمُها بنافذة الجهاز */
     'الضمّات': 'Clasps', 'ضمّة:': 'Clasp:',
-    'مقترحة تلقائياً على الأسنان المجاورة للفراغ — انقر السن لإضافة ضمّة أو إلغائها.': 'Suggested automatically on the teeth next to the gap — click a tooth to add or remove a clasp.',
+    'مقترحة تلقائياً على السن الإنسي لكل فراغ — انقر السن لإضافة ضمّة أو إلغائها.': 'Suggested automatically on the mesial tooth of each gap — click a tooth to add or remove a clasp.',
     'قائمة الطبيب — انقر السن لإضافة ضمّة أو إلغائها.': 'The dentist\'s own list — click a tooth to add or remove a clasp.',
     '↺ الاقتراح التلقائي': '↺ Automatic suggestion',
     'الضمّات وخدمات الجهاز: تبطين · إصلاح · إضافة سن': 'Clasps and denture services: reline · repair · add a tooth',
-    /* v741: منتقي سنّ الضمّة بخدمة «إضافة أو إصلاح ضمة» */
-    '— الرمادي عليه ضمّة (اختره للإصلاح)، والسن الجديد تُضاف ضمّته لرسم الجهاز.': '— a grey tooth already has a clasp (pick it for a repair); a new tooth gets its clasp added to the denture drawing.'
+    /* v745: منتقي سنّ الضمّة — مفتاحُ الألوان · عملُ كلِّ سنٍّ محدَّد · رابطُ تعديل الرسم · زرُّ الضمّة بنافذة السن */
+    'عليه ضمّة': 'Has a clasp', 'محدَّد': 'Selected', 'ضمّة جديدة:': 'New clasp:', 'إصلاح:': 'Repair:',
+    'إلغاء أو إضافة ضمّة على الرسم (بلا جلسة)': 'Remove or add a clasp on the drawing (no session)',
+    '✕ إلغاء الضمّة': '✕ Remove the clasp', '＋ ضمّة على الرسم': '＋ Clasp on the drawing',
+    'يزيل ضمّة هذا السن عن رسم الجهاز — بلا جلسة': 'Removes this tooth\'s clasp from the denture drawing — no session',
+    'يرسم ضمّةً للجهاز على هذا السن — بلا جلسة': 'Draws a denture clasp on this tooth — no session'
   });
   /* v741: سنُّ الضمّة كما يُكتب بوصف جلستها وموضعها («الفك العلوي — ضمّة على السن 13») */
   var CL = '(ضمّة على السن \\d+|ضمّات على الأسنان \\d+(?:، \\d+)*)';
@@ -3433,6 +3439,10 @@ Object.assign(window.SyI18nDict, {
     [/^❌ تعذّر حفظ الضمّات: ([\s\S]+)$/, function (m, e) { return '❌ Could not save the clasps: ' + (e === 'خطأ بالاتصال' ? 'connection error' : e); }],
     /* v741: خدمةُ الضمّة بسنّها — المنتقي · العنوان · الموضع بالقوائم · رسائلُ الحفظ */
     [/^«(.+)»: اختر السن الذي تُركَّب عليه الضمّة أو تُصلَّح\.$/, '«$1»: choose the tooth the clasp is fitted on or repaired.'],
+    /* v745: لا جهازَ جزئياً بفك السن · إلغاءُ الضمّة ورسمُها من نافذة السن */
+    [/^🛠 لا جهاز جزئي ب(الفك العلوي|الفك السفلي) — الضمّة للجهاز الجزئي$/, function (m, a) { return '🛠 No partial denture in the ' + ARCH[a].toLowerCase() + ' — clasps are for a partial denture'; }],
+    [/^✓ أُلغيت ضمّة السن (\d+)$/, '✓ Clasp removed from tooth $1'],
+    [/^✓ رُسمت ضمّة على السن (\d+)$/, '✓ Clasp drawn on tooth $1'],
     [R('^🛠 (.+) — (.+) \\((' + A1 + ')\\) — ' + CL + '$'), function (m, l, n, a, c) { return '🛠 ' + l + ' — ' + n + ' (' + area1(a) + ') — ' + cl(c); }],
     [R('^' + C1 + '$'), function (m, a, c) { return ARCH[a] + ' — ' + cl(c); }],
     [R('^✅ تم تسجيل (.+?) — ' + C1 + ' — أكمل بيانات المخبر$'), function (m, l, a, c) { return '✅ ' + l + ' recorded — ' + ARCH[a] + ' — ' + cl(c) + ' — complete the lab details'; }],
