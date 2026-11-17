@@ -3415,7 +3415,10 @@ Object.assign(window.SyI18nDict, {
     'خدمات الجهاز': 'Denture services',   /* v749: فاصلُ قائمة العلاجات */
     '✕ إلغاء الضمّة': '✕ Remove the clasp', '＋ ضمّة على الرسم': '＋ Clasp on the drawing',
     'يزيل ضمّة هذا السن عن رسم الجهاز — بلا جلسة': 'Removes this tooth\'s clasp from the denture drawing — no session',
-    'يرسم ضمّةً للجهاز على هذا السن — بلا جلسة': 'Draws a denture clasp on this tooth — no session'
+    'يرسم ضمّةً للجهاز على هذا السن — بلا جلسة': 'Draws a denture clasp on this tooth — no session',
+    /* v751: ضمّةٌ من قائمة الطبيب سقطت عن الرسم — تلميحُ الشريحة وزرُّ نافذة الجهاز */
+    'السنُّ لم يعد يحمل ضمّة — أضف بديلةً أو أزلها من نافذة الجهاز': 'The tooth can no longer carry a clasp — add a replacement or remove it in the denture window',
+    'إزالتها من القائمة': 'Remove from the list'
   });
   /* v741: سنُّ الضمّة كما يُكتب بوصف جلستها وموضعها («الفك العلوي — ضمّة على السن 13») */
   var CL = '(ضمّة على السن \\d+|ضمّات على الأسنان \\d+(?:، \\d+)*)';
@@ -3443,6 +3446,12 @@ Object.assign(window.SyI18nDict, {
     /* v745: لا جهازَ جزئياً بفك السن · إلغاءُ الضمّة ورسمُها من نافذة السن */
     [/^🛠 لا جهاز جزئي ب(الفك العلوي|الفك السفلي) — الضمّة للجهاز الجزئي$/, function (m, a) { return '🛠 No partial denture in the ' + ARCH[a].toLowerCase() + ' — clasps are for a partial denture'; }],
     [/^✓ أُلغيت ضمّة السن (\d+)$/, '✓ Clasp removed from tooth $1'],
+    /* v751: ضمّةٌ من القائمة لم تعد على الرسم (شريحةُ الجهاز ونافذتُه) · خدمةُ ضمّة سُجّلت اليوم على السن نفسه */
+    [/^⚠️ (?:ضمّة السن (\d+)|ضمّات الأسنان (\d+(?:، \d+)+)) لم تعد على الرسم( — سنُّها لم يعد يحملها\. أضف بديلةً إن لزم\.| — أسنانُها لم تعد تحملها\. أضف بدائلَ إن لزم\.)?$/, function (m, one, many, tail) {
+      return '⚠️ ' + (one ? 'The clasp on tooth ' + one + ' is' : 'The clasps on teeth ' + nums(many) + ' are') + ' no longer drawn'
+        + (tail ? (one ? ' — the tooth can no longer carry it' : ' — the teeth can no longer carry them') + '. Add a replacement if needed.' : '');
+    }],
+    [R('^⚠️ سُجّلت اليوم خدمةُ ضمّة على ' + TP + ' — تأكّد أنها ليست مكرّرة\\.$'), function (m, t) { return '⚠️ A clasp service was already recorded today on ' + tp(t) + ' — make sure this is not a duplicate.'; }],
     [/^✓ رُسمت ضمّة على السن (\d+)$/, '✓ Clasp drawn on tooth $1'],
     [R('^🛠 (.+) — (.+) \\((' + A1 + ')\\) — ' + CL + '$'), function (m, l, n, a, c) { return '🛠 ' + l + ' — ' + n + ' (' + area1(a) + ') — ' + cl(c); }],
     [R('^' + C1 + '$'), function (m, a, c) { return ARCH[a] + ' — ' + cl(c); }],

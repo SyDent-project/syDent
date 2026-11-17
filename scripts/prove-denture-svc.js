@@ -20,7 +20,7 @@ cp.execFileSync('node', [path.join(__dirname, 'dom-smoke', 'build-harness.js')],
 const HARNESS = fs.readFileSync(path.join(__dirname, 'dom-smoke', '.out', 'harness.html'), 'utf8');
 
 const FILES = ['pp-denture-svc.js', 'pp-denture.js', 'pp-dental.js', 'pp-core.js', 'patient-profile.html', 'patient-profile.css', 'appointments.html', 'treatments.html',
-  'migrations/208_denture_services.sql', 'migrations/203_removable_prosthetics_category.sql', 'db/schema.sql', 'scripts/db-bootstrap.py', 'scripts/cache-bust.sh',
+  'migrations/208_denture_services.sql', 'migrations/212_teeth_history_denture_clasps.sql', 'migrations/203_removable_prosthetics_category.sql', 'db/schema.sql', 'scripts/db-bootstrap.py', 'scripts/cache-bust.sh',
   'scripts/check-catalog-parity.js', 'scripts/check-modal-behaviour.js', 'scripts/validate.sh', 'scripts/prove-denture.js', 'i18n-en.js', 'theme.js', 'lab-slip.js',
   'labs.html', 'pp-clinical.js', 'supabase/functions/ai-assist/index.ts'];
 const LIVE = {}; FILES.forEach(f => { LIVE[f] = fs.readFileSync(path.join(ROOT, f), 'utf8'); });
@@ -749,6 +749,56 @@ async function behave(w, F) {
   w.SyDentSvc.start('denture-adjust', 'Adjust DENT', { tooth: 13 }); w.__grabSvc();
   ok(!dlg() && $('toothModal').classList.contains('open') && /^🛠 Adjust DENT — Partial ACR \(/.test($('toothStep2Title').textContent), 'a service from a standing tooth: the denture of its jaw, without asking');
   w.closeModal('toothModal'); w.eval('pendingDentSvc = null;');
+  /* ⑯ v751 (مراجعةُ المالك 18/11/2026 لحذف الضمّات: «شوف ازا في مشكلة مخفية»): ضمّةٌ من قائمة الطبيب سقط سنُّها عن الرسم تُسمّى
+     بالشريحة والنافذة وتُزال من القائمة بنقرة · خدمةُ ضمّة سُجّلت اليوم على السن المحدَّد تُنبَّه · العرضُ التاريخي يرسم قائمةَ ذلك اليوم (M212) */
+  const withCl = v => base().map(r => r.surface === 'DENTURE' && r.unit_id === 'u-1' ? Object.assign({}, r, { denture_clasps: v }) : r);
+  const U1 = () => JSON.parse(w.eval('JSON.stringify(dentUnits().filter(function(u){ return u.id === "u-1"; })[0])'));
+  const lostChip = () => $('dentureBanner').querySelector('.dent-clasp-lost');
+  load(withCl('13,16'));
+  ok(w.SyDenture.claspLost(U1()).join(',') === '16' && !!lostChip() && lostChip().textContent === '⚠️ ضمّة السن 16 لم تعد على الرسم'
+    && !!doc.querySelector('.tooth-cell[data-tooth-cell="13"] g.dent-clasp') && !doc.querySelector('.tooth-cell[data-tooth-cell="16"] g.dent-clasp')
+    && $('dentureBanner').querySelector('.dent-clasps').textContent === 'ضمّة: 13', 'lost clasp: a listed tooth that can no longer carry a clasp is named on the denture chip — the rest is drawn');
+  w.__i18nAdd(lostChip().textContent); w.__i18nAdd(lostChip().getAttribute('title'));
+  w.SyDentSvc.open('u-1'); w.__grabSvc();
+  ok(!!dlg().querySelector('.dsv-lost') && dlg().querySelector('.dsv-lost').textContent === '⚠️ ضمّة السن 16 لم تعد على الرسم — سنُّها لم يعد يحملها. أضف بديلةً إن لزم.'
+    && !!dlg().querySelector('[data-dsv-act="clasp-drop-lost"]'), 'lost clasp: the denture window names it with a button to remove it from the list');
+  w.__OPS = []; click(dlg().querySelector('[data-dsv-act="clasp-drop-lost"]')); await tk2();
+  ok(ops('teeth_status', 'update').length === 1 && dR().every(x => x.denture_clasps === '13') && !dlg().querySelector('.dsv-lost') && !lostChip()
+    && ops('ledger_sessions', 'insert').length === 0 && !!doc.querySelector('.tooth-cell[data-tooth-cell="13"] g.dent-clasp'),
+    'lost clasp: «remove from the list» saves the list as drawn — one update, no session, the warning goes');
+  click(dlg().querySelector('.modal-close'));
+  load(withCl(null));
+  ok(w.SyDenture.claspLost(U1()).length === 0 && !lostChip(), 'lost clasp: the automatic suggestion never warns — it moves on its own');
+  load(withCl('13,16,24'));
+  w.SyDentSvc.open('u-1'); w.__grabSvc();
+  ok(lostChip().textContent === '⚠️ ضمّات الأسنان 16، 24 لم تعد على الرسم' && dlg().querySelector('.dsv-lost').textContent === '⚠️ ضمّات الأسنان 16، 24 لم تعد على الرسم — أسنانُها لم تعد تحملها. أضف بدائلَ إن لزم.',
+    'lost clasps: two teeth are named together');
+  w.__i18nAdd(lostChip().textContent); click(dlg().querySelector('.modal-close'));
+  /* تنبيهُ اليوم: جلسةُ ضمّة بتاريخ اليوم على السن المحدَّد (منجزةً أو مخطّطة) — جلسةٌ قديمة أو سنٌّ آخر لا */
+  const today = w.eval('toDay()');
+  load(base(), [SESS('c1', { treatment_key: 'denture-clasp', denture_unit: 'u-1', description: 'الفك العلوي — ضمّة على السن 12', date: today, status: 'planned' }),
+    SESS('c2', { treatment_key: 'denture-clasp', denture_unit: 'u-1', description: 'الفك العلوي — ضمّة على السن 13', date: '2026-01-02' })]);
+  pickClasp(13);
+  const dupNone = !dlg().querySelector('.dsv-clasp-dup');
+  click(ct(12)); const dupTxt = (dlg().querySelector('.dsv-clasp-dup') || {}).textContent;
+  w.__i18nAdd(dupTxt || '');
+  click(ct(12)); const dupGone = !dlg().querySelector('.dsv-clasp-dup');
+  ok(dupNone && dupTxt === '⚠️ سُجّلت اليوم خدمةُ ضمّة على السن 12 — تأكّد أنها ليست مكرّرة.' && dupGone && dlg().querySelector('[data-dsv-act="next"]').disabled === false,
+    'clasp service: a tooth with a clasp service recorded today is flagged before continuing — an older session is not, and nothing is blocked');
+  click(dlg().querySelector('.modal-close'));
+  /* العرضُ التاريخي (M212): صفوفُ السجل تحمل القائمة (هنا الطبيبُ ألغى الضمّات كلَّها) ⇒ تُرسم كما كانت لا الاقتراح */
+  const histRows = withCl('').map(r => ({ tooth_num: r.tooth_num, surface: r.surface, treatment_key: r.treatment_key, status: r.status, review_at: null, op: 'U', denture_clasps: r.denture_clasps }));
+  load(base()); const autoDrawn = w.SyDenture.claspLost(U1()).length === 0 && w.eval('dentClasps(dentUnits().filter(function(u){return u.id==="u-1";})[0]).join(",")');
+  w.SyDenture.histBegin(); histRows.forEach(e => w.SyDenture.take(e));
+  const histDrawn = w.eval('dentClasps(dentUnits()[0] && dentUnits().filter(function(u){return u.arch==="U";})[0]).join(",")');
+  w.SyDenture.histEnd();
+  ok(histDrawn === '' && autoDrawn === '13' && /\.select\('tooth_num, surface, treatment_key, status, review_at, op, changed_at, denture_clasps'\)/.test(F['patient-profile.html']),
+    'historical view: the chart log carries the clasp list of that day and the view reads it');
+  const M212 = F['migrations/212_teeth_history_denture_clasps.sql'];
+  ok(/ADD COLUMN IF NOT EXISTS denture_clasps text/.test(M212) && /OLD\.dx_key, OLD\.denture_clasps, 'D'/.test(M212) && /NEW\.dx_key, NEW\.denture_clasps,/.test(M212) && /auth\.users WHERE id = NEW\.doctor_id/.test(M212)
+    && /"changed_at" timestamp with time zone DEFAULT "now"\(\) NOT NULL,\n    "denture_clasps" "text",/.test(F['db/schema.sql']) && (F['db/schema.sql'].match(/(OLD|NEW)\.denture_clasps/g) || []).length === 2,
+    'M212: the history trigger writes the clasp list on every row (live body kept), db/schema.sql mirrored');
+
   tC.is_active = false;
 
   ok((w.__ERRORS || []).length === 0, 'no JS errors on the page' + ((w.__ERRORS || []).length ? ' → ' + String(w.__ERRORS[0]).slice(0, 160) : ''));
@@ -1097,6 +1147,18 @@ const MUTANTS = [
   ['i18n: the count wording drifts from the dictionary', rep('pp-clinical.js', "if (cnt) cnt.textContent = '(' + POST_OP_LIBRARY.length + ' قالباً)';", "if (cnt) cnt.textContent = '(' + POST_OP_LIBRARY.length + ' قالب)';")],
   ['i18n: the instructions button left untranslated', rep('i18n-en.js', "'📋 تعليمات للمريض': '📋 Patient instructions',", "")],
   ['i18n: a service toast left untranslated', rep('i18n-en.js', "[R('^✅ تم تسجيل (.+) — أُضيف ' + TP + ' لرسم الجهاز$')", "[R('^✅ تم تسجيل (.+) — أُضيفت ' + TP + ' لرسم الجهاز$')")],
+  /* v751 */
+  ['lost clasp: never detected on an explicit list', rep('pp-denture.js', "if (!u || !dentIsPartialUnit(u) || dentClaspIsAuto(u)) return [];\n  var drawn", "if (!u || !dentIsPartialUnit(u) || !dentClaspIsAuto(u)) return [];\n  var drawn")],
+  ['lost clasp: the chip warning dropped', rep('pp-denture.js', "+ (lost.length ? '<span class=\"dent-clasp-lost\"", "+ (false ? '<span class=\"dent-clasp-lost\"")],
+  ['lost clasp: «remove from the list» resets to the suggestion', rep('pp-denture-svc.js', "if (auto === 'lost') await dentClaspSave(u, dentClasps(u));", "if (auto === 'lost') await dentClaspSave(u, null);")],
+  ['lost clasp: the window note dropped', rep('pp-denture-svc.js', "if (lost.length) h += '<div class=\"dsv-note dsv-lost\">", "if (false) h += '<div class=\"dsv-note dsv-lost\">")],
+  ['clasp dup: an older session counts as today', rep('pp-denture-svc.js', "if (String(s.date || '').slice(0, 10) !== today) return;", "")],
+  ['clasp dup: flags every clasp tooth, not only the selected', rep('pp-denture-svc.js', "if (teeth.indexOf(t) !== -1 && hit.indexOf(t) === -1) hit.push(t);", "if (hit.indexOf(t) === -1) hit.push(t);")],
+  ['historical view: the clasp column not read', rep('patient-profile.html', "review_at, op, changed_at, denture_clasps')", "review_at, op, changed_at')")],
+  ['M212: the trigger forgets the new row clasps', rep('migrations/212_teeth_history_denture_clasps.sql', "NEW.dx_key, NEW.denture_clasps,", "NEW.dx_key,")],
+  ['M212: the trigger loses the tenant-wipe guard', rep('migrations/212_teeth_history_denture_clasps.sql', "IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = NEW.doctor_id) THEN", "IF false THEN")],
+  ['i18n: the lost-clasp warning left untranslated', rep('i18n-en.js', "[/^⚠️ (?:ضمّة السن (\\d+)|", "[/^⚠️ (?:ضمّة السنّ (\\d+)|")],
+  ['i18n: the duplicate note left untranslated', rep('i18n-en.js', "[R('^⚠️ سُجّلت اليوم خدمةُ ضمّة على '", "[R('^⚠️ سُجّلت اليوم خدمة ضمّة على '")],
   ['i18n: the unit line half-translated on an unknown status', rep('i18n-en.js', "(?: · (مخطط|من عيادة أخرى|من عيادتنا|محوّل))?$'), function (m, n, a, st) { return n + ' — ' + area1(a) + (st ? ' · ' + ST[st] : ''); }]", "(?: · (.+))?$'), function (m, n, a, st) { return n + ' — ' + area1(a) + (st ? ' · ' + (ST[st] || st) : ''); }]")]
 ];
 

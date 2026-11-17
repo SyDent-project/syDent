@@ -102,8 +102,28 @@ function dsvClaspHtml(u) {
       + (ok ? ' aria-pressed="' + (has ? 'true' : 'false') + '"' : ' aria-disabled="true"') + '>' + t + '</button>';
   }
   h += '</div><div class="dsv-note">' + (dentClaspIsAuto(u) ? 'مقترحة تلقائياً على السن الإنسي لكل فراغ' : 'قائمة الطبيب') + ' — انقر السن لإضافة ضمّة أو إلغائها.</div>';
+  /* v751: ضمّةٌ من القائمة سقطت عن الرسم (سنُّها لم يعد يحملها) — تُسمّى هنا مع زرٍّ يزيلها من القائمة */
+  var lost = (typeof dentClaspLost === 'function') ? dentClaspLost(u) : [];
+  if (lost.length) h += '<div class="dsv-note dsv-lost">⚠️ ' + escapeHtml(dentClaspLostText(lost)) + (lost.length === 1 ? ' — سنُّها لم يعد يحملها. أضف بديلةً إن لزم.' : ' — أسنانُها لم تعد تحملها. أضف بدائلَ إن لزم.') + '</div>'
+    + '<button type="button" class="dsv-clasp-auto dsv-clasp-lostx" data-dsv-act="clasp-drop-lost">إزالتها من القائمة</button>';
   if (!dentClaspIsAuto(u)) h += '<button type="button" class="dsv-clasp-auto" data-dsv-act="clasp-auto">↺ الاقتراح التلقائي</button>';
   return h;
+}
+/* v751 (تجربةُ المالك 17/11/2026: جلستا ضمّة على السن 17 بفرق 33 ثانية): سنٌّ محدَّد سُجّلت عليه خدمةُ ضمّة لهذا الجهاز بتاريخ
+   اليوم ⇒ تنبيهٌ قبل المتابعة — لا منع (ضمّتان بيومٍ واحد ممكنة) */
+function dsvClaspDupTeeth(u, teeth) {
+  var today = (typeof toDay === 'function') ? toDay() : '';
+  if (!today || !teeth || !teeth.length) return [];
+  var hit = [];
+  dsvSessions(u).forEach(function (s) {
+    if (String(s.date || '').slice(0, 10) !== today) return;
+    dentSessClasp(s).forEach(function (t) { if (teeth.indexOf(t) !== -1 && hit.indexOf(t) === -1) hit.push(t); });
+  });
+  return dentSortTeeth(hit, u.arch);
+}
+function dsvClaspDupHtml(u, teeth) {
+  var d = dsvClaspDupTeeth(u, teeth);
+  return d.length ? '<div class="dsv-note dsv-lost dsv-clasp-dup">⚠️ سُجّلت اليوم خدمةُ ضمّة على ' + escapeHtml(dentTeethPhrase(d)) + ' — تأكّد أنها ليست مكرّرة.</div>' : '';
 }
 /* النقرة: كتابةٌ واحدة ثم إعادةُ رسم النافذة من الحالة المحفوظة. قفلٌ يمنع نقرتين متراكبتين */
 async function dsvClaspClick(ov, n, auto) {
@@ -114,7 +134,7 @@ async function dsvClaspClick(ov, n, auto) {
     if (!dentClaspOk(n)) { showToast('🦷 السن ' + n + ': لا يحمل ضمّة (مفقود أو مزروع أو قلعه مخطّط)'); return; }
   }
   st.busy = true;
-  try { if (auto) await dentClaspSave(u, null); else await dentClaspToggle(u, n); }
+  try { if (auto === 'lost') await dentClaspSave(u, dentClasps(u)); else if (auto) await dentClaspSave(u, null); else await dentClaspToggle(u, n); }
   finally { st.busy = false; }
   if (dsvDialog() === ov && ov._dsv && ov._dsv.view === 'home') dsvRender(ov);
 }
@@ -198,7 +218,7 @@ function dsvRender(ov) {
           + (cNew.length && cRep.length ? ' · ' : '')
           + (cRep.length ? '<span>إصلاح:</span> <b>' + escapeHtml(dentTeethPhrase(cRep)) + '</b>' : '')
         : 'المحدَّد: <b>لا شيء</b>')
-      + '</div><button type="button" class="dsv-clasp-auto dsv-clasp-edit" data-dsv-act="clasp-edit">إلغاء أو إضافة ضمّة على الرسم (بلا جلسة)</button>';
+      + '</div>' + dsvClaspDupHtml(u, st.teeth) + '<button type="button" class="dsv-clasp-auto dsv-clasp-edit" data-dsv-act="clasp-edit">إلغاء أو إضافة ضمّة على الرسم (بلا جلسة)</button>';
     foot.innerHTML = '<button type="button" class="btn-sy-cancel" data-dsv-act="back">رجوع</button>'
       + '<button type="button" class="btn-sy-ok" data-dsv-act="next"' + (st.teeth.length ? '' : ' disabled') + '>متابعة</button>';
     body.innerHTML = h; return;
@@ -289,6 +309,7 @@ function dsvOpenDialog(state) {
     var a = act.getAttribute('data-dsv-act');
     if (a === 'instr') { dsvInstructions(st.unitId); return; }
     if (a === 'clasp-auto') { dsvClaspClick(ov, 0, true); return; }
+    if (a === 'clasp-drop-lost') { dsvClaspClick(ov, 0, 'lost'); return; }   /* v751: القائمةُ تُحفظ كما تُرسم الآن */
     if (a === 'clasp-edit') { st.view = 'home'; st.key = null; st.teeth = []; dsvRender(ov); return; }
     if (a === 'back') { st.view = 'home'; st.key = null; st.teeth = []; dsvRender(ov); }
     else if (a === 'next') { if (st.view === 'clasp') dsvConfirmClasp(ov); else dsvConfirmAdd(ov); }
