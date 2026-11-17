@@ -4374,6 +4374,22 @@ function renderSessions() {
   el.innerHTML = _optBar + _visBar + '<table class="data-table sess-table"><thead><tr><th>التاريخ</th><th>العلاج</th><th>السن</th><th>الحالة</th>'
     + (showProviderCol ? '<th>الطبيب</th>' : '')
     + '<th>الدفع</th><th>التفاصيل</th><th style="text-align:left;">التكلفة</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+  if (typeof sessFitCheck === 'function') sessFitCheck(el);   /* M210: جدولٌ أعرض من بطاقته يُمرَّر داخلها */
+}
+/* الجدولُ لا يخرج من بطاقته (صورة المالك 17/11/2026) — لكن الحاويةُ لا تصير حاويةَ تمرير إلا حين يزيد الجدولُ عن عرضها فعلاً:
+   حاويةُ التمرير تقصّ لوحةَ «ترتيب / بديل» العائمة (.spc-panel) تحت آخر الصفوف، فبالحالة العادية تبقى عائمةً كما صُمّمت (v611)،
+   وحين يُمرَّر الجدول تُعرض بمكانها كما بالبطاقات. تُعاد الموازنةُ عند تغيّر عرض الحاوية (تصغير النافذة · طيّ الشريط · ظهور التبويب). */
+function sessFitCheck(host) {
+  host = host || document.getElementById('sessionsContent');
+  if (!host) return;
+  var tbl = host.querySelector('table.sess-table');
+  var wide = !!tbl && host.clientWidth > 0 && Math.ceil(tbl.getBoundingClientRect().width) > host.clientWidth + 1;
+  if (host.classList.contains('sc-wide') !== wide) host.classList.toggle('sc-wide', wide);
+  if (!host._sessFitRO && typeof ResizeObserver === 'function') {
+    var w0 = host.clientWidth;
+    host._sessFitRO = new ResizeObserver(function () { if (host.clientWidth !== w0) { w0 = host.clientWidth; sessFitCheck(host); } });
+    host._sessFitRO.observe(host);
+  }
 }
 
 /* ── Payments ── */

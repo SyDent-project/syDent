@@ -844,7 +844,9 @@ body.ai-on #aiHubBtn{display:inline-block;}
    التاريخ · العلاج · السن · الحالة · الطبيب · الدفع · التفاصيل · التكلفة · الأزرار.
    المضيفُ حاويةٌ دائمة: تحت 980px (موبايل/تابلت/لابتوب ضيّق مع السايد بار) يصير كلُّ صفٍّ
    بطاقةً مرنة — العلاج والتكلفة سطراً · الشارات وتاريخها سطراً · التفاصيل · الأزرار. */
-#sessionsContent{container:mc / inline-size;overflow-x:auto;max-width:100%;}   /* M210 (صورة المالك 17/11/2026): جدولٌ أعرض من بطاقته يُمرَّر داخلها ولا يخرج منها — قاعدةُ v288 للهاتف على كل العروض */
+#sessionsContent{container:mc / inline-size;max-width:100%;}
+#sessionsContent.sc-wide{overflow-x:auto;-webkit-overflow-scrolling:touch;}   /* M210 (صورة المالك 17/11/2026): جدولٌ أعرض من بطاقته يُمرَّر داخلها ولا يخرج منها — sessFitCheck تضع الصنفَ حين يزيد فعلاً */
+#sessionsContent.sc-wide .spc-panel{position:static;box-shadow:none;min-width:0;}   /* حاويةُ التمرير تقصّ العائم — تُعرض بمكانها كما بالبطاقات (v611) */
 .sess-table th,.sess-table td{padding:10px 8px;}
 .sess-table td.sc-date{white-space:nowrap;color:var(--text2);line-height:1.5;}
 .sess-table td.sc-details{min-width:150px;}
