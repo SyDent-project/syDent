@@ -181,9 +181,10 @@ function fuToggle(baseId) {
   if (!baseId) return;
   var open = !fuIsExpanded(baseId);
   _fuExpanded[baseId] = open;
-  var esc = (window.CSS && CSS.escape) ? CSS.escape(String(baseId)) : String(baseId).replace(/"/g, '\\"');
-  document.querySelectorAll('tr[data-fu-parent="' + esc + '"]').forEach(function (tr) { tr.classList.toggle('fu-hidden', !open); });
-  document.querySelectorAll('[data-fu-toggle="' + esc + '"]').forEach(function (b) {
+  var id = String(baseId);   /* مطابقةُ القيمة نفسها — لا محدِّدٌ مبنيٌّ من المعرّف فلا هروب */
+  document.querySelectorAll('tr[data-fu-parent]').forEach(function (tr) { if (tr.getAttribute('data-fu-parent') === id) tr.classList.toggle('fu-hidden', !open); });
+  document.querySelectorAll('[data-fu-toggle]').forEach(function (b) {
+    if (b.getAttribute('data-fu-toggle') !== id) return;
     b.setAttribute('aria-expanded', String(open));
     b.title = open ? 'إخفاء جلسات المتابعة' : 'عرض جلسات المتابعة';
   });
