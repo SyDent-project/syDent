@@ -1210,6 +1210,8 @@ html[data-sub-level="read"] .spc-caret,html[data-sub-level="read"] .spc-panel{di
      hidden tooltip sources + horizontal scroll, shrink to fit A4 portrait.
      zoom is Chromium-only — acceptable (clinic environment is Chrome). */
   #printRoot .jaw-wrap{overflow:visible !important;padding:26px 0 6px !important;}
+  #printRoot .jaw-wrap{--dent-back:#fff !important;}   /* v739: ورقُ الطباعة أبيض — خلفيةُ قطع الجهاز تتبعه */
+  #printRoot .dent-fx{filter:none !important;}   /* v739: لا ظلَّ على الورق (ولا فلترَ يتعثّر به محرّكُ الطباعة) */
   #printRoot .cp-jaw{zoom:0.68;}
   #printRoot .tooth-num{color:#111 !important;}
   #printRoot .leg{color:#222 !important;}
@@ -1283,6 +1285,28 @@ html.lang-en body div.jaw-row,html.lang-en body div.nse-row,html.lang-en body ta
 .dsv-dialog .dsv-st{flex:0 0 auto;padding:0 6px;border-radius:6px;background:rgba(var(--blue-rgb),0.16);color:var(--blue);font-size:10.5px;font-weight:700;}
 .dsv-dialog .dent-t.dsv-own{background:rgba(var(--green-rgb),.16);border-color:rgba(var(--green-rgb),.5);color:var(--text);cursor:default;}
 .dsv-dialog .dsv-grid{margin-top:4px;}
+/* v739 (قرارُ المالك 16–17/11/2026): رسمُ الجهاز المتحرك الجديد — لثةٌ منحنية · واصلٌ خلف الأسنان · ضمّات (pp-denture.js).
+   --dent-back = لونُ أرضية المخطط نفسها: خلفيةٌ مصمتة تحت كل قطعةٍ من الجهاز، فتراكبُ قطعتين عند وصلة الخلايا لا يغمّق اللون
+   ولا يظهر تحتها عنقُ السن الصناعي ولا شبحُ السن المقلوع. تتبع الثيمَ والوضعين (الفحص · التحديد) والطباعة. */
+.jaw-wrap{--dent-back:var(--bg2);}
+:root[data-theme="light"] .jaw-wrap{--dent-back:var(--bg3);}
+:root body.exam-on .jaw-wrap{--dent-back:color-mix(in srgb, var(--green) 5%, var(--bg3));}
+:root body.batch-on .jaw-wrap{--dent-back:color-mix(in srgb, var(--purple) 5%, var(--bg3));}
+.dent-back{fill:var(--dent-back,var(--bg2));}
+.dent-back-t{stroke:var(--dent-back,var(--bg2));stroke-width:3.2;stroke-linejoin:round;}
+/* خلايا امتداد الجهاز بلا فلتر CSS: ظلُّ خليةٍ على جارتها يرسم خطاً عند كل وصلة. ظلُّ السن القائم يبقى بفلتر SVG (‎.dent-fx) */
+.tooth-shape.dent-flat,.tooth-cell:hover .tooth-shape.dent-flat,.occ-cell:hover .tooth-shape.dent-flat,
+:root[data-theme="light"] .tooth-shape.dent-flat,:root[data-theme="light"] .tooth-cell:hover .tooth-shape.dent-flat,:root[data-theme="light"] .occ-cell:hover .tooth-shape.dent-flat{filter:none;}
+.tooth-cell.dent-in:hover,.occ-cell.dent-in:hover{transform:none;}
+.dent-fxc{flood-color:#000;flood-opacity:.15;}
+:root[data-theme="light"] .dent-fxc{flood-color:#102a43;flood-opacity:.34;}
+.dent-banner .dent-clasps::before{content:" · ";}
+/* الضمّات بنافذة الجهاز: صفُّ أسنان الفك — الملوَّن ضمن الجهاز · المحدَّد عليه ضمّة · الباهت لا يحمل ضمّة */
+.dsv-dialog .dsv-clasp-grid{margin-top:4px;}
+.dsv-dialog .dent-t.dsv-clasp-on{background:#55637a;border-color:#55637a;color:#fff;}
+.dsv-dialog .dent-t.dsv-clasp-on:hover{background:#55637a;}
+.dsv-dialog .dsv-clasp-auto{margin-top:8px;display:inline-flex;align-items:center;gap:4px;min-height:38px;padding:6px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--green);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;width:auto;}
+.dsv-dialog .dsv-clasp-auto:hover{border-color:var(--green);}
 .nse-legend i.x{position:relative;opacity:.7;}
 .nse-legend i.x::after{content:'';position:absolute;left:2px;right:2px;top:4px;height:1px;background:var(--text2);}
 .nse-legend i.im{border-color:var(--purple);}
