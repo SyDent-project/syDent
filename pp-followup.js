@@ -34,6 +34,8 @@ var FU_STEPS = {
   periodontics: ['جلسة تالية', 'إعادة تقييم'],
   _default: ['مراجعة', 'استكمال العلاج', 'فك القطب']
 };
+/* كلماتٌ مفردة ملتبسة خارج القاموس الإنجليزي المشترك («تجربة» اسمُ خطة اشتراكٍ أيضاً) — شريحتُها تحمل نصَّها الإنجليزي صريحاً (data-en) */
+var FU_STEP_EN = { 'طبعة': 'Impression', 'تجربة': 'Try-in', 'تسليم': 'Fit', 'ضماد': 'Dressing', 'مراجعة': 'Review' };
 var FU_STEP_MAX = 80, FU_NOTES_MAX = 2000;
 
 function fuList(list) { return list || ((typeof sessions !== 'undefined' && sessions) ? sessions : []); }
@@ -216,7 +218,7 @@ function fuOpen(baseId) {
     group.style.display = 'block';
   }
   document.getElementById('fuSteps').innerHTML = fuSteps(base).map(function (st, i) {
-    return '<button type="button" class="fu-step" data-step="' + fuEsc(st) + '" onclick="fuStepPick(this)">' + fuEsc(st) + '</button>';   /* data-step: النصُّ الأصلي — الظاهرُ قد يكون مترجَماً */
+    return '<button type="button" class="fu-step" data-step="' + fuEsc(st) + '"' + (FU_STEP_EN[st] ? ' data-en="' + fuEsc(FU_STEP_EN[st]) + '"' : '') + ' onclick="fuStepPick(this)">' + fuEsc(st) + '</button>';   /* data-step: النصُّ الأصلي — الظاهرُ قد يكون مترجَماً */
   }).join('');
   closeModal('fuPickModal');
   openModal('fuModal');

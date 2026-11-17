@@ -3462,13 +3462,14 @@ Object.assign(window.SyI18nDict, {
     'تسجيل جلسة متابعة لهذا العلاج — بلا تكلفة': 'Record a follow-up session for this treatment — no charge',
     'العلاج قيد الإنجاز — اضغط عند اكتماله': 'The treatment is in progress — click when it is complete',
     'اكتمل العلاج — اضغط لإعادة فتحه': 'The treatment is complete — click to reopen it',
-    /* شرائحُ الخطوة */
+    /* شرائحُ الخطوة — الكلمةُ المفردة الملتبسة (طبعة · تجربة · تسليم · ضماد · مراجعة) لا تدخل القاموس المشترك («تجربة» اسمُ خطةٍ أيضاً):
+       شريحتُها تحمل data-en من FU_STEP_EN بـpp-followup.js */
     'غسل أقنية': 'Canal irrigation', 'ضماد دوائي': 'Medicated dressing', 'تحضير أقنية': 'Canal preparation', 'حشو أقنية': 'Canal obturation',
-    'ترميم نهائي': 'Final restoration', 'طبعة': 'Impression', 'تجربة': 'Try-in', 'تعديل الإطباق': 'Occlusal adjustment', 'إلصاق نهائي': 'Final cementation',
-    'طبعة نهائية': 'Final impression', 'تسجيل العضة': 'Bite registration', 'تجربة الأسنان': 'Teeth try-in', 'تسليم': 'Fit', 'تعديل بعد التسليم': 'Post-fit adjustment',
+    'ترميم نهائي': 'Final restoration', 'تعديل الإطباق': 'Occlusal adjustment', 'إلصاق نهائي': 'Final cementation',
+    'طبعة نهائية': 'Final impression', 'تسجيل العضة': 'Bite registration', 'تجربة الأسنان': 'Teeth try-in', 'تعديل بعد التسليم': 'Post-fit adjustment',
     'فك القطب': 'Suture removal', 'كشف الزرعة': 'Implant uncovering', 'تركيب التاج': 'Crown placement', 'تبديل السلك': 'Wire change', 'تفعيل الجهاز': 'Appliance activation',
-    'إعادة إلصاق حاصرة': 'Bracket rebonding', 'مراجعة دورية': 'Periodic review', 'مراجعة الشفاء': 'Healing review', 'ضماد': 'Dressing',
-    'جلسة تالية': 'Next session', 'إعادة تقييم': 'Re-evaluation', 'مراجعة': 'Review', 'استكمال العلاج': 'Continuing the treatment',
+    'إعادة إلصاق حاصرة': 'Bracket rebonding', 'مراجعة دورية': 'Periodic review', 'مراجعة الشفاء': 'Healing review',
+    'جلسة تالية': 'Next session', 'إعادة تقييم': 'Re-evaluation', 'استكمال العلاج': 'Continuing the treatment',
     /* الرسائل */
     '⚠️ هذه الجلسة لا تقبل متابعة': '⚠️ This session cannot take a follow-up',
     '⚠️ وصف الجلسة طويل — اختصره': '⚠️ The session description is too long — shorten it',

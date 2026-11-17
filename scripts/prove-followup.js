@@ -442,7 +442,11 @@ async function run(F) {
       '✅ اكتمل العلاج', '⚠️ لا علاج منجز لهذا المريض بعد — سجّل الجلسة الأساسية أولاً', 'حذف هذه الجلسة؟', 'جلسات المتابعة المرتبطة بها (3) تُحذف معها', '↳ جلسات المتابعة المرتبطة بها (12) تُحذف معها']
       .forEach(t => { ok(F['pp-followup.js'].indexOf(t.replace(/^↳ /, '').replace(/\(\d+\)/, "(' + n + ')")) > -1 || F['patient-profile.html'].indexOf(t) > -1, 'the message exists in the code: ' + t); bag.push({ t }); });
     w.__TOASTS.forEach(t => bag.push({ t }));
-    Object.keys(w.FU_STEPS).forEach(k => w.FU_STEPS[k].forEach(t => bag.push({ t })));
+    Object.keys(w.FU_STEPS).forEach(k => w.FU_STEPS[k].forEach(t => bag.push({ t, en: w.FU_STEP_EN[t] })));
+    const E = (() => { const c = { window: {} }; vm.createContext(c); vm.runInContext(F['i18n-en.js'], c); return c.window.SyI18nDict; })();
+    const single = [].concat(...Object.keys(w.FU_STEPS).map(k => w.FU_STEPS[k])).filter(t => t.indexOf(' ') < 0);
+    ok(single.length >= 5 && single.every(t => E[t] === undefined && !!w.FU_STEP_EN[t]) && ['تجربة', 'تسليم', 'المرحلة', 'طبعة', 'ضماد', 'مراجعة'].every(t => E[t] === undefined) && E['متابعة'] === 'Continue',
+      'English: no ambiguous single word enters the shared dictionary — single-word chips carry their own data-en');
 
     /* (٥) الإنجليزية */
     const t = engine(F), left = [], nums = [];
@@ -508,6 +512,8 @@ const MUT = [
   ['default covers restorative', rep('pp-followup.js', 'var FU_MULTI_CATS = { endodontics: 1,', 'var FU_MULTI_CATS = { restorative: 1, endodontics: 1,')],
   ['explicit choice ignored', rep('pp-followup.js', '  if (t.multi_visit === true || t.multi_visit === false) return t.multi_visit;\n', '')],
   ['a step loses its translation', rep('i18n-en.js', "'غسل أقنية': 'Canal irrigation', ", '')],
+  ['an ambiguous word enters the shared dictionary', rep('i18n-en.js', "'ترميم نهائي': 'Final restoration', ", "'ترميم نهائي': 'Final restoration', 'تجربة': 'Try-in', ")],
+  ['single-word chip without its own English', rep('pp-followup.js', "(FU_STEP_EN[st] ? ' data-en=\"' + fuEsc(FU_STEP_EN[st]) + '\"' : '')", "''")],
   ['numbered tag loses its pattern', rep('i18n-en.js', "    [/^متابعة (\\d+)$/, 'Follow-up $1'],\n", '')],
   ['button translated as «Continue»', rep('pp-followup.js', ' data-en="↪ Follow-up"', '')],
   ['state badge hidden in read-only', rep('patient-profile.css', '[onclick*="fuSave("],', '[onclick*="fuSave("],[onclick*="fuSetState("],')]
