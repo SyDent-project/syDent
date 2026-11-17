@@ -119,6 +119,11 @@ const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.css': '
       const bgOf = el => { for (; el; el = el.parentElement) { const c = rgb(getComputedStyle(el).backgroundColor); if (c.length < 4 || c[3] > 0.5) return c; } return [255, 255, 255]; };
       out.segContrast = Array.prototype.map.call(document.querySelectorAll('#occViewSeg button:not(.active), #statusFilterSeg button:not(.active)'), b => {
         const f = lum(rgb(getComputedStyle(b).color)), g = lum(bgOf(b)); return Math.round((Math.max(f, g) + 0.05) / (Math.min(f, g) + 0.05) * 10) / 10; });
+      /* v748: وعنوانا الفلترين («زاوية العرض» · «إظهار العلاجات») بلون المنصة (--green) — لا الرماديُّ الباهت (~5.6:1) */
+      const grn = getComputedStyle(document.documentElement).getPropertyValue('--green').trim();
+      out.labelGreen = Array.prototype.map.call(document.querySelectorAll('.chart-toolbar .chart-tool__label'), b => { const p = document.createElement('span'); p.style.color = grn; document.body.appendChild(p); const want = getComputedStyle(p).color; p.remove(); return getComputedStyle(b).color === want; });
+      out.labelContrast = Array.prototype.map.call(document.querySelectorAll('.chart-toolbar .chart-tool__label'), b => {
+        const f = lum(rgb(getComputedStyle(b).color)), g = lum(bgOf(b)); return Math.round((Math.max(f, g) + 0.05) / (Math.min(f, g) + 0.05) * 10) / 10; });
       return out;
     });
     for (const k of ['facial', 'occlusal', 'lower', 'picker', 'perio']) {
@@ -130,6 +135,9 @@ const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.css': '
     checked++;
     if (!o.segContrast || o.segContrast.length < 5) bad.push('تباين خيارات الفلاتر (' + lang + '): لم تُرسم');
     else if (Math.min.apply(null, o.segContrast) < 10) bad.push('تباين خيارات الفلاتر (' + lang + '): أقلُّها ' + Math.min.apply(null, o.segContrast) + ':1 — باهتة (المطلوب ≥ 10:1)');
+    checked++;
+    if (!o.labelContrast || o.labelContrast.length !== 2) bad.push('عنوانا فلاتر المخطط (' + lang + '): لم يُرسما');
+    else if (!o.labelGreen.every(Boolean) || Math.min.apply(null, o.labelContrast) < 4.5) bad.push('عنوانا فلاتر المخطط (' + lang + '): ليسا بلون المنصة أو تباينُهما ' + Math.min.apply(null, o.labelContrast) + ':1 (المطلوب --green و≥ 4.5:1)');
     checked++;
     if (!o.filters) bad.push('فلاتر المخطط (' + lang + '): لم تُرسم');
     else if (!(o.filters[0] <= o.filters[1]) || Math.abs(o.filters[2]) > 2) bad.push('فلاتر المخطط (' + lang + ', 1366px): «زاوية العرض» ليست فوق «إظهار العلاجات» بمحورٍ واحد (' + o.filters.join(' · ') + ')');

@@ -175,6 +175,8 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 .chart-toolbar{display:flex;flex-direction:column;align-items:center;gap:12px;margin:0 auto 12px;}
 .chart-tool{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;max-width:100%;}
 .chart-tool__label{font-size:11.5px;font-weight:600;color:var(--text2);}
+/* v748 (طلب المالك 17/11/2026 — صورتا الحاسوب): عنوانا الفلترين فوق المخطط («زاوية العرض» · «إظهار العلاجات») بلون المنصة الأزرق المخضرّ (--green) — كانا بالنص الثانوي الباهت. «أدوات المخطط» كما كان. */
+.chart-toolbar .chart-tool__label{font-size:12px;font-weight:700;color:var(--green);}
 .chart-tool--modes{margin:0 auto 8px;}
 
 .jaw-wrap{overflow-x:auto;overflow-y:visible;padding:24px 0;margin:-8px 0;scrollbar-width:none;-ms-overflow-style:none;}/* 24px paint room: hover scale(1.12) + badges at ±7px no longer clip (overflow-x forces computed overflow-y:auto); -8px margin keeps net layout identical to the old 16px */
