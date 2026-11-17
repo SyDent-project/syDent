@@ -252,16 +252,54 @@ def run():
                     # M210: خانةُ الخطوة التالية — «إكمال» الأخضر للمخطّط، و«متابعة» المحايد للمنجز (لا يجتمعان بصفّ)
                     if st == 'planned':
                         ok(tag + ' ' + nm + ': «إكمال» أخضر', len(c1) == 1 and 'sy-act-primary' in c1[0]['cls'] and 'completeSessionFromProfile(' in c1[0]['oc'])
-                    elif plain:
-                        ok(tag + ' ' + nm + ': لا «متابعة» ولا «إكمال» — علاجٌ بجلسةٍ واحدة', len(c1) == 0)
                     else:
-                        ok(tag + ' ' + nm + ': «متابعة» محايد بلا «إكمال»', len(c1) == 1 and c1[0]['cls'].strip() == 'sy-act' and 'fuOpen(' in c1[0]['oc'] and 'متابعة' in c1[0]['t'])
+                        # M210: «＋ متابعة» بخانة العلاج لا بعمود الأزرار — المنجزُ يعود لعموده قبل المتابعة (مخبر · حذف)
+                        ok(tag + ' ' + nm + ': لا خانةَ خطوةٍ تالية للمنجز' + (' — علاجٌ بجلسةٍ واحدة' if plain else ''), len(c1) == 0)
                     ok(tag + ' ' + nm + ': «مخبر» ' + ('محايد' if lab == 'can' else 'غائب'), bool(c2) == (lab == 'can') and (not c2 or c2[0]['cls'].strip() == 'sy-act'))
                     ok(tag + ' ' + nm + ': «حذف» أحمر', len(c3) == 1 and 'sy-act-danger' in c3[0]['cls'])
                 if label == 'منجزةٌ بسيطة':
                     ok(tag + ': القالبُ «حذف» وحده بلا خانةٍ فارغة', res['conts'][0]['tpl'] == '[s3] 80px', res['conts'][0]['tpl'])
                 if label == 'كلُّها منجزة بلا مخبر':
-                    ok(tag + ': القالبُ «متابعة» ثم «حذف» بلا خانة مخبرٍ فارغة', res['conts'][0]['tpl'] == '[s1] 84px [s3] 80px', res['conts'][0]['tpl'])
+                    ok(tag + ': القالبُ «حذف» وحده بلا خانةٍ فارغة', res['conts'][0]['tpl'] == '[s3] 80px', res['conts'][0]['tpl'])
+                chips = pg.evaluate("""() => Array.from(document.querySelectorAll('#sessionsContent tr[data-test="pp-session-row"]')).map(tr => {
+                    const b = tr.querySelector('[data-test="pp-session-followup"]'); return b ? (b.closest('td.sc-type') ? 'cell' : 'elsewhere') : '' })""")
+                want = ['cell' if (SESS[si][1] == 'completed' and len(SESS[si]) == 3) else '' for si in subset]
+                ok(tag + ': «＋ متابعة» بخانة العلاج للمنجز متعدّد الجلسات وحده', chips == want, chips)
+            ok(tag + ': صفرُ خطأ JS', not errs, errs[:3])
+            pg.close()
+        # ═══ 3-ب) الجلسات لا تخرج من بطاقتها (صورة المالك 17/11/2026: لابتوب + الشريط الجانبي · عمود «الطبيب») ═══
+        #   بطاقة 1070 (1366 + الشريط): يتّسع بهامش ≥ 40px — العرضُ يختلف بخطوط الجهاز فلا يُقاس على حافّة البكسل.
+        #   بطاقة 984 (1280 + الشريط): قد يُمرَّر — لكن داخل البطاقة دائماً، والصفحة لا تتجاوز النافذة.
+        for label, planned, cardw in (('منجزة متعدّدة الجلسات + مخبر', False, 1070), ('منجزة متعدّدة الجلسات + مخبر', False, 984), ('ومعها بندٌ مخطّط (خانةُ «إكمال»)', True, 984)):
+            tag = 'الجلسات ببطاقة ' + str(cardw) + 'px (' + label + ')'
+            pg, errs = mkpage('patient-profile.html', 1366 if cardw > 1000 else 1280)
+            fit = pg.evaluate("""([planned, cardw]) => {
+              try {
+                TREATMENTS.push({ treatment_key: 'fit-endo', id: 'fit-endo', name: 'معالجة لبية', category: 'endodontics', is_active: true },
+                                { treatment_key: 'fit-den', id: 'fit-den', name: 'جهاز متحرك جزئي (أكريل)', category: 'prosth_removable', is_active: true });
+                CLINIC_DOCTORS = [{ id: 'd1', name: 'د. أيهم غنيم', is_owner: true, is_active: true, color: 'var(--green)' }, { id: 'd2', name: 'د. سامر الأحمد', is_active: true }];
+                const R = (id, k, st, lab, d, extra) => Object.assign({ id, status: st, treatment_key: k, type: k === 'fit-den' ? 'جهاز متحرك جزئي (أكريل)' : 'معالجة لبية', date: d, created_at: d + 'T08:00:00+00:00',
+                  cost: 900000, paid: 0, currency: 'SYP', provider_id: 'd1', tooth_num: k === 'fit-den' ? null : '37', arch: k === 'fit-den' ? 'L' : null,
+                  description: k === 'fit-den' ? 'الفك السفلي — الأسنان 34، 35، 44، 46' : 'الجذر الوحشي', _lab: lab }, extra || {});
+                sessions = [R('a', 'fit-endo', 'completed', 'none', '2026-11-17', { followup_state: 'open' }), R('b', 'fit-den', 'completed', 'can', '2026-11-13'),
+                            Object.assign(R('k', null, 'completed', 'none', '2026-11-17'), { parent_id: 'a', type: 'متابعة — معالجة لبية', cost: 0, tooth_num: null, description: 'حشو أقنية' })]
+                  .concat(planned ? [R('p', 'fit-den', 'planned', 'can', '2026-11-20')] : []);
+                window._ppSessLabState = s => s._lab; window._ppSessLabIsDraft = () => false;
+                const sc = document.getElementById('sessionsContent');
+                for (let t = sc; t && t !== document.body; t = t.parentElement) { if (getComputedStyle(t).display === 'none') t.style.display = 'block'; }
+                const card = sc.closest('.card') || sc.parentElement; card.style.width = cardw + 'px'; card.style.maxWidth = cardw + 'px';
+                renderSessions();
+                const tbl = sc.querySelector('table');
+                tbl.style.minWidth = '0'; tbl.style.width = '0px'; const tmin = tbl.getBoundingClientRect().width; tbl.style.minWidth = ''; tbl.style.width = '';   /* أصغرُ عرضٍ للجدول (min-content) */
+                return { tmin: Math.round(tmin), sw: sc.scrollWidth, cw: sc.clientWidth, doc: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth,
+                         ox: getComputedStyle(sc).overflowX, doctors: !!Array.from(tbl.querySelectorAll('th')).find(th => /الطبيب/.test(th.textContent)) };
+              } catch (e) { return { err: String(e) }; }
+            }""", [planned, cardw])
+            ok(tag + ': العارض يعمل وعمودُ الطبيب ظاهر', 'err' not in fit and fit.get('doctors'), fit)
+            if 'err' not in fit:
+                if cardw > 1000:
+                    ok(tag + ': الجدولُ يتّسع لبطاقته بهامش ≥ 40px', fit['sw'] <= fit['cw'] + 1 and fit.get('tmin', 0) <= fit['cw'] - 40, fit)
+                ok(tag + ': لا شيءَ يخرج من البطاقة — أعرضُ منها يُمرَّر داخلها', fit['ox'] == 'auto' and fit['doc'] <= fit['vw'], fit)
             ok(tag + ': صفرُ خطأ JS', not errs, errs[:3])
             pg.close()
         # ═══ 4) بطاقاتُ الأدمن — renderList الحقيقية بكل حالات الحساب ═══

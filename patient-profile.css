@@ -844,10 +844,11 @@ body.ai-on #aiHubBtn{display:inline-block;}
    التاريخ · العلاج · السن · الحالة · الطبيب · الدفع · التفاصيل · التكلفة · الأزرار.
    المضيفُ حاويةٌ دائمة: تحت 980px (موبايل/تابلت/لابتوب ضيّق مع السايد بار) يصير كلُّ صفٍّ
    بطاقةً مرنة — العلاج والتكلفة سطراً · الشارات وتاريخها سطراً · التفاصيل · الأزرار. */
-#sessionsContent{container:mc / inline-size;}
+#sessionsContent{container:mc / inline-size;overflow-x:auto;max-width:100%;}   /* M210 (صورة المالك 17/11/2026): جدولٌ أعرض من بطاقته يُمرَّر داخلها ولا يخرج منها — قاعدةُ v288 للهاتف على كل العروض */
 .sess-table th,.sess-table td{padding:10px 8px;}
 .sess-table td.sc-date{white-space:nowrap;color:var(--text2);line-height:1.5;}
 .sess-table td.sc-details{min-width:150px;}
+@container mc (max-width:1100px){ .sess-table th,.sess-table td{padding-inline:5px;} .sess-table td.sc-details{min-width:120px;} }   /* M210: الشريحةُ بين البطاقات (≤980) والعرض الكامل — حواشٍ أضيق فيتّسع الجدولُ لبطاقته (لابتوب 1280 مع الشريط الجانبي) */
 .sess-type{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;}
 .sess-chip{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;border-width:1px;border-style:solid;}
 .sess-dash{color:var(--text3);}
@@ -1581,12 +1582,14 @@ html[data-sub-level="read"] .wend-chip{cursor:default;}
 .sess-table tr.fu-row > td.sc-type{padding-inline-start:22px;}
 .fu-cost{color:var(--text3);font-weight:600;font-size:11.5px;}
 .sess-table tr.fu-row.fu-hidden{display:none;}   /* المتابعاتُ مطويّةٌ تحت أساسيتها حتى يُضغط «المتابعات (N)» */
-.fu-toggle{display:inline-flex;align-items:center;gap:6px;margin-block-start:5px;padding:2px 9px;border-radius:20px;font-family:inherit;font-size:11.5px;font-weight:700;line-height:1.5;color:var(--text2);background:transparent;border:1px solid var(--border);cursor:pointer;white-space:nowrap;}
+.fu-chips{display:flex;flex-wrap:wrap;gap:4px;margin-block-start:5px;}
+.fu-add{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-family:inherit;font-size:11.5px;font-weight:700;line-height:1.5;color:var(--accent,var(--text));background:color-mix(in srgb, var(--accent,var(--text)) 8%, transparent);border:1px solid color-mix(in srgb, var(--accent,var(--text)) 35%, transparent);cursor:pointer;white-space:nowrap;}
+.fu-add:hover{background:color-mix(in srgb, var(--accent,var(--text)) 14%, transparent);}
+.fu-toggle{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:20px;font-family:inherit;font-size:11.5px;font-weight:700;line-height:1.5;color:var(--text2);background:transparent;border:1px solid var(--border);cursor:pointer;white-space:nowrap;}
 .fu-toggle:hover{background:color-mix(in srgb, var(--text) 6%, transparent);color:var(--text);}
 .fu-toggle[aria-expanded="true"]{border-color:color-mix(in srgb, var(--text2) 45%, var(--border));}
 .fu-chev{display:inline-block;inline-size:6px;block-size:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin-block-end:3px;transition:transform .15s;flex:0 0 auto;}   /* سهمٌ للأسفل/للأعلى — لا اتجاهَ أفقي فلا يتأثّر بالعربية */
 .fu-toggle[aria-expanded="true"] .fu-chev{transform:rotate(-135deg);margin-block-end:-3px;}
-.sess-table td.sc-type .fu-toggle{display:flex;inline-size:max-content;}
 button.fu-state{cursor:pointer;font-family:inherit;margin-inline-start:4px;line-height:inherit;}
 button.fu-state:hover{filter:brightness(1.08);}
 .fu-base{padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--bg3);margin-bottom:14px;}
