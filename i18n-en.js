@@ -3483,7 +3483,7 @@ Object.assign(window.SyI18nDict, {
   Object.assign(D, {
     'جلسة متابعة': 'Follow-up session',
     'جلسة متابعة — اختر العلاج': 'Follow-up session — choose the treatment',
-    '↪ جلسة متابعة (استكمال علاج سابق — بلا تكلفة)': '↪ Follow-up session (continues an earlier treatment — no charge)',
+    '🔗 جلسة متابعة (استكمال علاج سابق — بلا تكلفة)': '🔗 Follow-up session (continues an earlier treatment — no charge)',
     'ما تمّ في هذه الجلسة': 'What was done in this session',
     'مثال: غسل أقنية وضماد دوائي': 'Example: canal irrigation and medicated dressing',
     'أي ملاحظات سريرية…': 'Any clinical notes…',
@@ -3495,6 +3495,7 @@ Object.assign(window.SyI18nDict, {
     'ضمن الأساسية': 'In the base session',
     'أول جلسة متابعة لهذا العلاج': 'First follow-up session for this treatment',
     'تسجيل جلسة متابعة لهذا العلاج — بلا تكلفة': 'Record a follow-up session for this treatment — no charge',
+    'علاجٌ يمتدّ على زيارات (غسل أقنية، أو تحضير ثم تركيب)؟ اضغط «＋ متابعة» بجانب جلسته في تبويب الجلسات — تُسجَّل مربوطةً به وبلا تكلفة جديدة.': 'A treatment that takes several visits (canal irrigation, or preparation then fitting)? Click “＋ Follow-up” next to its session in the Sessions tab — it is recorded linked to it, with no new charge.',   /* guides.js — دليل ملف المريض */
     'العلاج قيد الإنجاز — اضغط عند اكتماله': 'The treatment is in progress — click when it is complete',
     'اكتمل العلاج — اضغط لإعادة فتحه': 'The treatment is complete — click to reopen it',
     /* شرائحُ الخطوة — الكلمةُ المفردة الملتبسة (طبعة · تجربة · تسليم · ضماد · مراجعة) لا تدخل القاموس المشترك («تجربة» اسمُ خطةٍ أيضاً):
