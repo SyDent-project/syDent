@@ -60,6 +60,13 @@
        كانت الخدمةُ بلا موضع بجدول الطلبات وورقة المخبر (الفكُّ بالملاحظات فقط، ومن زرّ 🥽 بصفّ الجلسة لا شيء). */
     if (sess.denture_unit) {
       var jaw = sess.arch === 'U' ? 'الفك العلوي' : 'الفك السفلي';
+      /* v745: خدمةُ الضمّة — سنُّها من وصف جلستها بالصيغة المغلقة نفسها التي يقرؤها dentSessClasp (اسمُ الفك + أسنانُه) */
+      if (sess.treatment_key === 'denture-clasp') {
+        var cm = String(sess.description || '').match(/^(الفك العلوي|الفك السفلي) — (?:ضمّة على السن (\d\d)|ضمّات على الأسنان (\d\d(?:، \d\d)+))$/);
+        var ct = cm ? String(cm[2] || cm[3]).split('، ').map(function (t) { return parseInt(t, 10); }) : [];
+        var qs = sess.arch === 'U' ? [1, 2] : [3, 4];
+        if (cm && cm[1] === jaw && ct.every(function (t) { return qs.indexOf(Math.floor(t / 10)) !== -1 && t % 10 >= 1 && t % 10 <= 8; })) return { text: sess.description, teeth: ct };
+      }
       var add = String(sess.denture_add || '').split(',').map(function (t) { return parseInt(t, 10); })
         .filter(function (t) { return t >= 11 && t <= 48; }).sort(function (a, b) { return a - b; });
       return add.length ? { text: jaw + ' — ' + (add.length === 1 ? 'السن ' : 'الأسنان ') + add.join('، '), teeth: add } : { text: jaw, teeth: [] };
@@ -84,7 +91,7 @@
     var got = false;
     for (var i = 0; i < ids.length; i += 100) {
       try {
-        var r = await sb.from('ledger_sessions').select('id, arch, unit_teeth, tooth_num, denture_unit, denture_add').eq('doctor_id', uid).in('id', ids.slice(i, i + 100));
+        var r = await sb.from('ledger_sessions').select('id, arch, unit_teeth, tooth_num, denture_unit, denture_add, treatment_key, description').eq('doctor_id', uid).in('id', ids.slice(i, i + 100));
         /* عمودا M208 غائبان (قاعدةٌ قبل الترحيل) ⇒ يُعاد بالأعمدة القديمة: مواضعُ الأجهزة لا تضيع بذنب الخدمات */
         if (r.error && /denture_unit|denture_add/.test(r.error.message || '')) r = await sb.from('ledger_sessions').select('id, arch, unit_teeth, tooth_num').eq('doctor_id', uid).in('id', ids.slice(i, i + 100));
         if (r.error) { console.warn('lab slip areas:', r.error); continue; }   /* #240: لا بلعٌ صامت */

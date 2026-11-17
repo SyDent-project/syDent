@@ -30,10 +30,12 @@ function dsvUnit(id) {
   return null;
 }
 /* لماذا لا تُسجَّل خدمةٌ على هذا الجهاز — فارغٌ إن قُبلت */
-function dsvUnitWhy(u, kind) {
+function dsvUnitWhy(u, kind, key) {
   if (!u || !u.id) return 'الجهاز لم يعد على المخطط';
   if (u.st === 'planned') return 'الجهاز ما زال مخطّطاً — أنجزه أولاً';
   if (kind === 'add' && dentIsFullSet(u.teeth, u.arch)) return 'الجهاز الكامل يعوّض كل أسنان الفك — إضافة السن للجهاز الجزئي';
+  /* v745 (المالك 17/11/2026: «الجهاز الكامل ماله ضمات فغلط يطلع»): خدمةُ الضمّة للجهاز الجزئي وحده */
+  if (key === DENT_CLASP_SVC_KEY && !dsvClaspUnit(u)) return 'الجهاز الكامل بلا ضمّات — الضمّة للجهاز الجزئي';
   return '';
 }
 function dsvIsSession(s) { return !!s && !s.tooth_num && !!s.denture_unit; }
@@ -99,7 +101,7 @@ function dsvClaspHtml(u) {
     h += '<button type="button" class="nse-t dent-t' + (own ? ' dsv-own' : (ok ? (has ? ' dsv-clasp-on' : ' dent-miss') : ' dent-off')) + '" data-dsv-clasp="' + t + '"'
       + (ok ? ' aria-pressed="' + (has ? 'true' : 'false') + '"' : ' aria-disabled="true"') + '>' + t + '</button>';
   }
-  h += '</div><div class="dsv-note">' + (dentClaspIsAuto(u) ? 'مقترحة تلقائياً على الأسنان المجاورة للفراغ' : 'قائمة الطبيب') + ' — انقر السن لإضافة ضمّة أو إلغائها.</div>';
+  h += '</div><div class="dsv-note">' + (dentClaspIsAuto(u) ? 'مقترحة تلقائياً على السن الإنسي لكل فراغ' : 'قائمة الطبيب') + ' — انقر السن لإضافة ضمّة أو إلغائها.</div>';
   if (!dentClaspIsAuto(u)) h += '<button type="button" class="dsv-clasp-auto" data-dsv-act="clasp-auto">↺ الاقتراح التلقائي</button>';
   return h;
 }
@@ -169,8 +171,17 @@ function dsvRender(ov) {
       h += '<button type="button" class="nse-t dent-t' + (u.teeth.indexOf(ct) !== -1 ? ' dsv-own' : (!cw ? (csel ? ' dent-on' : (chas ? ' dsv-clasp-on' : ' dent-miss')) : ' dent-off')) + '" data-dsv-ctooth="' + ct + '"'
         + (cw ? ' aria-disabled="true" title="' + escapeHtml(cw) + '"' : ' aria-pressed="' + (csel ? 'true' : 'false') + '"') + '>' + ct + '</button>';
     }
-    h += '</div><div class="dsv-note">المحدَّد: <b>' + (st.teeth.length ? escapeHtml(dentTeethPhrase(dentSortTeeth(st.teeth, u.arch))) : 'لا شيء')
-      + '</b> — الرمادي عليه ضمّة (اختره للإصلاح)، والسن الجديد تُضاف ضمّته لرسم الجهاز.</div>';
+    /* v745: كلُّ سنٍّ محدَّد يُسمّى بعمله — «ضمّة جديدة» (تُرسم مع الجلسة المنجزة) أو «إصلاح» (الرسمُ كما هو) — ومفتاحُ الألوان بالكلمات */
+    var cNew = dentSortTeeth(st.teeth.filter(function (t) { return con.indexOf(t) === -1; }), u.arch);
+    var cRep = dentSortTeeth(st.teeth.filter(function (t) { return con.indexOf(t) !== -1; }), u.arch);
+    h += '</div><div class="dsv-legend"><span class="dsv-lg"><i class="dsv-lg-sw dsv-lg-on" aria-hidden="true"></i>عليه ضمّة</span>'
+      + '<span class="dsv-lg"><i class="dsv-lg-sw dsv-lg-sel" aria-hidden="true"></i>محدَّد</span></div><div class="dsv-note dsv-clasp-sel">'
+      + (st.teeth.length
+        ? (cNew.length ? '<span>ضمّة جديدة:</span> <b>' + escapeHtml(dentTeethPhrase(cNew)) + '</b>' : '')
+          + (cNew.length && cRep.length ? ' · ' : '')
+          + (cRep.length ? '<span>إصلاح:</span> <b>' + escapeHtml(dentTeethPhrase(cRep)) + '</b>' : '')
+        : 'المحدَّد: <b>لا شيء</b>')
+      + '</div><button type="button" class="dsv-clasp-auto dsv-clasp-edit" data-dsv-act="clasp-edit">إلغاء أو إضافة ضمّة على الرسم (بلا جلسة)</button>';
     foot.innerHTML = '<button type="button" class="btn-sy-cancel" data-dsv-act="back">رجوع</button>'
       + '<button type="button" class="btn-sy-ok" data-dsv-act="next"' + (st.teeth.length ? '' : ' disabled') + '>متابعة</button>';
     body.innerHTML = h; return;
@@ -183,7 +194,7 @@ function dsvRender(ov) {
   else {
     h += '<div class="dsv-list">';
     txs.forEach(function (t) {
-      var bad = dsvUnitWhy(u, dsvKind(t));
+      var bad = dsvUnitWhy(u, dsvKind(t), t.id);
       h += '<button type="button" class="dsv-tx' + (bad ? ' dsv-tx-off' : '') + '" data-dsv-tx="' + escapeHtml(String(t.id)) + '"' + (bad ? ' aria-disabled="true" title="' + escapeHtml(bad) + '"' : '') + '>'
         + escapeHtml(t.name) + (t.needs_lab ? ' <span class="dsv-lab" aria-hidden="true">🥽</span>' : '') + '</button>';
     });
@@ -261,6 +272,7 @@ function dsvOpenDialog(state) {
     var a = act.getAttribute('data-dsv-act');
     if (a === 'instr') { dsvInstructions(st.unitId); return; }
     if (a === 'clasp-auto') { dsvClaspClick(ov, 0, true); return; }
+    if (a === 'clasp-edit') { st.view = 'home'; st.key = null; st.teeth = []; dsvRender(ov); return; }
     if (a === 'back') { st.view = 'home'; st.key = null; st.teeth = []; dsvRender(ov); }
     else if (a === 'next') { if (st.view === 'clasp') dsvConfirmClasp(ov); else dsvConfirmAdd(ov); }
     else dsvClose();
@@ -295,40 +307,48 @@ function dsvStart(key, label, ctx) {
   label = label || tr.name;
   var fromTooth = (ctx && ctx.tooth && dentHas(ctx.tooth)) ? dentUnitOf(ctx.tooth) : null;
   var cand = fromTooth ? [fromTooth] : dentUnits();
-  var ok = cand.filter(function (u) { return !dsvUnitWhy(u, kind); });
+  /* v745: الضمّةُ من نافذة سنٍّ قائم ⇒ أجهزةُ فكّه الجزئية وحدها، والسنُّ نفسُه محدَّدٌ بمنتقي الضمّة */
+  var pre = null;
+  if (key === DENT_CLASP_SVC_KEY && ctx && ctx.tooth && !fromTooth) {
+    var ar = dentArchOf(ctx.tooth);
+    cand = cand.filter(function (u) { return u.arch === ar; });
+    if (!cand.some(function (u) { return !!u.id && dsvClaspUnit(u); })) { showToast('🛠 لا جهاز جزئي ب' + dentArchLabel(ar) + ' — الضمّة للجهاز الجزئي'); return true; }
+    pre = parseInt(ctx.tooth, 10);
+  }
+  var ok = cand.filter(function (u) { return !dsvUnitWhy(u, kind, key); });
   if (!ok.length) {
     var first = cand.filter(function (u) { return !!u.id; })[0];
-    showToast('🛠 ' + (first ? dsvUnitWhy(first, kind) : 'لا جهاز متحرك على المخطط — سجّل الجهاز أولاً (ولو «موجود مسبقاً»)'));
+    showToast('🛠 ' + (first ? dsvUnitWhy(first, kind, key) : 'لا جهاز متحرك على المخطط — سجّل الجهاز أولاً (ولو «موجود مسبقاً»)'));
     return true;
   }
-  if (ok.length === 1) { dsvBegin(ok[0], key, label, kind, null); return true; }
-  dsvOpenDialog({ view: 'units', units: ok, unitId: null, key: key, label: label, teeth: [] });
+  if (ok.length === 1) { dsvBegin(ok[0], key, label, kind, null, pre); return true; }
+  dsvOpenDialog({ view: 'units', units: ok, unitId: null, key: key, label: label, teeth: [], pre: pre });
   return true;
 }
 function dsvPickUnit(ov, unitId) {
   if (dsvLocked()) return;
   var st = ov._dsv, u = dsvUnit(unitId), tr = getTreatment(st.key), kind = dsvKind(tr);
-  var why = kind ? dsvUnitWhy(u, kind) : 'الخدمة لم تعد بقائمة العلاجات';
+  var why = kind ? dsvUnitWhy(u, kind, st.key) : 'الخدمة لم تعد بقائمة العلاجات';
   if (why) { showToast('🛠 ' + why); return; }
-  dsvBegin(u, st.key, st.label, kind, ov);
+  dsvBegin(u, st.key, st.label, kind, ov, st.pre);
 }
 function dsvPickTx(ov, key) {
   if (dsvLocked()) return;
   var st = ov._dsv, u = dsvUnit(st.unitId), tr = getTreatment(key), kind = dsvKind(tr);
-  var why = kind ? dsvUnitWhy(u, kind) : 'الخدمة لم تعد بقائمة العلاجات';
+  var why = kind ? dsvUnitWhy(u, kind, key) : 'الخدمة لم تعد بقائمة العلاجات';
   if (why) { showToast('🛠 ' + why); return; }
   if (typeof bumpTxUsage === 'function') bumpTxUsage(key);
   dsvBegin(u, key, tr.name, kind, ov);
 }
 /* بعد معرفة الخدمة والجهاز: «إضافة سن» تمرّ بمنتقي السن، وغيرُها يذهب لخطوة التكلفة */
-function dsvBegin(u, key, label, kind, ov) {
+function dsvBegin(u, key, label, kind, ov, pre) {
   if (kind === 'add') {
     var state = { view: 'add', unitId: u.id, key: key, label: label, teeth: [] };
     if (ov) { ov._dsv = state; dsvRender(ov); } else dsvOpenDialog(state);
     return;
   }
   if (dsvClaspPick(u, key)) {   /* v741: خدمةُ الضمّة تمرّ بسنّها */
-    var cst = { view: 'clasp', unitId: u.id, key: key, label: label, teeth: [] };
+    var cst = { view: 'clasp', unitId: u.id, key: key, label: label, teeth: (pre && dentArchOf(pre) === u.arch && !dsvClaspWhy(u, pre)) ? [pre] : [] };
     if (ov) { ov._dsv = cst; dsvRender(ov); } else dsvOpenDialog(cst);
     return;
   }
@@ -399,7 +419,7 @@ async function dsvSave(cost, units, date, notes) {
   var status = pendingTreatStatus, key = p.key, label = p.label;
   if (status !== 'completed' && status !== 'planned') { showToast('🛠 خدمة الجهاز تُسجَّل «منجز» أو «مخطّط» فقط'); return; }
   /* إعادةُ التحقّق لحظةَ الحفظ: المخططُ قد يتغيّر بين النافذة والحفظ */
-  var u = dsvUnit(p.unit.id), why = dsvUnitWhy(u, p.kind);
+  var u = dsvUnit(p.unit.id), why = dsvUnitWhy(u, p.kind, p.key);
   if (why) { showToast('⚠️ تغيّر المخطط — ' + why); return; }
   var add = [];
   if (p.kind === 'add') {
@@ -574,6 +594,32 @@ function dsvDecorate(bar, units) {
   };
   bar.addEventListener('click', go); bar.addEventListener('keydown', go);
 }
+/* v745 (المالك 17/11/2026: «ما في إلغاء ضمّة»): نافذةُ السن القائم بفكٍّ عليه جهازٌ جزئي — «✕ إلغاء الضمّة» على سنٍّ مرسومةٍ
+   عليه ضمّة، و«＋ ضمّة على الرسم» على سنٍّ يحملها بلا ضمّة. رسمٌ فقط بلا جلسة، كقسم «الضمّات» بنافذة الجهاز. */
+function dsvClaspToothUnit(n) {
+  n = parseInt(n, 10);
+  var us = dentUnits().filter(function (u) { return !!u.id && u.arch === dentArchOf(n) && dsvClaspUnit(u) && u.teeth.indexOf(n) === -1; });
+  if (us.length === 1) return us[0];
+  return us.filter(function (u) { return dentClasps(u).indexOf(n) !== -1; })[0] || null;   /* جهازان جزئيان بالفك: الإلغاءُ وحده */
+}
+function dsvClaspBtnHtml(n) {
+  if (window.__regionalPickerMode || window.__examMode || window.__batchMode || window.__historyMode || window.__draftMode) return '';
+  n = parseInt(n, 10);
+  if (!(n >= 11 && n <= 48) || dentHas(n) || !dentClaspOk(n)) return '';
+  var u = dsvClaspToothUnit(n); if (!u) return '';
+  var has = dentClasps(u).indexOf(n) !== -1;
+  return '<button class="topt dsv-clasp-tbtn" title="' + (has ? 'يزيل ضمّة هذا السن عن رسم الجهاز — بلا جلسة' : 'يرسم ضمّةً للجهاز على هذا السن — بلا جلسة') + '" onclick="dsvClaspFromTooth(' + n + ')">'
+    + (has ? '✕ إلغاء الضمّة' : '＋ ضمّة على الرسم') + '</button>';
+}
+async function dsvClaspFromTooth(n) {
+  n = parseInt(n, 10);
+  if (dsvLocked()) return;
+  var u = dsvClaspToothUnit(n);
+  if (!u || !dentClaspOk(n)) { showToast('🦷 الجهاز لم يعد على المخطط'); return; }
+  var had = dentClasps(u).indexOf(n) !== -1;
+  if (typeof closeModal === 'function') closeModal('toothModal');
+  if (await dentClaspToggle(u, n)) showToast(had ? '✓ أُلغيت ضمّة السن ' + n : '✓ رُسمت ضمّة على السن ' + n);
+}
 function dsvBtnHtml(n) {
   var u = dentUnitOf(n); if (!u || !u.id) return '';
   return '<button class="topt dsv-open" style="font-weight:700;" title="تبطين · إصلاح · إضافة سن — وسجلُّ خدمات الجهاز" onclick="dsvOpenFromTooth(' + parseInt(n, 10) + ')">🛠 خدمات الجهاز</button>';
@@ -585,5 +631,5 @@ window.SyDentSvc = {
   start: dsvStart, open: dsvOpen, clearPending: dsvClearPending,
   saveReady: dsvSaveReady, save: dsvSave,
   onSessionComplete: dsvOnSessionComplete, completeNote: dsvCompleteNote, onSessionDeleted: dsvOnSessionDeleted,
-  decorate: dsvDecorate, btnHtml: dsvBtnHtml
+  decorate: dsvDecorate, btnHtml: dsvBtnHtml, claspBtnHtml: dsvClaspBtnHtml
 };
