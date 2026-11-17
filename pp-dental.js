@@ -4868,7 +4868,11 @@ function renderTxPalette(){
            : _txAllowed.filter(function(t){ return (t.category||'other') === _txTab; });
   var html = '';
   if (_txTab === 'condition') html += '<div class="tx-cond-hint">حالةٌ سريرية للتوثيق فقط — بلا تكلفة ولا سطرٍ بالحساب.<br>تُسجَّل <b>حيث نقرت</b>: القلحُ والحساسيةُ والارتدادُ والبقعةُ على السطح المنقور (لثوي/دهليزي/حنكي…)، والكسرُ على التاج أو على الجذر المنقور، و«التماس المفتوح» على الإنسي أو الوحشي (نقطة التماس مع السن المجاور). أما الخراجُ والجذرُ المتبقّي والانطمارُ فللسن كاملاً.</div>';
-  for (var i=0;i<list.length;i++) html += txButtonHtml(list[i]);
+  /* v749: خدماتُ الجهاز آخرَ القائمة بعد فاصلٍ باسمها (كانت تختلط بالأجهزة بتبويب «تعويضات متحركة») */
+  var _svc = (window.SyDentSvc && window.SyDentSvc.isTreatment) ? window.SyDentSvc.isTreatment : null;
+  var _main = _svc ? list.filter(function (t) { return !_svc(t); }) : list, _srv = _svc ? list.filter(function (t) { return _svc(t); }) : [];
+  for (var i=0;i<_main.length;i++) html += txButtonHtml(_main[i]);
+  if (_srv.length) html += (_main.length ? '<div class="tx-sep">خدمات الجهاز</div>' : '') + _srv.map(txButtonHtml).join('');
   /* v491: إجراءاتُ السن (الإزالات · «سليم» · الجسر البديل) بصفٍّ مستقلٍّ تحت الشبكة بعنوانه —
      كانت تُسرد بين خيارات العلاج فيقع «🩺 إزالة…» بجانب «قلع» (بلاغ المالك: ليكن بسيطاً ومفهوماً). */
   c.innerHTML = html + (_txSpecialHtml ? '<div class="tx-special-row"><div class="tx-special-lbl">إجراءات على هذا السن:</div>' + _txSpecialHtml + '</div>' : '');
@@ -4989,8 +4993,15 @@ async function openToothModal(n, surface) {
     var containerR = document.getElementById('toothOptsContainer');
     var htmlR = '';
     var matchedR = 0;
-    for (var iR = 0; iR < TREATMENTS.length; iR++) {
-      var tR = TREATMENTS[iR];
+    /* v749: خدماتُ الجهاز آخرَ القائمة بعد فاصلٍ باسمها */
+    var _svcR = (window.SyDentSvc && window.SyDentSvc.isTreatment) ? window.SyDentSvc.isTreatment : function () { return false; };
+    var _orderR = TREATMENTS.filter(function (t) { return !_svcR(t); }), _srvR = TREATMENTS.filter(function (t) { return _svcR(t) && t.is_active !== false; });
+    if (_srvR.length && _orderR.some(function (t) { var p = t.target_part || 'crown'; return t.is_active !== false && (p === 'quadrant' || p === 'arch' || p === 'mouth' || (window.SyDenture && window.SyDenture.isTp(p))); }))
+      _orderR.push({ __sep: true });
+    _orderR = _orderR.concat(_srvR);
+    for (var iR = 0; iR < _orderR.length; iR++) {
+      var tR = _orderR[iR];
+      if (tR.__sep) { htmlR += '<div class="tx-sep">خدمات الجهاز</div>'; continue; }
       if (tR.is_active === false) continue;
       var tpR = tR.target_part || 'crown';
       if (tpR !== 'quadrant' && tpR !== 'arch' && tpR !== 'mouth' && !(window.SyDenture && window.SyDenture.isTp(tpR))) continue;   /* M202: الجهازُ المتحرك مدخلُه من هنا */
@@ -5193,6 +5204,8 @@ async function openToothModal(n, surface) {
       if (window.SyDenture.isTreatment(t)) return true;   /* v710: يظهر على أي سنٍّ دائم (فئةُ «تعويضات متحركة») — نقرتُه تفتح منتقي الفك على فكّ هذا السن */
       if (window.SyDenture.has(n) && isSpacerKey(t.id)) return false;   /* v711: حافظ المسافة */
     }
+    /* v749: خدمةُ الجهاز (تبطين · إصلاح · إضافة سن · ضمّة…) تظهر حيث يوجد جهازٌ بفك السن — وعلى سنّ الجهاز نفسه — لا على كل سن */
+    if (window.SyDentSvc && window.SyDentSvc.isTreatment(t)) return window.SyDentSvc.allowedOnTooth(t, n);
     // ── Owner matrix (OpenDental treatment-area model) — applies to STANDING teeth
     //    only. The implant/pontic/extracted state branches below keep their own
     //    rules verbatim: a ghost (even a PLANNED extraction — isExtracted is
@@ -5272,6 +5285,8 @@ async function openToothModal(n, surface) {
                                         + '<button class="topt tone tone-purple" style="font-weight:700;" onclick="removeImplant(' + n + ')">🔩 إزالة الزراعة</button>';
   else if (isPartOfBridge)     _special = (altBridgeContext(n) ? '<button class="topt" style="border-color:var(--blue);color:var(--blue);font-weight:700;" onclick="openAltBridgePicker(' + n + ')" title="إضافة نوع جسر آخر كخيارٍ بديل بخطة العلاج — المخطط لا يتغيّر">' + (isAlreadyPontic ? '🔀 بديل للجسر (جسر آخر / زرعة)' : '🔀 جسر بديل (خيار آخر بالخطة)') + '</button>' : '')
                                         + '<button class="topt" style="border-color:#dc2626;color:#dc2626;font-weight:700;" onclick="undoExtraction(' + n + ')">🔗 إزالة الجسر</button>';
+  /* v749: سنٌّ يعوّضه جهازٌ متحرك (لا جسرٌ فوقه): «إلغاء القلع» يرفض دائماً هناك («أزل الجهاز أولاً») ⇒ لا يُعرض؛ زرُّ إزالة الجهاز بجانبه */
+  else if ((isAlreadyExtracted || _extPlanned) && window.SyDenture && window.SyDenture.has(n)) _special = '';
   else if (isAlreadyExtracted) _special = '<button class="topt" style="border-color:var(--red);color:var(--red);font-weight:700;" onclick="undoExtraction(' + n + ')">↩️ إلغاء القلع (إعادة السن)</button>';
   else if (_extPlanned)        _special = '<button class="topt" style="border-color:var(--red);color:var(--red);font-weight:700;" onclick="undoExtraction(' + n + ')">↩️ إلغاء القلع المخطّط</button>'
                                         + '<button class="topt" style="border-color:var(--text2)" title="يزيل ما على السطح المنقور (علاجاً كان أو حالة)" onclick="clearToothStatus()">⬜ سليم (إلغاء)</button>';
