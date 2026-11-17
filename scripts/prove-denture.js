@@ -20,6 +20,8 @@ const ROOT = path.resolve(__dirname, '..');
 let jsdomOk = true; try { require.resolve('jsdom'); } catch (e) { jsdomOk = false; }
 if (!jsdomOk) { console.warn('⚠️  jsdom غائبة — تخطّي مثبت التعويضات المتحركة (npm install jsdom --no-save)'); process.exit(0); }
 const { JSDOM, VirtualConsole } = require('jsdom');
+const POOL = require('./mutant-pool');   /* الطفراتُ على كل الأنوية + التوقّفُ عند أول توكيدٍ أحمر */
+let MK_R = () => ({});   /* وعاءُ نتائج behave: عاديٌّ بالتشغيل الحيّ، ويوقف الطفرةَ عند أول أحمر نهائي */
 cp.execFileSync('node', [path.join(__dirname, 'dom-smoke', 'build-harness.js')], { stdio: 'ignore' });
 const HARNESS = fs.readFileSync(path.join(__dirname, 'dom-smoke', '.out', 'harness.html'), 'utf8');
 
@@ -87,6 +89,7 @@ const FAKE_DB = `
   window.__I18N = {};
   window.__i18nAdd = function(s){ s = String(s == null ? '' : s).replace(/\\s+/g, ' ').trim(); if (s && /[\\u0600-\\u06FF]/.test(s)) window.__I18N[s] = 1; };
   window.__i18nGrab = function(){
+    if (window.__noGrab) return;   /* طفرةٌ سلوكية: النصوصُ لا تُقرأ فلا تُجمع */
     var roots = [], q = function(sel){ var l = document.querySelectorAll(sel); for (var i = 0; i < l.length; i++) roots.push(l[i]); };
     q('#regionalAreaModal'); q('#dentureBanner'); q('.dent-tip'); q('.dent-tip-pend'); q('.dent-tip-clasp'); q('#toothStep2Title'); q('.dent-remove'); q('[data-dent-title]');
     roots.forEach(function(r){
@@ -289,7 +292,7 @@ const T_SPCR = { treatment_key: 'pedo-spacer', id: 'pedo-spacer', name: 'حاف�
 const T_ARCH = { treatment_key: 'whitening', id: 'whitening', name: 'تبييض', label: 'ب', fill: '#84cc16', stroke: '#5a9410', price: 100000, target_part: 'arch', category: 'cosmetic', is_active: true, currency: 'SYP', price_overrides: {} };
 
 async function behave(w, hasDenture) {
-  const r = {}, doc = w.document;
+  const r = MK_R(), doc = w.document;
   const $ = id => doc.getElementById(id);
   const tick = (ms) => new Promise(res => setTimeout(res, ms || 0));
   [T_FULL, T_PART, T_PMET, T_IMPL, T_BRDG, T_SOCK, T_SPCR, T_ARCH].forEach(t => w.TREATMENTS.push(JSON.parse(JSON.stringify(t))));
@@ -1193,7 +1196,10 @@ function i18nChecks(strings, over) {
 (async () => {
   const st = staticChecks(null);
   const w = await boot(null);
+  const CNT = POOL.counter(); MK_R = CNT.make;
   const bh = await behave(w, true);
+  MK_R = () => ({});
+  const BAIL_R = POOL.bailing(CNT.once());   /* مفاتيحُ تُكتب مرةً واحدة بالتشغيل الحيّ ⇒ قيمتُها نهائية */
   const STR = Object.keys(w.__I18N || {});
   const res = Object.assign({}, st, bh, i18nChecks(STR, null));
   const keys = Object.keys(res), bad = keys.filter(k => !res[k]);
@@ -1409,25 +1415,29 @@ function i18nChecks(strings, over) {
     ['migration-drops-surface', MG, "'SXM'::text, 'SXD'::text, 'DENTURE'::text,", "'SXM'::text, 'SXD'::text,"],
     ['migration-catalog-drifts', MG, "'denture-partial-flex', 'جهاز متحرك جزئي (مرن)', 'ج', '#b45309', '#78350f', 0, false, true,", "'denture-partial-flex', 'جهاز متحرك جزئي (مرن)', 'ج', '#b45309', '#78350f', 0, false, false,"]
   ];
-  let bit = 0; const dull = [];
-  for (const [name, file, find, repl] of MUT) {
-    if (LIVE[file].split(find).length !== 2) { console.log('  ✗ الطفرة «' + name + '»: مرساتُها ليست فريدة بـ' + file); dull.push(name); continue; }
+  /* كل طفرةٍ مستقلة ⇒ تتوزّع على الأنوية (mutant-pool.js)، والتشغيلُ السلوكي يقف عند أول توكيدٍ أحمر نهائي —
+     توكيدٌ واحد يحمرّ يكفي لإثبات أن الطفرة تعضّ؛ لا حاجة لباقي المئتين. */
+  const one = async ([name, file, find, repl]) => {
+    if (LIVE[file].split(find).length !== 2) { console.log('  ✗ الطفرة «' + name + '»: مرساتُها ليست فريدة بـ' + file); return false; }
     const over = {}; over[file] = LIVE[file].replace(find, repl);
-    let red = false;
-    try {
-      if (/^i18n-/.test(name)) {   /* طفراتُ الترجمة: تعضّها فحوصُ الترجمة وحدها (لا يُنسب عضُّها لتوكيدٍ سلوكي) */
-        let S2 = STR;
-        if (file !== 'i18n-en.js' && file !== 'theme.js') { const w3 = await boot(over); await behave(w3, true); S2 = Object.keys(w3.__I18N || {}); w3.close(); }
-        const i2 = i18nChecks(S2, over); red = Object.keys(i2).some(k => !i2[k]);
-        if (red) bit++; else { dull.push(name); console.log('  ✗ الطفرة «' + name + '» لم تُحمرّ شيئاً'); }
-        continue;
-      }
-      const s2 = staticChecks(over);
-      if (Object.keys(s2).some(k => !s2[k])) red = true;
-      if (!red && (/\.js$/.test(file) || file === 'patient-profile.html')) { const w2 = await boot(over); const b2 = await behave(w2, true); red = Object.keys(b2).some(k => !b2[k]); w2.close(); }
-    } catch (e) { red = true; }
-    if (red) bit++; else { dull.push(name); console.log('  ✗ الطفرة «' + name + '» لم تُحمرّ شيئاً'); }
-  }
+    if (/^i18n-/.test(name)) {   /* طفراتُ الترجمة: تعضّها فحوصُ الترجمة وحدها (لا يُنسب عضُّها لتوكيدٍ سلوكي) — تحتاج النصوصَ كاملة فلا توقّف */
+      let S2 = STR;
+      if (file !== 'i18n-en.js' && file !== 'theme.js') { const w3 = await boot(over); try { await behave(w3, true); S2 = Object.keys(w3.__I18N || {}); } finally { w3.close(); } }
+      const i2 = i18nChecks(S2, over); return Object.keys(i2).some(k => !i2[k]);
+    }
+    const s2 = staticChecks(over);
+    if (Object.keys(s2).some(k => !s2[k])) return true;
+    if (!(/\.js$/.test(file) || file === 'patient-profile.html')) return false;
+    const w2 = await boot(over);
+    w2.__noGrab = true; MK_R = BAIL_R;
+    try { const b2 = await behave(w2, true); return Object.keys(b2).some(k => !b2[k]); }
+    catch (e) { return true; }
+    finally { MK_R = () => ({}); w2.close(); }
+  };
+  const pool = await POOL.runMutants(MUT, one);
+  const bit = pool.bit, dull = pool.dull.map(i => MUT[i][0]);
+  pool.dull.forEach(i => console.log('  ✗ الطفرة «' + MUT[i][0] + '» لم تُحمرّ شيئاً'));
+  if (pool.failed.length) { console.log('  ✗ عاملُ طفراتٍ سقط بلا نتيجة: ' + pool.failed.join('، ')); dull.push('worker'); }
   /* الطبقةُ نفسها غائبة (الملفُّ لم يُحمَّل): المخططُ يُرسم كما كان — الخطّافاتُ كلها محروسةٌ بوجودها */
   const w0 = await boot({ __noDenture: true }); const b0 = await behave(w0, false);
   const absentOk = Object.keys(b0).every(k => b0[k]);
