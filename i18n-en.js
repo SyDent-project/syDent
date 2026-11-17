@@ -3412,6 +3412,7 @@ Object.assign(window.SyI18nDict, {
     /* v745: منتقي سنّ الضمّة — مفتاحُ الألوان · عملُ كلِّ سنٍّ محدَّد · رابطُ تعديل الرسم · زرُّ الضمّة بنافذة السن */
     'عليه ضمّة': 'Has a clasp', 'محدَّد': 'Selected', 'ضمّة جديدة:': 'New clasp:', 'إصلاح:': 'Repair:',
     'إلغاء أو إضافة ضمّة على الرسم (بلا جلسة)': 'Remove or add a clasp on the drawing (no session)',
+    'خدمات الجهاز': 'Denture services',   /* v749: فاصلُ قائمة العلاجات */
     '✕ إلغاء الضمّة': '✕ Remove the clasp', '＋ ضمّة على الرسم': '＋ Clasp on the drawing',
     'يزيل ضمّة هذا السن عن رسم الجهاز — بلا جلسة': 'Removes this tooth\'s clasp from the denture drawing — no session',
     'يرسم ضمّةً للجهاز على هذا السن — بلا جلسة': 'Draws a denture clasp on this tooth — no session'
@@ -3446,8 +3447,8 @@ Object.assign(window.SyI18nDict, {
     [R('^🛠 (.+) — (.+) \\((' + A1 + ')\\) — ' + CL + '$'), function (m, l, n, a, c) { return '🛠 ' + l + ' — ' + n + ' (' + area1(a) + ') — ' + cl(c); }],
     [R('^' + C1 + '$'), function (m, a, c) { return ARCH[a] + ' — ' + cl(c); }],
     [R('^✅ تم تسجيل (.+?) — ' + C1 + ' — أكمل بيانات المخبر$'), function (m, l, a, c) { return '✅ ' + l + ' recorded — ' + ARCH[a] + ' — ' + cl(c) + ' — complete the lab details'; }],
-    [R('^✅ تم تسجيل (.+) مخطّطاً — ' + CL + '( — أضفها لرسم الجهاز من قسم «الضمّات» عند الإنجاز)?$'), function (m, l, c, later) {
-      return '✅ ' + l + ' recorded as planned — ' + cl(c) + (later ? ' — add it to the denture drawing from the «Clasps» section on completion' : '');
+    [R('^✅ تم تسجيل (.+) مخطّطاً — ' + CL + '( — تُرسم عند الإنجاز)?$'), function (m, l, c, later) {   /* v749: الإنجازُ يرسمها */
+      return '✅ ' + l + ' recorded as planned — ' + cl(c) + (later ? ' — drawn on completion' : '');
     }],
     [R('^✅ تم تسجيل (.+) — ' + CL + '( — أُضيفت لرسم الجهاز)?$'), function (m, l, c, drew) { return '✅ ' + l + ' recorded — ' + cl(c) + (drew ? ' — added to the denture drawing' : ''); }],
     [R('^⚠️ تم تسجيل (.+) — ' + CL + ' — تعذّر تحديث رسم الجهاز، أضفها من قسم «الضمّات»$'), function (m, l, c) {

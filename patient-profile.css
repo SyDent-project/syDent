@@ -1322,6 +1322,9 @@ html.lang-en body div.jaw-row,html.lang-en body div.nse-row,html.lang-en body ta
 .dsv-dialog .dsv-lg-sel{background:var(--green);}
 .dsv-dialog .dsv-clasp-sel b{color:var(--text);}
 .topt.dsv-clasp-tbtn{border-color:var(--text2);color:var(--text);font-weight:700;}
+/* v749: فاصلُ «خدمات الجهاز» بقائمة العلاجات (نافذة السن · العلاج الجماعي) — سطرٌ كامل العرض */
+#toothOptsContainer .tx-sep{grid-column:1/-1;flex-basis:100%;width:100%;display:flex;align-items:center;gap:8px;margin:8px 0 2px;font-size:12px;font-weight:700;color:var(--text2);}
+#toothOptsContainer .tx-sep::after{content:"";flex:1;border-top:1px dashed var(--border2,var(--border));}
 .nse-legend i.x{position:relative;opacity:.7;}
 .nse-legend i.x::after{content:'';position:absolute;left:2px;right:2px;top:4px;height:1px;background:var(--text2);}
 .nse-legend i.im{border-color:var(--purple);}

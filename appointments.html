@@ -21,28 +21,28 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261117k"></script>
-<link rel="stylesheet" href="appointments.css?v=20261117k">
+<script src="theme.js?v=20261118a"></script>
+<link rel="stylesheet" href="appointments.css?v=20261118a">
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261117k">
+<link rel="stylesheet" href="theme.css?v=20261118a">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261117k"></script>
-<script src="sy-modal.js?v=20261117k"></script>
-<script src="appt-conflict.js?v=20261117k"></script>
-<script src="pt-reliability.js?v=20261117k"></script>
-<script src="sched-blocks.js?v=20261117k"></script>
-<script src="appt-blocks.js?v=20261117k"></script>
-<script src="appt-series.js?v=20261117k"></script>
-<script src="appt-family.js?v=20261117k"></script>
-<script src="sidebar.js?v=20261117k"></script>
-<script src="inv-consume.js?v=20261117k"></script>
-<script src="timepicker.js?v=20261117k"></script>
-<script src="appt-booking.js?v=20261117k"></script>
-<script src="appt-portal.js?v=20261117k"></script>
-<script src="appt-wa.js?v=20261117k"></script>
-<script src="appt-time.js?v=20261117k"></script>
-<script src="appt-views.js?v=20261117k"></script>
-<script src="appt-modal.js?v=20261117k"></script>
+<script src="supabase-init.js?v=20261118a"></script>
+<script src="sy-modal.js?v=20261118a"></script>
+<script src="appt-conflict.js?v=20261118a"></script>
+<script src="pt-reliability.js?v=20261118a"></script>
+<script src="sched-blocks.js?v=20261118a"></script>
+<script src="appt-blocks.js?v=20261118a"></script>
+<script src="appt-series.js?v=20261118a"></script>
+<script src="appt-family.js?v=20261118a"></script>
+<script src="sidebar.js?v=20261118a"></script>
+<script src="inv-consume.js?v=20261118a"></script>
+<script src="timepicker.js?v=20261118a"></script>
+<script src="appt-booking.js?v=20261118a"></script>
+<script src="appt-portal.js?v=20261118a"></script>
+<script src="appt-wa.js?v=20261118a"></script>
+<script src="appt-time.js?v=20261118a"></script>
+<script src="appt-views.js?v=20261118a"></script>
+<script src="appt-modal.js?v=20261118a"></script>
 </head>
 <body>
 <script>
@@ -2718,11 +2718,11 @@ async function _apptSyncDentureRowsOnComplete(s, providerOverride) {
    المخطط)، و«إضافة سن» تحمل denture_add ⇒ إنجازُها يُدرج تلك الأسنان بالوحدة نفسها (مفتاحُها وحالتُها). يعيد true لكل جلسةِ
    خدمة (فلا تمرّ بمسار الجهاز)، وfalse لغيرها — ومنها عمودٌ غائب قبل الترحيل. السنُّ يُضاف فقط إن كان مفقوداً وبلا جهازٍ عليه. */
 async function _apptDentureAddOnComplete(s, providerOverride) {
-  var ls = await window.sb.from('ledger_sessions').select('id,denture_unit,denture_add,provider_id')
+  var ls = await window.sb.from('ledger_sessions').select('id,denture_unit,denture_add,provider_id,treatment_key,description,arch')
     .eq('doctor_id', currentUser.id).eq('id', s.id).maybeSingle();
   if (ls.error || !ls.data || !ls.data.denture_unit) return false;
   var teeth = String(ls.data.denture_add || '').split(',').filter(function(t){ return /^[1-4][1-8]$/.test(t); });
-  if (!teeth.length) return true;
+  if (!teeth.length) { await _apptClaspOnComplete(s, ls.data); return true; }   /* v749: خدمةُ الضمّة ترسم ضمّتَها */
   var un = await window.sb.from('teeth_status').select('tooth_num,treatment_key,status')
     .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('unit_id', ls.data.denture_unit).eq('surface', 'DENTURE');
   if (un.error) { console.warn('denture add unit warn:', un.error); _apptDentFail = true; return true; }
@@ -2745,6 +2745,32 @@ async function _apptDentureAddOnComplete(s, providerOverride) {
   }));
   if (ins.error) { console.warn('denture add rows warn:', ins.error); _apptDentFail = true; }
   return true;
+}
+/* v749 — مرآةُ SyDentSvc.onSessionComplete (فرعُ الضمّة) بملف المريض: خدمةُ ضمّةٍ مخطّطة أُنجزت ⇒ سنُّها (من الوصف بالصيغة المغلقة
+   نفسها التي يقرؤها dentSessClasp: المفتاح · اسمُ الفك · أسنانُه) يُضاف لقائمة ضمّات الجهاز. الحفظُ المخطّط ثبّت القائمةَ صريحةً،
+   فالدمجُ هنا دقيق بلا حسابٍ للاقتراح؛ قائمةٌ عادت «تلقائية» بعده ⇒ لا مساس (تُرسم من ملف المريض). عرضيٌّ: الخطأ لا يعيد الجلسة. */
+async function _apptClaspOnComplete(s, d) {
+  if (!d || d.treatment_key !== 'denture-clasp' || (d.arch !== 'U' && d.arch !== 'L')) return;
+  var jaw = d.arch === 'U' ? 'الفك العلوي' : 'الفك السفلي', qs = d.arch === 'U' ? [1, 2] : [3, 4];
+  var m = String(d.description || '').match(/^(الفك العلوي|الفك السفلي) — (?:ضمّة على السن (\d\d)|ضمّات على الأسنان (\d\d(?:، \d\d)+))$/);
+  if (!m || m[1] !== jaw) return;
+  var teeth = String(m[2] || m[3]).split('، ').map(function(t){ return parseInt(t, 10); });
+  if (!teeth.every(function(t){ return qs.indexOf(Math.floor(t / 10)) !== -1 && t % 10 >= 1 && t % 10 <= 8; })) return;
+  var un = await window.sb.from('teeth_status').select('tooth_num,status,denture_clasps')
+    .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('unit_id', d.denture_unit).eq('surface', 'DENTURE');
+  if (un.error) { console.warn('clasp complete warn:', un.error); return; }
+  var rows = un.data || [];
+  if (!rows.length || rows[0].status === 'planned') return;
+  var own = rows.map(function(r){ return parseInt(r.tooth_num, 10); });
+  var lr = rows.filter(function(r){ return r.denture_clasps !== null && r.denture_clasps !== undefined; })[0];
+  if (!lr) return;
+  var cur = String(lr.denture_clasps).split(',').map(function(t){ return parseInt(t, 10); }).filter(function(t){ return t >= 11 && t <= 48; });
+  var add = teeth.filter(function(t){ return own.indexOf(t) === -1 && cur.indexOf(t) === -1; });
+  if (!add.length) return;
+  var val = cur.concat(add).sort(function(a, b){ return a - b; }).join(',');
+  var up = await window.sb.from('teeth_status').update({ denture_clasps: val })
+    .eq('doctor_id', currentUser.id).eq('patient_id', s.patient_id).eq('surface', 'DENTURE').in('tooth_num', own.map(String));
+  if (up.error) console.warn('clasp complete write warn:', up.error);
 }
 /* ج2-ب (M204) — مرآةُ dentDrawCompleted بملف المريض: جلسةُ جهازٍ «معلّقة» (جهازٌ مخطّط فوق جهازٍ قائم — أسنانُها على الجلسة
    unit_teeth ولا صفوفَ لها) أُنجزت ⇒ رسمُ الجهاز المرسوم فوق أسنانها يُزال ويُرسم جهازُها منجزاً. جلسةُ فكٍّ ليست جهازاً

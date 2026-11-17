@@ -655,7 +655,8 @@ async function behave(w, hasDenture) {
   const sp = $('toothOptsContainer').innerHTML;
   const dIds = allowed();
   await w.openToothModal(26, 'WHOLE'); const sp26 = $('toothOptsContainer').innerHTML;
-  r.removeButtonOnDentureTooth = /onclick="dentRemoveUnit\(15\)"/.test(sp) && /إزالة «جهاز متحرك جزئي \(أكريل\)»/.test(sp) && /undoExtraction\(15\)/.test(sp)
+  /* v749: «إلغاء القلع» على سنٍّ يعوّضه جهاز يرفض دائماً («أزل الجهاز أولاً») ⇒ لا يُعرض؛ زرُّ إزالة الجهاز وحده */
+  r.removeButtonOnDentureTooth = /onclick="dentRemoveUnit\(15\)"/.test(sp) && /إزالة «جهاز متحرك جزئي \(أكريل\)»/.test(sp) && !/undoExtraction\(15\)/.test(sp) && !/clearToothStatus\(\)/.test(sp) && !/undoExtraction\(26\)/.test(sp26)
     && /onclick="dentRemoveUnit\(26\)"/.test(sp26) && /إزالة «جهاز متحرك كامل»/.test(sp26);
   /* ج2-أ: على سنٍّ يعوّضه جهاز تُعرض الزرعةُ والجسر (بديلٌ بالخطة أو زرعةٌ تحت الجهاز) — حافظُ المسافة وحده يبقى مرفوضاً */
   r.dentureToothOffersImplantAndBridge = dIds.indexOf('implant') > -1 && dIds.indexOf('bridge') > -1 && dIds.indexOf('pedo-spacer') === -1 && dIds.indexOf('socket-dressing') > -1 && dIds.indexOf(T_PART.id) > -1 && dIds.indexOf(T_FULL.id) > -1;
@@ -1242,6 +1243,7 @@ function i18nChecks(strings, over) {
     ['far-clasp-without-connector', D, "    var i = row.indexOf(t); if (i < 0 || set[row[i - 1]] || set[row[i + 1]]) return;\n    all.push(i);\n", "    var i = row.indexOf(t); if (i < 0 || set[row[i - 1]] || set[row[i + 1]]) return;\n"],
     ['clasp-not-drawn', D, "      if (fs && !has(fs)) fs.insertAdjacentHTML('beforeend', dentLayerHtml(u, 'dent-clasp', dentClaspFacial(t, cx, near, adj, u.st), u.arch === 'U' ? 'translate(0,210) scale(1,-1)' : ''));\n", ''],
     ['clasp-chip-missing', D, " + dentClaspChip(u) + '</span>';", " + '</span>';"],
+    ['undo-extraction-shown-on-denture-tooth', 'pp-dental.js', "  else if ((isAlreadyExtracted || _extPlanned) && window.SyDenture && window.SyDenture.has(n)) _special = '';\n", ''],
     ['clasp-auto-on-unfit-tooth', D, "picks.forEach(function (t) { if (dentClaspOk(t) && cand.indexOf(t) === -1) cand.push(t); });", "picks.forEach(function (t) { if (cand.indexOf(t) === -1) cand.push(t); });"],
     ['clasp-auto-both-ends-again', D, "      : (!dentIsIncisor(mes) ? [mes] : dis.filter(function (t) { return !dentIsIncisor(t); }));", "      : [mes].concat(dis);"],
     ['clasp-auto-on-incisor', D, "      : (!dentIsIncisor(mes) ? [mes] : dis.filter(", "      : (true ? [mes] : dis.filter("],
