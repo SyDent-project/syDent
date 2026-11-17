@@ -225,14 +225,17 @@ def run():
             return pg, errs
 
         # ═══ 3) الجلسات ببطاقة المريض — renderSessions الحقيقية ═══
-        SESS = [('مخطّطة + مخبر ممكن', 'planned', 'can'), ('مخطّطة بلا مخبر', 'planned', 'none'), ('منجزة + مخبر ممكن', 'completed', 'can'), ('منجزة بلا مخبر', 'completed', 'none')]
-        for label, subset in (('كلُّ الحالات', [0, 1, 2, 3]), ('كلُّها منجزة', [2, 3]), ('كلُّها منجزة بلا مخبر', [3])):
+        SESS = [('مخطّطة + مخبر ممكن', 'planned', 'can'), ('مخطّطة بلا مخبر', 'planned', 'none'), ('منجزة + مخبر ممكن', 'completed', 'can'), ('منجزة بلا مخبر', 'completed', 'none'),
+                ('منجزة بسيطة بلا مخبر', 'completed', 'none', 'plain')]   # M210: «متابعة» للعلاج متعدّد الجلسات وحده (قرار المالك ٣)
+        for label, subset in (('كلُّ الحالات', [0, 1, 2, 3, 4]), ('كلُّها منجزة', [2, 3]), ('كلُّها منجزة بلا مخبر', [3]), ('منجزةٌ بسيطة', [4])):
             tag = 'الجلسات (' + label + ')'
             pg, errs = mkpage('patient-profile.html')
             out = pg.evaluate("""(rows) => {
               try {
+                TREATMENTS.push({ treatment_key: 'rr-endo', id: 'rr-endo', name: 'معالجة لبية', category: 'endodontics', is_active: true },
+                                { treatment_key: 'rr-plain', id: 'rr-plain', name: 'قلع', category: 'surgical', is_active: true });
                 sessions = rows.map((r, i) => ({ id: 's' + i, status: r[1], date: '2026-09-1' + i, created_at: '2026-09-1' + i + 'T08:00:00+00:00', cost: 30000, paid: 0,
-                                                   currency: 'SYP', treatment_name: 'حشوة', tooth_num: 16, _lab: r[2] }));
+                                                   currency: 'SYP', treatment_name: 'حشوة', treatment_key: r[3] === 'plain' ? 'rr-plain' : 'rr-endo', tooth_num: 16, _lab: r[2] }));
                 window._ppSessLabState = s => s._lab; window._ppSessLabIsDraft = () => false;
                 renderSessions();
               } catch (e) { return String(e) + ' @ ' + String(e.stack).split(String.fromCharCode(10)).slice(1, 3).join(' | '); }
@@ -244,15 +247,19 @@ def run():
                 ok(tag + ': عُرضت الصفوف', len(res['conts']) == len(subset), len(res['conts']))
                 check_slots(tag, res, {'1': '84px', '2': '78px', '3': '80px'})
                 for ci, si in enumerate(subset):
-                    nm, st, lab = SESS[si]; bt = res['conts'][ci]['btns']
+                    nm, st, lab = SESS[si][:3]; plain = len(SESS[si]) > 3; bt = res['conts'][ci]['btns']
                     c1 = [b for b in bt if b['slot'] == '1']; c2 = [b for b in bt if b['slot'] == '2']; c3 = [b for b in bt if b['slot'] == '3']
                     # M210: خانةُ الخطوة التالية — «إكمال» الأخضر للمخطّط، و«متابعة» المحايد للمنجز (لا يجتمعان بصفّ)
                     if st == 'planned':
                         ok(tag + ' ' + nm + ': «إكمال» أخضر', len(c1) == 1 and 'sy-act-primary' in c1[0]['cls'] and 'completeSessionFromProfile(' in c1[0]['oc'])
+                    elif plain:
+                        ok(tag + ' ' + nm + ': لا «متابعة» ولا «إكمال» — علاجٌ بجلسةٍ واحدة', len(c1) == 0)
                     else:
                         ok(tag + ' ' + nm + ': «متابعة» محايد بلا «إكمال»', len(c1) == 1 and c1[0]['cls'].strip() == 'sy-act' and 'fuOpen(' in c1[0]['oc'] and 'متابعة' in c1[0]['t'])
                     ok(tag + ' ' + nm + ': «مخبر» ' + ('محايد' if lab == 'can' else 'غائب'), bool(c2) == (lab == 'can') and (not c2 or c2[0]['cls'].strip() == 'sy-act'))
                     ok(tag + ' ' + nm + ': «حذف» أحمر', len(c3) == 1 and 'sy-act-danger' in c3[0]['cls'])
+                if label == 'منجزةٌ بسيطة':
+                    ok(tag + ': القالبُ «حذف» وحده بلا خانةٍ فارغة', res['conts'][0]['tpl'] == '[s3] 80px', res['conts'][0]['tpl'])
                 if label == 'كلُّها منجزة بلا مخبر':
                     ok(tag + ': القالبُ «متابعة» ثم «حذف» بلا خانة مخبرٍ فارغة', res['conts'][0]['tpl'] == '[s1] 84px [s3] 80px', res['conts'][0]['tpl'])
             ok(tag + ': صفرُ خطأ JS', not errs, errs[:3])

@@ -2343,7 +2343,7 @@ try {
     'xrCamClose', 'xrCamStart', 'xrCamMirror', 'xrCamShot', 'xrCamRemove', 'xrCamDone',   /* v642: داخل نافذة الكاميرا (مدخلاها محروسان) */
     'xrInboxClose', 'xrInboxAssign', 'xrInboxDismiss',
     'modeTxSetTab', 'modeMiniJump', 'modeMiniUndo', 'modeMiniExit',
-    'fuStepPick', 'fuPickBase',   /* M210: داخل نافذتَي المتابعة (مدخلاهما fuOpen · fuOpenPicker كتابةٌ مخفيّة بالقراءة ومحروسان بـfuLocked) */
+    'fuStepPick', 'fuPickBase', 'fuToggle',   /* M210: داخل نافذتَي المتابعة (مدخلاهما fuOpen · fuOpenPicker كتابةٌ مخفيّة بالقراءة ومحروسان بـfuLocked) */
     'dsvOpenFromTooth' /* M208: زرُّ «خدمات الجهاز» داخل نافذة السن (مدخلُها openToothModal محروس) — يفتح سجلَّ الجهاز، وتسجيلُ الخدمة محروسٌ بأول سطر (dsvLocked) */,
     'dentArchToggle', 'dentArchBoth', 'dentToothToggle', 'dentToothWhy', 'dentOpenEdentulous'];   /* v712: شرائحُ التصنيف والسطرُ الرفيع داخل وضعَي الفحص/التحديد (مدخلاهما محروسان: toggleExamMode · toggleBatchMode) */   /* M202: داخل منتقي الجهاز المتحرك (مدخلُه محروس: openToothModal · toggleExamMode) */   /* M194: داخل نافذة الوارد (مدخلُها محروس) */   /* M192: داخل ورقة رفع الأشعة (مداخلُها محروسة) */
   const PP_ACT_WRITE = ['new', 'remind', 'rebook', 'stage', 'schedule', 'editplanned', 'delplanned'];

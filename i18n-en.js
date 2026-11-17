@@ -3495,6 +3495,7 @@ Object.assign(window.SyI18nDict, {
     'ضمن الأساسية': 'In the base session',
     'أول جلسة متابعة لهذا العلاج': 'First follow-up session for this treatment',
     'تسجيل جلسة متابعة لهذا العلاج — بلا تكلفة': 'Record a follow-up session for this treatment — no charge',
+    'عرض جلسات المتابعة': 'Show the follow-up sessions', 'إخفاء جلسات المتابعة': 'Hide the follow-up sessions',
     'علاجٌ يمتدّ على زيارات (غسل أقنية، أو تحضير ثم تركيب)؟ اضغط «＋ متابعة» بجانب جلسته في تبويب الجلسات — تُسجَّل مربوطةً به وبلا تكلفة جديدة.': 'A treatment that takes several visits (canal irrigation, or preparation then fitting)? Click “＋ Follow-up” next to its session in the Sessions tab — it is recorded linked to it, with no new charge.',   /* guides.js — دليل ملف المريض */
     'العلاج قيد الإنجاز — اضغط عند اكتماله': 'The treatment is in progress — click when it is complete',
     'اكتمل العلاج — اضغط لإعادة فتحه': 'The treatment is complete — click to reopen it',
@@ -3533,6 +3534,7 @@ Object.assign(window.SyI18nDict, {
   });
   P.push(
     [/^متابعة (\d+)$/, 'Follow-up $1'],
+    [/^المتابعات \((\d+)\)$/, 'Follow-ups ($1)'],
     [/^قيد الإنجاز · (\d+)$/, 'In progress · $1'],
     [/^اكتمل · (\d+)$/, 'Complete · $1'],
     /* تلميحُ وسم المتابعة: اسمُ العلاج يبقى، وموضعُه (سن · سن زائد) يُترجم — الفكّ والربع كلماتُ قاموس يلتقطها المحرّك */
