@@ -134,11 +134,11 @@ function buildPrintHtml(withPrices){
     (sessions || []).slice().sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); }).forEach(function(s){
       html += '<tr>' +
         '<td style="' + td + '">' + escapeHtml(s.date || '') + '</td>' +
-        '<td style="' + td + '">' + escapeHtml(s.tooth_num != null ? String(s.tooth_num) : (((window.SyDenture && window.SyDenture.sessWhere) ? window.SyDenture.sessWhere(s) : '') || '—')) + '</td>' +   /* ج2-ج: الجهازُ بفكّه وأسنانه */
+        '<td style="' + td + '">' + escapeHtml(s.tooth_num != null ? String(s.tooth_num) : (((typeof fuIsChild === 'function' && fuIsChild(s)) ? fuWhereText(fuBaseOf(s)) : '') || ((window.SyDenture && window.SyDenture.sessWhere) ? window.SyDenture.sessWhere(s) : '') || '—')) + '</td>' +   /* ج2-ج: الجهازُ بفكّه وأسنانه */
         '<td style="' + td + '">' + escapeHtml(s.type || s.description || '—') + '</td>' +
         '<td style="' + td + '">' + escapeHtml(_ppSessionStatusAr(s.status)) + '</td>' +
         '<td style="' + td + '">' + escapeHtml(docMap[s.provider_id] || '—') + '</td>' +
-        (withPrices ? '<td style="' + td + '">' + fmt(s.cost) + ' ' + curLblOf(s.currency) + '</td>' : '') +   // v261: عملة الصف
+        (withPrices ? '<td style="' + td + '">' + ((typeof fuIsChild === 'function' && fuIsChild(s)) ? '—' : fmt(s.cost) + ' ' + curLblOf(s.currency)) + '</td>' : '') +   // v261: عملة الصف · M210: المتابعةُ بلا تكلفة
       '</tr>';
     });
     html += '</tbody></table>';

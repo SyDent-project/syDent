@@ -105,6 +105,7 @@
         if (rc(s) !== cur) return;
         if ((s.status || 'completed') !== 'completed') return;
         if (String(s.date || '').slice(0, 10) !== day) return;
+        if (s.parent_id) return;   /* M210: جلسةُ المتابعة بلا مال — ليست بنداً بإنتاج اليوم ولا تُعدّ «جلسة منجزة» */
         prod.count++; prod.total += Number(s.cost || 0);
         prodI.push({ who: nm(N.patients, s.patient_id), pid: s.patient_id || null, what: [s.description, s.tooth_num ? 'سن ' + s.tooth_num : ''].filter(Boolean).join(' · '), note: '', time: null, amount: r2(s.cost || 0) });
       });
@@ -226,7 +227,7 @@
     var lo = widenStart(day), hi = widenEnd(day);
     try {
       var rs = await Promise.all([
-        sb.from('ledger_sessions').select('id,patient_id,description,tooth_num,cost,status,currency,date').eq('doctor_id', uid).eq('status', 'completed').eq('date', day),
+        sb.from('ledger_sessions').select('id,patient_id,description,tooth_num,cost,status,currency,date,parent_id').eq('doctor_id', uid).eq('status', 'completed').eq('date', day),
         sb.from('ledger_payments').select('id,patient_id,amount,method,notes,created_at,currency,date').eq('doctor_id', uid).eq('date', day),
         sb.from('account_adjustments').select('id,patient_id,kind,amount,note,payment_method,currency,date').eq('doctor_id', uid).eq('date', day),
         sb.from('expenses').select('id,category_id,description,vendor,amount,payment_method,cash_source,currency,date').eq('owner_id', uid).eq('date', day),

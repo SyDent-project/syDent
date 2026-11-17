@@ -95,6 +95,7 @@
     var cat = (catalog && catalog.byKey) ? catalog : catalogOf(catalog);
     var rows = {}, cats = {}, total = { n: 0, prod: 0 };
     (sessions || []).forEach(function (s) {
+      if (s && s.parent_id) return;   /* M210: جلسةُ المتابعة ليست إجراءً — علاجُها معدودٌ بجلسته الأساسية */
       var id = identify(s, cat), c = num(s.cost);
       var r = rows[id.key] || (rows[id.key] = { key: id.key, name: id.name, cat: id.cat, n: 0, prod: 0, sessions: [] });
       r.n++; r.prod += c; r.sessions.push(s);

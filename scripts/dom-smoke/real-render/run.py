@@ -246,11 +246,15 @@ def run():
                 for ci, si in enumerate(subset):
                     nm, st, lab = SESS[si]; bt = res['conts'][ci]['btns']
                     c1 = [b for b in bt if b['slot'] == '1']; c2 = [b for b in bt if b['slot'] == '2']; c3 = [b for b in bt if b['slot'] == '3']
-                    ok(tag + ' ' + nm + ': «إكمال» ' + ('أخضر' if st == 'planned' else 'غائب'), bool(c1) == (st == 'planned') and (not c1 or 'sy-act-primary' in c1[0]['cls']))
+                    # M210: خانةُ الخطوة التالية — «إكمال» الأخضر للمخطّط، و«متابعة» المحايد للمنجز (لا يجتمعان بصفّ)
+                    if st == 'planned':
+                        ok(tag + ' ' + nm + ': «إكمال» أخضر', len(c1) == 1 and 'sy-act-primary' in c1[0]['cls'] and 'completeSessionFromProfile(' in c1[0]['oc'])
+                    else:
+                        ok(tag + ' ' + nm + ': «متابعة» محايد بلا «إكمال»', len(c1) == 1 and c1[0]['cls'].strip() == 'sy-act' and 'fuOpen(' in c1[0]['oc'] and 'متابعة' in c1[0]['t'])
                     ok(tag + ' ' + nm + ': «مخبر» ' + ('محايد' if lab == 'can' else 'غائب'), bool(c2) == (lab == 'can') and (not c2 or c2[0]['cls'].strip() == 'sy-act'))
                     ok(tag + ' ' + nm + ': «حذف» أحمر', len(c3) == 1 and 'sy-act-danger' in c3[0]['cls'])
                 if label == 'كلُّها منجزة بلا مخبر':
-                    ok(tag + ': القالبُ خانةُ الحذف وحدها (لا فراغ)', res['conts'][0]['tpl'] == '[s3] 80px', res['conts'][0]['tpl'])
+                    ok(tag + ': القالبُ «متابعة» ثم «حذف» بلا خانة مخبرٍ فارغة', res['conts'][0]['tpl'] == '[s1] 84px [s3] 80px', res['conts'][0]['tpl'])
             ok(tag + ': صفرُ خطأ JS', not errs, errs[:3])
             pg.close()
         # ═══ 4) بطاقاتُ الأدمن — renderList الحقيقية بكل حالات الحساب ═══

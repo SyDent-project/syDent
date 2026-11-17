@@ -16,18 +16,18 @@
 /* ── Modal ── v451: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261117a"></script>
+<script src="theme.js?v=20261117c"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261117a"></script>
-<script src="sy-modal.js?v=20261117a"></script>
-<script src="sidebar.js?v=20261117a"></script>
-<script src="rpt-treat.js?v=20261117a"></script>
-<script src="rpt-newpt.js?v=20261117a"></script>
-<script src="rpt-att.js?v=20261117a"></script>
-<script src="rpt-ret.js?v=20261117a"></script>
-<script src="rpt-sum.js?v=20261117a"></script>
-<script src="mat-cost.js?v=20261117a"></script>
-<script src="pay-methods.js?v=20261117a"></script>
+<script src="supabase-init.js?v=20261117c"></script>
+<script src="sy-modal.js?v=20261117c"></script>
+<script src="sidebar.js?v=20261117c"></script>
+<script src="rpt-treat.js?v=20261117c"></script>
+<script src="rpt-newpt.js?v=20261117c"></script>
+<script src="rpt-att.js?v=20261117c"></script>
+<script src="rpt-ret.js?v=20261117c"></script>
+<script src="rpt-sum.js?v=20261117c"></script>
+<script src="mat-cost.js?v=20261117c"></script>
+<script src="pay-methods.js?v=20261117c"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -430,7 +430,7 @@ a.rt-row:hover{background:rgba(var(--green-rgb),0.04);}
 html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutModal("],[onclick*="deletePayout("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261117a">
+<link rel="stylesheet" href="theme.css?v=20261117c">
 </head>
 <body>
 <div class="main" id="sbMainContent">
@@ -1116,7 +1116,7 @@ async function _fetchAllPR(buildQuery) {
 async function fetchCtx(lo, hi, statusList, withTreat) {
   var uid = currentUser.id;
   // v539: سياقُ «الفترة السابقة» يحمل هويةَ العلاج أيضاً لمقارنة تبويب العلاجات (قراءةٌ عرضية، لا رقمٌ مالي).
-  var sCols = 'id,cost,provider_id,patient_id,status,currency,date' + (withTreat ? ',type,treatment_key,description' : '');
+  var sCols = 'id,cost,provider_id,patient_id,status,currency,date,parent_id' + (withTreat ? ',type,treatment_key,description' : '');   /* M210: parent_id — المتابعةُ لا تُعدّ إجراءً بالفترة السابقة أيضاً */
   /* DeepCode #1 (v552): القراءاتُ الأربع مستقلة — تُطلَق معاً (جولةٌ لا أربع) وتُحسَم بالترتيب نفسه،
      فأولُ خطأٍ يُرمى هو نفسُه كما كان؛ والتوزيعاتُ (embed) خطؤها يذهب لمسارها البديل كما كان. */
   var _cS = _prSettle(_fetchAllPR(function(){
@@ -1428,7 +1428,7 @@ function computeProviderStats(provId) {
     if (provId === '_unassigned') return !s.provider_id;
     return s.provider_id === provId;
   });
-  var sessionCount = provSessions.length;
+  var sessionCount = provSessions.filter(function(s){ return !s.parent_id; }).length;   /* M210: جلسةُ المتابعة زيارةٌ توثّق علاجاً قائماً (cost = 0) — لا تُعدّ إجراءً فلا تُميّع «عدد الجلسات» ومتوسّطَها */
   var production = provSessions.reduce(function(sum, s){ return sum + (Number(s.cost) || 0); }, 0);
 
   // 2. Lab cost: explicit per-provider attribution via provider_id (Migration 73).
@@ -1510,7 +1510,7 @@ function clinicTotals() {
   var lab = 0;
   for (var li = 0; li < labOrders.length; li++) lab += Number(labOrders[li].cost) || 0;
   return {
-    sessions: sessions.length,
+    sessions: sessions.filter(function(s){ return !s.parent_id; }).length,   /* M210: بلا جلسات المتابعة — تعريفُ computeProviderStats نفسه */
     production: sessions.reduce(function(sum, s){ return sum + (Number(s.cost) || 0); }, 0),
     collection: payments.reduce(function(sum, p){ return sum + (Number(p.amount) || 0); }, 0),
     lab: lab

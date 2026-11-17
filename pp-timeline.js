@@ -299,6 +299,11 @@ function renderTimelineRow(e) {
     } else {
       toothPart = '';  // 'mouth' or legacy session — description carries the scope
     }
+    /* M210: جلسةُ المتابعة بلا موضعٍ خاص — موضعُها موضعُ أساسيتها */
+    if (typeof fuIsChild === 'function' && fuIsChild(s)) {
+      var _fuW = fuWhereText(fuBaseOf(s));
+      if (_fuW) toothPart = ' — ' + escapeHtml(_fuW);
+    }
     title = escapeHtml(s.type || 'جلسة') + toothPart;
     var statusBadge = '<span class="tl-badge cbadge tone tone-' + e.statusTone + '">' + escapeHtml(e.statusLabel) + '</span>';
     var costPart = (parseFloat(s.cost) || 0) > 0

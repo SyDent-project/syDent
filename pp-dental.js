@@ -7737,8 +7737,10 @@ async function askDeleteCompletedToothSessions(list) {
     var sf = _removalSessWhere(x);
     var dt = x.date ? ' — ' + ((window.SyDT && window.SyDT.numDate(x.date)) || String(x.date).slice(0, 10)) : '';
     var paid = (typeof computeSessionPaid === 'function') ? computeSessionPaid(x.id) : 0;
+    var fk = (typeof fuChildren === 'function') ? fuChildren(x.id).length : 0;   /* M210: متابعاتُها تُحذف معها (ON DELETE CASCADE) — تُسمّى قبل القرار */
     return '   – ' + (x.type || x.description || 'علاج') + sf + dt + ' — ' + fmt(x.cost || 0) + ' ' + curLblOf(_rowCur(x))
-      + (paid > 0 ? ' (مدفوع عليها ' + fmt(paid) + ')' : '');
+      + (paid > 0 ? ' (مدفوع عليها ' + fmt(paid) + ')' : '')
+      + (fk ? '\n     ↳ ' + fuDeleteNote(fk) : '');
   }).join('\n');
   var anyPaid = list.some(function(x){ return typeof computeSessionPaid === 'function' && computeSessionPaid(x.id) > 0; });
   var msg = 'هل تريد حذف ' + (list.length === 1 ? 'العلاج المنجز' : 'العلاجات المنجزة (' + list.length + ')') + ' من السجل أيضاً؟\n\n' + lines

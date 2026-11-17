@@ -23,8 +23,8 @@ js = src
 for f in sorted(glob.glob(os.path.join(ROOT, 'pp-*.js'))):
     js += open(f, encoding='utf-8').read()
 ids = re.findall(r'<div class="modal-overlay[^"]*" id="([^"]+)"', src)
-ok('الجرد: 40 نافذة وكلُّها على العُدّة (sy-m)',
-   len(ids) == 40 and len(re.findall(r'class="modal-overlay[^"]*\bsy-m\b', src)) == 40)   # v595: +ppIntakeModal (M177) · v635: +xrUpModal (M192) · v637: +xrGalModal · v642: +xrCamModal · v643: +xrInboxModal · #64: +ptLotsModal
+ok('الجرد: 42 نافذة وكلُّها على العُدّة (sy-m)',
+   len(ids) == 42 and len(re.findall(r'class="modal-overlay[^"]*\bsy-m\b', src)) == 42)   # M210: +fuModal +fuPickModal · v595: +ppIntakeModal (M177) · v635: +xrUpModal (M192) · v637: +xrGalModal · v642: +xrCamModal · v643: +xrInboxModal · #64: +ptLotsModal
 bad = []
 for mid in ids:
     if mid in READ_ONLY: continue

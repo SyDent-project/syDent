@@ -3451,3 +3451,67 @@ Object.assign(window.SyI18nDict, {
     }]
   );
 })();
+
+/* ═══ M210 — جلساتُ المتابعة (pp-followup.js · نافذتاها وصفوفُها بـpatient-profile.html) ═══
+   «متابعة» وحدها بالقاموس = Continue (زرُّ المتابعة بالنوافذ)، فالزرُّ والوسمُ القصير يحملان data-en، والمرقَّم بنمط. */
+(function () {
+  var D = window.SyI18nDict, P = window.SyI18nPatterns;
+  Object.assign(D, {
+    'جلسة متابعة': 'Follow-up session',
+    'جلسة متابعة — اختر العلاج': 'Follow-up session — choose the treatment',
+    '↪ جلسة متابعة (استكمال علاج سابق — بلا تكلفة)': '↪ Follow-up session (continues an earlier treatment — no charge)',
+    'ما تمّ في هذه الجلسة': 'What was done in this session',
+    'مثال: غسل أقنية وضماد دوائي': 'Example: canal irrigation and medicated dressing',
+    'أي ملاحظات سريرية…': 'Any clinical notes…',
+    'آخر جلسة — اكتمل العلاج': 'Last session — the treatment is complete',
+    'جلسة المتابعة بلا تكلفة — حساب العلاج على جلسته الأساسية.': 'A follow-up session has no charge — the treatment is billed on its base session.',
+    'جلسة المتابعة بلا تكلفة — حساب العلاج على جلسته الأساسية': 'A follow-up session has no charge — the treatment is billed on its base session',
+    'حفظ جلسة المتابعة': 'Save follow-up session',
+    'اختر العلاج الذي تكمله هذه الجلسة — العلاجات قيد الإنجاز أولاً.': 'Choose the treatment this session continues — treatments in progress come first.',
+    'ضمن الأساسية': 'In the base session',
+    'أول جلسة متابعة لهذا العلاج': 'First follow-up session for this treatment',
+    'تسجيل جلسة متابعة لهذا العلاج — بلا تكلفة': 'Record a follow-up session for this treatment — no charge',
+    'العلاج قيد الإنجاز — اضغط عند اكتماله': 'The treatment is in progress — click when it is complete',
+    'اكتمل العلاج — اضغط لإعادة فتحه': 'The treatment is complete — click to reopen it',
+    /* شرائحُ الخطوة — الكلمةُ المفردة الملتبسة (طبعة · تجربة · تسليم · ضماد · مراجعة) لا تدخل القاموس المشترك («تجربة» اسمُ خطةٍ أيضاً):
+       شريحتُها تحمل data-en من FU_STEP_EN بـpp-followup.js */
+    'غسل أقنية': 'Canal irrigation', 'ضماد دوائي': 'Medicated dressing', 'تحضير أقنية': 'Canal preparation', 'حشو أقنية': 'Canal obturation',
+    'ترميم نهائي': 'Final restoration', 'تعديل الإطباق': 'Occlusal adjustment', 'إلصاق نهائي': 'Final cementation',
+    'طبعة نهائية': 'Final impression', 'تسجيل العضة': 'Bite registration', 'تجربة الأسنان': 'Teeth try-in', 'تعديل بعد التسليم': 'Post-fit adjustment',
+    'فك القطب': 'Suture removal', 'كشف الزرعة': 'Implant uncovering', 'تركيب التاج': 'Crown placement', 'تبديل السلك': 'Wire change', 'تفعيل الجهاز': 'Appliance activation',
+    'إعادة إلصاق حاصرة': 'Bracket rebonding', 'مراجعة دورية': 'Periodic review', 'مراجعة الشفاء': 'Healing review',
+    'جلسة تالية': 'Next session', 'إعادة تقييم': 'Re-evaluation', 'استكمال العلاج': 'Continuing the treatment',
+    /* الرسائل */
+    '⚠️ هذه الجلسة لا تقبل متابعة': '⚠️ This session cannot take a follow-up',
+    '⚠️ وصف الجلسة طويل — اختصره': '⚠️ The session description is too long — shorten it',
+    '⚠️ الجلسة الأساسية لم تعد متاحة — أغلق النافذة وأعد المحاولة': '⚠️ The base session is no longer available — close the window and try again',
+    '⚠️ اختر التاريخ': '⚠️ Choose the date',
+    '⚠️ تاريخ المتابعة قبل تاريخ الجلسة الأساسية': '⚠️ The follow-up date is before the base session date',
+    '⚠️ تاريخ المتابعة في المستقبل — سجّلها يوم إجرائها': '⚠️ The follow-up date is in the future — record it on the day it is done',
+    '⚠️ اكتب ما تمّ في هذه الجلسة': '⚠️ Write what was done in this session',
+    '⚠️ النص طويل — اختصره': '⚠️ The text is too long — shorten it',
+    '⚠️ تاريخ المتابعة غير صالح': '⚠️ The follow-up date is not valid',
+    '⚠️ الجلسة الأساسية لم تعد تقبل متابعة — حدّث الصفحة': '⚠️ The base session no longer takes a follow-up — refresh the page',
+    '⚠️ جلسات المتابعة تحتاج تحديث قاعدة البيانات — حدّث الصفحة وأعد المحاولة': '⚠️ Follow-up sessions need a database update — refresh the page and try again',
+    '⚠️ فشل حفظ جلسة المتابعة': '⚠️ Could not save the follow-up session',
+    '✅ سُجّلت جلسة المتابعة واكتمل العلاج': '✅ Follow-up session recorded and the treatment is complete',
+    '✅ سُجّلت جلسة المتابعة': '✅ Follow-up session recorded',
+    '⚠️ تعذّر تغيير حالة العلاج': '⚠️ Could not change the treatment status',
+    '✅ اكتمل العلاج': '✅ The treatment is complete',
+    '✅ أُعيد فتح العلاج': '✅ The treatment was reopened',
+    '⚠️ لا علاج منجز لهذا المريض بعد — سجّل الجلسة الأساسية أولاً': '⚠️ No completed treatment for this patient yet — record the base session first',
+    /* الحوارات */
+    'اكتمال العلاج': 'Treatment complete', 'إعادة فتح العلاج': 'Reopen the treatment', 'اكتمل العلاج': 'Treatment complete', 'إعادة فتح': 'Reopen',
+    'تأكيد اكتمال هذا العلاج؟ يمكن إعادة فتحه لاحقاً وتسجيل متابعة جديدة.': 'Confirm that this treatment is complete? It can be reopened later to record a new follow-up.',
+    'إعادة هذا العلاج إلى «قيد الإنجاز»؟': 'Return this treatment to «In progress»?',
+    'حذف هذه الجلسة؟': 'Delete this session?'
+  });
+  P.push(
+    [/^متابعة (\d+)$/, 'Follow-up $1'],
+    [/^قيد الإنجاز · (\d+)$/, 'In progress · $1'],
+    [/^اكتمل · (\d+)$/, 'Complete · $1'],
+    /* تلميحُ وسم المتابعة: اسمُ العلاج يبقى، وموضعُه (سن · سن زائد) يُترجم — الفكّ والربع كلماتُ قاموس يلتقطها المحرّك */
+    [/^جلسة متابعة لـ (.+)$/, function (m, x) { return 'Follow-up session for ' + x.replace(/سن زائد لـ (\d+)/, 'supernumerary of $1').replace(/سن (\d+)/, 'tooth $1'); }],
+    [/^جلسات المتابعة المرتبطة بها \((\d+)\) تُحذف معها$/, 'Its follow-up sessions ($1) are deleted with it']
+  );
+})();
