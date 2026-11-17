@@ -173,7 +173,7 @@ function page(F) {
     extractFunction(PD, 'sessionToothChipText'),
     objLiteral(PD, 'STATUS_LABELS'), objLiteral(PD, 'STATUS_TONES'), objLiteral(PD, 'QUADRANT_LABELS'), objLiteral(PD, 'ARCH_LABELS'),
     extractFunction(F['pp-plan.js'], 'sessionsForTable'),
-    extractFunction(PP, 'renderSessions'), extractFunction(PP, 'renderRecentSessions'),
+    extractFunction(PP, 'renderSessions'), extractFunction(PP, 'renderRecentSessions'), extractFunction(PP, 'sessFitCheck'),
     F['pp-followup.js']
   ].map(x => '<script>' + x.replace(/<\/script/gi, '<\\/script') + '</script>').join('\n');
   return '<!doctype html><html dir="rtl" lang="ar"><body><div id="sessionsContent"></div><div id="recentSessionsList"></div>' + entry + modals
@@ -544,8 +544,9 @@ async function run(F) {
     ok(!!d.querySelector('#sessionsContent [data-fu-toggle="fr"]') && !!Array.from(d.querySelectorAll('#sessionsContent tr[data-test="pp-session-row"]')).find(x => /Consult/.test(txt(x.querySelector('.sc-type'))) && !x.classList.contains('fu-row')).querySelector('[data-test="pp-session-followup"]'),
       'a plain treatment that already has follow-ups (from «جلسة جديدة») keeps its toggle and its «متابعة» button');
     grab(w, OWN, bag); tgl().click(); grab(w, OWN, bag);
-    ok(/#sessionsContent\{container:mc \/ inline-size;overflow-x:auto;max-width:100%;\}/.test(F['patient-profile.css']) && /@container mc \(max-width:1100px\)\{ \.sess-table th,\.sess-table td\{padding-inline:5px;\}/.test(F['patient-profile.css']),
-      'the sessions table stays inside its card: scrolls within it at worst, tighter padding between the card layout and full width');
+    ok(/#sessionsContent\.sc-wide\{overflow-x:auto;/.test(F['patient-profile.css']) && /#sessionsContent\.sc-wide \.spc-panel\{position:static;/.test(F['patient-profile.css'])
+      && !/#sessionsContent\{[^}]*overflow-x:auto/.test(F['patient-profile.css'].split('@media')[0]) && /@container mc \(max-width:1100px\)\{ \.sess-table th,\.sess-table td\{padding-inline:5px;\}/.test(F['patient-profile.css']),
+      'the sessions table stays inside its card: the host scrolls only when the table is wider (sc-wide — the plan panel then opens in place), tighter padding between the card layout and full width');
     ok(/\.sess-table tr\.fu-row\.fu-hidden\{display:none;\}/.test(F['patient-profile.css']) && /\.fu-chev\{[^}]*border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate\(45deg\)/.test(F['patient-profile.css']),
       'dropdown CSS: folded rows are hidden; the chevron points down/up (no left/right meaning)');
 
@@ -608,7 +609,8 @@ const MUT = [
   ['no state badge', rep('patient-profile.html', "    if (!_fuC && typeof fuStateBadge === 'function') stBadge += fuStateBadge(s);\n", '')],
   ['row button gone', rep('patient-profile.html', "    else if (typeof fuCellChips === 'function') typeBadge += fuCellChips(s);", '')],
   ['follow-up button back in the action column', rep('patient-profile.html', "          : '')   /* M210: «＋ متابعة» بخانة العلاج", "          : fuAddChip(s).replace('class=\"fu-add\"', 'class=\"sy-act\" data-slot=\"1\"'))   /* M210: «＋ متابعة» بخانة العلاج")],
-  ['table spills out of its card', rep('patient-profile.css', "#sessionsContent{container:mc / inline-size;overflow-x:auto;max-width:100%;}", "#sessionsContent{container:mc / inline-size;}")],
+  ['table spills out of its card', rep('patient-profile.css', "#sessionsContent.sc-wide{overflow-x:auto;", "#sessionsContent.sc-wide{")],
+  ['plan panel clipped when the table scrolls', rep('patient-profile.css', "#sessionsContent.sc-wide .spc-panel{position:static;", "#sessionsContent.sc-wide .spc-panel{")],
   ['save without the RPC', rep('pp-followup.js', "window.sb.rpc('session_followup_add', {", "window.sb.rpc('session_followup_addx', {")],
   ['close flag dropped', rep('pp-followup.js', 'p_notes: notes || null, p_close: last', 'p_notes: notes || null, p_close: false')],
   ['future date accepted', rep('pp-followup.js', "  if (date > toDay()) { showToast('⚠️ تاريخ المتابعة في المستقبل — سجّلها يوم إجرائها'); return; }\n", '')],
