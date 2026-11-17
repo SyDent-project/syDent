@@ -112,6 +112,13 @@ const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.css': '
       const tool = id => { const e = document.getElementById(id), t = e && e.closest('.chart-tool'); return t ? t.getBoundingClientRect() : null; };
       const va = tool('occViewSeg'), sf = tool('statusFilterSeg');
       out.filters = (va && sf && va.width > 0 && sf.width > 0) ? [Math.round(va.bottom), Math.round(sf.top), Math.round((va.left + va.right) / 2 - (sf.left + sf.right) / 2)] : null;
+      /* v744 (طلب المالك 17/11/2026): خياراتُ الفلترين غيرُ المختارة بلون النص الأساسي — تباينُها مع خلفيتها كما رُسمت (WCAG) لا يقلّ عن 10:1
+         (لونُ النص الثانوي الباهت كان ~5.6:1 بالفاتح) */
+      const rgb = c => (c.match(/[\d.]+/g) || []).map(Number);
+      const lum = c => { const a = c.slice(0, 3).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2]; };
+      const bgOf = el => { for (; el; el = el.parentElement) { const c = rgb(getComputedStyle(el).backgroundColor); if (c.length < 4 || c[3] > 0.5) return c; } return [255, 255, 255]; };
+      out.segContrast = Array.prototype.map.call(document.querySelectorAll('#occViewSeg button:not(.active), #statusFilterSeg button:not(.active)'), b => {
+        const f = lum(rgb(getComputedStyle(b).color)), g = lum(bgOf(b)); return Math.round((Math.max(f, g) + 0.05) / (Math.min(f, g) + 0.05) * 10) / 10; });
       return out;
     });
     for (const k of ['facial', 'occlusal', 'lower', 'picker', 'perio']) {
@@ -120,6 +127,9 @@ const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.css': '
       if (a == null || b == null) bad.push('اتجاه الأسنان (' + lang + ') — ' + k + ': لم يُرسم');
       else if (!(a < b)) bad.push('اتجاه الأسنان (' + lang + ', dir=' + o.dir + ') — ' + k + ': مقلوب (يمين المريض على يمين الشاشة)');
     }
+    checked++;
+    if (!o.segContrast || o.segContrast.length < 5) bad.push('تباين خيارات الفلاتر (' + lang + '): لم تُرسم');
+    else if (Math.min.apply(null, o.segContrast) < 10) bad.push('تباين خيارات الفلاتر (' + lang + '): أقلُّها ' + Math.min.apply(null, o.segContrast) + ':1 — باهتة (المطلوب ≥ 10:1)');
     checked++;
     if (!o.filters) bad.push('فلاتر المخطط (' + lang + '): لم تُرسم');
     else if (!(o.filters[0] <= o.filters[1]) || Math.abs(o.filters[2]) > 2) bad.push('فلاتر المخطط (' + lang + ', 1366px): «زاوية العرض» ليست فوق «إظهار العلاجات» بمحورٍ واحد (' + o.filters.join(' · ') + ')');
