@@ -35,6 +35,7 @@
     if (p === 'index') return 'dashboard';
     if (p === 'patient-profile') return 'patient';
     if (p === 'labs') return 'labs';
+    if (p === 'inventory') return 'inventory';
     return null;
   }
   function nav(href) { return $('.sb-nav .sb-item[href="' + href + '"]'); }
@@ -55,6 +56,17 @@
     return w;
   }
   function rowOf(id) { var e = document.getElementById(id); return e ? (e.closest('.form-group') || e.parentElement) : null; }
+  /* جدولٌ أعرض من الشاشة (الموبايل) يمرّ أفقياً داخل حاويته: toEl = أظهر العنصر نفسه، وإلا عُد إلى بداية الجدول */
+  function hScroll(el, toEl) {
+    var box = el && el.closest ? el.closest('[style*="overflow-x"]') : null;
+    if (!box || box.scrollWidth <= box.clientWidth + 1) return 0;
+    var before = box.scrollLeft;
+    if (toEl) {
+      var b = box.getBoundingClientRect(), r = el.getBoundingClientRect();
+      box.scrollLeft += (r.left + r.width / 2) - (b.left + b.width / 2);
+    } else box.scrollLeft = 0;
+    return box.scrollLeft !== before ? 200 : 0;
+  }
   function firstShown(list) { for (var i = 0; i < list.length; i++) if (shown(list[i])) return list[i]; return null; }
 
   /* ═══════════════ الخطوات ═══════════════
@@ -299,7 +311,59 @@
       tip: { ar: 'التأخير يظهر أيضاً في لوحة التحكم ضمن «يحتاج إلى متابعة».', en: 'Late work also shows on the dashboard under «Needs follow-up».' } }
   ];
 
-  var TOURS = { dashboard: DASH, patient: PATIENT, labs: LABS };
+  var INVENTORY = [
+    { center: true, ico: '📦',
+      title: { ar: 'صفحة المخزون', en: 'The Inventory page' },
+      body: { ar: 'هنا <b>مواد العيادة ومستلزماتها</b>: كم بقي من كل صنف، ومتى تطلبه، وما الذي قارب انتهاء صلاحيته.', en: 'Here are <b>the clinic\'s materials and supplies</b>: how much is left of each item, when to reorder it, and what is close to expiry.' },
+      tip: { ar: 'المخزون للمتابعة والتنبيهات، ولا يدخل في أرباح المحاسبة أو مصاريفها — إلا ما تسجّله أنت مصروفاً من استلام طلبية.', en: 'Inventory is for tracking and alerts and is not counted in accounting profit or expenses — except what you record as an expense from an order receipt.' } },
+    { sel: function () { return $('#mgGuide'); }, ico: '📖',
+      title: { ar: 'كيف أُدخل المواد؟', en: 'How do I enter materials?' },
+      body: { ar: 'دليلٌ يقسم المواد إلى <b>3 أنواع</b>: <b>مواد معدودة</b> (كبسولة بنج، إبرة) · <b>مواد سائبة ثمينة</b> تُعرَّف بوحدة الاستخدام الصغيرة لا بالعبوة (الكمبوزيت بوحدة «تطبيق») · <b>مواد رخيصة كثيرة الاستهلاك</b> (قطن، شاش) لا تُربط بعلاج وتُصحَّح بالجرد آخر الشهر.', en: 'A guide that splits materials into <b>3 types</b>: <b>countable items</b> (anaesthetic cartridge, needle) · <b>valuable bulk materials</b> defined by the small unit of use, not the pack (composite as «application») · <b>cheap high-use materials</b> (cotton, gauze) not linked to a treatment and corrected by a month-end count.' },
+      tip: { ar: '<b>📋 نسخ مثال</b> يعبّئ نافذة الصنف جاهزةً — راجعها ثم احفظ.', en: '<b>📋 Copy example</b> fills the item window for you — review it, then save.' } },
+    { sel: function () { return $('.sd-page-head__actions [onclick^="openItemModal"]'); }, ico: '＋',
+      title: { ar: 'أضف صنفاً', en: 'Add an item' },
+      body: { ar: 'الاسم والوحدة والكمية الحالية، ثم <b>حدّ التنبيه</b>: عنده أو تحته يُعدّ الصنف ناقصاً · و<b>كمية الطلب</b> التي تشتريها عادةً كل مرة، فيقترح النظام كم تطلب.', en: 'Name, unit and current quantity, then the <b>alert level</b>: at or below it the item counts as low · and the <b>order quantity</b> you usually buy each time, so the system suggests how much to order.' },
+      tip: { ar: 'لصنفٍ له صلاحية اكتب <b>تاريخ صلاحية الرصيد الافتتاحي</b> ليُنبّهك قبل انتهائه. وسعر الشراء اختياري، ويفيد في تقدير كلفة الطلبية وقيمة الجرد.', en: 'For an item that expires, enter the <b>expiry date of the opening stock</b> so you are warned before it expires. The purchase price is optional and helps estimate order cost and count value.' } },
+    { center: true, ico: '🧰',
+      title: { ar: 'الخصم التلقائي مع العلاج', en: 'Automatic deduction with treatments' },
+      body: { ar: 'في صفحة <b>العلاجات</b> اربط كل علاجٍ بموادّه من زر <b>🧰 المواد</b> مع الكمية لكل استخدام. وعند تسجيل جلسةٍ <b>منجزة</b> بهذا العلاج تظهر نافذة <b>«خصم مواد من المخزون»</b>: راجع الكميات (يمكن تعديلها) ثم <b>تأكيد الخصم</b>، أو <b>تخطّي</b>.', en: 'On the <b>Treatments</b> page, link each treatment to its materials from the <b>🧰 Materials</b> button, with the quantity per use. When you record a <b>completed</b> session with that treatment, the <b>«Deduct materials from stock»</b> window appears: review the quantities (you can edit them), then <b>Confirm deduction</b>, or <b>Skip</b>.' },
+      tip: { ar: 'الجلسة المخطّطة لا يُخصم لها شيء حتى تُنجَز. والخصم يبدأ من الدفعة الأقرب انتهاءً.', en: 'Nothing is deducted for a planned session until it is completed. Deduction starts from the batch closest to expiry.' } },
+    { sel: function () { return $('#summaryRow'); }, ico: '📊',
+      title: { ar: 'الوضع بلمحة', en: 'At a glance' },
+      body: { ar: '<b>إجمالي الأصناف</b> · <b>أصناف تحت حدّ التنبيه</b> (نافدة أو عند الحدّ وتحته) · <b>دفعات قاربت أو انتهت صلاحيتها</b> (خلال 30 يوماً أو منتهية).', en: '<b>Total items</b> · <b>items below the alert level</b> (out of stock, or at or below the level) · <b>batches near or past expiry</b> (within 30 days, or expired).' } },
+    { sel: function () { return $('#lowStockCard'); }, ico: '⚠️',
+      title: { ar: 'أصناف تحتاج إعادة طلب', en: 'Items to reorder' },
+      body: { ar: 'كل صنفٍ نافد أو عند حدّ التنبيه وتحته، مع <b>الكمية المقترحة</b> في «يُطلب» (من كمية الطلب). <b>🛒 شراء</b> يسجّل ما اشتريته مباشرة، و<b>🧾 جهّز الطلبية</b> يجمع النواقص في طلبيةٍ واحدة للمورّد.', en: 'Every item that is out of stock or at or below its alert level, with the <b>suggested quantity</b> under «To order» (from the order quantity). <b>🛒 Purchase</b> records what you bought directly, and <b>🧾 Prepare order</b> gathers the shortages into one order for the supplier.' },
+      tip: { ar: 'النقص يظهر أيضاً في لوحة التحكم ضمن «يحتاج إلى متابعة».', en: 'Shortages also show on the dashboard under «Needs follow-up».' } },
+    { sel: function () { return $('#expiryCard'); }, ico: '⏳',
+      title: { ar: 'الصلاحية', en: 'Expiry' },
+      body: { ar: 'كل شحنةٍ لها تاريخ صلاحية تُسجَّل <b>دفعةً مستقلّة</b>، وتظهر هنا قبل انتهائها بـ30 يوماً مرتّبةً الأقرب انتهاءً أولاً — فاستعملها قبل غيرها. <b>✅ انتهت</b> يُخرج ما بقي منها من الكمية.', en: 'Each shipment with an expiry date is recorded as <b>a separate batch</b>, and shows here 30 days before it expires, closest first — so use it before the others. <b>✅ Finished</b> removes what is left of it from the quantity.' } },
+    { prep: function () { return hScroll(firstShown($$('#itemsList tbody tr')), false); }, sel: function () { return firstShown($$('#itemsList tbody tr')); }, ico: '📋',
+      title: { ar: 'سطر الصنف', en: 'An item row' },
+      body: { ar: 'الكمية بلونها (<b>أحمر</b> نافد، <b>أصفر</b> ناقص، <b>أخضر</b> كافٍ)، وحدّ التنبيه، وسعر الشراء، وأقرب صلاحية. انقر السطر للتعديل، و<b>📜 السجل</b> يعرض كل حركات الصنف.', en: 'The quantity in colour (<b>red</b> out of stock, <b>yellow</b> low, <b>green</b> enough), the alert level, the purchase price and the nearest expiry. Click the row to edit, and <b>📜 History</b> lists all the item\'s movements.' } },
+    { prep: function () { return hScroll(firstShown($$('#itemsList [onclick^="openMoveModal"]')), true); }, sel: function () { return firstShown($$('#itemsList [onclick^="openMoveModal"]')); }, ico: '🔄',
+      title: { ar: 'حركة مخزون', en: 'A stock movement' },
+      body: { ar: 'كل تغييرٍ في الكمية حركةٌ تُحفظ في السجل: <b>شراء / إضافة وارد</b> (مع الصلاحية ورقم الدفعة) · <b>استهلاك / صرف</b> · <b>مرتجع إلى المخزون</b> · <b>مرتجع للمورّد</b> · <b>تعديل جرد</b> بكتابة الكمية الصحيحة.', en: 'Every change in quantity is a movement saved in the history: <b>Purchase / incoming</b> (with expiry and batch number) · <b>Consumption / issue</b> · <b>Return to stock</b> · <b>Return to supplier</b> · <b>Count adjustment</b> by entering the correct quantity.' },
+      tip: { ar: 'حتى تغيير الكمية من نافذة الصنف يُسجَّل «تعديل جرد»، فيبقى السجل كاملاً.', en: 'Even a quantity change from the item window is recorded as a «count adjustment», so the history stays complete.' } },
+    { sel: function () { return $('[onclick="openCountModal()"]'); }, ico: '🧮',
+      title: { ar: 'الجرد', en: 'Stock count' },
+      body: { ar: 'عُدّ الموجود فعلاً واكتبه؛ الصنف الذي تتركه فارغاً لا يتغيّر، فيمكنك جرد قسمٍ واحد فقط. وعند <b>✅ اعتمد الجرد</b> يُسجَّل الفرق وتصبح الكمية هي المعدودة.', en: 'Count what is actually there and enter it; an item you leave empty does not change, so you can count just one section. On <b>✅ Approve count</b> the difference is recorded and the quantity becomes the counted one.' },
+      tip: { ar: 'يمكنك طباعة ورقة عدٍّ فارغة، والجردات السابقة محفوظةٌ بفروقها وقيمتها.', en: 'You can print a blank count sheet, and past counts are kept with their differences and value.' } },
+    { sel: function () { return $('[onclick="openLotModal()"]'); }, ico: '🧪',
+      title: { ar: 'تتبّع دفعة (LOT)', en: 'Batch tracking (LOT)' },
+      body: { ar: 'اكتب رقم الدفعة كما هو على العبوة لتعرف <b>كل مريضٍ استُعملت له</b> — مثلاً عند سحب المورّد لدفعة — ويمكنك تصدير النتيجة إلى Excel.', en: 'Enter the batch number as printed on the pack to find <b>every patient it was used for</b> — for example when the supplier recalls a batch — and export the result to Excel.' },
+      tip: { ar: '<b>⬇️ كشف المخزون</b> ينزّل ملف Excel بكل الأصناف وكمياتها وقيمتها وأقرب صلاحية.', en: '<b>⬇️ Stock report</b> downloads an Excel file with every item, its quantity, value and nearest expiry.' } },
+    { sel: function () { return $('.sd-page-head__actions [onclick^="openPoModal"]'); }, ico: '🚚',
+      title: { ar: 'الطلبيات والموردون', en: 'Orders and suppliers' },
+      body: { ar: 'الدورة: <b>🧾 جهّز الطلبية ← أرسلها للمورّد (واتساب أو طباعة أو Excel) واحفظها طلبية ← عند وصولها سجّل ما وصل</b> مع الصلاحية ورقم الدفعة، فتزيد الكميات وحدها. ويمكن الاستلام على دفعات، وإغلاق الطلبية إن لم يصل الباقي.', en: 'The cycle: <b>🧾 Prepare order → send it to the supplier (WhatsApp, print or Excel) and save it as an order → when it arrives, record what came</b> with expiry and batch number, and the quantities go up by themselves. You can receive in parts, and close the order if the rest will not come.' },
+      tip: { ar: 'بعد الاستلام يفتح <b>💸 سجّلها مصروفاً</b> صفحة المصاريف معبّأةً بالمبلغ لتحفظه — وبهذا وحده تدخل كلفة الشراء في المحاسبة. وتبويب <b>🏪 الموردون</b> لأسمائهم وأرقامهم.', en: 'After receiving, <b>💸 Record as expense</b> opens the Expenses page filled with the amount for you to save — only then does the purchase cost enter accounting. The <b>🏪 Suppliers</b> tab keeps their names and numbers.' } },
+    { center: true, final: true, ico: '🎉',
+      title: { ar: 'أنت جاهز!', en: 'You\'re all set!' },
+      body: { ar: 'باختصار: <b>أضف الأصناف بحدّ التنبيه ← اربطها بالعلاجات ← تُخصم مع كل جلسةٍ منجزة ← اطلب النواقص ← سجّل الاستلام ← اجرد آخر الشهر</b>.', en: 'In short: <b>add items with an alert level → link them to treatments → they are deducted with each completed session → order the shortages → record the receipt → count at month end</b>.' },
+      tip: { ar: 'أعد الجولة متى شئت من زر <b>🧭 جولة تعريفية</b>، والشرح المكتوب في «📖 دليل هذا القسم».', en: 'Replay it any time from <b>🧭 Guided tour</b>; the written guide is in «📖 Guide to this section».' } }
+  ];
+
+  var TOURS = { dashboard: DASH, patient: PATIENT, labs: LABS, inventory: INVENTORY };
 
   /* ═══════════════ الحالة ═══════════════ */
   function load(p) { try { return JSON.parse(localStorage.getItem(KEY + p) || 'null') || {}; } catch (e) { return {}; } }

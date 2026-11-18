@@ -1243,7 +1243,7 @@ function initSidebar(activeId) {
 function loadTour(activeId) {
   try {
     var pg = (String(location.pathname).split('/').pop() || 'index.html').replace(/\.html$/, '') || 'index';
-    if (['index', 'patient-profile', 'labs'].indexOf(pg) === -1) return;
+    if (['index', 'patient-profile', 'labs', 'inventory'].indexOf(pg) === -1) return;
     if (window.SyDentTour) { window.SyDentTour.mount(activeId); return; }
     var own = document.querySelector('script[src*="sidebar.js"]');
     var q = own && own.getAttribute('src').indexOf('?') !== -1 ? own.getAttribute('src').split('?')[1] : '';

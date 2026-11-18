@@ -8,6 +8,7 @@
     في نافذة الطلب ← الحفظ ← الطلب يظهر في تبويب المخابر.
   • بطاقة مريضٍ حقيقي: لا خطوات تفاعلية (الجولة لا تُنشئ شيئاً على مريضٍ حقيقي).
   • المخابر: الخطوات التي لا عنصر لها في عيادةٍ بلا مخابر لا تُعدّ.
+  • المخزون: فارغاً 8 خطوات (البطاقات المخفية لا تُعدّ) · وبأصنافٍ ناقصة ودفعةٍ قاربت صلاحيتها 13 خطوة كاملة.
   • كل خطوة: البطاقة داخل الشاشة ولا تغطّي العنصر، صفرُ تمريرٍ أفقي، وصفرُ خطأ JS — على اللابتوب والموبايل.
 --self-test: يُخدَم tour.js بمعرّفٍ مكسور (زر الحفظ) فيجب أن يحمرّ."""
 import os, sys, json, time, base64, threading, http.server, socketserver
@@ -43,6 +44,12 @@ def catalog():
     return rows
 TABLES = {'trial_requests': [{'status': 'accepted', 'plan': 'pro', 'user_id': UID}], 'treatments': catalog(),
           'patients': [{'id': 'P1', 'doctor_id': UID, 'name': 'سامر خليل', 'phone': '0933000001', 'gender': 'ذكر', 'created_at': '2026-11-01T10:00:00Z'}]}
+_soon = time.strftime('%Y-%m-%d', time.localtime(time.time() + 86400 * 10))
+INV = {'inventory_items': [
+    {'id': 'I1', 'owner_id': UID, 'name': 'بنج موضعي', 'unit': 'كبسولة', 'quantity': 3, 'reorder_level': 10, 'reorder_qty': 50, 'purchase_price': 2000, 'currency': 'SYP', 'is_active': True},
+    {'id': 'I2', 'owner_id': UID, 'name': 'كمبوزيت — تطبيق', 'unit': 'تطبيق', 'quantity': 40, 'reorder_level': 5, 'reorder_qty': 25, 'purchase_price': 90000, 'currency': 'SYP', 'is_active': True},
+    {'id': 'I3', 'owner_id': UID, 'name': 'قطن', 'unit': 'رول', 'quantity': 0, 'reorder_level': 3, 'is_active': True}],
+  'inventory_batches': [{'id': 'B1', 'owner_id': UID, 'item_id': 'I2', 'quantity': 12, 'received_qty': 25, 'expiry_date': _soon, 'lot': 'A123', 'is_finished': False}]}
 RPC = {'my_subscription_state': {'level': 'full', 'plan': 'pro', 'status': 'active'}}
 TOUR_SRC = open(os.path.join(ROOT, 'tour.js'), encoding='utf-8').read()
 
@@ -154,6 +161,21 @@ with sync_playwright() as pw:
         p, T, E, A = walk(b, nm + '/المخابر', 'labs.html', w, h, sc)
         ok(nm + ': المخابر بلا مخابر = 7 خطوات (ما لا عنصر له لا يُعدّ)', len(T) == 7, T)
         p.context.close()
+        p, T, E, A = walk(b, nm + '/المخزون الفارغ', 'inventory.html', w, h, sc)
+        ok(nm + ': المخزون الفارغ = 8 خطوات (البطاقات المخفية لا تُعدّ)', len(T) == 8, T)
+        p.context.close()
+        TABLES.update(INV)
+        try:
+            p, T, E, A = walk(b, nm + '/المخزون', 'inventory.html', w, h, sc)
+            ok(nm + ': المخزون بأصنافٍ ونواقص وصلاحية = 13 خطوة', len(T) == 13, T)
+            ok(nm + ': المخزون يمرّ على النواقص والصلاحية وسطر الصنف', all(x in T for x in ('أصناف تحتاج إعادة طلب', 'الصلاحية', 'سطر الصنف', 'حركة مخزون')), T)
+            p.context.close()
+            if nm == 'لابتوب':
+                p, T, E, A = walk(b, 'English/المخزون', 'inventory.html', 1366, 768, 1, lang='en')
+                ok('English: جولة المخزون 13 خطوة', len(T) == 13, T)
+                p.context.close()
+        finally:
+            for k in INV: TABLES.pop(k, None)
     if not SELF:
         ctx = b.new_context(viewport={'width': 1366, 'height': 768}, service_workers='block'); ctx.route('**/*', route)
         ctx.add_init_script('(()=>{try{localStorage.setItem("sydent.auth",%s);localStorage.setItem("sydent.lang","ar")}catch(e){}})()' % json.dumps(json.dumps(SESSION)))
@@ -175,4 +197,4 @@ if SELF:
 if FAILS:
     for f in FAILS[:15]: print('✗', f)
     print('❌ مثبت الجولات: %d فشل من %d — أولها: %s' % (len(FAILS), N[0], FAILS[0][:220])); sys.exit(1)
-print('✅ مثبت الجولات (متصفح حقيقي): %d توكيداً — اللوحة · البطاقة التجريبية تفاعلياً · بطاقة حقيقية · المخابر · لابتوب وموبايل' % N[0])
+print('✅ مثبت الجولات (متصفح حقيقي): %d توكيداً — اللوحة · البطاقة التجريبية تفاعلياً · بطاقة حقيقية · المخابر · المخزون · لابتوب وموبايل' % N[0])
