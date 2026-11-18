@@ -56,7 +56,7 @@
     return out;
   }
 
-  async function fetchAll(build) {
+  async function _fetchAllFu(build) {
     if (typeof window.SyDentFetchAll === 'function') return window.SyDentFetchAll(build);
     return build();
   }
@@ -74,7 +74,7 @@
       if (only) for (var i = 0; i < only.length; i += CHUNK) chunks.push(only.slice(i, i + CHUNK));
       for (var c = 0; c < chunks.length; c++) {
         var ids = chunks[c];
-        var rb = await fetchAll(function () {
+        var rb = await _fetchAllFu(function () {
           var q = sb.from('ledger_sessions').select('id, patient_id, type, tooth_num, quadrant, arch, date, parent_id, followup_state, patients(name)')
             .eq('followup_state', 'open').is('parent_id', null).eq('status', 'completed');
           if (uid) q = q.eq('doctor_id', uid);
@@ -89,7 +89,7 @@
       var appts = [];
       for (var j = 0; j < pids.length; j += CHUNK) {
         var part = pids.slice(j, j + CHUNK);
-        var ra = await fetchAll(function () {
+        var ra = await _fetchAllFu(function () {
           var q = sb.from('appointments').select('id, patient_id, date, status, is_planned, dismissed_at, arrived_at, seated_at')
             .in('patient_id', part).gte('date', day);
           return uid ? q.eq('doctor_id', uid) : q;
