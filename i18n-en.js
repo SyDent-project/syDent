@@ -3510,6 +3510,8 @@ Object.assign(window.SyI18nDict, {
     /* M211 (ج2-أ): «يحتاج جلسات متابعة» */
     '🔁 يحتاج جلسات متابعة': '🔁 Needs follow-up sessions',
     'يحتاج جلسات متابعة': 'Needs follow-up sessions',   /* treatments.html */
+    '🔁 علاجٌ متعدد الجلسات — سيُسجَّل «قيد الإنجاز».': '🔁 A multi-visit treatment — it will be recorded «In progress».',   /* «إكمال» بجدول الجلسات */
+    '🔁 علاجٌ متعدد الجلسات سيُسجَّل «قيد الإنجاز».': '🔁 One multi-visit treatment will be recorded «In progress».',   /* «إكمال الموعد» */
     'علاجٌ يمتدّ على أكثر من زيارة: يُسجَّل «قيد الإنجاز»، وتُضاف زياراته اللاحقة من «＋ متابعة» بلا تكلفة.': 'A treatment that takes more than one visit: it is recorded «In progress», and its later visits are added from «＋ Follow-up» at no charge.',
     '🔁 متعدد الجلسات': '🔁 Multi-visit',
     'يُسجَّل «قيد الإنجاز»، وتُضاف زياراته اللاحقة من «＋ متابعة» بلا تكلفة': 'Recorded as «In progress»; its later visits are added from «＋ Follow-up» at no charge',
@@ -3559,6 +3561,7 @@ Object.assign(window.SyI18nDict, {
   P.push(
     [/^متابعة (\d+)$/, 'Follow-up $1'],
     [/^المتابعات \((\d+)\)$/, 'Follow-ups ($1)'],
+    [/^🔁 (\d+) علاجات متعددة الجلسات ستُسجَّل «قيد الإنجاز»\.$/, '🔁 $1 multi-visit treatments will be recorded «In progress».'],   /* «إكمال الموعد» */
     [/^قيد الإنجاز · (\d+)$/, 'In progress · $1'],
     [/^اكتمل · (\d+)$/, 'Complete · $1'],
     /* تلميحُ وسم المتابعة: اسمُ العلاج يبقى، وموضعُه (سن · سن زائد) يُترجم — الفكّ والربع كلماتُ قاموس يلتقطها المحرّك */
