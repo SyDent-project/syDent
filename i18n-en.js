@@ -3581,7 +3581,8 @@ Object.assign(window.SyI18nDict, {
     '📅 الزيارة التالية مخطّطة — احجز موعدها من «موعد جديد»': '📅 The next visit is planned — book its appointment from «New appointment»',
     '📅 الزيارة التالية مخطّطة — اختر الوقت واحفظ الموعد': '📅 The next visit is planned — choose the time and save the appointment',
     'تحجز الآن موعد الزيارة التالية لهذا العلاج؟': 'Book the next visit for this treatment now?',
-    '📅 احجزها': '📅 Book it'
+    '📅 احجزها': '📅 Book it',
+    'حذف الجلسة': 'Delete the session'
   });
   P.push(
     [/^متابعة — (.+)$/, function (m, x) { return 'Follow-up — ' + (D[x] || x); }],   /* M213: اسمُ صفّ المتابعة بنافذة الموعد وصفحة المواعيد */

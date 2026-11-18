@@ -415,7 +415,7 @@ function renderApptProcedureListPP() {
         var costStr = (typeof fmt === 'function') ? fmt(s.cost) : String(s.cost || 0);
         html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(var(--green-rgb),0.05);border-radius:8px;border:1px solid rgba(var(--green-rgb),0.2);flex-wrap:wrap;">'
           + '<div style="flex:1;min-width:140px;font-size:13px;color:var(--text);">' + escapeHtml(s.type || s.description || 'علاج') + toothPart + '</div>'
-          + '<div style="font-size:12px;color:var(--text2);">' + costStr + ' ' + curLblOf(s.currency) + '</div>'
+          + '<div style="font-size:12px;color:var(--text2);">' + (s.parent_id ? 'ضمن الأساسية' : costStr + ' ' + curLblOf(s.currency)) + '</div>'   /* M213: زيارةُ متابعة — لا «0» */
           + '<span class="cbadge tone tone-orange" style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">سيُربط</span>'
           + '<button type="button" onclick="removePendingPP(\'' + s.id + '\')" style="background:transparent;border:1px solid rgba(var(--red-rgb),0.4);color:var(--red);padding:3px 8px;border-radius:6px;cursor:pointer;font-size:11px;" title="إزالة من القائمة">✕</button>'
           + '</div>';
@@ -462,7 +462,7 @@ function renderApptProcedureListPP() {
       var costStr2 = (typeof fmt === 'function') ? fmt(s.cost) : String(s.cost || 0);
       html2 += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06);flex-wrap:wrap;">'
         + '<div style="flex:1;min-width:140px;font-size:13px;color:var(--text);">' + escapeHtml(s.type || s.description || 'علاج') + toothPart2 + '</div>'
-        + '<div style="font-size:12px;color:var(--text2);">' + costStr2 + ' ' + curLblOf(s.currency) + '</div>'
+        + '<div style="font-size:12px;color:var(--text2);">' + (s.parent_id ? 'ضمن الأساسية' : costStr2 + ' ' + curLblOf(s.currency)) + '</div>'   /* M213 */
         + statusBadge
         + '<button type="button" onclick="unlinkSessionFromApptPP(\'' + s.id + '\')" style="background:transparent;border:1px solid rgba(var(--red-rgb),0.4);color:var(--red);padding:3px 8px;border-radius:6px;cursor:pointer;font-size:11px;" title="فصل عن الموعد">✕</button>'
         + '</div>';

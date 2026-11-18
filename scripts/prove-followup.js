@@ -202,7 +202,7 @@ function page(F) {
     + '<select id="sType"><option value="">—</option><option value="root-canal">RCT</option><option value="treated">Filling</option><option value="_other">أخرى</option></select>'
     + between(PP, '<!-- M211 (ج2-أ): «يحتاج جلسات متابعة» بنافذة «جلسة جديدة»', '<!-- Backlog #9 (M95)', 'مفتاح «جلسة جديدة»');
   return '<!doctype html><html dir="rtl" lang="ar"><body><div id="sessionsContent"></div><div id="recentSessionsList"></div>' + need + entry + modals
-    + '<div class="modal-overlay" id="apptModal"><input type="date" id="aDate"><select id="aProvider"><option value="d1">Dr Owner</option><option value="d2">Dr Two</option></select></div>'
+    + '<div class="modal-overlay" id="apptModal"><select id="aType"><option value="amalgam">Amalgam</option><option value="root-canal">RCT</option></select><input type="date" id="aDate"><select id="aProvider"><option value="d1">Dr Owner</option><option value="d2">Dr Two</option></select></div>'
     + '<script>' + stubs + '</script>' + real + '</body></html>';
 }
 function boot(F) {
@@ -834,6 +834,9 @@ async function run(F) {
     ok(w.__appt === 1 && d.getElementById('apptModal').classList.contains('open') && d.getElementById('aDate').value === P7 && d.getElementById('aProvider').value === 'd2'
       && JSON.stringify(w.__pend) === JSON.stringify([kid.id]) && /اختر الوقت/.test(lastT()) && w.__DIALOGS.length === 0,
       'the appointment window opens on that date and doctor with the visit attached — linked by «حفظ الموعد», no extra question');
+    ok(d.getElementById('aType').value === 'root-canal', 'the appointment type is the base treatment, not the first type in the list');
+    ok(/\(s\.parent_id \? 'ضمن الأساسية' : costStr \+ ' ' \+ curLblOf\(s\.currency\)\)/.test(F['pp-appt.js']) && /\(s\.parent_id \? 'ضمن الأساسية' : costStr2 \+ ' ' \+ curLblOf\(s\.currency\)\)/.test(F['pp-appt.js']),
+      'appointment window: a follow-up visit reads «ضمن الأساسية», never «0»');
     let r = rows(w);
     const kr = r.find(x => x.getAttribute('data-fu-parent') === 'b1'),
       br = r.find(x => /RCT/.test(txt(x.querySelector('.sc-type'))) && !x.classList.contains('fu-row'));
@@ -1051,6 +1054,8 @@ const MUT = [
   ['follow-up row name untranslated', rep('i18n-en.js', "    [/^متابعة — (.+)$/, function (m, x) { return 'Follow-up — ' + (D[x] || x); }],", '')],
   ['appointment completion keeps the planned date', rep('appointments.html', '    if (s.parent_id && _curAppt && _curAppt.date) sessPatch.date', '    if (false) sessPatch.date')],
   ['table completion leaves a future date', rep('patient-profile.html', "  if (sess.parent_id && sess.date && String(sess.date).slice(0, 10) > toDay()) _p1.date = toDay();", '')],
+  ['appointment type left on the first option', rep('pp-followup.js', "if (Array.prototype.some.call(sel.options || [], function (o) { return o.value === String(t.id); })) sel.value = String(t.id);", '')],
+  ['appointment window shows 0 for a follow-up', rep('pp-appt.js', "(s.parent_id ? 'ضمن الأساسية' : costStr + ' ' + curLblOf(s.currency))", "(costStr + ' ' + curLblOf(s.currency))")],
   ['mode tabs not registered', rep('scripts/check-mirrors.js', "'fuToggle', 'fuSetMode'", "'fuToggle'")],
   ['state badge hidden in read-only', rep('patient-profile.css', '[onclick*="fuSave("],', '[onclick*="fuSave("],[onclick*="fuSetState("],')]
 ];
