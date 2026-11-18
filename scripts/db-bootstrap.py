@@ -81,6 +81,8 @@ AFTER_SNAPSHOT = [
     'migrations/212_teeth_history_denture_clasps.sql',   # after 179 (dx_key) and 197 (tenant-wipe guard) and 209: one nullable column on teeth_status_history + fn_teeth_status_history replaced in place (body as live + denture_clasps); no grant, no RPC
     'migrations/213_followup_plan.sql',       # after 210/211: session_followup_plan — a planned follow-up row (M210 shape), no schema change
     'migrations/214_followup_keep_open.sql',  # after 210: trg_followup_after_delete's function replaced in place — a deleted planned last follow-up keeps «open»; no grant
+    'migrations/215_portal_plan_skip_followups.sql',   # after 205/213: portal_info replaced in place (M205 + AND s.parent_id IS NULL in the plan items and totals) and re-granted by name (PUBLIC revoked, anon + authenticated only)
+    'migrations/216_appt_followup_date_sync.sql',   # after 210/213: one trigger on appointments (AFTER UPDATE OF date) + its INVOKER function; a one-time date sync of planned follow-up visits; no grant
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',

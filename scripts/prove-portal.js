@@ -574,10 +574,25 @@ async function suite205(S) {
   ok(meta('جهاز غريب') === 'الفك السفلي — السن 36' && meta('بلا فك') === '' && !/<img/.test(o) && !/99/.test(meta('جهاز غريب')), 'M205 page: only FDI numbers are printed — markup or junk in the server value never reaches the page');
   ok(/الفك السفلي — السن 36 · د\. أيهم/.test(o), 'M205 page: past treatments carry the same location line');
 }
-async function run(S) { pass = 0; fail = 0; suite(S); await suite187(S); await suite189(S); await suite190(S); await suite191(S); await suite205(S); return { pass, fail }; }
+/* ═══ (١٢) M215 · مراجعة ج2-ب — «خطة علاجك» بلا زيارات المتابعة المخطّطة (M213) ═══ */
+async function suite215(S) {
+  const { mig205, mig215, boot } = S;
+  const COND = " AND s.parent_id IS NULL";
+  const items = "AND COALESCE(s.status, 'completed') = 'planned' AND s.parent_id IS NULL), '[]'::jsonb),";
+  const totals = "AND COALESCE(s.status, 'completed') = 'planned' AND s.parent_id IS NULL\n                   GROUP BY 1) t)";
+  ok(fnBody(mig215).split(items).length === 2 && fnBody(mig215).split(totals).length === 2 && fnBody(mig215).split(COND).length === 3,
+    'M215: plan items and their totals skip planned follow-up visits — exactly two places');
+  ok(fnBody(mig215).split(COND).join('') === fnBody(mig205) && fnBody(mig215) !== fnBody(mig205), 'M215: portal_info is the M205 function verbatim plus that one condition (no filter dropped, no sum changed)');
+  ok(/AND COALESCE\(s\.status, 'completed'\) = 'planned' AND s\.plan_option BETWEEN 1 AND 3;/.test(fnBody(mig215)), 'M215: the pending-options count is untouched (follow-ups carry no plan option)');
+  ok(/LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public/.test(fnBody(mig215)) && !/\b(INSERT\s+INTO|UPDATE\s+public\.|DELETE\s+FROM)\b/i.test(fnBody(mig215).replace(/--[^\n]*/g, ''))
+    && /REVOKE ALL ON FUNCTION public\.portal_info\(text\) FROM PUBLIC;\nGRANT EXECUTE ON FUNCTION public\.portal_info\(text\) TO anon, authenticated;/.test(mig215) && !/CREATE POLICY|ALTER TABLE|DROP /i.test(mig215.replace(/^--.*$/gm, '')),
+    'M215: still SECURITY DEFINER + STABLE with zero writes · same grants · no table, column or policy touched');
+  ok(/'migrations\/214_followup_keep_open\.sql',[^\n]*\n    'migrations\/215_portal_plan_skip_followups\.sql',/.test(boot), 'M215: registered in the bootstrap plan right after M214');
+}
+async function run(S) { pass = 0; fail = 0; suite(S); await suite187(S); await suite189(S); await suite190(S); await suite191(S); await suite205(S); await suite215(S); return { pass, fail }; }
 const FILES = { portal: 'portal.html', pp: 'pp-portal.js', mig: 'migrations/180_patient_portal.sql', pph: 'patient-profile.html', ppcss: 'patient-profile.css',
   cb: 'scripts/cache-bust.sh', ppwa: 'pp-wa.js', stg: 'settings.html', cc: 'scripts/check-colors.js', cmb: 'scripts/check-modal-behaviour.js', schema: 'db/schema.sql', plan: 'pp-plan.js', intake: 'intake.html', mig181: 'migrations/181_portal_intake_state.sql', mig182: 'migrations/182_portal_confirm.sql',
-  mig187: 'migrations/187_portal_history_changes.sql', mig188: 'migrations/188_portal_requests_hardening.sql', mig189: 'migrations/189_portal_slot_picker.sql', mig190: 'migrations/190_portal_cancel_approve.sql', mig191: 'migrations/191_portal_rejected_notice.sql', mig205: 'migrations/205_portal_info_arch_teeth.sql', boot: 'scripts/db-bootstrap.py', theme: 'theme.css', cra: 'scripts/check-row-actions.js', apcss: 'appointments.css', apo: 'appt-portal.js', apb: 'appt-booking.js', appts: 'appointments.html', side: 'sidebar.js', audit: 'audit-log.html' };
+  mig187: 'migrations/187_portal_history_changes.sql', mig188: 'migrations/188_portal_requests_hardening.sql', mig189: 'migrations/189_portal_slot_picker.sql', mig190: 'migrations/190_portal_cancel_approve.sql', mig191: 'migrations/191_portal_rejected_notice.sql', mig205: 'migrations/205_portal_info_arch_teeth.sql', mig215: 'migrations/215_portal_plan_skip_followups.sql', boot: 'scripts/db-bootstrap.py', theme: 'theme.css', cra: 'scripts/check-row-actions.js', apcss: 'appointments.css', apo: 'appt-portal.js', apb: 'appt-booking.js', appts: 'appointments.html', side: 'sidebar.js', audit: 'audit-log.html' };
 const base = {}; Object.keys(FILES).forEach(k => { base[k] = read(FILES[k]); });
 
 (async () => {
@@ -623,6 +638,10 @@ if (process.argv.includes('--self-test')) {
     ['M205 puts the new columns before the date', 'mig205', "FROM (SELECT s.type, s.tooth_num, s.units, s.cost,", "FROM (SELECT s.arch, s.type, s.tooth_num, s.units, s.cost,"],
     ['M205 loses the anon grant', 'mig205', 'GRANT EXECUTE ON FUNCTION public.portal_info(text) TO anon, authenticated;', ''],
     ['M205 not in the bootstrap plan', 'boot', "    'migrations/205_portal_info_arch_teeth.sql',", "    #"],
+    ['M215: plan lists follow-up visits', 'mig215', "= 'planned' AND s.parent_id IS NULL), '[]'::jsonb),", "= 'planned'), '[]'::jsonb),"],
+    ['M215: totals count follow-up visits', 'mig215', "= 'planned' AND s.parent_id IS NULL\n                   GROUP BY 1) t)", "= 'planned'\n                   GROUP BY 1) t)"],
+    ['M215: definer dropped', 'mig215', 'SECURITY DEFINER STABLE SET search_path', 'SECURITY DEFINER SET search_path'],
+    ['M215 not in the bootstrap plan', 'boot', "    'migrations/215_portal_plan_skip_followups.sql',", "    #"],
     ['portal prints the server teeth unvalidated', 'portal', ".filter(function(x){ return /^[1-4][1-8]$/.test(x); })", ""],
     ['portal names the jaw without the teeth', 'portal', "  if (!t.length) return arch;\n", "  return arch;\n"],
     ['portal never says a denture is complete', 'portal', "  if (FULL_ARCH[it.arch].every(function(n){ return t.indexOf(n) > -1; })) return arch + ' — كامل';\n", ""],
