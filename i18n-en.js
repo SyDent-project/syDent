@@ -3611,6 +3611,7 @@ Object.assign(window.SyI18nDict, {
     'يومان': '2 days',
     /* 18/11: لوحةُ الفلاتر على الموبايل · الترتيبُ باللمس */
     'فلترة': 'Filter',
+    '⏳ جارٍ حفظ الترتيب السابق — أعد المحاولة بعد لحظة': '⏳ Saving the previous order — try again in a moment',
     'إظهار الفلاتر': 'Show filters',
     '↕️ للترتيب: اضغط مطوّلاً على البطاقة ثم اسحبها': '↕️ To reorder: press and hold a card, then drag it'
   });

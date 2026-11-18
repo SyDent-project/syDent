@@ -145,7 +145,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 .treat-card.touch-armed{transform:scale(.985);transition:transform .2s;}
 .treat-drag-float{position:fixed;z-index:9500;pointer-events:none;margin:0;opacity:.96;transform:rotate(1deg) scale(1.02);box-shadow:0 22px 46px -12px rgba(16,42,67,.35),0 0 0 2px var(--green);transition:none !important;}
 body.treat-touch-dragging{user-select:none;-webkit-user-select:none;}
-@media (hover:none){ .treat-card{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;} }
+@media (hover:none){ .treat-card{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;} }   /* iOS: الظلُّ الرمادي على البطاقة عند الضغط المطوّل (صورة المالك) */
 .flt-touch-hint{font-weight:600;}
 .treat-card.dragging{opacity:.9;transform:rotate(1.5deg) scale(1.02);box-shadow:0 22px 46px -12px rgba(16,42,67,.32),0 0 0 1px var(--green);cursor:grabbing;}
 .treat-card.drag-ghost{background:transparent !important;border:2px dashed rgba(var(--green-rgb),.5) !important;box-shadow:none !important;}
@@ -1578,6 +1578,10 @@ function wireDragAndDrop() {
       return;
     }
     if (dh) dh.style.display = '';
+    /* 18/11 (صورُ الآيفون): بطاقةٌ draggable يلتقطها iOS بالضغط المطوّل بسحبه الأصلي (المعاينةُ الداكنة بالصورة)
+       فيُطلق touchcancel ويُلغي سحبَنا باللمس — البطاقةُ لا تتحرّك. على الأجهزة اللمسية وحدها لا draggable إطلاقاً
+       (سحبُ HTML5 لا يعمل باللمس أصلاً)، وعلى الهجينة يُنزع لحظةَ اللمس (touchstart) ويُعاد بعده. */
+    if (TOUCH_ONLY) { card.removeAttribute('draggable'); return; }
 
     card.addEventListener('dragstart', function(e){
       draggedTreatId = card.getAttribute('data-treat-id');
@@ -1630,8 +1634,10 @@ function wireDragAndDrop() {
 // ترتيب جديد محسوب من DOM — المُعاد ترتيبه يملأ مواضعَ البطاقات المرئية وحدها،
 // والمخفيّ (المعطّل — أو المفلتَر لو تسرّب) يبقى بموضعه حرفياً. النسخة السابقة كانت
 // تضع المرئيَّ أولاً ثم تدفع كلَّ المخفيّ للنهاية فتبعثر الكتالوج بسحبةٍ واحدة.
+var _reorderBusy = false;   /* مراجعة 18/11: سحبةٌ ثانية أثناء حفظ الأولى كانت تكتب ترتيبين متداخلين */
 async function reorderTreatmentsByOrder(idsInOrder) {
   if (!Array.isArray(idsInOrder) || !idsInOrder.length) return;
+  if (_reorderBusy) { showToast('⏳ جارٍ حفظ الترتيب السابق — أعد المحاولة بعد لحظة'); render(); return; }
   var byId = {};
   for (var i=0;i<treatments.length;i++) byId[treatments[i].id] = treatments[i];
   var moved = [], inSet = {};
@@ -1650,13 +1656,20 @@ async function reorderTreatmentsByOrder(idsInOrder) {
   var reordered = treatments.slice();
   for (var q=0;q<slots.length;q++) reordered[slots[q]] = moved[q];
   treatments = reordered;
+  /* مراجعة 18/11: يُكتب ما تغيّر رقمُه فقط (كانت كلُّ العلاجات تُكتب بكل سحبة — ~40 طلباً متتالياً على شبكة الهاتف) */
   var updates = [];
-  for (var j=0;j<treatments.length;j++){ treatments[j].sort_order = j + 1; updates.push({ id: treatments[j].id, sort_order: j + 1 }); }
-  render();
-  for (var n=0;n<updates.length;n++){
-    var { error } = await window.sb.from('treatments').update({ sort_order: updates[n].sort_order }).eq('id', updates[n].id);
-    if (error) { console.error('reorder error:', error); showToast('⚠️ فشل الترتيب: ' + error.message); await loadTreatments(); return; }
+  for (var j=0;j<treatments.length;j++){
+    if (Number(treatments[j].sort_order) !== j + 1) updates.push({ id: treatments[j].id, sort_order: j + 1 });
+    treatments[j].sort_order = j + 1;
   }
+  render();
+  _reorderBusy = true;
+  try {
+    for (var n=0;n<updates.length;n++){
+      var { error } = await window.sb.from('treatments').update({ sort_order: updates[n].sort_order }).eq('id', updates[n].id);
+      if (error) { console.error('reorder error:', error); showToast('⚠️ فشل الترتيب: ' + error.message); await loadTreatments(); return; }
+    }
+  } finally { _reorderBusy = false; }
   showToast('✅ تم تحديث الترتيب');
 }
 
@@ -1680,7 +1693,9 @@ function wireTouchReorder() {
     var card = e.target.closest ? e.target.closest('.treat-card[data-treat-id]') : null;
     if (!card || e.target.closest('button, a, input, select, summary, .trt-more')) return;
     var t = e.touches[0];
-    _tDrag = { card: card, x0: t.clientX, y0: t.clientY, x: t.clientX, y: t.clientY, active: false, float: null, off: 0, raf: 0 };
+    _tDrag = { card: card, x0: t.clientX, y0: t.clientY, x: t.clientX, y: t.clientY, active: false, float: null, off: 0, raf: 0,
+               hadDrag: card.getAttribute('draggable') === 'true' };
+    card.removeAttribute('draggable');   // لا سحبَ أصليّاً للمتصفح فوق سحبنا (iOS · Chrome على شاشات Windows اللمسية)
     card.classList.add('touch-armed');
     _tDrag.timer = setTimeout(_touchDragStart, 450);
   }, { passive: true });
@@ -1709,7 +1724,7 @@ function _touchDragStart() {
   d.active = true;
   card.classList.remove('touch-armed');
   var f = card.cloneNode(true);
-  f.removeAttribute('data-treat-id'); f.removeAttribute('id'); f.removeAttribute('onclick'); f.removeAttribute('tabindex');
+  f.removeAttribute('data-treat-id'); f.removeAttribute('id'); f.removeAttribute('onclick'); f.removeAttribute('tabindex'); f.removeAttribute('draggable');
   f.classList.add('treat-drag-float'); f.setAttribute('aria-hidden', 'true');
   f.style.left = r.left + 'px'; f.style.top = r.top + 'px'; f.style.width = r.width + 'px';
   document.body.appendChild(f);
@@ -1744,6 +1759,7 @@ function _touchDragCleanup() {
   clearTimeout(d.timer); if (d.raf) cancelAnimationFrame(d.raf);
   if (d.float && d.float.parentNode) d.float.parentNode.removeChild(d.float);
   d.card.classList.remove('touch-armed', 'drag-ghost');
+  if (d.hadDrag && d.card.isConnected && !isFilteringNow()) d.card.setAttribute('draggable', 'true');
   document.body.classList.remove('treat-touch-dragging');
   return d;
 }
