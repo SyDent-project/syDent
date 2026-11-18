@@ -3501,8 +3501,12 @@ Object.assign(window.SyI18nDict, {
 (function () {
   var D = window.SyI18nDict, P = window.SyI18nPatterns;
   /* ج2-ب-2: موضعُ العلاج داخل نصٍّ مركّب — «سن N» والفكّان والأرباع؛ غيرُه (اسمُ العلاج) يبقى كما كتبته العيادة */
+  /* ج2-ج: أسماءُ مراحل المخبر الجاهزة داخل جملة (مرآةُ EN بـlab-stages.js) — لا تدخل القاموس المشترك («تجربة» اسمُ باقة · «تسليم» ملتبسة) */
+  var FU_LAB = { 'طبعة نهائية': 'Final impression', 'تسجيل العضة': 'Bite registration', 'تجربة الهيكل': 'Framework try-in', 'تجربة الأسنان': 'Teeth try-in', 'تجربة': 'Try-in', 'تسليم': 'Fit' };
+  function fuStage(x) { return FU_LAB[x] || x; }
   function fuW(x) {
-    return String(x).replace(/سن (\d+)/g, 'tooth $1').replace(/الفك (العلوي|السفلي)|الربع (العلوي|السفلي) (الأيمن|الأيسر)/g, function (p) { return D[p] || p; });
+    return String(x).replace(/^مرحلة المخبر: ([^·]+?)(?= · |$)/, function (m, n) { return 'Lab stage: ' + fuStage(n); })
+      .replace(/سن (\d+)/g, 'tooth $1').replace(/الفك (العلوي|السفلي)|الربع (العلوي|السفلي) (الأيمن|الأيسر)/g, function (p) { return D[p] || p; });
   }
   Object.assign(D, {
     'جلسة متابعة': 'Follow-up session',
@@ -3601,8 +3605,10 @@ Object.assign(window.SyI18nDict, {
     [/^متابعة — (.+)$/, function (m, x) { return 'Follow-up — ' + (D[x] || x); }],
     /* ج2-ب-2: «اسم العلاج — موضعه» داخل رسائل appt-followup.js — الاسمُ بيانات العيادة، والموضعُ يُترجم */
     [/^للمريض علاجٌ قيد الإنجاز: «(.+)»\.$/, function (m, x) { return 'The patient has a treatment in progress: «' + fuW(x) + '».'; }],
+    [/^مرحلة المخبر «(.+?)» لعلاج «(.+)»\.$/, function (m, n, x) { return 'Lab stage «' + fuStage(n) + '» of the treatment «' + fuW(x) + '».'; }],   /* ج2-ج */
     [/^✅ سُجّلت جلسة متابعة لـ «(.+)»$/, function (m, x) { return '✅ Follow-up session recorded for «' + fuW(x) + '»'; }],
-    [/^(?:(.+?) · )?منذ (\d{2}\/\d{2}\/\d{4})$/, function (m, w, d) { return (w ? fuW(w) + ' · ' : '') + 'since ' + d; }],   /* M213: اسمُ صفّ المتابعة بنافذة الموعد وصفحة المواعيد */
+    [/^(?:(.+?) · )?منذ (\d{2}\/\d{2}\/\d{4})$/, function (m, w, d) { return (w ? fuW(w) + ' · ' : '') + 'since ' + d; }],
+    [/^مرحلة المخبر: (.+)$/, function (m, x) { return fuW(m); }],   /* ج2-ج: سطرُ الخيار بلا تاريخ */   /* M213: اسمُ صفّ المتابعة بنافذة الموعد وصفحة المواعيد */
     [/^متابعة (\d+)$/, 'Follow-up $1'],
     [/^المتابعات \((\d+)\)$/, 'Follow-ups ($1)'],
     [/^🔁 (\d+) علاجات متعددة الجلسات ستُسجَّل «قيد الإنجاز»\.$/, '🔁 $1 multi-visit treatments will be recorded «In progress».'],   /* «إكمال الموعد» */

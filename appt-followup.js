@@ -6,6 +6,9 @@
      صفحةُ المواعيد («خرج» · حفظُ «مكتمل») · لوحةُ التحكم («خرج») · بطاقةُ المريض («خرج» · حفظُ «مكتمل»).
    لا يسأل أبداً: قراءةٌ فقط (اشتراك) · حسابٌ غير نشط · موعدٌ مخطّط بلا تاريخ أو بيومٍ لم يأتِ · موعدٌ له أيُّ جلسةٍ مربوطة ·
    علاجٌ سُجّلت له متابعةٌ بيوم الموعد نفسه · سؤالٌ طُرح لهذا الموعد بهذه الصفحة. فشلُ أي قراءةٍ ⇒ صمت (لا يعيق الختم).
+   ج2-ج (مراحل المخبر M206): عملُ مخبرٍ مربوطٌ بجلسة وموعدُ إحدى مراحله (أو موعدُ طلبٍ برحلةٍ واحدة) هو هذا الموعد ⇒ تلك الجلسةُ
+   تُقترح أولاً — ولو لم تكن «قيد الإنجاز» بعد (ما لم يكتمل علاجها) — وخطوةُ المتابعة اسمُ المرحلة («تجربة الأسنان» · «تسليم»).
+   طلبٌ ملغى أو مسودّة لا يُحتسب.
    ينشر 'sy:followup-added' ({ session, baseId, apptId }) لتحدّث بطاقةُ المريض جدولها. */
 (function () {
   'use strict';
@@ -44,10 +47,38 @@
     if (day > today()) return null;
     var rl = await sb.from('ledger_sessions').select('id').eq('doctor_id', a.doctor_id).eq('appointment_id', apptId).limit(1);
     if (!rl || rl.error || (rl.data || []).length) return null;
+    /* ج2-ج: مرحلةُ مخبر هذا الموعد (M206) — عملُ مخبرٍ مربوطٌ بجلسة (session_id) وموعدُ إحدى مراحله هو هذا الموعد
+       (أو موعدُ طلبٍ برحلةٍ واحدة) ⇒ الزيارةُ زيارةُ ذلك العلاج: يُقترح أولاً، وخطوتُه اسمُ المرحلة. فشلُ القراءة ⇒ بلا اقتراح (لا صمتٌ كلّي). */
+    var lab = {};
+    var rlo = await sb.from('lab_orders').select('id, session_id, appointment_id, stages, stage_idx, status, work_type')
+      .eq('doctor_id', a.doctor_id).eq('patient_id', a.patient_id).not('session_id', 'is', null);
+    ((rlo && !rlo.error && rlo.data) || []).forEach(function (o) {
+      if (!o || !o.session_id || o.status === 'cancelled' || o.status === 'draft' || lab[o.session_id]) return;
+      var st = Array.isArray(o.stages) ? o.stages : null, step = null;
+      if (st && st.length) {
+        for (var i = 0; i < st.length; i++) if (st[i] && st[i].appt === apptId) { step = st[i].n; break; }
+        if (!step && o.appointment_id === apptId && st[o.stage_idx || 0]) step = st[o.stage_idx || 0].n;
+      } else if (o.appointment_id === apptId) step = 'تسليم';
+      if (step) lab[o.session_id] = { step: String(step).replace(/\s+/g, ' ').trim().slice(0, 40), work: String(o.work_type || '') };
+    });
+    var labIds = Object.keys(lab);
     var rb = await sb.from('ledger_sessions').select('id, type, tooth_num, quadrant, arch, date, provider_id, status, parent_id, followup_state')
       .eq('doctor_id', a.doctor_id).eq('patient_id', a.patient_id).eq('followup_state', 'open').is('parent_id', null).eq('status', 'completed');
     if (!rb || rb.error) return null;
-    var bases = (rb.data || []).filter(function (b) { return b && b.id && !b.parent_id && b.followup_state === 'open' && (!b.date || String(b.date).slice(0, 10) <= day); });
+    var rows = rb.data || [];
+    if (labIds.length) {
+      var rlb = await sb.from('ledger_sessions').select('id, type, tooth_num, quadrant, arch, date, provider_id, status, parent_id, followup_state')
+        .eq('doctor_id', a.doctor_id).eq('patient_id', a.patient_id).in('id', labIds);
+      if (rlb && !rlb.error) rows = (rlb.data || []).concat(rows);
+    }
+    var seen = {}, bases = [];
+    rows.forEach(function (b) {
+      if (!b || !b.id || seen[b.id] || b.parent_id || b.status !== 'completed' || (b.date && String(b.date).slice(0, 10) > day)) return;
+      var L = lab[b.id];
+      if (L ? b.followup_state === 'closed' : b.followup_state !== 'open') return;   /* علاجُ المرحلة: ما لم يكتمل · غيرُه: قيد الإنجاز وحده */
+      seen[b.id] = 1;
+      bases.push(L ? Object.assign({}, b, { _fuStep: L.step, _fuWork: L.work }) : b);
+    });
     if (!bases.length) return null;
     var rk = await sb.from('ledger_sessions').select('parent_id').eq('doctor_id', a.doctor_id).eq('patient_id', a.patient_id).eq('date', day)
       .in('parent_id', bases.map(function (b) { return b.id; }));
@@ -55,15 +86,17 @@
     var done = {}; (rk.data || []).forEach(function (k) { if (k && k.parent_id) done[k.parent_id] = 1; });
     bases = bases.filter(function (b) { return !done[b.id]; });
     if (!bases.length) return null;
-    bases.sort(function (x, y) { return String(y.date || '').localeCompare(String(x.date || '')); });
+    bases.sort(function (x, y) { return (x._fuStep ? 0 : 1) - (y._fuStep ? 0 : 1) || String(y.date || '').localeCompare(String(x.date || '')); });   /* علاجُ مرحلة المخبر أولاً */
     return { appt: a, day: day, bases: bases };
   }
 
   async function ask(c) {
     if (c.bases.length === 1) {
+      var b0 = c.bases[0];
       var ok = await window.SyDialog.confirm({
         title: 'زيارة متابعة؟',
-        message: 'للمريض علاجٌ قيد الإنجاز: «' + label(c.bases[0]) + '».\nهل كانت هذه الزيارة متابعةً له؟ تُسجَّل جلسةَ متابعة بلا تكلفة.',
+        message: (b0._fuStep ? 'مرحلة المخبر «' + b0._fuStep + '» لعلاج «' + label(b0) + '».' : 'للمريض علاجٌ قيد الإنجاز: «' + label(b0) + '».')
+          + '\nهل كانت هذه الزيارة متابعةً له؟ تُسجَّل جلسةَ متابعة بلا تكلفة.',
         confirmText: '🔁 سجّلها متابعة', cancelText: 'لا', danger: false
       });
       return ok ? c.bases[0] : null;
@@ -72,7 +105,7 @@
     var i = await window.SyDialog.choose({
       title: 'زيارة متابعة؟',
       message: 'للمريض أكثر من علاجٍ قيد الإنجاز — هل كانت هذه الزيارة متابعةً لأحدها؟ تُسجَّل جلسةَ متابعة بلا تكلفة.',
-      choices: c.bases.map(function (b) { return { label: String(b.type || 'علاج'), sub: [where(b), b.date ? 'منذ ' + dmy(b.date) : ''].filter(Boolean).join(' · ') }; }),
+      choices: c.bases.map(function (b) { return { label: String(b.type || 'علاج'), sub: [b._fuStep ? 'مرحلة المخبر: ' + b._fuStep : '', where(b), b.date ? 'منذ ' + dmy(b.date) : ''].filter(Boolean).join(' · ') }; }),
       cancelText: 'ليست متابعة'
     });
     return (typeof i === 'number' && c.bases[i]) ? c.bases[i] : null;
@@ -80,9 +113,10 @@
 
   async function record(c, base) {
     var sb = window.sb;
-    var res = await sb.rpc('session_followup_add', { p_parent: base.id, p_date: c.day, p_provider: c.appt.provider_id || null, p_step: null, p_notes: null, p_close: false });
+    var step = base._fuStep || null;   /* ج2-ج: خطوةُ الزيارة = اسمُ مرحلة المخبر */
+    var res = await sb.rpc('session_followup_add', { p_parent: base.id, p_date: c.day, p_provider: c.appt.provider_id || null, p_step: step, p_notes: null, p_close: false });
     if (res && res.error && /followup_provider_invalid/.test(res.error.message || '')) {   /* طبيبُ موعدٍ لم يعد من أطباء العيادة ⇒ طبيبُ العلاج */
-      res = await sb.rpc('session_followup_add', { p_parent: base.id, p_date: c.day, p_provider: null, p_step: null, p_notes: null, p_close: false });
+      res = await sb.rpc('session_followup_add', { p_parent: base.id, p_date: c.day, p_provider: null, p_step: step, p_notes: null, p_close: false });
     }
     if (!res || res.error || !res.data || !res.data.session) {
       console.warn('appt follow-up failed:', res && res.error);
@@ -96,8 +130,8 @@
       try {
         window.logAudit('session.create', {
           entityId: kid.id, patientId: c.appt.patient_id, patientName: '',
-          description: 'جلسة متابعة من موعد: ' + label(base) + ' (' + c.day + ')',
-          newValue: { type: kid.type, date: kid.date, parent_id: base.id, appointment_id: c.appt.id }
+          description: 'جلسة متابعة من موعد: ' + label(base) + (step ? ' — ' + step : '') + ' (' + c.day + ')',
+          newValue: { type: kid.type, date: kid.date, parent_id: base.id, appointment_id: c.appt.id, step: step }
         });
       } catch (e) { console.warn('appt follow-up audit:', e); }
     }
