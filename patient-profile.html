@@ -20,42 +20,42 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261118o"></script>
+<script src="theme.js?v=20261118p"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261118o"></script>
-<script src="sy-modal.js?v=20261118o"></script>
-<script src="appt-followup.js?v=20261118o"></script>
-<script src="lab-redo.js?v=20261118o"></script>
-<script src="lab-stages.js?v=20261118o"></script>
-<script src="lab-status.js?v=20261118o"></script>
-<script src="lab-shade.js?v=20261118o"></script>
-<script src="lab-due.js?v=20261118o"></script>
-<script src="lab-slip.js?v=20261118o"></script>
-<script src="lab-files.js?v=20261118o"></script>
-<script src="pay-methods.js?v=20261118o"></script>
-<script src="appt-conflict.js?v=20261118o"></script>
-<script src="sidebar.js?v=20261118o"></script>
-<script src="ref-pick.js?v=20261118o"></script>
-<script src="inv-consume.js?v=20261118o"></script>
-<script src="inv-trace.js?v=20261118o"></script>
-<script src="timepicker.js?v=20261118o"></script>
-<script src="pp-modules.js?v=20261118o"></script>
-<script src="pp-wa.js?v=20261118o"></script>
-<script src="pp-clinical.js?v=20261118o"></script>
-<script src="pp-dental.js?v=20261118o"></script>
-<script src="pp-denture.js?v=20261118o"></script>
-<script src="pp-denture-svc.js?v=20261118o"></script>
-<script src="pp-followup.js?v=20261118o"></script>
-<script src="pp-plan.js?v=20261118o"></script>
-<script src="pp-timeline.js?v=20261118o"></script>
-<script src="pp-appt.js?v=20261118o"></script>
-<script src="pp-core.js?v=20261118o"></script>
-<script src="pp-extras.js?v=20261118o"></script>
-<script src="pp-intake.js?v=20261118o"></script>
-<script src="pp-portal.js?v=20261118o"></script>
-<script src="xray-viewer.js?v=20261118o"></script>
-<script src="pp-xray.js?v=20261118o"></script>
-<link rel="stylesheet" href="patient-profile.css?v=20261118o">
+<script src="supabase-init.js?v=20261118p"></script>
+<script src="sy-modal.js?v=20261118p"></script>
+<script src="appt-followup.js?v=20261118p"></script>
+<script src="lab-redo.js?v=20261118p"></script>
+<script src="lab-stages.js?v=20261118p"></script>
+<script src="lab-status.js?v=20261118p"></script>
+<script src="lab-shade.js?v=20261118p"></script>
+<script src="lab-due.js?v=20261118p"></script>
+<script src="lab-slip.js?v=20261118p"></script>
+<script src="lab-files.js?v=20261118p"></script>
+<script src="pay-methods.js?v=20261118p"></script>
+<script src="appt-conflict.js?v=20261118p"></script>
+<script src="sidebar.js?v=20261118p"></script>
+<script src="ref-pick.js?v=20261118p"></script>
+<script src="inv-consume.js?v=20261118p"></script>
+<script src="inv-trace.js?v=20261118p"></script>
+<script src="timepicker.js?v=20261118p"></script>
+<script src="pp-modules.js?v=20261118p"></script>
+<script src="pp-wa.js?v=20261118p"></script>
+<script src="pp-clinical.js?v=20261118p"></script>
+<script src="pp-dental.js?v=20261118p"></script>
+<script src="pp-denture.js?v=20261118p"></script>
+<script src="pp-denture-svc.js?v=20261118p"></script>
+<script src="pp-followup.js?v=20261118p"></script>
+<script src="pp-plan.js?v=20261118p"></script>
+<script src="pp-timeline.js?v=20261118p"></script>
+<script src="pp-appt.js?v=20261118p"></script>
+<script src="pp-core.js?v=20261118p"></script>
+<script src="pp-extras.js?v=20261118p"></script>
+<script src="pp-intake.js?v=20261118p"></script>
+<script src="pp-portal.js?v=20261118p"></script>
+<script src="xray-viewer.js?v=20261118p"></script>
+<script src="pp-xray.js?v=20261118p"></script>
+<link rel="stylesheet" href="patient-profile.css?v=20261118p">
 <style>
 /* v270: رأسُ البطاقة للمريض ثنائي العملة — سطرٌ لكل طبقة بوسمه ولونه (كانت الطبقة
    الثانية مخفيّةً بتلميحِ hover لا يراه أحد). صفحيٌّ عمداً لا في patient-profile.css. */
@@ -80,7 +80,7 @@
 :root[data-theme="light"] .perio-arch-title.perio-arch-lower{border-top:2px dashed #7d8fa6;}   /* v345: أوضح بالفاتح */
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261118o">
+<link rel="stylesheet" href="theme.css?v=20261118p">
 </head>
 <body>
 <script>
@@ -2236,6 +2236,8 @@ if (IS_DEMO) (function installDemoSandbox(){
      and it is used for selects exclusively (never for insert/update/delete). */
   var origFrom = real.from.bind(real);
   var _d = function(days){ var d=new Date(); d.setDate(d.getDate()-days); return d.toISOString().slice(0,10); };
+  /* يومُ عملٍ بعد n يوم (الجمعة عطلةُ المنصة الافتراضية) — لموعد التركيب التجريبي */
+  var _fd = function(days){ var d=new Date(); d.setDate(d.getDate()+days); if (d.getDay() === 5) d.setDate(d.getDate()+1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
   var _ts = function(days){ var d=new Date(); d.setDate(d.getDate()-days); return d.toISOString(); };
   // Clinic-level tables whose SELECTS pass through to the real DB (writes still never do):
   var READ_THROUGH = { treatments:1, treatment_materials:1, treatment_bundles:1,
@@ -2268,6 +2270,11 @@ if (IS_DEMO) (function installDemoSandbox(){
         session_id:'demo-s1', amount:100000, is_unearned:false, payment_date:_d(10) },
       { id:'demo-sp2', doctor_id:'*', patient_id:'demo', payment_id:'demo-p1',
         session_id:'demo-s2', amount:20000, is_unearned:false, payment_date:_d(10) }
+    ],
+    /* الجولة التعريفية: موعدُ تركيبٍ قادم يُربط به طلبُ المخبر التجريبي (بالذاكرة وحدها — كبقية البطاقة) */
+    appointments: [
+      { id:'demo-a1', doctor_id:'*', patient_id:'demo', patient_name:'مريض تجريبي', date:_fd(6), time:'11:00:00',
+        duration:30, type:'تركيب تاج', status:'confirmed', provider_id:null, arrived_at:null, seated_at:null, dismissed_at:null, created_at:_ts(1) }
     ],
     teeth_status: [
       { id:'demo-t1', doctor_id:'*', patient_id:'demo', tooth_num:16, surface:'O', treatment_key:'treated',   status:'completed', review_at:null, unit_id:null },
@@ -2395,6 +2402,8 @@ if (IS_DEMO) (function installDemoSandbox(){
      Only `origFrom(...).select(...)` ever reaches the database. ── */
   var OV = {}, HID = {}, PATCHES = {};
   function ovRows(t){ if (!OV[t]) OV[t] = []; return OV[t]; }
+  /* الجولة التعريفية: «مخبر تجريبي» جاهز بنافذة طلب المخبر — صفٌّ بالطبقة المحلية وحدها (لا يصل القاعدة أبداً) */
+  ovRows('labs').push({ id:'demo-lab1', doctor_id:'*', name:'مخبر تجريبي', phone:'0933000000', notes:'', is_active:true, created_at:_ts(30) });
   function Hybrid(table){
     var ops = [], filters = [], selArg = '*', selOpts = null,
         mode = 'select', payload = null, patch = null,

@@ -877,6 +877,8 @@ Object.assign(window.SyI18nDict, {
   'ابدأ بإضافة أول مريض الآن — لا يستغرق سوى 30 ثانية.': 'Add your first patient now — it takes only 30 seconds.',
   'إضافة أول مريض': 'Add the first patient',
   'مريض تجريبي': 'Demo patient',
+  'مخبر تجريبي': 'Demo lab',
+  'تركيب تاج': 'Crown fitting',
   '· رقم: 0': '· No. 0',
   'حذف': 'Delete',
   'بطاقة جاهزة للتجربة: مخطط أسنان معبّأ، جلسات، ومدفوعات — جرّب كل شيء بحرّية، لا شيء فيها يُحفظ أو يدخل في تقاريرك.': "A ready card to try things out: a filled dental chart, sessions and payments — try anything freely; nothing in it is saved or counted in your reports.",
