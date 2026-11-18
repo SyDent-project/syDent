@@ -116,7 +116,7 @@
      SyDialog.confirm({ title, message, confirmText, cancelText, danger })  → Promise<bool>
      SyDialog.prompt({ title, message, value, placeholder, confirmText })   → Promise<string|null>
      SyDialog.alert({ title, message })                                     → Promise<void>
-     SyDialog.choose({ title, message, choices: [{ label, sub }], cancelText }) → Promise<index|null>  (M215: خيارٌ من قائمة)
+     SyDialog.choose({ title, message, choices: [{ label, sub }], cancelText }) → Promise<index|null>  (ج2-ب-2: خيارٌ من قائمة)
    ثوابت: لا إغلاقَ بنقرةٍ خارجية (قرارٌ يُتَّخذ لا نافذةُ عرض) · Escape = إلغاء ·
    التركيزُ على زرِّ الإلغاء بالحوار الخطير وعلى الحقل بالإدخال · وعدٌ واحدٌ يُحسم
    مرةً واحدة مهما تكرّر الضغط. */

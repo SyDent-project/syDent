@@ -3500,7 +3500,7 @@ Object.assign(window.SyI18nDict, {
    «متابعة» وحدها بالقاموس = Continue (زرُّ المتابعة بالنوافذ)، فالزرُّ والوسمُ القصير يحملان data-en، والمرقَّم بنمط. */
 (function () {
   var D = window.SyI18nDict, P = window.SyI18nPatterns;
-  /* M215: موضعُ العلاج داخل نصٍّ مركّب — «سن N» والفكّان والأرباع؛ غيرُه (اسمُ العلاج) يبقى كما كتبته العيادة */
+  /* ج2-ب-2: موضعُ العلاج داخل نصٍّ مركّب — «سن N» والفكّان والأرباع؛ غيرُه (اسمُ العلاج) يبقى كما كتبته العيادة */
   function fuW(x) {
     return String(x).replace(/سن (\d+)/g, 'tooth $1').replace(/الفك (العلوي|السفلي)|الربع (العلوي|السفلي) (الأيمن|الأيسر)/g, function (p) { return D[p] || p; });
   }
@@ -3587,7 +3587,7 @@ Object.assign(window.SyI18nDict, {
     'تحجز الآن موعد الزيارة التالية لهذا العلاج؟': 'Book the next visit for this treatment now?',
     '📅 احجزها': '📅 Book it',
     'حذف الجلسة': 'Delete the session',
-    /* M215 (ج2-ب-2): زيارةٌ انتهت بلا علاجٍ مربوط ⇒ متابعةٌ لعلاجٍ قيد الإنجاز؟ (appt-followup.js) */
+    /* ج2-ب-2: زيارةٌ انتهت بلا علاجٍ مربوط ⇒ متابعةٌ لعلاجٍ قيد الإنجاز؟ (appt-followup.js) */
     'زيارة متابعة؟': 'A follow-up visit?',
     'هل كانت هذه الزيارة متابعةً له؟ تُسجَّل جلسةَ متابعة بلا تكلفة.': 'Was this visit a follow-up of it? It is recorded as a follow-up session at no charge.',
     'للمريض أكثر من علاجٍ قيد الإنجاز — هل كانت هذه الزيارة متابعةً لأحدها؟ تُسجَّل جلسةَ متابعة بلا تكلفة.': 'The patient has more than one treatment in progress — was this visit a follow-up of one of them? It is recorded as a follow-up session at no charge.',
@@ -3599,7 +3599,7 @@ Object.assign(window.SyI18nDict, {
   });
   P.push(
     [/^متابعة — (.+)$/, function (m, x) { return 'Follow-up — ' + (D[x] || x); }],
-    /* M215: «اسم العلاج — موضعه» داخل رسائل appt-followup.js — الاسمُ بيانات العيادة، والموضعُ يُترجم */
+    /* ج2-ب-2: «اسم العلاج — موضعه» داخل رسائل appt-followup.js — الاسمُ بيانات العيادة، والموضعُ يُترجم */
     [/^للمريض علاجٌ قيد الإنجاز: «(.+)»\.$/, function (m, x) { return 'The patient has a treatment in progress: «' + fuW(x) + '».'; }],
     [/^✅ سُجّلت جلسة متابعة لـ «(.+)»$/, function (m, x) { return '✅ Follow-up session recorded for «' + fuW(x) + '»'; }],
     [/^(?:(.+?) · )?منذ (\d{2}\/\d{2}\/\d{4})$/, function (m, w, d) { return (w ? fuW(w) + ' · ' : '') + 'since ' + d; }],   /* M213: اسمُ صفّ المتابعة بنافذة الموعد وصفحة المواعيد */

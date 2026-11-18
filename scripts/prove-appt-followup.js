@@ -1,4 +1,4 @@
-/* prove-appt-followup.js — ج2-ب-2 (M215): زيارةٌ انتهت بلا علاجٍ مربوط ومريضُها له علاجٌ «قيد الإنجاز» ⇒ سؤالٌ واحد
+/* prove-appt-followup.js — ج2-ب-2: زيارةٌ انتهت بلا علاجٍ مربوط ومريضُها له علاجٌ «قيد الإنجاز» ⇒ سؤالٌ واحد
    «هل كانت متابعةً له؟» على appt-followup.js وsy-modal.js الحيّين (jsdom) فوق قاعدةٍ وهمية بدلالة RLS/M210:
    (١) متى يُسأل ومتى يصمت · (٢) «نعم» = session_followup_add بيوم الموعد وطبيبه ثم ربطُها بالموعد · (٣) «لا» = صفرُ كتابة ·
    (٤) أكثر من علاج ⇒ SyDialog.choose الحقيقي · (٥) الخطّافات الخمسة بالصفحات الثلاث · (٦) الإنجليزية بالمحرّك الحقيقي.
@@ -111,7 +111,13 @@ function extractFunction(src, name) {
 
 async function run(F) {
   const out = [], ok = (c, m) => out.push([!!c, m]), bag = [];
-  const guard = async (name, fn) => { try { await fn(); } catch (e) { ok(false, name + ' — threw: ' + (e && e.message)); } };
+  /* كلُّ قسمٍ بمهلة: وعدٌ معلّق (حوارٌ لم يُجب) كان يُفرغ حلقةَ الأحداث فيخرج Node بصمتٍ وبرمز 0 — والصمتُ هنا نجاحٌ كاذب */
+  const guard = async (name, fn) => {
+    let timer;
+    try { await Promise.race([fn(), new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('hung — a dialog or a call never settled')), 10000); })]); }
+    catch (e) { ok(false, name + ' — threw: ' + (e && e.message)); }
+    finally { clearTimeout(timer); }
+  };
 
   /* (١) سؤالٌ واحد · «نعم» */
   await guard('yes', async () => {
@@ -154,6 +160,10 @@ async function run(F) {
     await silent('another patient\'s treatment', A('a3'), [S('b1', { patient_id: 'p2' })]);
     await silent('a follow-up already recorded that day for it', A('a4'), [S('b1'), S('k0', { parent_id: 'b1', followup_state: null, date: TODAY, cost: 0 })]);
     await silent('an appointment in the future', A('a5', { date: '2026-11-19' }), [S('b1')]);
+    const y = await boot(F); y.__DB.appointments.push(A('ay', { date: '2026-11-17' })); y.__DB.ledger_sessions.push(S('b1'));
+    const py = y.SyApptFu.offer('ay'); await answer(y, 'ok'); await py;
+    ok(y.__RPC.length === 1 && y.__RPC[0].a.p_date === '2026-11-17', 'a visit closed the next day is recorded on its appointment day, not today');
+    y.close();
     await silent('a planned appointment without a date', A('a6', { date: null, is_planned: true }), [S('b1')]);
     await silent('a treatment that started after the visit', A('a7', { date: '2026-11-05' }), [S('b1')]);
     await silent('read-only subscription', A('a8'), [S('b1')], v => { v.__ro = true; });
@@ -176,6 +186,9 @@ async function run(F) {
     let pv = v.SyApptFu.offer('a1'); await answer(v, 'cancel'); ok(await pv === null && v.__RPC.length === 0, '«ليست متابعة» writes nothing');
     v.__DB.appointments.push(A('a2'));
     pv = v.SyApptFu.offer('a2'); await answer(v, 'esc'); ok(await pv === null && v.__RPC.length === 0 && !dlg(v), 'Escape (the close path) resolves as «no» and removes the dialog');
+    let pc = v.SyDialog.choose({ title: 'T', choices: [{ label: 'x' }, { label: 'y', sub: 's' }] }); await answer(v, 'cancel'); const rc1 = await pc;
+    pc = v.SyDialog.choose({ title: 'T', choices: [{ label: 'x' }, { label: 'y' }] }); await answer(v, 1); const rc2 = await pc;
+    ok(rc1 === null && rc2 === 1 && !dlg(v), 'SyDialog.choose resolves the picked index, and exactly null when cancelled');
     v.close();
   });
 
@@ -238,7 +251,7 @@ const rep = (f, a, b) => F => { if (F[f].indexOf(a) < 0) throw new Error('طفر
 const MUT = [
   ['asks despite linked sessions', rep('appt-followup.js', "if (!rl || rl.error || (rl.data || []).length) return null;", "if (!rl || rl.error) return null;")],
   ['asks for a future appointment', rep('appt-followup.js', "    if (day > today()) return null;\n", '')],
-  ['asks for closed treatments', rep('appt-followup.js', ".eq('followup_state', 'open').is('parent_id', null)", ".is('parent_id', null)")],
+  ['asks for closed treatments', F => rep('appt-followup.js', " && b.followup_state === 'open' && ", ' && ')(rep('appt-followup.js', ".eq('followup_state', 'open').is('parent_id', null)", ".is('parent_id', null)")(F))],
   ['asks about another patient', rep('appt-followup.js', ".eq('patient_id', a.patient_id).eq('followup_state', 'open')", ".eq('followup_state', 'open')")],
   ['asks twice the same day', rep('appt-followup.js', "    bases = bases.filter(function (b) { return !done[b.id]; });\n", '')],
   ['asks for a treatment started later', rep('appt-followup.js', " && (!b.date || String(b.date).slice(0, 10) <= day)", '')],
@@ -254,7 +267,7 @@ const MUT = [
   ['no event for the card', rep('appt-followup.js', "    try { window.dispatchEvent(new CustomEvent('sy:followup-added',", "    try { if (0) window.dispatchEvent(new CustomEvent('sy:followup-added',")],
   ['records without asking', rep('appt-followup.js', "      return ok ? c.bases[0] : null;", "      return c.bases[0];")],
   ['several treatments: always the first', rep('appt-followup.js', "    return (typeof i === 'number' && c.bases[i]) ? c.bases[i] : null;", "    return c.bases[0];")],
-  ['failure announced as success', rep('appt-followup.js', "    if (!res || res.error || !res.data || !res.data.session) {", "    if (!res || !res.data || !res.data.session) {")],
+  ['failure not reported', rep('appt-followup.js', "    if (!res || res.error || !res.data || !res.data.session) {", "    if (!res) {")],
   ['unescaped choice', rep('sy-modal.js', "'<span class=\"sy-dialog-choice-l\">' + esc(c && c.label) + '</span>'", "'<span class=\"sy-dialog-choice-l\">' + (c && c.label) + '</span>'")],
   ['choose keeps an OK button', rep('sy-modal.js', "(isChoose ? '' : '<button type=\"button\" class=\"btn-sy-ok'", "('' + '<button type=\"button\" class=\"btn-sy-ok'")],
   ['choose cancel resolves true', rep('sy-modal.js', "        if (kind === 'choose') { finish(null); return; }\n", '')],
@@ -271,13 +284,17 @@ const MUT = [
 ];
 
 (async () => {
+  let settled = false;
+  process.on('exit', code => { if (!settled && code === 0) { console.error('prove-appt-followup ❌ exited before finishing'); process.exitCode = 1; } });
   const res = await run(LIVE), bad = res.filter(x => !x[0]);
   if (bad.length) { bad.forEach(x => console.error('  ✗ ' + x[1])); console.error('prove-appt-followup ❌ ' + bad.length + '/' + res.length); process.exit(1); }
-  if (process.argv.indexOf('--self-test') < 0) { console.log('prove-appt-followup ✅ ' + res.length + ' توكيداً'); return; }
+  if (process.argv.indexOf('--self-test') < 0) { settled = true; console.log('prove-appt-followup ✅ ' + res.length + ' توكيداً'); return; }
+  settled = true;   /* من هنا: عمّالُ mutant-pool يخرجون بأنفسهم، وكلُّ قسمٍ له مهلته */
   const anchorless = [];
   MUT.forEach(([name, mut]) => { try { mut(LIVE); } catch (e) { anchorless.push(name + ' (' + e.message + ')'); } });
   const pool = await runMutants(MUT, async ([, mut]) => { let F2; try { F2 = mut(LIVE); } catch (e) { return false; } const r = await run(F2); return r.some(x => !x[0]); });
   const dull = pool.dull.map(i => MUT[i][0]).filter(n => !anchorless.some(a => a.indexOf(n + ' (') === 0)).concat(anchorless);
   if (dull.length || pool.failed.length) { dull.forEach(n => console.error('  ✗ طفرةٌ لم تعضّ: ' + n)); if (pool.failed.length) console.error('  ✗ عاملٌ مات: ' + pool.failed.join()); console.error('prove-appt-followup ❌ ' + pool.bit + '/' + MUT.length); process.exit(1); }
+  settled = true;
   console.log('prove-appt-followup ✅ ' + res.length + ' توكيداً · ' + pool.bit + '/' + MUT.length + ' طفرات تعضّ');
 })();

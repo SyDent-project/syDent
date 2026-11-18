@@ -3886,7 +3886,7 @@ async function submitAppt(e) {
       if (editingId && window._portalApproveCtx && window._portalApproveCtx.apptId === editingId && typeof portalApproveSaved === 'function') {
         portalApproveSaved(window._portalApproveCtx, apptData);
       }
-      /* M215 (ج2-ب-2): الموعدُ صار «مكتمل» الآن ⇒ هل كانت الزيارة متابعةً لعلاجٍ قيد الإنجاز؟ (appt-followup.js — يسأل بنفسه أو يصمت) */
+      /* ج2-ب-2: الموعدُ صار «مكتمل» الآن ⇒ هل كانت الزيارة متابعةً لعلاجٍ قيد الإنجاز؟ (appt-followup.js — يسأل بنفسه أو يصمت) */
       var _fuOfferId = (apptData.status === 'completed' && _wlOrig && _wlOrig.status !== 'completed') ? editingId : null;
       closeModal();
       // Gap 7: if user just scheduled a planned appt, jump them to schedule tab
