@@ -855,11 +855,7 @@ body.ai-on #aiHubBtn{display:inline-block;}
 /* أزرارُ الصفّ لا تُقصّ ولا تختفي (صورة المالك 18/11/2026: «كل شغلة بتشتغلها بتأثر زر الحذف»): كلُّ خانةٍ أو شارةٍ جديدة كانت تدفع
    عمودَ الأزرار خارج البطاقة. (١) البطاقةُ الضيّقة (لابتوب مع الشريط): الأزرارُ أيقوناتٌ بتلميحها — العمودُ ~126px بدل 264px.
    (٢) جدولٌ ما زال أعرض من بطاقته (sc-wide) ⇒ عمودُ الأزرار ملتصقٌ بحافّتها والباقي يُمرَّر خلفه — «حذف» ظاهرٌ دائماً. */
-@container mc (min-width:981px) and (max-width:1100px){
-  .sess-table td.sc-actions{--ss1:40px;--ss2:40px;--ss3:40px;}
-  .sess-table td.sc-actions .sy-act-lbl{display:none;}
-  .sess-table td.sc-actions .sy-act{padding-inline:0;justify-content:center;}
-}
+@container mc (min-width:981px) and (max-width:1100px){ .sess-table td.sc-actions{--ss1:40px;--ss2:40px;--ss3:40px;} }   /* الأيقونةُ وحدها: theme.css (.sy-act-lbl) */
 @container mc (min-width:981px){
   #sessionsContent.sc-wide .sess-table td.sc-actions,#sessionsContent.sc-wide .sess-table thead th:last-child{position:sticky;inset-inline-end:0;z-index:2;background:var(--bg2);border-inline-start:1px solid var(--border);}
 }
