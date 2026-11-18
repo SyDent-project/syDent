@@ -35,7 +35,9 @@ var FU_STEPS = {
   _default: ['مراجعة', 'استكمال العلاج', 'فك القطب']
 };
 /* كلماتٌ مفردة ملتبسة خارج القاموس الإنجليزي المشترك («تجربة» اسمُ خطة اشتراكٍ أيضاً) — شريحتُها تحمل نصَّها الإنجليزي صريحاً (data-en) */
-var FU_STEP_EN = { 'طبعة': 'Impression', 'تجربة': 'Try-in', 'تسليم': 'Fit', 'ضماد': 'Dressing', 'مراجعة': 'Review' };
+var FU_STEP_EN = { 'طبعة': 'Impression', 'تجربة': 'Try-in', 'تسليم': 'Fit', 'ضماد': 'Dressing', 'مراجعة': 'Review', 'تجربة الهيكل': 'Framework try-in' };   /* ج2-ج: «تجربة الهيكل» اسمُ مرحلة مخبر */
+/* خطوةُ متابعةٍ مخزّنة تطابق كلمةً ملتبسة (أو اسمَ مرحلة مخبر) ⇒ إنجليزيتُها على العنصر نفسه (data-en) — القاموسُ المشترك لا يحملها */
+function fuStepEnAttr(step) { var e = FU_STEP_EN[String(step == null ? '' : step).trim()]; return e ? ' data-en="' + fuEsc(e) + '"' : ''; }
 var FU_STEP_MAX = 80, FU_NOTES_MAX = 2000;
 
 function fuList(list) { return list || ((typeof sessions !== 'undefined' && sessions) ? sessions : []); }
@@ -267,7 +269,7 @@ function fuBaseSummaryHtml(base) {
     h += '<div class="fu-prev">';
     kids.forEach(function (k, i) {
       h += '<div class="fu-prev-row"><span class="fu-prev-n">متابعة ' + (i + 1) + '</span><span class="fu-prev-d">' + fuEsc(fuDate(k.date)) + '</span>'
-        + '<span class="fu-prev-t">' + fuEsc(k.description || '—') + '</span>'
+        + '<span class="fu-prev-t"' + fuStepEnAttr(k.description) + '>' + fuEsc(k.description || '—') + '</span>'
         + ((k.status || 'completed') === 'planned' ? '<span class="sess-chip tone tone-yellow">مخطّطة</span>' : '') + '</div>';   /* M213 */
     });
     h += '</div>';
