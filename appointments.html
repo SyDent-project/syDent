@@ -28,6 +28,7 @@
 <script src="/vendor/supabase-2.110.8.min.js"></script>
 <script src="supabase-init.js?v=20261118k"></script>
 <script src="sy-modal.js?v=20261118k"></script>
+<script src="appt-followup.js?v=20261118k"></script>
 <script src="appt-conflict.js?v=20261118k"></script>
 <script src="pt-reliability.js?v=20261118k"></script>
 <script src="sched-blocks.js?v=20261118k"></script>
@@ -3885,6 +3886,8 @@ async function submitAppt(e) {
       if (editingId && window._portalApproveCtx && window._portalApproveCtx.apptId === editingId && typeof portalApproveSaved === 'function') {
         portalApproveSaved(window._portalApproveCtx, apptData);
       }
+      /* M215 (ج2-ب-2): الموعدُ صار «مكتمل» الآن ⇒ هل كانت الزيارة متابعةً لعلاجٍ قيد الإنجاز؟ (appt-followup.js — يسأل بنفسه أو يصمت) */
+      var _fuOfferId = (apptData.status === 'completed' && _wlOrig && _wlOrig.status !== 'completed') ? editingId : null;
       closeModal();
       // Gap 7: if user just scheduled a planned appt, jump them to schedule tab
       if (prevWasPlanned && !isPlannedNow && apptData.date) {
@@ -3893,6 +3896,7 @@ async function submitAppt(e) {
         setMainTab('planned');
       }
       await loadAppointments();
+      if (_fuOfferId && window.SyApptFu) window.SyApptFu.offer(_fuOfferId);
       // H3 fix: refresh phone cache if the appointment was for a patient added
       // in another tab (so WhatsApp reminder for this appt can find the phone).
       if (_needsPatientCacheRefresh) await loadPatientPhones();

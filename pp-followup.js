@@ -390,6 +390,19 @@ function fuLinkDate(row, apptDate) {
   var d = apptDate ? String(apptDate).slice(0, 10) : '';
   return (/^\d{4}-\d{2}-\d{2}$/.test(d) && d >= toDay() && d !== String(row.date || '').slice(0, 10)) ? d : null;
 }
+/* M215: جلسةُ متابعة سُجّلت من موعدٍ انتهى (appt-followup.js) ⇒ جدولُ هذا المريض يعرضها فوراً */
+function fuOnAdded(ev) {
+  var d = ev && ev.detail, k = d && d.session;
+  if (!k || !k.id || typeof sessions === 'undefined' || !Array.isArray(sessions)) return;
+  if (typeof patientId !== 'undefined' && k.patient_id !== patientId) return;
+  if (!sessions.some(function (s) { return s && s.id === k.id; })) sessions.unshift(k);
+  if (typeof sortByDateDesc === 'function') sortByDateDesc(sessions);
+  var base = sessions.filter(function (s) { return s && s.id === d.baseId; })[0];
+  if (base) base.followup_state = d.state || 'open';
+  _fuExpanded[d.baseId] = true;
+  fuRerender();
+}
+if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('sy:followup-added', fuOnAdded);
 /* الزيارةُ التالية المخطّطة لهذا العلاج (إن وُجدت) */
 function fuNextPlanned(baseId) {
   return fuChildren(baseId).filter(function (k) { return (k.status || 'completed') === 'planned'; })[0] || null;

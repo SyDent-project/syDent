@@ -271,6 +271,7 @@ async function recordApptTime(apptId, fieldKey, btnEl) {
       var _pn = local ? (typeof getPatientName === 'function' ? getPatientName(local.patient_id) : '') || local.patient_name || '' : '';
       showToast(_stage.label + (_pn ? ' — ' + _pn : '') + ' · ' + fmtTime12(new Date(patch[fieldKey]).toTimeString().slice(0,5)));
     }
+    if (fieldKey === 'dismissed_at' && window.SyApptFu) window.SyApptFu.offer(apptId);   /* M215: خرج بلا علاجٍ مربوط ⇒ متابعةٌ لعلاجٍ قيد الإنجاز؟ */
     return true;
   } catch (e) {
     console.error('recordApptTime exception:', e);

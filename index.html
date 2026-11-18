@@ -761,6 +761,7 @@
 <script src="/vendor/supabase-2.110.8.min.js"></script>
 <script src="supabase-init.js?v=20261118k"></script>
 <script src="sy-modal.js?v=20261118k"></script>
+<script src="appt-followup.js?v=20261118k"></script>
 <script src="pt-reliability.js?v=20261118k"></script>
 <script src="huddle-flags.js?v=20261118k"></script>
 <script src="pay-methods.js?v=20261118k"></script>
@@ -2764,6 +2765,7 @@ async function recordDashApptTime(apptId, fieldKey, btnEl) {
     // Sync the Waiting Room widget so the patient appears/disappears live.
     if (_dashUid) loadWaitingRoom(_dashUid);
     if (window.showToast) window.showToast(_stageLbl + (_implicitConfirm ? ' (وتأكّد الموعد)' : '') + (_rowName ? ' — ' + _rowName : '') + ' · ' + fmtTime12(new Date(nowIso).toTimeString().slice(0,5)));
+    if (fieldKey === 'dismissed_at' && window.SyApptFu) window.SyApptFu.offer(apptId);   /* M215: خرج بلا علاجٍ مربوط ⇒ متابعةٌ لعلاجٍ قيد الإنجاز؟ */
   } catch (e) {
     console.error('recordDashApptTime exception:', e);
     _dashStampFail();

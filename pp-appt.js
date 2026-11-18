@@ -123,6 +123,7 @@ async function _saveAppt_inner() {
 
   var migrationMissing = false;
   var savedRow = null;
+  var _fuPrevSt = editingApptId ? ((allAppointmentsForTl || []).find(function(a){ return a && a.id === editingApptId; }) || {}).status : null;   /* M215 */
 
   if (editingApptId) {
     // v335: دفاعٌ بالعمق — موعدٌ يحمل أختامَ حضور (زيارةٌ صارت بيومها) لا يُعاد
@@ -245,6 +246,8 @@ async function _saveAppt_inner() {
   } else {
     showToast('✅ تم حفظ الموعد في التقويم');
   }
+  /* M215 (ج2-ب-2): الموعدُ صار «مكتمل» الآن ⇒ هل كانت الزيارة متابعةً لعلاجٍ قيد الإنجاز؟ */
+  if (savedRow && savedRow.id && savedRow.status === 'completed' && _fuPrevSt !== 'completed' && window.SyApptFu) window.SyApptFu.offer(savedRow.id);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -1601,5 +1604,6 @@ async function _ppApptStamp_inner(apptId, fieldKey) {
   var hm = (t.getHours() < 10 ? '0' : '') + t.getHours() + ':' + (t.getMinutes() < 10 ? '0' : '') + t.getMinutes();
   showToast(stg.label + ((patient && patient.name) ? ' — ' + patient.name : '') + ' · ' + ppApptTime(hm)
     + (offline ? ' (بلا اتصال — يُرفع عند العودة)' : ''));
+  if (fieldKey === 'dismissed_at' && !offline && window.SyApptFu) window.SyApptFu.offer(apptId);   /* M215: خرج بلا علاجٍ مربوط ⇒ متابعةٌ لعلاجٍ قيد الإنجاز؟ */
   return true;
 }
