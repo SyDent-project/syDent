@@ -852,6 +852,13 @@ body.ai-on #aiHubBtn{display:inline-block;}
 .sess-table th,.sess-table td{padding:10px 8px;}
 .sess-table td.sc-date{white-space:nowrap;color:var(--text2);line-height:1.5;}
 .sess-table td.sc-details{min-width:150px;}
+/* أزرارُ الصفّ لا تُقصّ ولا تختفي (صورة المالك 18/11/2026: «كل شغلة بتشتغلها بتأثر زر الحذف»): كلُّ خانةٍ أو شارةٍ جديدة كانت تدفع
+   عمودَ الأزرار خارج البطاقة. (١) البطاقةُ الضيّقة (لابتوب مع الشريط): الأزرارُ أيقوناتٌ بتلميحها — العمودُ ~126px بدل 264px.
+   (٢) جدولٌ ما زال أعرض من بطاقته (sc-wide) ⇒ عمودُ الأزرار ملتصقٌ بحافّتها والباقي يُمرَّر خلفه — «حذف» ظاهرٌ دائماً. */
+@container mc (min-width:981px) and (max-width:1280px){ .sess-table td.sc-actions{--ss1:40px;--ss2:40px;--ss3:40px;} }   /* الأيقونةُ وحدها: theme.css (.sy-act-lbl) */
+@container mc (min-width:981px){
+  #sessionsContent.sc-wide .sess-table td.sc-actions,#sessionsContent.sc-wide .sess-table thead th:last-child{position:sticky;inset-inline-end:0;z-index:2;background:var(--bg2);border-inline-start:1px solid var(--border);}
+}
 @container mc (max-width:1100px){ .sess-table th,.sess-table td{padding-inline:5px;} .sess-table td.sc-details{min-width:120px;} }   /* M210: الشريحةُ بين البطاقات (≤980) والعرض الكامل — حواشٍ أضيق فيتّسع الجدولُ لبطاقته (لابتوب 1280 مع الشريط الجانبي) */
 .sess-type{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;}
 .sess-chip{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;border-width:1px;border-style:solid;}
