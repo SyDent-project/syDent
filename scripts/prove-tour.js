@@ -93,6 +93,10 @@ function run(F) {
 
   ok(/navigator\.webdriver && localStorage\.getItem\('sydent\.tour\.autostart'\) !== '1'/.test(F['tour.js']) && /!st\.done && !st\.snoozed && !automated/.test(F['tour.js']), 'no self-start under browser automation (E2E clicks are never blocked) unless the test asks for it');
 
+  // (٤ج) نافذة الطلب البطيئة: خطوات السن قبلها تتقدّم إليها متى فُتحت، والنقر على «حفظ + إرسال لمخبر» يُمهل فتحها
+  const aheadN = (F['tour.js'].match(/ahead: AHEAD_LAB/g) || []).length;
+  ok(aheadN >= 4 && /id: 'lab-fill'/.test(F['tour.js']) && /closest\('#toothLabBtn'\)\) labWaitUntil = Date\.now\(\) \+ \d+/.test(F['tour.js']) && /dir >= 0 && s\.ahead && s\.ahead\.when\(\) && jumpTo/.test(F['tour.js']),
+    'a slow lab window never sends the tour back to the tooth (wait after «Save + send to lab» · tooth steps jump ahead once it opens)');
   // (٥) البطاقة التجريبية
   const pp = F['patient-profile.html'];
   const demoStart = pp.indexOf('var IS_DEMO = '), demoEnd = pp.indexOf('real.from = function', demoStart);
@@ -132,6 +136,8 @@ if (process.argv.includes('--self-test')) {
     ['an inventory button that does not exist', f => { f['tour.js'] = f['tour.js'].replace('[onclick="openCountModal()"]', '[onclick="openStockCount()"]'); }],
     ['the expiry window changes without the tour', f => { f['inventory.html'] = f['inventory.html'].replace('if (days <= 30) return', 'if (days <= 45) return'); }],
     ['the inventory tour is gone', f => { f['tour.js'] = f['tour.js'].replace('labs: LABS, inventory: INVENTORY', 'labs: LABS'); }],
+    ['the tooth steps no longer jump ahead to the open lab window', f => { f['tour.js'] = f['tour.js'].split('ahead: AHEAD_LAB, ').join(''); }],
+    ['no wait after «Save + send to lab»', f => { f['tour.js'] = f['tour.js'].replace("labWaitUntil = Date.now() + 15000", "labWaitUntil = 0"); }],
     ['a tour loses its final step', f => { f['tour.js'] = f['tour.js'].replace("{ center: true, final: true, ico: '🎉',\n      title: { ar: 'أنت جاهز!', en: 'You\\'re all set!' },\n      body: { ar: 'الدورة", "{ center: true, ico: '🎉',\n      title: { ar: 'أنت جاهز!', en: 'You\\'re all set!' },\n      body: { ar: 'الدورة"); }]
   ];
   let caught = 0;

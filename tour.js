@@ -89,7 +89,7 @@
     { sel: function () { return nav('patients.html'); }, ico: '👥',
       title: { ar: 'المرضى', en: 'Patients' },
       body: { ar: 'ملفّ كل مريضٍ في مكانٍ واحد: البيانات، و<b>مخطط الأسنان</b>، والجلسات، والمدفوعات، والوثائق.', en: 'Each patient\'s file in one place: details, the <b>dental chart</b>, sessions, payments and documents.' },
-      tip: { ar: 'جرّب كل شيء على <b>البطاقة التجريبية</b> دون أن يُحفظ شيء — تفتحها من آخر هذه الجولة، وتظهر في صفحة المرضى ما دامت قائمتك فارغة.', en: 'Try everything on the <b>demo card</b> without saving anything — open it from the end of this tour; it also shows on the Patients page while your list is empty.' } },
+      tip: { ar: 'جرّب كل شيء على <b>البطاقة التجريبية</b> دون أن يُحفظ شيء — تفتحها من آخر هذه الجولة، وتبقى في أول قائمة المرضى حتى تحذفها، ولا تأخذ رقماً.', en: 'Try everything on the <b>demo card</b> without saving anything — open it from the end of this tour; it stays at the top of the Patients list until you delete it, and takes no number.' } },
     { sel: function () { return nav('appointments.html'); }, ico: '📅',
       title: { ar: 'المواعيد', en: 'Appointments' },
       body: { ar: 'جدول العيادة بعرضٍ يومي أو أسبوعي أو شهري، و<b>طلبات الحجز</b> الإلكتروني، و<b>تذكير المرضى</b> عبر واتساب.', en: 'The clinic schedule by day, week or month, online <b>booking requests</b>, and <b>patient reminders</b> on WhatsApp.' } },
@@ -135,6 +135,14 @@
   }
   function labBtnShown() { var b = $('#toothLabBtn'); return !!(b && modalOpen('toothModal') && b.style.display !== 'none' && shown(b)); }
   function labModal() { return modalOpen('labOrderModal'); }
+  /* بعد نقر «حفظ + إرسال لمخبر» تُغلق نافذة السن فوراً، أمّا نافذة الطلب فتنتظر الحفظ وقراءاتٍ من الشبكة —
+     على الموبايل قد تتأخّر ثوانٍ. هذه المهلة تمنع الجولة من اعتبار الشاشة «ضاعت» فتعود إلى السن في الفراغ. */
+  var labWaitUntil = 0;
+  function labOpening() { return Date.now() < labWaitUntil; }
+  function inTooth() { return modalOpen('toothModal') || labOpening() || labModal(); }
+  function inLabBtn() { return labBtnShown() || labOpening() || labModal(); }
+  /* نافذة الطلب فُتحت (بنقرة الطبيب أو متأخّرةً): خطوات السن التي قبلها انتهت — تقدّمٌ إلى أول خطوةٍ في النافذة */
+  var AHEAD_LAB = { when: labModal, to: 'lab-fill' };
   var LOST_LAB = { to: 'lab-tab' };
 
   var PATIENT = [
@@ -182,7 +190,7 @@
       tip: { ar: 'لتجربة الخطوات عملياً دون حفظ أي شيء: افتح <b>البطاقة التجريبية</b> من الزرّ في آخر هذه الجولة.', en: 'To try the steps hands-on without saving anything, open the <b>demo card</b> from the button at the end of this tour.' } },
 
     /* ② بالبطاقة التجريبية: تفاعلي */
-    { chap: 2, demo: true, id: 'lab-start', ico: '👆', prep: function () { return closeOpenModals() + goTab('file'); },
+    { chap: 2, demo: true, id: 'lab-start', ico: '👆', ahead: AHEAD_LAB, prep: function () { labWaitUntil = 0; return closeOpenModals() + goTab('file'); },
       sel: function () { return $('[data-occ-cell="27"]') || $('[data-tooth-cell="27"]'); },
       act: { done: function () { return modalOpen('toothModal'); }, doIt: function (t) {
         /* النقرُ يُقرأ من السطح تحت المؤشّر (مسار SVG) لا من الخلية — فنرسله لما في منتصف السن */
@@ -198,27 +206,27 @@
       } },
       title: { ar: 'ابدأ من السن', en: 'Start from the tooth' },
       body: { ar: 'سنرسل <b>تاجاً</b> للسن 27 إلى المخبر. البداية دائماً من <b>السن نفسه</b>، فيرتبط الطلب بالسن والجلسة والموعد تلقائياً. <b>اضغط على السن 27.</b>', en: 'We will send a <b>crown</b> for tooth 27 to the lab. Always start from <b>the tooth itself</b>, so the order is tied to the tooth, session and appointment. <b>Tap tooth 27.</b>' } },
-    { chap: 2, demo: true, ico: '🔗', need: function () { return modalOpen('toothModal'); }, onLost: { to: 'lab-start' },
+    { chap: 2, demo: true, ico: '🔗', ahead: AHEAD_LAB, need: inTooth, onLost: { to: 'lab-start' },
       sel: function () { return $('#toothModal .tx-tab[data-txtab="prosthodontics"]'); },
       act: { done: function () { var t = $('#toothModal .tx-tab[data-txtab="prosthodontics"]'); return !!(t && t.classList.contains('tx-tab-active')); }, doIt: function (t) { t.click(); } },
       title: { ar: 'فئة العلاج', en: 'Treatment category' },
       body: { ar: 'افتح فئة <b>«تعويضات ثابتة»</b>.', en: 'Open the <b>«Fixed prosthodontics»</b> category.' } },
-    { chap: 2, demo: true, ico: '🥽', need: function () { return modalOpen('toothModal'); }, onLost: { to: 'lab-start' },
+    { chap: 2, demo: true, ico: '🥽', ahead: AHEAD_LAB, need: inTooth, onLost: { to: 'lab-start' },
       sel: function () { return crownOpt(); },
       act: { done: labBtnShown, doIt: function (t) { t.click(); } },
       title: { ar: 'اختر التاج', en: 'Pick the crown' },
       body: { ar: 'اختر <b>التاج</b>. لأنه مفعّلٌ عليه <b>«يحتاج مخبراً»</b> في قائمة العلاجات، يظهر زرّ الإرسال إلى المخبر.', en: 'Pick the <b>crown</b>. Because it is marked <b>«Needs a lab»</b> in the treatment list, the send-to-lab button appears.' },
       tip: { ar: 'فعّل «يحتاج مخبراً» مرةً واحدة لكل علاجٍ مخبري (تيجان، جسور، أجهزة…) من صفحة قائمة العلاجات.', en: 'Mark «Needs a lab» once for each lab treatment (crowns, bridges, dentures…) on the treatment list page.' } },
-    { chap: 2, demo: true, ico: '📌', need: labBtnShown, onLost: { to: 'lab-start' }, sel: function () { return $('#toothStatusPicker'); },
+    { chap: 2, demo: true, ico: '📌', ahead: AHEAD_LAB, need: inLabBtn, onLost: { to: 'lab-start' }, sel: function () { return $('#toothStatusPicker'); },
       title: { ar: 'منجز أم مخطّط؟', en: 'Done or planned?' },
       body: { ar: 'الحالة تحدّد كيف يُفتح طلب المخبر: <b>منجز</b> (أخذتَ الطبعة اليوم) ⇐ يُفتح <b>بتاريخ إرسال اليوم</b>. <b>مخطّط</b> (لم تُؤخذ الطبعة بعد) ⇐ يُفتح <b>مسودّة</b> بلا تاريخ إرسال، وترسله حين تأخذ الطبعة. في هذه التجربة اتركه «منجز».', en: 'The status decides how the lab order opens: <b>Done</b> (impression taken today) ⇒ it opens <b>with today as the send date</b>. <b>Planned</b> (no impression yet) ⇒ it opens as a <b>draft</b> with no send date, and you send it when you take the impression. For this walkthrough, leave it on «Done».' },
       tip: { ar: 'مع «منجز» يظهر <b>🔁 يحتاج جلسات متابعة</b> مُعلَّماً للتاج، لأنه يمتدّ على زيارات (تحضير ثم تركيب): تُضاف زياراته اللاحقة بـ«＋ متابعة» دون تكلفة.', en: 'With «Done», <b>🔁 Needs follow-up sessions</b> is ticked for a crown, as it spans visits (prep, then fitting): its later visits are added with «＋ Follow-up» at no cost.' } },
-    { chap: 2, demo: true, ico: '🥽', need: labBtnShown, onLost: { to: 'lab-start' }, sel: function () { return $('#toothLabBtn'); },
+    { chap: 2, demo: true, ico: '🥽', need: inLabBtn, onLost: { to: 'lab-start' }, sel: function () { return $('#toothLabBtn'); },
       act: { done: labModal, doIt: function (t) { t.click(); } },
       title: { ar: '«حفظ + إرسال لمخبر»', en: '«Save + send to lab»' },
       body: { ar: 'يظهر هذا الزر <b>للعلاجات المخبرية وحدها</b>: يحفظ الجلسة ويفتح طلب المخبر <b>مباشرةً</b> دون مغادرة الملف. <b>اضغطه.</b>', en: 'This button appears <b>only for lab treatments</b>: it saves the session and opens the lab order <b>straight away</b>, without leaving the file. <b>Tap it.</b>' },
       tip: { ar: '<b>للجسر:</b> اضغط على <b>السن المقلوع</b> (مكان الفراغ) واختر «جسر» — تُحدَّد الدعامات تلقائياً ويمكنك إضافة دعامة — ثم الزر نفسه يفتح طلباً واحداً للجسر كله.', en: '<b>For a bridge:</b> tap the <b>missing tooth</b> (the gap) and pick «Bridge» — the abutments are set automatically and you can add one — then the same button opens one order for the whole bridge.' } },
-    { chap: 2, demo: true, ico: '✅', need: labModal, onLost: LOST_LAB, sel: function () { var a = rowOf('labOrderTooth'); return a ? (a.parentElement && a.parentElement.contains($('#labOrderWorkType')) ? a.parentElement : a) : null; },
+    { chap: 2, demo: true, id: 'lab-fill', ico: '✅', need: labModal, onLost: LOST_LAB, sel: function () { var a = rowOf('labOrderTooth'); return a ? (a.parentElement && a.parentElement.contains($('#labOrderWorkType')) ? a.parentElement : a) : null; },
       title: { ar: 'معبّأ تلقائياً', en: 'Filled in for you' },
       body: { ar: '<b>رقم السن ونوع العمل</b> جاءا من الجلسة التي حفظتها — لا حاجة لإعادة كتابتهما.', en: 'The <b>tooth number and work type</b> come from the session you just saved — no need to type them again.' },
       tip: { ar: 'و<b>الطبيب المعالج</b> يُعبّأ من الجلسة أو الموعد — وعليه تُحتسب كلفة المخبر في تقارير الأطباء. وللأعمال المتكررة احفظ الطلب <b>🧩 قالباً</b>.', en: 'The <b>treating dentist</b> is filled from the session or appointment — the lab cost is counted against them in the dentist reports. For repeated work, save the order as a <b>🧩 template</b>.' } },
@@ -496,6 +504,7 @@
     document.body.classList.add('sdt-on');
     el.blk.concat([el.scrim, el.spot, el.card]).forEach(function (n) { n.hidden = false; });
     document.addEventListener('keydown', onKey, true);
+    document.addEventListener('click', onDocClick, true);
     window.addEventListener('resize', reflow); window.addEventListener('scroll', reflow, true);
     poll = setInterval(tick, 300);
     show(1);
@@ -506,6 +515,7 @@
     el.card.classList.remove('on'); el.spot.classList.remove('on'); el.scrim.classList.remove('on');
     setTimeout(function () { if (!active) hideAll(); }, 220);
     document.removeEventListener('keydown', onKey, true);
+    document.removeEventListener('click', onDocClick, true);
     window.removeEventListener('resize', reflow); window.removeEventListener('scroll', reflow, true);
     if (isMobile()) drawer(false);
     if (lastFocus && lastFocus.focus) { try { lastFocus.focus({ preventScroll: true }); } catch (e) {} }
@@ -550,6 +560,7 @@
     var my = ++seq, s = steps[idx];
     busy = true; lostAt = 0;
     if (!s) return finish();
+    if (dir >= 0 && s.ahead && s.ahead.when() && jumpTo(s.ahead.to)) return;
     if (s.need && !s.need()) {   /* الشاشة التي تحتاجها الخطوة أُغلقت (مثلاً أُغلقت نافذة الطلب) */
       if (s.onLost && jumpTo(s.onLost.to)) return;
     }
@@ -603,10 +614,16 @@
     if (!active || busy || !el.card.classList.contains('on')) return;
     var s = steps[idx];
     if (s.act && s.act.done()) { next(); return; }
+    if (s.ahead && s.ahead.when()) { jumpTo(s.ahead.to); return; }
     /* الشاشة غابت: مهلةٌ قصيرة قبل الرجوع — بين إغلاق نافذة السن وفتح نافذة الطلب لحظةٌ لا تكون فيها أيٌّ منهما */
     if (s.need && !s.need() && s.onLost) { if (!lostAt) lostAt = Date.now(); else if (Date.now() - lostAt > 1500) jumpTo(s.onLost.to); return; }
     lostAt = 0;
-    place(s.sel ? s.sel() : null, s);
+    var t = s.sel ? s.sel() : null;
+    place(t && (shown(t) || !labOpening()) ? t : null, s);   /* أثناء انتظار نافذة الطلب: البطاقة وحدها، لا إطارَ على عنصرٍ غاب */
+  }
+  function onDocClick(e) {
+    var t = e.target;
+    if (t && t.closest && t.closest('#toothLabBtn')) labWaitUntil = Date.now() + 15000;
   }
   function reflow() { if (active && el.card && el.card.classList.contains('on')) { var s = steps[idx]; place(s.sel ? s.sel() : null, s); } }
 
