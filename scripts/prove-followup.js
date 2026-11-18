@@ -792,6 +792,11 @@ async function run(F) {
     ok(/if \(!s \|\| s\.parent_id\) return false;/.test(extractFunction(AP, 'apptFuMultiVisit')), 'appointment completion: a follow-up visit is never marked as a new base');
     ok(/if \(st === 'planned' && !_fuC && typeof planRowCtlHtml === 'function'\)/.test(extractFunction(PP, 'renderSessions')), 'sessions table: no plan controls on a follow-up row (the database refuses its phase)');
     ok(/'fuToggle', 'fuSetMode'/.test(F['scripts/check-mirrors.js']), 'read-only registry: the mode tabs are inert');
+    const cA = extractFunction(AP, 'completeApptWithProcedures'), cP = extractFunction(PP, '_completeSessionFromProfile_inner');
+    ok(/if \(s\.parent_id && _curAppt && _curAppt\.date\) sessPatch\.date = String\(_curAppt\.date\)\.slice\(0, 10\);/.test(cA) && cA.indexOf('sessPatch.date') < cA.indexOf('.update(sessPatch)'),
+      '«إكمال الموعد»: a follow-up visit takes the day of its appointment (even when it was moved)');
+    ok(/if \(sess\.parent_id && sess\.date && String\(sess\.date\)\.slice\(0, 10\) > toDay\(\)\) _p1\.date = toDay\(\);/.test(cP) && /\.update\(_p1\)/.test(cP) && /if \(_p1\.date\) sess\.date = _p1\.date;/.test(cP),
+      '«إكمال» in the table: a follow-up visit done before its booked day is dated today — never a completed visit in the future');
 
     const w = await boot(F), d = w.document, bag = [];
     w.__load(seed()); w.renderSessions();
@@ -1044,6 +1049,8 @@ const MUT = [
   ['demo: plan in the past', rep('patient-profile.html', "    if (plan && String(args.p_date) < today) return", "    if (false) return")],
   ['plan button untranslated', rep('i18n-en.js', "    '📅 حفظ واحجز الموعد': '📅 Save and book the appointment',\n", '')],
   ['follow-up row name untranslated', rep('i18n-en.js', "    [/^متابعة — (.+)$/, function (m, x) { return 'Follow-up — ' + (D[x] || x); }],", '')],
+  ['appointment completion keeps the planned date', rep('appointments.html', '    if (s.parent_id && _curAppt && _curAppt.date) sessPatch.date', '    if (false) sessPatch.date')],
+  ['table completion leaves a future date', rep('patient-profile.html', "  if (sess.parent_id && sess.date && String(sess.date).slice(0, 10) > toDay()) _p1.date = toDay();", '')],
   ['mode tabs not registered', rep('scripts/check-mirrors.js', "'fuToggle', 'fuSetMode'", "'fuToggle'")],
   ['state badge hidden in read-only', rep('patient-profile.css', '[onclick*="fuSave("],', '[onclick*="fuSave("],[onclick*="fuSetState("],')]
 ];

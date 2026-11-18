@@ -3035,6 +3035,7 @@ async function completeApptWithProcedures(apptIdParam, sessionIdsFilter) {
     // 1) update session — also rewrite provider_id when unifying.
     var sessPatch = { status: 'completed' };
     if (unifyProviders && apptProviderId) sessPatch.provider_id = apptProviderId;
+    if (s.parent_id && _curAppt && _curAppt.date) sessPatch.date = String(_curAppt.date).slice(0, 10);   /* M213: زيارةُ المتابعة تاريخُها يومُ موعدها (ولو أُجّل) */
     var u1 = await window.sb.from('ledger_sessions')
       .update(sessPatch)
       .eq('id', s.id).eq('doctor_id', currentUser.id);

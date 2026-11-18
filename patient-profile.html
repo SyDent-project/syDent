@@ -5247,8 +5247,11 @@ async function _completeSessionFromProfile_inner(sessionId) {
   }
 
   // 1) UPDATE ledger_sessions — flip status to completed.
+  /* M213: زيارةُ متابعةٍ مخطّطة لموعدٍ قادم أُنجزت اليوم ⇒ تاريخُها اليوم (لا جلسةَ منجزةً بتاريخٍ لم يأتِ) */
+  var _p1 = { status: 'completed' };
+  if (sess.parent_id && sess.date && String(sess.date).slice(0, 10) > toDay()) _p1.date = toDay();
   var u1 = await window.sb.from('ledger_sessions')
-    .update({ status: 'completed' })
+    .update(_p1)
     .eq('id', sessionId).eq('doctor_id', currentUser.id);
   if (u1.error) {
     console.warn('completeSessionFromProfile: session update failed:', u1.error);
@@ -5257,6 +5260,7 @@ async function _completeSessionFromProfile_inner(sessionId) {
   }
   // Reflect locally so re-renders pick it up before the next loadData.
   sess.status = 'completed';
+  if (_p1.date) sess.date = _p1.date;
   if (typeof fuMarkCompleted === 'function') await fuMarkCompleted([sess]);   /* M211: المتعددُ الجلسات «قيد الإنجاز» عند إكماله */
 
   // 2) مزامنة صفّ المخطّط مع الجلسة المُنجَزة — v260: مطابقةٌ بالعلاج لا بالسطح
