@@ -109,6 +109,14 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 .chip-active:hover{color:var(--on-accent);}
 .chip .chip-n{display:inline-block;min-width:18px;margin-inline-start:6px;padding:0 5px;font-size:10.5px;font-weight:800;line-height:17px;text-align:center;border-radius:9px;background:var(--bg3);color:var(--text2);}
 .chip-active .chip-n{background:rgba(0,0,0,.18);color:inherit;}
+.search-row{display:flex;align-items:stretch;gap:8px;}
+.search-row .search-wrap{flex:1;min-width:0;}
+.flt-toggle{display:none;align-items:center;justify-content:center;gap:6px;flex-shrink:0;padding:0 14px;min-height:44px;font-family:inherit;font-size:13px;font-weight:800;border-radius:11px;background:var(--bg2);border:1px solid var(--border2,var(--border));color:var(--text);cursor:pointer;}
+.flt-toggle:hover{border-color:var(--green);}
+.flt-toggle.has-active{border-color:var(--green);color:var(--green);}
+.flt-toggle-n{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;padding:0 5px;border-radius:10px;font-size:11px;font-weight:800;background:var(--green);color:var(--on-accent);}
+.flt-toggle-n[hidden]{display:none;}
+.flt-panel{display:flex;flex-direction:column;gap:10px;}
 .flt-row{display:flex;align-items:flex-start;gap:10px;}
 .flt-lbl{flex:0 0 74px;padding-top:8px;font-size:11.5px;font-weight:800;color:var(--text2);white-space:nowrap;}
 .flt-row .filter-chips{flex:1;min-width:0;}
@@ -116,6 +124,10 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 .flt-reset{padding:4px 10px;font-family:inherit;font-size:11.5px;font-weight:800;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--text);cursor:pointer;}
 .flt-reset:hover{border-color:var(--green);color:var(--green);}
 @media (max-width:640px){
+  .flt-toggle{display:inline-flex;}
+  .flt-panel{display:none;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--bg2);}
+  .treat-toolbar.flt-open .flt-panel{display:flex;}
+  .treat-toolbar.flt-open .flt-toggle{background:var(--green-dim);border-color:var(--green);color:var(--green);}
   .flt-row{flex-direction:column;gap:5px;}
   .flt-lbl{flex:none;padding-top:0;}
   /* v547 (الفحص الشامل): شرائحُ التصنيفات كانت تتمرّر أفقياً بشريطٍ مخفي فتختفي «جراحي/تعويضي/زراعة…» خارج الشاشة؛
@@ -127,6 +139,14 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 .treat-card:hover .drag-handle{opacity:.75;}
 .drag-handle:hover{background:var(--green-dim);color:var(--green);opacity:1;}
 .drag-handle:active{cursor:grabbing;}
+/* 18/11 (طلب المالك): الترتيبُ باللمس — ضغطٌ مطوّل على البطاقة ثم سحب (نمط Trello / Google Keep على الهاتف).
+   مقبضُ الماوس لا معنى له باللمس (لا hover) ⇒ يُخفى هناك. البطاقةُ المرفوعة نسخةٌ عائمة تتبع الإصبع. */
+@media (hover:none){ .drag-handle{display:none !important;} }
+.treat-card.touch-armed{transform:scale(.985);transition:transform .2s;}
+.treat-drag-float{position:fixed;z-index:9500;pointer-events:none;margin:0;opacity:.96;transform:rotate(1deg) scale(1.02);box-shadow:0 22px 46px -12px rgba(16,42,67,.35),0 0 0 2px var(--green);transition:none !important;}
+body.treat-touch-dragging{user-select:none;-webkit-user-select:none;}
+@media (hover:none){ .treat-card{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;} }
+.flt-touch-hint{font-weight:600;}
 .treat-card.dragging{opacity:.9;transform:rotate(1.5deg) scale(1.02);box-shadow:0 22px 46px -12px rgba(16,42,67,.32),0 0 0 1px var(--green);cursor:grabbing;}
 .treat-card.drag-ghost{background:transparent !important;border:2px dashed rgba(var(--green-rgb),.5) !important;box-shadow:none !important;}
 .treat-card.drag-ghost>*{visibility:hidden;}
@@ -294,18 +314,29 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
 
   <!-- Search + filter toolbar -->
   <div class="treat-toolbar">
-    <div class="search-wrap">
-      <span class="search-icon">🔍</span>
-      <input type="search" id="treatSearch" placeholder="ابحث باسم العلاج..." autocomplete="off">
+    <div class="search-row">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="search" id="treatSearch" placeholder="ابحث باسم العلاج..." autocomplete="off">
+      </div>
+      <!-- 18/11 (طلب المالك): على الموبايل تُطوى صفوفُ الفلاتر الثلاثة خلف هذا الزر (كانت تملأ شاشةً كاملة قبل أول علاج).
+           على الشاشات الأعرض الزرُّ مخفيٌّ والصفوفُ ظاهرة كما كانت. الرقمُ = عددُ الفلاتر الفعّالة. -->
+      <button type="button" class="flt-toggle" id="fltToggle" aria-expanded="false" aria-controls="fltPanel">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+        <span>فلترة</span><span class="flt-toggle-n" id="fltToggleN" hidden></span>
+      </button>
     </div>
     <!-- v403: بُعدٌ واحد لكل صف + أعدادٌ حيّة؛ الشرائح تُرسم من renderFilterBar() -->
+    <div class="flt-panel" id="fltPanel">
     <div class="flt-row"><span class="flt-lbl">التصنيف</span><div class="filter-chips" id="catChips" role="group" aria-label="التصنيف"></div></div>
     <div class="flt-row"><span class="flt-lbl">يطبَّق على</span><div class="filter-chips" id="filterChips" role="group" aria-label="يطبَّق على"></div></div>
     <div class="flt-row"><span class="flt-lbl">خصائص</span><div class="filter-chips" id="flagChips" role="group" aria-label="خصائص"></div></div>
+    </div>
     <div class="flt-meta">
       <span id="fltCount"></span>
       <button type="button" class="flt-reset" id="fltReset" onclick="resetFilters()" style="display:none;">✕ مسح الفلاتر</button>
       <span id="fltDragHint" style="display:none;">↕️ إعادة الترتيب بالسحب متوقفة أثناء الفلترة</span>
+      <span id="fltTouchHint" class="flt-touch-hint" style="display:none;">↕️ للترتيب: اضغط مطوّلاً على البطاقة ثم اسحبها</span>
     </div>
   </div>
 
@@ -844,6 +875,14 @@ function renderFilterBar(shown) {
     : treatCountLabel(total);
   var rs = document.getElementById('fltReset'); if (rs) rs.style.display = filtering ? '' : 'none';
   var dh = document.getElementById('fltDragHint'); if (dh) dh.style.display = (filtering && shown > 1) ? '' : 'none';
+  /* 18/11: زرُّ «فلترة» (الموبايل) يحمل عددَ الفلاتر الفعّالة — البحثُ خارجه لأنه ظاهرٌ دائماً */
+  var nAct = (activeCat !== 'all' ? 1 : 0) + (activeFilter !== 'all' ? 1 : 0), fk2;
+  for (fk2 in activeFlags) if (activeFlags[fk2]) nAct++;
+  var tgN = document.getElementById('fltToggleN'), tgB = document.getElementById('fltToggle');
+  if (tgN) { tgN.textContent = nAct; tgN.hidden = !nAct; }
+  if (tgB) { tgB.classList.toggle('has-active', nAct > 0); tgB.title = nAct ? ('فلاتر فعّالة: ' + nAct) : 'إظهار الفلاتر'; }
+  var th = document.getElementById('fltTouchHint');
+  if (th) th.style.display = (TOUCH_ONLY && !filtering && treatments.length > 1 && !(window.SyDentSub && window.SyDentSub.isReadOnly())) ? '' : 'none';
 }
 function onFilterChip(e) {
   var b = e.target && e.target.closest ? e.target.closest('.chip[data-dim]') : null;
@@ -858,6 +897,16 @@ function onFilterChip(e) {
   }
   render();
 }
+/* 18/11: طيُّ/فتحُ لوحة الفلاتر على الموبايل (على الشاشات الأعرض اللوحةُ ظاهرةٌ دائماً بالـCSS) */
+function toggleFilterPanel(force) {
+  var tb = document.querySelector('.treat-toolbar'), b = document.getElementById('fltToggle');
+  if (!tb) return;
+  var open = (typeof force === 'boolean') ? force : !tb.classList.contains('flt-open');
+  tb.classList.toggle('flt-open', open);
+  if (b) b.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+var TOUCH_ONLY = !!(window.matchMedia && window.matchMedia('(hover: none)').matches);
+
 function resetFilters() {
   activeFilter = 'all'; activeCat = 'all'; searchTerm = '';
   for (var f in activeFlags) activeFlags[f] = false;
@@ -1611,6 +1660,106 @@ async function reorderTreatmentsByOrder(idsInOrder) {
   showToast('✅ تم تحديث الترتيب');
 }
 
+/* ═══ 18/11 (طلب المالك): الترتيبُ بالسحب على الموبايل ═══
+   سحبُ HTML5 (dragstart/drop) لا يعمل باللمس إطلاقاً على iOS وأغلب Android، والمقبضُ يظهر بالـhover وحده.
+   النمط (Trello · Google Keep · قوائم iOS): ضغطٌ مطوّل (450ms) على البطاقة ⇒ «ترتفع» (اهتزازٌ خفيف إن أمكن)
+   ⇒ نسخةٌ عائمة تتبع الإصبع والخانةُ الفارغة نفسُها (drag-ghost) تتحرّك بين البطاقات ⇒ الإفلاتُ يحفظ بالمسار نفسه
+   (reorderTreatmentsByOrder: لا كتابة إن لم يتغيّر شيء). حركةٌ قبل انقضاء المهلة = تمريرٌ عاديّ يُلغي الرفع.
+   أثناء السحب يُمنع تمريرُ الصفحة (touchmove غير سلبي) ويتمرّر تلقائياً قرب حافتي الشاشة.
+   النقرةُ التي تلي الإفلات تُبتلع (لا يفتح نموذجَ التعديل). معطّلٌ أثناء الفلترة وبوضع القراءة — كالماوس. */
+var _tDrag = null, _tSuppressClick = false;
+function _touchReorderOff() {
+  return isFilteringNow() || !!(window.SyDentSub && window.SyDentSub.isReadOnly()) || document.querySelector('.modal-overlay.open');
+}
+function wireTouchReorder() {
+  var grid = document.getElementById('treatGrid');
+  if (!grid || grid._touchBound) return;
+  grid._touchBound = true;
+  grid.addEventListener('touchstart', function (e) {
+    if (_tDrag || e.touches.length !== 1 || _touchReorderOff()) return;
+    var card = e.target.closest ? e.target.closest('.treat-card[data-treat-id]') : null;
+    if (!card || e.target.closest('button, a, input, select, summary, .trt-more')) return;
+    var t = e.touches[0];
+    _tDrag = { card: card, x0: t.clientX, y0: t.clientY, x: t.clientX, y: t.clientY, active: false, float: null, off: 0, raf: 0 };
+    card.classList.add('touch-armed');
+    _tDrag.timer = setTimeout(_touchDragStart, 450);
+  }, { passive: true });
+  document.addEventListener('touchmove', function (e) {
+    if (!_tDrag) return;
+    var t = e.touches[0]; if (!t) return;
+    _tDrag.x = t.clientX; _tDrag.y = t.clientY;
+    if (!_tDrag.active) {
+      if (Math.abs(t.clientX - _tDrag.x0) > 8 || Math.abs(t.clientY - _tDrag.y0) > 8) _touchDragAbort(false);   // تمريرٌ عادي
+      return;
+    }
+    e.preventDefault();   // السحبُ يملك الإصبع: لا تمرير للصفحة
+    e.stopImmediatePropagation();   // ولا «اسحب للتحديث» (مستمعُه على document نفسه، سُجّل بعد هذا) — كان سحبُ البطاقة لأسفل بأعلى الصفحة يُعيد تحميلها
+    _touchDragMove();
+  }, { passive: false });
+  document.addEventListener('touchend', function (e) { if (_tDrag) { if (_tDrag.active) { e.stopImmediatePropagation(); _touchDragDrop(); } else _touchDragAbort(false); } });
+  document.addEventListener('touchcancel', function () { if (_tDrag) _touchDragAbort(true); });
+  grid.addEventListener('contextmenu', function (e) { if (_tDrag) e.preventDefault(); });   // Android: الضغطُ المطوّل لا يفتح قائمة
+  grid.addEventListener('click', function (e) {   // النقرةُ التي تلي الإفلات لا تفتح النموذج
+    if (_tSuppressClick) { _tSuppressClick = false; e.stopPropagation(); e.preventDefault(); }
+  }, true);
+}
+function _touchDragStart() {
+  var d = _tDrag; if (!d || _touchReorderOff()) { _touchDragAbort(false); return; }
+  var card = d.card, r = card.getBoundingClientRect();
+  d.active = true;
+  card.classList.remove('touch-armed');
+  var f = card.cloneNode(true);
+  f.removeAttribute('data-treat-id'); f.removeAttribute('id'); f.removeAttribute('onclick'); f.removeAttribute('tabindex');
+  f.classList.add('treat-drag-float'); f.setAttribute('aria-hidden', 'true');
+  f.style.left = r.left + 'px'; f.style.top = r.top + 'px'; f.style.width = r.width + 'px';
+  document.body.appendChild(f);
+  d.float = f; d.off = d.y - r.top;
+  card.classList.add('drag-ghost');
+  document.body.classList.add('treat-touch-dragging');
+  try { if (navigator.vibrate) navigator.vibrate(15); } catch (_) {}
+  d.raf = requestAnimationFrame(_touchAutoScroll);
+}
+function _touchDragMove() {
+  var d = _tDrag, grid = document.getElementById('treatGrid');
+  if (!d || !d.float || !grid) return;
+  d.float.style.top = (d.y - d.off) + 'px';
+  var el = document.elementFromPoint(d.x, d.y);
+  var over = el && el.closest ? el.closest('.treat-card[data-treat-id]') : null;
+  if (!over || over === d.card || !grid.contains(over)) return;
+  var r = over.getBoundingClientRect();
+  if (d.y > r.top + r.height / 2) { if (over.nextSibling !== d.card) grid.insertBefore(d.card, over.nextSibling); }
+  else { if (over.previousSibling !== d.card) grid.insertBefore(d.card, over); }
+}
+function _touchAutoScroll() {
+  var d = _tDrag; if (!d || !d.active) return;
+  var edge = 80, h = window.innerHeight, v = 0;
+  if (d.y < edge) v = -Math.ceil((edge - d.y) / 6);
+  else if (d.y > h - edge) v = Math.ceil((d.y - (h - edge)) / 6);
+  if (v) { window.scrollBy(0, v); _touchDragMove(); }
+  d.raf = requestAnimationFrame(_touchAutoScroll);
+}
+function _touchDragCleanup() {
+  var d = _tDrag; _tDrag = null;
+  if (!d) return null;
+  clearTimeout(d.timer); if (d.raf) cancelAnimationFrame(d.raf);
+  if (d.float && d.float.parentNode) d.float.parentNode.removeChild(d.float);
+  d.card.classList.remove('touch-armed', 'drag-ghost');
+  document.body.classList.remove('treat-touch-dragging');
+  return d;
+}
+function _touchDragAbort(restore) {
+  var d = _touchDragCleanup();
+  if (d && d.active) { _tSuppressClick = true; setTimeout(function(){ _tSuppressClick = false; }, 400); }
+  if (restore || (d && d.active)) render();   // البطاقةُ تحرّكت بالـDOM بلا حفظ ⇒ تعود لمكانها المحفوظ
+}
+function _touchDragDrop() {
+  var d = _touchDragCleanup(), grid = document.getElementById('treatGrid');
+  if (!d || !grid) return;
+  _tSuppressClick = true; setTimeout(function(){ _tSuppressClick = false; }, 400);
+  var ids = Array.prototype.map.call(grid.querySelectorAll('.treat-card[data-treat-id]'), function (c) { return c.getAttribute('data-treat-id'); });
+  reorderTreatmentsByOrder(ids);
+}
+
 var toggleFavorite = tGuarded('toggleFavorite', _toggleFavorite_inner, '⏳');   /* v289 */
 async function _toggleFavorite_inner(id) {
   var t = treatments.find(function (x) { return String(x.id) === String(id); });
@@ -2088,6 +2237,8 @@ if (searchInputEl) {
   var el = document.getElementById(id);
   if (el) el.addEventListener('click', onFilterChip);
 });
+(function(){ var b = document.getElementById('fltToggle'); if (b) b.addEventListener('click', function(){ toggleFilterPanel(); }); })();
+wireTouchReorder();
 
 // Replace direct render() at bottom with auth-aware loader
 window.addEventListener('load', function(){
