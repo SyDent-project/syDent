@@ -8,7 +8,7 @@
    علاجٌ سُجّلت له متابعةٌ بيوم الموعد نفسه · سؤالٌ طُرح لهذا الموعد بهذه الصفحة. فشلُ أي قراءةٍ ⇒ صمت (لا يعيق الختم).
    ج2-ج (مراحل المخبر M206): عملُ مخبرٍ مربوطٌ بجلسة وموعدُ إحدى مراحله (أو موعدُ طلبٍ برحلةٍ واحدة) هو هذا الموعد ⇒ تلك الجلسةُ
    تُقترح أولاً — ولو لم تكن «قيد الإنجاز» بعد (ما لم يكتمل علاجها) — وخطوةُ المتابعة اسمُ المرحلة («تجربة الأسنان» · «تسليم»).
-   طلبٌ ملغى أو مسودّة لا يُحتسب.
+   طلبٌ ملغى أو مسودّة لا يُحتسب. زيارةُ آخر مرحلة ⇒ سؤالٌ ثانٍ «اكتمل العلاج؟» (قرارُ المالك 18/11/2026).
    ينشر 'sy:followup-added' ({ session, baseId, apptId }) لتحدّث بطاقةُ المريض جدولها. */
 (function () {
   'use strict';
@@ -54,12 +54,12 @@
       .eq('doctor_id', a.doctor_id).eq('patient_id', a.patient_id).not('session_id', 'is', null);
     ((rlo && !rlo.error && rlo.data) || []).forEach(function (o) {
       if (!o || !o.session_id || o.status === 'cancelled' || o.status === 'draft' || lab[o.session_id]) return;
-      var st = Array.isArray(o.stages) ? o.stages : null, step = null;
+      var st = Array.isArray(o.stages) ? o.stages : null, step = null, last = false;
       if (st && st.length) {
-        for (var i = 0; i < st.length; i++) if (st[i] && st[i].appt === apptId) { step = st[i].n; break; }
-        if (!step && o.appointment_id === apptId && st[o.stage_idx || 0]) step = st[o.stage_idx || 0].n;
-      } else if (o.appointment_id === apptId) step = 'تسليم';
-      if (step) lab[o.session_id] = { step: String(step).replace(/\s+/g, ' ').trim().slice(0, 40), work: String(o.work_type || '') };
+        for (var i = 0; i < st.length; i++) if (st[i] && st[i].appt === apptId) { step = st[i].n; last = i === st.length - 1; break; }
+        if (!step && o.appointment_id === apptId && st[o.stage_idx || 0]) { step = st[o.stage_idx || 0].n; last = (o.stage_idx || 0) === st.length - 1; }
+      } else if (o.appointment_id === apptId) { step = 'تسليم'; last = true; }
+      if (step) lab[o.session_id] = { step: String(step).replace(/\s+/g, ' ').trim().slice(0, 40), work: String(o.work_type || ''), last: last };
     });
     var labIds = Object.keys(lab);
     var rb = await sb.from('ledger_sessions').select('id, type, tooth_num, quadrant, arch, date, provider_id, status, parent_id, followup_state')
@@ -77,7 +77,7 @@
       var L = lab[b.id];
       if (L ? b.followup_state === 'closed' : b.followup_state !== 'open') return;   /* علاجُ المرحلة: ما لم يكتمل · غيرُه: قيد الإنجاز وحده */
       seen[b.id] = 1;
-      bases.push(L ? Object.assign({}, b, { _fuStep: L.step, _fuWork: L.work }) : b);
+      bases.push(L ? Object.assign({}, b, { _fuStep: L.step, _fuWork: L.work, _fuLast: L.last }) : b);
     });
     if (!bases.length) return null;
     var rk = await sb.from('ledger_sessions').select('parent_id').eq('doctor_id', a.doctor_id).eq('patient_id', a.patient_id).eq('date', day)
@@ -111,12 +111,24 @@
     return (typeof i === 'number' && c.bases[i]) ? c.bases[i] : null;
   }
 
-  async function record(c, base) {
+  /* قرارُ المالك (18/11/2026): زيارةُ آخر مرحلة مخبر («تسليم» — أو طلبٌ برحلةٍ واحدة) ⇒ سؤالٌ ثانٍ «اكتمل العلاج؟»؛
+     «لا» تُبقيه «قيد الإنجاز» (تعديلاتٌ بعد التسليم تبقى تُسأل عنها). */
+  async function askClose(base) {
+    if (!base._fuLast) return false;
+    return !!(await window.SyDialog.confirm({
+      title: 'اكتمل العلاج؟',
+      message: 'هذه آخر مرحلة مخبر («' + base._fuStep + '») لعلاج «' + label(base) + '».\nهل اكتمل العلاج؟',
+      confirmText: '✅ اكتمل العلاج', cancelText: 'لا، ما زال قيد الإنجاز', danger: false
+    }));
+  }
+
+  async function record(c, base, close) {
     var sb = window.sb;
     var step = base._fuStep || null;   /* ج2-ج: خطوةُ الزيارة = اسمُ مرحلة المخبر */
-    var res = await sb.rpc('session_followup_add', { p_parent: base.id, p_date: c.day, p_provider: c.appt.provider_id || null, p_step: step, p_notes: null, p_close: false });
+    close = !!close;
+    var res = await sb.rpc('session_followup_add', { p_parent: base.id, p_date: c.day, p_provider: c.appt.provider_id || null, p_step: step, p_notes: null, p_close: close });
     if (res && res.error && /followup_provider_invalid/.test(res.error.message || '')) {   /* طبيبُ موعدٍ لم يعد من أطباء العيادة ⇒ طبيبُ العلاج */
-      res = await sb.rpc('session_followup_add', { p_parent: base.id, p_date: c.day, p_provider: null, p_step: step, p_notes: null, p_close: false });
+      res = await sb.rpc('session_followup_add', { p_parent: base.id, p_date: c.day, p_provider: null, p_step: step, p_notes: null, p_close: close });
     }
     if (!res || res.error || !res.data || !res.data.session) {
       console.warn('appt follow-up failed:', res && res.error);
@@ -130,13 +142,13 @@
       try {
         window.logAudit('session.create', {
           entityId: kid.id, patientId: c.appt.patient_id, patientName: '',
-          description: 'جلسة متابعة من موعد: ' + label(base) + (step ? ' — ' + step : '') + ' (' + c.day + ')',
-          newValue: { type: kid.type, date: kid.date, parent_id: base.id, appointment_id: c.appt.id, step: step }
+          description: 'جلسة متابعة من موعد: ' + label(base) + (step ? ' — ' + step : '') + ' (' + c.day + ')' + (close ? ' (اكتمل العلاج)' : ''),
+          newValue: { type: kid.type, date: kid.date, parent_id: base.id, appointment_id: c.appt.id, step: step, closed: close }
         });
       } catch (e) { console.warn('appt follow-up audit:', e); }
     }
-    toast('✅ سُجّلت جلسة متابعة لـ «' + label(base) + '»');
-    try { window.dispatchEvent(new CustomEvent('sy:followup-added', { detail: { session: kid, baseId: base.id, apptId: c.appt.id, state: res.data.state || 'open' } })); } catch (e) {}
+    toast(close ? '✅ سُجّلت جلسة متابعة لـ «' + label(base) + '» واكتمل العلاج' : '✅ سُجّلت جلسة متابعة لـ «' + label(base) + '»');
+    try { window.dispatchEvent(new CustomEvent('sy:followup-added', { detail: { session: kid, baseId: base.id, apptId: c.appt.id, state: res.data.state || (close ? 'closed' : 'open') } })); } catch (e) {}
     return { session: kid, base: base };
   }
 
@@ -149,7 +161,8 @@
       if (!c) return null;
       var base = await ask(c);
       if (!base) return null;
-      return await record(c, base);
+      var close = await askClose(base);
+      return await record(c, base, close);
     } catch (e) {
       console.warn('SyApptFu.offer:', e);
       return null;

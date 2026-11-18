@@ -3600,6 +3600,7 @@ Object.assign(window.SyI18nDict, {
     '🔁 سجّلها متابعة': '🔁 Record as a follow-up',
     'لا': 'No',
     'ليست متابعة': 'Not a follow-up',
+    'اكتمل العلاج؟': 'Treatment complete?', 'هل اكتمل العلاج؟': 'Is the treatment complete?', 'لا، ما زال قيد الإنجاز': 'No, still in progress',   /* آخر مرحلة مخبر */
     '⚠️ تعذّر تسجيل جلسة المتابعة — سجّلها من ملف المريض («＋ متابعة»)': '⚠️ Could not record the follow-up session — record it from the patient file («＋ Follow-up»)',
     'الربع العلوي الأيمن': 'Upper right quadrant', 'الربع العلوي الأيسر': 'Upper left quadrant', 'الربع السفلي الأيسر': 'Lower left quadrant', 'الربع السفلي الأيمن': 'Lower right quadrant'
   });
@@ -3609,6 +3610,8 @@ Object.assign(window.SyI18nDict, {
     [/^للمريض علاجٌ قيد الإنجاز: «(.+)»\.$/, function (m, x) { return 'The patient has a treatment in progress: «' + fuW(x) + '».'; }],
     [/^مرحلة المخبر «(.+?)» لعلاج «(.+)»\.$/, function (m, n, x) { return 'Lab stage «' + fuStage(n) + '» of the treatment «' + fuW(x) + '».'; }],   /* ج2-ج */
     [/^✅ سُجّلت جلسة متابعة لـ «(.+)»$/, function (m, x) { return '✅ Follow-up session recorded for «' + fuW(x) + '»'; }],
+    [/^✅ سُجّلت جلسة متابعة لـ «(.+)» واكتمل العلاج$/, function (m, x) { return '✅ Follow-up session recorded for «' + fuW(x) + '» and the treatment is complete'; }],
+    [/^هذه آخر مرحلة مخبر \(«(.+?)»\) لعلاج «(.+)»\.$/, function (m, n, x) { return 'This is the last lab stage («' + fuStage(n) + '») of the treatment «' + fuW(x) + '».'; }],
     [/^(?:(.+?) · )?منذ (\d{2}\/\d{2}\/\d{4})$/, function (m, w, d) { return (w ? fuW(w) + ' · ' : '') + 'since ' + d; }],
     [/^مرحلة المخبر: (.+)$/, function (m, x) { return fuW(m); }],   /* ج2-ج: سطرُ الخيار بلا تاريخ */   /* M213: اسمُ صفّ المتابعة بنافذة الموعد وصفحة المواعيد */
     [/^متابعة (\d+)$/, 'Follow-up $1'],

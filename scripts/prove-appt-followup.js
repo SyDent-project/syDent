@@ -203,6 +203,7 @@ async function run(F) {
     ok(q && q.kind === 'confirm' && q.msgLines[0] === 'مرحلة المخبر «تجربة الأسنان» لعلاج «Denture — الفك العلوي».' && w.__RPC.length === 1 && w.__RPC[0].a.p_parent === 'bd' && w.__RPC[0].a.p_step === 'تجربة الأسنان',
       'the current stage\'s appointment: its treatment is asked about by stage name (even before it is «قيد الإنجاز»), and the stage becomes the follow-up step');
     ok(/جلسة متابعة من موعد: Denture — الفك العلوي — تجربة الأسنان/.test((w.__AUDIT[0] || { o: {} }).o.description) && w.__AUDIT[0].o.newValue.step === 'تجربة الأسنان', 'audit carries the stage');
+    ok(w.__RPC[0].a.p_close === false && !dlg(w) && w.__EV[0].state === 'open', 'a middle stage asks nothing more and keeps the treatment in progress');
     q.msgLines.forEach(t => bag.push({ t }));
     w.close();
     w = await boot(F); w.__DB.appointments.push(A('a0', { date: '2026-11-12' })); w.__DB.ledger_sessions.push(DEN()); w.__DB.lab_orders.push(L('o1', { stages: ST, stage_idx: 1, appointment_id: 'a1' }));
@@ -210,8 +211,31 @@ async function run(F) {
     ok(w.__RPC.length === 1 && w.__RPC[0].a.p_step === 'تسجيل العضة' && w.__RPC[0].a.p_date === '2026-11-12', 'an earlier stage\'s appointment is found through the stage list (closed later) — its own name and day');
     w.close();
     w = await boot(F); w.__DB.appointments.push(A('a2')); w.__DB.ledger_sessions.push(S('b2', { type: 'Crown PFM', tooth_num: '16', followup_state: 'open' })); w.__DB.lab_orders.push(L('o2', { session_id: 'b2', appointment_id: 'a2', work_type: 'Crown' }));
-    p = w.SyApptFu.offer('a2'); await answer(w, 'ok'); await p;
-    ok(w.__RPC.length === 1 && w.__RPC[0].a.p_parent === 'b2' && w.__RPC[0].a.p_step === 'تسليم', 'a one-trip lab order: its appointment is the fitting visit');
+    p = w.SyApptFu.offer('a2'); await answer(w, 'ok'); let q2 = await answer(w, 'cancel'); let r2 = await p;
+    ok(w.__RPC.length === 1 && w.__RPC[0].a.p_parent === 'b2' && w.__RPC[0].a.p_step === 'تسليم' && q2 && q2.title === 'اكتمل العلاج؟' && w.__RPC[0].a.p_close === false && r2 && w.__EV[0].state === 'open',
+      'a one-trip lab order: its appointment is the fitting visit (the last stage) — «اكتمل العلاج؟» asked; «لا» keeps it in progress');
+    w.close();
+    /* قرارُ المالك (18/11/2026): آخرُ مرحلة ⇒ «اكتمل العلاج؟» */
+    w = await boot(F); w.__DB.appointments.push(A('a3')); w.__DB.ledger_sessions.push(DEN());
+    w.__DB.lab_orders.push(L('o1', { stages: [ST[0], Object.assign({}, ST[1], { appt: 'a1' }), ST[2]], stage_idx: 2, appointment_id: 'a3', status: 'received' }));
+    p = w.SyApptFu.offer('a3'); const q1 = await answer(w, 'ok'); q2 = await answer(w, 'ok'); r2 = await p; await tick(w);
+    ok(q1 && /«تسليم»/.test(q1.msgLines[0]) && q2 && q2.kind === 'confirm' && q2.title === 'اكتمل العلاج؟' && q2.msgLines[0] === 'هذه آخر مرحلة مخبر («تسليم») لعلاج «Denture — الفك العلوي».'
+      && q2.msgLines[1] === 'هل اكتمل العلاج؟' && q2.ok === '✅ اكتمل العلاج' && q2.cancel === 'لا، ما زال قيد الإنجاز',
+      'the last stage\'s visit: after «سجّلها متابعة» comes «اكتمل العلاج؟» naming the stage and the treatment');
+    ok(w.__RPC.length === 1 && w.__RPC[0].a.p_close === true && w.__RPC[0].a.p_step === 'تسليم' && r2 && w.__EV[0].state === 'closed'
+      && /\(اكتمل العلاج\)$/.test(w.__AUDIT[0].o.description) && w.__AUDIT[0].o.newValue.closed === true && /واكتمل العلاج$/.test(w.__TOASTS.slice(-1)[0] || ''),
+      '«اكتمل» records the visit and closes the treatment in the same atomic call (event, audit and toast say so)');
+    [q2.title, q2.ok, q2.cancel].concat(q2.msgLines).forEach(t => bag.push({ t })); bag.push({ t: w.__TOASTS.slice(-1)[0] });
+    w.close();
+    w = await boot(F); w.__DB.appointments.push(A('a3')); w.__DB.ledger_sessions.push(DEN());
+    w.__DB.lab_orders.push(L('o1', { stages: ST, stage_idx: 2, appointment_id: 'a3', status: 'received' }));
+    p = w.SyApptFu.offer('a3'); await answer(w, 'cancel'); r2 = await p; await tick(w, 30);
+    ok(r2 === null && !dlg(w) && w.__RPC.length === 0, 'not a follow-up ⇒ no completion question either');
+    w.close();
+    w = await boot(F); w.__DB.appointments.push(A('a3')); w.__DB.ledger_sessions.push(DEN());
+    w.__DB.lab_orders.push(L('o1', { stages: [ST[0], ST[1], Object.assign({}, ST[2], { appt: 'a3' })], stage_idx: 2, appointment_id: null, status: 'delivered' }));
+    p = w.SyApptFu.offer('a3'); await answer(w, 'ok'); q2 = await answer(w, 'ok'); await p;
+    ok(q2 && q2.title === 'اكتمل العلاج؟' && w.__RPC.length === 1 && w.__RPC[0].a.p_close === true, 'the last stage found through the stage list (no current appointment) is also final');
     w.close();
     const silentLab = async (label, base, order) => {
       const v = await boot(F); v.__DB.appointments.push(A('a1')); v.__DB.ledger_sessions.push(base); v.__DB.lab_orders.push(order);
@@ -309,8 +333,8 @@ const MUT = [
   ['asks on an inactive account', rep('appt-followup.js', "    if (window.SyDentLock && window.SyDentLock.isDoctorAccountInactive && window.SyDentLock.isDoctorAccountInactive()) return true;\n", '')],
   ['asks twice per appointment', rep('appt-followup.js', "if (!apptId || asked[apptId] || blocked()", "if (!apptId || blocked()")],
   ['records today instead of the visit day', rep('appt-followup.js', "{ p_parent: base.id, p_date: c.day, p_provider: c.appt.provider_id || null,", "{ p_parent: base.id, p_date: today(), p_provider: c.appt.provider_id || null,")],
-  ['records with the treatment doctor', rep('appt-followup.js', "p_provider: c.appt.provider_id || null, p_step: step, p_notes: null, p_close: false });\n    if (res", "p_provider: null, p_step: step, p_notes: null, p_close: false });\n    if (res")],
-  ['closes the treatment', rep('appt-followup.js', "p_provider: c.appt.provider_id || null, p_step: step, p_notes: null, p_close: false });\n    if (res", "p_provider: c.appt.provider_id || null, p_step: step, p_notes: null, p_close: true });\n    if (res")],
+  ['records with the treatment doctor', rep('appt-followup.js', "p_provider: c.appt.provider_id || null, p_step: step, p_notes: null, p_close: close });\n    if (res", "p_provider: null, p_step: step, p_notes: null, p_close: close });\n    if (res")],
+  ['closes the treatment', rep('appt-followup.js', "p_provider: c.appt.provider_id || null, p_step: step, p_notes: null, p_close: close });\n    if (res", "p_provider: c.appt.provider_id || null, p_step: step, p_notes: null, p_close: true });\n    if (res")],
   ['no retry on an old doctor', rep('appt-followup.js', "    if (res && res.error && /followup_provider_invalid/.test(res.error.message || '')) {", "    if (false) {")],
   ['not linked to the appointment', rep('appt-followup.js', "var rl = await sb.from('ledger_sessions').update({ appointment_id: c.appt.id }).eq('id', kid.id).eq('doctor_id', c.appt.doctor_id);", "var rl = { error: null };")],
   ['link not scoped to the clinic', rep('appt-followup.js', ".update({ appointment_id: c.appt.id }).eq('id', kid.id).eq('doctor_id', c.appt.doctor_id)", ".update({ appointment_id: c.appt.id }).eq('id', kid.id)")],
@@ -331,8 +355,8 @@ const MUT = [
   ['module not loaded on the dashboard', rep('index.html', '<script src="appt-followup.js?v=', '<script data-x="appt-followup.js?v=')],
   ['lab: stage treatment not first', rep('appt-followup.js', "(x._fuStep ? 0 : 1) - (y._fuStep ? 0 : 1) || ", '')],
   ['lab: stage name not recorded', rep('appt-followup.js', "    var step = base._fuStep || null;", "    var step = null;")],
-  ['lab: earlier stages not matched', rep('appt-followup.js', "        for (var i = 0; i < st.length; i++) if (st[i] && st[i].appt === apptId) { step = st[i].n; break; }\n", '')],
-  ['lab: one-trip orders ignored', rep('appt-followup.js', "      } else if (o.appointment_id === apptId) step = 'تسليم';", "      }")],
+  ['lab: earlier stages not matched', rep('appt-followup.js', "        for (var i = 0; i < st.length; i++) if (st[i] && st[i].appt === apptId) { step = st[i].n; last = i === st.length - 1; break; }\n", '')],
+  ['lab: one-trip orders ignored', rep('appt-followup.js', "      } else if (o.appointment_id === apptId) { step = 'تسليم'; last = true; }", "      }")],
   ['lab: cancelled orders count', rep('appt-followup.js', "o.status === 'cancelled' || ", '')],
   ['lab: drafts count', rep('appt-followup.js', " || o.status === 'draft'", '')],
   ['lab: a complete treatment is offered', rep('appt-followup.js', "if (L ? b.followup_state === 'closed' : b.followup_state !== 'open') return;", "if (!L && b.followup_state !== 'open') return;")],
@@ -340,6 +364,13 @@ const MUT = [
   ['lab: other patients\' orders', rep('appt-followup.js', ".eq('doctor_id', a.doctor_id).eq('patient_id', a.patient_id).not('session_id', 'is', null)", ".eq('doctor_id', a.doctor_id).not('session_id', 'is', null)")],
   ['lab: message without the stage', rep('appt-followup.js', "message: (b0._fuStep ? 'مرحلة المخبر «'", "message: (false ? 'مرحلة المخبر «'")],
   ['lab: stage untranslated', rep('i18n-en.js', "return 'Lab stage «' + fuStage(n) + '» of the treatment «' + fuW(x) + '».';", "return 'Lab stage «' + n + '» of the treatment «' + fuW(x) + '».';")],
+  ['last stage: no completion question', rep('appt-followup.js', "    if (!base._fuLast) return false;\n", "    return false;\n")],
+  ['every stage asks «اكتمل؟»', rep('appt-followup.js', "    if (!base._fuLast) return false;\n", '')],
+  ['last stage of a staged order not detected', rep('appt-followup.js', "step = st[i].n; last = i === st.length - 1; break;", "step = st[i].n; break;")],
+  ['current last stage not detected', rep('appt-followup.js', "last = (o.stage_idx || 0) === st.length - 1; }", "}")],
+  ['one-trip fitting not final', rep('appt-followup.js', "{ step = 'تسليم'; last = true; }", "{ step = 'تسليم'; }")],
+  ['«اكتمل» does not close', rep('appt-followup.js', "p_notes: null, p_close: close });\n    if (res && res.error", "p_notes: null, p_close: false });\n    if (res && res.error")],
+  ['completion question untranslated', rep('i18n-en.js', "    'اكتمل العلاج؟': 'Treatment complete?', 'هل اكتمل العلاج؟': 'Is the treatment complete?', 'لا، ما زال قيد الإنجاز': 'No, still in progress',   /* آخر مرحلة مخبر */\n", '')],
   ['question untranslated', rep('i18n-en.js', "    'زيارة متابعة؟': 'A follow-up visit?',\n", '')],
   ['place untranslated in the sentence', rep('i18n-en.js', "return 'The patient has a treatment in progress: «' + fuW(x) + '».';", "return 'The patient has a treatment in progress: «' + x + '».';")]
 ];
