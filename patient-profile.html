@@ -4365,7 +4365,7 @@ function renderSessions() {
       if (!_isBlank(_d2)) desc = _d2;
     }
     var detHtml = '';
-    if (!_isBlank(desc))    detHtml += '<div class="sess-desc">' + escapeHtml(desc) + '</div>';
+    if (!_isBlank(desc))    detHtml += '<div class="sess-desc"' + ((_fuC && typeof fuStepEnAttr === 'function') ? fuStepEnAttr(desc) : '') + '>' + escapeHtml(desc) + '</div>';   /* ج2-ج: خطوةُ المتابعة الملتبسة بإنجليزيتها */
     if (!_isBlank(s.notes)) detHtml += '<div class="sess-note">📝 ' + escapeHtml(s.notes) + '</div>';
     if (apptBadge || labBadge) detHtml += '<div class="sess-links">' + apptBadge + labBadge + '</div>';
     // v478: التاريخُ أرقاماً وتحته وقتُ التسجيل إن سُجّلت الجلسة بيومها (SyDT.cellRec — لا وقتَ مُخترَع)

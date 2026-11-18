@@ -895,6 +895,17 @@ async function run(F) {
       'M216: a booked visit follows its appointment to an upcoming day from every path (invoker; plain planned rows, done visits and past days untouched); bootstrapped');
     ok(/IF r IS NULL OR r ~ 'FAIL\|=false'/.test(F['scripts/followup-db.sql']) && / p12=/.test(F['scripts/followup-db.sql']) && /\/ 5 <> 67 THEN/.test(F['scripts/followup-db.sql']) && / p14=/.test(F['scripts/followup-db.sql']),
       'the database proof covers M214 and a NULL check can never pass silently');
+    /* مراجعة ج2-ج: خطوةٌ ملتبسة (أو اسمُ مرحلة مخبر) بصفّ المتابعة تحمل إنجليزيتها على العنصر — والصفُّ العادي لا */
+    const lw = await boot(F);
+    lw.__load(seed().concat([S('k7', { parent_id: 'b1', type: 'متابعة — RCT', description: 'تسليم', cost: 0, date: '2026-11-09' }), S('k8', { parent_id: 'b1', type: 'متابعة — RCT', description: 'تجربة الهيكل', cost: 0, date: '2026-11-10' }),
+      S('pz', { type: 'Consult', description: 'تسليم', date: '2026-11-02' })]));
+    lw.fuToggle('b1'); lw.renderSessions();
+    const dsc = Array.from(lw.document.querySelectorAll('#sessionsContent .sess-desc')).map(e => [e.textContent, e.getAttribute('data-en'), !!e.closest('tr.fu-row')]);
+    ok(dsc.some(x => x[0] === 'تسليم' && x[1] === 'Fit' && x[2]) && dsc.some(x => x[0] === 'تجربة الهيكل' && x[1] === 'Framework try-in' && x[2]) && dsc.some(x => x[0] === 'تسليم' && x[1] === null && !x[2]),
+      'English: an ambiguous follow-up step («تسليم») or a lab stage name carries its English on the row; a plain session\'s text is left alone');
+    lw.fuOpen('b1'); const pv = Array.from(lw.document.querySelectorAll('#fuBase .fu-prev-t')).map(e => e.getAttribute('data-en'));
+    ok(pv.indexOf('Fit') > -1 && pv.indexOf('Framework try-in') > -1, 'English: the follow-up window lists earlier steps the same way');
+    lw.close();
     /* الصندوقُ التجريبي */
     const mk = list => { const c = { console, Date, Object, String, JSON }; vm.createContext(c);
       vm.runInContext('var DB = { ledger_sessions: ' + JSON.stringify(list) + ' }, _idc = 0; function rows(t){ if (!DB[t]) DB[t] = []; return DB[t]; }\n' + extractFunction(PP, 'demoFollowupRpc'), c); return c; };
@@ -953,7 +964,7 @@ const MUT = [
   ['state change without asking', rep('pp-followup.js', "confirmText: closing ? 'اكتمل العلاج' : 'إعادة فتح', danger: false\n  })) return;", "confirmText: closing ? 'اكتمل العلاج' : 'إعادة فتح', danger: false\n  }) && false) return;")],
   ['failed save applied locally', rep('pp-followup.js', "  if (res.error || !res.data || !res.data.session) {", "  if (false) {")],
   ['unescaped base name', rep('pp-followup.js', "'<div class=\"fu-base-head\"><span class=\"fu-base-type\">' + fuEsc(base.type || 'علاج') + '</span>'", "'<div class=\"fu-base-head\"><span class=\"fu-base-type\">' + (base.type || 'علاج') + '</span>'")],
-  ['unescaped step in the window', rep('pp-followup.js', "'<span class=\"fu-prev-t\">' + fuEsc(k.description || '—') + '</span>'", "'<span class=\"fu-prev-t\">' + (k.description || '—') + '</span>'")],
+  ['unescaped step in the window', rep('pp-followup.js', "fuStepEnAttr(k.description) + '>' + fuEsc(k.description || '—') + '</span>'", "fuStepEnAttr(k.description) + '>' + (k.description || '—') + '</span>'")],
   ['delete without the warning', rep('patient-profile.html', "var _fuTail = _fuKids.length ? '\\n\\n' + fuDeleteNote(_fuKids.length) : '';", "var _fuTail = '';")],
   ['delete leaves ghost rows', rep('patient-profile.html', 'return s.id !== id && s.parent_id !== id; });   /* M210', 'return s.id !== id; });   /* M210')],
   ['statement lists follow-ups', rep('pp-plan.js', "    if (s.parent_id) return;   // M210: جلسةُ المتابعة بلا مال — ليست حركةً بكشف الحساب\n", '')],
@@ -1097,6 +1108,9 @@ const MUT = [
   ['table completion leaves a future date', rep('patient-profile.html', "  if (sess.parent_id && sess.date && String(sess.date).slice(0, 10) > toDay()) _p1.date = toDay();", '')],
   ['appointment type left on the first option', rep('pp-followup.js', "if (Array.prototype.some.call(sel.options || [], function (o) { return o.value === String(t.id); })) sel.value = String(t.id);", '')],
   ['appointment window shows 0 for a follow-up', rep('pp-appt.js', "(s.parent_id ? 'ضمن الأساسية' : costStr + ' ' + curLblOf(s.currency))", "(costStr + ' ' + curLblOf(s.currency))")],
+  ['ambiguous step left untranslated on the row', rep('patient-profile.html', "((_fuC && typeof fuStepEnAttr === 'function') ? fuStepEnAttr(desc) : '')", "''")],
+  ['plain sessions get step English', rep('patient-profile.html', "((_fuC && typeof fuStepEnAttr === 'function') ? fuStepEnAttr(desc) : '')", "((typeof fuStepEnAttr === 'function') ? fuStepEnAttr(desc) : '')")],
+  ['lab stage name without English', rep('pp-followup.js', ", 'تجربة الهيكل': 'Framework try-in' };", " };")],
   ['mode tabs not registered', rep('scripts/check-mirrors.js', "'fuToggle', 'fuSetMode'", "'fuToggle'")],
   ['state badge hidden in read-only', rep('patient-profile.css', '[onclick*="fuSave("],', '[onclick*="fuSave("],[onclick*="fuSetState("],')]
 ];
