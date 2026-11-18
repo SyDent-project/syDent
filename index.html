@@ -41,7 +41,7 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('landing.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261118k"></script>
+<script src="theme.js?v=20261118m"></script>
 <style>
   :root {
     --bg-primary: #0a1628;
@@ -757,20 +757,21 @@
 .al-count{margin-inline-start:auto;background:var(--red-bg);color:var(--red-ink);border:1px solid var(--red-bd);font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261118k">
+<link rel="stylesheet" href="theme.css?v=20261118m">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261118k"></script>
-<script src="sy-modal.js?v=20261118k"></script>
-<script src="pt-reliability.js?v=20261118k"></script>
-<script src="huddle-flags.js?v=20261118k"></script>
-<script src="pay-methods.js?v=20261118k"></script>
-<script src="acc-daysheet.js?v=20261118k"></script>
-<script src="dash-yesterday.js?v=20261118k"></script>
-<script src="dash-goal.js?v=20261118k"></script>
-<script src="sched-blocks.js?v=20261118k"></script>
-<script src="dash-gaps.js?v=20261118k"></script>
-<script src="sidebar.js?v=20261118k"></script>
-<script src="inv-order.js?v=20261118k"></script>
+<script src="supabase-init.js?v=20261118m"></script>
+<script src="sy-modal.js?v=20261118m"></script>
+<script src="appt-followup.js?v=20261118m"></script>
+<script src="pt-reliability.js?v=20261118m"></script>
+<script src="huddle-flags.js?v=20261118m"></script>
+<script src="pay-methods.js?v=20261118m"></script>
+<script src="acc-daysheet.js?v=20261118m"></script>
+<script src="dash-yesterday.js?v=20261118m"></script>
+<script src="dash-goal.js?v=20261118m"></script>
+<script src="sched-blocks.js?v=20261118m"></script>
+<script src="dash-gaps.js?v=20261118m"></script>
+<script src="sidebar.js?v=20261118m"></script>
+<script src="inv-order.js?v=20261118m"></script>
 </head>
 <body>
 <script>
@@ -2764,6 +2765,7 @@ async function recordDashApptTime(apptId, fieldKey, btnEl) {
     // Sync the Waiting Room widget so the patient appears/disappears live.
     if (_dashUid) loadWaitingRoom(_dashUid);
     if (window.showToast) window.showToast(_stageLbl + (_implicitConfirm ? ' (وتأكّد الموعد)' : '') + (_rowName ? ' — ' + _rowName : '') + ' · ' + fmtTime12(new Date(nowIso).toTimeString().slice(0,5)));
+    if (fieldKey === 'dismissed_at' && window.SyApptFu) window.SyApptFu.offer(apptId);   /* ج2-ب-2: خرج بلا علاجٍ مربوط ⇒ متابعةٌ لعلاجٍ قيد الإنجاز؟ */
   } catch (e) {
     console.error('recordDashApptTime exception:', e);
     _dashStampFail();

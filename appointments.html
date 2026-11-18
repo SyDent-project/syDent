@@ -21,28 +21,29 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261118k"></script>
-<link rel="stylesheet" href="appointments.css?v=20261118k">
+<script src="theme.js?v=20261118m"></script>
+<link rel="stylesheet" href="appointments.css?v=20261118m">
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261118k">
+<link rel="stylesheet" href="theme.css?v=20261118m">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261118k"></script>
-<script src="sy-modal.js?v=20261118k"></script>
-<script src="appt-conflict.js?v=20261118k"></script>
-<script src="pt-reliability.js?v=20261118k"></script>
-<script src="sched-blocks.js?v=20261118k"></script>
-<script src="appt-blocks.js?v=20261118k"></script>
-<script src="appt-series.js?v=20261118k"></script>
-<script src="appt-family.js?v=20261118k"></script>
-<script src="sidebar.js?v=20261118k"></script>
-<script src="inv-consume.js?v=20261118k"></script>
-<script src="timepicker.js?v=20261118k"></script>
-<script src="appt-booking.js?v=20261118k"></script>
-<script src="appt-portal.js?v=20261118k"></script>
-<script src="appt-wa.js?v=20261118k"></script>
-<script src="appt-time.js?v=20261118k"></script>
-<script src="appt-views.js?v=20261118k"></script>
-<script src="appt-modal.js?v=20261118k"></script>
+<script src="supabase-init.js?v=20261118m"></script>
+<script src="sy-modal.js?v=20261118m"></script>
+<script src="appt-followup.js?v=20261118m"></script>
+<script src="appt-conflict.js?v=20261118m"></script>
+<script src="pt-reliability.js?v=20261118m"></script>
+<script src="sched-blocks.js?v=20261118m"></script>
+<script src="appt-blocks.js?v=20261118m"></script>
+<script src="appt-series.js?v=20261118m"></script>
+<script src="appt-family.js?v=20261118m"></script>
+<script src="sidebar.js?v=20261118m"></script>
+<script src="inv-consume.js?v=20261118m"></script>
+<script src="timepicker.js?v=20261118m"></script>
+<script src="appt-booking.js?v=20261118m"></script>
+<script src="appt-portal.js?v=20261118m"></script>
+<script src="appt-wa.js?v=20261118m"></script>
+<script src="appt-time.js?v=20261118m"></script>
+<script src="appt-views.js?v=20261118m"></script>
+<script src="appt-modal.js?v=20261118m"></script>
 </head>
 <body>
 <script>
@@ -3881,6 +3882,8 @@ async function submitAppt(e) {
           && (apptData.status === 'cancelled' || apptData.status === 'no_show')) {
         waitlistNudge(_wlOrig.date);
       }
+      /* ج2-ب-2: الموعدُ صار «مكتمل» الآن ⇒ هل كانت الزيارة متابعةً لعلاجٍ قيد الإنجاز؟ (appt-followup.js — يسأل بنفسه أو يصمت) */
+      var _fuOfferId = (apptData.status === 'completed' && _wlOrig && _wlOrig.status !== 'completed') ? editingId : null;
       /* M189: approving a portal slot request — offer the WhatsApp confirmation (must run BEFORE closeModal clears the ctx) */
       if (editingId && window._portalApproveCtx && window._portalApproveCtx.apptId === editingId && typeof portalApproveSaved === 'function') {
         portalApproveSaved(window._portalApproveCtx, apptData);
@@ -3893,6 +3896,7 @@ async function submitAppt(e) {
         setMainTab('planned');
       }
       await loadAppointments();
+      if (_fuOfferId && window.SyApptFu) window.SyApptFu.offer(_fuOfferId);
       // H3 fix: refresh phone cache if the appointment was for a patient added
       // in another tab (so WhatsApp reminder for this appt can find the phone).
       if (_needsPatientCacheRefresh) await loadPatientPhones();

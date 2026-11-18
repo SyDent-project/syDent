@@ -116,6 +116,7 @@
      SyDialog.confirm({ title, message, confirmText, cancelText, danger })  → Promise<bool>
      SyDialog.prompt({ title, message, value, placeholder, confirmText })   → Promise<string|null>
      SyDialog.alert({ title, message })                                     → Promise<void>
+     SyDialog.choose({ title, message, choices: [{ label, sub }], cancelText }) → Promise<index|null>  (ج2-ب-2: خيارٌ من قائمة)
    ثوابت: لا إغلاقَ بنقرةٍ خارجية (قرارٌ يُتَّخذ لا نافذةُ عرض) · Escape = إلغاء ·
    التركيزُ على زرِّ الإلغاء بالحوار الخطير وعلى الحقل بالإدخال · وعدٌ واحدٌ يُحسم
    مرةً واحدة مهما تكرّر الضغط. */
@@ -138,6 +139,7 @@
     ov.setAttribute('data-sy-kind', kind);
     var isPrompt = kind === 'prompt';
     var isAlert  = kind === 'alert';
+    var isChoose = kind === 'choose';
     var title = o.title || (kind === 'confirm' ? 'تأكيد' : (isPrompt ? 'إدخال' : 'تنبيه'));
     var okTxt = o.confirmText || (isAlert ? 'حسناً' : (kind === 'confirm' ? 'تأكيد' : 'حفظ'));
     ov.innerHTML =
@@ -151,12 +153,19 @@
             ? '<input type="text" class="sy-dialog-input" value="' + esc(o.value || '') +
               '" placeholder="' + esc(o.placeholder || '') + '">'
             : '') +
+          (isChoose
+            ? '<div class="sy-dialog-choices">' + (o.choices || []).map(function (c, i) {
+                return '<button type="button" class="sy-dialog-choice" data-sy-act="pick" data-sy-i="' + i + '">'
+                  + '<span class="sy-dialog-choice-l">' + esc(c && c.label) + '</span>'
+                  + (c && c.sub ? '<span class="sy-dialog-choice-s">' + esc(c.sub) + '</span>' : '') + '</button>';
+              }).join('') + '</div>'
+            : '') +
         '</div>' +
         '<div class="modal-foot">' +
           /* data-sy-close: عُدّةُ النوافذ تنقر هذا الزرَّ عند Escape، فيُحسم الوعدُ
              إلغاءً بدل أن تُخفى النافذةُ ويبقى المُستدعي منتظراً إلى الأبد. */
           (isAlert ? '' : '<button type="button" class="btn-sy-cancel" data-sy-act="cancel" data-sy-close>' + esc(o.cancelText || 'إلغاء') + '</button>') +
-          '<button type="button" class="btn-sy-ok' + (o.danger ? ' danger' : '') + '" data-sy-act="ok">' + esc(okTxt) + '</button>' +
+          (isChoose ? '' : '<button type="button" class="btn-sy-ok' + (o.danger ? ' danger' : '') + '" data-sy-act="ok">' + esc(okTxt) + '</button>') +
         '</div>' +
       '</div>';
     return ov;
@@ -179,6 +188,8 @@
       ov.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('[data-sy-act]') : null;
         if (!b) return;                       /* النقرُ الخارجي لا يُغلق: قرارٌ يُتَّخذ */
+        if (b.getAttribute('data-sy-act') === 'pick') { finish(parseInt(b.getAttribute('data-sy-i'), 10)); return; }
+        if (kind === 'choose') { finish(null); return; }
         if (b.getAttribute('data-sy-act') === 'ok') {
           finish(kind === 'prompt' ? (input ? input.value : '') : true);
         } else {
@@ -191,7 +202,7 @@
         });
         setTimeout(function () { try { input.focus(); input.select(); } catch (e) {} }, 30);
       } else {
-        var first = ov.querySelector(o && o.danger ? '.btn-sy-cancel' : '.btn-sy-ok');
+        var first = ov.querySelector(kind === 'choose' ? '.sy-dialog-choice' : (o && o.danger ? '.btn-sy-cancel' : '.btn-sy-ok'));
         setTimeout(function () { try { if (first) first.focus(); } catch (e) {} }, 30);
       }
     });
@@ -200,7 +211,8 @@
   window.SyDialog = {
     confirm: function (o) { return open('confirm', typeof o === 'string' ? { message: o } : o); },
     prompt:  function (o) { return open('prompt',  typeof o === 'string' ? { message: o } : o); },
-    alert:   function (o) { return open('alert',   typeof o === 'string' ? { message: o } : o); }
+    alert:   function (o) { return open('alert',   typeof o === 'string' ? { message: o } : o); },
+    choose:  function (o) { return open('choose', o || {}); }
   };
 })();
 /* SYDENT_DIALOG_END */

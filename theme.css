@@ -1095,6 +1095,12 @@ body:has(.modal-overlay.show) #syFabDock { display: none !important; }
 .sy-dialog .btn-sy-ok { background: var(--green); color: var(--on-accent); border: none; }
 .sy-dialog .btn-sy-ok:hover { opacity: .9; }
 .sy-dialog .btn-sy-ok.danger { background: var(--red); color: #fff; }
+/* ج2-ب-2: SyDialog.choose — كلُّ خيارٍ زرٌّ بسطرين (الاسم · التفصيل) */
+.sy-dialog .sy-dialog-choices { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; max-height: 50vh; overflow-y: auto; }
+.sy-dialog .sy-dialog-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; text-align: start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2); color: var(--text); font-family: inherit; cursor: pointer; }
+.sy-dialog .sy-dialog-choice:hover, .sy-dialog .sy-dialog-choice:focus-visible { border-color: var(--green); }
+.sy-dialog .sy-dialog-choice-l { font-weight: 700; font-size: 13.5px; }
+.sy-dialog .sy-dialog-choice-s { font-size: 12px; color: var(--text2); }
 @media (max-width: 560px) { .sy-dialog .sy-dialog-input { font-size: 16px; } }
 /* ═══ /SYDENT DIALOG ═══ */
 /* ═══ LAB REDO (v523 · M160 · lab-redo.js) — حوارُ الإعادة وسطرُ الدورات بالسطحين ═══ */
