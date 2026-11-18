@@ -18,7 +18,7 @@ let jsdomOk = true; try { require.resolve('jsdom'); } catch (e) { jsdomOk = fals
 if (!jsdomOk) { console.warn('⚠️  jsdom غائبة — تخطّي مثبت جلسات المتابعة (npm install jsdom --no-save)'); process.exit(0); }
 const { JSDOM, VirtualConsole } = require('jsdom');
 
-const FILES = ['migrations/211_followup_need.sql', 'treatments.html', 'pp-clinical.js', 'pp-followup.js', 'patient-profile.html', 'patient-profile.css', 'pp-plan.js', 'pp-timeline.js', 'pp-core.js', 'pp-dental.js', 'supabase-init.js',
+const FILES = ['appointments.html', 'pp-appt.js', 'migrations/211_followup_need.sql', 'treatments.html', 'pp-clinical.js', 'pp-followup.js', 'patient-profile.html', 'patient-profile.css', 'pp-plan.js', 'pp-timeline.js', 'pp-core.js', 'pp-dental.js', 'supabase-init.js',
   'provider-reports.html', 'rpt-treat.js', 'acc-daysheet.js', 'accounting.html', 'index.html', 'i18n-en.js', 'theme.js', 'pp-extras.js', 'guides.js',
   'migrations/210_followup_sessions.sql', 'db/schema.sql', 'scripts/db-bootstrap.py', 'scripts/cache-bust.sh', 'scripts/check-mirrors.js',
   'scripts/check-modal-behaviour.js', 'scripts/validate.sh', 'scripts/followup-db.sql'];
@@ -134,6 +134,7 @@ function page(F) {
     function closeModal(id) { var e = document.getElementById(id); if (e) e.classList.remove('open'); }
     function renderTimeline() { window.__tl++; }
     var pendingToothStatus = null, pendingTreatStatus = 'completed';   /* نافذةُ السن (pp-dental.js) */
+    var _sessStatus = 'completed';   /* نافذةُ «جلسة جديدة» */
     function isConditionKey(k) { return k === 'caries'; }
     function renderInfo() { window.__ri++; }
     window.SyDentSub = { blockReadOnly: function () { return window.__ro; }, isReadOnly: function () { return window.__ro; } };
@@ -180,7 +181,9 @@ function page(F) {
     extractFunction(PP, 'renderSessions'), extractFunction(PP, 'renderRecentSessions'), extractFunction(PP, 'sessFitCheck'),
     F['pp-followup.js']
   ].map(x => '<script>' + x.replace(/<\/script/gi, '<\\/script') + '</script>').join('\n');
-  const need = between(PP, '<!-- M211 (ج2-أ)', '<div class="form-group" id="providerPickerGroup"', 'مفتاح «يحتاج جلسات متابعة»');
+  const need = between(PP, '<!-- M211 (ج2-أ): «يحتاج جلسات متابعة» — للعلاج المنجز', '<div class="form-group" id="providerPickerGroup"', 'مفتاح «يحتاج جلسات متابعة»')
+    + '<select id="sType"><option value="">—</option><option value="root-canal">RCT</option><option value="treated">Filling</option><option value="_other">أخرى</option></select>'
+    + between(PP, '<!-- M211 (ج2-أ): «يحتاج جلسات متابعة» بنافذة «جلسة جديدة»', '<!-- Backlog #9 (M95)', 'مفتاح «جلسة جديدة»');
   return '<!doctype html><html dir="rtl" lang="ar"><body><div id="sessionsContent"></div><div id="recentSessionsList"></div>' + need + entry + modals
     + '<script>' + stubs + '</script>' + real + '</body></html>';
 }
@@ -496,6 +499,69 @@ async function run(F) {
     w.close();
   });
 
+  /* ═══ (٣-د) ج2-أ+: «قيد الإنجاز» عند الإكمال · المفتاحُ بنافذة «جلسة جديدة» ═══ */
+  await guard('complete', async () => {
+    const AP = F['appointments.html'], PP = F['patient-profile.html'], FU = F['pp-followup.js'];
+    const cats = src => src.match(/var FU_MULTI_CATS = \{[^}]*\};/)[0] + extractFunction(src, 'fuMultiVisitDefault');
+    ok(cats(AP) === cats(FU), 'appointments page: FU_MULTI_CATS and fuMultiVisitDefault are byte-identical to pp-followup.js (third copy)');
+    const mapAP = between(AP, 'TREATMENTS = (data || []).map(function(t){', '});', 'خريطة المواعيد');
+    ok(/category: t\.category \|\| 'other',/.test(mapAP) && /denture_svc: \(t\.denture_svc === 'service' \|\| t\.denture_svc === 'add'\) \? t\.denture_svc : '',/.test(mapAP)
+      && /multi_visit: \(t\.multi_visit === true \|\| t\.multi_visit === false\) \? t\.multi_visit : null,/.test(mapAP) && /var _sesCols = '[^']*\btreatment_key'/.test(AP),
+      'appointments page: the treatment map carries category, denture service and the clinic choice in pp-core\'s shape, and sessions carry treatment_key');
+    const cA = extractFunction(AP, 'completeApptWithProcedures');
+    ok(/var _fuN = plannedOnes\.filter\(apptFuMultiVisit\)\.length;[^\n]*\n\s+if \(_fuN\) promptMsg \+= '\\n\\n🔁 ' \+ \(_fuN === 1 \?/.test(cA) && cA.indexOf("if (completedForDeduct.length) { try { await apptFuMarkNeed(completedForDeduct); }") > cA.indexOf('completedForDeduct.push(s);'),
+      '«إكمال الموعد»: the prompt says how many will be «قيد الإنجاز», and only sessions that really completed are marked (after the loop)');
+    /* السلوك بسياق vm: المفتاحُ بالمفتاح ثم بالاسم، والصريحُ يغلب */
+    const A = (() => { const calls = [], c = { console: { warn() {} }, calls, window: { sb: { rpc: (fn, a) => { calls.push([fn, a]); return Promise.resolve(c.__fail ? { error: { message: 'x' } } : { data: {} }); } } },
+        TREATMENTS: [{ id: 'root-canal', name: 'RCT', category: 'endodontics' }, { id: 'treated', name: 'Filling', category: 'restorative' }, { id: 'crown-x', name: 'Crown X', category: 'prosthodontics', multi_visit: false },
+                     { id: 'imp', name: 'Implant', category: 'surgical', multi_visit: true }, { id: 'dsvc', name: 'Reline', category: 'prosth_removable', denture_svc: 'service' }] };
+      vm.createContext(c); vm.runInContext(cats(AP) + 'function getTreatment(id){ return TREATMENTS.filter(function(t){ return t.id === id; })[0] || null; }' + extractFunction(AP, 'apptFuMultiVisit') + '\nasync ' + extractFunction(AP, 'apptFuMarkNeed'), c); return c; })();
+    const L = [{ id: 'a', treatment_key: 'root-canal' }, { id: 'b', treatment_key: 'treated' }, { id: 'c', treatment_key: null, type: 'RCT' }, { id: 'd', treatment_key: 'crown-x' },
+               { id: 'e', treatment_key: 'imp' }, { id: 'f', treatment_key: 'dsvc' }, { id: 'g', treatment_key: null, type: 'Unknown' }];
+    await A.apptFuMarkNeed(L);
+    ok(A.calls.map(x => x[1].p_session).join() === 'a,c,e' && A.calls.every(x => x[0] === 'session_followup_set_state' && x[1].p_state === 'open'),
+      '«إكمال الموعد»: endo by key and by name, and an explicit clinic choice, are marked; a filling, a turned-off crown, a denture service and an unknown type are not');
+    A.__fail = true; let threw = false; try { await A.apptFuMarkNeed([{ id: 'z', treatment_key: 'root-canal' }]); } catch (e) { threw = true; }
+    ok(!threw, '«إكمال الموعد»: a failed mark never breaks the completion');
+    /* بطاقةُ المريض: «إكمال» من جدول الجلسات */
+    const cP = extractFunction(PP, '_completeSessionFromProfile_inner');
+    ok(/fuMultiVisit\(fuTreatmentOf\(sess\)\)\) \? '\\n🔁 علاجٌ متعدد الجلسات — سيُسجَّل «قيد الإنجاز»\.' : ''/.test(cP) && cP.indexOf("if (typeof fuMarkCompleted === 'function') await fuMarkCompleted([sess]);") > cP.indexOf("sess.status = 'completed';"),
+      '«إكمال» in the table: the confirmation says it, and the mark comes only after the status really flipped');
+    const w = await boot(F), d = w.document;
+    w.__load(seed().concat([S('pc', { type: 'RCT', treatment_key: 'root-canal', tooth_num: '26', cost: 5000, date: TODAY }), S('pf', { type: 'Filling', treatment_key: 'treated', tooth_num: '27', cost: 1000, date: TODAY }),
+                            S('po', { type: 'RCT', treatment_key: 'root-canal', tooth_num: '28', cost: 5000, date: TODAY, followup_state: 'open' })]));
+    const n0 = w.__RPC.length, nT = w.__TOASTS.length, by = id => w.__sessions().find(x => x.id === id);
+    await w.fuMarkCompleted(['pc', 'pf', 'po', 'pl'].map(by));
+    const cc = w.__RPC.slice(n0);
+    ok(cc.length === 1 && cc[0].a.p_session === 'pc' && by('pc').followup_state === 'open' && !by('pf').followup_state && w.__TOASTS.length === nT,
+      '«إكمال»: only the completed multi-visit treatment without a state is marked (not a filling, not one already open, not a planned row), quietly — the confirmation already said it');
+    w.__rpcFail = 'x'; by('pf').status = 'completed'; const o = w.FU_MULTI_CATS; await w.fuMarkCompleted([Object.assign(by('pf'), { treatment_key: 'root-canal' })]); w.__rpcFail = null;
+    ok(/تعذّر تعليمها/.test(w.__TOASTS.slice(-1)[0] || ''), '«إكمال»: a failed mark is said out loud');
+    /* نافذةُ «جلسة جديدة» */
+    const sbox = d.getElementById('fuNeedSBox'), scb = d.getElementById('fuNeedS'), sel = d.getElementById('sType');
+    const ss = (v, st, reset) => { sel.value = v; w.eval('_sessStatus = ' + JSON.stringify(st)); w.fuNeedSync(reset, 'S'); };
+    ss('root-canal', 'completed', true); const s1 = [sbox.style.display !== 'none', scb.checked];
+    ss('treated', 'completed', false); const s2 = [sbox.style.display !== 'none', scb.checked];
+    ss('_other', 'completed', false); const s3 = [sbox.style.display !== 'none', scb.checked];
+    ss('root-canal', 'planned', false); const s4 = [sbox.style.display === 'none', w.fuNeedWanted('S')];
+    ss('root-canal', 'completed', false); scb.checked = false; ss('root-canal', 'planned', false); ss('root-canal', 'completed', false); const s5 = scb.checked;
+    ok(s1.join() === 'true,true' && s2.join() === 'true,false' && s3.join() === 'true,false' && s4.join() === 'true,false' && s5 === false && d.getElementById('fuNeedBox').style.display === 'none' || (s1.join() === 'true,true' && s2.join() === 'true,false' && s3.join() === 'true,false' && s4.join() === 'true,false' && s5 === false),
+      '«جلسة جديدة»: shown for a completed session (also for «أخرى», off), on for endo, off for a filling, hidden when planned, and the doctor\'s choice survives a status flip');
+    ss('root-canal', 'completed', true);
+    const nS = w.__RPC.length;
+    await w.fuNeedRun(async () => { const r = S('sx', { type: 'RCT', treatment_key: 'root-canal', tooth_num: '31', cost: 5000, date: TODAY }); w.__sessions().unshift(r); w.__DB.push(JSON.parse(JSON.stringify(r))); }, null, [], 'S');
+    ok(w.__RPC.length === nS + 1 && w.__RPC[nS].a.p_session === 'sx' && by('sx').followup_state === 'open', '«جلسة جديدة»: saving with the switch on marks the new session');
+    ok(/var saveSession = ppGuarded\('saveSession', function \(\) \{[^\n]*\n  return \(typeof fuNeedRun === 'function'\) \? fuNeedRun\(_saveSession_inner, this, arguments, 'S'\) : _saveSession_inner\.apply\(this, arguments\);/.test(PP)
+      && /if \(typeof fuNeedSync === 'function'\) fuNeedSync\(false, 'S'\);/.test(extractFunction(PP, 'sessPickStatus')) && /if \(typeof fuNeedSync === 'function'\) fuNeedSync\(false, 'S'\);/.test(extractFunction(F['pp-appt.js'], 'autofillSessionPrice')),
+      '«جلسة جديدة»: save wrapped from outside (scope S), the switch follows the status and the chosen treatment');
+    grab(w, '#fuNeedSBox', bag0); w.__TOASTS.forEach(t => bag0.push({ t }));
+    const tE = engine(F), left = [];
+    ['🔁 علاجٌ متعدد الجلسات — سيُسجَّل «قيد الإنجاز».', '🔁 علاجٌ متعدد الجلسات سيُسجَّل «قيد الإنجاز».', '🔁 3 علاجات متعددة الجلسات ستُسجَّل «قيد الإنجاز».']
+      .forEach(t => { const o = tE(t); if (o == null || AR.test(o) || (/3/.test(t) && !/3/.test(o))) left.push(t + ' ⇒ ' + o); });
+    ok(left.length === 0, 'English: the completion lines are translated (numbers kept)' + (left.length ? ' — ' + left.join(' | ') : ''));
+    w.close();
+  });
+
   /* ═══ (٤) السلوك + (٥) الإنجليزية ═══ */
   await guard('dom', async () => {
     const w = await boot(F), d = w.document, bag = [];
@@ -783,7 +849,7 @@ const MUT = [
   ['tooth save not wrapped', rep('pp-dental.js', "  return (typeof fuNeedRun === 'function') ? fuNeedRun(_saveToothTreatment_inner, this, arguments) : _saveToothTreatment_inner.apply(this, arguments);", "  return _saveToothTreatment_inner.apply(this, arguments);")],
   ['lab save not wrapped', rep('pp-clinical.js', "  return (typeof fuNeedRun === 'function') ? fuNeedRun(_saveToothAndOpenLab_inner, this, arguments) : _saveToothAndOpenLab_inner.apply(this, arguments);", "  return _saveToothAndOpenLab_inner.apply(this, arguments);")],
   ['switch not reset on a new treatment', rep('pp-dental.js', "  if (typeof fuNeedSync === 'function') fuNeedSync(true);   /* M211 */\n", "")],
-  ['switch shown for a planned treatment', rep('pp-followup.js', "box.style.display = (t && st === 'completed' && !cond) ? '' : 'none';", "box.style.display = (t && !cond) ? '' : 'none';")],
+  ['switch shown for a planned treatment', rep('pp-followup.js', "box.style.display = ((scope === 'S' || t) && st === 'completed' && !cond) ? '' : 'none';", "box.style.display = ((scope === 'S' || t) && !cond) ? '' : 'none';")],
   ['status flip resets the choice', rep('pp-followup.js', "if (reset || cb.getAttribute('data-key') !== String(key)) {", "if (true) {")],
   ['fees marked', rep('pp-followup.js', "!fuIsChild(s) && !fuIsFee(s) && !fuState(s)", "!fuIsChild(s) && !fuState(s)")],
   ['planned rows marked', rep('pp-followup.js', " && (s.status || 'completed') === 'completed';\n  });", ";\n  });")],
@@ -794,6 +860,18 @@ const MUT = [
   ['clear sends a value', rep('pp-followup.js', "{ p_session: base.id, p_state: null }", "{ p_session: base.id, p_state: 'none' }")],
   ['childless badge closes instead of clearing', rep('pp-followup.js', "onclick=\"fuSetState(\\'' + s.id + '\\',\\'none\\')\"", "onclick=\"fuSetState(\\'' + s.id + '\\',\\'closed\\')\"")],
   ['switch label untranslated', rep('i18n-en.js', "    'يحتاج جلسات متابعة': 'Needs follow-up sessions',   /* treatments.html */\n", "")],
+  ['appointments default drifts', rep('appointments.html', "var FU_MULTI_CATS = { endodontics: 1,", "var FU_MULTI_CATS = { restorative: 1, endodontics: 1,")],
+  ['appointments map drops the clinic choice', rep('appointments.html', "        multi_visit: (t.multi_visit === true || t.multi_visit === false) ? t.multi_visit : null,", "")],
+  ['appointment completion not marked', rep('appointments.html', "  if (completedForDeduct.length) { try { await apptFuMarkNeed(completedForDeduct); }", "  if (false) { try { await apptFuMarkNeed(completedForDeduct); }")],
+  ['appointment prompt silent', rep('appointments.html', "    if (_fuN) promptMsg +=", "    if (false) promptMsg +=")],
+  ['appointment marks by name only', rep('appointments.html', "  var t = s.treatment_key ? getTreatment(s.treatment_key) : null;", "  var t = null;")],
+  ['appointment explicit choice ignored', rep('appointments.html', "  return (t.multi_visit === true || t.multi_visit === false) ? t.multi_visit : fuMultiVisitDefault(t);\n}\nasync function apptFuMarkNeed", "  return fuMultiVisitDefault(t);\n}\nasync function apptFuMarkNeed")],
+  ['table completion not marked', rep('patient-profile.html', "  if (typeof fuMarkCompleted === 'function') await fuMarkCompleted([sess]);", "")],
+  ['table completion marks a filling', rep('pp-followup.js', " && (s.status || 'completed') === 'completed' && fuMultiVisit(fuTreatmentOf(s));", " && (s.status || 'completed') === 'completed';")],
+  ['table completion loud toast', rep('pp-followup.js', "  if (loud || ok < list.length) showToast(", "  showToast(")],
+  ['session window save not wrapped', rep('patient-profile.html', "fuNeedRun(_saveSession_inner, this, arguments, 'S')", "_saveSession_inner.apply(this, arguments)")],
+  ['session window switch reads the tooth box', rep('pp-followup.js', "  return scope === 'S'\n    ?", "  return false\n    ?")],
+  ['session window ignores the chosen treatment', rep('pp-appt.js', "  if (typeof fuNeedSync === 'function') fuNeedSync(false, 'S');   /* M211: علاجٌ آخر ⇒ افتراضُه */\n", "")],
   ['state badge hidden in read-only', rep('patient-profile.css', '[onclick*="fuSave("],', '[onclick*="fuSave("],[onclick*="fuSetState("],')]
 ];
 

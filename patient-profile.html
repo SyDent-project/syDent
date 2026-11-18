@@ -858,6 +858,13 @@
         </div>
         <div id="sStatusHint" class="chart-hint" style="display:none;margin-top:6px;"></div>
       </div>
+      <!-- M211 (ج2-أ): «يحتاج جلسات متابعة» بنافذة «جلسة جديدة» — نفسُ مفتاح نافذة السن (fuNeedSync('S') · fuNeedRun) -->
+      <div class="form-group fu-need" id="fuNeedSBox" style="display:none;">
+        <label class="fu-need-row" for="fuNeedS">
+          <input type="checkbox" id="fuNeedS">
+          <span class="fu-need-txt"><b>🔁 يحتاج جلسات متابعة</b><span class="fu-need-s">يُسجَّل «قيد الإنجاز»، وتُضاف زياراته اللاحقة من «＋ متابعة» بلا تكلفة</span></span>
+        </label>
+      </div>
       <!-- Backlog #9 (M95): quick-note templates — OpenDental Quick Notes parity.
            Row hidden until the templates table is confirmed reachable (#264). -->
       <div class="form-group sn-tpl-row" id="snTplRow" style="display:none;">
@@ -5212,6 +5219,7 @@ async function _completeSessionFromProfile_inner(sessionId) {
           + 'العلاج: ' + (sess.type || sess.description || '—')
           + toothPart
           + '\nالتكلفة: ' + fmt(sess.cost) + ' ' + _rowLbl(sess)
+          + ((typeof fuMultiVisit === 'function' && fuMultiVisit(fuTreatmentOf(sess))) ? '\n🔁 علاجٌ متعدد الجلسات — سيُسجَّل «قيد الإنجاز».' : '')   /* M211 */
           + '\n\nسيتم تحويل الحالة من "مخطّط" إلى "منجز".\nمتابعة؟';
   /* M145-f: إنجازُ بندٍ من خيارٍ بديل = اعتمادُ ذلك الخيار. بدونه كان يُنجَز بند «ج» (زرعة) بينما
      جسرا «أ/ب» ما زالا مخطّطين ومرسومين — خطةٌ متناقضة ومخططٌ لا يتبع الواقع. تأكيدٌ واحد جامع. */
@@ -5241,6 +5249,7 @@ async function _completeSessionFromProfile_inner(sessionId) {
   }
   // Reflect locally so re-renders pick it up before the next loadData.
   sess.status = 'completed';
+  if (typeof fuMarkCompleted === 'function') await fuMarkCompleted([sess]);   /* M211: المتعددُ الجلسات «قيد الإنجاز» عند إكماله */
 
   // 2) مزامنة صفّ المخطّط مع الجلسة المُنجَزة — v260: مطابقةٌ بالعلاج لا بالسطح
   //    وحده (كانت تقلب أيَّ صفٍّ مخطّط على السطح ⇒ وتدٌ مخطّط صار «منجزاً» عند
@@ -5975,7 +5984,9 @@ async function savePayment() {
 }
 
 /* ── Save Session ── */
-var saveSession = ppGuarded('saveSession', _saveSession_inner, 'جارٍ الحفظ…');   /* v284: قفل + انشغال */
+var saveSession = ppGuarded('saveSession', function () {   /* v284: قفل + انشغال · M211: «يحتاج جلسات متابعة» يُغلّف الحفظ من الخارج */
+  return (typeof fuNeedRun === 'function') ? fuNeedRun(_saveSession_inner, this, arguments, 'S') : _saveSession_inner.apply(this, arguments);
+}, 'جارٍ الحفظ…');
 async function _saveSession_inner() {
   // Phase 4.1: defense-in-depth — block if locked doctor is inactive
   if (window.SyDentLock && window.SyDentLock.isDoctorAccountInactive && window.SyDentLock.isDoctorAccountInactive()) {
@@ -6080,6 +6091,7 @@ function sessPickStatus(s, hint) {
     h.textContent = txt;                     /* نصٌّ ثابت — لا مدخل مستخدم */
     h.style.display = txt ? 'block' : 'none';
   }
+  if (typeof fuNeedSync === 'function') fuNeedSync(false, 'S');   /* M211: للمنجز وحده */
 }
 function sessApptIsLive(a) {
   if (!a || a.date !== toDay()) return false;
