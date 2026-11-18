@@ -3578,3 +3578,24 @@ Object.assign(window.SyI18nDict, {
     [/^جلسات المتابعة المرتبطة بها \((\d+)\) تُحذف معها$/, 'Its follow-up sessions ($1) are deleted with it']
   );
 })();
+/* ═══ مراجعة صفحة العلاجات (18/11/2026) — حمايةُ العلاج المستعمَل · مدّةُ المخبر بالعدد والمعدود · نوعُ الأسنان للمتحرك ═══ */
+(function () {
+  var D = window.SyI18nDict, P = window.SyI18nPatterns;
+  Object.assign(D, {
+    '🔒 جارٍ التحقق من استعمال العلاج…': '🔒 Checking whether the treatment is in use…',
+    '🔒 «يطبَّق على» ثابت — العلاج مستعمَل بسجلات المرضى، وتغييرُه يغيّر رسمها. لنطاقٍ آخر: «نسخ» ثم عدّل النسخة.': '🔒 «Applies to» is fixed — the treatment is used in patient records, and changing it would change how they are drawn. For another scope: «Copy», then edit the copy.',
+    '🔒 تعذّر التحقق من استعمال العلاج — «يطبَّق على» يبقى ثابتاً. أعد فتح النموذج للمحاولة.': '🔒 Could not check whether the treatment is in use — «Applies to» stays fixed. Reopen the form to try again.',
+    'لا يمكن حذف علاجٍ مستعمَل': 'A treatment in use cannot be deleted',
+    'تعطيله': 'Deactivate it',
+    'استعادة': 'Restore',
+    '⚠️ تعذّر التحقق من استعمال العلاج — لم يُحذف. حاول مجدداً': '⚠️ Could not check whether the treatment is in use — it was not deleted. Try again',
+    '⚠️ اكتب السعر (0 إذا كان العلاج بلا سعر)': '⚠️ Enter the price (0 if the treatment has no price)',
+    '🦷 «نوع الأسنان: دائمة فقط» تلقائياً حسب التصنيف — يمكنك تغييره': '🦷 «Teeth: permanent only» set from the category — you can change it',
+    'يومان': '2 days'
+  });
+  P.push(
+    [/^🥽 مخبر · (\d+) (?:أيام|يوماً)$/, '🥽 Lab · $1 days'],
+    [/^🥽 مخبر · يوم واحد$/, '🥽 Lab · 1 day'],
+    [/^🥽 مخبر · يومان$/, '🥽 Lab · 2 days']
+  );
+})();

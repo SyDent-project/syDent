@@ -16,11 +16,11 @@
 /* ── Modal ── v447: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261118f"></script>
+<script src="theme.js?v=20261118h"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261118f"></script>
-<script src="sy-modal.js?v=20261118f"></script>
-<script src="sidebar.js?v=20261118f"></script>
+<script src="supabase-init.js?v=20261118h"></script>
+<script src="sy-modal.js?v=20261118h"></script>
+<script src="sidebar.js?v=20261118h"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -228,6 +228,8 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
 /* v407: مبدّل العملة (.cur-pick) يُحقن بين عنوان السعر وحقله فيُنزل الحقل سطراً عن حقل الاسم
    بالعيادات ثنائية العملة ⇒ العنوانُ والمبدّل بسطرٍ واحد، والحقلان يُحاذيان من الأسفل. */
 #treatModal .form-row{align-items:end;}
+/* مراجعة 18/11: صفُّ «نوع الأسنان | اللون» يحاذي من الأعلى — تلميحُ نوع الأسنان كان يُنزل عنوانَ اللون عن عنوانه */
+#treatModal .form-row.fr-top{align-items:start;}
 #treatModal .fg-price{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;column-gap:8px;}
 #treatModal .fg-price > label{margin-bottom:6px;}
 #treatModal .fg-price > .cur-pick{margin-bottom:6px !important;padding:1px !important;}
@@ -271,7 +273,7 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
 }
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261118f">
+<link rel="stylesheet" href="theme.css?v=20261118h">
 </head>
 <body>
 <div class="main" id="sbMainContent">
@@ -282,7 +284,7 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
     <p class="sd-page-head__sub">العلاجات التي تقدّمها العيادة بأسعارها وألوانها على مخطط الأسنان. تظهر هذه القائمة عند تسجيل أي جلسة.</p>
   </div>
   <div class="sd-page-head__actions">
-    <button type="button" class="sd-btn sd-btn--ghost" onclick="resetToDefaults()" title="إرجاع القائمة إلى العلاجات الافتراضية للنظام">استعادة الافتراضي</button>
+    <button type="button" class="sd-btn sd-btn--secondary" onclick="resetToDefaults()" title="إرجاع القائمة إلى العلاجات الافتراضية للنظام">استعادة الافتراضي</button>
     <button type="button" class="sd-btn sd-btn--secondary" onclick="printLegend()" title="طباعة دليل العلاجات والألوان">طباعة الدليل</button>
     <button type="button" class="sd-btn sd-btn--primary" onclick="openAddModal()">＋ علاج جديد</button>
   </div>
@@ -451,7 +453,7 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
             </div>
           </div>
         </div>
-        <div class="form-row">
+        <div class="form-row fr-top">
           <!-- M146: مخفيٌّ حتى يوجد العمود -->
           <div class="form-group" id="dentScopeWrap">
             <label for="tDentScope">نوع الأسنان</label>
@@ -924,7 +926,7 @@ function render() {
     var iconBg = 'background:' + bg + ';';
     var bar = 'background:' + bg + ';';
     var mvTag = (window.__m210T && multiVisitOf(t)) ? '<span class="treat-lab-tag treat-mv-tag" title="يحتاج جلسات متابعة">🔁 متعدد الجلسات</span>' : '';   /* M210 */
-    var labTag = t.needs_lab ? '<span class="treat-lab-tag">🥽 مخبر' + (t.lab_days ? ' · ' + t.lab_days + ' ' + (t.lab_days <= 10 && t.lab_days > 2 ? 'أيام' : 'يوم') : '') + '</span>' : '';   /* M161 */
+    var labTag = t.needs_lab ? '<span class="treat-lab-tag">🥽 مخبر' + (t.lab_days ? ' · ' + labDaysText(t.lab_days) : '') + '</span>' : '';   /* M161 */
     var targetMap = {   // v367: unified tones (theme.css) — same look as every other status chip
       'crown':      { text:'سطح تاج',     tone:'yellow' },
       'root':       { text:'جذر السن',    tone:'purple' },
@@ -994,6 +996,15 @@ function render() {
   }
   grid.innerHTML = html;
   wireDragAndDrop();
+}
+
+/* مراجعة 18/11: العدد والمعدود — «يوم واحد · يومان · 3–10 أيام · 11+ يوماً» (كان «2 يوم» و«11 يوم») */
+function labDaysText(n) {
+  n = Number(n);
+  if (n === 1) return 'يوم واحد';
+  if (n === 2) return 'يومان';
+  var r = n % 100;
+  return n + (r >= 3 && r <= 10 ? ' أيام' : ' يوماً');
 }
 
 function isLightColor(hex) {
@@ -1107,10 +1118,12 @@ function applyCategoryDentDefault() {
   var catEl = document.getElementById('tCategory');
   var ds = document.getElementById('tDentScope');
   if (!catEl || !ds) return;
-  var want = (catEl.value === 'pediatric') ? 'primary' : 'all';
+  /* مراجعة 18/11: «تعويضات متحركة» ⇒ «دائمة فقط» (مرآةُ أجهزة الكتالوج الافتراضي كلّها) */
+  var want = (catEl.value === 'pediatric') ? 'primary' : (catEl.value === 'prosth_removable') ? 'permanent' : 'all';
   if (ds.value === want) return;
   ds.value = want;
   if (want === 'primary') showToast('🧒 «نوع الأسنان: لبنية فقط» تلقائياً حسب التصنيف — يمكنك تغييره');
+  else if (want === 'permanent') showToast('🦷 «نوع الأسنان: دائمة فقط» تلقائياً حسب التصنيف — يمكنك تغييره');
 }
 
 /* M161: حقلُ مدّة المخبر يتبع «يحتاج إرسالاً للمخبر» — يُستدعى عند كل فتحٍ وتبديل وتطبيقِ افتراض الفئة */
@@ -1318,6 +1331,7 @@ function editTreatment(id) {
   pickColor(t.fill, t.stroke);
   pickTarget(uiTargetOf(t));   /* M208: خدمةُ الجهاز ببلاطتها */
   setTargetLock(isProtectedTreatment(t));   // chart-geometry treatments: target is fixed
+  if (!isProtectedTreatment(t)) lockTargetIfUsed(t);   /* مراجعة 18/11: والمستعمَلُ بسجلات المرضى أيضاً */
   renderOverrideRows(t.price_overrides || {});
   updatePreview();
   openMultiVisit(t);   /* M210 */
@@ -1358,9 +1372,31 @@ function syncDentSvcTiles() {
    owner decision: target locked on edit; everything else stays editable.
    Custom copies (custom_…) are never locked (isProtectedTreatment exempts them).
    saveTreatment adds a defense-in-depth force in case the DOM is tampered. */
-function setTargetLock(on) {
+/* مراجعة 18/11: «يطبَّق على» يحدّد كيف تُرسم سجلاتُ العلاج المحفوظة (سطح · جذر · قلع · جسر…) — تغييرُه لعلاجٍ
+   مستعمَل يعيد رسمَ مخططاتٍ قديمة بشكلٍ آخر بصمت (ونسخةُ قلعٍ تصير «سطح تاج» فيعود السنُّ قائماً). يُقفل ما دام العلاج
+   مستعمَلاً: يُقفل فوراً عند الفتح ويُفتح إن ثبت أنه غير مستعمَل؛ تعذّرُ القراءة يُبقيه مقفلاً (لا تغيير على جهل).
+   _tgtUseLock يحمي الحفظ نفسه (مرآةُ حماية العلاجات ذات الرسم الخاص)، و_tgtUseTok يُسقط نتيجةً وصلت بعد إغلاق النموذج. */
+var _tgtUseLock = false, _tgtUseTok = 0;
+var TARGET_LOCK_MSG = {
+  geometry: '🔒 نطاق هذا العلاج ثابت — هندسته خاصة بمخطط الأسنان ولا يمكن تغييرها',
+  checking: '🔒 جارٍ التحقق من استعمال العلاج…',
+  used:     '🔒 «يطبَّق على» ثابت — العلاج مستعمَل بسجلات المرضى، وتغييرُه يغيّر رسمها. لنطاقٍ آخر: «نسخ» ثم عدّل النسخة.',
+  unknown:  '🔒 تعذّر التحقق من استعمال العلاج — «يطبَّق على» يبقى ثابتاً. أعد فتح النموذج للمحاولة.'
+};
+async function lockTargetIfUsed(t) {
+  var tok = ++_tgtUseTok;
+  _tgtUseLock = true;
+  setTargetLock(true, 'checking');
+  var u = await treatmentUsage(t);
+  if (tok !== _tgtUseTok || editingId !== t.id) return;   // نموذجٌ آخر فُتح بالأثناء
+  if (u && u.n === 0) { _tgtUseLock = false; setTargetLock(false); return; }
+  setTargetLock(true, u ? 'used' : 'unknown');
+}
+function setTargetLock(on, why) {
+  if (!on || why === undefined) { _tgtUseTok++; _tgtUseLock = false; }   // كلُّ فتحٍ جديد يُلغي فحصاً سابقاً
   var grid = document.getElementById('targetPartPicker');
   var hint = document.getElementById('targetLockHint');
+  if (hint) hint.textContent = TARGET_LOCK_MSG[why || 'geometry'];
   if (grid) {
     grid.style.pointerEvents = on ? 'none' : '';
     grid.style.opacity = on ? '0.55' : '';
@@ -1451,6 +1487,11 @@ async function _toggleActive_inner(id) {
     : 'هل تريد تعطيل علاج "' + t.name + '"؟ سيختفي من قائمة العلاجات في مخطط الأسنان لكن البيانات المحفوظة عليه تبقى.';
   /* الخطورةُ بالفعل: التعطيلُ يُخفي العلاجَ من المخطط، والتفعيلُ لا. */
   if (!await SyDialog.confirm({ message: msg, danger: !newState })) return;
+  await _setTreatmentActive(t, newState);
+}
+/* الكتابةُ وحدها — يستعملها زرّ «تعطيل/تفعيل» وبديلُ الحذف لعلاجٍ مستعمَل (مراجعة 18/11) */
+async function _setTreatmentActive(t, newState) {
+  var id = t.id, actionWord = newState ? 'تفعيل' : 'تعطيل';
   var { error } = await window.sb
     .from('treatments')
     .update({ is_active: newState, updated_at: new Date().toISOString() })
@@ -1500,7 +1541,8 @@ function wireDragAndDrop() {
 
     card.addEventListener('dragend', function(){
       card.classList.remove('dragging','drag-ghost');
-      draggedTreatId = null;
+      /* مراجعة 18/11: سحبٌ انتهى بلا إفلاتٍ مقبول (خارج الشبكة · Escape) والبطاقةُ نُقلت بالـDOM ⇒ تُعاد لمكانها المحفوظ */
+      if (draggedTreatId) { draggedTreatId = null; render(); }
     });
 
     // أثناء المرور: انقل الخانة الفارغة لموقعها الجديد فوراً
@@ -1516,10 +1558,16 @@ function wireDragAndDrop() {
       else       { if (card.previousSibling !== ghost) grid.insertBefore(ghost, card); }
     });
 
-    card.addEventListener('drop', async function(e){
+  });
+
+  if (grid && !isFiltering && !grid._dropBound) {
+    grid._dropBound = true;
+    grid.addEventListener('dragover', function(e){ if (draggedTreatId) e.preventDefault(); });
+    /* مراجعة 18/11: الإفلاتُ على الشبكة كلّها — على بطاقةٍ أو بالفراغ بينها. كان مستمعُ الإفلات على البطاقة وحدها،
+       فالإفلاتُ بالفراغ نقل البطاقةَ على الشاشة ولم يُحفظ (تعود بالتحديث). الترتيبُ يُقرأ من الـDOM بعد تموضع الخانة الفارغة. */
+    grid.addEventListener('drop', async function(e){
+      if (!draggedTreatId) return;
       e.preventDefault();
-      if (!draggedTreatId || !grid) return;
-      // الترتيب النهائي يُقرأ من ترتيب البطاقات في DOM بعد تموضع الخانة الفارغة
       var ids = Array.prototype.map.call(
         grid.querySelectorAll('.treat-card[data-treat-id]'),
         function(c){ return c.getAttribute('data-treat-id'); }
@@ -1527,11 +1575,6 @@ function wireDragAndDrop() {
       draggedTreatId = null;
       await reorderTreatmentsByOrder(ids);
     });
-  });
-
-  if (grid && !isFiltering && !grid._dropBound) {
-    grid._dropBound = true;
-    grid.addEventListener('dragover', function(e){ if (draggedTreatId) e.preventDefault(); });
   }
 }
 
@@ -1545,6 +1588,13 @@ async function reorderTreatmentsByOrder(idsInOrder) {
   var moved = [], inSet = {};
   for (var k=0;k<idsInOrder.length;k++){ if (byId[idsInOrder[k]]) { moved.push(byId[idsInOrder[k]]); inSet[idsInOrder[k]] = 1; } }
   if (moved.length !== idsInOrder.length) return;   // حارس: معرّفٌ مجهول ⇒ لا حفظ
+  /* مراجعة 18/11: إفلاتٌ بالمكان نفسه ⇒ لا كتابة (كان يعيد كتابة ترتيب كلِّ العلاجات) */
+  var _same = true;
+  for (var _s = 0, _v = 0; _s < treatments.length && _v < idsInOrder.length; _s++) {
+    if (!inSet[treatments[_s].id]) continue;
+    if (treatments[_s].id !== idsInOrder[_v++]) { _same = false; break; }
+  }
+  if (_same) { render(); return; }
   var slots = [];
   for (var m=0;m<treatments.length;m++){ if (inSet[treatments[m].id]) slots.push(m); }
   if (slots.length !== moved.length) return;        // حارس: لا تحفظ ترتيباً ناقصاً
@@ -1580,10 +1630,45 @@ async function _toggleFavorite_inner(id) {
 }
 
 var deleteTreatment = tGuarded('deleteTreatment', _deleteTreatment_inner, 'جارٍ الحذف…');   /* v289 */
+/* مراجعة 18/11: هل العلاجُ مستعمَل بسجلات المرضى؟ المخططُ (teeth_status) والجلساتُ (ledger_sessions) تحفظ
+   مفتاحَ العلاج نصّاً بلا ربطٍ بالقاعدة، فحذفُه كان يترك رسمها بلا تعريف: اسمُه يُعرض رمزاً («custom_…») بلونٍ رمادي،
+   ونسخةُ قلعٍ أو جسرٍ تفقد هندستها (السنُّ المقلوع يعود قائماً). والمواعيدُ المربوطة به (treatment_id) تفقد ربطها بصمت.
+   نمطُ Open Dental وDentrix: الرمزُ المستعمَل لا يُحذف — يُخفى. الاستعلاماتُ عدٌّ فقط (head) ومحصورةٌ بالعيادة بالـRLS.
+   يعيد { charts, sessions, appts, n } أو null عند تعذّر القراءة (والمستدعي يغلق: لا حذفَ على جهل). */
+async function treatmentUsage(t) {
+  if (!t) return null;
+  try {
+    var key = t.treatment_key || '';
+    var q = [
+      key ? window.sb.from('teeth_status').select('tooth_num', { count: 'exact', head: true }).eq('treatment_key', key) : null,
+      key ? window.sb.from('ledger_sessions').select('id', { count: 'exact', head: true }).eq('treatment_key', key) : null,
+      window.sb.from('appointments').select('id', { count: 'exact', head: true }).eq('treatment_id', t.id)
+    ];
+    var r = await Promise.all(q.map(function(x){ return x || Promise.resolve({ count: 0, error: null }); }));
+    for (var i = 0; i < r.length; i++) if (!r[i] || r[i].error || typeof r[i].count !== 'number') return null;
+    return { charts: r[0].count, sessions: r[1].count, appts: r[2].count, n: r[0].count + r[1].count + r[2].count };
+  } catch (e) { console.warn('treatment usage:', e); return null; }
+}
+
 async function _deleteTreatment_inner(id) {
   var _t = treatments.find(function(x){ return x.id === id; });
   if (_t && isProtectedTreatment(_t)) { showToast('🚫 هذا العلاج محمي من الحذف (له تطبيق خاص على المخطط) — استخدم «تعطيل» بدلاً منه'); return; }
-  if (!await SyDialog.confirm({ message: 'حذف هذا العلاج؟ الجلسات السابقة لن تتأثر.', danger: true })) return;
+  var _use = await treatmentUsage(_t);
+  if (!_use) { showToast('⚠️ تعذّر التحقق من استعمال العلاج — لم يُحذف. حاول مجدداً'); return; }
+  if (_use.n > 0) {
+    var _parts = [];
+    if (_use.charts)   _parts.push('مخططات المرضى (' + _use.charts + ')');
+    if (_use.sessions) _parts.push('الجلسات (' + _use.sessions + ')');
+    if (_use.appts)    _parts.push('المواعيد (' + _use.appts + ')');
+    var _off = (_t.is_active !== false);
+    var _go = await SyDialog.confirm({ title: 'لا يمكن حذف علاجٍ مستعمَل',
+      message: '«' + _t.name + '» مستعمَل في: ' + _parts.join(' · ') + '.\nحذفُه يُفقد هذه السجلات اسمَه ولونه على المخطط.'
+             + (_off ? '\nعطّله بدلاً من ذلك: يختفي من قائمة العلاجات بالمخطط وتبقى السجلات كما هي.' : '\nهو معطّلٌ أصلاً، فلا يظهر بقائمة العلاجات بالمخطط.'),
+      confirmText: _off ? 'تعطيله' : 'حسناً', cancelText: 'إلغاء', danger: false });   /* الحذفُ مرفوض هنا؛ المعروضُ تعطيلٌ قابلٌ للتراجع ⇒ ليس زرَّ خطر */
+    if (_go && _off) await _setTreatmentActive(_t, false);
+    return;
+  }
+  if (!await SyDialog.confirm({ message: 'حذف «' + _t.name + '» نهائياً؟ غير مستعمَل بأي مخطط أو جلسة أو موعد.', danger: true })) return;
   const { error } = await window.sb.from('treatments').delete().eq('id', id);
   if (error) { showToast('⚠️ ' + error.message); return; }
   await loadTreatments();
@@ -1698,7 +1783,7 @@ async function insertMissingDefaults() {
 
 var resetToDefaults = tGuarded('resetToDefaults', _resetToDefaults_inner, 'جارٍ الاستعادة…');   /* v289 */
 async function _resetToDefaults_inner() {
-  if (!await SyDialog.confirm({ message: 'استعادة كل العلاجات الافتراضية والجاهزة الناقصة؟\nتُضاف الناقصة فقط — لن يُحذف أو يُعدّل أي علاج موجود (بما فيها المخصصة).', danger: true })) return;
+  if (!await SyDialog.confirm({ message: 'استعادة كل العلاجات الافتراضية والجاهزة الناقصة؟\nتُضاف الناقصة فقط — لن يُحذف أو يُعدّل أي علاج موجود (بما فيها المخصصة).', confirmText: 'استعادة' })) return;   /* مراجعة 18/11: إضافةٌ فقط ⇒ ليس تأكيدَ خطر */
   var r = await insertMissingDefaults();
   if (r.error) { showToast('⚠️ ' + r.error.message); return; }
   if (!r.added) { showToast('✅ كل العلاجات الافتراضية والجاهزة موجودة مسبقاً'); return; }
@@ -1755,6 +1840,7 @@ async function _saveTreatment_inner() {
   var newOverrides = resolveOverridesForSave();
   if (newOverrides === false) { showToast('⚠️ سعر مخصص غير صحيح'); return; }
   if (!name)                 { showToast('⚠️ الاسم مطلوب'); return; }
+  if (String(document.getElementById('tPrice').value || '').trim() === '') { showToast('⚠️ اكتب السعر (0 إذا كان العلاج بلا سعر)'); return; }   /* مراجعة 18/11 */
   if (isNaN(price)||price<0) { showToast('⚠️ السعر غير صحيح'); return; }
   if (laymanName.length > 100) { showToast('⚠️ الاسم المبسّط طويل جداً (الحد 100 حرف)'); return; }
   /* M161: مدّةُ المخبر — عددٌ صحيح 1..60 أو فارغ؛ ولا معنى لها بلا «يحتاج مخبر» فتُحفظ فارغة */
@@ -1775,7 +1861,7 @@ async function _saveTreatment_inner() {
       // treatment keeps its stored target_part regardless of the picker state
       // (covers DOM tampering / any future path that forgets setTargetLock).
       var existing = treatments.find(function(x){ return x.id === editingId; });
-      var _savedUi = (existing && isProtectedTreatment(existing))
+      var _savedUi = (existing && (isProtectedTreatment(existing) || _tgtUseLock))   /* مراجعة 18/11: والمستعمَل */
         ? uiTargetOf(existing)
         : pickedTarget;
       var _savedDb = dbTargetOf(_savedUi), _savedTarget = _savedDb.target_part;   /* M208: البلاطةُ ← (target_part · denture_svc) */
