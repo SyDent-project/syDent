@@ -146,7 +146,7 @@ async function loadSuite(SRCX) {
     const calls = [];
     function q(table) {
       const rec = { table, eq: [], in: [] }; calls.push(rec);
-      const o = { select(c) { rec.select = c; return o; }, eq(k, v) { rec.eq.push([k, v]); return o; }, in(k, v) { rec.in.push([k, v]); return o; },
+      const o = { select(c) { rec.select = c; return o; }, eq(k, v) { rec.eq.push([k, v]); return o; }, is(k, v) { (rec.is = rec.is || []).push([k, v]); return o; }, in(k, v) { rec.in.push([k, v]); return o; },
         then(res) { const p = plan[table] || { data: [], error: null }; return Promise.resolve(typeof p === 'function' ? p(rec) : p).then(res); } };
       return o;
     }

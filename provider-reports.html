@@ -1852,7 +1852,7 @@ function _renderLayerPR() {
   // still counting in the total.
   if (providerFilter === 'all') {
     var stats = computeProviderStats('_unassigned');
-    if (stats.sessionCount > 0 || stats.labCost > 0 || stats.collection > 0) {
+    if (stats.sessionCount > 0 || stats.followupCount > 0 || stats.labCost > 0 || stats.collection > 0) {   /* مراجعة ج3: متابعاتٌ بلا طبيب وحدها تُظهر البطاقة — Σ البطاقات = إجمالي العيادة */
       html += '<div class="prov-card">'
         + '<div class="color-bar" style="background:var(--text3);"></div>'
         + '<div class="prov-body">'
@@ -3460,7 +3460,7 @@ async function exportExcel() {
       headers: headers, rows: rows,
       filename: 'تقارير-الأطباء-' + from + '_' + to,
       sheetName: 'تقارير الأطباء',
-      cols: [{wch:7},{wch:22},{wch:10},{wch:8},{wch:10},{wch:14},{wch:14},{wch:16},{wch:18},{wch:14},{wch:14},{wch:18},{wch:14},{wch:14},{wch:22}]
+      cols: [{wch:7},{wch:22},{wch:10},{wch:8},{wch:10},{wch:12},{wch:14},{wch:14},{wch:16},{wch:18},{wch:14},{wch:14},{wch:18},{wch:14},{wch:14},{wch:22}]   /* مراجعة ج3: عمودُ «زيارات المتابعة» ⇒ 16 عموداً = 16 عرضاً */
     });
     showToast(kind === 'xlsx' ? '⬇️ تم تصدير ملف Excel' : '⬇️ تعذّر Excel — صُدّر ملف TSV بديل');
   } catch (e) { console.error('exportExcel:', e); showToast('⚠️ تعذّر التصدير'); }

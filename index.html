@@ -4723,7 +4723,8 @@ obInit();
                     .sort(function(x,y){ return String(x.b[0].date||'').localeCompare(String(y.b[0].date||'')) || String(x.pid).localeCompare(String(y.pid)); });
                   pts.slice(0, FU_MAX).forEach(function(p){
                     var b0=p.b[0], nm=(b0.patients&&b0.patients.name)||'مريض';
-                    var labs=p.b.slice(0, 3).map(function(x){ return dpEsc(FU.label(x)); }).join(' · ')+(p.b.length>3?' · +'+(p.b.length-3):'');
+                    var labs=p.b.slice(0, 3).map(function(x){ return dpEsc(FU.label(x)).replace(/سن (\d+)/g, 'سن\u00A0$1'); }).join(' · ')   /* مراجعة ج3: «سن 36» لا ينكسر على سطرين */
+                     +(p.b.length>3?' · +'+(p.b.length-3):'');
                     rows.push({href:'patient-profile.html?id='+encodeURIComponent(p.pid),ic:'🔁',bg:'var(--orange-bg)',tt:'علاج قيد الإنجاز بلا موعد قادم',
                       sub:'<bdi>'+dpEsc(nm)+'</bdi> · <span>'+labs+(b0.date?' · منذ '+FU.dmy(b0.date):'')+'</span>',cnt:1});
                   });
