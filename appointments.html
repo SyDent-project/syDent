@@ -21,28 +21,28 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261118e"></script>
-<link rel="stylesheet" href="appointments.css?v=20261118e">
+<script src="theme.js?v=20261118d"></script>
+<link rel="stylesheet" href="appointments.css?v=20261118d">
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261118e">
+<link rel="stylesheet" href="theme.css?v=20261118d">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261118e"></script>
-<script src="sy-modal.js?v=20261118e"></script>
-<script src="appt-conflict.js?v=20261118e"></script>
-<script src="pt-reliability.js?v=20261118e"></script>
-<script src="sched-blocks.js?v=20261118e"></script>
-<script src="appt-blocks.js?v=20261118e"></script>
-<script src="appt-series.js?v=20261118e"></script>
-<script src="appt-family.js?v=20261118e"></script>
-<script src="sidebar.js?v=20261118e"></script>
-<script src="inv-consume.js?v=20261118e"></script>
-<script src="timepicker.js?v=20261118e"></script>
-<script src="appt-booking.js?v=20261118e"></script>
-<script src="appt-portal.js?v=20261118e"></script>
-<script src="appt-wa.js?v=20261118e"></script>
-<script src="appt-time.js?v=20261118e"></script>
-<script src="appt-views.js?v=20261118e"></script>
-<script src="appt-modal.js?v=20261118e"></script>
+<script src="supabase-init.js?v=20261118d"></script>
+<script src="sy-modal.js?v=20261118d"></script>
+<script src="appt-conflict.js?v=20261118d"></script>
+<script src="pt-reliability.js?v=20261118d"></script>
+<script src="sched-blocks.js?v=20261118d"></script>
+<script src="appt-blocks.js?v=20261118d"></script>
+<script src="appt-series.js?v=20261118d"></script>
+<script src="appt-family.js?v=20261118d"></script>
+<script src="sidebar.js?v=20261118d"></script>
+<script src="inv-consume.js?v=20261118d"></script>
+<script src="timepicker.js?v=20261118d"></script>
+<script src="appt-booking.js?v=20261118d"></script>
+<script src="appt-portal.js?v=20261118d"></script>
+<script src="appt-wa.js?v=20261118d"></script>
+<script src="appt-time.js?v=20261118d"></script>
+<script src="appt-views.js?v=20261118d"></script>
+<script src="appt-modal.js?v=20261118d"></script>
 </head>
 <body>
 <script>
@@ -583,6 +583,9 @@ async function _loadTreatmentsOnce() {
         // نفس شكل pp-core حرفياً (كائن دائماً).
         price_overrides: t.price_overrides || {},
         target_part: t.target_part || 'crown',   /* v600: نفسُ شكل pp-core — مسندا القلع/الزرعة بإنجاز الموعد */
+        category: t.category || 'other',   /* M211: نفسُ شكل pp-core — «يحتاج جلسات متابعة» بإكمال الموعد */
+        denture_svc: (t.denture_svc === 'service' || t.denture_svc === 'add') ? t.denture_svc : '',
+        multi_visit: (t.multi_visit === true || t.multi_visit === false) ? t.multi_visit : null,
         builtin: t.builtin
       };
     });
@@ -897,7 +900,7 @@ async function loadAppointments() {
   if (!currentUser) return;
   /* DeepCode #1 (v551): المواعيد والجلسات وطلبات المخابر كانت ثلاث جولات متتالية — تُطلَق الآن معاً؛
      المعالجةُ بعدها بالترتيب نفسه حرفياً (الجلساتُ تحتاج المواعيد لحساب «المخطّط لموعدٍ ميت»). */
-  var _sesCols = 'id, patient_id, appointment_id, type, description, cost, currency, date, status, tooth_num, surface, quadrant, arch, provider_id, notes';
+  var _sesCols = 'id, patient_id, appointment_id, type, description, cost, currency, date, status, tooth_num, surface, quadrant, arch, provider_id, notes, treatment_key';   /* M211: treatment_key — «متعدد الجلسات» بإكمال الموعد */
   var _sesPre = _apptSettle(window.SyDentFetchAll(function(){ return window.sb.from('ledger_sessions').select(_sesCols + ', plan_option').eq('doctor_id', currentUser.id); }));
   /* M206: id (كان غائباً ⇒ «تم التركيب» التلقائي عند إكمال الموعد يفشل دائماً: .eq('id', undefined)) + مراحلُ الطلب */
   var _labSel = 'id, patient_id, appointment_id, status, date_due, work_type, lab_name, lab_id, tooth_num, stages, stage_idx';
@@ -2888,6 +2891,28 @@ async function _apptSyncToothStatusOnComplete(s, providerOverride) {
   if (up.error) console.warn('teeth_status upsert warn:', up.error);
 }
 
+/* M210/M211 (ج2-أ): العلاجُ المتعدد الجلسات يصير «قيد الإنجاز» حين يُكمَل الموعدُ عليه (قرار المالك ٣ — 17/11/2026؛
+   نفسُ ما يفعله زرُّ «إكمال» ببطاقة المريض). FU_MULTI_CATS وfuMultiVisitDefault مرآةٌ بايت-بايت لـpp-followup.js (prove-followup يحرس).
+   فشلُ التعليم لا يمسّ الإكمال — «＋ متابعة» ببطاقة المريض تبقى متاحة. */
+var FU_MULTI_CATS = { endodontics: 1, prosthodontics: 1, prosth_cosmetic: 1, prosth_removable: 1, implantology: 1, orthodontics: 1 };
+function fuMultiVisitDefault(t) {
+  return !!t && !t.denture_svc && FU_MULTI_CATS[String(t.category || '')] === 1;
+}
+function apptFuMultiVisit(s) {
+  if (!s) return false;
+  var t = s.treatment_key ? getTreatment(s.treatment_key) : null;
+  if (!t) t = TREATMENTS.filter(function(x){ return x && x.name && x.name === s.type; })[0] || null;
+  if (!t) return false;
+  return (t.multi_visit === true || t.multi_visit === false) ? t.multi_visit : fuMultiVisitDefault(t);
+}
+async function apptFuMarkNeed(list) {
+  for (var i = 0; i < list.length; i++) {
+    if (!apptFuMultiVisit(list[i])) continue;
+    var r = await window.sb.rpc('session_followup_set_state', { p_session: list[i].id, p_state: 'open' });
+    if (!r || r.error) console.warn('followup need on completion failed:', r && r.error);
+  }
+}
+
 async function completeApptWithProcedures(apptIdParam, sessionIdsFilter) {
   // Phase 8C: accept an optional apptId (for dismissed-trigger callsite that doesn't
   // open the edit modal) and an optional sessionIdsFilter (subset of planned sessions
@@ -2985,6 +3010,8 @@ async function completeApptWithProcedures(apptIdParam, sessionIdsFilter) {
   var _calledFromSubsetUI = Array.isArray(sessionIdsFilter) && sessionIdsFilter.length > 0;
   if (!_calledFromSubsetUI) {
     var promptMsg = 'إكمال ' + plannedOnes.length + ' علاج مخطّط دفعة واحدة؟';
+    var _fuN = plannedOnes.filter(apptFuMultiVisit).length;   /* M211 */
+    if (_fuN) promptMsg += '\n\n🔁 ' + (_fuN === 1 ? 'علاجٌ متعدد الجلسات سيُسجَّل «قيد الإنجاز».' : _fuN + ' علاجات متعددة الجلسات ستُسجَّل «قيد الإنجاز».');
     /* M145-i: خيارات الخطة البديلة تُعتمد من ملف المريض (فيه منطق المخطط) — تنبيهٌ صريح لا اعتمادٌ صامت */
     if (plannedOnes.some(function(s){ return s.plan_option >= 1 && s.plan_option <= 3; })) {
       promptMsg += '\n\n🔀 بعض هذه البنود من خيارات خطة بديلة — بعد الإكمال افتح ملف المريض واعتمد الخيار لإزالة البدائل.';
@@ -3031,6 +3058,7 @@ async function completeApptWithProcedures(apptIdParam, sessionIdsFilter) {
     }
     completedForDeduct.push(s);
   }
+  if (completedForDeduct.length) { try { await apptFuMarkNeed(completedForDeduct); } catch (e) { console.warn('followup need on completion threw:', e); } }   /* M211 */
 
   // 2b) P2 (فحص المحاسبة الشامل): الجلسات صارت مكتملة ⇒ الرصيد المقدّم للمريض
   //     يجب أن ينتقل إليها فوراً (OpenDental Income Transfer) — كما يفعل ملف

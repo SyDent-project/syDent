@@ -893,6 +893,7 @@ async function populateSessionTypes() {
 }
 
 function autofillSessionPrice() {
+  if (typeof fuNeedSync === 'function') fuNeedSync(false, 'S');   /* M211: علاجٌ آخر ⇒ افتراضُه */
   var sel = document.getElementById('sType');
   // M125: «أخرى» أو بلا اختيار ⇒ سعرٌ يدوي ⇒ العملة اختيار حرّ للطبيب.
   if (!sel || !sel.value || sel.value === '_other') return;   // سعر يدوي: العملة بيد الطبيب

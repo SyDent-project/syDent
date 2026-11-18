@@ -177,7 +177,7 @@ function staticChecks(over) {
     && /CHECK \(denture_clasps IS NULL OR \(surface = 'DENTURE' AND denture_clasps ~ '\^\(\[1-4\]\[1-8\]\(,\[1-4\]\[1-8\]\)\{0,15\}\)\?\$'\)\);/.test(M9)
     && /DROP CONSTRAINT IF EXISTS teeth_status_denture_clasps_format;/.test(M9) && /^BEGIN;$/m.test(M9) && /^COMMIT;$/m.test(M9);
   r.m209Inert = !/\bUPDATE\s+public\./i.test(M9) && !/\bGRANT\b/i.test(M9) && !/CREATE (OR REPLACE )?FUNCTION/i.test(M9) && !/ledger_sessions|payment/i.test(M9.replace(/^--.*$/gm, ''));
-  r.m209Mirror = SCH.indexOf('    "denture_clasps" "text",\n') > -1
+  r.m209Mirror = SCH.indexOf('    "denture_clasps" "text",\n    CONSTRAINT "teeth_status_denture_clasps_format"') > -1   /* v752: العمودُ بجدول teeth_status (سجلُّ التاريخ يحمل مثله منذ M212) */
     && SCH.indexOf(`CONSTRAINT "teeth_status_denture_clasps_format" CHECK ((("denture_clasps" IS NULL) OR (("surface" = 'DENTURE'::"text") AND ("denture_clasps" ~ '^([1-4][1-8](,[1-4][1-8]){0,15})?$'::"text"))))`) > -1
     && /'migrations\/208_denture_services\.sql',[^\n]*\n\s*'migrations\/209_denture_clasps\.sql',/.test(F('scripts/db-bootstrap.py'));
   /* أرضيةُ قطع الجهاز تتبع الثيمَ والوضعين والطباعة، وخلايا الامتداد بلا فلتر CSS */
@@ -1265,7 +1265,7 @@ function i18nChecks(strings, over) {
     ['clasp-toggle-accepts-unfit', D, "if (!dentClaspOk(n) || dentArchOf(n) !== u.arch) return false; cur.push(n);", "cur.push(n);"],
     ['m209-format-open', 'migrations/209_denture_clasps.sql', "CHECK (denture_clasps IS NULL OR (surface = 'DENTURE' AND denture_clasps ~ '^([1-4][1-8](,[1-4][1-8]){0,15})?$'));", "CHECK (denture_clasps IS NULL OR surface = 'DENTURE');"],
     ['m209-backfills', 'migrations/209_denture_clasps.sql', "COMMIT;\n", "UPDATE public.teeth_status SET denture_clasps = '' WHERE surface = 'DENTURE';\nCOMMIT;\n"],
-    ['m209-mirror-drifts', 'db/schema.sql', '    "denture_clasps" "text",\n', ''],
+    ['m209-mirror-drifts', 'db/schema.sql', '    "denture_clasps" "text",\n    CONSTRAINT "teeth_status_denture_clasps_format"', '    CONSTRAINT "teeth_status_denture_clasps_format"'],
     ['m209-not-in-build-plan', 'scripts/db-bootstrap.py', "    'migrations/209_denture_clasps.sql',", "    # 'migrations/209_denture_clasps.sql',"],
     ['css-back-ignores-light-theme', 'patient-profile.css', ':root[data-theme="light"] .jaw-wrap{--dent-back:var(--bg3);}\n', ''],
     ['css-span-keeps-shadow-filter', 'patient-profile.css', ":root[data-theme=\"light\"] .tooth-shape.dent-flat,", ""],

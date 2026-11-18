@@ -392,19 +392,33 @@ async function fuClearNeed(base) {
    الحفظُ نفسُه لا يتغيّر (كلُّ فروعه كما هي): يُغلَّف من الخارج — لقطةٌ للجلسات قبله، وبعده تُعلَّم الجلساتُ المنجزةُ الجديدة
    «قيد الإنجاز». كلُّ جلسةٍ علاجٌ بذاته: الجسرُ جلسةٌ واحدة (unit_teeth)، والجهازُ جلسةٌ لكل فكّ، والدفعةُ جلسةٌ لكل سن.
    فشلُ التعليم لا يمسّ الجلسة المحفوظة. */
-function fuNeedSync(reset) {
-  var box = document.getElementById('fuNeedBox'), cb = document.getElementById('fuNeed');
+/* المفتاحُ بنافذتين: نافذةُ السن (افتراضي) · نافذةُ «جلسة جديدة» (scope 'S': العلاجُ من sType والحالةُ _sessStatus) */
+function fuNeedEls(scope) {
+  return scope === 'S'
+    ? { box: document.getElementById('fuNeedSBox'), cb: document.getElementById('fuNeedS') }
+    : { box: document.getElementById('fuNeedBox'), cb: document.getElementById('fuNeed') };
+}
+function fuNeedSync(reset, scope) {
+  var e = fuNeedEls(scope), box = e.box, cb = e.cb;
   if (!box || !cb) return;
-  var key = (typeof pendingToothStatus !== 'undefined') ? pendingToothStatus : null;
+  var key, st, cond = false;
+  if (scope === 'S') {
+    var sel = document.getElementById('sType');
+    key = sel && sel.value && sel.value !== '_other' ? sel.value : null;
+    st = (typeof _sessStatus !== 'undefined') ? _sessStatus : 'completed';
+  } else {
+    key = (typeof pendingToothStatus !== 'undefined') ? pendingToothStatus : null;
+    st = (typeof pendingTreatStatus !== 'undefined') ? pendingTreatStatus : '';
+    cond = (typeof isConditionKey === 'function') && isConditionKey(key);
+  }
   var t = (key && typeof getTreatment === 'function') ? getTreatment(key) : null;
-  var st = (typeof pendingTreatStatus !== 'undefined') ? pendingTreatStatus : '';
-  var cond = (typeof isConditionKey === 'function') && isConditionKey(key);
-  box.style.display = (t && st === 'completed' && !cond) ? '' : 'none';
+  /* نافذةُ السن: علاجٌ من الكتالوج دائماً · «جلسة جديدة»: يظهر للمنجز ولو كان النوعُ «أخرى» (مطفأٌ افتراضياً) */
+  box.style.display = ((scope === 'S' || t) && st === 'completed' && !cond) ? '' : 'none';
   if (reset || cb.getAttribute('data-key') !== String(key)) { cb.checked = fuMultiVisit(t); cb.setAttribute('data-key', String(key)); }
 }
-function fuNeedWanted() {
-  var box = document.getElementById('fuNeedBox'), cb = document.getElementById('fuNeed');
-  return !!(box && cb && box.style.display !== 'none' && cb.checked);
+function fuNeedWanted(scope) {
+  var e = fuNeedEls(scope);
+  return !!(e.box && e.cb && e.box.style.display !== 'none' && e.cb.checked);
 }
 /* الجلساتُ المنجزةُ الجديدة منذ اللقطة (لا مخطّطة · لا متابعة · لا رسم · لا ما له حالةٌ أصلاً) */
 function fuNewBases(before) {
@@ -413,7 +427,16 @@ function fuNewBases(before) {
   });
 }
 async function fuMarkNeed(before) {
-  var list = fuNewBases(before), ok = 0;
+  return fuMarkList(fuNewBases(before), true);
+}
+/* «إكمال» علاجٍ مخطّط (جدولُ الجلسات): المتعددُ الجلسات «قيد الإنجاز» بلا مفتاح — قرارُ العيادة/التصنيف (رسالةُ التأكيد تقوله) */
+async function fuMarkCompleted(list) {
+  return fuMarkList((list || []).filter(function (s) {
+    return !!s && !fuIsChild(s) && !fuIsFee(s) && !fuState(s) && (s.status || 'completed') === 'completed' && fuMultiVisit(fuTreatmentOf(s));
+  }), false);
+}
+async function fuMarkList(list, loud) {
+  var ok = 0;
   for (var i = 0; i < list.length; i++) {
     var res = await window.sb.rpc('session_followup_set_state', { p_session: list[i].id, p_state: 'open' });
     if (res && !res.error && res.data) { list[i].followup_state = 'open'; ok++; }
@@ -421,11 +444,11 @@ async function fuMarkNeed(before) {
   }
   if (!list.length) return;
   fuRerender();
-  showToast(ok === list.length ? '🔁 العلاج قيد الإنجاز — سجّل زياراته اللاحقة من «＋ متابعة»' : '⚠️ حُفظت الجلسة، وتعذّر تعليمها «قيد الإنجاز» — علّمها من «＋ متابعة»');
+  if (loud || ok < list.length) showToast(ok === list.length ? '🔁 العلاج قيد الإنجاز — سجّل زياراته اللاحقة من «＋ متابعة»' : '⚠️ حُفظت الجلسة، وتعذّر تعليمها «قيد الإنجاز» — علّمها من «＋ متابعة»');
 }
-/* يُغلّف حفظ نافذة السن (saveToothTreatment · saveToothAndOpenLab) */
-async function fuNeedRun(inner, self, args) {
-  var want = fuNeedWanted(), before = {};
+/* يُغلّف حفظ نافذة السن (saveToothTreatment · saveToothAndOpenLab) ونافذةِ «جلسة جديدة» (saveSession · scope 'S') */
+async function fuNeedRun(inner, self, args, scope) {
+  var want = fuNeedWanted(scope), before = {};
   if (want) fuList().forEach(function (s) { if (s && s.id) before[s.id] = 1; });
   var r = await inner.apply(self, args);
   if (want) { try { await fuMarkNeed(before); } catch (e) { console.warn('followup need failed:', e); } }

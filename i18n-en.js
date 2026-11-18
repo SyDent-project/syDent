@@ -3415,7 +3415,10 @@ Object.assign(window.SyI18nDict, {
     'خدمات الجهاز': 'Denture services',   /* v749: فاصلُ قائمة العلاجات */
     '✕ إلغاء الضمّة': '✕ Remove the clasp', '＋ ضمّة على الرسم': '＋ Clasp on the drawing',
     'يزيل ضمّة هذا السن عن رسم الجهاز — بلا جلسة': 'Removes this tooth\'s clasp from the denture drawing — no session',
-    'يرسم ضمّةً للجهاز على هذا السن — بلا جلسة': 'Draws a denture clasp on this tooth — no session'
+    'يرسم ضمّةً للجهاز على هذا السن — بلا جلسة': 'Draws a denture clasp on this tooth — no session',
+    /* v752: ضمّةٌ من قائمة الطبيب سقطت عن الرسم — تلميحُ الشريحة وزرُّ نافذة الجهاز */
+    'السنُّ لم يعد يحمل ضمّة — أضف بديلةً أو أزلها من نافذة الجهاز': 'The tooth can no longer carry a clasp — add a replacement or remove it in the denture window',
+    'إزالتها من القائمة': 'Remove from the list'
   });
   /* v741: سنُّ الضمّة كما يُكتب بوصف جلستها وموضعها («الفك العلوي — ضمّة على السن 13») */
   var CL = '(ضمّة على السن \\d+|ضمّات على الأسنان \\d+(?:، \\d+)*)';
@@ -3443,6 +3446,12 @@ Object.assign(window.SyI18nDict, {
     /* v745: لا جهازَ جزئياً بفك السن · إلغاءُ الضمّة ورسمُها من نافذة السن */
     [/^🛠 لا جهاز جزئي ب(الفك العلوي|الفك السفلي) — الضمّة للجهاز الجزئي$/, function (m, a) { return '🛠 No partial denture in the ' + ARCH[a].toLowerCase() + ' — clasps are for a partial denture'; }],
     [/^✓ أُلغيت ضمّة السن (\d+)$/, '✓ Clasp removed from tooth $1'],
+    /* v752: ضمّةٌ من القائمة لم تعد على الرسم (شريحةُ الجهاز ونافذتُه) · خدمةُ ضمّة سُجّلت اليوم على السن نفسه */
+    [/^⚠️ (?:ضمّة السن (\d+)|ضمّات الأسنان (\d+(?:، \d+)+)) لم تعد على الرسم( — سنُّها لم يعد يحملها\. أضف بديلةً إن لزم\.| — أسنانُها لم تعد تحملها\. أضف بدائلَ إن لزم\.)?$/, function (m, one, many, tail) {
+      return '⚠️ ' + (one ? 'The clasp on tooth ' + one + ' is' : 'The clasps on teeth ' + nums(many) + ' are') + ' no longer drawn'
+        + (tail ? (one ? ' — the tooth can no longer carry it' : ' — the teeth can no longer carry them') + '. Add a replacement if needed.' : '');
+    }],
+    [R('^⚠️ سُجّلت اليوم خدمةُ ضمّة على ' + TP + ' — تأكّد أنها ليست مكرّرة\\.$'), function (m, t) { return '⚠️ A clasp service was already recorded today on ' + tp(t) + ' — make sure this is not a duplicate.'; }],
     [/^✓ رُسمت ضمّة على السن (\d+)$/, '✓ Clasp drawn on tooth $1'],
     [R('^🛠 (.+) — (.+) \\((' + A1 + ')\\) — ' + CL + '$'), function (m, l, n, a, c) { return '🛠 ' + l + ' — ' + n + ' (' + area1(a) + ') — ' + cl(c); }],
     [R('^' + C1 + '$'), function (m, a, c) { return ARCH[a] + ' — ' + cl(c); }],
@@ -3510,6 +3519,8 @@ Object.assign(window.SyI18nDict, {
     /* M211 (ج2-أ): «يحتاج جلسات متابعة» */
     '🔁 يحتاج جلسات متابعة': '🔁 Needs follow-up sessions',
     'يحتاج جلسات متابعة': 'Needs follow-up sessions',   /* treatments.html */
+    '🔁 علاجٌ متعدد الجلسات — سيُسجَّل «قيد الإنجاز».': '🔁 A multi-visit treatment — it will be recorded «In progress».',   /* «إكمال» بجدول الجلسات */
+    '🔁 علاجٌ متعدد الجلسات سيُسجَّل «قيد الإنجاز».': '🔁 One multi-visit treatment will be recorded «In progress».',   /* «إكمال الموعد» */
     'علاجٌ يمتدّ على أكثر من زيارة: يُسجَّل «قيد الإنجاز»، وتُضاف زياراته اللاحقة من «＋ متابعة» بلا تكلفة.': 'A treatment that takes more than one visit: it is recorded «In progress», and its later visits are added from «＋ Follow-up» at no charge.',
     '🔁 متعدد الجلسات': '🔁 Multi-visit',
     'يُسجَّل «قيد الإنجاز»، وتُضاف زياراته اللاحقة من «＋ متابعة» بلا تكلفة': 'Recorded as «In progress»; its later visits are added from «＋ Follow-up» at no charge',
@@ -3559,6 +3570,7 @@ Object.assign(window.SyI18nDict, {
   P.push(
     [/^متابعة (\d+)$/, 'Follow-up $1'],
     [/^المتابعات \((\d+)\)$/, 'Follow-ups ($1)'],
+    [/^🔁 (\d+) علاجات متعددة الجلسات ستُسجَّل «قيد الإنجاز»\.$/, '🔁 $1 multi-visit treatments will be recorded «In progress».'],   /* «إكمال الموعد» */
     [/^قيد الإنجاز · (\d+)$/, 'In progress · $1'],
     [/^اكتمل · (\d+)$/, 'Complete · $1'],
     /* تلميحُ وسم المتابعة: اسمُ العلاج يبقى، وموضعُه (سن · سن زائد) يُترجم — الفكّ والربع كلماتُ قاموس يلتقطها المحرّك */

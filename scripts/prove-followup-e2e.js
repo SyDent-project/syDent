@@ -104,7 +104,7 @@ async function scenario(dental, follow, label, quiet) {
 }
 const MUTANTS = [
   ['tooth save not wrapped', 'd', "  return (typeof fuNeedRun === 'function') ? fuNeedRun(_saveToothTreatment_inner, this, arguments) : _saveToothTreatment_inner.apply(this, arguments);", "  return _saveToothTreatment_inner.apply(this, arguments);"],
-  ['switch ignored (always on)', 'f', "  return !!(box && cb && box.style.display !== 'none' && cb.checked);", "  return true;"],
+  ['switch ignored (always on)', 'f', "  return !!(e.box && e.cb && e.box.style.display !== 'none' && e.cb.checked);", "  return true;"],
   ['default ignores the treatment', 'f', "cb.checked = fuMultiVisit(t);", "cb.checked = false;"],
   ['failed mark claims success', 'f', "    if (res && !res.error && res.data) { list[i].followup_state = 'open'; ok++; }", "    list[i].followup_state = 'open'; ok++;"]
 ];
