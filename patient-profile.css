@@ -1308,7 +1308,7 @@ html.lang-en body div.jaw-row,html.lang-en body div.nse-row,html.lang-en body ta
 .dent-fxc{flood-color:#000;flood-opacity:.15;}
 :root[data-theme="light"] .dent-fxc{flood-color:#102a43;flood-opacity:.34;}
 .dent-banner .dent-clasps::before{content:" · ";}
-/* v751: ضمّةٌ من قائمة الطبيب لم تعد تُرسم (سنُّها قُلع · زُرع · دخل الجهاز) */
+/* v752: ضمّةٌ من قائمة الطبيب لم تعد تُرسم (سنُّها قُلع · زُرع · دخل الجهاز) */
 .dent-banner .dent-clasp-lost{color:var(--orange-ink);font-weight:700;}
 .dent-banner .dent-clasp-lost::before{content:" · ";color:inherit;}
 .dsv-dialog .dsv-note.dsv-lost{color:var(--orange-ink);font-weight:600;}

@@ -749,7 +749,7 @@ async function behave(w, F) {
   w.SyDentSvc.start('denture-adjust', 'Adjust DENT', { tooth: 13 }); w.__grabSvc();
   ok(!dlg() && $('toothModal').classList.contains('open') && /^🛠 Adjust DENT — Partial ACR \(/.test($('toothStep2Title').textContent), 'a service from a standing tooth: the denture of its jaw, without asking');
   w.closeModal('toothModal'); w.eval('pendingDentSvc = null;');
-  /* ⑯ v751 (مراجعةُ المالك 18/11/2026 لحذف الضمّات: «شوف ازا في مشكلة مخفية»): ضمّةٌ من قائمة الطبيب سقط سنُّها عن الرسم تُسمّى
+  /* ⑯ v752 (مراجعةُ المالك 18/11/2026 لحذف الضمّات: «شوف ازا في مشكلة مخفية»): ضمّةٌ من قائمة الطبيب سقط سنُّها عن الرسم تُسمّى
      بالشريحة والنافذة وتُزال من القائمة بنقرة · خدمةُ ضمّة سُجّلت اليوم على السن المحدَّد تُنبَّه · العرضُ التاريخي يرسم قائمةَ ذلك اليوم (M212) */
   const withCl = v => base().map(r => r.surface === 'DENTURE' && r.unit_id === 'u-1' ? Object.assign({}, r, { denture_clasps: v }) : r);
   const U1 = () => JSON.parse(w.eval('JSON.stringify(dentUnits().filter(function(u){ return u.id === "u-1"; })[0])'));
@@ -1147,7 +1147,7 @@ const MUTANTS = [
   ['i18n: the count wording drifts from the dictionary', rep('pp-clinical.js', "if (cnt) cnt.textContent = '(' + POST_OP_LIBRARY.length + ' قالباً)';", "if (cnt) cnt.textContent = '(' + POST_OP_LIBRARY.length + ' قالب)';")],
   ['i18n: the instructions button left untranslated', rep('i18n-en.js', "'📋 تعليمات للمريض': '📋 Patient instructions',", "")],
   ['i18n: a service toast left untranslated', rep('i18n-en.js', "[R('^✅ تم تسجيل (.+) — أُضيف ' + TP + ' لرسم الجهاز$')", "[R('^✅ تم تسجيل (.+) — أُضيفت ' + TP + ' لرسم الجهاز$')")],
-  /* v751 */
+  /* v752 */
   ['lost clasp: never detected on an explicit list', rep('pp-denture.js', "if (!u || !dentIsPartialUnit(u) || dentClaspIsAuto(u)) return [];\n  var drawn", "if (!u || !dentIsPartialUnit(u) || !dentClaspIsAuto(u)) return [];\n  var drawn")],
   ['lost clasp: the chip warning dropped', rep('pp-denture.js', "+ (lost.length ? '<span class=\"dent-clasp-lost\"", "+ (false ? '<span class=\"dent-clasp-lost\"")],
   ['lost clasp: «remove from the list» resets to the suggestion', rep('pp-denture-svc.js', "if (auto === 'lost') await dentClaspSave(u, dentClasps(u));", "if (auto === 'lost') await dentClaspSave(u, null);")],

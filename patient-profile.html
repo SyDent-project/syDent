@@ -3848,7 +3848,7 @@ async function toggleHistoryMode(){
   // Fetch the full log once per entry (asc). RLS scopes by owner; the explicit
   // doctor_id filter is defense-in-depth, matching every other query here.
   var r = await window.sb.from('teeth_status_history')
-    .select('tooth_num, surface, treatment_key, status, review_at, op, changed_at, denture_clasps')   /* v751 (M212): ضمّاتُ الجهاز كما كانت ذلك اليوم */
+    .select('tooth_num, surface, treatment_key, status, review_at, op, changed_at, denture_clasps')   /* v752 (M212): ضمّاتُ الجهاز كما كانت ذلك اليوم */
     .eq('doctor_id', currentUser.id)
     .eq('patient_id', patientId)
     .order('changed_at', { ascending: true });

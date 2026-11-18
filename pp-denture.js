@@ -232,7 +232,7 @@ function dentClasps(u) {
   return dentSortTeeth(list.filter(function (t) { return dentArchOf(t) === u.arch && u.teeth.indexOf(t) === -1 && dentClaspOk(t); }), u.arch);
 }
 function dentClaspIsAuto(u) { return !u || u.clasps === null || u.clasps === undefined; }
-/* v751 (المالك 18/11/2026: «راجع الموضوع شوف ازا في مشكلة مخفية»): ضمّةٌ من قائمة الطبيب الصريحة لم تعد تُرسم — سنُّها لم يعد
+/* v752 (المالك 18/11/2026: «راجع الموضوع شوف ازا في مشكلة مخفية»): ضمّةٌ من قائمة الطبيب الصريحة لم تعد تُرسم — سنُّها لم يعد
    يحملها (قُلع · قلعُه مخطّط · زُرع · دخل الجهاز). الاقتراحُ التلقائي ينقلها وحده، أمّا القائمةُ الصريحة فتسقطها بصمت ⇒ تُسمّى بشريحة
    الجهاز ونافذته حتى يضيف الطبيبُ بديلةً أو يزيلها من القائمة */
 function dentClaspLost(u) {

@@ -102,14 +102,14 @@ function dsvClaspHtml(u) {
       + (ok ? ' aria-pressed="' + (has ? 'true' : 'false') + '"' : ' aria-disabled="true"') + '>' + t + '</button>';
   }
   h += '</div><div class="dsv-note">' + (dentClaspIsAuto(u) ? 'مقترحة تلقائياً على السن الإنسي لكل فراغ' : 'قائمة الطبيب') + ' — انقر السن لإضافة ضمّة أو إلغائها.</div>';
-  /* v751: ضمّةٌ من القائمة سقطت عن الرسم (سنُّها لم يعد يحملها) — تُسمّى هنا مع زرٍّ يزيلها من القائمة */
+  /* v752: ضمّةٌ من القائمة سقطت عن الرسم (سنُّها لم يعد يحملها) — تُسمّى هنا مع زرٍّ يزيلها من القائمة */
   var lost = (typeof dentClaspLost === 'function') ? dentClaspLost(u) : [];
   if (lost.length) h += '<div class="dsv-note dsv-lost">⚠️ ' + escapeHtml(dentClaspLostText(lost)) + (lost.length === 1 ? ' — سنُّها لم يعد يحملها. أضف بديلةً إن لزم.' : ' — أسنانُها لم تعد تحملها. أضف بدائلَ إن لزم.') + '</div>'
     + '<button type="button" class="dsv-clasp-auto dsv-clasp-lostx" data-dsv-act="clasp-drop-lost">إزالتها من القائمة</button>';
   if (!dentClaspIsAuto(u)) h += '<button type="button" class="dsv-clasp-auto" data-dsv-act="clasp-auto">↺ الاقتراح التلقائي</button>';
   return h;
 }
-/* v751 (تجربةُ المالك 17/11/2026: جلستا ضمّة على السن 17 بفرق 33 ثانية): سنٌّ محدَّد سُجّلت عليه خدمةُ ضمّة لهذا الجهاز بتاريخ
+/* v752 (تجربةُ المالك 17/11/2026: جلستا ضمّة على السن 17 بفرق 33 ثانية): سنٌّ محدَّد سُجّلت عليه خدمةُ ضمّة لهذا الجهاز بتاريخ
    اليوم ⇒ تنبيهٌ قبل المتابعة — لا منع (ضمّتان بيومٍ واحد ممكنة) */
 function dsvClaspDupTeeth(u, teeth) {
   var today = (typeof toDay === 'function') ? toDay() : '';
@@ -309,7 +309,7 @@ function dsvOpenDialog(state) {
     var a = act.getAttribute('data-dsv-act');
     if (a === 'instr') { dsvInstructions(st.unitId); return; }
     if (a === 'clasp-auto') { dsvClaspClick(ov, 0, true); return; }
-    if (a === 'clasp-drop-lost') { dsvClaspClick(ov, 0, 'lost'); return; }   /* v751: القائمةُ تُحفظ كما تُرسم الآن */
+    if (a === 'clasp-drop-lost') { dsvClaspClick(ov, 0, 'lost'); return; }   /* v752: القائمةُ تُحفظ كما تُرسم الآن */
     if (a === 'clasp-edit') { st.view = 'home'; st.key = null; st.teeth = []; dsvRender(ov); return; }
     if (a === 'back') { st.view = 'home'; st.key = null; st.teeth = []; dsvRender(ov); }
     else if (a === 'next') { if (st.view === 'clasp') dsvConfirmClasp(ov); else dsvConfirmAdd(ov); }
