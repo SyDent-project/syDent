@@ -153,11 +153,17 @@ function fuChildView(s) {
   };
 }
 /* شارةُ حالة العلاج على الأساسية — زرٌّ يُغلق العلاج أو يعيد فتحه */
+/* M213: عددُ المتابعات بالشارة = الزياراتُ التي تمّت — المخطّطةُ لم تحدث بعد */
+function fuDoneCount(baseId) {
+  return fuChildren(baseId).filter(function (k) { return (k.status || 'completed') === 'completed'; }).length;
+}
 function fuStateBadge(s) {
   var st = fuState(s);
   if (!st) return '';
-  var n = fuChildren(s.id).length;
-  if (st === 'open' && !n)   /* M211: «يحتاج جلسات متابعة» عند التسجيل — قيد الإنجاز قبل أول متابعة؛ الضغطُ يلغي الحاجة */
+  var n = fuDoneCount(s.id);
+  if (st === 'open' && !n && fuChildren(s.id).length)   /* M213: زيارةٌ مخطّطة فقط ⇒ «قيد الإنجاز» بلا عدد ولا زر — لا يُغلق علاجٌ قبل زيارةٍ تمّت، ولا تُلغى حاجتُه وله زيارة */
+    return '<span class="sess-chip cbadge tone tone-orange fu-state" title="العلاج قيد الإنجاز — زيارتُه التالية مخطّطة">قيد الإنجاز</span>';
+  if (st === 'open' && !fuChildren(s.id).length)   /* M211: «يحتاج جلسات متابعة» عند التسجيل — قيد الإنجاز قبل أول متابعة؛ الضغطُ يلغي الحاجة */
     return '<button type="button" class="sess-chip cbadge tone tone-orange fu-state" onclick="fuSetState(\'' + s.id + '\',\'none\')" title="العلاج يحتاج جلسات متابعة — اضغط إن لم يعد يحتاجها">قيد الإنجاز</button>';
   return st === 'open'
     ? '<button type="button" class="sess-chip cbadge tone tone-orange fu-state" onclick="fuSetState(\'' + s.id + '\',\'closed\')" title="العلاج قيد الإنجاز — اضغط عند اكتماله">قيد الإنجاز · ' + n + '</button>'
@@ -209,6 +215,38 @@ function fuCellChips(s) {
 
 /* ── (٤) النوافذ ─────────────────────────────────────────────────────────── */
 var _fuBaseId = null;
+/* M213 (ج2-ب): نافذةُ المتابعة بوضعين — «✅ زيارة تمّت» (تسجيلُ ما حصل، حتى اليوم) · «📅 الزيارة التالية» (متابعةٌ مخطّطة
+   من اليوم حتى سنتين، ثم نافذةُ الموعد بها مربوطةً). وضعُ العرض وحده — بلا كتابة. */
+var _fuMode = 'done';
+var FU_PLAN_DAYS = 730;
+function fuAddDays(ymd, n) { var d = new Date(String(ymd).slice(0, 10) + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+function fuSetMode(mode) {
+  _fuMode = mode === 'plan' ? 'plan' : 'done';
+  var plan = _fuMode === 'plan';
+  var base = fuList().filter(function (s) { return s && s.id === _fuBaseId; })[0];
+  var bDate = base && base.date ? String(base.date).slice(0, 10) : '';
+  document.querySelectorAll('#fuModal .fu-tab').forEach(function (b) {
+    var on = b.getAttribute('data-mode') === _fuMode;
+    b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  var dEl = document.getElementById('fuDate'), today = toDay();
+  if (plan) {
+    var min = (bDate && bDate > today) ? bDate : today;
+    dEl.min = min; dEl.max = fuAddDays(today, FU_PLAN_DAYS);
+    dEl.value = (dEl.value && dEl.value > today && dEl.value <= dEl.max) ? dEl.value : fuAddDays(min, 7);
+  } else {
+    dEl.min = bDate; dEl.max = today;
+    dEl.value = (dEl.value && dEl.value <= today && (!bDate || dEl.value >= bDate)) ? dEl.value : today;
+  }
+  var set = function (id, txt) { var e = document.getElementById(id); if (e) e.textContent = txt; };
+  set('fuTitle', plan ? 'الزيارة التالية' : 'جلسة متابعة');
+  set('fuDateLbl', plan ? 'تاريخ الزيارة' : 'التاريخ');
+  set('fuStepLbl', plan ? 'ما سيتم في الزيارة التالية' : 'ما تمّ في هذه الجلسة');
+  set('fuSaveBtn', plan ? '📅 حفظ واحجز الموعد' : 'حفظ جلسة المتابعة');
+  set('fuHint', plan ? 'زيارةٌ مخطّطة بلا تكلفة، مربوطةٌ بالعلاج — تصير جلسةَ متابعة حين يُكمَل موعدُها.' : 'جلسة المتابعة بلا تكلفة — حساب العلاج على جلسته الأساسية.');
+  var last = document.getElementById('fuLast');
+  if (last) { last.checked = false; if (last.parentNode) last.parentNode.style.display = plan ? 'none' : ''; }
+}
 
 function fuLocked() {
   if (window.SyDentSub && window.SyDentSub.blockReadOnly && window.SyDentSub.blockReadOnly()) return true;   /* M141-ب */
@@ -229,7 +267,8 @@ function fuBaseSummaryHtml(base) {
     h += '<div class="fu-prev">';
     kids.forEach(function (k, i) {
       h += '<div class="fu-prev-row"><span class="fu-prev-n">متابعة ' + (i + 1) + '</span><span class="fu-prev-d">' + fuEsc(fuDate(k.date)) + '</span>'
-        + '<span class="fu-prev-t">' + fuEsc(k.description || '—') + '</span></div>';
+        + '<span class="fu-prev-t">' + fuEsc(k.description || '—') + '</span>'
+        + ((k.status || 'completed') === 'planned' ? '<span class="sess-chip tone tone-yellow">مخطّطة</span>' : '') + '</div>';   /* M213 */
     });
     h += '</div>';
   } else {
@@ -238,16 +277,14 @@ function fuBaseSummaryHtml(base) {
   return h;
 }
 
-function fuOpen(baseId) {
+function fuOpen(baseId, mode) {
   if (fuLocked()) return;
   var base = fuList().filter(function (s) { return s && s.id === baseId; })[0];
   if (!base || !fuCanFollow(base)) { showToast('⚠️ هذه الجلسة لا تقبل متابعة'); return; }
   _fuBaseId = base.id;
   document.getElementById('fuBase').innerHTML = fuBaseSummaryHtml(base);
-  var dEl = document.getElementById('fuDate');
-  dEl.value = toDay();
-  dEl.min = base.date ? String(base.date).slice(0, 10) : '';
-  dEl.max = toDay();
+  document.getElementById('fuDate').value = '';   /* كلُّ فتحٍ يبدأ بتاريخ وضعه الافتراضي (اليوم · بعد أسبوع) */
+  fuSetMode(mode === 'plan' ? 'plan' : 'done');
   document.getElementById('fuStep').value = '';
   document.getElementById('fuNotes').value = '';
   document.getElementById('fuLast').checked = false;
@@ -287,6 +324,7 @@ async function _fuSave_inner() {
   if (fuLocked()) return;
   var base = fuList().filter(function (s) { return s && s.id === _fuBaseId; })[0];
   if (!base || !fuCanFollow(base)) { showToast('⚠️ الجلسة الأساسية لم تعد متاحة — أغلق النافذة وأعد المحاولة'); return; }
+  if (_fuMode === 'plan') return fuPlanSave(base);
   var date = document.getElementById('fuDate').value;
   var step = fuCleanStep(document.getElementById('fuStep').value);
   var notes = String(document.getElementById('fuNotes').value || '').trim();
@@ -334,6 +372,74 @@ async function _fuSave_inner() {
   _fuBaseId = null;
   fuRerender();
   showToast(last ? '✅ سُجّلت جلسة المتابعة واكتمل العلاج' : '✅ سُجّلت جلسة المتابعة');
+  /* M213: العلاجُ لم يكتمل ولا زيارةَ تاليةً مخطّطة ⇒ اقتراحُ حجزها — بعد أن يُفلت حارسُ الحفظ زرَّه
+     (وإلا أعاد نصَّ «زيارة تمّت» على زرٍّ صار بوضع «الزيارة التالية») */
+  if (!last) setTimeout(function () { fuAskNext(base.id); }, 0);
+}
+async function fuAskNext(baseId) {
+  var base = fuList().filter(function (s) { return s && s.id === baseId; })[0];
+  if (!base || fuState(base) !== 'open' || fuNextPlanned(baseId)) return;
+  if (await SyDialog.confirm({
+    title: 'الزيارة التالية', message: 'تحجز الآن موعد الزيارة التالية لهذا العلاج؟', confirmText: '📅 احجزها', cancelText: 'لاحقاً', danger: false
+  })) fuOpen(baseId, 'plan');
+}
+/* الزيارةُ التالية المخطّطة لهذا العلاج (إن وُجدت) */
+function fuNextPlanned(baseId) {
+  return fuChildren(baseId).filter(function (k) { return (k.status || 'completed') === 'planned'; })[0] || null;
+}
+/* M213: حفظُ «الزيارة التالية» — متابعةٌ مخطّطة بالقاعدة، ثم نافذةُ الموعد وهي فيها مربوطة */
+async function fuPlanSave(base) {
+  var date = document.getElementById('fuDate').value;
+  var step = fuCleanStep(document.getElementById('fuStep').value);
+  var notes = String(document.getElementById('fuNotes').value || '').trim();
+  var pEl = document.getElementById('fuProvider');
+  var provider = (pEl && pEl.value) ? pEl.value : null;
+  var today = toDay();
+  if (!date) { showToast('⚠️ اختر التاريخ'); return; }
+  if (date < today || (base.date && date < String(base.date).slice(0, 10))) { showToast('⚠️ تاريخ الزيارة التالية في الماضي'); return; }
+  if (date > fuAddDays(today, FU_PLAN_DAYS)) { showToast('⚠️ تاريخ الزيارة التالية بعيد جداً — حتى سنتين'); return; }
+  if (step.length > FU_STEP_MAX || notes.length > FU_NOTES_MAX) { showToast('⚠️ النص طويل — اختصره'); return; }
+  var res = await window.sb.rpc('session_followup_plan', { p_parent: base.id, p_date: date, p_provider: provider, p_step: step || null, p_notes: notes || null });
+  if (res.error || !res.data || !res.data.session) {
+    console.warn('followup plan failed:', res.error);
+    var msg = (res.error && res.error.message) || '';
+    showToast(/followup_date_invalid/.test(msg) ? '⚠️ تاريخ الزيارة التالية غير صالح'
+      : /followup_base_invalid/.test(msg) ? '⚠️ الجلسة الأساسية لم تعد تقبل متابعة — حدّث الصفحة'
+      : /session_followup_plan|schema cache|PGRST202/.test(msg) ? '⚠️ الزيارة التالية تحتاج تحديث قاعدة البيانات — حدّث الصفحة وأعد المحاولة'
+      : '⚠️ فشل حفظ الزيارة التالية');
+    return;
+  }
+  var child = res.data.session;
+  sessions.unshift(child);
+  if (typeof sortByDateDesc === 'function') sortByDateDesc(sessions);
+  base.followup_state = 'open';
+  _fuExpanded[base.id] = true;
+  if (window.logAudit) {
+    window.logAudit('session.create', {
+      entityId: child.id, patientId: patientId, patientName: (patient && patient.name) || '',
+      description: 'زيارة متابعة مخطّطة: ' + fuBaseLabel(base) + (step ? ' — ' + step : '') + ' (' + date + ')',
+      newValue: { type: child.type, date: child.date, parent_id: base.id, step: step || null, status: 'planned' }
+    });
+  }
+  closeModal('fuModal');
+  _fuBaseId = null;
+  fuRerender();
+  fuBookAppt(child);
+}
+/* نافذةُ الموعد ببطاقة المريض والزيارةُ فيها مربوطة — مرآةُ planNewVisit (pp-plan.js): المسارُ القائم يربطها عند «حفظ الموعد»
+   (commitPendingAttachmentsPP)، والإلغاءُ يتركها مخطّطةً بلا موعد تُربط لاحقاً من «العلاجات المخطّطة» بأي موعد. */
+function fuBookAppt(child) {
+  var later = '📅 الزيارة التالية مخطّطة — احجز موعدها من «موعد جديد»';
+  if (typeof openApptModal !== 'function') { showToast(later); return; }
+  openApptModal();
+  var mo = document.getElementById('apptModal');
+  if (!mo || !mo.classList.contains('open') || (typeof editingApptId !== 'undefined' && editingApptId !== null)) { showToast(later); return; }   /* حُجب (قراءة فقط/اشتراك) */
+  var d = document.getElementById('aDate'); if (d) d.value = String(child.date).slice(0, 10);
+  var pr = document.getElementById('aProvider');
+  if (pr && child.provider_id && Array.prototype.some.call(pr.options || [], function (o) { return o.value === child.provider_id; })) pr.value = child.provider_id;
+  _pendingAttachmentsPP = [child];
+  if (typeof renderApptProcedureListPP === 'function') renderApptProcedureListPP();
+  showToast('📅 الزيارة التالية مخطّطة — اختر الوقت واحفظ الموعد');
 }
 
 /* الشارةُ بيانٌ يبقى ظاهراً بوضع القراءة (حالةُ العلاج) — الحارسُ أولُ سطر، والكتابةُ خلف قفل الانشغال */
@@ -480,12 +586,12 @@ function fuOpenPicker() {
   if (!rows.length) { showToast('⚠️ لا علاج منجز لهذا المريض بعد — سجّل الجلسة الأساسية أولاً'); return; }
   var h = '';
   rows.forEach(function (s) {
-    var st = fuState(s), n = fuChildren(s.id).length, w = fuWhereText(s);
+    var st = fuState(s), n = fuDoneCount(s.id), w = fuWhereText(s);
     h += '<button type="button" class="fu-pick-row" onclick="fuPickBase(\'' + s.id + '\')">'
       + '<span class="fu-pick-main"><span class="fu-base-type">' + fuEsc(s.type || 'علاج') + '</span>'
       + (w ? '<span class="sess-chip tone tone-lime">' + fuEsc(w) + '</span>' : '') + '</span>'
       + '<span class="fu-pick-meta"><span>' + fuEsc(fuDate(s.date)) + '</span>'
-      + (st === 'open' ? '<span class="sess-chip tone tone-orange">قيد الإنجاز · ' + n + '</span>'
+      + (st === 'open' ? '<span class="sess-chip tone tone-orange">قيد الإنجاز' + (n ? ' · ' + n : '') + '</span>'
         : st === 'closed' ? '<span class="sess-chip tone tone-green">اكتمل · ' + n + '</span>' : '')
       + '</span></button>';
   });

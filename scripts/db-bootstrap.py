@@ -79,6 +79,7 @@ AFTER_SNAPSHOT = [
     'migrations/210_followup_sessions.sql',   # after 204 and 208 (its shape check names unit_teeth, denture_unit, denture_add): two nullable session columns + a self FK, one nullable catalog column, two triggers, two RPCs granted to authenticated only, by name
     'migrations/211_followup_need.sql',       # after 210: session_followup_set_state — «open» without follow-ups, NULL to clear (no schema change)
     'migrations/212_teeth_history_denture_clasps.sql',   # after 179 (dx_key) and 197 (tenant-wipe guard) and 209: one nullable column on teeth_status_history + fn_teeth_status_history replaced in place (body as live + denture_clasps); no grant, no RPC
+    'migrations/213_followup_plan.sql',       # after 210/211: session_followup_plan — a planned follow-up row (M210 shape), no schema change
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',

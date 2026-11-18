@@ -20,41 +20,41 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261118h"></script>
+<script src="theme.js?v=20261118g"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261118h"></script>
-<script src="sy-modal.js?v=20261118h"></script>
-<script src="lab-redo.js?v=20261118h"></script>
-<script src="lab-stages.js?v=20261118h"></script>
-<script src="lab-status.js?v=20261118h"></script>
-<script src="lab-shade.js?v=20261118h"></script>
-<script src="lab-due.js?v=20261118h"></script>
-<script src="lab-slip.js?v=20261118h"></script>
-<script src="lab-files.js?v=20261118h"></script>
-<script src="pay-methods.js?v=20261118h"></script>
-<script src="appt-conflict.js?v=20261118h"></script>
-<script src="sidebar.js?v=20261118h"></script>
-<script src="ref-pick.js?v=20261118h"></script>
-<script src="inv-consume.js?v=20261118h"></script>
-<script src="inv-trace.js?v=20261118h"></script>
-<script src="timepicker.js?v=20261118h"></script>
-<script src="pp-modules.js?v=20261118h"></script>
-<script src="pp-wa.js?v=20261118h"></script>
-<script src="pp-clinical.js?v=20261118h"></script>
-<script src="pp-dental.js?v=20261118h"></script>
-<script src="pp-denture.js?v=20261118h"></script>
-<script src="pp-denture-svc.js?v=20261118h"></script>
-<script src="pp-followup.js?v=20261118h"></script>
-<script src="pp-plan.js?v=20261118h"></script>
-<script src="pp-timeline.js?v=20261118h"></script>
-<script src="pp-appt.js?v=20261118h"></script>
-<script src="pp-core.js?v=20261118h"></script>
-<script src="pp-extras.js?v=20261118h"></script>
-<script src="pp-intake.js?v=20261118h"></script>
-<script src="pp-portal.js?v=20261118h"></script>
-<script src="xray-viewer.js?v=20261118h"></script>
-<script src="pp-xray.js?v=20261118h"></script>
-<link rel="stylesheet" href="patient-profile.css?v=20261118h">
+<script src="supabase-init.js?v=20261118g"></script>
+<script src="sy-modal.js?v=20261118g"></script>
+<script src="lab-redo.js?v=20261118g"></script>
+<script src="lab-stages.js?v=20261118g"></script>
+<script src="lab-status.js?v=20261118g"></script>
+<script src="lab-shade.js?v=20261118g"></script>
+<script src="lab-due.js?v=20261118g"></script>
+<script src="lab-slip.js?v=20261118g"></script>
+<script src="lab-files.js?v=20261118g"></script>
+<script src="pay-methods.js?v=20261118g"></script>
+<script src="appt-conflict.js?v=20261118g"></script>
+<script src="sidebar.js?v=20261118g"></script>
+<script src="ref-pick.js?v=20261118g"></script>
+<script src="inv-consume.js?v=20261118g"></script>
+<script src="inv-trace.js?v=20261118g"></script>
+<script src="timepicker.js?v=20261118g"></script>
+<script src="pp-modules.js?v=20261118g"></script>
+<script src="pp-wa.js?v=20261118g"></script>
+<script src="pp-clinical.js?v=20261118g"></script>
+<script src="pp-dental.js?v=20261118g"></script>
+<script src="pp-denture.js?v=20261118g"></script>
+<script src="pp-denture-svc.js?v=20261118g"></script>
+<script src="pp-followup.js?v=20261118g"></script>
+<script src="pp-plan.js?v=20261118g"></script>
+<script src="pp-timeline.js?v=20261118g"></script>
+<script src="pp-appt.js?v=20261118g"></script>
+<script src="pp-core.js?v=20261118g"></script>
+<script src="pp-extras.js?v=20261118g"></script>
+<script src="pp-intake.js?v=20261118g"></script>
+<script src="pp-portal.js?v=20261118g"></script>
+<script src="xray-viewer.js?v=20261118g"></script>
+<script src="pp-xray.js?v=20261118g"></script>
+<link rel="stylesheet" href="patient-profile.css?v=20261118g">
 <style>
 /* v270: رأسُ البطاقة للمريض ثنائي العملة — سطرٌ لكل طبقة بوسمه ولونه (كانت الطبقة
    الثانية مخفيّةً بتلميحِ hover لا يراه أحد). صفحيٌّ عمداً لا في patient-profile.css. */
@@ -79,7 +79,7 @@
 :root[data-theme="light"] .perio-arch-title.perio-arch-lower{border-top:2px dashed #7d8fa6;}   /* v345: أوضح بالفاتح */
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261118h">
+<link rel="stylesheet" href="theme.css?v=20261118g">
 </head>
 <body>
 <script>
@@ -782,24 +782,29 @@
      النموذج والمراجعة بـpp-followup.js و migrations/210_followup_sessions.sql. -->
 <div class="modal-overlay sy-m sy-m-md" id="fuModal">
   <div class="modal-box">
-    <div class="modal-head"><h3>جلسة متابعة</h3><button class="modal-close" onclick="closeModal('fuModal')">✕</button></div>
+    <div class="modal-head"><h3 id="fuTitle">جلسة متابعة</h3><button class="modal-close" onclick="closeModal('fuModal')">✕</button></div>
     <div class="modal-body">
       <div id="fuBase" class="fu-base"></div>
+      <!-- M213 (ج2-ب): وضعان — زيارةٌ تمّت تُسجَّل · الزيارةُ التالية تُخطَّط ويُحجز موعدُها -->
+      <div class="fu-tabs" role="tablist">
+        <button type="button" class="fu-tab on" role="tab" aria-selected="true" data-mode="done" onclick="fuSetMode('done')">✅ زيارة تمّت</button>
+        <button type="button" class="fu-tab" role="tab" aria-selected="false" data-mode="plan" onclick="fuSetMode('plan')">📅 الزيارة التالية</button>
+      </div>
       <div class="form-row">
-        <div class="form-group"><label>التاريخ</label><input type="date" id="fuDate"></div>
+        <div class="form-group"><label id="fuDateLbl">التاريخ</label><input type="date" id="fuDate"></div>
         <div class="form-group" id="fuProviderGroup" style="display:none;">
           <label>الطبيب المعالج</label>
           <select id="fuProvider"></select>
         </div>
       </div>
       <div class="form-group">
-        <label>ما تمّ في هذه الجلسة</label>
+        <label id="fuStepLbl">ما تمّ في هذه الجلسة</label>
         <div id="fuSteps" class="fu-steps"></div>
         <input type="text" id="fuStep" maxlength="80" placeholder="مثال: غسل أقنية وضماد دوائي">
       </div>
       <div class="form-group"><label>ملاحظات (اختياري)</label><textarea id="fuNotes" maxlength="2000" placeholder="أي ملاحظات سريرية…"></textarea></div>
       <label class="fu-last"><input type="checkbox" id="fuLast"><span>آخر جلسة — اكتمل العلاج</span></label>
-      <div class="fu-hint">جلسة المتابعة بلا تكلفة — حساب العلاج على جلسته الأساسية.</div>
+      <div class="fu-hint" id="fuHint">جلسة المتابعة بلا تكلفة — حساب العلاج على جلسته الأساسية.</div>
     </div>
     <div class="modal-foot"><button class="btn-cancel-m" onclick="closeModal('fuModal')">إلغاء</button><button class="btn-save-m" id="fuSaveBtn" onclick="fuSave()">حفظ جلسة المتابعة</button></div>
   </div>
@@ -2279,7 +2284,7 @@ if (IS_DEMO) (function installDemoSandbox(){
      وآخرُ متابعةٍ تُحذف تعيد الأساسية عادية. */
   function demoFollowupRpc(name, args){
     var bad = { data:null, error:{ code:'P0001', message:'followup_base_invalid' } };
-    var fid = args && (name === 'session_followup_add' ? args.p_parent : args.p_session);
+    var fid = args && (name === 'session_followup_set_state' ? args.p_session : args.p_parent);
     var fb = rows('ledger_sessions').filter(function(r){ return String(r.id) === String(fid); })[0];
     if (!fb || fb.parent_id || (fb.status || 'completed') !== 'completed') return bad;
     if (name === 'session_followup_set_state'){   /* M211: open بلا متابعات · closed يشترطها · null يمسح أساسيةً بلا متابعات */
@@ -2290,13 +2295,16 @@ if (IS_DEMO) (function installDemoSandbox(){
       fb.followup_state = args.p_state == null ? null : args.p_state;
       return { data:{ id: fb.id, state: fb.followup_state }, error:null };
     }
+    var plan = name === 'session_followup_plan';   /* M213: زيارةٌ تالية مخطّطة — من اليوم إلى سنتين */
+    var today = new Date().toISOString().slice(0, 10);
     if (!args.p_date || (fb.date && String(args.p_date) < String(fb.date).slice(0, 10))) return { data:null, error:{ code:'P0001', message:'followup_date_invalid' } };
+    if (plan && String(args.p_date) < today) return { data:null, error:{ code:'P0001', message:'followup_date_invalid' } };
     var fc = { id:'demo-x' + (++_idc), doctor_id: fb.doctor_id, patient_id: fb.patient_id, type:'متابعة — ' + (fb.type || 'علاج'),
-               description: args.p_step || null, cost:0, date: args.p_date, notes: args.p_notes || null, status:'completed',
+               description: args.p_step || null, cost:0, date: args.p_date, notes: args.p_notes || null, status: plan ? 'planned' : 'completed',
                provider_id: args.p_provider || fb.provider_id || null, appointment_id:null, treatment_key:null, tooth_num:null, surface:null,
                currency: fb.currency, parent_id: fb.id, followup_state:null, created_at: new Date().toISOString() };
     rows('ledger_sessions').push(fc);
-    fb.followup_state = args.p_close ? 'closed' : 'open';
+    fb.followup_state = (!plan && args.p_close) ? 'closed' : 'open';
     return { data:{ session: Object.assign({}, fc), state: fb.followup_state }, error:null };
   }
   function demoFollowupAfterDelete(gone){
@@ -2501,7 +2509,7 @@ if (IS_DEMO) (function installDemoSandbox(){
       });
       return Promise.resolve({ data: ins, error: null });
     }
-    if (name === 'session_followup_add' || name === 'session_followup_set_state') return Promise.resolve(demoFollowupRpc(name, args || {}));   /* M210 */
+    if (name === 'session_followup_add' || name === 'session_followup_set_state' || name === 'session_followup_plan') return Promise.resolve(demoFollowupRpc(name, args || {}));   /* M210 */
     return Promise.resolve({ data: null, error: { code:'PGRST202', message:'function ' + name + ' not found (demo)' } });
   };
   real.functions = { invoke: function(){ return Promise.resolve({ data:null, error:{ message:'الميزات الذكية غير متاحة في البطاقة التجريبية' } }); } };
@@ -4302,7 +4310,7 @@ function renderSessions() {
     // never enters FIFO / balances). v597: المرحلةُ والبديلُ بضابطٍ واحد مسمّى (pp-plan.js
     // planRowCtlHtml) بدل صفّين من الشرائح؛ الكتابةُ ما زالت setSessionPhase/setSessionOption.
     var phaseChips = '';
-    if (st === 'planned' && typeof planRowCtlHtml === 'function') phaseChips = planRowCtlHtml(s);
+    if (st === 'planned' && !_fuC && typeof planRowCtlHtml === 'function') phaseChips = planRowCtlHtml(s);   /* M213: الزيارةُ المخطّطة ليست بنداً بالخطة (القاعدة ترفض مرحلتها وبديلها) */
     // M79-b: حالةُ الجلسة تجاه المخبر — تُحسب مرّةً ويقرأها الشارةُ والزرّ معاً
     // فلا ينحرفان (مالكٌ واحد للحكم، درس #348).
     var _labSt = (typeof _ppSessLabState === 'function') ? _ppSessLabState(s) : 'none';
@@ -5239,8 +5247,11 @@ async function _completeSessionFromProfile_inner(sessionId) {
   }
 
   // 1) UPDATE ledger_sessions — flip status to completed.
+  /* M213: زيارةُ متابعةٍ مخطّطة لموعدٍ قادم أُنجزت اليوم ⇒ تاريخُها اليوم (لا جلسةَ منجزةً بتاريخٍ لم يأتِ) */
+  var _p1 = { status: 'completed' };
+  if (sess.parent_id && sess.date && String(sess.date).slice(0, 10) > toDay()) _p1.date = toDay();
   var u1 = await window.sb.from('ledger_sessions')
-    .update({ status: 'completed' })
+    .update(_p1)
     .eq('id', sessionId).eq('doctor_id', currentUser.id);
   if (u1.error) {
     console.warn('completeSessionFromProfile: session update failed:', u1.error);
@@ -5249,6 +5260,7 @@ async function _completeSessionFromProfile_inner(sessionId) {
   }
   // Reflect locally so re-renders pick it up before the next loadData.
   sess.status = 'completed';
+  if (_p1.date) sess.date = _p1.date;
   if (typeof fuMarkCompleted === 'function') await fuMarkCompleted([sess]);   /* M211: المتعددُ الجلسات «قيد الإنجاز» عند إكماله */
 
   // 2) مزامنة صفّ المخطّط مع الجلسة المُنجَزة — v260: مطابقةٌ بالعلاج لا بالسطح

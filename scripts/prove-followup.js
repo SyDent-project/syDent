@@ -17,11 +17,12 @@ const ROOT = path.resolve(__dirname, '..');
 let jsdomOk = true; try { require.resolve('jsdom'); } catch (e) { jsdomOk = false; }
 if (!jsdomOk) { console.warn('⚠️  jsdom غائبة — تخطّي مثبت جلسات المتابعة (npm install jsdom --no-save)'); process.exit(0); }
 const { JSDOM, VirtualConsole } = require('jsdom');
+const { runMutants } = require('./mutant-pool');
 
 const FILES = ['appointments.html', 'pp-appt.js', 'migrations/211_followup_need.sql', 'treatments.html', 'pp-clinical.js', 'pp-followup.js', 'patient-profile.html', 'patient-profile.css', 'pp-plan.js', 'pp-timeline.js', 'pp-core.js', 'pp-dental.js', 'supabase-init.js',
   'provider-reports.html', 'rpt-treat.js', 'acc-daysheet.js', 'accounting.html', 'index.html', 'i18n-en.js', 'theme.js', 'pp-extras.js', 'guides.js',
   'migrations/210_followup_sessions.sql', 'db/schema.sql', 'scripts/db-bootstrap.py', 'scripts/cache-bust.sh', 'scripts/check-mirrors.js',
-  'scripts/check-modal-behaviour.js', 'scripts/validate.sh', 'scripts/followup-db.sql'];
+  'scripts/check-modal-behaviour.js', 'scripts/validate.sh', 'scripts/followup-db.sql', 'migrations/213_followup_plan.sql'];
 const LIVE = {}; FILES.forEach(f => { LIVE[f] = fs.readFileSync(path.join(ROOT, f), 'utf8'); });
 const AR = /[؀-ۿ]/;
 
@@ -82,6 +83,8 @@ function engine(F) {
 
 /* ── بياناتُ الاختبار: أسماءٌ لاتينية لبيانات العيادة ⇒ أيُّ عربيةٍ تبقى بعد الترجمة نصُّ واجهةٍ بلا ترجمة ── */
 const TODAY = '2026-11-17';
+const addDays = (ymd, n) => { const d = new Date(ymd + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const P7 = addDays(TODAY, 7), PMAX = addDays(TODAY, 730);
 const TREATS = [
   { treatment_key: 'root-canal', id: 'root-canal', name: 'RCT', fill: '#a78bfa', stroke: '#7c5cbf', category: 'endodontics', target_part: 'root', is_active: true, needs_lab: false },
   { treatment_key: 'crown', id: 'crown', name: 'Crown PFM', fill: '#ff6b00', stroke: '#b34b00', category: 'prosthodontics', target_part: 'crown_full', is_active: true, needs_lab: true },
@@ -139,6 +142,11 @@ function page(F) {
     function renderInfo() { window.__ri++; }
     window.SyDentSub = { blockReadOnly: function () { return window.__ro; }, isReadOnly: function () { return window.__ro; } };
     window.SyDialog = { confirm: function (o) { window.__DIALOGS.push(o); return Promise.resolve(window.__confirm); } };
+    /* M213: نافذةُ الموعد ببطاقة المريض (pp-appt.js) — تفتح بوضع الإنشاء ومخزنُ «سيُربط» فارغ؛ __apptBlock = حُجبت (قراءة فقط) */
+    var _pendingAttachmentsPP = [], editingApptId = null; window.__appt = 0; window.__apptBlock = false; window.__pend = null;
+    function openApptModal() { window.__appt++; if (window.__apptBlock) return; editingApptId = null; _pendingAttachmentsPP = []; document.getElementById('aDate').value = '${TODAY}'; document.getElementById('apptModal').classList.add('open'); return Promise.resolve(); }
+    function renderApptProcedureListPP() { window.__pend = _pendingAttachmentsPP.map(function (x) { return x.id; }); }
+    function planRowCtlHtml() { return '<span class="PLANCTL"></span>'; }
     window.logAudit = function (a, o) { window.__AUDIT.push({ action: a, o: o }); };
     /* القاعدةُ الوهمية بدلالة M210: الأساسيةُ منجزة وليست متابعة · التاريخُ بين تاريخها واليوم · الحالةُ تتبع p_close */
     window.__DB = []; var __n = 0;
@@ -154,6 +162,15 @@ function page(F) {
           appointment_id: null, followup_state: null, created_at: '2026-11-17T10:0' + __n + ':00Z' };
         window.__DB.push(c); b.__state = a.p_close ? 'closed' : 'open';
         return Promise.resolve({ data: { session: JSON.parse(JSON.stringify(c)), state: b.__state }, error: null });
+      }
+      if (fn === 'session_followup_plan') {   /* M213: منجزةٌ ليست متابعة · من اليوم إلى سنتين ولا قبل الأساسية · مخطّطةٌ بلا مال */
+        if (!b || b.parent_id || (b.status || 'completed') !== 'completed') return Promise.resolve({ data: null, error: { message: 'followup_base_invalid' } });
+        if (!a.p_date || a.p_date < '${TODAY}' || a.p_date > '${PMAX}' || (b.date && a.p_date < b.date)) return Promise.resolve({ data: null, error: { message: 'followup_date_invalid' } });
+        var pc = { id: 'c' + (++__n), doctor_id: b.doctor_id, patient_id: b.patient_id, type: 'متابعة — ' + b.type, description: a.p_step, cost: 0, date: a.p_date, notes: a.p_notes,
+          status: 'planned', provider_id: a.p_provider || b.provider_id, currency: b.currency, parent_id: b.id, tooth_num: null, surface: null, treatment_key: null, quadrant: null, arch: null,
+          appointment_id: null, followup_state: null, created_at: '2026-11-17T11:0' + __n + ':00Z' };
+        window.__DB.push(pc); b.__state = 'open';
+        return Promise.resolve({ data: { session: JSON.parse(JSON.stringify(pc)), state: 'open' }, error: null });
       }
       if (fn === 'session_followup_set_state') {   /* M211: open بلا متابعات · closed يشترطها · null يمسح أساسيةً بلا متابعات */
         var kids = !!b && window.__DB.some(function (x) { return x.parent_id === b.id; });
@@ -185,6 +202,7 @@ function page(F) {
     + '<select id="sType"><option value="">—</option><option value="root-canal">RCT</option><option value="treated">Filling</option><option value="_other">أخرى</option></select>'
     + between(PP, '<!-- M211 (ج2-أ): «يحتاج جلسات متابعة» بنافذة «جلسة جديدة»', '<!-- Backlog #9 (M95)', 'مفتاح «جلسة جديدة»');
   return '<!doctype html><html dir="rtl" lang="ar"><body><div id="sessionsContent"></div><div id="recentSessionsList"></div>' + need + entry + modals
+    + '<div class="modal-overlay" id="apptModal"><input type="date" id="aDate"><select id="aProvider"><option value="d1">Dr Owner</option><option value="d2">Dr Two</option></select></div>'
     + '<script>' + stubs + '</script>' + real + '</body></html>';
 }
 function boot(F) {
@@ -506,7 +524,7 @@ async function run(F) {
     ok(cats(AP) === cats(FU), 'appointments page: FU_MULTI_CATS and fuMultiVisitDefault are byte-identical to pp-followup.js (third copy)');
     const mapAP = between(AP, 'TREATMENTS = (data || []).map(function(t){', '});', 'خريطة المواعيد');
     ok(/category: t\.category \|\| 'other',/.test(mapAP) && /denture_svc: \(t\.denture_svc === 'service' \|\| t\.denture_svc === 'add'\) \? t\.denture_svc : '',/.test(mapAP)
-      && /multi_visit: \(t\.multi_visit === true \|\| t\.multi_visit === false\) \? t\.multi_visit : null,/.test(mapAP) && /var _sesCols = '[^']*\btreatment_key'/.test(AP),
+      && /multi_visit: \(t\.multi_visit === true \|\| t\.multi_visit === false\) \? t\.multi_visit : null,/.test(mapAP) && /var _sesCols = '[^']*\btreatment_key, parent_id'/.test(AP),
       'appointments page: the treatment map carries category, denture service and the clinic choice in pp-core\'s shape, and sessions carry treatment_key');
     const cA = extractFunction(AP, 'completeApptWithProcedures');
     ok(/var _fuN = plannedOnes\.filter\(apptFuMultiVisit\)\.length;[^\n]*\n\s+if \(_fuN\) promptMsg \+= '\\n\\n🔁 ' \+ \(_fuN === 1 \?/.test(cA) && cA.indexOf("if (completedForDeduct.length) { try { await apptFuMarkNeed(completedForDeduct); }") > cA.indexOf('completedForDeduct.push(s);'),
@@ -605,7 +623,9 @@ async function run(F) {
     ok(d.getElementById('fuStep').value === 'غسل أقنية', 'the stored step is the original text even when the chip is shown translated');
     /* الحفظ */
     d.getElementById('fuDate').value = '2026-11-09'; d.getElementById('fuNotes').value = '  Dressing placed  '; d.getElementById('fuProvider').value = 'd2';
-    await w.fuSave(); await tick(w);
+    w.__confirm = false; await w.fuSave(); await tick(w);
+    ok(w.__DIALOGS.length === 1 && w.__DIALOGS[0].title === 'الزيارة التالية' && w.__DIALOGS[0].danger === false && w.__appt === 0,
+      'M213: a done visit of a treatment still in progress asks to book the next one; «لاحقاً» does nothing');
     const call = w.__RPC[0] || { a: {} };
     ok(w.__RPC.length === 1 && call.fn === 'session_followup_add' && JSON.stringify(call.a) === JSON.stringify({ p_parent: 'b1', p_date: '2026-11-09', p_provider: 'd2', p_step: 'غسل أقنية', p_notes: 'Dressing placed', p_close: false }),
       'one atomic call with exactly the six arguments');
@@ -645,7 +665,8 @@ async function run(F) {
     grab(w, OWN, bag);
 
     /* إغلاقٌ وإعادةُ فتح من الشارة */
-    w.__confirm = false; await w.fuSetState('b1', 'open'); ok(w.__RPC.length === 2 && w.__DIALOGS.length === 1 && w.__DIALOGS[0].danger === false, 'reopening asks first; «cancel» writes nothing');
+    const nD = w.__DIALOGS.length;
+    w.__confirm = false; await w.fuSetState('b1', 'open'); ok(w.__RPC.length === 2 && w.__DIALOGS.length === nD + 1 && w.__DIALOGS[nD].danger === false, 'reopening asks first; «cancel» writes nothing');
     w.__confirm = true; await w.fuSetState('b1', 'open'); await tick(w);
     ok(w.__RPC[2].fn === 'session_followup_set_state' && JSON.stringify(w.__RPC[2].a) === JSON.stringify({ p_session: 'b1', p_state: 'open' }) && txt(d.querySelector('button.fu-state')) === 'قيد الإنجاز · 2'
       && w.__AUDIT.slice(-1)[0].action === 'session.edit', 'reopened through the RPC, badge and audit updated');
@@ -677,6 +698,7 @@ async function run(F) {
 
     /* «آخر زيارة»: لا ترجع للخلف · فشلُ كتابتها لا يمسّ الجلسة المحفوظة ولا يُطبَّق محلياً */
     const nU = w.__UPD.length, nS = w.__sessions().length;
+    w.__confirm = false;
     w.fuOpen('b2'); d.getElementById('fuDate').value = '2026-11-11'; d.getElementById('fuStep').value = 'Try-in'; await w.fuSave(); await tick(w);
     ok(w.__sessions().length === nS + 1 && w.__UPD.length === nU && w.__patient().last_visit === TODAY, 'last visit: an earlier-dated follow-up is saved and does not move it back');
     w.__patient().last_visit = '2026-11-01'; w.__updFail = 'boom';
@@ -748,6 +770,122 @@ async function run(F) {
     ok(t('متابعة') === 'Continue', 'English: the bare word keeps its existing meaning (the button and the short tag carry data-en instead)');
     w.close();
   });
+
+  /* ═══ (٧) ج2-ب: «الزيارة التالية» — متابعةٌ مخطّطة يُحجز موعدُها (M213) ═══ */
+  await guard('plan', async () => {
+    const M = F['migrations/213_followup_plan.sql'], FU = F['pp-followup.js'], PP = F['patient-profile.html'], AP = F['appointments.html'];
+    const fn = between(M, 'CREATE OR REPLACE FUNCTION public.session_followup_plan(', 'END $$;', 'M213');
+    ok(/SECURITY INVOKER SET search_path = public/.test(fn) && /WHERE id = p_parent AND doctor_id = \(SELECT auth\.uid\(\)\) FOR UPDATE/.test(fn)
+      && /IF NOT FOUND OR b\.parent_id IS NOT NULL OR COALESCE\(b\.status, 'completed'\) <> 'completed' THEN\s+RAISE EXCEPTION 'followup_base_invalid'/.test(fn),
+      'M213: invoker · the base is locked in the caller\'s clinic · a completed treatment, never a follow-up');
+    ok(/v_today date := \(now\(\) AT TIME ZONE 'Asia\/Damascus'\)::date;/.test(fn) && /IF p_date IS NULL OR p_date < v_today OR p_date > v_today \+ 730 OR \(b\.date IS NOT NULL AND p_date < b\.date\) THEN\s+RAISE EXCEPTION 'followup_date_invalid'/.test(fn),
+      'M213: the date runs from today (clinic time) to two years, never before the base');
+    ok(/d\.id = p_provider AND d\.owner_id = b\.doctor_id/.test(fn) && /> 80 OR char_length\(COALESCE\(v_notes, ''\)\) > 2000 THEN\s+RAISE EXCEPTION 'followup_text_too_long'/.test(fn), 'M213: provider of the clinic, text capped like M210');
+    ok(/VALUES\s*\(b\.doctor_id, b\.patient_id,/.test(fn) && /v_step, 0, p_date, v_notes, 'planned', COALESCE\(p_provider, b\.provider_id\), b\.currency, b\.id\)/.test(fn)
+      && /UPDATE public\.ledger_sessions SET followup_state = 'open' WHERE id = b\.id/.test(fn), 'M213: a planned row built from the base with cost 0, and the base in progress in the same call');
+    ok(/REVOKE ALL ON FUNCTION public\.session_followup_plan\(uuid, date, uuid, text, text\) FROM PUBLIC, anon;\s*GRANT EXECUTE ON FUNCTION public\.session_followup_plan\(uuid, date, uuid, text, text\) TO authenticated;/.test(M)
+      && !/realloc_patient_splits|payment_splits|portal_info\(/.test(M.replace(/^--.*$/gm, '')), 'M213: authenticated only; no financial or portal function');
+    ok(/'migrations\/212_[^']+',[^\n]*\n\s+'migrations\/213_followup_plan\.sql',/.test(F['scripts/db-bootstrap.py']) && (F['scripts/followup-db.sql'].match(/session_followup_plan\(/g) || []).length >= 9,
+      'M213 is in the build plan and in the database proof');
+    ok(/return \(s\.status \|\| 'completed'\) === 'planned' && !s\.parent_id;/.test(extractFunction(F['pp-plan.js'], 'planPlannedSessions')),
+      'treatment plan: a planned follow-up visit is not a plan item (no phase, no option, no printed line)');
+    ok(/if \(!s \|\| s\.parent_id\) return false;/.test(extractFunction(AP, 'apptFuMultiVisit')), 'appointment completion: a follow-up visit is never marked as a new base');
+    ok(/if \(st === 'planned' && !_fuC && typeof planRowCtlHtml === 'function'\)/.test(extractFunction(PP, 'renderSessions')), 'sessions table: no plan controls on a follow-up row (the database refuses its phase)');
+    ok(/'fuToggle', 'fuSetMode'/.test(F['scripts/check-mirrors.js']), 'read-only registry: the mode tabs are inert');
+    const cA = extractFunction(AP, 'completeApptWithProcedures'), cP = extractFunction(PP, '_completeSessionFromProfile_inner');
+    ok(/if \(s\.parent_id && _curAppt && _curAppt\.date\) sessPatch\.date = String\(_curAppt\.date\)\.slice\(0, 10\);/.test(cA) && cA.indexOf('sessPatch.date') < cA.indexOf('.update(sessPatch)'),
+      '«إكمال الموعد»: a follow-up visit takes the day of its appointment (even when it was moved)');
+    ok(/if \(sess\.parent_id && sess\.date && String\(sess\.date\)\.slice\(0, 10\) > toDay\(\)\) _p1\.date = toDay\(\);/.test(cP) && /\.update\(_p1\)/.test(cP) && /if \(_p1\.date\) sess\.date = _p1\.date;/.test(cP),
+      '«إكمال» in the table: a follow-up visit done before its booked day is dated today — never a completed visit in the future');
+
+    const w = await boot(F), d = w.document, bag = [];
+    w.__load(seed()); w.renderSessions();
+    const fd = () => d.getElementById('fuDate'), on = m => d.querySelector('.fu-tab[data-mode="' + m + '"]'), lastT = () => w.__TOASTS.slice(-1)[0] || '';
+    const lastRow = () => d.getElementById('fuLast').parentNode;
+    w.fuOpen('b1'); fd().value = '2026-11-09'; w.closeModal('fuModal'); w.fuOpen('b1');
+    ok(on('done').classList.contains('on') && on('done').getAttribute('aria-selected') === 'true' && fd().value === TODAY && fd().max === TODAY && lastRow().style.display === ''
+      && txt(d.getElementById('fuSaveBtn')) === 'حفظ جلسة المتابعة', 'the window opens on «✅ زيارة تمّت» as before: today, up to today, «آخر جلسة» shown');
+    on('plan').click();
+    ok(on('plan').classList.contains('on') && !on('done').classList.contains('on') && fd().value === P7 && fd().min === TODAY && fd().max === PMAX && lastRow().style.display === 'none'
+      && txt(d.getElementById('fuTitle')) === 'الزيارة التالية' && txt(d.getElementById('fuStepLbl')) === 'ما سيتم في الزيارة التالية' && txt(d.getElementById('fuSaveBtn')) === '📅 حفظ واحجز الموعد'
+      && /مخطّطة بلا تكلفة/.test(txt(d.getElementById('fuHint'))), '«📅 الزيارة التالية»: a week ahead by default, today to two years, no «آخر جلسة»');
+    grab(w, '#fuModal', bag);
+    on('done').click();
+    ok(fd().value === TODAY && fd().max === TODAY && fd().min === '2026-11-08' && lastRow().style.display === '' && txt(d.getElementById('fuTitle')) === 'جلسة متابعة', 'back to «زيارة تمّت»: a future date falls back to today');
+    on('plan').click(); d.getElementById('fuLast').checked = true; on('plan').click();
+    ok(!d.getElementById('fuLast').checked, 'planning never carries a hidden «آخر جلسة»');
+    fd().value = '2026-11-16'; await w.fuSave(); ok(w.__RPC.length === 0 && /في الماضي/.test(lastT()), 'a past date is refused before any call');
+    fd().value = addDays(TODAY, 731); await w.fuSave(); ok(w.__RPC.length === 0 && /بعيد جداً/.test(lastT()), 'more than two years ahead is refused');
+    fd().value = P7; d.getElementById('fuStep').value = 'x'.repeat(81); await w.fuSave(); ok(w.__RPC.length === 0 && /طويل/.test(lastT()), 'long text is refused');
+    d.getElementById('fuStep').value = '';
+    w.__rpcFail = 'followup_date_invalid'; await w.fuSave();
+    ok(w.__RPC.length === 1 && !w.__sessions().some(x => x.parent_id === 'b1') && d.getElementById('fuModal').classList.contains('open') && w.__appt === 0 && /الزيارة التالية غير صالح/.test(lastT()),
+      'a refused plan changes nothing, keeps the window and opens no appointment');
+    w.__rpcFail = 'Could not find the function public.session_followup_plan in the schema cache'; await w.fuSave(); ok(/تحتاج تحديث قاعدة البيانات/.test(lastT()), 'a missing M213 says so');
+    w.__rpcFail = null; w.__RPC.length = 0;
+    d.getElementById('fuStep').value = '  Fit   crown '; d.getElementById('fuProvider').value = 'd2';
+    await w.fuSave(); await tick(w);
+    const call = w.__RPC[0] || { a: {} }, kid = w.__sessions().find(x => x.parent_id === 'b1'), base = w.__sessions().find(x => x.id === 'b1');
+    ok(w.__RPC.length === 1 && call.fn === 'session_followup_plan' && JSON.stringify(call.a) === JSON.stringify({ p_parent: 'b1', p_date: P7, p_provider: 'd2', p_step: 'Fit crown', p_notes: null }),
+      'one call with exactly the five arguments — no money, no place, no status');
+    ok(!!kid && kid.status === 'planned' && kid.cost === 0 && kid.date === P7 && base.followup_state === 'open' && !d.getElementById('fuModal').classList.contains('open') && w.__UPD.length === 0,
+      'saved: a planned visit under the base, the base in progress, the window closed — «آخر زيارة» untouched (nothing happened yet)');
+    ok(w.__AUDIT.length === 1 && /^زيارة متابعة مخطّطة: RCT — سن 36 — Fit crown \(/.test(w.__AUDIT[0].o.description) && w.__AUDIT[0].o.newValue.status === 'planned', 'audit names it a planned follow-up visit');
+    ok(w.__appt === 1 && d.getElementById('apptModal').classList.contains('open') && d.getElementById('aDate').value === P7 && d.getElementById('aProvider').value === 'd2'
+      && JSON.stringify(w.__pend) === JSON.stringify([kid.id]) && /اختر الوقت/.test(lastT()) && w.__DIALOGS.length === 0,
+      'the appointment window opens on that date and doctor with the visit attached — linked by «حفظ الموعد», no extra question');
+    let r = rows(w);
+    const kr = r.find(x => x.getAttribute('data-fu-parent') === 'b1'),
+      br = r.find(x => /RCT/.test(txt(x.querySelector('.sc-type'))) && !x.classList.contains('fu-row'));
+    ok(kr && !kr.classList.contains('fu-hidden') && /^مخط+ط$/.test(txt(kr.querySelector('td:nth-child(4)')).replace(/\u0651/g, '')) && !kr.querySelector('.PLANCTL') && /إكمال/.test(txt(kr)) && txt(kr.querySelector('.sc-cost')) === 'ضمن الأساسية',
+      'the planned visit sits open under its base: «مخطّط», «إكمال», no plan controls, no money');
+    ok(!!r.find(x => /Filling/.test(txt(x.querySelector('.sc-type')))).querySelector('.PLANCTL'), 'a real planned treatment keeps its plan controls');
+    const bd = br && br.querySelector('.fu-state');
+    ok(bd && bd.nodeName === 'SPAN' && txt(bd) === 'قيد الإنجاز' && /مخطّطة/.test(bd.title), 'only a planned visit: «قيد الإنجاز» with no count and no click (no closing before a visit, no clearing with one booked)');
+    grab(w, '#sessionsContent .fu-state, #sessionsContent .fu-row .sc-type, #sessionsContent .fu-row td:nth-child(4), #sessionsContent .fu-row .sc-cost', bag);
+    w.closeModal('apptModal');
+    w.fuOpen('b1');
+    ok(/مخطّطة/.test(txt(d.querySelector('#fuBase .fu-prev'))) && on('done').classList.contains('on'), 'the window lists the booked visit as «مخطّطة» and opens on «زيارة تمّت»');
+    grab(w, '#fuBase', bag);
+    w.__confirm = true; d.getElementById('fuStep').value = 'Irrigation'; await w.fuSave(); await tick(w);
+    ok(w.__DIALOGS.length === 0 && w.__RPC.slice(-1)[0].fn === 'session_followup_add' && txt(rows(w).find(x => /RCT/.test(txt(x.querySelector('.sc-type'))) && !x.classList.contains('fu-row')).querySelector('.fu-state')) === 'قيد الإنجاز · 1',
+      'a done visit while the next one is booked: no prompt, and the count is done visits only');
+    w.fuOpenPicker(); ok(/قيد الإنجاز · 1/.test(txt(d.querySelector('#fuPickList'))), 'the picker counts done visits only'); w.closeModal('fuPickModal');
+    /* الاقتراحُ بعد زيارةٍ تمّت */
+    w.fuOpen('b2'); d.getElementById('fuStep').value = 'Prep'; await w.fuSave(); await tick(w);
+    const q = w.__DIALOGS[0] || {};
+    ok(w.__DIALOGS.length === 1 && q.title === 'الزيارة التالية' && q.confirmText === '📅 احجزها' && q.cancelText === 'لاحقاً' && q.danger === false
+      && d.getElementById('fuModal').classList.contains('open') && on('plan').classList.contains('on') && fd().value === P7 && /Crown PFM/.test(txt(d.getElementById('fuBase'))),
+      'after a done visit: «تحجز الآن موعد الزيارة التالية؟» — «احجزها» reopens the window on «الزيارة التالية» for that treatment');
+    w.__DIALOGS.forEach(o => [o.title, o.message, o.confirmText, o.cancelText].forEach(t => { if (t) bag.push({ t }); }));
+    w.closeModal('fuModal');
+    w.__confirm = false; w.fuOpen('b2'); d.getElementById('fuStep').value = 'Try-in'; await w.fuSave(); await tick(w);
+    ok(w.__DIALOGS.length === 2 && !d.getElementById('fuModal').classList.contains('open') && w.__appt === 1, '«لاحقاً» does nothing');
+    w.fuOpen('b2'); d.getElementById('fuStep').value = 'Fit'; d.getElementById('fuLast').checked = true; await w.fuSave(); await tick(w);
+    ok(w.__DIALOGS.length === 2, 'the last visit (treatment complete) asks nothing');
+    /* نافذةُ الموعد محجوبة */
+    w.__apptBlock = true; w.__pend = null; w.fuOpen('fr', 'plan'); await w.fuSave(); await tick(w);
+    ok(w.__appt === 2 && w.__pend === null && w.__sessions().some(x => x.parent_id === 'fr' && x.status === 'planned') && /من «موعد جديد»/.test(lastT()),
+      'appointment window blocked: the visit stays planned and the doctor is told where to book it — nothing is attached');
+    w.__apptBlock = false;
+    w.__TOASTS.forEach(t => bag.push({ t }));
+    /* الصندوقُ التجريبي */
+    const mk = list => { const c = { console, Date, Object, String, JSON }; vm.createContext(c);
+      vm.runInContext('var DB = { ledger_sessions: ' + JSON.stringify(list) + ' }, _idc = 0; function rows(t){ if (!DB[t]) DB[t] = []; return DB[t]; }\n' + extractFunction(PP, 'demoFollowupRpc'), c); return c; };
+    const D = mk([S('b1', { date: '2026-11-08', currency: 'USD', cost: 7000, tooth_num: '36' }), S('pl', { status: 'planned' })]), td = new Date().toISOString().slice(0, 10);
+    const pr = D.demoFollowupRpc('session_followup_plan', { p_parent: 'b1', p_date: addDays(td, 3), p_provider: null, p_step: 'Fit', p_notes: null }), pk = pr.data && pr.data.session;
+    ok(!pr.error && pk && pk.status === 'planned' && pk.cost === 0 && pk.tooth_num === null && pk.parent_id === 'b1' && pr.data.state === 'open'
+      && D.demoFollowupRpc('session_followup_plan', { p_parent: 'b1', p_date: addDays(td, -1) }).error.message === 'followup_date_invalid'
+      && D.demoFollowupRpc('session_followup_plan', { p_parent: 'pl', p_date: td }).error.message === 'followup_base_invalid', 'demo card: a planned visit is stored in the database shape; past dates and planned bases refused');
+    ok(/name === 'session_followup_add' \|\| name === 'session_followup_set_state' \|\| name === 'session_followup_plan'\) return Promise\.resolve\(demoFollowupRpc/.test(PP), 'demo card: the plan call is routed to the sandbox');
+    /* الإنجليزية */
+    const t = engine(F), left = [];
+    const seen = {};
+    bag.forEach(x => { const src = String(x.t).replace(/\s+/g, ' ').trim(); if (!src || seen[src]) return; seen[src] = 1; const o = x.en ? x.en : t(src); if (o == null || AR.test(o)) left.push(src); });
+    ok(Object.keys(seen).length >= 20 && left.length === 0, 'English: the next-visit surface is translated (' + Object.keys(seen).length + ' pieces)' + (left.length ? ' — ' + left.slice(0, 5).join(' | ') : ''));
+    ok(t('متابعة — Crown PFM') === 'Follow-up — Crown PFM' && t('قيد الإنجاز') === 'In progress' && t('مخطّطة') === 'Planned', 'English: a follow-up row in the appointment window, the state and the chip');
+    w.close();
+  });
   return out;
 }
 
@@ -785,7 +923,7 @@ const MUT = [
   ['state change without asking', rep('pp-followup.js', "confirmText: closing ? 'اكتمل العلاج' : 'إعادة فتح', danger: false\n  })) return;", "confirmText: closing ? 'اكتمل العلاج' : 'إعادة فتح', danger: false\n  }) && false) return;")],
   ['failed save applied locally', rep('pp-followup.js', "  if (res.error || !res.data || !res.data.session) {", "  if (false) {")],
   ['unescaped base name', rep('pp-followup.js', "'<div class=\"fu-base-head\"><span class=\"fu-base-type\">' + fuEsc(base.type || 'علاج') + '</span>'", "'<div class=\"fu-base-head\"><span class=\"fu-base-type\">' + (base.type || 'علاج') + '</span>'")],
-  ['unescaped step in the window', rep('pp-followup.js', "'<span class=\"fu-prev-t\">' + fuEsc(k.description || '—') + '</span></div>'", "'<span class=\"fu-prev-t\">' + (k.description || '—') + '</span></div>'")],
+  ['unescaped step in the window', rep('pp-followup.js', "'<span class=\"fu-prev-t\">' + fuEsc(k.description || '—') + '</span>'", "'<span class=\"fu-prev-t\">' + (k.description || '—') + '</span>'")],
   ['delete without the warning', rep('patient-profile.html', "var _fuTail = _fuKids.length ? '\\n\\n' + fuDeleteNote(_fuKids.length) : '';", "var _fuTail = '';")],
   ['delete leaves ghost rows', rep('patient-profile.html', 'return s.id !== id && s.parent_id !== id; });   /* M210', 'return s.id !== id; });   /* M210')],
   ['statement lists follow-ups', rep('pp-plan.js', "    if (s.parent_id) return;   // M210: جلسةُ المتابعة بلا مال — ليست حركةً بكشف الحساب\n", '')],
@@ -810,8 +948,8 @@ const MUT = [
   ['demo: follow-up of a follow-up', rep('patient-profile.html', "if (!fb || fb.parent_id || (fb.status || 'completed') !== 'completed') return bad;", "if (!fb || (fb.status || 'completed') !== 'completed') return bad;")],
   ['demo: follow-up of a planned row', rep('patient-profile.html', "if (!fb || fb.parent_id || (fb.status || 'completed') !== 'completed') return bad;", "if (!fb || fb.parent_id) return bad;")],
   ['demo: date before the base', rep('patient-profile.html', "(fb.date && String(args.p_date) < String(fb.date).slice(0, 10))", "false")],
-  ['demo: close flag dropped', rep('patient-profile.html', "fb.followup_state = args.p_close ? 'closed' : 'open';", "fb.followup_state = 'open';")],
-  ['demo: calls not routed', rep('patient-profile.html', "    if (name === 'session_followup_add' || name === 'session_followup_set_state') return Promise.resolve(demoFollowupRpc(name, args || {}));   /* M210 */\n", '')],
+  ['demo: close flag dropped', rep('patient-profile.html', "fb.followup_state = (!plan && args.p_close) ? 'closed' : 'open';", "fb.followup_state = 'open';")],
+  ['demo: calls not routed', rep('patient-profile.html', "    if (name === 'session_followup_add' || name === 'session_followup_set_state' || name === 'session_followup_plan') return Promise.resolve(demoFollowupRpc(name, args || {}));   /* M210 */\n", '')],
   ['demo: delete leaves follow-ups', rep('patient-profile.html', "DB.ledger_sessions = rows('ledger_sessions').filter(function(r){ return ids.indexOf(r.parent_id) === -1; });", '')],
   ['demo: base stays in progress with no follow-up', rep('patient-profile.html', "if (r.id === g.parent_id) r.followup_state = null;", '')],
   ['demo: delete not mirrored', rep('patient-profile.html', "        if (b._t === 'ledger_sessions') demoFollowupAfterDelete(hit);   /* M210 */\n", '')],
@@ -872,6 +1010,48 @@ const MUT = [
   ['session window save not wrapped', rep('patient-profile.html', "fuNeedRun(_saveSession_inner, this, arguments, 'S')", "_saveSession_inner.apply(this, arguments)")],
   ['session window switch reads the tooth box', rep('pp-followup.js', "  return scope === 'S'\n    ?", "  return false\n    ?")],
   ['session window ignores the chosen treatment', rep('pp-appt.js', "  if (typeof fuNeedSync === 'function') fuNeedSync(false, 'S');   /* M211: علاجٌ آخر ⇒ افتراضُه */\n", "")],
+  /* M213 (ج2-ب) */
+  ['M213: definer', rep('migrations/213_followup_plan.sql', 'RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER', 'RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER')],
+  ['M213: anon keeps execute', rep('migrations/213_followup_plan.sql', 'FROM PUBLIC, anon;', 'FROM PUBLIC;')],
+  ['M213: past date allowed', rep('migrations/213_followup_plan.sql', 'p_date IS NULL OR p_date < v_today OR p_date > v_today + 730', 'p_date IS NULL OR p_date > v_today + 730')],
+  ['M213: stored as done', rep('migrations/213_followup_plan.sql', "v_step, 0, p_date, v_notes, 'planned',", "v_step, 0, p_date, v_notes, 'completed',")],
+  ['M213: carries the base money', rep('migrations/213_followup_plan.sql', "v_step, 0, p_date, v_notes, 'planned',", "v_step, b.cost, p_date, v_notes, 'planned',")],
+  ['M213: base not in progress', rep('migrations/213_followup_plan.sql', "  UPDATE public.ledger_sessions SET followup_state = 'open' WHERE id = b.id AND followup_state IS DISTINCT FROM 'open';\n", '')],
+  ['M213: another clinic\'s base', rep('migrations/213_followup_plan.sql', 'WHERE id = p_parent AND doctor_id = (SELECT auth.uid()) FOR UPDATE', 'WHERE id = p_parent FOR UPDATE')],
+  ['M213 not bootstrapped', rep('scripts/db-bootstrap.py', "    'migrations/213_followup_plan.sql',", "    #'migrations/213_followup_plan.sql',")],
+  ['plan saved as a done visit', rep('pp-followup.js', "  if (_fuMode === 'plan') return fuPlanSave(base);\n", '')],
+  ['plan: past date accepted', rep('pp-followup.js', "if (date < today || (base.date && date < String(base.date).slice(0, 10))) { showToast('⚠️ تاريخ الزيارة التالية في الماضي'); return; }", '')],
+  ['plan: far date accepted', rep('pp-followup.js', "  if (date > fuAddDays(today, FU_PLAN_DAYS)) { showToast('⚠️ تاريخ الزيارة التالية بعيد جداً — حتى سنتين'); return; }\n", '')],
+  ['plan: default date today', rep('pp-followup.js', ': fuAddDays(min, 7);', ': min;')],
+  ['plan: «آخر جلسة» still shown', rep('pp-followup.js', "last.parentNode.style.display = plan ? 'none' : '';", "last.parentNode.style.display = '';")],
+  ['plan: hidden «آخر جلسة» kept checked', rep('pp-followup.js', "if (last) { last.checked = false; if", "if (last) { if")],
+  ['open keeps the last date', rep('pp-followup.js', "  document.getElementById('fuDate').value = '';   /* كلُّ فتحٍ", "  /* كلُّ فتحٍ")],
+  ['booking: visit not attached', rep('pp-followup.js', '  _pendingAttachmentsPP = [child];\n', '')],
+  ['booking: date not applied', rep('pp-followup.js', "if (d) d.value = String(child.date).slice(0, 10);", '')],
+  ['booking: doctor not applied', rep('pp-followup.js', 'return o.value === child.provider_id; })) pr.value = child.provider_id;', 'return o.value === child.provider_id; })) {}')],
+  ['booking: blocked window still attached', rep('pp-followup.js', "if (!mo || !mo.classList.contains('open') || (typeof editingApptId", "if (false && (typeof editingApptId")],
+  ['plan: «آخر زيارة» moved', rep('pp-followup.js', "  base.followup_state = 'open';\n  _fuExpanded[base.id] = true;\n  if (window.logAudit) {\n    window.logAudit('session.create', {\n      entityId: child.id, patientId: patientId, patientName: (patient && patient.name) || '',\n      description: 'زيارة متابعة مخطّطة: '",
+    "  base.followup_state = 'open';\n  _fuExpanded[base.id] = true; window.sb.from('patients').update({ last_visit: date }).eq('id', patientId).then(function(){});\n  if (window.logAudit) {\n    window.logAudit('session.create', {\n      entityId: child.id, patientId: patientId, patientName: (patient && patient.name) || '',\n      description: 'زيارة متابعة مخطّطة: '")],
+  ['plan not audited', rep('pp-followup.js', "description: 'زيارة متابعة مخطّطة: '", "description: 'جلسة متابعة: '")],
+  ['prompt despite a booked visit', rep('pp-followup.js', "fuState(base) !== 'open' || fuNextPlanned(baseId)) return;", "fuState(base) !== 'open') return;")],
+  ['prompt after the last visit', F => rep('pp-followup.js', "fuState(base) !== 'open' || fuNextPlanned", 'fuNextPlanned')(rep('pp-followup.js', '  if (!last) setTimeout(function () { fuAskNext(base.id); }, 0);', '  setTimeout(function () { fuAskNext(base.id); }, 0);')(F))],
+  ['no next-visit prompt', rep('pp-followup.js', '  if (!last) setTimeout(function () { fuAskNext(base.id); }, 0);\n', '')],
+  ['«احجزها» opens the done tab', rep('pp-followup.js', "  })) fuOpen(baseId, 'plan');", "  })) fuOpen(baseId);")],
+  ['badge counts booked visits', rep('pp-followup.js', "return (k.status || 'completed') === 'completed'; }).length;\n}", "return true; }).length;\n}")],
+  ['booked-only badge clickable', rep('pp-followup.js', "  if (st === 'open' && !n && fuChildren(s.id).length)", "  if (false)")],
+  ['window hides the booked mark', rep('pp-followup.js', "((k.status || 'completed') === 'planned' ? '<span class=\"sess-chip tone tone-yellow\">مخطّطة</span>' : '')", "''")],
+  ['plan controls on a follow-up row', rep('patient-profile.html', "if (st === 'planned' && !_fuC && typeof planRowCtlHtml === 'function')", "if (st === 'planned' && typeof planRowCtlHtml === 'function')")],
+  ['plan lists follow-up visits', rep('pp-plan.js', "=== 'planned' && !s.parent_id; });   /* M213", "=== 'planned'; });   /* M213")],
+  ['appointment marks a follow-up as a base', rep('appointments.html', '  if (!s || s.parent_id) return false;', '  if (!s) return false;')],
+  ['appointments page drops parent_id', rep('appointments.html', "treatment_key, parent_id';", "treatment_key';")],
+  ['demo: plan not routed', rep('patient-profile.html', " || name === 'session_followup_plan') return", ") return")],
+  ['demo: plan stored as done', rep('patient-profile.html', "status: plan ? 'planned' : 'completed',", "status:'completed',")],
+  ['demo: plan in the past', rep('patient-profile.html', "    if (plan && String(args.p_date) < today) return", "    if (false) return")],
+  ['plan button untranslated', rep('i18n-en.js', "    '📅 حفظ واحجز الموعد': '📅 Save and book the appointment',\n", '')],
+  ['follow-up row name untranslated', rep('i18n-en.js', "    [/^متابعة — (.+)$/, function (m, x) { return 'Follow-up — ' + (D[x] || x); }],", '')],
+  ['appointment completion keeps the planned date', rep('appointments.html', '    if (s.parent_id && _curAppt && _curAppt.date) sessPatch.date', '    if (false) sessPatch.date')],
+  ['table completion leaves a future date', rep('patient-profile.html', "  if (sess.parent_id && sess.date && String(sess.date).slice(0, 10) > toDay()) _p1.date = toDay();", '')],
+  ['mode tabs not registered', rep('scripts/check-mirrors.js', "'fuToggle', 'fuSetMode'", "'fuToggle'")],
   ['state badge hidden in read-only', rep('patient-profile.css', '[onclick*="fuSave("],', '[onclick*="fuSave("],[onclick*="fuSetState("],')]
 ];
 
@@ -879,12 +1059,15 @@ const MUT = [
   const res = await run(LIVE), bad = res.filter(x => !x[0]);
   if (bad.length) { bad.forEach(x => console.error('  ✗ ' + x[1])); console.error('prove-followup ❌ ' + bad.length + '/' + res.length + ' توكيداً سقط'); process.exit(1); }
   if (process.argv.indexOf('--self-test') < 0) { console.log('prove-followup ✅ ' + res.length + ' توكيداً'); return; }
-  let bit = 0; const dull = [];
-  for (const [name, mut] of MUT) {
-    let F2; try { F2 = mut(LIVE); } catch (e) { dull.push(name + ' (' + e.message + ')'); continue; }
-    let r; try { r = await run(F2); } catch (e) { r = [[false, 'threw']]; }
-    if (r.some(x => !x[0])) bit++; else dull.push(name);
-  }
-  if (dull.length) { dull.forEach(n => console.error('  ✗ طفرةٌ لم تعضّ: ' + n)); console.error('prove-followup ❌ ' + bit + '/' + MUT.length + ' طفرات تعضّ'); process.exit(1); }
-  console.log('prove-followup ✅ ' + res.length + ' توكيداً · ' + bit + '/' + MUT.length + ' طفرات تعضّ');
+  /* الطفراتُ مستقلّة ⇒ تُوزَّع على أنوية المعالج (scripts/mutant-pool.js) — طفرةٌ بلا مرساة لا تُعدّ عاضّة */
+  const anchorless = [];
+  MUT.forEach(([name, mut]) => { try { mut(LIVE); } catch (e) { anchorless.push(name + ' (' + e.message + ')'); } });
+  const pool = await runMutants(MUT, async ([, mut]) => {
+    let F2; try { F2 = mut(LIVE); } catch (e) { return false; }
+    const r = await run(F2); return r.some(x => !x[0]);
+  });
+  const dull = pool.dull.map(i => MUT[i][0]).filter(n => !anchorless.some(a => a.indexOf(n + ' (') === 0)).concat(anchorless);
+  if (pool.failed.length) console.error('  ✗ عاملٌ مات بلا تقرير: ' + pool.failed.join());
+  if (dull.length || pool.failed.length) { dull.forEach(n => console.error('  ✗ طفرةٌ لم تعضّ: ' + n)); console.error('prove-followup ❌ ' + pool.bit + '/' + MUT.length + ' طفرات تعضّ'); process.exit(1); }
+  console.log('prove-followup ✅ ' + res.length + ' توكيداً · ' + pool.bit + '/' + MUT.length + ' طفرات تعضّ');
 })();

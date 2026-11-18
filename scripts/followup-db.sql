@@ -4,7 +4,7 @@
 -- LOCAL THROWAWAY DATABASE ONLY (see scripts/lab-stages-db.sql for how to build it). It refuses to run when
 -- `patients` has rows, and everything is rolled back.
 --     psql -v ON_ERROR_STOP=1 -d <db> -f scripts/followup-db.sql
--- 51 checks on the real trigger chain and both RPCs (M210 + M211) (shape · one level · fixed link · base protection · state ·
+-- 61 checks on the real trigger chain and the three RPCs (M210 + M211 + M213) (shape · one level · fixed link · base protection · state ·
 -- cascade · whole-patient and whole-clinic deletes · dates · provider ownership · currency) + 6 RLS checks (owner · other tenant · anon).
 BEGIN;
 DO $$ BEGIN IF (SELECT count(*) FROM public.patients) > 0 THEN RAISE EXCEPTION 'followup-db: empty local database only'; END IF; END $$;
@@ -118,6 +118,30 @@ BEGIN
   r := r || ' c33f=' || ((SELECT followup_state FROM public.ledger_sessions WHERE id = b) = 'open');
   BEGIN PERFORM public.session_followup_set_state(bp, 'open'); r := r || ' c33g=FAIL';
     EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' c33g=' || (SQLERRM = 'followup_base_invalid'); END;
+  -- M213: «الزيارة التالية» — a planned follow-up in the M210 shape; the base becomes «قيد الإنجاز»
+  j := public.session_followup_plan(n0, current_date + 7, doc, '  Next  step ', 'see you');
+  SELECT * INTO s FROM public.ledger_sessions WHERE id = (j->'session'->>'id')::uuid;
+  r := r || ' p1=' || (s.parent_id = n0 AND s.status = 'planned' AND s.cost = 0 AND s.tooth_num IS NULL AND s.treatment_key IS NULL AND s.date = current_date + 7
+                       AND s.description = 'Next step' AND s.provider_id = doc AND s.currency = 'USD' AND s.type = 'متابعة — Plain' AND (j->>'state') = 'open'
+                       AND (SELECT followup_state FROM public.ledger_sessions WHERE id = n0) = 'open');
+  BEGIN PERFORM public.session_followup_plan(n0, current_date - 1, NULL, 'x', NULL); r := r || ' p2=FAIL';
+    EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' p2=' || (SQLERRM = 'followup_date_invalid'); END;
+  BEGIN PERFORM public.session_followup_plan(n0, current_date + 731, NULL, 'x', NULL); r := r || ' p3=FAIL';
+    EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' p3=' || (SQLERRM = 'followup_date_invalid'); END;
+  BEGIN PERFORM public.session_followup_plan(bp, current_date + 1, NULL, 'x', NULL); r := r || ' p4=FAIL';
+    EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' p4=' || (SQLERRM = 'followup_base_invalid'); END;
+  BEGIN PERFORM public.session_followup_plan(c1, current_date + 1, NULL, 'x', NULL); r := r || ' p5=FAIL';
+    EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' p5=' || (SQLERRM = 'followup_base_invalid'); END;
+  BEGIN PERFORM public.session_followup_plan(n0, current_date + 1, docx, 'x', NULL); r := r || ' p6=FAIL';
+    EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' p6=' || (SQLERRM = 'followup_provider_invalid'); END;
+  BEGIN PERFORM public.session_followup_plan(n0, current_date + 1, NULL, repeat('x', 81), NULL); r := r || ' p7=FAIL';
+    EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' p7=' || (SQLERRM = 'followup_text_too_long'); END;
+  BEGIN UPDATE public.ledger_sessions SET tooth_num = '11' WHERE id = s.id; r := r || ' p8=FAIL';
+    EXCEPTION WHEN check_violation THEN r := r || ' p8=true'; END;
+  UPDATE public.ledger_sessions SET status = 'completed' WHERE id = s.id;   -- «إكمال» / «إكمال الموعد»: the existing flip
+  r := r || ' p9=' || ((SELECT status = 'completed' AND cost = 0 AND parent_id = n0 FROM public.ledger_sessions WHERE id = s.id));
+  DELETE FROM public.ledger_sessions WHERE id = s.id;   -- its only follow-up ⇒ the base is plain again (M210 trigger)
+  r := r || ' p10=' || ((SELECT followup_state IS NULL FROM public.ledger_sessions WHERE id = n0));
   BEGIN PERFORM public.session_followup_set_state(c1, 'open'); r := r || ' c34=FAIL';
     EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' c34=' || (SQLERRM = 'followup_base_invalid'); END;
   BEGIN UPDATE public.ledger_sessions SET followup_state = 'open' WHERE id = c1; r := r || ' c35=FAIL';
@@ -147,7 +171,7 @@ BEGIN
   -- the catalog flag is a free tri-state
   r := r || ' c42=' || ((SELECT count(*) FROM public.treatments WHERE doctor_id = d AND multi_visit IS NOT NULL) = 0);
 
-  IF r ~ 'FAIL|=false' OR r !~ 'c42=true' OR (length(r) - length(replace(r, '=true', ''))) / 5 <> 51 THEN RAISE EXCEPTION 'followup-db FAILED:%', r; END IF;
+  IF r ~ 'FAIL|=false' OR r !~ 'c42=true' OR (length(r) - length(replace(r, '=true', ''))) / 5 <> 61 THEN RAISE EXCEPTION 'followup-db FAILED:%', r; END IF;
   RAISE NOTICE 'followup-db:%', r;
 END $t$;
 
@@ -173,7 +197,11 @@ DO $$ DECLARE n int; ok boolean := false; BEGIN
   ok := false;
   BEGIN PERFORM public.session_followup_set_state('00000000-0000-0000-0000-00000000b001', 'open');
     EXCEPTION WHEN sqlstate 'P0001' THEN ok := (SQLERRM = 'followup_base_invalid'); END;
-  IF NOT ok THEN RAISE EXCEPTION 'RLSFAIL other tenant changed the state'; END IF; END $$;
+  IF NOT ok THEN RAISE EXCEPTION 'RLSFAIL other tenant changed the state'; END IF;
+  ok := false;
+  BEGIN PERFORM public.session_followup_plan('00000000-0000-0000-0000-00000000b001', current_date + 3, NULL, 'Intruder', NULL);
+    EXCEPTION WHEN sqlstate 'P0001' THEN ok := (SQLERRM = 'followup_base_invalid'); END;
+  IF NOT ok THEN RAISE EXCEPTION 'RLSFAIL other tenant planned a follow-up'; END IF; END $$;
 RESET ROLE; SET LOCAL ROLE anon;
 DO $$ DECLARE ok boolean := false; BEGIN
   BEGIN PERFORM public.session_followup_add('00000000-0000-0000-0000-00000000b001', current_date, NULL, NULL, NULL, false);
@@ -182,9 +210,13 @@ DO $$ DECLARE ok boolean := false; BEGIN
   ok := false;
   BEGIN PERFORM public.session_followup_set_state('00000000-0000-0000-0000-00000000b001', 'open');
     EXCEPTION WHEN insufficient_privilege THEN ok := true; END;
-  IF NOT ok THEN RAISE EXCEPTION 'RLSFAIL anon can call session_followup_set_state'; END IF; END $$;
+  IF NOT ok THEN RAISE EXCEPTION 'RLSFAIL anon can call session_followup_set_state'; END IF;
+  ok := false;
+  BEGIN PERFORM public.session_followup_plan('00000000-0000-0000-0000-00000000b001', current_date + 3, NULL, NULL, NULL);
+    EXCEPTION WHEN insufficient_privilege THEN ok := true; END;
+  IF NOT ok THEN RAISE EXCEPTION 'RLSFAIL anon can call session_followup_plan'; END IF; END $$;
 RESET ROLE;
 DO $$ BEGIN IF (SELECT count(*) FROM public.ledger_sessions WHERE parent_id = '00000000-0000-0000-0000-00000000b001') <> 1
           OR (SELECT followup_state FROM public.ledger_sessions WHERE id = '00000000-0000-0000-0000-00000000b001') <> 'closed' THEN RAISE EXCEPTION 'RLSFAIL the intruders changed something'; END IF;
-  RAISE NOTICE 'followup-db RLS: owner adds and closes · other tenant reads, adds and changes nothing · anon cannot call either RPC'; END $$;
+  RAISE NOTICE 'followup-db RLS: owner adds and closes · other tenant reads, adds and changes nothing · anon cannot call any of the three RPCs'; END $$;
 ROLLBACK;

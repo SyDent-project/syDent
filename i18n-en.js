@@ -3565,9 +3565,26 @@ Object.assign(window.SyI18nDict, {
     'اكتمال العلاج': 'Treatment complete', 'إعادة فتح العلاج': 'Reopen the treatment', 'اكتمل العلاج': 'Treatment complete', 'إعادة فتح': 'Reopen',
     'تأكيد اكتمال هذا العلاج؟ يمكن إعادة فتحه لاحقاً وتسجيل متابعة جديدة.': 'Confirm that this treatment is complete? It can be reopened later to record a new follow-up.',
     'إعادة هذا العلاج إلى «قيد الإنجاز»؟': 'Return this treatment to «In progress»?',
-    'حذف هذه الجلسة؟': 'Delete this session?'
+    'حذف هذه الجلسة؟': 'Delete this session?',
+    /* M213 (ج2-ب): «الزيارة التالية» */
+    '✅ زيارة تمّت': '✅ Visit done', '📅 الزيارة التالية': '📅 Next visit', 'الزيارة التالية': 'Next visit',
+    'تاريخ الزيارة': 'Visit date', 'ما سيتم في الزيارة التالية': 'What will be done at the next visit',
+    '📅 حفظ واحجز الموعد': '📅 Save and book the appointment',
+    'زيارةٌ مخطّطة بلا تكلفة، مربوطةٌ بالعلاج — تصير جلسةَ متابعة حين يُكمَل موعدُها.': 'A planned visit with no charge, linked to the treatment — it becomes a follow-up session when its appointment is completed.',
+    'العلاج قيد الإنجاز — زيارتُه التالية مخطّطة': 'The treatment is in progress — its next visit is planned',
+    'مخطّطة': 'Planned',
+    '⚠️ تاريخ الزيارة التالية في الماضي': '⚠️ The next visit date is in the past',
+    '⚠️ تاريخ الزيارة التالية بعيد جداً — حتى سنتين': '⚠️ The next visit date is too far ahead — up to two years',
+    '⚠️ تاريخ الزيارة التالية غير صالح': '⚠️ The next visit date is not valid',
+    '⚠️ الزيارة التالية تحتاج تحديث قاعدة البيانات — حدّث الصفحة وأعد المحاولة': '⚠️ The next visit needs a database update — refresh the page and try again',
+    '⚠️ فشل حفظ الزيارة التالية': '⚠️ Could not save the next visit',
+    '📅 الزيارة التالية مخطّطة — احجز موعدها من «موعد جديد»': '📅 The next visit is planned — book its appointment from «New appointment»',
+    '📅 الزيارة التالية مخطّطة — اختر الوقت واحفظ الموعد': '📅 The next visit is planned — choose the time and save the appointment',
+    'تحجز الآن موعد الزيارة التالية لهذا العلاج؟': 'Book the next visit for this treatment now?',
+    '📅 احجزها': '📅 Book it'
   });
   P.push(
+    [/^متابعة — (.+)$/, function (m, x) { return 'Follow-up — ' + (D[x] || x); }],   /* M213: اسمُ صفّ المتابعة بنافذة الموعد وصفحة المواعيد */
     [/^متابعة (\d+)$/, 'Follow-up $1'],
     [/^المتابعات \((\d+)\)$/, 'Follow-ups ($1)'],
     [/^🔁 (\d+) علاجات متعددة الجلسات ستُسجَّل «قيد الإنجاز»\.$/, '🔁 $1 multi-visit treatments will be recorded «In progress».'],   /* «إكمال الموعد» */
