@@ -220,7 +220,7 @@ async function run(F) {
     const sa = extractFunction(PA, 'saveAppt') || extractFunction(PA, '_saveAppt_inner');
     ok(/var _fuPrevSt = editingApptId \?/.test(PA) && /if \(savedRow && savedRow\.id && savedRow\.status === 'completed' && _fuPrevSt !== 'completed' && window\.SyApptFu\) window\.SyApptFu\.offer\(savedRow\.id\);/.test(PA)
       && PA.indexOf('SyApptFu.offer(savedRow.id)') > PA.indexOf('commitPendingAttachmentsPP(savedRow.id'), 'patient card save: asked when the appointment just became «مكتمل», after its treatments were linked');
-    ok(/var _fuOfferId = \(apptData\.status === 'completed' && _wlOrig && _wlOrig\.status !== 'completed'\) \? editingId : null;\s+closeModal\(\);/.test(AP)
+    ok(/var _fuOfferId = \(apptData\.status === 'completed' && _wlOrig && _wlOrig\.status !== 'completed'\) \? editingId : null;/.test(AP) && AP.indexOf('var _fuOfferId') < AP.indexOf('portalApproveSaved(window._portalApproveCtx, apptData);')
       && /await loadAppointments\(\);\s+if \(_fuOfferId && window\.SyApptFu\) window\.SyApptFu\.offer\(_fuOfferId\);/.test(AP), 'appointments page save: asked when the appointment just became «مكتمل» (id kept before the window clears it)');
     ['appointments.html', 'index.html', 'patient-profile.html'].forEach(f => {
       const s = F[f], i = s.indexOf('<script src="sy-modal.js?v='), j = s.indexOf('<script src="appt-followup.js?v=');

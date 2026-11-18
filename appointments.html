@@ -3882,12 +3882,12 @@ async function submitAppt(e) {
           && (apptData.status === 'cancelled' || apptData.status === 'no_show')) {
         waitlistNudge(_wlOrig.date);
       }
+      /* ج2-ب-2: الموعدُ صار «مكتمل» الآن ⇒ هل كانت الزيارة متابعةً لعلاجٍ قيد الإنجاز؟ (appt-followup.js — يسأل بنفسه أو يصمت) */
+      var _fuOfferId = (apptData.status === 'completed' && _wlOrig && _wlOrig.status !== 'completed') ? editingId : null;
       /* M189: approving a portal slot request — offer the WhatsApp confirmation (must run BEFORE closeModal clears the ctx) */
       if (editingId && window._portalApproveCtx && window._portalApproveCtx.apptId === editingId && typeof portalApproveSaved === 'function') {
         portalApproveSaved(window._portalApproveCtx, apptData);
       }
-      /* ج2-ب-2: الموعدُ صار «مكتمل» الآن ⇒ هل كانت الزيارة متابعةً لعلاجٍ قيد الإنجاز؟ (appt-followup.js — يسأل بنفسه أو يصمت) */
-      var _fuOfferId = (apptData.status === 'completed' && _wlOrig && _wlOrig.status !== 'completed') ? editingId : null;
       closeModal();
       // Gap 7: if user just scheduled a planned appt, jump them to schedule tab
       if (prevWasPlanned && !isPlannedNow && apptData.date) {

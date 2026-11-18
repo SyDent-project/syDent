@@ -49,7 +49,7 @@
     if (!rb || rb.error) return null;
     var bases = (rb.data || []).filter(function (b) { return b && b.id && !b.parent_id && b.followup_state === 'open' && (!b.date || String(b.date).slice(0, 10) <= day); });
     if (!bases.length) return null;
-    var rk = await sb.from('ledger_sessions').select('parent_id').eq('doctor_id', a.doctor_id).eq('date', day)
+    var rk = await sb.from('ledger_sessions').select('parent_id').eq('doctor_id', a.doctor_id).eq('patient_id', a.patient_id).eq('date', day)
       .in('parent_id', bases.map(function (b) { return b.id; }));
     if (!rk || rk.error) return null;
     var done = {}; (rk.data || []).forEach(function (k) { if (k && k.parent_id) done[k.parent_id] = 1; });
