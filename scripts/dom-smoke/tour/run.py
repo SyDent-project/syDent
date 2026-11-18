@@ -88,7 +88,7 @@ return {ttl:document.querySelector('.sdt-ttl').textContent,s:[s.top,s.bottom,s.l
 def walk(b, tag, path, w, h, sc, ls=None, until=None, maxn=40, lang='ar'):
     ctx = b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=sc, service_workers='block')
     ctx.route('**/*', route)
-    L = {'sydent.auth': json.dumps(SESSION), 'sydent.lang': lang, 'sydent_theme': 'light'}; L.update(ls or {})
+    L = {'sydent.auth': json.dumps(SESSION), 'sydent.lang': lang, 'sydent_theme': 'light', 'sydent.tour.autostart': '1'}; L.update(ls or {})
     ctx.add_init_script('(()=>{const L=%s;for(const k in L){try{if(localStorage.getItem(k)===null)localStorage.setItem(k,L[k])}catch(e){}}})()' % json.dumps(L))
     p = ctx.new_page(); errs = []
     if os.environ.get('TOUR_SLOW'):   # محلياً: محاكاة مشغّلٍ بطيء (CI) لكشف ما يتعلّق بالتوقيت
@@ -154,6 +154,11 @@ with sync_playwright() as pw:
         ok(nm + ': المخابر بلا مخابر = 7 خطوات (ما لا عنصر له لا يُعدّ)', len(T) == 7, T)
         p.context.close()
     if not SELF:
+        ctx = b.new_context(viewport={'width': 1366, 'height': 768}, service_workers='block'); ctx.route('**/*', route)
+        ctx.add_init_script('(()=>{try{localStorage.setItem("sydent.auth",%s);localStorage.setItem("sydent.lang","ar")}catch(e){}})()' % json.dumps(json.dumps(SESSION)))
+        q = ctx.new_page(); q.goto('http://127.0.0.1:%d/patient-profile.html?id=P1' % PORT); q.wait_for_timeout(7000)
+        ok('متصفحٌ آلي (E2E) بلا طلبٍ صريح: لا بدء ذاتي يحجب النقرات', not q.evaluate("!!document.querySelector('.sdt-card.on')") and q.evaluate("!!document.querySelector('.sd-tour-btn')"))
+        ctx.close()
         p, T, E, A = walk(b, 'English/البطاقة التجريبية', 'patient-profile.html?id=demo', 1366, 768, 1, lang='en', until=lambda p, t: t == 'The order in the «Labs» tab', maxn=45)
         ok('English: الفصل التفاعلي يكتمل بالإنجليزية', T and T[-1] == 'The order in the «Labs» tab', T[-3:])
         p.context.close()

@@ -662,7 +662,10 @@
     syncBtn();
     /* أول زيارة: تبدأ وحدها مرةً واحدة — بعد استقرار القائمة (فلترة الخطة والدور) وبلا نافذةٍ مفتوحة */
     var st = load(p);
-    if (!st.done && !st.snoozed) {
+    /* متصفحٌ تقوده أداة (اختبارات E2E وغيرها): لا بدءَ ذاتي يحجب النقرات — إلا إن طلبه الاختبار صراحةً (sydent.tour.autostart) */
+    var automated = false;
+    try { automated = !!navigator.webdriver && localStorage.getItem('sydent.tour.autostart') !== '1'; } catch (e) {}
+    if (!st.done && !st.snoozed && !automated) {
       var tries = 0;
       (function wait() {
         if (active) return;
