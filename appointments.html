@@ -900,7 +900,7 @@ async function loadAppointments() {
   if (!currentUser) return;
   /* DeepCode #1 (v551): المواعيد والجلسات وطلبات المخابر كانت ثلاث جولات متتالية — تُطلَق الآن معاً؛
      المعالجةُ بعدها بالترتيب نفسه حرفياً (الجلساتُ تحتاج المواعيد لحساب «المخطّط لموعدٍ ميت»). */
-  var _sesCols = 'id, patient_id, appointment_id, type, description, cost, currency, date, status, tooth_num, surface, quadrant, arch, provider_id, notes, treatment_key';   /* M211: treatment_key — «متعدد الجلسات» بإكمال الموعد */
+  var _sesCols = 'id, patient_id, appointment_id, type, description, cost, currency, date, status, tooth_num, surface, quadrant, arch, provider_id, notes, treatment_key, parent_id';   /* M213: parent_id — زيارةُ المتابعة المخطّطة · M211: treatment_key — «متعدد الجلسات» بإكمال الموعد */
   var _sesPre = _apptSettle(window.SyDentFetchAll(function(){ return window.sb.from('ledger_sessions').select(_sesCols + ', plan_option').eq('doctor_id', currentUser.id); }));
   /* M206: id (كان غائباً ⇒ «تم التركيب» التلقائي عند إكمال الموعد يفشل دائماً: .eq('id', undefined)) + مراحلُ الطلب */
   var _labSel = 'id, patient_id, appointment_id, status, date_due, work_type, lab_name, lab_id, tooth_num, stages, stage_idx';
@@ -2899,7 +2899,7 @@ function fuMultiVisitDefault(t) {
   return !!t && !t.denture_svc && FU_MULTI_CATS[String(t.category || '')] === 1;
 }
 function apptFuMultiVisit(s) {
-  if (!s) return false;
+  if (!s || s.parent_id) return false;   /* M213: زيارةُ متابعةٍ مخطّطة تُكمل — هي متابعةٌ لا علاجٌ أساسي */
   var t = s.treatment_key ? getTreatment(s.treatment_key) : null;
   if (!t) t = TREATMENTS.filter(function(x){ return x && x.name && x.name === s.type; })[0] || null;
   if (!t) return false;

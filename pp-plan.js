@@ -647,7 +647,7 @@ function planVisitsTextLines() {
 /* ═══════════════ end C3 ═══════════════ */
 
 function planPlannedSessions() {
-  var list = (sessions || []).filter(function(s){ return (s.status || 'completed') === 'planned'; });
+  var list = (sessions || []).filter(function(s){ return (s.status || 'completed') === 'planned' && !s.parent_id; });   /* M213: الزيارةُ التالية لعلاجٍ قيد الإنجاز ليست بنداً بالخطة */
   list.sort(function(a, b){
     var d = String(a.date || '').localeCompare(String(b.date || ''));
     return d !== 0 ? d : String(a.created_at || '').localeCompare(String(b.created_at || ''));

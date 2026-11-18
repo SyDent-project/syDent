@@ -1617,6 +1617,10 @@ button.fu-state:hover{filter:brightness(1.08);}
 .fu-prev-n{font-weight:700;color:var(--text);white-space:nowrap;}
 .fu-prev-d{white-space:nowrap;direction:ltr;unicode-bidi:isolate;}
 .fu-prev-t{flex:1;min-width:0;overflow-wrap:anywhere;}
+.fu-tabs{display:flex;gap:4px;padding:4px;margin-bottom:14px;border:1px solid var(--border);border-radius:12px;background:var(--bg3);}   /* M213: «زيارة تمّت» · «الزيارة التالية» */
+.fu-tab{flex:1 1 0;min-height:36px;padding:4px 10px;border:0;border-radius:9px;background:transparent;color:var(--text2);font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.fu-tab:hover{color:var(--text);}
+.fu-tab.on{background:var(--bg2);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.12);}
 .fu-steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
 .fu-step{min-height:34px;padding:4px 12px;border:1px solid var(--border);border-radius:18px;background:var(--bg2);color:var(--text);font-family:'Cairo',sans-serif;font-size:12.5px;font-weight:700;cursor:pointer;}
 .fu-step:hover{border-color:var(--green);}
