@@ -424,21 +424,21 @@ async function fuPlanSave(base) {
   closeModal('fuModal');
   _fuBaseId = null;
   fuRerender();
-  fuBookAppt(child, base);
+  fuBookAppt(child);
 }
-/* نافذةُ الموعد ببطاقة المريض والزيارةُ فيها مربوطة (المسارُ القائم: تُربط عند «حفظ الموعد»؛ الإلغاءُ يتركها مخطّطةً بلا موعد) */
-function fuBookAppt(child, base) {
-  if (typeof openApptModal !== 'function') { showToast('📅 الزيارة التالية مخطّطة — احجز موعدها من «موعد جديد»'); return; }
-  var ready = openApptModal();
-  var apply = function () {
-    var d = document.getElementById('aDate'); if (d) d.value = String(child.date).slice(0, 10);
-    var pr = document.getElementById('aProvider'); if (pr && child.provider_id && pr.querySelector('option[value="' + child.provider_id + '"]')) pr.value = child.provider_id;
-    if (typeof _pendingAttachmentsPP !== 'undefined') {
-      _pendingAttachmentsPP = [child];
-      if (typeof renderApptProcedureListPP === 'function') renderApptProcedureListPP();
-    }
-  };
-  if (ready && typeof ready.then === 'function') ready.then(apply, apply); else apply();
+/* نافذةُ الموعد ببطاقة المريض والزيارةُ فيها مربوطة — مرآةُ planNewVisit (pp-plan.js): المسارُ القائم يربطها عند «حفظ الموعد»
+   (commitPendingAttachmentsPP)، والإلغاءُ يتركها مخطّطةً بلا موعد تُربط لاحقاً من «العلاجات المخطّطة» بأي موعد. */
+function fuBookAppt(child) {
+  var later = '📅 الزيارة التالية مخطّطة — احجز موعدها من «موعد جديد»';
+  if (typeof openApptModal !== 'function') { showToast(later); return; }
+  openApptModal();
+  var mo = document.getElementById('apptModal');
+  if (!mo || !mo.classList.contains('open') || (typeof editingApptId !== 'undefined' && editingApptId !== null)) { showToast(later); return; }   /* حُجب (قراءة فقط/اشتراك) */
+  var d = document.getElementById('aDate'); if (d) d.value = String(child.date).slice(0, 10);
+  var pr = document.getElementById('aProvider');
+  if (pr && child.provider_id && Array.prototype.some.call(pr.options || [], function (o) { return o.value === child.provider_id; })) pr.value = child.provider_id;
+  _pendingAttachmentsPP = [child];
+  if (typeof renderApptProcedureListPP === 'function') renderApptProcedureListPP();
   showToast('📅 الزيارة التالية مخطّطة — اختر الوقت واحفظ الموعد');
 }
 
