@@ -2236,6 +2236,8 @@ if (IS_DEMO) (function installDemoSandbox(){
      and it is used for selects exclusively (never for insert/update/delete). */
   var origFrom = real.from.bind(real);
   var _d = function(days){ var d=new Date(); d.setDate(d.getDate()-days); return d.toISOString().slice(0,10); };
+  /* يومُ عملٍ بعد n يوم (الجمعة عطلةُ المنصة الافتراضية) — لموعد التركيب التجريبي */
+  var _fd = function(days){ var d=new Date(); d.setDate(d.getDate()+days); if (d.getDay() === 5) d.setDate(d.getDate()+1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
   var _ts = function(days){ var d=new Date(); d.setDate(d.getDate()-days); return d.toISOString(); };
   // Clinic-level tables whose SELECTS pass through to the real DB (writes still never do):
   var READ_THROUGH = { treatments:1, treatment_materials:1, treatment_bundles:1,
@@ -2268,6 +2270,11 @@ if (IS_DEMO) (function installDemoSandbox(){
         session_id:'demo-s1', amount:100000, is_unearned:false, payment_date:_d(10) },
       { id:'demo-sp2', doctor_id:'*', patient_id:'demo', payment_id:'demo-p1',
         session_id:'demo-s2', amount:20000, is_unearned:false, payment_date:_d(10) }
+    ],
+    /* الجولة التعريفية: موعدُ تركيبٍ قادم يُربط به طلبُ المخبر التجريبي (بالذاكرة وحدها — كبقية البطاقة) */
+    appointments: [
+      { id:'demo-a1', doctor_id:'*', patient_id:'demo', patient_name:'مريض تجريبي', date:_fd(6), time:'11:00:00',
+        duration:30, type:'تركيب تاج', status:'confirmed', provider_id:null, arrived_at:null, seated_at:null, dismissed_at:null, created_at:_ts(1) }
     ],
     teeth_status: [
       { id:'demo-t1', doctor_id:'*', patient_id:'demo', tooth_num:16, surface:'O', treatment_key:'treated',   status:'completed', review_at:null, unit_id:null },
@@ -2395,6 +2402,8 @@ if (IS_DEMO) (function installDemoSandbox(){
      Only `origFrom(...).select(...)` ever reaches the database. ── */
   var OV = {}, HID = {}, PATCHES = {};
   function ovRows(t){ if (!OV[t]) OV[t] = []; return OV[t]; }
+  /* الجولة التعريفية: «مخبر تجريبي» جاهز بنافذة طلب المخبر — صفٌّ بالطبقة المحلية وحدها (لا يصل القاعدة أبداً) */
+  ovRows('labs').push({ id:'demo-lab1', doctor_id:'*', name:'مخبر تجريبي', phone:'0933000000', notes:'', is_active:true, created_at:_ts(30) });
   function Hybrid(table){
     var ops = [], filters = [], selArg = '*', selOpts = null,
         mode = 'select', payload = null, patch = null,

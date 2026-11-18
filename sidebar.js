@@ -1235,6 +1235,23 @@ function initSidebar(activeId) {
   // 6. Section guide (guides.js): «📖 دليل هذا القسم» in the page head. Loaded on demand with
   //    sidebar.js's own version token, so no page has to list it.
   loadGuides(activeId);
+  // 7. Guided tours (tour.js): «🧭 جولة تعريفية» beside the guide button — dashboard, patient file, labs.
+  //    Same on-demand loading and version token as guides.js.
+  loadTour(activeId);
+}
+
+function loadTour(activeId) {
+  try {
+    var pg = (String(location.pathname).split('/').pop() || 'index.html').replace(/\.html$/, '') || 'index';
+    if (['index', 'patient-profile', 'labs'].indexOf(pg) === -1) return;
+    if (window.SyDentTour) { window.SyDentTour.mount(activeId); return; }
+    var own = document.querySelector('script[src*="sidebar.js"]');
+    var q = own && own.getAttribute('src').indexOf('?') !== -1 ? own.getAttribute('src').split('?')[1] : '';
+    var s = document.createElement('script');
+    s.src = 'tour.js' + (q ? '?' + q : '');
+    s.onload = function () { if (window.SyDentTour) window.SyDentTour.mount(activeId); };
+    document.head.appendChild(s);
+  } catch (e) { /* optional — a missing tour never breaks the page */ }
 }
 
 function loadGuides(activeId) {
