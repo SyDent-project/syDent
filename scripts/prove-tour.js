@@ -1,9 +1,10 @@
 /* prove-tour — الجولات التعريفية (tour.js): ثوابتٌ تُفحص من الملفات الحية.
-   (١) الجولات الثلاث موجودة · كل خطوةٍ لها عنوانٌ ونصٌّ بالعربية والإنجليزية · الإنجليزية بلا حرفٍ عربي ·
+   (١) الجولات الأربع موجودة (اللوحة · البطاقة · المخابر · المخزون) · كل خطوةٍ لها عنوانٌ ونصٌّ بالعربية والإنجليزية · الإنجليزية بلا حرفٍ عربي ·
        العربية عربيةٌ فعلاً · الدوال التي تعيد نصّاً تُفحص بفرعيها (بطاقة تجريبية / حقيقية).
    (٢) كل رابطٍ بالقائمة الجانبية تشير إليه الجولة العامة موجودٌ بـnavItems في sidebar.js.
    (٣) كل معرّفٍ (#id أو getElementById/rowOf) تشير إليه الجولة موجودٌ في صفحته أو في الوحدات التي تبنيها.
-   (٤) sidebar.js يحمّل tour.js على الصفحات الثلاث بتوكنه، والجولة لا تكتب شيئاً بالقاعدة (لا sb.from/rpc/insert).
+   (٤) sidebar.js يحمّل tour.js على الصفحات الأربع بتوكنه، والجولة لا تكتب شيئاً بالقاعدة (لا sb.from/rpc/insert).
+   (٤ب) كل زرٍّ تشير إليه جولة المخزون بـonclick موجودٌ في inventory.html، و«30 يوماً» = عتبة الصلاحية في الصفحة.
    (٥) البطاقة التجريبية فيها «مخبر تجريبي» نشط بالطبقة المحلية وموعدُ تركيبٍ قادم — بالذاكرة وحدها.
    --self-test يشغّل طفراتٍ يجب أن تُكشف كلها. */
 'use strict';
@@ -32,8 +33,8 @@ function run(F) {
   let tours;
   try { tours = loadTours(F['tour.js'], false, false).tours; }
   catch (e) { ok(false, 'tour.js throws on load: ' + e.message); return out; }
-  ok(tours && tours.dashboard && tours.patient && tours.labs, 'the three tours exist (dashboard · patient · labs)');
-  if (!tours || !tours.dashboard || !tours.patient || !tours.labs) return out;
+  ok(tours && tours.dashboard && tours.patient && tours.labs && tours.inventory, 'the four tours exist (dashboard · patient · labs · inventory)');
+  if (!tours || !tours.dashboard || !tours.patient || !tours.labs || !tours.inventory) return out;
 
   // (١) النصوص
   const texts = [];
@@ -50,9 +51,9 @@ function run(F) {
   ok(arInEn.length === 0, 'English texts carry no Arabic letter' + (arInEn.length ? ' — ' + arInEn[0].where : ''));
   const notAr = texts.filter(x => x.v && x.v.ar && !AR.test(x.v.ar));
   ok(notAr.length === 0, 'Arabic texts are Arabic' + (notAr.length ? ' — ' + notAr[0].where : ''));
-  const untitled = ['dashboard', 'patient', 'labs'].some(p => tours[p].some(s => !s.title || !s.body));
+  const untitled = ['dashboard', 'patient', 'labs', 'inventory'].some(p => tours[p].some(s => !s.title || !s.body));
   ok(!untitled, 'every step has a title and a body');
-  const finals = ['dashboard', 'patient', 'labs'].every(p => tours[p][tours[p].length - 1].final === true);
+  const finals = ['dashboard', 'patient', 'labs', 'inventory'].every(p => tours[p][tours[p].length - 1].final === true);
   ok(finals, 'each tour ends on a final step');
   const uiMatch = F['tour.js'].match(/var UI = \{([\s\S]*?)\n  \};/);
   const uiBad = uiMatch ? [...uiMatch[1].matchAll(/en: '([^']*)'/g)].filter(m => AR.test(m[1])) : [1];
@@ -68,8 +69,8 @@ function run(F) {
   const ids = new Set();
   for (const m of F['tour.js'].matchAll(/\$\('#([A-Za-z][\w-]*)/g)) ids.add(m[1]);
   for (const m of F['tour.js'].matchAll(/(?:getElementById|rowOf|modalOpen)\('([A-Za-z][\w-]*)'\)/g)) ids.add(m[1]);
-  for (const m of F['tour.js'].matchAll(/#(labOrdersContent|labsList|ordersBody|ordersCards|toothModal|labOrderModal)\b/g)) ids.add(m[1]);
-  const homes = F['patient-profile.html'] + F['labs.html'] + F['index.html'] + F['lab-files.js'] + F['lab-stages.js'] + F['sidebar.js'] + F['pp-dental.js'] + F['pp-clinical.js'];
+  for (const m of F['tour.js'].matchAll(/#(labOrdersContent|labsList|ordersBody|ordersCards|toothModal|labOrderModal|itemsList)\b/g)) ids.add(m[1]);
+  const homes = F['patient-profile.html'] + F['labs.html'] + F['inventory.html'] + F['index.html'] + F['lab-files.js'] + F['lab-stages.js'] + F['sidebar.js'] + F['pp-dental.js'] + F['pp-clinical.js'];
   const own = new Set(['sdtStyle', 'sdtTtl']);
   const declared = id => homes.includes('id="' + id + '"') || homes.includes("id='" + id + "'") || homes.includes('id=\\"' + id + '\\"') || homes.includes(".id = '" + id + "'");
   const missing = [...ids].filter(id => !own.has(id) && !declared(id));
@@ -81,7 +82,12 @@ function run(F) {
 
   // (٤) التحميل · لا كتابة
   const sb = F['sidebar.js'];
-  ok(/function loadTour\(/.test(sb) && /\n  loadTour\(activeId\);/.test(sb) && /'tour\.js' \+ \(q \? '\?' \+ q : ''\)/.test(sb) && /\['index', 'patient-profile', 'labs'\]/.test(sb), 'sidebar.js loads tour.js on the three pages with its own version token');
+  ok(/function loadTour\(/.test(sb) && /\n  loadTour\(activeId\);/.test(sb) && /'tour\.js' \+ \(q \? '\?' \+ q : ''\)/.test(sb) && /\['index', 'patient-profile', 'labs', 'inventory'\]/.test(sb), 'sidebar.js loads tour.js on the four pages with its own version token');
+  const invSrc = F['tour.js'].slice(F['tour.js'].indexOf('var INVENTORY = ['), F['tour.js'].indexOf('var TOURS = '));
+  const onc = [...invSrc.matchAll(/\[onclick\^?="([\w]+)/g)].map(m => m[1]);
+  const lostOnc = onc.filter(fn => !F['inventory.html'].includes('onclick="' + fn + '(') && !F['inventory.html'].includes("onclick=\"" + fn + "(\\''"));
+  ok(onc.length >= 5 && lostOnc.length === 0, 'every inventory button the tour points at exists in inventory.html (' + [...new Set(onc)].join(', ') + ')' + (lostOnc.length ? ' — missing: ' + lostOnc.join(', ') : ''));
+  ok(/if \(days <= 30\) return \{ state:'soon'/.test(F['inventory.html']) && /30 يوماً/.test(invSrc) && /30 days/.test(invSrc), 'the inventory tour\'s «30 days» matches the page\'s expiry threshold');
   ok(!/\bsb\.(from|rpc)\b|window\.sb\b|\.insert\(|\.update\(|\.upsert\(|\.delete\(/.test(F['tour.js'].replace(/\/\*[\s\S]*?\*\//g, '')), 'the tour never touches the database');
   ok(!/setAttribute\('data-i18n-skip'/.test(F['tour.js']) && /el\.card\.dir = EN \? 'ltr' : 'rtl'/.test(F['tour.js']), 'the card is written in the chosen language with its direction (no data-i18n-skip — that marks Arabic content and turns it right-to-left)');
 
@@ -99,7 +105,7 @@ function run(F) {
 
 function files() {
   const F = {};
-  ['tour.js', 'sidebar.js', 'patient-profile.html', 'labs.html', 'index.html', 'lab-files.js', 'lab-stages.js', 'pp-dental.js', 'pp-clinical.js', 'i18n-en.js'].forEach(f => { F[f] = R(f); });
+  ['tour.js', 'sidebar.js', 'patient-profile.html', 'labs.html', 'inventory.html', 'index.html', 'lab-files.js', 'lab-stages.js', 'pp-dental.js', 'pp-clinical.js', 'i18n-en.js'].forEach(f => { F[f] = R(f); });
   return F;
 }
 
@@ -122,6 +128,10 @@ if (process.argv.includes('--self-test')) {
     ['the demo chapter picks a crown that is not built in', f => { f['tour.js'] = f['tour.js'].split("pickToothTreatment\\('crown'").join("pickToothTreatment\\('crown_x'"); }],
     ['the card is marked as Arabic content', f => { f['tour.js'] = f['tour.js'].replace("el.card.tabIndex = -1;", "el.card.tabIndex = -1; el.card.setAttribute('data-i18n-skip', '');"); }],
     ['the tour self-starts under automation', f => { f['tour.js'] = f['tour.js'].replace('!st.done && !st.snoozed && !automated', '!st.done && !st.snoozed'); }],
+    ['sidebar stops loading the inventory tour', f => { f['sidebar.js'] = f['sidebar.js'].replace("'labs', 'inventory'].indexOf", "'labs'].indexOf"); }],
+    ['an inventory button that does not exist', f => { f['tour.js'] = f['tour.js'].replace('[onclick="openCountModal()"]', '[onclick="openStockCount()"]'); }],
+    ['the expiry window changes without the tour', f => { f['inventory.html'] = f['inventory.html'].replace('if (days <= 30) return', 'if (days <= 45) return'); }],
+    ['the inventory tour is gone', f => { f['tour.js'] = f['tour.js'].replace('labs: LABS, inventory: INVENTORY', 'labs: LABS'); }],
     ['a tour loses its final step', f => { f['tour.js'] = f['tour.js'].replace("{ center: true, final: true, ico: '🎉',\n      title: { ar: 'أنت جاهز!', en: 'You\\'re all set!' },\n      body: { ar: 'الدورة", "{ center: true, ico: '🎉',\n      title: { ar: 'أنت جاهز!', en: 'You\\'re all set!' },\n      body: { ar: 'الدورة"); }]
   ];
   let caught = 0;
