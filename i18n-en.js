@@ -3602,7 +3602,11 @@ Object.assign(window.SyI18nDict, {
     'ليست متابعة': 'Not a follow-up',
     'اكتمل العلاج؟': 'Treatment complete?', 'هل اكتمل العلاج؟': 'Is the treatment complete?', 'لا، ما زال قيد الإنجاز': 'No, still in progress',   /* آخر مرحلة مخبر */
     '⚠️ تعذّر تسجيل جلسة المتابعة — سجّلها من ملف المريض («＋ متابعة»)': '⚠️ Could not record the follow-up session — record it from the patient file («＋ Follow-up»)',
-    'الربع العلوي الأيمن': 'Upper right quadrant', 'الربع العلوي الأيسر': 'Upper left quadrant', 'الربع السفلي الأيسر': 'Lower left quadrant', 'الربع السفلي الأيمن': 'Lower right quadrant'
+    'الربع العلوي الأيمن': 'Upper right quadrant', 'الربع العلوي الأيسر': 'Upper left quadrant', 'الربع السفلي الأيسر': 'Lower left quadrant', 'الربع السفلي الأيمن': 'Lower right quadrant',
+    /* ج3-ب: عدّادُ زيارات المتابعة بتقارير الأطباء (provider-reports.html) */
+    'زيارات المتابعة': 'Follow-up visits', 'زيارات المتابعة:': 'Follow-up visits:',
+    'ضمن علاجاتها بلا تكلفة — خارج عدد الجلسات ومتوسّطها': 'Part of their treatments at no charge — outside the session count and its average',
+    'ضمن العلاج': 'Part of the treatment',
   });
   P.push(
     [/^متابعة — (.+)$/, function (m, x) { return 'Follow-up — ' + (D[x] || x); }],
