@@ -85,6 +85,8 @@ function run(F) {
   ok(!/\bsb\.(from|rpc)\b|window\.sb\b|\.insert\(|\.update\(|\.upsert\(|\.delete\(/.test(F['tour.js'].replace(/\/\*[\s\S]*?\*\//g, '')), 'the tour never touches the database');
   ok(!/setAttribute\('data-i18n-skip'/.test(F['tour.js']) && /el\.card\.dir = EN \? 'ltr' : 'rtl'/.test(F['tour.js']), 'the card is written in the chosen language with its direction (no data-i18n-skip — that marks Arabic content and turns it right-to-left)');
 
+  ok(/navigator\.webdriver && localStorage\.getItem\('sydent\.tour\.autostart'\) !== '1'/.test(F['tour.js']) && /!st\.done && !st\.snoozed && !automated/.test(F['tour.js']), 'no self-start under browser automation (E2E clicks are never blocked) unless the test asks for it');
+
   // (٥) البطاقة التجريبية
   const pp = F['patient-profile.html'];
   const demoStart = pp.indexOf('var IS_DEMO = '), demoEnd = pp.indexOf('real.from = function', demoStart);
@@ -119,6 +121,7 @@ if (process.argv.includes('--self-test')) {
     ['the demo appointment is gone', f => { f['patient-profile.html'] = f['patient-profile.html'].replace("{ id:'demo-a1'", "{ id:'demo-x1'"); }],
     ['the demo chapter picks a crown that is not built in', f => { f['tour.js'] = f['tour.js'].split("pickToothTreatment\\('crown'").join("pickToothTreatment\\('crown_x'"); }],
     ['the card is marked as Arabic content', f => { f['tour.js'] = f['tour.js'].replace("el.card.tabIndex = -1;", "el.card.tabIndex = -1; el.card.setAttribute('data-i18n-skip', '');"); }],
+    ['the tour self-starts under automation', f => { f['tour.js'] = f['tour.js'].replace('!st.done && !st.snoozed && !automated', '!st.done && !st.snoozed'); }],
     ['a tour loses its final step', f => { f['tour.js'] = f['tour.js'].replace("{ center: true, final: true, ico: '🎉',\n      title: { ar: 'أنت جاهز!', en: 'You\\'re all set!' },\n      body: { ar: 'الدورة", "{ center: true, ico: '🎉',\n      title: { ar: 'أنت جاهز!', en: 'You\\'re all set!' },\n      body: { ar: 'الدورة"); }]
   ];
   let caught = 0;
