@@ -90,7 +90,7 @@ const PAGES = {
       '<table class="data-table m-cards"><thead>', '<td class="mc-actions" style="white-space:nowrap;"><div class="sy-acts">',
       '<td class="mc-actions" style="text-align:left;white-space:nowrap;"><div class="sy-acts">',
       '<td class="mc-actions" style="text-align:left;white-space:nowrap;vertical-align:top;"><div class="sy-acts">', "SyDT.cellRec(lo.date_sent, lo.created_at)",
-      "rows = SySlots.finalize(rows, { 1: '84px', 2: '78px', 3: '80px' });", "rows = SySlots.finalize(rows, { 1: '160px', 2: '78px', 3: '82px', 4: '80px' });",   // v484: الخاناتُ تُطوى — الشاهدُ بقالبه الكامل
+      "rows = SySlots.finalize(rows, { 1: 'var(--ss1, 84px)', 2: 'var(--ss2, 78px)', 3: 'var(--ss3, 80px)' });", "rows = SySlots.finalize(rows, { 1: '160px', 2: '78px', 3: '82px', 4: '80px' });",   // v484: الخاناتُ تُطوى — الشاهدُ بقالبه الكامل
       '<table class="data-table m-cards">', '<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--bg2);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">', '<div class="sy-acts" style="margin-top:10px;">',
       /* v473: الدفعة الثانية */
       "'<div class=\"appt-actions sy-acts\">'", "'<div class=\"appts-next-actions sy-acts\">'", "'<div class=\"planned-pp-actions sy-acts\">'",

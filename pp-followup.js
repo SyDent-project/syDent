@@ -424,14 +424,14 @@ async function fuPlanSave(base) {
   closeModal('fuModal');
   _fuBaseId = null;
   fuRerender();
-  fuBookAppt(child);
+  fuBookAppt(child, base);
 }
 /* نافذةُ الموعد ببطاقة المريض والزيارةُ فيها مربوطة — مرآةُ planNewVisit (pp-plan.js): المسارُ القائم يربطها عند «حفظ الموعد»
    (commitPendingAttachmentsPP)، والإلغاءُ يتركها مخطّطةً بلا موعد تُربط لاحقاً من «العلاجات المخطّطة» بأي موعد. */
-function fuBookAppt(child) {
+function fuBookAppt(child, base) {
   var later = '📅 الزيارة التالية مخطّطة — احجز موعدها من «موعد جديد»';
   if (typeof openApptModal !== 'function') { showToast(later); return; }
-  openApptModal();
+  var ready = openApptModal();
   var mo = document.getElementById('apptModal');
   if (!mo || !mo.classList.contains('open') || (typeof editingApptId !== 'undefined' && editingApptId !== null)) { showToast(later); return; }   /* حُجب (قراءة فقط/اشتراك) */
   var d = document.getElementById('aDate'); if (d) d.value = String(child.date).slice(0, 10);
@@ -439,6 +439,13 @@ function fuBookAppt(child) {
   if (pr && child.provider_id && Array.prototype.some.call(pr.options || [], function (o) { return o.value === child.provider_id; })) pr.value = child.provider_id;
   _pendingAttachmentsPP = [child];
   if (typeof renderApptProcedureListPP === 'function') renderApptProcedureListPP();
+  /* نوعُ الموعد = علاجُ الأساسية (إن كان بالقائمة) بعد بناء الأنواع — لا «أول نوعٍ» عشوائي (مرآةُ planNewVisit) */
+  var t = base ? fuTreatmentOf(base) : null;
+  if (t && t.id) Promise.resolve(ready).then(function () {
+    var sel = document.getElementById('aType');
+    if (!sel || (typeof editingApptId !== 'undefined' && editingApptId !== null)) return;
+    if (Array.prototype.some.call(sel.options || [], function (o) { return o.value === String(t.id); })) sel.value = String(t.id);
+  }).catch(function () {});
   showToast('📅 الزيارة التالية مخطّطة — اختر الوقت واحفظ الموعد');
 }
 

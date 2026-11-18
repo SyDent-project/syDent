@@ -4384,16 +4384,16 @@ function renderSessions() {
       +   '</td>'
       + '<td class="sc-actions sess-actions"><div class="sy-acts sy-slots" style="--sy-slots:__SY_SLOTS__">'   /* v482: إكمال · مخبر · حذف بأعمدةٍ ثابتة؛ v484: تُطوى غيرُ المستعملة (SySlots) */
       +   (s.status === 'planned'
-          ? '<button class="sy-act sy-act-primary" data-slot="1"' + (_labSt === 'can' ? '' : ' data-span-if="2"') + ' onclick="completeSessionFromProfile(\'' + s.id + '\')" title="إكمال هذا العلاج (تحويل من مخطّط إلى منجز)">✅ إكمال</button>'
+          ? '<button class="sy-act sy-act-primary" data-slot="1"' + (_labSt === 'can' ? '' : ' data-span-if="2"') + ' onclick="completeSessionFromProfile(\'' + s.id + '\')" title="إكمال هذا العلاج (تحويل من مخطّط إلى منجز)">✅<span class="sy-act-lbl"> إكمال</span></button>'
           : '')   /* M210: «＋ متابعة» بخانة العلاج (fuCellChips) — خانةٌ ثالثة هنا أخرجت الجدولَ من بطاقته */
       +   (_labSt === 'can'
-          ? '<button class="sy-act" data-slot="2" onclick="ppSessionOpenLab(\'' + s.id + '\')" title="إنشاء طلب مخبر لهذه الجلسة">🥽 مخبر</button>'
+          ? '<button class="sy-act" data-slot="2" onclick="ppSessionOpenLab(\'' + s.id + '\')" title="إنشاء طلب مخبر لهذه الجلسة">🥽<span class="sy-act-lbl"> مخبر</span></button>'
           : '')
-      +   '<button class="sy-act sy-act-danger" data-slot="3" onclick="delSession(\'' + s.id + '\')">🗑️ حذف</button>'
+      +   '<button class="sy-act sy-act-danger" data-slot="3" onclick="delSession(\'' + s.id + '\')" title="حذف الجلسة">🗑️<span class="sy-act-lbl"> حذف</span></button>'
       + '</div></td>'
       + '</tr>';
   });
-  rows = SySlots.finalize(rows, { 1: '84px', 2: '78px', 3: '80px' });   // v484: خانةٌ لا يستعملها أيُّ صفٍّ تُطوى
+  rows = SySlots.finalize(rows, { 1: 'var(--ss1, 84px)', 2: 'var(--ss2, 78px)', 3: 'var(--ss3, 80px)' });   // v484: خانةٌ لا يستعملها أيُّ صفٍّ تُطوى · M213: عرضُها متغيّرٌ بالـCSS (أيقوناتٌ بالبطاقة الضيّقة)
   var _optBar = (typeof planOptionsBarHtml === 'function') ? planOptionsBarHtml() : '';   // M145
   var _visBar = (typeof planVisitsBarHtml === 'function') ? planVisitsBarHtml() : '';   // v410
   el.innerHTML = _optBar + _visBar + '<table class="data-table sess-table"><thead><tr><th>التاريخ</th><th>العلاج</th><th>السن</th><th>الحالة</th>'

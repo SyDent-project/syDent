@@ -245,7 +245,7 @@ def run():
             if out == '':
                 res = pg.evaluate(MEASURE, '#sessionsContent')
                 ok(tag + ': عُرضت الصفوف', len(res['conts']) == len(subset), len(res['conts']))
-                check_slots(tag, res, {'1': '84px', '2': '78px', '3': '80px'})
+                check_slots(tag, res, {'1': 'var(--ss1, 84px)', '2': 'var(--ss2, 78px)', '3': 'var(--ss3, 80px)'})
                 for ci, si in enumerate(subset):
                     nm, st, lab = SESS[si][:3]; plain = len(SESS[si]) > 3; bt = res['conts'][ci]['btns']
                     c1 = [b for b in bt if b['slot'] == '1']; c2 = [b for b in bt if b['slot'] == '2']; c3 = [b for b in bt if b['slot'] == '3']
@@ -258,9 +258,9 @@ def run():
                     ok(tag + ' ' + nm + ': «مخبر» ' + ('محايد' if lab == 'can' else 'غائب'), bool(c2) == (lab == 'can') and (not c2 or c2[0]['cls'].strip() == 'sy-act'))
                     ok(tag + ' ' + nm + ': «حذف» أحمر', len(c3) == 1 and 'sy-act-danger' in c3[0]['cls'])
                 if label == 'منجزةٌ بسيطة':
-                    ok(tag + ': القالبُ «حذف» وحده بلا خانةٍ فارغة', res['conts'][0]['tpl'] == '[s3] 80px', res['conts'][0]['tpl'])
+                    ok(tag + ': القالبُ «حذف» وحده بلا خانةٍ فارغة', res['conts'][0]['tpl'] == '[s3] var(--ss3, 80px)', res['conts'][0]['tpl'])
                 if label == 'كلُّها منجزة بلا مخبر':
-                    ok(tag + ': القالبُ «حذف» وحده بلا خانةٍ فارغة', res['conts'][0]['tpl'] == '[s3] 80px', res['conts'][0]['tpl'])
+                    ok(tag + ': القالبُ «حذف» وحده بلا خانةٍ فارغة', res['conts'][0]['tpl'] == '[s3] var(--ss3, 80px)', res['conts'][0]['tpl'])
                 chips = pg.evaluate("""() => Array.from(document.querySelectorAll('#sessionsContent tr[data-test="pp-session-row"]')).map(tr => {
                     const b = tr.querySelector('[data-test="pp-session-followup"]'); return b ? (b.closest('td.sc-type') ? 'cell' : 'elsewhere') : '' })""")
                 want = ['cell' if (SESS[si][1] == 'completed' and len(SESS[si]) == 3) else '' for si in subset]
@@ -270,7 +270,7 @@ def run():
         # ═══ 3-ب) الجلسات لا تخرج من بطاقتها (صورة المالك 17/11/2026: لابتوب + الشريط الجانبي · عمود «الطبيب») ═══
         #   بطاقة 1070 (1366 + الشريط): يتّسع بهامش ≥ 40px — العرضُ يختلف بخطوط الجهاز فلا يُقاس على حافّة البكسل.
         #   بطاقة 984 (1280 + الشريط): قد يُمرَّر — لكن داخل البطاقة دائماً، والصفحة لا تتجاوز النافذة.
-        for label, planned, cardw in (('منجزة متعدّدة الجلسات + مخبر', False, 1070), ('منجزة متعدّدة الجلسات + مخبر', False, 984), ('ومعها بندٌ مخطّط (خانةُ «إكمال»)', True, 984)):
+        for label, planned, cardw in (('منجزة متعدّدة الجلسات + مخبر', False, 1070), ('منجزة متعدّدة الجلسات + مخبر', False, 984), ('ومعها بندٌ مخطّط (خانةُ «إكمال»)', True, 984), ('ومعها بندٌ مخطّط (خانةُ «إكمال»)', True, 1070), ('ومعها بندٌ مخطّط · بطاقةٌ واسعة', True, 1200)):
             tag = 'الجلسات ببطاقة ' + str(cardw) + 'px (' + label + ')'
             pg, errs = mkpage('patient-profile.html', 1366 if cardw > 1000 else 1280)
             fit = pg.evaluate("""([planned, cardw]) => {
@@ -291,7 +291,12 @@ def run():
                 renderSessions();
                 const tbl = sc.querySelector('table');
                 tbl.style.minWidth = '0'; tbl.style.width = '0px'; const tmin = tbl.getBoundingClientRect().width; tbl.style.minWidth = ''; tbl.style.width = '';   /* أصغرُ عرضٍ للجدول (min-content) */
+                const H = sc.getBoundingClientRect(), dels = Array.from(tbl.querySelectorAll('td.sc-actions [data-slot="3"]')).filter(b => b.offsetParent);
+                const lbls = Array.from(tbl.querySelectorAll('td.sc-actions .sy-act-lbl'));
                 return { wide: sc.classList.contains('sc-wide'), tmin: Math.round(tmin), sw: sc.scrollWidth, cw: sc.clientWidth, doc: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth,
+                         icons: lbls.length > 0 && lbls.every(l => getComputedStyle(l).display === 'none'), labels: lbls.length > 0 && lbls.every(l => getComputedStyle(l).display !== 'none'),
+                         delsIn: dels.length > 0 && dels.every(b => { const r = b.getBoundingClientRect(); return r.left >= H.left - 0.5 && r.right <= H.right + 0.5 && r.width > 20; }),
+                         titled: dels.length > 0 && dels.every(b => b.title === 'حذف الجلسة'),
                          ox: getComputedStyle(sc).overflowX, doctors: !!Array.from(tbl.querySelectorAll('th')).find(th => /الطبيب/.test(th.textContent)) };
               } catch (e) { return { err: String(e) }; }
             }""", [planned, cardw])
@@ -299,8 +304,41 @@ def run():
             if 'err' not in fit:
                 if cardw > 1000:
                     ok(tag + ': الجدولُ يتّسع لبطاقته بهامش ≥ 40px', fit['sw'] <= fit['cw'] + 1 and fit.get('tmin', 0) <= fit['cw'] - 40, fit)
+                # صورة المالك 18/11/2026: «حذف» لا يخرج ولا يختفي — بالبطاقة الضيّقة أيقوناتٌ بتلميحها، وبالواسعة كلماتُها
+                ok(tag + ': «حذف» داخل البطاقة بكل صفّ وبتلميحه', fit.get('delsIn') and fit.get('titled'), fit)
+                ok(tag + ': ' + ('أزرارُ الصفّ أيقوناتٌ (البطاقة ≤ 1100)' if cardw <= 1100 else 'أزرارُ الصفّ بكلماتها (البطاقة الواسعة)'), fit.get('icons') if cardw <= 1100 else fit.get('labels'), fit)
                 wider = fit['sw'] > fit['cw'] + 1
                 ok(tag + ': لا شيءَ يخرج من البطاقة — أعرضُ منها يُمرَّر داخلها (sc-wide)، والمتّسعُ بلا حاويةِ تمرير', fit['doc'] <= fit['vw'] and fit['wide'] == wider and fit['ox'] == ('auto' if wider else 'visible'), fit)
+            ok(tag + ': صفرُ خطأ JS', not errs, errs[:3])
+            pg.close()
+        # ═══ 3-ب2) جدولٌ أعرض من بطاقته رغم كل شيء ⇒ عمودُ الأزرار ملتصقٌ بحافّتها (المُمرَّرُ خلفه) — «حذف» لا يختفي أبداً ═══
+        for cardw in (1000, 1200):
+            tag = 'الجلسات أعرض من بطاقة ' + str(cardw) + 'px'
+            pg, errs = mkpage('patient-profile.html', 1366)
+            st = pg.evaluate("""(cardw) => {
+              try {
+                TREATMENTS.push({ treatment_key: 'st-endo', id: 'st-endo', name: 'معالجة لبية', category: 'endodontics', is_active: true });
+                CLINIC_DOCTORS = [{ id: 'd1', name: 'د. أيهم غنيم', is_owner: true, is_active: true }, { id: 'd2', name: 'د. سامر الأحمد', is_active: true }];
+                const R = (id, st) => ({ id, status: st, treatment_key: 'st-endo', type: 'معالجة لبية', date: '2026-11-17', created_at: '2026-11-17T08:00:00+00:00', cost: 5000, paid: 0,
+                  currency: 'SYP', provider_id: 'd1', tooth_num: '16', description: 'x', _lab: 'can' });
+                sessions = [R('s1', 'planned'), R('s2', 'completed'), R('s3', 'completed')];
+                window._ppSessLabState = s => s._lab; window._ppSessLabIsDraft = () => false;
+                const sc = document.getElementById('sessionsContent');
+                for (let t = sc; t && t !== document.body; t = t.parentElement) { if (getComputedStyle(t).display === 'none') t.style.display = 'block'; }
+                const card = sc.closest('.card') || sc.parentElement; card.style.width = cardw + 'px'; card.style.maxWidth = cardw + 'px';
+                renderSessions();
+                const tbl = sc.querySelector('table'); tbl.style.minWidth = (cardw + 500) + 'px'; sessFitCheck(sc);   /* أعمدةٌ مستقبلية أعرض من البطاقة */
+                const H = sc.getBoundingClientRect(), td = tbl.querySelector('td.sc-actions');
+                const vis = () => Array.from(tbl.querySelectorAll('td.sc-actions [data-slot="3"]')).every(b => { const r = b.getBoundingClientRect(); return r.left >= H.left - 0.5 && r.right <= H.right + 0.5; });
+                const before = vis(); sc.scrollLeft = -99999; const mid = vis(); sc.scrollLeft = 99999; const after = vis();
+                return { wide: sc.classList.contains('sc-wide'), pos: getComputedStyle(td).position, bg: getComputedStyle(td).backgroundColor, before, mid, after,
+                         doc: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth };
+              } catch (e) { return { err: String(e) }; }
+            }""", cardw)
+            ok(tag + ': العارض يعمل', 'err' not in st, st)
+            if 'err' not in st:
+                ok(tag + ': يُمرَّر داخل البطاقة وعمودُ الأزرار ملتصقٌ بخلفيةٍ مصمتة', st['wide'] and st['pos'] == 'sticky' and st['bg'] not in ('rgba(0, 0, 0, 0)', 'transparent') and st['doc'] <= st['vw'], st)
+                ok(tag + ': «حذف» ظاهرٌ بكل صفّ في أي موضعٍ للتمرير', st['before'] and st['mid'] and st['after'], st)
             ok(tag + ': صفرُ خطأ JS', not errs, errs[:3])
             pg.close()
         # ═══ 3-ج) لوحةُ «ترتيب / بديل» العائمة لا تُقصّ: بندٌ مخطّطٌ وحيد ⇒ الحاويةُ ليست حاويةَ تمرير فتطفو اللوحة كما صُمّمت (v611)؛
