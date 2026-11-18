@@ -1308,6 +1308,10 @@ html.lang-en body div.jaw-row,html.lang-en body div.nse-row,html.lang-en body ta
 .dent-fxc{flood-color:#000;flood-opacity:.15;}
 :root[data-theme="light"] .dent-fxc{flood-color:#102a43;flood-opacity:.34;}
 .dent-banner .dent-clasps::before{content:" · ";}
+/* v752: ضمّةٌ من قائمة الطبيب لم تعد تُرسم (سنُّها قُلع · زُرع · دخل الجهاز) */
+.dent-banner .dent-clasp-lost{color:var(--orange-ink);font-weight:700;}
+.dent-banner .dent-clasp-lost::before{content:" · ";color:inherit;}
+.dsv-dialog .dsv-note.dsv-lost{color:var(--orange-ink);font-weight:600;}
 /* الضمّات بنافذة الجهاز: صفُّ أسنان الفك — الملوَّن ضمن الجهاز · المحدَّد عليه ضمّة · الباهت لا يحمل ضمّة */
 .dsv-dialog .dsv-clasp-grid{margin-top:4px;}
 .dsv-dialog .dent-t.dsv-clasp-on{background:#55637a;border-color:#55637a;color:#fff;}

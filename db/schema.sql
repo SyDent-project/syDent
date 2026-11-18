@@ -531,15 +531,15 @@ BEGIN
       RETURN OLD;
     END IF;
     INSERT INTO teeth_status_history
-      (doctor_id, patient_id, tooth_num, surface, treatment_key, status, provider_id, review_at, op)
+      (doctor_id, patient_id, tooth_num, surface, treatment_key, status, provider_id, review_at, denture_clasps, op)
     VALUES
-      (OLD.doctor_id, OLD.patient_id, OLD.tooth_num, OLD.surface, OLD.treatment_key, OLD.status, OLD.provider_id, OLD.review_at, 'D');
+      (OLD.doctor_id, OLD.patient_id, OLD.tooth_num, OLD.surface, OLD.treatment_key, OLD.status, OLD.provider_id, OLD.review_at, OLD.denture_clasps, 'D');
     RETURN OLD;
   ELSE
     INSERT INTO teeth_status_history
-      (doctor_id, patient_id, tooth_num, surface, treatment_key, status, provider_id, review_at, op)
+      (doctor_id, patient_id, tooth_num, surface, treatment_key, status, provider_id, review_at, denture_clasps, op)
     VALUES
-      (NEW.doctor_id, NEW.patient_id, NEW.tooth_num, NEW.surface, NEW.treatment_key, NEW.status, NEW.provider_id, NEW.review_at,
+      (NEW.doctor_id, NEW.patient_id, NEW.tooth_num, NEW.surface, NEW.treatment_key, NEW.status, NEW.provider_id, NEW.review_at, NEW.denture_clasps,
        CASE WHEN TG_OP = 'INSERT' THEN 'I' ELSE 'U' END);
     RETURN NEW;
   END IF;
@@ -2990,6 +2990,7 @@ CREATE TABLE IF NOT EXISTS "public"."teeth_status_history" (
     "review_at" "date",
     "op" character(1) NOT NULL,
     "changed_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "denture_clasps" "text",
     CONSTRAINT "teeth_status_history_op_check" CHECK (("op" = ANY (ARRAY['I'::"bpchar", 'U'::"bpchar", 'D'::"bpchar"])))
 );
 

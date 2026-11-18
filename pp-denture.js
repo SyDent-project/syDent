@@ -232,6 +232,17 @@ function dentClasps(u) {
   return dentSortTeeth(list.filter(function (t) { return dentArchOf(t) === u.arch && u.teeth.indexOf(t) === -1 && dentClaspOk(t); }), u.arch);
 }
 function dentClaspIsAuto(u) { return !u || u.clasps === null || u.clasps === undefined; }
+/* v752 (المالك 18/11/2026: «راجع الموضوع شوف ازا في مشكلة مخفية»): ضمّةٌ من قائمة الطبيب الصريحة لم تعد تُرسم — سنُّها لم يعد
+   يحملها (قُلع · قلعُه مخطّط · زُرع · دخل الجهاز). الاقتراحُ التلقائي ينقلها وحده، أمّا القائمةُ الصريحة فتسقطها بصمت ⇒ تُسمّى بشريحة
+   الجهاز ونافذته حتى يضيف الطبيبُ بديلةً أو يزيلها من القائمة */
+function dentClaspLost(u) {
+  if (!u || !dentIsPartialUnit(u) || dentClaspIsAuto(u)) return [];
+  var drawn = dentClasps(u);
+  return dentSortTeeth(dentClaspParse(u.clasps).filter(function (t) { return dentArchOf(t) === u.arch && drawn.indexOf(t) === -1; }), u.arch);
+}
+function dentClaspLostText(lost) {
+  return (lost.length === 1 ? 'ضمّة السن ' : 'ضمّات الأسنان ') + lost.slice().sort(function (a, b) { return a - b; }).join('، ') + ' لم تعد على الرسم';
+}
 /* حفظُ قائمة الطبيب (مصفوفة) أو العودةُ للاقتراح (null): تحديثٌ واحد لكل صفوف الوحدة. يعيد true عند النجاح */
 async function dentClaspSave(u, list) {
   if (!u || !u.teeth || !u.teeth.length) return false;
@@ -1456,7 +1467,9 @@ function dentBannerHtml(units) {
 /* v739: أسنانُ الضمّات بشريحة الجهاز — عقدةُ نصٍّ مستقلة (الفاصلُ من CSS) كي يبقى نصُّ الشريحة الأصلي كما يعرفه القاموس */
 function dentClaspChip(u) {
   var cl = dentClasps(u);
-  return cl.length ? '<span class="dent-clasps">' + (cl.length === 1 ? 'ضمّة: ' : 'ضمّات: ') + cl.slice().sort(function (a, b) { return a - b; }).join('، ') + '</span>' : '';
+  var lost = dentClaspLost(u);
+  return (cl.length ? '<span class="dent-clasps">' + (cl.length === 1 ? 'ضمّة: ' : 'ضمّات: ') + cl.slice().sort(function (a, b) { return a - b; }).join('، ') + '</span>' : '')
+    + (lost.length ? '<span class="dent-clasp-lost" title="السنُّ لم يعد يحمل ضمّة — أضف بديلةً أو أزلها من نافذة الجهاز">⚠️ ' + dentClaspLostText(lost) + '</span>' : '');
 }
 function dentClaspTipRow(u) {
   return '<div class="tip-row dent-tip-clasp"><span class="tip-dot" style="background:' + DENT_STEEL + '"></span><b>ضمّة:</b> ' + escapeHtml(dentUnitName(u)) + '</div>';
@@ -1600,7 +1613,7 @@ window.SyDenture = {
   saveReady: dentSaveReady, save: dentSave,
   removeBtnHtml: dentRemoveBtnHtml,
   onSessionComplete: dentOnSessionComplete, onSessionDeleted: dentOnSessionDeleted, examUndo: dentExamUndo,
-  completeNote: dentCompleteNote, sessWhere: dentSessWhere, sessClasp: dentSessClasp, claspPhrase: dentClaspPhrase, printLine: dentPrintLine,
+  completeNote: dentCompleteNote, sessWhere: dentSessWhere, sessClasp: dentSessClasp, claspPhrase: dentClaspPhrase, claspLost: dentClaspLost, printLine: dentPrintLine,
   markDrawFail: dentMarkDrawFail, drawFailed: dentDrawFailed, clearDrawFail: dentClearDrawFail,   /* v737 */
   isImmediate: function (s) { return dentOpenExtractions(dentSessTeeth(s)).length > 0; },   /* ج3-أ: قالبُ مراحل المخبر للجهاز الفوري */
   restoreMissing: dentRestoreMissing,
