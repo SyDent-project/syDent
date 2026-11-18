@@ -927,6 +927,46 @@ async function run(F) {
     ok(t('متابعة — Crown PFM') === 'Follow-up — Crown PFM' && t('قيد الإنجاز') === 'In progress' && t('مخطّطة') === 'Planned', 'English: a follow-up row in the appointment window, the state and the chip');
     w.close();
   });
+
+  /* ═══ (٧) ج3-ب — عدّادُ زيارات المتابعة بتقارير الأطباء ═══ */
+  await guard('reports', () => {
+    const PR = F['provider-reports.html'];
+    const c = { sessions: [], labOrders: [], payments: [], paymentSplits: [], providerLabCost: () => 0, splitIsEarned: () => true }; vm.createContext(c);
+    vm.runInContext(extractFunction(PR, 'computeProviderStats') + '\n' + extractFunction(PR, 'clinicTotals'), c);
+    c.sessions = [{ id: 'b', provider_id: 'A', cost: 500, patient_id: 'p' }, { id: 'k1', provider_id: 'A', cost: 0, parent_id: 'b', patient_id: 'p' },
+      { id: 'k2', provider_id: 'A', cost: 0, parent_id: 'b', patient_id: 'p' }, { id: 'x', provider_id: 'B', cost: 90, patient_id: 'q' },
+      { id: 'k3', provider_id: null, cost: 0, parent_id: 'x', patient_id: 'q' }];
+    const A = c.computeProviderStats('A'), B = c.computeProviderStats('B'), U = c.computeProviderStats('_unassigned'), T = c.clinicTotals();
+    ok(A.sessionCount === 1 && A.followupCount === 2 && A.production === 500 && A.sessions.length === 3 && B.sessionCount === 1 && B.followupCount === 0 && U.sessionCount === 0 && U.followupCount === 1,
+      'provider reports: follow-up visits are counted apart — procedures stay procedures, production untouched, the unassigned card too');
+    ok(T.sessions === 2 && T.followups === 3 && T.followups === A.followupCount + B.followupCount + U.followupCount, 'provider reports: the clinic total of follow-up visits = Σ of the cards');
+    /* الأسطر المرسومة — تُقيَّم كما هي من المصدر */
+    const fuRow = "(stats.followupCount > 0 ? '<div class=\"prov-row\"><span class=\"k\">🔁 زيارات المتابعة<span class=\"hint\">ضمن علاجاتها بلا تكلفة — خارج عدد الجلسات ومتوسّطها</span></span><span class=\"v\">' + fmt(stats.followupCount) + '</span></div>' : '')";
+    ok(PR.split("+ '</span></div>'\n          + " + fuRow + '   /* ج3-ب */\n          + \'<div class="prov-row"><span class="k">متوسط قيمة الجلسة').length === 2
+      && PR.split("+ '</span></div>'\n            + " + fuRow + "   /* ج3-ب */\n            + '<div class=\"prov-row\"><span class=\"k\">الإنتاج").length === 2,
+      'provider card and the unassigned card: the follow-up row sits right under «عدد الجلسات»');
+    const ev = (expr, scope) => { const k = Object.assign({ fmt: n => String(n) }, scope); vm.createContext(k); return vm.runInContext(expr, k); };
+    const r2 = ev(fuRow, { stats: { followupCount: 2 } }), r0 = ev(fuRow, { stats: { followupCount: 0 } });
+    const kpi = between(PR, "(_ct.followups > 0 ?", "   /* ج3-ب */\n      + deltaHtml(totalSessions", 'KPI line');
+    const k3 = ev(kpi, { _ct: { followups: 3 } }), k0 = ev(kpi, { _ct: { followups: 0 } });
+    ok(/<span class="v">2<\/span>/.test(r2) && r0 === '' && /🔁 زيارات المتابعة: <b>3<\/b>/.test(k3) && k0 === '' && /\+ '<div class="sub">في الفترة المحددة<\/div>'\n      \+ \(_ct\.followups > 0/.test(PR),
+      'the row and the KPI line show only when there are follow-up visits, with their number');
+    const cell = between(PR, "(s.parent_id ? '<span style=\"color:var(--text2);font-size:12px;\">ضمن العلاج</span>' : fmtSY(s.cost))", "   /* ج3-ب: المتابعةُ ليست «0» */", 'details cell');
+    const fmtSY = n => n + ' SYP';
+    ok(/ضمن العلاج/.test(ev(cell, { s: { parent_id: 'b', cost: 0 }, fmtSY })) && ev(cell, { s: { cost: 0 }, fmtSY }) === '0 SYP</td>'
+      && /\(basis === 'collection' \|\| s\.parent_id \? '—' : fmtSY\(sessionShare\)\)/.test(extractFunction(PR, '_showDetailsCore'))
+      && /\(s\.parent_id \? 'ضمن العلاج' : fmtSY\(s\.cost\)\)/.test(extractFunction(PR, '_printSlipCore'))
+      && /عدد الجلسات: ' \+ fmt\(stats\.sessionCount\) \+ \(stats\.followupCount > 0 \? ' · زيارات المتابعة: ' \+ fmt\(stats\.followupCount\) : ''\)/.test(extractFunction(PR, '_printSlipCore')),
+      'details and the printed slip: a follow-up reads «ضمن العلاج» (no «0», no share); a free ordinary session keeps its 0; the slip names the count');
+    const csv = extractFunction(PR, 'buildCsvRows'), hdr = csv.slice(csv.indexOf('[['), csv.indexOf(']];') + 2).match(/'[^']*'/g).map(x => x.slice(1, -1));
+    const rowSrc = csv.slice(csv.indexOf('rows.push([cur'), csv.indexOf("bs.txt]);")), cells = rowSrc.slice(rowSrc.indexOf('[') + 1).split(/,\s*(?![^()]*\))/).map(x => x.trim());
+    ok(hdr.indexOf('زيارات المتابعة') === hdr.indexOf('عدد الجلسات') + 1 && cells.indexOf('st.followupCount') === cells.indexOf('st.sessionCount') + 1 && cells.indexOf('st.sessionCount') === hdr.indexOf('عدد الجلسات') && hdr.length === cells.length,
+      'CSV: a «زيارات المتابعة» column right after «عدد الجلسات», value aligned with its header');
+    const t = engine(F), pieces = [];
+    [r2, k3, ev(cell, { s: { parent_id: 'b' }, fmtSY })].forEach(h => h.split(/<[^>]+>/).forEach(x => { const y = x.replace(/\s+/g, ' ').trim(); if (AR.test(y)) pieces.push(y); }));
+    const left = pieces.filter(x => AR.test(t(x)));
+    ok(pieces.length === 4 && left.length === 0 && t('🔁 زيارات المتابعة') === '🔁 Follow-up visits' && t('ضمن العلاج') === 'Part of the treatment', 'English: the follow-up counter and «ضمن العلاج» are translated (' + pieces.length + ' pieces)' + (left.length ? ' — ' + left.join(' | ') : ''));
+  });
   return out;
 }
 
@@ -1112,6 +1152,17 @@ const MUT = [
   ['plain sessions get step English', rep('patient-profile.html', "((_fuC && typeof fuStepEnAttr === 'function') ? fuStepEnAttr(desc) : '')", "((typeof fuStepEnAttr === 'function') ? fuStepEnAttr(desc) : '')")],
   ['lab stage name without English', rep('pp-followup.js', ", 'تجربة الهيكل': 'Framework try-in' };", " };")],
   ['mode tabs not registered', rep('scripts/check-mirrors.js', "'fuToggle', 'fuSetMode'", "'fuToggle'")],
+  /* ج3-ب */
+  ['report follow-up counter counts everything', rep('provider-reports.html', 'var followupCount = provSessions.filter(function(s){ return !!s.parent_id; }).length;', 'var followupCount = provSessions.length;')],
+  ['clinic follow-up total missing', rep('provider-reports.html', "    followups: sessions.filter(function(s){ return !!s.parent_id; }).length,", "    followups: 0,")],
+  ['card row always shown', rep('provider-reports.html', "(stats.followupCount > 0 ? '<div class=\"prov-row\"><span class=\"k\">🔁", "(true ? '<div class=\"prov-row\"><span class=\"k\">🔁")],
+  ['KPI line always shown', rep('provider-reports.html', "(_ct.followups > 0 ? '<div class=\"sub\">", "(true ? '<div class=\"sub\">")],
+  ['details shows 0 for a follow-up', rep('provider-reports.html', "(s.parent_id ? '<span style=\"color:var(--text2);font-size:12px;\">ضمن العلاج</span>' : fmtSY(s.cost))", "fmtSY(s.cost)")],
+  ['details shows a share for a follow-up', rep('provider-reports.html', "(basis === 'collection' || s.parent_id ? '—'", "(basis === 'collection' ? '—'")],
+  ['slip shows 0 for a follow-up', rep('provider-reports.html', "(s.parent_id ? 'ضمن العلاج' : fmtSY(s.cost))", "fmtSY(s.cost)")],
+  ['CSV value misaligned', rep('provider-reports.html', 'st.sessionCount, st.followupCount,', 'st.followupCount, st.sessionCount,')],
+  ['counter untranslated', rep('i18n-en.js', "    'زيارات المتابعة': 'Follow-up visits', ", '    ')],
+  ['«ضمن العلاج» untranslated', rep('i18n-en.js', "    'ضمن العلاج': 'Part of the treatment',\n", '')],
   ['state badge hidden in read-only', rep('patient-profile.css', '[onclick*="fuSave("],', '[onclick*="fuSave("],[onclick*="fuSetState("],')]
 ];
 

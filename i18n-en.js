@@ -3602,7 +3602,15 @@ Object.assign(window.SyI18nDict, {
     'ليست متابعة': 'Not a follow-up',
     'اكتمل العلاج؟': 'Treatment complete?', 'هل اكتمل العلاج؟': 'Is the treatment complete?', 'لا، ما زال قيد الإنجاز': 'No, still in progress',   /* آخر مرحلة مخبر */
     '⚠️ تعذّر تسجيل جلسة المتابعة — سجّلها من ملف المريض («＋ متابعة»)': '⚠️ Could not record the follow-up session — record it from the patient file («＋ Follow-up»)',
-    'الربع العلوي الأيمن': 'Upper right quadrant', 'الربع العلوي الأيسر': 'Upper left quadrant', 'الربع السفلي الأيسر': 'Lower left quadrant', 'الربع السفلي الأيمن': 'Lower right quadrant'
+    'الربع العلوي الأيمن': 'Upper right quadrant', 'الربع العلوي الأيسر': 'Upper left quadrant', 'الربع السفلي الأيسر': 'Lower left quadrant', 'الربع السفلي الأيمن': 'Lower right quadrant',
+    /* ج3-ب: عدّادُ زيارات المتابعة بتقارير الأطباء (provider-reports.html) */
+    'زيارات المتابعة': 'Follow-up visits', 'زيارات المتابعة:': 'Follow-up visits:',
+    'ضمن علاجاتها بلا تكلفة — خارج عدد الجلسات ومتوسّطها': 'Part of their treatments at no charge — outside the session count and its average',
+    'ضمن العلاج': 'Part of the treatment',
+    /* ج3-ج: «علاجٌ قيد الإنجاز بلا موعد قادم» — تنبيهُ اللوحة ورقاقةُ الهدل (fu-unbooked.js) */
+    'علاج قيد الإنجاز بلا موعد قادم': 'Treatment in progress, no upcoming appointment',
+    'قيد الإنجاز بلا موعد': 'In progress, not booked',
+    'الأقدمُ علاجاً بالأعلى — افتح ملفَّ كلٍّ منهم واحجز زيارته التالية': 'Oldest treatment first — open each patient\'s file and book the next visit',
   });
   P.push(
     [/^متابعة — (.+)$/, function (m, x) { return 'Follow-up — ' + (D[x] || x); }],
@@ -3612,6 +3620,8 @@ Object.assign(window.SyI18nDict, {
     [/^✅ سُجّلت جلسة متابعة لـ «(.+)»$/, function (m, x) { return '✅ Follow-up session recorded for «' + fuW(x) + '»'; }],
     [/^✅ سُجّلت جلسة متابعة لـ «(.+)» واكتمل العلاج$/, function (m, x) { return '✅ Follow-up session recorded for «' + fuW(x) + '» and the treatment is complete'; }],
     [/^هذه آخر مرحلة مخبر \(«(.+?)»\) لعلاج «(.+)»\.$/, function (m, n, x) { return 'This is the last lab stage («' + fuStage(n) + '») of the treatment «' + fuW(x) + '».'; }],
+    [/^و(\d+) غيرهم بعلاجٍ قيد الإنجاز بلا موعد قادم$/, '$1 more with a treatment in progress and no upcoming appointment'],   /* ج3-ج */
+    [/^علاجٌ قيد الإنجاز بلا موعدٍ بعد هذه الزيارة: (.+) — احجز زيارته التالية قبل أن يغادر$/, function (m, x) { return 'A treatment in progress with no appointment after this visit: ' + fuW(x) + ' — book its next visit before the patient leaves'; }],   /* ج3-ج: رقاقةُ الهدل */
     [/^(?:(.+?) · )?منذ (\d{2}\/\d{2}\/\d{4})$/, function (m, w, d) { return (w ? fuW(w) + ' · ' : '') + 'since ' + d; }],
     [/^مرحلة المخبر: (.+)$/, function (m, x) { return fuW(m); }],   /* ج2-ج: سطرُ الخيار بلا تاريخ */   /* M213: اسمُ صفّ المتابعة بنافذة الموعد وصفحة المواعيد */
     [/^متابعة (\d+)$/, 'Follow-up $1'],

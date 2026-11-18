@@ -68,6 +68,7 @@ node "$S/prove-acc-aging.js" --self-test | tail -1 || FAIL=1   # v507: تقاد�
 node "$S/prove-acc-daysheet.js" --self-test | tail -1 || FAIL=1   # v508: كشفُ اليوم + طرقُ الدفع الموحَّدة (pay-methods.js)
 node "$S/prove-acc-trend.js" --self-test | tail -1 || FAIL=1   # v509: الاتجاهُ الشهري — computeSummary بتبديل السياق، حفظٌ، مرآةُ اللوادر
 node "$S/prove-huddle-flags.js" --self-test | tail -1 || FAIL=1   # v514: أعلامُ الهدل الصباحي — رصيدٌ من dashFin · مخطّطٌ حرّ بـSyDentApptDead · مرآةُ التحذيرات ×4
+node "$S/prove-fu-unbooked.js" --self-test | tail -1 || FAIL=1   # ج3-ج: «علاجٌ قيد الإنجاز بلا موعد قادم» — تنبيهُ اللوحة ورقاقةُ الهدل (fu-unbooked.js الحيّ · SyDentApptDead · المحرّك الإنجليزي)
 node "$S/prove-dash-arrival.js" --self-test | tail -1 || FAIL=1   # v515: «وصل» لكل موعدٍ غير منتهٍ + التأكيدُ الضمني بالكتابة نفسها
 node "$S/prove-dash-yesterday.js" --self-test | tail -1 || FAIL=1   # v517: ملخّصُ أمس — أرقامُ SyDentDaySheet رقماً برقم · آخرُ يوم عمل · الإقفال · ?ds=
 node "$S/prove-dash-goal.js" --self-test | tail -1 || FAIL=1   # v518: الإنتاجُ مقابل الهدف — المجدولُ بكيس عملته · الشهرُ عبر SyDentDaySheet · M159

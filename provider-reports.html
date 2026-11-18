@@ -16,18 +16,18 @@
 /* ── Modal ── v451: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261118s"></script>
+<script src="theme.js?v=20261118t"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261118s"></script>
-<script src="sy-modal.js?v=20261118s"></script>
-<script src="sidebar.js?v=20261118s"></script>
-<script src="rpt-treat.js?v=20261118s"></script>
-<script src="rpt-newpt.js?v=20261118s"></script>
-<script src="rpt-att.js?v=20261118s"></script>
-<script src="rpt-ret.js?v=20261118s"></script>
-<script src="rpt-sum.js?v=20261118s"></script>
-<script src="mat-cost.js?v=20261118s"></script>
-<script src="pay-methods.js?v=20261118s"></script>
+<script src="supabase-init.js?v=20261118t"></script>
+<script src="sy-modal.js?v=20261118t"></script>
+<script src="sidebar.js?v=20261118t"></script>
+<script src="rpt-treat.js?v=20261118t"></script>
+<script src="rpt-newpt.js?v=20261118t"></script>
+<script src="rpt-att.js?v=20261118t"></script>
+<script src="rpt-ret.js?v=20261118t"></script>
+<script src="rpt-sum.js?v=20261118t"></script>
+<script src="mat-cost.js?v=20261118t"></script>
+<script src="pay-methods.js?v=20261118t"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -430,7 +430,7 @@ a.rt-row:hover{background:rgba(var(--green-rgb),0.04);}
 html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutModal("],[onclick*="deletePayout("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261118s">
+<link rel="stylesheet" href="theme.css?v=20261118t">
 </head>
 <body>
 <div class="main" id="sbMainContent">
@@ -1428,6 +1428,7 @@ function computeProviderStats(provId) {
     if (provId === '_unassigned') return !s.provider_id;
     return s.provider_id === provId;
   });
+  var followupCount = provSessions.filter(function(s){ return !!s.parent_id; }).length;   /* ج3-ب: زياراتُ المتابعة تُعدّ وحدها — جهدُ الطبيب ظاهرٌ بلا أن تميّع «عدد الجلسات» */
   var sessionCount = provSessions.filter(function(s){ return !s.parent_id; }).length;   /* M210: جلسةُ المتابعة زيارةٌ توثّق علاجاً قائماً (cost = 0) — لا تُعدّ إجراءً فلا تُميّع «عدد الجلسات» ومتوسّطَها */
   var production = provSessions.reduce(function(sum, s){ return sum + (Number(s.cost) || 0); }, 0);
 
@@ -1496,6 +1497,7 @@ function computeProviderStats(provId) {
 
   return {
     sessionCount: sessionCount,
+    followupCount: followupCount,
     production: production,
     labCost: labCost,
     net: net,
@@ -1511,6 +1513,7 @@ function clinicTotals() {
   for (var li = 0; li < labOrders.length; li++) lab += Number(labOrders[li].cost) || 0;
   return {
     sessions: sessions.filter(function(s){ return !s.parent_id; }).length,   /* M210: بلا جلسات المتابعة — تعريفُ computeProviderStats نفسه */
+    followups: sessions.filter(function(s){ return !!s.parent_id; }).length,   /* ج3-ب: عدّادُها المستقلّ (Σ followupCount للبطاقات) */
     production: sessions.reduce(function(sum, s){ return sum + (Number(s.cost) || 0); }, 0),
     collection: payments.reduce(function(sum, p){ return sum + (Number(p.amount) || 0); }, 0),
     lab: lab
@@ -1686,6 +1689,7 @@ function _renderLayerPR() {
       + '<div class="lbl">عدد الجلسات</div>'
       + '<div class="val">' + fmt(totalSessions) + '</div>'
       + '<div class="sub">في الفترة المحددة</div>'
+      + (_ct.followups > 0 ? '<div class="sub">🔁 زيارات المتابعة: <b>' + fmt(_ct.followups) + '</b></div>' : '')   /* ج3-ب */
       + deltaHtml(totalSessions, prev && prev.sessions)
     + '</div>'
     + '<div class="stat-card green">'
@@ -1801,6 +1805,7 @@ function _renderLayerPR() {
 
         + '<div class="prov-rows">'
           + '<div class="prov-row"><span class="k">عدد الجلسات</span><span class="v">' + fmt(stats.sessionCount) + '</span></div>'
+          + (stats.followupCount > 0 ? '<div class="prov-row"><span class="k">🔁 زيارات المتابعة<span class="hint">ضمن علاجاتها بلا تكلفة — خارج عدد الجلسات ومتوسّطها</span></span><span class="v">' + fmt(stats.followupCount) + '</span></div>' : '')   /* ج3-ب */
           + '<div class="prov-row"><span class="k">متوسط قيمة الجلسة</span><span class="v">' + fmtSY(avgSessionValue) + '</span></div>'
           + '<div class="prov-row"><span class="k">الإنتاج</span><span class="v">' + fmtSY(stats.production) + '</span></div>'
           + '<div class="prov-row"><span class="k">تكلفة المخبر</span><span class="v">' + fmtSY(stats.labCost) + '</span></div>'
@@ -1860,6 +1865,7 @@ function _renderLayerPR() {
           + '</div>'
           + '<div class="prov-rows">'
             + '<div class="prov-row"><span class="k">عدد الجلسات</span><span class="v">' + fmt(stats.sessionCount) + '</span></div>'
+            + (stats.followupCount > 0 ? '<div class="prov-row"><span class="k">🔁 زيارات المتابعة<span class="hint">ضمن علاجاتها بلا تكلفة — خارج عدد الجلسات ومتوسّطها</span></span><span class="v">' + fmt(stats.followupCount) + '</span></div>' : '')   /* ج3-ب */
             + '<div class="prov-row"><span class="k">الإنتاج</span><span class="v">' + fmtSY(stats.production) + '</span></div>'
             + '<div class="prov-row"><span class="k">تكلفة المخبر</span><span class="v">' + fmtSY(stats.labCost) + '</span></div>'
           + '</div>'
@@ -1948,9 +1954,9 @@ function _showDetailsCore(provId) {
       + '<td>' + sessionPatientCell(s) + '</td>'
       + '<td>' + escapeHtml(s.type || '—') + ' ' + statusBadge + '</td>'
       + '<td>' + formatSessionToothCell(s) + '</td>'
-      + '<td class="num">' + fmtSY(s.cost) + '</td>'
+      + '<td class="num">' + (s.parent_id ? '<span style="color:var(--text2);font-size:12px;">ضمن العلاج</span>' : fmtSY(s.cost)) + '</td>'   /* ج3-ب: المتابعةُ ليست «0» */
       + '<td class="num" style="color:var(--orange);">' + (sLabCost > 0 ? fmtSY(sLabCost) : '—') + '</td>'
-      + '<td class="num">' + (basis === 'collection' ? '—' : fmtSY(sessionShare)) + '</td>'
+      + '<td class="num">' + (basis === 'collection' || s.parent_id ? '—' : fmtSY(sessionShare)) + '</td>'
     + '</tr>';
   }).join('');
 
@@ -1999,7 +2005,7 @@ function _printSlipCore(provId) {
       + '<td>' + sessionPatientCell(s) + '</td>'
       + '<td>' + escapeHtml(s.type || '—') + '</td>'
       + '<td style="text-align:center;">' + formatSessionToothCell(s) + '</td>'
-      + '<td style="text-align:left;">' + fmtSY(s.cost) + '</td>'
+      + '<td style="text-align:left;">' + (s.parent_id ? 'ضمن العلاج' : fmtSY(s.cost)) + '</td>'   /* ج3-ب */
       + '<td style="text-align:left;color:var(--orange);">' + (sLabCost > 0 ? fmtSY(sLabCost) : '—') + '</td>'
     + '</tr>';
   }).join('');
@@ -2048,7 +2054,7 @@ function _printSlipCore(provId) {
       + '<div style="display:flex;justify-content:space-between;align-items:center;">'
         + '<div>'
           + '<div style="font-size:12px;color:#666;">المستحق (' + sharePct + '% من ' + basisLabel + ')</div>'
-          + '<div style="font-size:11px;color:#888;margin-top:2px;">عدد الجلسات: ' + fmt(stats.sessionCount) + '</div>'
+          + '<div style="font-size:11px;color:#888;margin-top:2px;">عدد الجلسات: ' + fmt(stats.sessionCount) + (stats.followupCount > 0 ? ' · زيارات المتابعة: ' + fmt(stats.followupCount) : '') + '</div>'
         + '</div>'
         + '<div style="font-size:26px;font-weight:800;color:#0a1628;">' + fmtSY(payout) + '</div>'
       + '</div>'
@@ -2631,7 +2637,7 @@ function buildCsvRows() {
   var from = document.getElementById('fromDate').value;
   var to   = document.getElementById('toDate').value;
   var basisLabel = basis === 'production' ? 'الإنتاج' : (basis === 'net' ? 'الصافي بعد المخبر' : 'التحصيل');
-  var rows = [['العملة','الطبيب','النوع','النسبة %','عدد الجلسات','الإنتاج','تكلفة المخبر','الصافي بعد المخبر',
+  var rows = [['العملة','الطبيب','النوع','النسبة %','عدد الجلسات','زيارات المتابعة','الإنتاج','تكلفة المخبر','الصافي بعد المخبر',
                'التحصيل النقدي بالفترة','أساس الحساب','مستحق الفترة','رصيد سابق قبل الفترة','المدفوع بالفترة','الرصيد الحالي','حالة الرصيد']];
   var vis = getVisibleDoctors().list;
   var act = _activeCursPR();
@@ -2646,7 +2652,7 @@ function buildCsvRows() {
         var closing = (opening === null) ? (due - paid) : (opening + due - paid);
         var bs = balanceState(closing);
         rows.push([cur || (window.SyDentCurrency && window.SyDentCurrency.code ? window.SyDentCurrency.code() : 'SYP'),
-          d.name, d.provider_type || 'doctor', resolveSharePercent(d), st.sessionCount,
+          d.name, d.provider_type || 'doctor', resolveSharePercent(d), st.sessionCount, st.followupCount,
           _csvNum(st.production), _csvNum(st.labCost), _csvNum(st.net), _csvNum(st.collection),
           _csvNum(getShareBase(st)), _csvNum(due), opening === null ? '' : _csvNum(opening), _csvNum(paid),
           d.is_owner ? '' : _csvNum(closing), d.is_owner ? 'مالك' : bs.txt]);

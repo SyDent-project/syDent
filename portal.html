@@ -466,7 +466,8 @@ function sectionHistory(hs){
       if (it.doctor) sub.push(esc(it.doctor));
       return '<div class="pl-row"><div class="pl-name">' + esc(it.type || 'علاج') + (it.units && it.units > 1 ? ' <span class="cur">×' + esc(it.units) + '</span>' : '')
         + (sub.length ? '<div class="meta">' + sub.join(' · ') + '</div>' : '') + '</div>'
-        + (it.cost != null && it.currency ? '<div class="pl-cost">' + fmtN(it.cost) + ' <span class="cur">' + curLbl(it.currency) + '</span></div>' : '')
+        /* M217: a follow-up visit costs nothing on its own — it is part of its treatment's price, not a free «0» */
+        + (it.cost != null && it.currency ? '<div class="pl-cost">' + (it.fu === true ? '<span class="cur">ضمن العلاج</span>' : fmtN(it.cost) + ' <span class="cur">' + curLbl(it.currency) + '</span>') + '</div>' : '')
         + '</div>';
     }).join('');
   };
