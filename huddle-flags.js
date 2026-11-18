@@ -19,6 +19,8 @@
    • 🔁 فحصٌ دوري مستحق  — (v516 · 1ب) آخرُ جلسةٍ مكتملة (بلا صفوف «رسم عدم الحضور» — تعريفُ lastVisitMap
                               بصفحة المرضى حرفياً) أقدمُ من فترة الاستدعاء (clinic_settings.recall_interval_months، 6 افتراضاً).
                               قائمةُ الاستدعاء تستثني صاحبَ الموعد القادم — وهنا العكس: هو أمامك اليوم فافحصه.
+   • 🔁 قيد الإنجاز بلا موعد — (ج3-ج) علاجٌ «قيد الإنجاز» (followup_state = 'open') وليس للمريض موعدٌ حيّ **بعد** يوم الهدل
+                              (fu-unbooked.js — تعريفُ تنبيه اللوحة نفسه): احجز زيارته التالية قبل أن يغادر.
    • 👁 مراقبةٌ مستحقة    — (v516 · 1ب) صفوفُ teeth_status بحالة condition (المراقبات) لمرضى اليوم، بلا أسنانٍ
                               قُلعت (مرآةُ prmFilterExtractedWatches): مستحقة = review_at ≤ اليوم (حمراء)، وإلا معلوماتية (رمادية).
 
@@ -102,7 +104,8 @@
              apptsById: مواعيدُ البنود المربوطة (id → صف),
              recallMonths: فترةُ الاستدعاء بالأشهر (6 افتراضاً), lastVisit: {pid → 'YYYY-MM-DD'} آخرُ جلسةٍ مكتملة,
              watches: صفوفُ teeth_status لمرضى اليوم (patient_id, tooth_num, surface, treatment_key, review_at, status),
-             extractionKeys: مفاتيحُ علاجات القلع (extracted دائماً) }
+             extractionKeys: مفاتيحُ علاجات القلع (extracted دائماً),
+             inprog: ناتجُ SyFuUnbooked.load (pid → علاجاتٌ قيد الإنجاز بلا موعدٍ بعد يوم الهدل) أو null }
      ⇒ { patient_id: { balance:[{cur,amount}], planned:n, altOnly:bool, warn:[], allergy:[], flags:[],
                        isNew, birthday, family:[{name, balance:[..], planned:n}] } }  لمرضى اليوم فقط. */
   function compute(ctx) {
@@ -161,7 +164,8 @@
       var p = byId[pid] || {};
       var e = { balance: balanceOf(pid), planned: freeByPt[pid] || 0, altOnly: !(freeByPt[pid] || 0) && !!altByPt[pid],
                 warn: warnParts(p), allergy: allergyParts(p), flags: Array.isArray(p.flags) ? p.flags.slice() : [],
-                isNew: false, birthday: false, family: [], recallDue: null, watches: [] };
+                isNew: false, birthday: false, family: [], recallDue: null, watches: [],
+                inprog: (ctx.inprog && Array.isArray(ctx.inprog[pid])) ? ctx.inprog[pid].slice() : [] };
       var lv = ctx.lastVisit && ctx.lastVisit[pid] ? String(ctx.lastVisit[pid]).slice(0, 10) : '';
       if (lv && lv <= threshold) e.recallDue = { lastVisit: lv, months: months };
       e.watches = (watchByPt[pid] || []).slice().sort(function (x, y) { return (y.due - x.due) || String(x.review_at || '9999').localeCompare(String(y.review_at || '9999')); });
@@ -202,6 +206,10 @@
       out.push(chip('orange', '🦷 غير مجدول ' + ltr(e.planned), ltr(String(e.planned)) + ' ' + plannedWord(e.planned) + ' من خطته المعتمدة بلا موعد — اعرض عليه حجزها اليوم', prof));
     else if (e.altOnly)
       out.push(chip('orange', '🦷 خيارات لم تُعتمد', 'خطةُ العلاج بخياراتٍ بديلة (أ/ب/ج) لم يُعتمد منها شيء بعد', prof));
+    if (e.inprog && e.inprog.length)   /* ج3-ج */
+      out.push(chip('orange', '🔁 قيد الإنجاز بلا موعد', 'علاجٌ قيد الإنجاز بلا موعدٍ بعد هذه الزيارة: ' + e.inprog.map(function (b) {
+        return '«' + ((window.SyFuUnbooked && window.SyFuUnbooked.label) ? window.SyFuUnbooked.label(b) : String(b.type || 'علاج')) + '»'; }).join(' · ')
+        + ' — احجز زيارته التالية قبل أن يغادر', prof));
     if (e.warn.length)
       out.push(chip('red', '⚠️ تحذير طبي', e.warn.join('، ')));
     if (e.allergy.length)
@@ -236,7 +244,7 @@
      كلُّ فشلٍ ⇒ {} للجزء المخطّط فقط (بقيةُ الأعلام من الصفوف المحمّلة). */
   async function load(uid, ctx) {
     ctx = ctx || {};
-    var planned = [], apptsById = {}, lastVisit = {}, watches = [], extractionKeys = [];
+    var planned = [], apptsById = {}, lastVisit = {}, watches = [], extractionKeys = [], inprog = null;
     try {
       if (window.sb && uid) {
         var ids = {}, fam = {};
@@ -250,6 +258,11 @@
         });
         var list = Object.keys(ids);
         var todayIds = []; (ctx.appts || []).forEach(function (a) { if (a && a.patient_id && todayIds.indexOf(a.patient_id) < 0) todayIds.push(a.patient_id); });
+        if (todayIds.length && window.SyFuUnbooked) {
+          /* ج3-ج: علاجاتُ مرضى اليوم «قيد الإنجاز» بلا موعدٍ بعد يوم الهدل — فشلُها ⇒ null (بلا رقاقة) ولا يمسّ بقية الأعلام */
+          try { inprog = await window.SyFuUnbooked.load(uid, { day: ctx.today || ymdLocal(new Date()), strict: true, patientIds: todayIds }); }
+          catch (eFu) { inprog = null; }
+        }
         if (todayIds.length) {
           /* 1ب: آخرُ جلسةٍ مكتملة (تعريفُ lastVisitMap حرفياً) + صفوفُ الأسنان لمرضى اليوم فقط */
           var rl = await window.sb.from('ledger_sessions').select('patient_id, date, status, description')
@@ -290,7 +303,7 @@
       }
     } catch (e) { console.warn('SyDentHuddle.load:', e); planned = []; apptsById = {}; }
     return compute({ today: ctx.today, appts: ctx.appts, patients: ctx.patients, fin: ctx.fin, reliab: ctx.reliab, planned: planned, apptsById: apptsById,
-      recallMonths: ctx.recallMonths, lastVisit: lastVisit, watches: watches, extractionKeys: extractionKeys });
+      recallMonths: ctx.recallMonths, lastVisit: lastVisit, watches: watches, extractionKeys: extractionKeys, inprog: inprog });
   }
 
   window.SyDentHuddle = { compute: compute, chipsHtml: chipsHtml, load: load, fmtAmount: fmtAmount, EPS: EPS,

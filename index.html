@@ -763,6 +763,7 @@
 <script src="sy-modal.js?v=20261118s"></script>
 <script src="appt-followup.js?v=20261118s"></script>
 <script src="pt-reliability.js?v=20261118s"></script>
+<script src="fu-unbooked.js?v=20261118s"></script>
 <script src="huddle-flags.js?v=20261118s"></script>
 <script src="pay-methods.js?v=20261118s"></script>
 <script src="acc-daysheet.js?v=20261118s"></script>
@@ -4705,6 +4706,30 @@ obInit();
                   var nm=(it.patients&&it.patients.name)||'مريض';
                   rows.push({href:'patient-profile.html?id='+encodeURIComponent(it.patient_id||''),ic:'📝',bg:'var(--green-bg)',tt:'استمارة مريض بانتظار المراجعة',sub:dpEsc(nm)+' — افتح البطاقة واعتمدها',cnt:1});
                 });
+                paint();
+              }catch(_){ paint(); }
+            }, function(){ paint(); });
+        }
+      }catch(_){ }
+      // (د) ج3-ج: علاجٌ قيد الإنجاز بلا موعد قادم — صفٌّ لكل مريض (الأقدمُ علاجاً أولاً) يفتح بطاقته (fu-unbooked.js: تعريفُ رقاقة الهدل نفسه)
+      try{
+        if(window.SyFuUnbooked){
+          window.SyFuUnbooked.load((typeof _dashUid!=='undefined'&&_dashUid)||null, { day: todayStr(), strict: false })
+            .then(function(m){
+              try{
+                if(m){
+                  var FU=window.SyFuUnbooked, FU_MAX=5;
+                  var pts=Object.keys(m).map(function(pid){ return { pid: pid, b: m[pid] }; })
+                    .sort(function(x,y){ return String(x.b[0].date||'').localeCompare(String(y.b[0].date||'')) || String(x.pid).localeCompare(String(y.pid)); });
+                  pts.slice(0, FU_MAX).forEach(function(p){
+                    var b0=p.b[0], nm=(b0.patients&&b0.patients.name)||'مريض';
+                    var labs=p.b.slice(0, 3).map(function(x){ return dpEsc(FU.label(x)); }).join(' · ')+(p.b.length>3?' · +'+(p.b.length-3):'');
+                    rows.push({href:'patient-profile.html?id='+encodeURIComponent(p.pid),ic:'🔁',bg:'var(--orange-bg)',tt:'علاج قيد الإنجاز بلا موعد قادم',
+                      sub:'<bdi>'+dpEsc(nm)+'</bdi> · <span>'+labs+(b0.date?' · منذ '+FU.dmy(b0.date):'')+'</span>',cnt:1});
+                  });
+                  if(pts.length>FU_MAX) rows.push({href:'patients.html',ic:'🔁',bg:'var(--orange-bg)',tt:'و'+(pts.length-FU_MAX)+' غيرهم بعلاجٍ قيد الإنجاز بلا موعد قادم',
+                    sub:'الأقدمُ علاجاً بالأعلى — افتح ملفَّ كلٍّ منهم واحجز زيارته التالية',cnt:pts.length-FU_MAX});
+                }
                 paint();
               }catch(_){ paint(); }
             }, function(){ paint(); });
