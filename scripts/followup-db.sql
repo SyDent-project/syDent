@@ -4,7 +4,7 @@
 -- LOCAL THROWAWAY DATABASE ONLY (see scripts/lab-stages-db.sql for how to build it). It refuses to run when
 -- `patients` has rows, and everything is rolled back.
 --     psql -v ON_ERROR_STOP=1 -d <db> -f scripts/followup-db.sql
--- 64 checks on the real trigger chain and the three RPCs (M210 + M211 + M213 + M214) (shape · one level · fixed link · base protection · state ·
+-- 67 checks on the real trigger chain and the three RPCs (M210 + M211 + M213 + M214 + M216) (shape · one level · fixed link · base protection · state ·
 -- cascade · whole-patient and whole-clinic deletes · dates · provider ownership · currency) + 6 RLS checks (owner · other tenant · anon).
 BEGIN;
 DO $$ BEGIN IF (SELECT count(*) FROM public.patients) > 0 THEN RAISE EXCEPTION 'followup-db: empty local database only'; END IF; END $$;
@@ -150,6 +150,23 @@ BEGIN
   r := r || ' p12=' || ((SELECT COALESCE(followup_state = 'open', false) FROM public.ledger_sessions WHERE id = n0));
   j := public.session_followup_set_state(n0, NULL);
   r := r || ' p13=' || ((SELECT followup_state IS NULL FROM public.ledger_sessions WHERE id = n0));
+  -- M216: a booked visit follows its appointment's day (upcoming days only); plain planned rows and done visits never move
+  INSERT INTO public.appointments (id, doctor_id, patient_id, date, "time") VALUES ('00000000-0000-0000-0000-0000000000aa', d, (SELECT patient_id FROM public.ledger_sessions WHERE id = n0), current_date + 4, '10:00');
+  j := public.session_followup_plan(n0, current_date + 4, NULL, 'Next', NULL);
+  UPDATE public.ledger_sessions SET appointment_id = '00000000-0000-0000-0000-0000000000aa' WHERE id = (j->'session'->>'id')::uuid;
+  UPDATE public.ledger_sessions SET appointment_id = '00000000-0000-0000-0000-0000000000aa' WHERE id = bp;
+  UPDATE public.appointments SET date = current_date + 11 WHERE id = '00000000-0000-0000-0000-0000000000aa';
+  r := r || ' p14=' || ((SELECT date = current_date + 11 FROM public.ledger_sessions WHERE id = (j->'session'->>'id')::uuid)
+                       AND (SELECT date IS DISTINCT FROM current_date + 11 FROM public.ledger_sessions WHERE id = bp));
+  UPDATE public.appointments SET date = current_date - 3 WHERE id = '00000000-0000-0000-0000-0000000000aa';
+  r := r || ' p15=' || ((SELECT date = current_date + 11 FROM public.ledger_sessions WHERE id = (j->'session'->>'id')::uuid));
+  UPDATE public.ledger_sessions SET status = 'completed', date = current_date WHERE id = (j->'session'->>'id')::uuid;
+  UPDATE public.appointments SET date = current_date + 20 WHERE id = '00000000-0000-0000-0000-0000000000aa';
+  r := r || ' p16=' || ((SELECT date = current_date FROM public.ledger_sessions WHERE id = (j->'session'->>'id')::uuid));
+  UPDATE public.ledger_sessions SET appointment_id = NULL WHERE id = bp;
+  DELETE FROM public.ledger_sessions WHERE id = (j->'session'->>'id')::uuid;
+  DELETE FROM public.appointments WHERE id = '00000000-0000-0000-0000-0000000000aa';
+  j := public.session_followup_set_state(n0, NULL);
   BEGIN PERFORM public.session_followup_set_state(c1, 'open'); r := r || ' c34=FAIL';
     EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' c34=' || (SQLERRM = 'followup_base_invalid'); END;
   BEGIN UPDATE public.ledger_sessions SET followup_state = 'open' WHERE id = c1; r := r || ' c35=FAIL';
@@ -179,7 +196,7 @@ BEGIN
   -- the catalog flag is a free tri-state
   r := r || ' c42=' || ((SELECT count(*) FROM public.treatments WHERE doctor_id = d AND multi_visit IS NOT NULL) = 0);
 
-  IF r IS NULL OR r ~ 'FAIL|=false' OR r !~ 'c42=true' OR (length(r) - length(replace(r, '=true', ''))) / 5 <> 64 THEN RAISE EXCEPTION 'followup-db FAILED:%', r; END IF;
+  IF r IS NULL OR r ~ 'FAIL|=false' OR r !~ 'c42=true' OR (length(r) - length(replace(r, '=true', ''))) / 5 <> 67 THEN RAISE EXCEPTION 'followup-db FAILED:%', r; END IF;
   RAISE NOTICE 'followup-db:%', r;
 END $t$;
 

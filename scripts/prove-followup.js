@@ -22,7 +22,7 @@ const { runMutants } = require('./mutant-pool');
 const FILES = ['appointments.html', 'pp-appt.js', 'migrations/211_followup_need.sql', 'treatments.html', 'pp-clinical.js', 'pp-followup.js', 'patient-profile.html', 'patient-profile.css', 'pp-plan.js', 'pp-timeline.js', 'pp-core.js', 'pp-dental.js', 'supabase-init.js',
   'provider-reports.html', 'rpt-treat.js', 'acc-daysheet.js', 'accounting.html', 'index.html', 'i18n-en.js', 'theme.js', 'pp-extras.js', 'guides.js',
   'migrations/210_followup_sessions.sql', 'db/schema.sql', 'scripts/db-bootstrap.py', 'scripts/cache-bust.sh', 'scripts/check-mirrors.js',
-  'scripts/check-modal-behaviour.js', 'scripts/validate.sh', 'scripts/followup-db.sql', 'migrations/213_followup_plan.sql', 'migrations/214_followup_keep_open.sql'];
+  'scripts/check-modal-behaviour.js', 'scripts/validate.sh', 'scripts/followup-db.sql', 'migrations/213_followup_plan.sql', 'migrations/214_followup_keep_open.sql', 'migrations/216_appt_followup_date_sync.sql'];
 const LIVE = {}; FILES.forEach(f => { LIVE[f] = fs.readFileSync(path.join(ROOT, f), 'utf8'); });
 const AR = /[؀-ۿ]/;
 
@@ -887,7 +887,13 @@ async function run(F) {
       'M214: cancelling the last booked visit keeps «قيد الإنجاز»; a done last follow-up or «اكتمل» still frees the base (M210); bootstrapped after M213');
     ok(/if \(_fuB && !\(\(sess\.status \|\| 'completed'\) === 'planned' && _fuB\.followup_state === 'open'\)\) _fuB\.followup_state = null;/.test(extractFunction(PP, '_delSession_inner')),
       'the card mirrors M214 when a visit is deleted');
-    ok(/IF r IS NULL OR r ~ 'FAIL\|=false'/.test(F['scripts/followup-db.sql']) && / p12=/.test(F['scripts/followup-db.sql']) && /\/ 5 <> 64 THEN/.test(F['scripts/followup-db.sql']),
+    const M6 = F['migrations/216_appt_followup_date_sync.sql'], fn6 = between(M6, 'CREATE OR REPLACE FUNCTION public.appointments_followup_date_sync()', 'END $$;', 'M216');
+    ok(/IF NEW\.date IS NOT NULL AND NEW\.date IS DISTINCT FROM OLD\.date\s+AND NEW\.date >= \(now\(\) AT TIME ZONE 'Asia\/Damascus'\)::date THEN/.test(fn6)
+      && /WHERE s\.appointment_id = NEW\.id AND s\.parent_id IS NOT NULL\s+AND COALESCE\(s\.status, 'completed'\) = 'planned'/.test(fn6) && /UPDATE public\.ledger_sessions s SET date = NEW\.date/.test(fn6)
+      && !/SECURITY DEFINER/.test(M6) && /CREATE TRIGGER trg_appt_followup_date AFTER UPDATE OF date ON public\.appointments\s+FOR EACH ROW EXECUTE FUNCTION public\.appointments_followup_date_sync\(\);/.test(M6)
+      && /'migrations\/215_portal_plan_skip_followups\.sql',[^\n]*\n\s+'migrations\/216_appt_followup_date_sync\.sql',/.test(F['scripts/db-bootstrap.py']),
+      'M216: a booked visit follows its appointment to an upcoming day from every path (invoker; plain planned rows, done visits and past days untouched); bootstrapped');
+    ok(/IF r IS NULL OR r ~ 'FAIL\|=false'/.test(F['scripts/followup-db.sql']) && / p12=/.test(F['scripts/followup-db.sql']) && /\/ 5 <> 67 THEN/.test(F['scripts/followup-db.sql']) && / p14=/.test(F['scripts/followup-db.sql']),
       'the database proof covers M214 and a NULL check can never pass silently');
     /* الصندوقُ التجريبي */
     const mk = list => { const c = { console, Date, Object, String, JSON }; vm.createContext(c);
@@ -984,6 +990,11 @@ const MUT = [
   ['attach keeps the planned date', rep('pp-appt.js', "  if (_fd) _patch.date = _fd;\n  const { error }", "  const { error }")],
   ['link moves a visit to a past day', rep('pp-followup.js', "&& d >= toDay() && d !== String(row.date", "&& d !== String(row.date")],
   ['link moves a done visit', rep('pp-followup.js', "  if (!row || !row.parent_id || (row.status || 'completed') !== 'planned') return null;\n  var d = apptDate", "  if (!row || !row.parent_id) return null;\n  var d = apptDate")],
+  ['M216 moves plain planned rows', rep('migrations/216_appt_followup_date_sync.sql', "WHERE s.appointment_id = NEW.id AND s.parent_id IS NOT NULL\n", "WHERE s.appointment_id = NEW.id\n")],
+  ['M216 moves done visits', rep('migrations/216_appt_followup_date_sync.sql', "       AND COALESCE(s.status, 'completed') = 'planned' AND s.date IS DISTINCT FROM NEW.date;", "       AND s.date IS DISTINCT FROM NEW.date;")],
+  ['M216 moves visits to a past day', rep('migrations/216_appt_followup_date_sync.sql', "     AND NEW.date >= (now() AT TIME ZONE 'Asia/Damascus')::date THEN", "     THEN")],
+  ['M216 definer', rep('migrations/216_appt_followup_date_sync.sql', "RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$", "RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$")],
+  ['M216 not bootstrapped', rep('scripts/db-bootstrap.py', "    'migrations/216_appt_followup_date_sync.sql',", "    #'migrations/216_appt_followup_date_sync.sql',")],
   ['database proof passes on a NULL report', rep('scripts/followup-db.sql', "IF r IS NULL OR r ~ 'FAIL|=false'", "IF r ~ 'FAIL|=false'")],
   ['demo: delete not mirrored', rep('patient-profile.html', "        if (b._t === 'ledger_sessions') demoFollowupAfterDelete(hit);   /* M210 */\n", '')],
   ['AI line drops the step', rep('pp-followup.js', "  if (s.description) out.push(String(s.description).slice(0, 80));\n", '')],
