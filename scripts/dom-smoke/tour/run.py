@@ -136,7 +136,7 @@ with sync_playwright() as pw:
     for nm, w, h, sc in (sizes[:1] if SELF else sizes):
         if not SELF:
             p, T, E, _ = walk(b, nm + '/لوحة التحكم', 'index.html', w, h, sc)
-            ok(nm + ': جولة اللوحة 13 خطوة', len(T) == 13, T)
+            ok(nm + ': جولة اللوحة 14 خطوة (مع «خطوات البداية» لحسابٍ جديد)', len(T) == 14, T)
             ok(nm + ': اللوحة تُختم «انتهت»', p.evaluate("localStorage.getItem('sydent.tour.v1.dashboard')") == '{"done":true}')
             p.reload(); p.wait_for_timeout(4500)
             ok(nm + ': لا تعود وحدها بعد انتهائها', not p.evaluate("!!document.querySelector('.sdt-card.on')"))
@@ -146,6 +146,7 @@ with sync_playwright() as pw:
         p, T, E, A = walk(b, nm + '/البطاقة التجريبية', 'patient-profile.html?id=demo', w, h, sc, until=done, maxn=45)
         ok(nm + ': الفصل التفاعلي يصل إلى الطلب في تبويب المخابر', T and T[-1] == 'الطلب في تبويب «المخابر»', T[-4:])
         ok(nm + ': نافذة الطلب عرضت «مخبر تجريبي» وموعد التركيب', 'المخبر' in T and 'اربطه بموعد التركيب' in T)
+        ok(nm + ': لا خطوة تُقفز (25 خطوةً متتالية حتى تبويب المخابر)', len(T) == 25, T)
         n = p.evaluate("document.querySelectorAll('#labOrdersContent .sy-act-primary, #labOrdersContent .sy-acts').length") if T else 0
         ok(nm + ': الطلب المحفوظ يظهر في تبويب المخابر', n > 0)
         p.context.close()
