@@ -4,7 +4,7 @@
 -- LOCAL THROWAWAY DATABASE ONLY (see scripts/lab-stages-db.sql for how to build it). It refuses to run when
 -- `patients` has rows, and everything is rolled back.
 --     psql -v ON_ERROR_STOP=1 -d <db> -f scripts/followup-db.sql
--- 61 checks on the real trigger chain and the three RPCs (M210 + M211 + M213) (shape · one level · fixed link · base protection · state ·
+-- 64 checks on the real trigger chain and the three RPCs (M210 + M211 + M213 + M214) (shape · one level · fixed link · base protection · state ·
 -- cascade · whole-patient and whole-clinic deletes · dates · provider ownership · currency) + 6 RLS checks (owner · other tenant · anon).
 BEGIN;
 DO $$ BEGIN IF (SELECT count(*) FROM public.patients) > 0 THEN RAISE EXCEPTION 'followup-db: empty local database only'; END IF; END $$;
@@ -142,6 +142,14 @@ BEGIN
   r := r || ' p9=' || ((SELECT status = 'completed' AND cost = 0 AND parent_id = n0 FROM public.ledger_sessions WHERE id = s.id));
   DELETE FROM public.ledger_sessions WHERE id = s.id;   -- its only follow-up ⇒ the base is plain again (M210 trigger)
   r := r || ' p10=' || ((SELECT followup_state IS NULL FROM public.ledger_sessions WHERE id = n0));
+  -- M214: cancelling the only booked visit keeps the treatment «قيد الإنجاز»; its date follows its appointment
+  j := public.session_followup_plan(n0, current_date + 3, NULL, 'Next', NULL);
+  UPDATE public.ledger_sessions SET date = current_date + 9 WHERE id = (j->'session'->>'id')::uuid;
+  r := r || ' p11=' || ((SELECT date = current_date + 9 AND status = 'planned' FROM public.ledger_sessions WHERE id = (j->'session'->>'id')::uuid));
+  DELETE FROM public.ledger_sessions WHERE id = (j->'session'->>'id')::uuid;
+  r := r || ' p12=' || ((SELECT COALESCE(followup_state = 'open', false) FROM public.ledger_sessions WHERE id = n0));
+  j := public.session_followup_set_state(n0, NULL);
+  r := r || ' p13=' || ((SELECT followup_state IS NULL FROM public.ledger_sessions WHERE id = n0));
   BEGIN PERFORM public.session_followup_set_state(c1, 'open'); r := r || ' c34=FAIL';
     EXCEPTION WHEN sqlstate 'P0001' THEN r := r || ' c34=' || (SQLERRM = 'followup_base_invalid'); END;
   BEGIN UPDATE public.ledger_sessions SET followup_state = 'open' WHERE id = c1; r := r || ' c35=FAIL';
@@ -171,7 +179,7 @@ BEGIN
   -- the catalog flag is a free tri-state
   r := r || ' c42=' || ((SELECT count(*) FROM public.treatments WHERE doctor_id = d AND multi_visit IS NOT NULL) = 0);
 
-  IF r ~ 'FAIL|=false' OR r !~ 'c42=true' OR (length(r) - length(replace(r, '=true', ''))) / 5 <> 61 THEN RAISE EXCEPTION 'followup-db FAILED:%', r; END IF;
+  IF r IS NULL OR r ~ 'FAIL|=false' OR r !~ 'c42=true' OR (length(r) - length(replace(r, '=true', ''))) / 5 <> 64 THEN RAISE EXCEPTION 'followup-db FAILED:%', r; END IF;
   RAISE NOTICE 'followup-db:%', r;
 END $t$;
 

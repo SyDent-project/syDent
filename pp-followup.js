@@ -383,6 +383,13 @@ async function fuAskNext(baseId) {
     title: 'الزيارة التالية', message: 'تحجز الآن موعد الزيارة التالية لهذا العلاج؟', confirmText: '📅 احجزها', cancelText: 'لاحقاً', danger: false
   })) fuOpen(baseId, 'plan');
 }
+/* زيارةُ متابعةٍ مخطّطة تُربط بموعد ⇒ تاريخُها يومُ موعدها (لا تاريخان للزيارة نفسها — مراجعة ج2-ب). يومٌ قادم فقط:
+   موعدٌ مخطّط بلا تاريخ أو بيومٍ مضى لا يغيّره (الإكمالُ يضبطه). يُعيد التاريخ أو null. */
+function fuLinkDate(row, apptDate) {
+  if (!row || !row.parent_id || (row.status || 'completed') !== 'planned') return null;
+  var d = apptDate ? String(apptDate).slice(0, 10) : '';
+  return (/^\d{4}-\d{2}-\d{2}$/.test(d) && d >= toDay() && d !== String(row.date || '').slice(0, 10)) ? d : null;
+}
 /* الزيارةُ التالية المخطّطة لهذا العلاج (إن وُجدت) */
 function fuNextPlanned(baseId) {
   return fuChildren(baseId).filter(function (k) { return (k.status || 'completed') === 'planned'; })[0] || null;

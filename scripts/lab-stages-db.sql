@@ -102,7 +102,7 @@ BEGIN
     PERFORM public.lab_order_next_stage(c, NULL, NULL); UPDATE public.lab_orders SET status='received', date_received=now() WHERE id=c; PERFORM public.lab_order_next_stage(c, NULL, NULL);
     BEGIN UPDATE public.lab_orders SET stages = '[{"n":"a"},{"n":"b"}]'::jsonb WHERE id = c; r := r || ' t21=FAIL'; EXCEPTION WHEN OTHERS THEN r := r || ' t21=' || SQLERRM; END;
   END;
-  IF r ~ 'FAIL|=false' THEN RAISE EXCEPTION 'lab-stages-db FAILED:%', r; END IF;
+  IF r IS NULL OR r ~ 'FAIL|=false' THEN RAISE EXCEPTION 'lab-stages-db FAILED:%', r; END IF;
   RAISE NOTICE 'lab-stages-db trigger/RPC:%', r;
 END $t$;
 
