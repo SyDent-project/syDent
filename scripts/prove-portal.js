@@ -589,10 +589,46 @@ async function suite215(S) {
     'M215: still SECURITY DEFINER + STABLE with zero writes · same grants · no table, column or policy touched');
   ok(/'migrations\/214_followup_keep_open\.sql',[^\n]*\n    'migrations\/215_portal_plan_skip_followups\.sql',/.test(boot), 'M215: registered in the bootstrap plan right after M214');
 }
-async function run(S) { pass = 0; fail = 0; suite(S); await suite187(S); await suite189(S); await suite190(S); await suite191(S); await suite205(S); await suite215(S); return { pass, fail }; }
+/* ═══ (١٣) M217 · ج3-أ — زيارات المتابعة المنجزة بسجلّ البوابة «ضمن العلاج» بدل «0» ═══ */
+async function suite217(S) {
+  const { mig215, mig217, portal, boot, hdb } = S;
+  const FLAG = "             'fu', CASE WHEN h.parent_id IS NOT NULL THEN true END,   -- M217: زيارة متابعة ⇒ «ضمن العلاج» بالبوابة\n";
+  const COLS = "                   s.arch, s.unit_teeth,  -- M205: بعد العمود 8 — «ORDER BY 8» أدناه يبقى على التاريخ\n                   s.parent_id            -- M217: صفّ متابعة (بعد العمود 8 أيضاً)\n";
+  const COLS215 = "                   s.arch, s.unit_teeth   -- M205: بعد العمود 8 — «ORDER BY 8» أدناه يبقى على التاريخ\n";
+  const b = fnBody(mig217);
+  ok(b.split(FLAG).length === 2 && b.split(COLS).length === 2 && b.replace(FLAG, '').replace(COLS, COLS215) === fnBody(mig215) && b !== fnBody(mig215),
+    'M217: portal_info is the M215 function verbatim plus the history flag and its column (no filter dropped, no sum changed)');
+  const sub = b.slice(b.indexOf('FROM (SELECT s.type, s.tooth_num, s.units, s.cost, s.currency, s.provider_id, s.created_at,'), b.indexOf('ORDER BY 8 DESC, s.created_at DESC LIMIT 60) h'));
+  ok(sub.length > 0 && sub.indexOf('AS d,') > -1 && sub.indexOf('AS d,') < sub.indexOf('s.parent_id'), 'M217: parent_id comes after the 8th column — «ORDER BY 8» still sorts by the visit date');
+  const hist = b.slice(b.indexOf('IF cs.show_history THEN'), b.indexOf('IF cs.show_plan THEN'));
+  ok(/jsonb_strip_nulls\(jsonb_build_object\(/.test(hist) && /'fu', CASE WHEN h\.parent_id IS NOT NULL THEN true END,/.test(hist) && !/ELSE false/.test(hist) && hist.split("'fu'").length === 2,
+    'M217: the flag is true on a follow-up row and NULL (stripped) otherwise — the other rows keep their exact shape');
+  ok(/LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public/.test(b) && !/\b(INSERT\s+INTO|UPDATE\s+public\.|DELETE\s+FROM)\b/i.test(b.replace(/--[^\n]*/g, ''))
+    && /REVOKE ALL ON FUNCTION public\.portal_info\(text\) FROM PUBLIC;\nGRANT EXECUTE ON FUNCTION public\.portal_info\(text\) TO anon, authenticated;/.test(mig217) && !/CREATE POLICY|ALTER TABLE|DROP /i.test(mig217.replace(/^--.*$/gm, '')),
+    'M217: still SECURITY DEFINER + STABLE with zero writes · same grants · no table, column or policy touched');
+  ok(/IF r IS NULL OR r <> ' status=ok rows=متابعة — Implant:true:0,Implant:-:500 keys=cost,currency,date,type nobal=true:-:-,-:-:-' THEN/.test(hdb) && /^ROLLBACK;$/m.test(hdb) && !/^COMMIT;$/m.test(hdb),
+    'M217: the database proof pins the exact rows, fails on a NULL report and rolls everything back');
+  ok(/'migrations\/216_appt_followup_date_sync\.sql',[^\n]*\n    'migrations\/217_portal_history_followups\.sql',/.test(boot), 'M217: registered in the bootstrap plan right after M216');
+  const info = h => ({ status: 'ok', clinic_name: 'عيادة', patient_name: 'سامر', show: { history: true }, history: { items: h } });
+  const page = h => { const R = loadPortalRpc(portal, JSON.parse(JSON.stringify(info(h))), async () => ({ data: {} })); R.ctx.screenPortal(); return R.els.app.innerHTML; };
+  const row = (o, name) => { const i = o.indexOf(name); if (i < 0) return null; const j = o.indexOf('class="pl-row"', i); return o.slice(i, j > -1 ? j : o.length); };
+  const o = page([{ date: '2026-11-10', type: 'متابعة — زراعة', cost: 0, currency: 'USD', fu: true, doctor: 'د. أيهم' },
+                  { date: '2026-11-01', type: 'زراعة', cost: 500, currency: 'USD' },
+                  { date: '2026-10-01', type: 'فحص مجاني', cost: 0, currency: 'SYP' }]);
+  const fu = row(o, 'متابعة — زراعة'), im = row(o, '>زراعة<'), fr = row(o, 'فحص مجاني');
+  ok(fu && /<div class="pl-cost"><span class="cur">ضمن العلاج<\/span><\/div>/.test(fu) && !/>0 </.test(fu) && !/\$|USD|ل\.س/.test(fu.replace(/<div class="meta">[^<]*<\/div>/, '')),
+    'M217 page: a completed follow-up visit reads «ضمن العلاج» — not a «0» and no currency');
+  ok(im && /500 <span class="cur">/.test(im) && !/ضمن العلاج/.test(im) && fr && /<div class="pl-cost">0 <span class="cur">/.test(fr) && !/ضمن العلاج/.test(fr),
+    'M217 page: an ordinary row keeps its amount, and a genuinely free session still shows its 0');
+  const o2 = page([{ date: '2026-11-10', type: 'متابعة — زراعة', fu: true }, { date: '2026-11-01', type: 'زراعة' }]);
+  const o3 = page([{ date: '2026-11-10', type: 'متابعة — زراعة', cost: 0, currency: 'USD', fu: 'true' }]);
+  ok(/متابعة — زراعة/.test(o2) && !/ضمن العلاج|pl-cost/.test(o2) && /<div class="pl-cost">0 <span class="cur">/.test(o3) && !/ضمن العلاج/.test(o3),
+    'M217 page: without the balance switch no cost column at all (the flag shows nothing on its own); only a real true flag counts');
+}
+async function run(S) { pass = 0; fail = 0; suite(S); await suite187(S); await suite189(S); await suite190(S); await suite191(S); await suite205(S); await suite215(S); await suite217(S); return { pass, fail }; }
 const FILES = { portal: 'portal.html', pp: 'pp-portal.js', mig: 'migrations/180_patient_portal.sql', pph: 'patient-profile.html', ppcss: 'patient-profile.css',
   cb: 'scripts/cache-bust.sh', ppwa: 'pp-wa.js', stg: 'settings.html', cc: 'scripts/check-colors.js', cmb: 'scripts/check-modal-behaviour.js', schema: 'db/schema.sql', plan: 'pp-plan.js', intake: 'intake.html', mig181: 'migrations/181_portal_intake_state.sql', mig182: 'migrations/182_portal_confirm.sql',
-  mig187: 'migrations/187_portal_history_changes.sql', mig188: 'migrations/188_portal_requests_hardening.sql', mig189: 'migrations/189_portal_slot_picker.sql', mig190: 'migrations/190_portal_cancel_approve.sql', mig191: 'migrations/191_portal_rejected_notice.sql', mig205: 'migrations/205_portal_info_arch_teeth.sql', mig215: 'migrations/215_portal_plan_skip_followups.sql', boot: 'scripts/db-bootstrap.py', theme: 'theme.css', cra: 'scripts/check-row-actions.js', apcss: 'appointments.css', apo: 'appt-portal.js', apb: 'appt-booking.js', appts: 'appointments.html', side: 'sidebar.js', audit: 'audit-log.html' };
+  mig187: 'migrations/187_portal_history_changes.sql', mig188: 'migrations/188_portal_requests_hardening.sql', mig189: 'migrations/189_portal_slot_picker.sql', mig190: 'migrations/190_portal_cancel_approve.sql', mig191: 'migrations/191_portal_rejected_notice.sql', mig205: 'migrations/205_portal_info_arch_teeth.sql', mig215: 'migrations/215_portal_plan_skip_followups.sql', mig217: 'migrations/217_portal_history_followups.sql', hdb: 'scripts/portal-history-db.sql', boot: 'scripts/db-bootstrap.py', theme: 'theme.css', cra: 'scripts/check-row-actions.js', apcss: 'appointments.css', apo: 'appt-portal.js', apb: 'appt-booking.js', appts: 'appointments.html', side: 'sidebar.js', audit: 'audit-log.html' };
 const base = {}; Object.keys(FILES).forEach(k => { base[k] = read(FILES[k]); });
 
 (async () => {
@@ -642,6 +678,17 @@ if (process.argv.includes('--self-test')) {
     ['M215: totals count follow-up visits', 'mig215', "= 'planned' AND s.parent_id IS NULL\n                   GROUP BY 1) t)", "= 'planned'\n                   GROUP BY 1) t)"],
     ['M215: definer dropped', 'mig215', 'SECURITY DEFINER STABLE SET search_path', 'SECURITY DEFINER SET search_path'],
     ['M215 not in the bootstrap plan', 'boot', "    'migrations/215_portal_plan_skip_followups.sql',", "    #"],
+    /* ج3-أ · M217 */
+    ['M217: flag on every row', 'mig217', "'fu', CASE WHEN h.parent_id IS NOT NULL THEN true END,", "'fu', true,"],
+    ['M217: flag false instead of stripped', 'mig217', "'fu', CASE WHEN h.parent_id IS NOT NULL THEN true END,", "'fu', CASE WHEN h.parent_id IS NOT NULL THEN true ELSE false END,"],
+    ['M217: parent_id before the date (ORDER BY 8 shifts)', 'mig217', "FROM (SELECT s.type, s.tooth_num, s.units, s.cost,", "FROM (SELECT s.parent_id, s.type, s.tooth_num, s.units, s.cost,"],
+    ['M217: history hides follow-ups', 'mig217', "AND COALESCE(s.status, 'completed') = 'completed'\n               AND COALESCE(s.date", "AND COALESCE(s.status, 'completed') = 'completed' AND s.parent_id IS NULL\n               AND COALESCE(s.date"],
+    ['M217: loses the anon grant', 'mig217', 'GRANT EXECUTE ON FUNCTION public.portal_info(text) TO anon, authenticated;', ''],
+    ['M217 database proof passes on a NULL report', 'hdb', "IF r IS NULL OR r <> '", "IF r <> '"],
+    ['M217 not in the bootstrap plan', 'boot', "    'migrations/217_portal_history_followups.sql',", "    #"],
+    ['portal ignores the follow-up flag', 'portal', "(it.fu === true ? '<span class=\"cur\">ضمن العلاج</span>' : ", "(false ? '<span class=\"cur\">ضمن العلاج</span>' : "],
+    ['portal trusts a truthy flag', 'portal', "(it.fu === true ? '<span", "(it.fu ? '<span"],
+    ['portal labels follow-ups without the balance switch', 'portal', "+ (it.cost != null && it.currency ? '<div class=\"pl-cost\">' + (it.fu === true", "+ (it.fu === true || it.cost != null && it.currency ? '<div class=\"pl-cost\">' + (it.fu === true"],
     ['portal prints the server teeth unvalidated', 'portal', ".filter(function(x){ return /^[1-4][1-8]$/.test(x); })", ""],
     ['portal names the jaw without the teeth', 'portal', "  if (!t.length) return arch;\n", "  return arch;\n"],
     ['portal never says a denture is complete', 'portal', "  if (FULL_ARCH[it.arch].every(function(n){ return t.indexOf(n) > -1; })) return arch + ' — كامل';\n", ""],

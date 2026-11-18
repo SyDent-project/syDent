@@ -83,6 +83,7 @@ AFTER_SNAPSHOT = [
     'migrations/214_followup_keep_open.sql',  # after 210: trg_followup_after_delete's function replaced in place — a deleted planned last follow-up keeps «open»; no grant
     'migrations/215_portal_plan_skip_followups.sql',   # after 205/213: portal_info replaced in place (M205 + AND s.parent_id IS NULL in the plan items and totals) and re-granted by name (PUBLIC revoked, anon + authenticated only)
     'migrations/216_appt_followup_date_sync.sql',   # after 210/213: one trigger on appointments (AFTER UPDATE OF date) + its INVOKER function; a one-time date sync of planned follow-up visits; no grant
+    'migrations/217_portal_history_followups.sql',   # after 215: portal_info replaced in place (M215 + s.parent_id in the history subquery and a 'fu' flag on follow-up history rows) and re-granted by name (PUBLIC revoked, anon + authenticated only)
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',
