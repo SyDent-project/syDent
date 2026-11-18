@@ -16,18 +16,18 @@
 /* ── Modal ── v451: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261119a"></script>
+<script src="theme.js?v=20261119b"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261119a"></script>
-<script src="sy-modal.js?v=20261119a"></script>
-<script src="sidebar.js?v=20261119a"></script>
-<script src="rpt-treat.js?v=20261119a"></script>
-<script src="rpt-newpt.js?v=20261119a"></script>
-<script src="rpt-att.js?v=20261119a"></script>
-<script src="rpt-ret.js?v=20261119a"></script>
-<script src="rpt-sum.js?v=20261119a"></script>
-<script src="mat-cost.js?v=20261119a"></script>
-<script src="pay-methods.js?v=20261119a"></script>
+<script src="supabase-init.js?v=20261119b"></script>
+<script src="sy-modal.js?v=20261119b"></script>
+<script src="sidebar.js?v=20261119b"></script>
+<script src="rpt-treat.js?v=20261119b"></script>
+<script src="rpt-newpt.js?v=20261119b"></script>
+<script src="rpt-att.js?v=20261119b"></script>
+<script src="rpt-ret.js?v=20261119b"></script>
+<script src="rpt-sum.js?v=20261119b"></script>
+<script src="mat-cost.js?v=20261119b"></script>
+<script src="pay-methods.js?v=20261119b"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -430,7 +430,7 @@ a.rt-row:hover{background:rgba(var(--green-rgb),0.04);}
 html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutModal("],[onclick*="deletePayout("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261119a">
+<link rel="stylesheet" href="theme.css?v=20261119b">
 </head>
 <body>
 <div class="main" id="sbMainContent">
@@ -1852,7 +1852,7 @@ function _renderLayerPR() {
   // still counting in the total.
   if (providerFilter === 'all') {
     var stats = computeProviderStats('_unassigned');
-    if (stats.sessionCount > 0 || stats.labCost > 0 || stats.collection > 0) {
+    if (stats.sessionCount > 0 || stats.followupCount > 0 || stats.labCost > 0 || stats.collection > 0) {   /* مراجعة ج3: متابعاتٌ بلا طبيب وحدها تُظهر البطاقة — Σ البطاقات = إجمالي العيادة */
       html += '<div class="prov-card">'
         + '<div class="color-bar" style="background:var(--text3);"></div>'
         + '<div class="prov-body">'
@@ -3460,7 +3460,7 @@ async function exportExcel() {
       headers: headers, rows: rows,
       filename: 'تقارير-الأطباء-' + from + '_' + to,
       sheetName: 'تقارير الأطباء',
-      cols: [{wch:7},{wch:22},{wch:10},{wch:8},{wch:10},{wch:14},{wch:14},{wch:16},{wch:18},{wch:14},{wch:14},{wch:18},{wch:14},{wch:14},{wch:22}]
+      cols: [{wch:7},{wch:22},{wch:10},{wch:8},{wch:10},{wch:12},{wch:14},{wch:14},{wch:16},{wch:18},{wch:14},{wch:14},{wch:18},{wch:14},{wch:14},{wch:22}]   /* مراجعة ج3: عمودُ «زيارات المتابعة» ⇒ 16 عموداً = 16 عرضاً */
     });
     showToast(kind === 'xlsx' ? '⬇️ تم تصدير ملف Excel' : '⬇️ تعذّر Excel — صُدّر ملف TSV بديل');
   } catch (e) { console.error('exportExcel:', e); showToast('⚠️ تعذّر التصدير'); }

@@ -12,7 +12,7 @@
 'use strict';
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const ROOT = path.join(__dirname, '..');
-const NAMES = ['fu-unbooked.js', 'huddle-flags.js', 'index.html', 'supabase-init.js', 'i18n-en.js', 'theme.js', 'scripts/cache-bust.sh', 'scripts/validate.sh'];
+const NAMES = ['fu-unbooked.js', 'huddle-flags.js', 'dash-gaps.js', 'index.html', 'supabase-init.js', 'i18n-en.js', 'theme.js', 'scripts/cache-bust.sh', 'scripts/validate.sh'];
 const LIVE = {}; NAMES.forEach(f => { LIVE[f] = fs.readFileSync(path.join(ROOT, f), 'utf8'); });
 const AR = /[؀-ۿ]/;
 const tick = () => new Promise(r => setImmediate(r));
@@ -163,7 +163,7 @@ async function run(F) {
     const hrefs = items.map(x => (x.match(/href="([^"]*)"/) || [])[1]);
     ok(hrefs.slice(0, 5).join() === ['p1', 'p2', 'p3', 'p4', 'p5'].map(p => 'patient-profile.html?id=' + p).join() && hrefs[5] === 'patients.html' && !html.includes('pk') && !html.includes('Today'), 'dashboard: oldest treatment first, each row opens its patient; a patient booked later — or still due today — is not listed');
     ok(/🔁/.test(items[0]) && /var\(--orange-bg\)/.test(items[0]) && /<div class="al-tt">علاج قيد الإنجاز بلا موعد قادم<\/div>/.test(items[0]) && /<bdi>Pt1<\/bdi> · <span>Implant · Crown — الفك العلوي · منذ 11\/10\/2026<\/span>/.test(items[0])
-      && /<span>Implant — سن 36 · منذ 13\/10\/2026<\/span>/.test(items[2]) && /و2 غيرهم بعلاجٍ قيد الإنجاز بلا موعد قادم/.test(items[5]),
+      && /<span>Implant — سن\u00A036 · منذ 13\/10\/2026<\/span>/.test(items[2]) && /و2 غيرهم بعلاجٍ قيد الإنجاز بلا موعد قادم/.test(items[5]),
       'dashboard: the row names the patient, every open treatment with its place, and since when');
     ok(!/<img/.test(html) && /&lt;img src=x onerror=1&gt;/.test(items[1]), 'dashboard: a patient name with markup is escaped');
     const t = engine(F), left = texts(html).filter(x => AR.test(t(x)));
@@ -208,6 +208,27 @@ async function run(F) {
     ok(r3.p1.inprog.length === 0 && c3.window.SyDentHuddle.chipsHtml(r3.p1, 'p1', null) === '', 'huddle: without the module nothing changes');
   });
 
+  /* ═══ (٤ب) مراجعة ج3: زيارةُ المتابعة المخطّطة ليست «بنداً معتمداً بلا موعد» (🦷) — تحملها 🔁 وحدها ═══ */
+  await guard('planned follow-ups', async () => {
+    const c = { window: {}, console: { warn() {} }, Promise, String, Object, Array, Math, Number, JSON, Date, parseInt, encodeURIComponent }; vm.createContext(c);
+    vm.runInContext(sliceDecl(F['supabase-init.js'], 'window.SyDentApptDead = function', '\n};'), c); vm.runInContext(F['huddle-flags.js'], c);
+    const r = c.window.SyDentHuddle.compute({ today: DAY, appts: [A('t1', 'p1')], patients: [{ id: 'p1' }],
+      planned: [{ id: 'k', patient_id: 'p1', status: 'planned', appointment_id: null, plan_option: null, parent_id: 'b1' }, { id: 'x', patient_id: 'p1', status: 'planned', appointment_id: null, plan_option: null }] });
+    ok(r.p1.planned === 1, 'huddle 🦷: a planned follow-up visit is not counted as an approved plan item (the real item still is)');
+    const log = [], c2 = boot(F, { sb: fakeSb({ ledger_sessions: [{ id: 'k', patient_id: 'p1', status: 'planned', parent_id: 'b1', doctor_id: 'D' }], appointments: [] }, log) });
+    vm.runInContext(F['huddle-flags.js'], c2);
+    const r2 = await c2.window.SyDentHuddle.load('D', { today: DAY, appts: [A('t1', 'p1')], patients: [{ id: 'p1' }] });
+    const q = log.filter(x => x.t === 'ledger_sessions' && x.f.some(y => y[0] === 'eq' && y[1] === 'status' && y[2] === 'planned'))[0];
+    ok(r2.p1.planned === 0 && q && q.f.some(y => y[0] === 'is' && y[1] === 'parent_id' && y[2] === null), 'huddle 🦷: the planned read leaves follow-up visits out');
+    const gz = { window: {}, console: { warn() {} }, Promise, String, Object, Array, Math, Number, JSON, Date, parseInt, encodeURIComponent, isFinite }; vm.createContext(gz);
+    vm.runInContext(sliceDecl(F['supabase-init.js'], 'window.SyDentApptDead = function', '\n};'), gz); vm.runInContext(F['dash-gaps.js'], gz);
+    const CS = { booking_work_start: '09:00:00', booking_work_end: '17:00:00', booking_work_days: '0,1,2,3,4,5,6', booking_slot_minutes: 30 };
+    const g = gz.window.SyDentGaps.compute({ today: DAY, nowMin: 8 * 60, cs: CS, appts: [], asap: [], linkedAppts: {}, upcoming: {},
+      planned: [{ patient_id: 'f1', status: 'planned', parent_id: 'b1' }, { patient_id: 'u1', status: 'planned' }], patients: [{ id: 'f1', name: 'F' }, { id: 'u1', name: 'U' }] });
+    ok(g.unscheduled.map(x => x.patient_id).join() === 'u1' && /\.eq\('status', 'planned'\)\.is\('parent_id', null\); \}\),/.test(F['dash-gaps.js']),
+      'gaps 🦷 «علاج معتمد بلا موعد»: a planned follow-up visit is not an approved plan item (compute and read)');
+  });
+
   /* ═══ (٥) الأسلاك ═══ */
   await guard('wiring', () => {
     const IX = F['index.html'], iF = IX.indexOf('<script src="fu-unbooked.js?v='), iH = IX.indexOf('<script src="huddle-flags.js?v=');
@@ -237,6 +258,7 @@ const MUT = [
   ['unpaged read', rep('fu-unbooked.js', "if (typeof window.SyDentFetchAll === 'function') return window.SyDentFetchAll(build);", '')],
   ['no chunking', rep('fu-unbooked.js', 'var part = pids.slice(j, j + CHUNK);', 'var part = pids; j = pids.length;')],
   ['dashboard name unescaped', rep('index.html', "sub:'<bdi>'+dpEsc(nm)+'</bdi>", "sub:'<bdi>'+nm+'</bdi>")],
+  ['tooth number can wrap away from «سن»', rep('index.html', ".replace(/سن (\\d+)/g, 'سن\\u00A0$1')", '')],
   ['dashboard shows every patient', rep('index.html', 'pts.slice(0, FU_MAX).forEach', 'pts.forEach')],
   ['dashboard overflow row dropped', rep('index.html', "if(pts.length>FU_MAX) rows.push(", "if(false) rows.push(")],
   ['dashboard rows not sorted', rep('index.html', "    .sort(function(x,y){ return String(x.b[0].date||'').localeCompare(String(y.b[0].date||'')) || String(x.pid).localeCompare(String(y.pid)); });", ';')],
@@ -250,6 +272,10 @@ const MUT = [
   ['cache-bust forgets the file', rep('scripts/cache-bust.sh', 'huddle-flags\\.js|fu-unbooked\\.js|', 'huddle-flags\\.js|')],
   ['alert untranslated', rep('i18n-en.js', "    'علاج قيد الإنجاز بلا موعد قادم': 'Treatment in progress, no upcoming appointment',\n", '')],
   ['chip title untranslated', rep('i18n-en.js', "    [/^علاجٌ قيد الإنجاز بلا موعدٍ بعد هذه الزيارة:", "    [/^XX:")],
+  ['huddle 🦷 counts planned follow-ups', rep('huddle-flags.js', "if (!s || !s.patient_id || s.parent_id || (s.status || 'planned') !== 'planned') return;", "if (!s || !s.patient_id || (s.status || 'planned') !== 'planned') return;")],
+  ['huddle planned read keeps follow-ups', rep('huddle-flags.js', ".eq('status', 'planned').is('parent_id', null).in('patient_id', list);", ".eq('status', 'planned').in('patient_id', list);")],
+  ['gaps 🦷 counts planned follow-ups', rep('dash-gaps.js', "if (!s || !s.patient_id || s.parent_id || (s.status || 'planned') !== 'planned') return;", "if (!s || !s.patient_id || (s.status || 'planned') !== 'planned') return;")],
+  ['gaps planned read keeps follow-ups', rep('dash-gaps.js', ".eq('status', 'planned').is('parent_id', null); }),", ".eq('status', 'planned'); }),")],
   ['overflow row untranslated', rep('i18n-en.js', "    [/^و(\\d+) غيرهم بعلاجٍ", "    [/^XX(\\d+) غيرهم بعلاجٍ")]
 ];
 

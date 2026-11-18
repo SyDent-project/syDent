@@ -86,7 +86,7 @@ suite(SRC);
 (async () => {
   /* (٥) */
   const calls = [];
-  const sb = { from(t) { const rec = { table: t, eq: [], in: [], gte: [], lte: [], gt: [] }; calls.push(rec); const o = { select(c) { rec.select = c; return o; }, eq(k, v) { rec.eq.push([k, v]); return o; }, in(k, v) { rec.in.push([k, v]); return o; }, gte(k, v) { rec.gte.push([k, v]); return o; }, lte(k, v) { rec.lte.push([k, v]); return o; }, gt(k, v) { rec.gt.push([k, v]); return o; }, or() { return o; }, order() { return o; },
+  const sb = { from(t) { const rec = { table: t, eq: [], in: [], gte: [], lte: [], gt: [] }; calls.push(rec); const o = { select(c) { rec.select = c; return o; }, eq(k, v) { rec.eq.push([k, v]); return o; }, is(k, v) { (rec.is = rec.is || []).push([k, v]); return o; }, in(k, v) { rec.in.push([k, v]); return o; }, gte(k, v) { rec.gte.push([k, v]); return o; }, lte(k, v) { rec.lte.push([k, v]); return o; }, gt(k, v) { rec.gt.push([k, v]); return o; }, or() { return o; }, order() { return o; },
     then(res) { let d = []; if (t === 'ledger_sessions') d = [{ patient_id: 'u1', appointment_id: 'L1', status: 'planned' }]; if (t === 'appointments' && rec.in.length && rec.in[0][0] === 'id') d = [A('L1', '2026-09-01', '09:00', { status: 'cancelled' })]; return Promise.resolve({ data: d, error: null }).then(res); } }; return o; } };
   const W = load(SRC, sb);
   const r = await W.SyDentGaps.load(sb, 'DOC', { today: TODAY, nowMin: 8 * 60, cs: CS, patients: [{ id: 'u1', name: 'أحمد' }] });
@@ -98,7 +98,7 @@ suite(SRC);
   ok(r.unscheduled.length === 1 && r.unscheduled[0].patient_id === 'u1', 'load: dead-linked item (cancelled appointment) counts as unscheduled');
   /* مراجعةُ الإغلاق: مقاطعُ 150 + خطأُ «القادمة» لا يقترح أحداً */
   const calls2 = [], many = []; for (let i = 0; i < 320; i++) many.push({ patient_id: 'x' + i, status: 'planned' });
-  const mkSb = (errUp) => ({ from(t) { const rec = { table: t, eq: [], in: [], gte: [], lte: [], gt: [] }; calls2.push(rec); const o = { select(c) { rec.select = c; return o; }, eq(k, v) { rec.eq.push([k, v]); return o; }, in(k, v) { rec.in.push([k, v]); return o; }, gte(k, v) { rec.gte.push([k, v]); return o; }, lte(k, v) { rec.lte.push([k, v]); return o; }, gt(k, v) { rec.gt.push([k, v]); return o; }, or() { return o; }, order() { return o; },
+  const mkSb = (errUp) => ({ from(t) { const rec = { table: t, eq: [], in: [], gte: [], lte: [], gt: [] }; calls2.push(rec); const o = { select(c) { rec.select = c; return o; }, eq(k, v) { rec.eq.push([k, v]); return o; }, is(k, v) { (rec.is = rec.is || []).push([k, v]); return o; }, in(k, v) { rec.in.push([k, v]); return o; }, gte(k, v) { rec.gte.push([k, v]); return o; }, lte(k, v) { rec.lte.push([k, v]); return o; }, gt(k, v) { rec.gt.push([k, v]); return o; }, or() { return o; }, order() { return o; },
     then(res) { const isUp = t === 'appointments' && rec.in.length && rec.in[0][0] === 'patient_id'; return Promise.resolve(isUp && errUp ? { data: null, error: { message: 'boom' } } : { data: t === 'ledger_sessions' ? many : [], error: null }).then(res); } }; return o; } });
   const pts = many.map(m => ({ id: m.patient_id, name: 'n' + m.patient_id }));
   let sbC = mkSb(false), Wc = load(SRC, sbC);

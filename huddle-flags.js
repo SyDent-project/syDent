@@ -123,7 +123,7 @@
     /* بنودٌ مخطّطة حرّة لكل مريض (المعتمدة فقط) + هل عنده بدائلُ غيرُ معتمدة فقط */
     var freeByPt = {}, altByPt = {};
     (ctx.planned || []).forEach(function (s) {
-      if (!s || !s.patient_id || (s.status || 'planned') !== 'planned') return;
+      if (!s || !s.patient_id || s.parent_id || (s.status || 'planned') !== 'planned') return;
       if (planOptOf(s) !== null) { altByPt[s.patient_id] = (altByPt[s.patient_id] || 0) + 1; return; }
       var free = !s.appointment_id;
       if (!free) {
@@ -286,8 +286,8 @@
           }
         }
         if (list.length) {
-          var r = await window.sb.from('ledger_sessions').select('id, patient_id, appointment_id, plan_option, status')
-            .eq('doctor_id', uid).eq('status', 'planned').in('patient_id', list);
+          var r = await window.sb.from('ledger_sessions').select('id, patient_id, appointment_id, plan_option, status, parent_id')
+            .eq('doctor_id', uid).eq('status', 'planned').is('parent_id', null).in('patient_id', list);   /* مراجعة ج3: زيارةُ المتابعة المخطّطة ليست بنداً بالخطة — رقاقةُ 🔁 تحملها */
           if (r.error) { console.warn('SyDentHuddle.load sessions:', r.error); }
           else {
             planned = r.data || [];

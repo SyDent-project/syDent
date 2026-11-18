@@ -123,7 +123,7 @@
     var dead = (typeof window.SyDentApptDead === 'function') ? window.SyDentApptDead : null;
     var linked = ctx.linkedAppts || {}, cnt = {};
     (ctx.planned || []).forEach(function (s) {
-      if (!s || !s.patient_id || (s.status || 'planned') !== 'planned') return;
+      if (!s || !s.patient_id || s.parent_id || (s.status || 'planned') !== 'planned') return;
       if (s.plan_option >= 1 && s.plan_option <= 3) return;
       var free = !s.appointment_id;
       if (!free) { var la = linked[s.appointment_id]; free = !!la && !!dead && dead(la, today); }
@@ -194,7 +194,7 @@
         var rs = await Promise.all([
           window.SyDentFetchAll(function(){ return sb.from('appointments').select('id, date, time, duration, status, is_planned').eq('doctor_id', uid).gte('date', today).lte('date', to); }),
           window.SyDentFetchAll(function(){ return sb.from('appointments').select('id, patient_id, patient_name, date, time, duration, status, dismissed_at, is_planned, asap').eq('doctor_id', uid).eq('asap', true).gt('date', to); }),
-          window.SyDentFetchAll(function(){ return sb.from('ledger_sessions').select('patient_id, appointment_id, plan_option, status').eq('doctor_id', uid).eq('status', 'planned'); }),
+          window.SyDentFetchAll(function(){ return sb.from('ledger_sessions').select('patient_id, appointment_id, plan_option, status, parent_id').eq('doctor_id', uid).eq('status', 'planned').is('parent_id', null); }),   /* مراجعة ج3: زيارةُ المتابعة المخطّطة ليست بنداً بالخطة (M213 · M215) — تنبيهُ «قيد الإنجاز بلا موعد» يحملها */
           (window.SyDentBlocks ? window.SyDentBlocks.load(uid, today, to) : Promise.resolve([]))
         ]);
         if (rs[0].error) console.warn('SyDentGaps appts:', rs[0].error); else appts = rs[0].data || [];

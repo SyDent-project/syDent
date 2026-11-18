@@ -962,6 +962,9 @@ async function run(F) {
     const rowSrc = csv.slice(csv.indexOf('rows.push([cur'), csv.indexOf("bs.txt]);")), cells = rowSrc.slice(rowSrc.indexOf('[') + 1).split(/,\s*(?![^()]*\))/).map(x => x.trim());
     ok(hdr.indexOf('زيارات المتابعة') === hdr.indexOf('عدد الجلسات') + 1 && cells.indexOf('st.followupCount') === cells.indexOf('st.sessionCount') + 1 && cells.indexOf('st.sessionCount') === hdr.indexOf('عدد الجلسات') && hdr.length === cells.length,
       'CSV: a «زيارات المتابعة» column right after «عدد الجلسات», value aligned with its header');
+    const xl = PR.slice(PR.indexOf('var all = buildCsvRows();')), wch = (xl.match(/cols: \[([^\]]*)\]/) || [, ''])[1].split('},{').length;
+    ok(wch === hdr.length, 'Excel: one column width per header (' + wch + '/' + hdr.length + ')');
+    ok(/if \(stats\.sessionCount > 0 \|\| stats\.followupCount > 0 \|\| stats\.labCost > 0 \|\| stats\.collection > 0\) \{/.test(PR), 'the unassigned card shows when only follow-ups are unassigned — Σ cards = clinic total');
     const t = engine(F), pieces = [];
     [r2, k3, ev(cell, { s: { parent_id: 'b' }, fmtSY })].forEach(h => h.split(/<[^>]+>/).forEach(x => { const y = x.replace(/\s+/g, ' ').trim(); if (AR.test(y)) pieces.push(y); }));
     const left = pieces.filter(x => AR.test(t(x)));
@@ -1162,6 +1165,8 @@ const MUT = [
   ['slip shows 0 for a follow-up', rep('provider-reports.html', "(s.parent_id ? 'ضمن العلاج' : fmtSY(s.cost))", "fmtSY(s.cost)")],
   ['CSV value misaligned', rep('provider-reports.html', 'st.sessionCount, st.followupCount,', 'st.followupCount, st.sessionCount,')],
   ['counter untranslated', rep('i18n-en.js', "    'زيارات المتابعة': 'Follow-up visits', ", '    ')],
+  ['Excel widths one short again', rep('provider-reports.html', "{wch:10},{wch:12},{wch:14},", "{wch:10},{wch:14},")],
+  ['unassigned card hides follow-ups', rep('provider-reports.html', 'if (stats.sessionCount > 0 || stats.followupCount > 0 || stats.labCost > 0', 'if (stats.sessionCount > 0 || stats.labCost > 0')],
   ['«ضمن العلاج» untranslated', rep('i18n-en.js', "    'ضمن العلاج': 'Part of the treatment',\n", '')],
   ['state badge hidden in read-only', rep('patient-profile.css', '[onclick*="fuSave("],', '[onclick*="fuSave("],[onclick*="fuSetState("],')]
 ];
