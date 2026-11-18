@@ -270,9 +270,9 @@ def run():
         # ═══ 3-ب) الجلسات لا تخرج من بطاقتها (صورة المالك 17/11/2026: لابتوب + الشريط الجانبي · عمود «الطبيب») ═══
         #   بطاقة 1070 (1366 + الشريط): يتّسع بهامش ≥ 40px — العرضُ يختلف بخطوط الجهاز فلا يُقاس على حافّة البكسل.
         #   بطاقة 984 (1280 + الشريط): قد يُمرَّر — لكن داخل البطاقة دائماً، والصفحة لا تتجاوز النافذة.
-        for label, planned, cardw in (('منجزة متعدّدة الجلسات + مخبر', False, 1070), ('منجزة متعدّدة الجلسات + مخبر', False, 984), ('ومعها بندٌ مخطّط (خانةُ «إكمال»)', True, 984), ('ومعها بندٌ مخطّط (خانةُ «إكمال»)', True, 1070), ('ومعها بندٌ مخطّط · بطاقةٌ واسعة', True, 1200)):
+        for label, planned, cardw in (('منجزة متعدّدة الجلسات + مخبر', False, 1070), ('منجزة متعدّدة الجلسات + مخبر', False, 984), ('ومعها بندٌ مخطّط (خانةُ «إكمال»)', True, 984), ('ومعها بندٌ مخطّط (خانةُ «إكمال»)', True, 1070), ('ومعها بندٌ مخطّط · بطاقةٌ واسعة', True, 1320)):
             tag = 'الجلسات ببطاقة ' + str(cardw) + 'px (' + label + ')'
-            pg, errs = mkpage('patient-profile.html', 1366 if cardw > 1000 else 1280)
+            pg, errs = mkpage('patient-profile.html', 1600 if cardw > 1300 else 1366 if cardw > 1000 else 1280)
             fit = pg.evaluate("""([planned, cardw]) => {
               try {
                 TREATMENTS.push({ treatment_key: 'fit-endo', id: 'fit-endo', name: 'معالجة لبية', category: 'endodontics', is_active: true },
@@ -306,7 +306,7 @@ def run():
                     ok(tag + ': الجدولُ يتّسع لبطاقته بهامش ≥ 40px', fit['sw'] <= fit['cw'] + 1 and fit.get('tmin', 0) <= fit['cw'] - 40, fit)
                 # صورة المالك 18/11/2026: «حذف» لا يخرج ولا يختفي — بالبطاقة الضيّقة أيقوناتٌ بتلميحها، وبالواسعة كلماتُها
                 ok(tag + ': «حذف» داخل البطاقة بكل صفّ وبتلميحه', fit.get('delsIn') and fit.get('titled'), fit)
-                ok(tag + ': ' + ('أزرارُ الصفّ أيقوناتٌ (البطاقة ≤ 1100)' if cardw <= 1100 else 'أزرارُ الصفّ بكلماتها (البطاقة الواسعة)'), fit.get('icons') if cardw <= 1100 else fit.get('labels'), fit)
+                ok(tag + ': ' + ('أزرارُ الصفّ أيقوناتٌ (البطاقة ≤ 1280)' if cardw <= 1280 else 'أزرارُ الصفّ بكلماتها (البطاقة الواسعة)'), fit.get('icons') if cardw <= 1280 else fit.get('labels'), fit)
                 wider = fit['sw'] > fit['cw'] + 1
                 ok(tag + ': لا شيءَ يخرج من البطاقة — أعرضُ منها يُمرَّر داخلها (sc-wide)، والمتّسعُ بلا حاويةِ تمرير', fit['doc'] <= fit['vw'] and fit['wide'] == wider and fit['ox'] == ('auto' if wider else 'visible'), fit)
             ok(tag + ': صفرُ خطأ JS', not errs, errs[:3])

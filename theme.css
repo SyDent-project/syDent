@@ -1415,7 +1415,7 @@ textarea.wa-field { resize:vertical; }
      .sy-acts-sep    وبين المجموعات فاصلٌ صغير (بطاقات الأدمن: الخطة · المراسلات · الملف والنشاط · الإيقاف والحذف) —
                      خطٌّ رأسيٌّ رفيع بالكمبيوتر، وبالهاتف كلُّ مجموعةٍ سطرٌ كاملٌ بنفسها.
      .sy-act-lbl     (M213) كلمةُ الزرّ بعد أيقونته (✅<span class="sy-act-lbl"> إكمال</span>) — تُطوى فيبقى الزرّ أيقونةً
-                     بتلميحه (title) حين تكون حاويةُ الجدول mc بين البطاقات والعرض الكامل (981–1100px: لابتوب مع الشريط).
+                     بتلميحه (title) حين تكون حاويةُ الجدول mc بين البطاقات والعرض الواسع (981–1280px: لابتوب مع الشريط أو بدونه).
                      الصفحةُ تضيّق خاناتها بمتغيّراتها (عمود أزرار الجلسات: 264px ⇒ ~126px — صورة المالك 18/11/2026).
      .sy-acts-grid   مع الحاوية حين تكون لوحةَ أزرارٍ بشبكة داخل بطاقة (بطاقات العلاجات): الأزرار تملأ خلاياها
                      بحشوة 6px — أعمدةُ الشبكة قرارُ الصفحة (repeat(N, minmax(0,1fr))).
@@ -1460,7 +1460,7 @@ textarea.wa-field { resize:vertical; }
   :root[data-theme] .sy-slots > [data-slot="4"] { grid-column: s4; grid-row: 1; }
   :root[data-theme] .sy-slots > [data-span="2"] { grid-column-end: span 2; }
 }
-@container mc (min-width: 981px) and (max-width: 1100px) {
+@container mc (min-width: 981px) and (max-width: 1280px) {
   :root[data-theme] .sy-acts .sy-act-lbl { display: none; }
   :root[data-theme] .sy-acts > .sy-act:has(> .sy-act-lbl) { padding-inline: 0; justify-content: center; }
 }
