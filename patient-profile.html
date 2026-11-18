@@ -2312,7 +2312,7 @@ if (IS_DEMO) (function installDemoSandbox(){
     DB.ledger_sessions = rows('ledger_sessions').filter(function(r){ return ids.indexOf(r.parent_id) === -1; });
     gone.forEach(function(g){
       if (!g.parent_id || rows('ledger_sessions').some(function(r){ return r.parent_id === g.parent_id; })) return;
-      rows('ledger_sessions').forEach(function(r){ if (r.id === g.parent_id) r.followup_state = null; });
+      rows('ledger_sessions').forEach(function(r){ if (r.id === g.parent_id && !((g.status || 'completed') === 'planned' && r.followup_state === 'open')) r.followup_state = null; });   /* M214 */
     });
   }
   function passOwner(col){ return col === 'doctor_id' || col === 'owner_id'; }
@@ -4865,10 +4865,11 @@ async function _delSession_inner(id, opts) {
     });
   }
   sessions = sessions.filter(function(s){ return s.id !== id && s.parent_id !== id; });   /* M210: ومتابعاتُها (حذفتها القاعدة) */
-  /* M210: آخرُ متابعةٍ حُذفت ⇒ الأساسيةُ جلسةٌ عادية من جديد (مرآةُ trg_followup_after_delete) */
+  /* M210: آخرُ متابعةٍ حُذفت ⇒ الأساسيةُ جلسةٌ عادية من جديد (مرآةُ trg_followup_after_delete)
+     M214: إلا زيارةً مخطّطة حُذفت والعلاجُ «قيد الإنجاز» — إلغاءُ موعدٍ لا يُنهي العلاج */
   if (sess && sess.parent_id && !sessions.some(function(s){ return s.parent_id === sess.parent_id; })) {
     var _fuB = sessions.find(function(s){ return s.id === sess.parent_id; });
-    if (_fuB) _fuB.followup_state = null;
+    if (_fuB && !((sess.status || 'completed') === 'planned' && _fuB.followup_state === 'open')) _fuB.followup_state = null;
   }
 
   // Rebuild all splits chronologically — handles every edge case automatically.

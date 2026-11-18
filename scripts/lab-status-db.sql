@@ -92,7 +92,7 @@ BEGIN
   PERFORM public.lab_order_prev_stage(s); SELECT * INTO o FROM public.lab_orders WHERE id = s;
   r := r || ' s27=' || (o.stage_idx = 0 AND o.status = 'received');
 
-  IF r ~ 'FAIL|=false' THEN RAISE EXCEPTION 'lab-status-db FAILED:%', r; END IF;
+  IF r IS NULL OR r ~ 'FAIL|=false' THEN RAISE EXCEPTION 'lab-status-db FAILED:%', r; END IF;
   RAISE NOTICE 'lab-status-db RPC:%', r;
 END $t$;
 

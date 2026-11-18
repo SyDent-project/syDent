@@ -57,7 +57,7 @@ BEGIN
   INSERT INTO public.ledger_sessions (doctor_id, patient_id, type, cost, currency, status, arch) VALUES (d, p, 'Whitening', 5, 'USD', 'completed', 'U');
   r := r || ' c16=' || ((SELECT count(*) FROM public.ledger_sessions WHERE patient_id = p) = 4);
 
-  IF r ~ 'FAIL|=false' OR r !~ 'c16=true' THEN RAISE EXCEPTION 'denture-svc-db FAILED:%', r; END IF;
+  IF r IS NULL OR r ~ 'FAIL|=false' OR r !~ 'c16=true' THEN RAISE EXCEPTION 'denture-svc-db FAILED:%', r; END IF;
   RAISE NOTICE 'denture-svc-db:%', r;
 END $t$;
 

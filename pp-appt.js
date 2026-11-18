@@ -205,7 +205,7 @@ async function _saveAppt_inner() {
   /* v410 (زيارات الخطة): الموعدُ المخطّط بلا تاريخ صار يحمل بنوده — «زيارة غير
      مجدولة». الربطُ عرضيٌّ/جدوليٌّ بحت (appointment_id، FK بـON DELETE SET NULL). */
   if (!wasEditing && savedRow && savedRow.id && typeof commitPendingAttachmentsPP === 'function') {
-    attachResult = await commitPendingAttachmentsPP(savedRow.id);
+    attachResult = await commitPendingAttachmentsPP(savedRow.id, savedRow.date);
     clearPendingPP();
   } else {
     // Even if we didn't commit, clear the pending buffer so the next
@@ -531,7 +531,7 @@ function clearPendingPP() {
 /* Commit pending attachments AFTER a successful INSERT in saveAppt.
    Returns { ok: number, failed: number, errors: [...] }.
    Best-effort: every session is attempted; failures don't abort the rest. */
-async function commitPendingAttachmentsPP(apptId) {
+async function commitPendingAttachmentsPP(apptId, apptDate) {
   var result = { ok: 0, failed: 0, errors: [] };
   if (!apptId || !_pendingAttachmentsPP.length) return result;
   // Phase 4.1: defense-in-depth — block if locked doctor is inactive
@@ -545,9 +545,12 @@ async function commitPendingAttachmentsPP(apptId) {
   // with N parallel UPDATEs when N is small (usually 1-3).
   for (var i = 0; i < _pendingAttachmentsPP.length; i++) {
     var p = _pendingAttachmentsPP[i];
+    var _patch = { appointment_id: apptId };
+    var _fd = (typeof fuLinkDate === 'function') ? fuLinkDate(p, apptDate) : null;   /* M213: زيارةُ المتابعة بيوم موعدها */
+    if (_fd) _patch.date = _fd;
     try {
       const { error } = await window.sb.from('ledger_sessions')
-        .update({ appointment_id: apptId })
+        .update(_patch)
         .eq('id', p.id).eq('doctor_id', currentUser.id);
       if (error) {
         result.failed++;
@@ -557,7 +560,7 @@ async function commitPendingAttachmentsPP(apptId) {
         result.ok++;
         // Mirror locally so the page's `sessions` array reflects the DB.
         var local = (sessions || []).find(function(x){ return x.id === p.id; });
-        if (local) local.appointment_id = apptId;
+        if (local) { local.appointment_id = apptId; if (_fd) local.date = _fd; }
         // Phase 5 audit trail — same shape as the live attach in active mode.
         if (window.logAudit) {
           try {
@@ -595,12 +598,16 @@ async function _attachPlannedToApptPP_inner() {
   if (!sessId) { showToast('⚠️ اختر علاجاً'); return; }
   var _rowAtt = (sessions || []).find(function(x){ return x.id === sessId; });
   if (ppSessIsAltOption(_rowAtt)) { showToast('🔀 هذا البند من خيار غير معتمد — اعتمد الخيار أولاً'); return; }   /* v412 */
+  var _eAppt = (allAppointmentsForTl || []).find(function(a){ return a && a.id === editingApptId; });
+  var _fd = (typeof fuLinkDate === 'function') ? fuLinkDate(_rowAtt, _eAppt && _eAppt.date) : null;   /* M213: زيارةُ المتابعة بيوم موعدها */
+  var _patch = { appointment_id: editingApptId };
+  if (_fd) _patch.date = _fd;
   const { error } = await window.sb.from('ledger_sessions')
-    .update({ appointment_id: editingApptId })
+    .update(_patch)
     .eq('id', sessId).eq('doctor_id', currentUser.id);
   if (error) { showToast('❌ خطأ في الربط: ' + error.message); return; }
   var local = (sessions || []).find(function(x){ return x.id === sessId; });
-  if (local) local.appointment_id = editingApptId;
+  if (local) { local.appointment_id = editingApptId; if (_fd) local.date = _fd; }
   showToast('✅ تم ربط العلاج بالموعد');
   renderApptProcedureListPP();
   try { if (typeof renderSessions === 'function') renderSessions(); } catch (e) {}   /* v410 */

@@ -22,7 +22,7 @@ const { runMutants } = require('./mutant-pool');
 const FILES = ['appointments.html', 'pp-appt.js', 'migrations/211_followup_need.sql', 'treatments.html', 'pp-clinical.js', 'pp-followup.js', 'patient-profile.html', 'patient-profile.css', 'pp-plan.js', 'pp-timeline.js', 'pp-core.js', 'pp-dental.js', 'supabase-init.js',
   'provider-reports.html', 'rpt-treat.js', 'acc-daysheet.js', 'accounting.html', 'index.html', 'i18n-en.js', 'theme.js', 'pp-extras.js', 'guides.js',
   'migrations/210_followup_sessions.sql', 'db/schema.sql', 'scripts/db-bootstrap.py', 'scripts/cache-bust.sh', 'scripts/check-mirrors.js',
-  'scripts/check-modal-behaviour.js', 'scripts/validate.sh', 'scripts/followup-db.sql', 'migrations/213_followup_plan.sql'];
+  'scripts/check-modal-behaviour.js', 'scripts/validate.sh', 'scripts/followup-db.sql', 'migrations/213_followup_plan.sql', 'migrations/214_followup_keep_open.sql'];
 const LIVE = {}; FILES.forEach(f => { LIVE[f] = fs.readFileSync(path.join(ROOT, f), 'utf8'); });
 const AR = /[؀-ۿ]/;
 
@@ -872,6 +872,23 @@ async function run(F) {
       'appointment window blocked: the visit stays planned and the doctor is told where to book it — nothing is attached');
     w.__apptBlock = false;
     w.__TOASTS.forEach(t => bag.push({ t }));
+    /* مراجعة ج2-ب: زيارةٌ مخطّطة تُربط بموعد تأخذ يومَه · إلغاؤها (آخرُ متابعة) لا يُخرج العلاج من «قيد الإنجاز» (M214) */
+    const PL = { parent_id: 'b1', status: 'planned', date: P7 };
+    ok(w.fuLinkDate(PL, addDays(TODAY, 18)) === addDays(TODAY, 18) && w.fuLinkDate(PL, P7) === null && w.fuLinkDate(PL, '2026-11-01') === null && w.fuLinkDate(PL, null) === null
+      && w.fuLinkDate(Object.assign({}, PL, { status: 'completed' }), addDays(TODAY, 18)) === null && w.fuLinkDate({ status: 'planned', date: P7 }, addDays(TODAY, 18)) === null && w.fuLinkDate(PL, 'garbage') === null,
+      'a booked visit takes its appointment day (an upcoming day only — not a planned appointment without a date, not a past day, not a done visit, not a plan item)');
+    const PA = F['pp-appt.js'];
+    ok(/attachResult = await commitPendingAttachmentsPP\(savedRow\.id, savedRow\.date\);/.test(PA) && /var _fd = \(typeof fuLinkDate === 'function'\) \? fuLinkDate\(p, apptDate\) : null;/.test(PA)
+      && /fuLinkDate\(_rowAtt, _eAppt && _eAppt\.date\)/.test(PA) && (PA.match(/if \(_fd\) _patch\.date = _fd;/g) || []).length === 2 && (PA.match(/if \(_fd\) local\.date = _fd;/g) || []).length === 2,
+      'both link paths (new appointment · attach to an existing one) write and mirror that day');
+    const M4 = F['migrations/214_followup_keep_open.sql'], fn4 = between(M4, 'CREATE OR REPLACE FUNCTION public.ledger_sessions_followup_after_delete()', 'END $$;', 'M214');
+    ok(/AND NOT \(COALESCE\(OLD\.status, 'completed'\) = 'planned' AND b\.followup_state = 'open'\)/.test(fn4) && /SET followup_state = NULL/.test(fn4) && /NOT EXISTS \(SELECT 1 FROM public\.ledger_sessions c WHERE c\.parent_id = OLD\.parent_id\)/.test(fn4)
+      && !/SECURITY DEFINER/.test(fn4) && /'migrations\/213_followup_plan\.sql',[^\n]*\n\s+'migrations\/214_followup_keep_open\.sql',/.test(F['scripts/db-bootstrap.py']),
+      'M214: cancelling the last booked visit keeps «قيد الإنجاز»; a done last follow-up or «اكتمل» still frees the base (M210); bootstrapped after M213');
+    ok(/if \(_fuB && !\(\(sess\.status \|\| 'completed'\) === 'planned' && _fuB\.followup_state === 'open'\)\) _fuB\.followup_state = null;/.test(extractFunction(PP, '_delSession_inner')),
+      'the card mirrors M214 when a visit is deleted');
+    ok(/IF r IS NULL OR r ~ 'FAIL\|=false'/.test(F['scripts/followup-db.sql']) && / p12=/.test(F['scripts/followup-db.sql']) && /\/ 5 <> 64 THEN/.test(F['scripts/followup-db.sql']),
+      'the database proof covers M214 and a NULL check can never pass silently');
     /* الصندوقُ التجريبي */
     const mk = list => { const c = { console, Date, Object, String, JSON }; vm.createContext(c);
       vm.runInContext('var DB = { ledger_sessions: ' + JSON.stringify(list) + ' }, _idc = 0; function rows(t){ if (!DB[t]) DB[t] = []; return DB[t]; }\n' + extractFunction(PP, 'demoFollowupRpc'), c); return c; };
@@ -880,6 +897,10 @@ async function run(F) {
     ok(!pr.error && pk && pk.status === 'planned' && pk.cost === 0 && pk.tooth_num === null && pk.parent_id === 'b1' && pr.data.state === 'open'
       && D.demoFollowupRpc('session_followup_plan', { p_parent: 'b1', p_date: addDays(td, -1) }).error.message === 'followup_date_invalid'
       && D.demoFollowupRpc('session_followup_plan', { p_parent: 'pl', p_date: td }).error.message === 'followup_base_invalid', 'demo card: a planned visit is stored in the database shape; past dates and planned bases refused');
+    vm.runInContext(extractFunction(PP, 'demoFollowupAfterDelete'), D);
+    const allD = () => vm.runInContext('DB.ledger_sessions', D), byD = id => allD().find(x => x.id === id);
+    vm.runInContext('DB.ledger_sessions = DB.ledger_sessions.filter(function(r){ return r.id !== ' + JSON.stringify(pk.id) + '; });', D); D.demoFollowupAfterDelete([pk]);
+    ok(byD('b1').followup_state === 'open', 'demo card: cancelling the only booked visit keeps the treatment «قيد الإنجاز» (M214)');
     ok(/name === 'session_followup_add' \|\| name === 'session_followup_set_state' \|\| name === 'session_followup_plan'\) return Promise\.resolve\(demoFollowupRpc/.test(PP), 'demo card: the plan call is routed to the sandbox');
     /* الإنجليزية */
     const t = engine(F), left = [];
@@ -954,7 +975,16 @@ const MUT = [
   ['demo: close flag dropped', rep('patient-profile.html', "fb.followup_state = (!plan && args.p_close) ? 'closed' : 'open';", "fb.followup_state = 'open';")],
   ['demo: calls not routed', rep('patient-profile.html', "    if (name === 'session_followup_add' || name === 'session_followup_set_state' || name === 'session_followup_plan') return Promise.resolve(demoFollowupRpc(name, args || {}));   /* M210 */\n", '')],
   ['demo: delete leaves follow-ups', rep('patient-profile.html', "DB.ledger_sessions = rows('ledger_sessions').filter(function(r){ return ids.indexOf(r.parent_id) === -1; });", '')],
-  ['demo: base stays in progress with no follow-up', rep('patient-profile.html', "if (r.id === g.parent_id) r.followup_state = null;", '')],
+  ['demo: base stays in progress with no follow-up', rep('patient-profile.html', "if (r.id === g.parent_id && !((g.status || 'completed') === 'planned' && r.followup_state === 'open')) r.followup_state = null;", '')],
+  ['M214: a booked visit cancelled frees the base', rep('migrations/214_followup_keep_open.sql', "       AND NOT (COALESCE(OLD.status, 'completed') = 'planned' AND b.followup_state = 'open')\n", '')],
+  ['M214 not bootstrapped', rep('scripts/db-bootstrap.py', "    'migrations/214_followup_keep_open.sql',", "    #'migrations/214_followup_keep_open.sql',")],
+  ['card mirror frees the base on a cancelled visit', rep('patient-profile.html', "if (_fuB && !((sess.status || 'completed') === 'planned' && _fuB.followup_state === 'open')) _fuB.followup_state = null;", "if (_fuB) _fuB.followup_state = null;")],
+  ['demo frees the base on a cancelled visit', rep('patient-profile.html', "if (r.id === g.parent_id && !((g.status || 'completed') === 'planned' && r.followup_state === 'open')) r.followup_state = null;", "if (r.id === g.parent_id) r.followup_state = null;")],
+  ['link keeps the planned date', rep('pp-appt.js', "    if (_fd) _patch.date = _fd;\n    try {", "    try {")],
+  ['attach keeps the planned date', rep('pp-appt.js', "  if (_fd) _patch.date = _fd;\n  const { error }", "  const { error }")],
+  ['link moves a visit to a past day', rep('pp-followup.js', "&& d >= toDay() && d !== String(row.date", "&& d !== String(row.date")],
+  ['link moves a done visit', rep('pp-followup.js', "  if (!row || !row.parent_id || (row.status || 'completed') !== 'planned') return null;\n  var d = apptDate", "  if (!row || !row.parent_id) return null;\n  var d = apptDate")],
+  ['database proof passes on a NULL report', rep('scripts/followup-db.sql', "IF r IS NULL OR r ~ 'FAIL|=false'", "IF r ~ 'FAIL|=false'")],
   ['demo: delete not mirrored', rep('patient-profile.html', "        if (b._t === 'ledger_sessions') demoFollowupAfterDelete(hit);   /* M210 */\n", '')],
   ['AI line drops the step', rep('pp-followup.js', "  if (s.description) out.push(String(s.description).slice(0, 80));\n", '')],
   ['AI line drops the place', rep('pp-followup.js', "  if (w) out.push(w);\n  if (s.description)", "  if (s.description)")],
