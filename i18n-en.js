@@ -3608,11 +3608,16 @@ Object.assign(window.SyI18nDict, {
     '⚠️ تعذّر التحقق من استعمال العلاج — لم يُحذف. حاول مجدداً': '⚠️ Could not check whether the treatment is in use — it was not deleted. Try again',
     '⚠️ اكتب السعر (0 إذا كان العلاج بلا سعر)': '⚠️ Enter the price (0 if the treatment has no price)',
     '🦷 «نوع الأسنان: دائمة فقط» تلقائياً حسب التصنيف — يمكنك تغييره': '🦷 «Teeth: permanent only» set from the category — you can change it',
-    'يومان': '2 days'
+    'يومان': '2 days',
+    /* 18/11: لوحةُ الفلاتر على الموبايل · الترتيبُ باللمس */
+    'فلترة': 'Filter',
+    'إظهار الفلاتر': 'Show filters',
+    '↕️ للترتيب: اضغط مطوّلاً على البطاقة ثم اسحبها': '↕️ To reorder: press and hold a card, then drag it'
   });
   P.push(
     [/^🥽 مخبر · (\d+) (?:أيام|يوماً)$/, '🥽 Lab · $1 days'],
     [/^🥽 مخبر · يوم واحد$/, '🥽 Lab · 1 day'],
-    [/^🥽 مخبر · يومان$/, '🥽 Lab · 2 days']
+    [/^🥽 مخبر · يومان$/, '🥽 Lab · 2 days'],
+    [/^فلاتر فعّالة: (\d+)$/, 'Active filters: $1']
   );
 })();
