@@ -1502,17 +1502,37 @@ function ptAdvRenderState(total) {
 // ─── Render ───
 /* Demo patient card: dismissal = localStorage flag ('deletion' as promised on the card).
    طلبُ المالك (19 تشرين الثاني): البطاقة التجريبية تبقى بعد إضافة المرضى — سطرٌ مثبّت أعلى القائمة بلا رقم
-   ولا يُعدّ في «N مريض» — حتى يحذفها الطبيب بنفسه. تُخفى مؤقتاً أثناء البحث أو التصفية (ليست نتيجة بحث). */
+   ولا يُعدّ في «N مريض» — حتى يحذفها الطبيب بنفسه. تُخفى مؤقتاً أثناء البحث أو التصفية (ليست نتيجة بحث).
+   وطلبُه بعدها: الحذف نهائيّ للحساب كله (Migration 218: clinic_settings.demo_patient_hidden_at).
+   العلامة المحلية تبقى نسخةً سريعة كي لا يومض السطر قبل وصول الإعدادات. الحذف يُخفي السطر فقط:
+   البطاقة نفسها (patient-profile.html?id=demo) تبقى تفتحها «🧭 جولة مفصّلة» من أي بطاقة مريض. */
+var OB_DEMO_KEY = 'sydent.demoPatient.hidden';
 function obDemoHidden() {
-  try { return localStorage.getItem('sydent.demoPatient.hidden') === '1'; } catch(e){ return false; }
+  try { return localStorage.getItem(OB_DEMO_KEY) === '1'; } catch(e){ return false; }
 }
-async function obDemoDismiss() {
-  if (window.SyDialog && !await SyDialog.confirm({ message: 'حذف البطاقة التجريبية؟\nلن تظهر في قائمة المرضى بعد ذلك. لا يتأثّر أيّ مريضٍ حقيقي.', danger: true })) return;
-  try { localStorage.setItem('sydent.demoPatient.hidden', '1'); } catch(e){}
+function obDemoHideNow() {
+  try { localStorage.setItem(OB_DEMO_KEY, '1'); } catch(e){}
   var el = document.getElementById('obDemoCard');
   if (el) el.style.display = 'none';
   var row = document.querySelector('#tableBody tr[data-demo-row]');
   if (row) row.remove();
+}
+function obDemoSaveAccount() {
+  try {
+    return window.sb.from('clinic_settings').update({ demo_patient_hidden_at: new Date().toISOString() })
+      .eq('owner_id', currentUser.id).then(function(){}, function(){});
+  } catch(e) { return Promise.resolve(); }
+}
+/* يُستدعى بصفّ clinic_settings عند تحميل الصفحة. العمود غائب (الهجرة لم تُطبَّق) ⇒ لا شيء: يبقى السلوك المحلي. */
+function obDemoSync(row) {
+  if (!row || !Object.prototype.hasOwnProperty.call(row, 'demo_patient_hidden_at')) return;
+  if (row.demo_patient_hidden_at) { if (!obDemoHidden()) obDemoHideNow(); }
+  else if (obDemoHidden()) obDemoSaveAccount();   /* حُذفت على هذا المتصفح قبل هذا التعديل ⇒ يُنقل الحذف إلى الحساب */
+}
+async function obDemoDismiss() {
+  if (window.SyDialog && !await SyDialog.confirm({ message: 'حذف البطاقة التجريبية؟\nلن تظهر في قائمة المرضى بعد ذلك على أيّ جهاز. لا يتأثّر أيّ مريضٍ حقيقي، وتبقى «🧭 جولة مفصّلة» في بطاقة كل مريض.', danger: true })) return;
+  obDemoHideNow();
+  obDemoSaveAccount();
   if (typeof showToast === 'function') showToast('تم حذف البطاقة التجريبية');
 }
 function obDemoRowHtml() {
@@ -2735,6 +2755,7 @@ async function loadPrmMeta(){
     var cs = await window.sb.from('clinic_settings')
       .select('*').eq('owner_id', currentUser.id).maybeSingle();
     if (cs && cs.data) {
+      try { obDemoSync(cs.data); } catch(e) {}   /* حذف البطاقة التجريبية على مستوى الحساب (Migration 218) */
       var m = parseInt(cs.data.recall_interval_months, 10);
       if (!isNaN(m) && m > 0) PRM_RECALL_MONTHS = m;
       PRM_CLINIC_NAME  = cs.data.clinic_name  || '';
