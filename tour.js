@@ -139,6 +139,13 @@
      على الموبايل قد تتأخّر ثوانٍ. هذه المهلة تمنع الجولة من اعتبار الشاشة «ضاعت» فتعود إلى السن في الفراغ. */
   var labWaitUntil = 0;
   function labOpening() { return Date.now() < labWaitUntil; }
+  /* بلاغ المالك (19 تشرين الثاني، الموبايل): نقرةُ الطبيب نفسه على سنٍّ أو زرّ تفتح نافذةً تنتظر الشبكة ثوانٍ —
+     كانت الجولة تعدّ الشاشة «ضاعت» وتعود إلى أول الفصل في الفراغ. نقرةٌ على عنصرٍ تفاعلي تمهل الشاشة 8 ثوانٍ (البطاقة وحدها بلا إطار). */
+  var pendUntil = 0;
+  /* ما يفتح نافذةً أو يحفظ (لا الأزرار التي تعمل في الحال: الفئات والأسطح وخيارات العلاج) */
+  var PEND_SEL = '#nseGrid button, .sd-page-head__actions button, .crown-surface, .root-part, [data-occ-cell], .tooth-cell, ' +
+    '#toothFoot button, #tab-payments button, #labOrderSaveBtn';
+  function pending() { return Date.now() < pendUntil || Date.now() < labWaitUntil; }
   function inTooth() { return modalOpen('toothModal') || labOpening() || labModal(); }
   function inLabBtn() { return labBtnShown() || labOpening() || labModal(); }
   /* نافذة الطلب فُتحت (بنقرة الطبيب أو متأخّرةً): خطوات السن التي قبلها انتهت — تقدّمٌ إلى أول خطوةٍ في النافذة */
@@ -405,9 +412,9 @@
       sel: function () { return $('#toothFoot .btn-save-m'); }, act: { done: saved, doIt: function (t) { t.click(); } },
       title: { ar: '«حفظ كجلسة»', en: '«Save as a session»' }, body: body };
   }
-  function tabStep(cat, lostTo, need) {
+  function tabStep(cat, lostTo, need, id, ahead) {
     var L = { restorative: { ar: '🦷 ترميمي', en: '🦷 Restorative' }, endodontics: { ar: '🌱 معالجة لبية', en: '🌱 Endodontics' } }[cat];
-    return { chap: 'd', demo: true, ico: '📚', need: need || toothOpen, onLost: { to: lostTo }, sel: function () { return txTab(cat); },
+    return { chap: 'd', demo: true, id: id, ahead: ahead, ico: '📚', need: need || toothOpen, onLost: { to: lostTo }, sel: function () { return txTab(cat); },
       act: { done: function () { return txTabOn(cat); }, doIt: function (t) { t.click(); } },
       title: { ar: 'فئة العلاج', en: 'Treatment category' },
       body: { ar: 'العلاجات مرتّبة في <b>فئات</b>، وفي أولها «⭐ المفضلة» و«🔥 شائعة» إن وُجدت. افتح <b>' + L.ar + '</b>.', en: 'Treatments are grouped in <b>categories</b>, starting with «⭐ Favourites» and «🔥 Common» when you have them. Open <b>' + L.en + '</b>.' } };
@@ -418,29 +425,31 @@
     return firstShown(a) || a[0] || null;   /* قبل فتح تبويب الملف يكفي وجودُه — يُعاد الاختيار عند العرض */
   }
 
+  /* الطبيب سبق الجولة (نقر السن أو العلاج بنفسه): الفصل يلحق به إلى الخطوة التي تطابق الشاشة */
+  var AH_TOOTH = { when: toothOpen, to: 'ds-tab' }, AH_S2 = { when: step2On, to: 'ds-chips' };
   /* ① الجلسة: الأساس */
   var D_SESS = [
     { chap: 'd', demo: true, id: 'ds-start', center: true, ico: '🗂️', prep: function () { return closeAll() + goTab('file'); },
       title: { ar: 'كيف تُسجَّل جلسة؟', en: 'How is a session recorded?' },
       body: { ar: 'كل علاجٍ يبدأ من <b>السن نفسه</b>: انقر السن (أو سطحه أو جذره) في المخطط، أو اضغط <b>جلسة جديدة</b> ثم اختر السن. النافذة واحدة في الطريقتين، ويرتبط العلاج بالسن تلقائياً. نجرّب هنا «جلسة جديدة».', en: 'Every treatment starts from <b>the tooth itself</b>: tap the tooth (or its surface or root) on the chart, or press <b>New session</b> and pick the tooth. It is the same window either way, and the treatment is tied to the tooth automatically. Here we try «New session».' } },
-    { chap: 'd', demo: true, ico: '➕', sel: function () { return $('.sd-page-head__actions [onclick="openNewSessionEntry()"]'); },
+    { chap: 'd', demo: true, ico: '➕', ahead: AH_TOOTH, sel: function () { return $('.sd-page-head__actions [onclick="openNewSessionEntry()"]'); },
       act: { done: nseOpen, doIt: function (t) { t.click(); } },
       title: { ar: '«جلسة جديدة»', en: '«New session»' },
       body: { ar: 'يفتح شبكة الأسنان لتختار السن. <b>اضغطه.</b>', en: 'It opens the tooth grid so you can pick the tooth. <b>Tap it.</b>' } },
-    { chap: 'd', demo: true, ico: '🧭', need: nseOpen, onLost: { to: 'ds-start' }, sel: function () { return $('#newSessionEntryModal .nse-alt'); },
+    { chap: 'd', demo: true, ico: '🧭', ahead: AH_TOOTH, need: nseOpen, onLost: { to: 'ds-start' }, sel: function () { return $('#newSessionEntryModal .nse-alt'); },
       title: { ar: 'مداخل أخرى', en: 'Other ways in' },
       body: { ar: 'تحت الشبكة ثلاثة مداخل: <b>علاج جماعي</b> (ربع، فك، فم، جهاز متحرك) · <b>جلسة بلا سن</b> (استشارة، أشعة، أخرى) · <b>جلسة متابعة</b> لاستكمال علاجٍ سابق بلا تكلفة.', en: 'Under the grid are three more ways in: <b>Group treatment</b> (quadrant, arch, mouth, denture) · <b>Session with no tooth</b> (consultation, X-ray, other) · <b>Follow-up session</b> to continue an earlier treatment at no cost.' } },
-    { chap: 'd', demo: true, ico: '🦷', need: function () { return nseOpen() || toothOpen(); }, onLost: { to: 'ds-start' }, sel: function () { return $('#nseGrid [onclick="nsePick(15)"]'); },
+    { chap: 'd', demo: true, ico: '🦷', ahead: AH_S2, need: function () { return nseOpen() || toothOpen(); }, onLost: { to: 'ds-start' }, sel: function () { return $('#nseGrid [onclick="nsePick(15)"]'); },
       act: { done: toothOpen, doIt: function (t) { t.click(); } },
       title: { ar: 'اختر السن', en: 'Pick the tooth' },
       body: { ar: 'الأرقام الملوّنة: عليه علاج، مخطّط، مقلوع، مزروع. <b>اضغط السن 15.</b>', en: 'Coloured numbers: treated, planned, extracted, implant. <b>Tap tooth 15.</b>' } },
-    tabStep('restorative', 'ds-start'),
-    { chap: 'd', demo: true, ico: '🦷', need: toothOpen, onLost: { to: 'ds-start' }, sel: function () { return txOpt(RE_COMPOSITE, 'treated'); },
+    tabStep('restorative', 'ds-start', null, 'ds-tab', AH_S2),
+    { chap: 'd', demo: true, ico: '🦷', ahead: AH_S2, need: toothOpen, onLost: { to: 'ds-start' }, sel: function () { return txOpt(RE_COMPOSITE, 'treated'); },
       act: { done: step2On, doIt: function (t) { t.click(); } },
       title: { ar: 'اختر العلاج', en: 'Pick the treatment' },
       body: { ar: 'اختر <b>حشوة كومبوزت</b> (أو الحشوة التي في قائمتك).', en: 'Pick <b>Composite filling</b> (or the filling on your list).' },
       tip: { ar: 'القائمة من صفحة <b>قائمة العلاجات</b>: هناك تضيف علاجاتك وألوانها وأسعارها.', en: 'The list comes from the <b>Treatment list</b> page: add your treatments, colours and prices there.' } },
-    { chap: 'd', demo: true, ico: '🔲', need: step2On, onLost: { to: 'ds-start' }, sel: function () { var c = $('#toothStep2AreaSlot #toothSurfaceChips'); return c && shown(c) ? c : null; },
+    { chap: 'd', demo: true, id: 'ds-chips', ico: '🔲', need: step2On, onLost: { to: 'ds-start' }, sel: function () { var c = $('#toothStep2AreaSlot #toothSurfaceChips'); return c && shown(c) ? c : null; },
       title: { ar: 'الأسطح', en: 'The surfaces' },
       body: { ar: 'من «جلسة جديدة» تظهر الأسطح <b>بعد</b> اختيار العلاج، والسطح الأوسط محدَّد. التفصيل في فصل «الحشوة والأسطح».', en: 'From «New session» the surfaces appear <b>after</b> you pick the treatment, with the middle surface selected. Details are in the «Fillings and surfaces» chapter.' } },
     { chap: 'd', demo: true, ico: '📌', need: step2On, onLost: { to: 'ds-start' }, sel: function () { return $('#toothStatusPicker'); },
@@ -466,26 +475,27 @@
       body: { ar: 'الجلسة هنا، وتلوّنت السنّ في المخطط: <b>مصمت</b> للمنجز و<b>بخطوط</b> للمخطّط. والمخطّط يُنجَز لاحقاً من نافذة السن (<b>تم إنجاز العلاج المخطّط</b>) أو مع إكمال موعده المربوط.', en: 'The session is here, and the tooth is coloured on the chart: <b>solid</b> for done, <b>striped</b> for planned. A planned treatment is completed later from the tooth window (<b>The planned treatment is done</b>) or together with its linked appointment.' } }
   ];
 
+  var AH_FILL = { when: step2On, to: 'df-status' };
   /* ② الحشوة والأسطح */
   var D_FILL = [
     { chap: 'd', demo: true, id: 'df-start', reveal: true, ico: '👆', prep: function () { return closeAll() + goTab('file'); }, sel: function () { return surfaceTarget(46); },
       act: { done: function () { return toothOpen() && !!chip('M'); }, doIt: function () { tap(firstShown($$('[data-occ-cell="46"] .crown-surface[data-surface="O"]').concat($$('.tooth-shape .crown-surface[data-tooth="46"][data-surface="O"]')))); } },
       title: { ar: 'انقر السطح', en: 'Tap the surface' },
       body: { ar: 'كل سنٍّ في المخطط مقسّم إلى <b>أسطح</b> (إطباقي، إنسي، وحشي، دهليزي، لساني) <b>وجذور</b>. <b>انقر السطح الإطباقي للسن 46</b> (الوسط): تُفتح النافذة على هذا السطح بالعلاجات المناسبة له.', en: 'Each tooth on the chart is split into <b>surfaces</b> (occlusal, mesial, distal, buccal, lingual) <b>and roots</b>. <b>Tap the occlusal surface of tooth 46</b> (the middle): the window opens on that surface with the treatments that fit it.' } },
-    { chap: 'd', demo: true, ico: '🔲', need: function () { return toothOpen() && !!chip('M'); }, onLost: { to: 'df-start' }, sel: chipsBox,
+    { chap: 'd', demo: true, ico: '🔲', ahead: AH_FILL, need: function () { return toothOpen() && !!chip('M'); }, onLost: { to: 'df-start' }, sel: chipsBox,
       act: { done: function () { return chipOn('M') && chipOn('D'); }, doIt: function () { ['M', 'D'].forEach(function (k) { if (!chipOn(k)) { var c = chip(k); if (c) c.click(); } }); } },
       title: { ar: 'الأسطح المشمولة', en: 'Surfaces included' },
       body: { ar: 'السطح الذي نقرته محدَّد. <b>أضف إنسي ووحشي</b> لحشوةٍ واحدة على ثلاثة أسطح (MOD).', en: 'The surface you tapped is selected. <b>Add mesial and distal</b> for one filling on three surfaces (MOD).' } },
-    { chap: 'd', demo: true, ico: '✅', need: function () { return toothOpen() && !!chip('M'); }, onLost: { to: 'df-start' }, sel: chipsBox,
+    { chap: 'd', demo: true, ico: '✅', ahead: AH_FILL, need: function () { return toothOpen() && !!chip('M'); }, onLost: { to: 'df-start' }, sel: chipsBox,
       title: { ar: 'سطرٌ واحد وتكلفة واحدة', en: 'One line, one cost' },
       body: { ar: 'الأسطح الثلاثة تصير <b>ترميماً واحداً</b>: جلسة واحدة بتكلفتها، لا ثلاث. والعنوان يذكر الأسطح المختارة.', en: 'The three surfaces become <b>one restoration</b>: one session with its cost, not three. The title lists the chosen surfaces.' },
       tip: { ar: 'يبقى سطحٌ واحد على الأقل محدَّداً. ونقر سطحٍ من ترميمٍ مركّبٍ قائم يفتحه كاملاً لتعدّله.', en: 'At least one surface stays selected. Tapping a surface of an existing multi-surface restoration opens the whole of it for editing.' } },
-    tabStep('restorative', 'df-start'),
-    { chap: 'd', demo: true, ico: '🦷', need: toothOpen, onLost: { to: 'df-start' }, sel: function () { return txOpt(RE_COMPOSITE, 'treated'); },
+    tabStep('restorative', 'df-start', null, null, AH_FILL),
+    { chap: 'd', demo: true, ico: '🦷', ahead: AH_FILL, need: toothOpen, onLost: { to: 'df-start' }, sel: function () { return txOpt(RE_COMPOSITE, 'treated'); },
       act: { done: step2On, doIt: function (t) { t.click(); } },
       title: { ar: 'اختر الحشوة', en: 'Pick the filling' },
       body: { ar: 'من «🦷 ترميمي»: حشوة كومبوزت أو حشوة أملغم، ومن «🛡️ وقائي» سادّ الشقوق. <b>اختر حشوة كومبوزت.</b>', en: 'Under «🦷 Restorative»: composite or amalgam filling; under «🛡️ Preventive»: fissure sealant. <b>Pick Composite filling.</b>' } },
-    { chap: 'd', demo: true, ico: '📌', need: step2On, onLost: { to: 'df-start' }, sel: function () { return $('#toothStatusPicker'); },
+    { chap: 'd', demo: true, id: 'df-status', ico: '📌', need: step2On, onLost: { to: 'df-start' }, sel: function () { return $('#toothStatusPicker'); },
       title: { ar: 'منجز، والتكلفة', en: 'Done, and the cost' },
       body: { ar: 'اترك الحالة <b>«منجز»</b>. والتكلفة والطبيب والتاريخ كما في فصل «الجلسة: الأساس».', en: 'Leave it on <b>Done</b>. Cost, dentist and date work as in the «Session basics» chapter.' } },
     saveStep('df-start', { ar: 'اضغطه لتحفظ الحشوة.', en: 'Tap it to save the filling.' }),
@@ -497,25 +507,26 @@
 
   /* ③ المعالجة اللبية والجذور */
   function rootFlow() { return toothOpen() && !!chip('R1'); }
+  var AH_ENDO = { when: step2On, to: 'de-fu' };
   var D_ENDO = [
     { chap: 'd', demo: true, id: 'de-start', reveal: true, ico: '👆', prep: function () { return closeAll() + goTab('file'); }, sel: function () { return $('.tooth-shape .root-part[data-tooth="47"][data-surface="R1"]'); },
       act: { done: rootFlow, doIt: function (t) { tap(t); } },
       title: { ar: 'انقر الجذر', en: 'Tap the root' },
       body: { ar: 'في الصورة الجانبية للمخطط <b>انقر جذر السن 47</b>. نقر الجذر يعرض <b>العلاجات المناسبة للجذر</b>.', en: 'In the side view of the chart, <b>tap a root of tooth 47</b>. Tapping a root shows <b>the treatments that fit a root</b>.' } },
-    { chap: 'd', demo: true, ico: '🌿', need: rootFlow, onLost: { to: 'de-start' }, sel: chipsBox,
+    { chap: 'd', demo: true, ico: '🌿', ahead: AH_ENDO, need: rootFlow, onLost: { to: 'de-start' }, sel: chipsBox,
       act: { done: function () { return chipOn('R1') && chipOn('R2'); }, doIt: function () { var a = $('#toothSurfaceChipsRow [onclick="selectAllRootChips()"]'); if (a) a.click(); } },
       title: { ar: 'الجذور المشمولة', en: 'Roots included' },
       body: { ar: 'السن 47 له جذران: <b>الجذر الإنسي</b> و<b>الجذر الوحشي</b>. اختر جذراً أو أكثر، أو <b>اضغط «كل الجذور»</b>.', en: 'Tooth 47 has two roots: <b>mesial</b> and <b>distal</b>. Pick one root or more, or <b>tap «All roots»</b>.' },
       tip: { ar: 'الرحى العلوية ثلاثة جذور: الدهليزي الإنسي، الدهليزي الوحشي، الحنكي. وللسن وحيد الجذر لا تظهر هذه الأزرار.', en: 'Upper molars have three roots: mesiobuccal, distobuccal and palatal. A single-rooted tooth shows no root buttons.' } },
-    { chap: 'd', demo: true, ico: '✅', need: rootFlow, onLost: { to: 'de-start' }, sel: chipsBox,
+    { chap: 'd', demo: true, ico: '✅', ahead: AH_ENDO, need: rootFlow, onLost: { to: 'de-start' }, sel: chipsBox,
       title: { ar: 'معالجة واحدة', en: 'One treatment' },
       body: { ar: 'كل الجذور = <b>معالجة واحدة</b>: سطرٌ واحد وتكلفة واحدة، لا علاجٌ لكل قناة.', en: 'All roots = <b>one treatment</b>: one line and one cost, not one per canal.' } },
-    tabStep('endodontics', 'de-start', rootFlow),
-    { chap: 'd', demo: true, ico: '🌱', need: toothOpen, onLost: { to: 'de-start' }, sel: function () { return txOpt(RE_RCT, 'root-canal'); },
+    tabStep('endodontics', 'de-start', rootFlow, null, AH_ENDO),
+    { chap: 'd', demo: true, ico: '🌱', ahead: AH_ENDO, need: toothOpen, onLost: { to: 'de-start' }, sel: function () { return txOpt(RE_RCT, 'root-canal'); },
       act: { done: step2On, doIt: function (t) { t.click(); } },
       title: { ar: 'اختر العلاج', en: 'Pick the treatment' },
       body: { ar: 'في «🌱 معالجة لبية» علاجات الجذر: معالجة لبية، حشوة عصب، إعادة معالجة، وتد… <b>اختر معالجة لبية.</b>', en: 'Under «🌱 Endodontics» are the root treatments: root canal, root filling, retreatment, post… <b>Pick Root canal treatment.</b>' } },
-    { chap: 'd', demo: true, ico: '🔁', need: step2On, onLost: { to: 'de-start' }, sel: function () { var b = $('#fuNeedBox'); return b && shown(b) ? b : null; },
+    { chap: 'd', demo: true, id: 'de-fu', ico: '🔁', need: step2On, onLost: { to: 'de-start' }, sel: function () { var b = $('#fuNeedBox'); return b && shown(b) ? b : null; },
       title: { ar: 'على عدة زيارات', en: 'Over several visits' },
       body: { ar: '<b>🔁 يحتاج جلسات متابعة</b> معلَّمٌ تلقائياً للمعالجة اللبية: تُسجَّل اليوم «قيد الإنجاز» بتكلفتها، والزيارات التالية (غسل الأقنية، حشوها) تُضاف من <b>＋ متابعة</b> بلا تكلفة.', en: '<b>🔁 Needs follow-up sessions</b> is ticked automatically for root canal treatment: it is recorded today «in progress» with its cost, and the next visits (irrigation, obturation) are added with <b>＋ Follow-up</b> at no cost.' },
       tip: { ar: 'انتهت في زيارةٍ واحدة؟ ألغِ العلامة قبل الحفظ.', en: 'Finished in one visit? Untick it before saving.' } },
@@ -527,14 +538,14 @@
 
   /* ⑤ الدفعات والحساب */
   var D_PAY = [
-    { chap: 'd', demo: true, id: 'dp-start', ico: '💼', prep: function () { return closeAll() + goTab('payments'); }, sel: function () { var s = $('#balanceSummary'); return s ? (s.closest('.card') || s) : null; },
+    { chap: 'd', demo: true, id: 'dp-start', ahead: { when: function () { return modalOpen('payModal'); }, to: 'dp-modal' }, ico: '💼', prep: function () { return closeAll() + goTab('payments'); }, sel: function () { var s = $('#balanceSummary'); return s ? (s.closest('.card') || s) : null; },
       title: { ar: 'حساب المريض بلمحة', en: 'The account at a glance' },
       body: { ar: '<b>العلاج المنجز</b> · <b>إجمالي المدفوع</b> · و<b>الرصيد</b>: عليه أو له. والمخطّط يظهر وحده <b>غير محتسب ضمن الرصيد</b> حتى يُنجَز.', en: '<b>Treatment done</b> · <b>total paid</b> · and the <b>balance</b>: owed by or to the patient. Planned work shows apart, <b>not counted in the balance</b> until done.' } },
     { chap: 'd', demo: true, ico: '＋', prep: function () { return goTab('payments'); }, sel: function () { return $('#tab-payments [onclick="openPayModal()"]'); },
       act: { done: function () { return modalOpen('payModal'); }, doIt: function (t) { t.click(); } },
       title: { ar: 'تسجيل دفعة', en: 'Record a payment' },
       body: { ar: 'هنا، أو «تسجيل دفعة» أعلى الصفحة. <b>اضغطه.</b>', en: 'Here, or «Record a payment» at the top of the page. <b>Tap it.</b>' } },
-    { chap: 'd', demo: true, ico: '💳', need: function () { return modalOpen('payModal'); }, onLost: { to: 'dp-start' }, sel: function () { return $('#payModal .modal-body'); },
+    { chap: 'd', demo: true, id: 'dp-modal', ico: '💳', need: function () { return modalOpen('payModal'); }, onLost: { to: 'dp-start' }, sel: function () { return $('#payModal .modal-body'); },
       title: { ar: 'الدفعة', en: 'The payment' },
       body: { ar: '<b>المبلغ</b> و<b>طريقة الدفع</b> (نقداً، شام كاش، تحويل بنكي…) و<b>التاريخ</b>. الدفعة تُنقص الرصيد وتظهر في المحاسبة.', en: '<b>Amount</b>, <b>payment method</b> (cash, Sham Cash, bank transfer…) and <b>date</b>. The payment lowers the balance and shows in accounting.' } },
     { chap: 'd', demo: true, ico: '📒', prep: function () { return closeAll() + goTab('payments'); }, sel: function () { return $('#tab-payments [onclick="openObModal()"]'); },
@@ -683,7 +694,7 @@
   var UI = {
     next: { ar: 'التالي', en: 'Next' }, prev: { ar: 'السابق', en: 'Back' }, later: { ar: 'تأجيل', en: 'Later' }, laterFirst: { ar: 'لاحقاً', en: 'Not now' },
     start: { ar: 'ابدأ الجولة', en: 'Start the tour' }, done: { ar: 'تمّ', en: 'Done' }, doIt: { ar: 'نفّذ عنّي', en: 'Do it for me' },
-    wait: { ar: 'بانتظار نقرتك…', en: 'Waiting for your tap…' }, of: { ar: ' من ', en: ' of ' }, close: { ar: 'إغلاق الجولة', en: 'Close the tour' },
+    wait: { ar: 'بانتظار نقرتك…', en: 'Waiting for your tap…' }, opening: { ar: 'جارٍ الفتح…', en: 'Opening…' }, of: { ar: ' من ', en: ' of ' }, close: { ar: 'إغلاق الجولة', en: 'Close the tour' },
     btn: { ar: 'جولة تعريفية', en: 'Guided tour' }, resume: { ar: 'تابع الجولة', en: 'Continue the tour' },
     snoozed: { ar: 'تأجّلت الجولة — أكملها من زر 🧭 في رأس الصفحة', en: 'Tour paused — continue it from the 🧭 button in the page header' },
     finished: { ar: 'انتهت الجولة ✓', en: 'Tour complete ✓' },
@@ -774,7 +785,7 @@
 
   function start(p, at) {
     if (!TOURS[p]) return;
-    build(); closePicker(); P = p; steps = TOURS[p].filter(eligible).filter(function (s) {
+    build(); closePicker(); pendUntil = 0; if (chapOf(p) > -1) closeAll(); P = p; steps = TOURS[p].filter(eligible).filter(function (s) {
       if (s.when && !s.when()) return false;   /* شرطٌ يُعرف قبل البدء (مثلاً: لا أطباء مسجّلون ⇒ لا خطوة «الطبيب المعالج») */
       /* ما لا وجود له لهذا المستخدم الآن (قسمٌ محجوب، لا مخابر بعد…) لا يُعدّ — إلا خطوات الفصل التفاعلي التي تظهر عناصرها أثناءه */
       if (!s.sel || s.act || s.need || s.final || s.id === 'lab-tab' || s.chap === 2) return true;
@@ -811,7 +822,8 @@
     if (busy) return;   /* نقرٌ أثناء الانتقال (جهازٌ بطيء أو نقرٌ مزدوج) لا يُحسب مرتين */
     if (Date.now() - shownAt < 350) return;   /* خطوةٌ ظهرت للتوّ (قفزةٌ تلقائية بعد فتح نافذة): نقرةٌ قُصد بها ما قبلها لا تتخطّاها */
     var s = steps[idx];
-    if (s && s.act && !s.act.done()) { var t = s.sel(); if (t && s.act.doIt) { try { s.act.doIt(t); } catch (e) {} } return; }
+    if (s && s.act && !s.act.done()) { if (pending()) return;   /* نقرةٌ سابقة ما زالت تفتح نافذتها: لا تُكرَّر (نافذتان بوضعين مختلفين) */
+      var t = s.sel(); if (t && s.act.doIt) { try { s.act.doIt(t); } catch (e) {} } return; }
     next();
   }
   function next() { if (idx >= steps.length - 1) return finish(); idx++; save(P, { at: idx }); show(1); }
@@ -822,7 +834,7 @@
     while (j > 0 && (steps[j].act || (steps[j].need && !steps[j].need()))) j--;
     if (j >= 0 && j !== idx) { idx = j; save(P, { at: idx }); show(-1); }
   }
-  function jumpTo(id) { for (var i = 0; i < steps.length; i++) if (steps[i].id === id) { idx = i; save(P, { at: idx }); show(1); return true; } return false; }
+  function jumpTo(id) { pendUntil = 0; for (var i = 0; i < steps.length; i++) if (steps[i].id === id) { idx = i; save(P, { at: idx }); show(1); return true; } return false; }
   function onKey(e) {
     if (!active) return;
     var fwd = EN ? 'ArrowRight' : 'ArrowLeft', back = EN ? 'ArrowLeft' : 'ArrowRight';
@@ -847,7 +859,7 @@
     if (!s) return finish();
     if (dir >= 0 && s.ahead && s.ahead.when() && jumpTo(s.ahead.to)) return;
     if (s.need && !s.need()) {   /* الشاشة التي تحتاجها الخطوة أُغلقت (مثلاً أُغلقت نافذة الطلب) */
-      if (s.onLost && jumpTo(s.onLost.to)) return;
+      if (!pending() && s.onLost && jumpTo(s.onLost.to)) return;
     }
     var wait = s.prep ? (s.prep() || 0) : 0;
     if (!s.need && !s.act && !s.prep) wait += closeOpenModals();   /* خطوةٌ لا تحتاج نافذة: لا تُترك نافذةٌ مفتوحة تحتها */
@@ -902,17 +914,24 @@
   function tick() {
     if (!active || busy || !el.card.classList.contains('on')) return;
     var s = steps[idx];
-    if (s.act && s.act.done()) { next(); return; }
+    if (s.act && s.act.done()) { pendUntil = 0; next(); return; }   /* تحقّق ما انتظرناه */
     if (s.ahead && s.ahead.when()) { jumpTo(s.ahead.to); return; }
     /* الشاشة غابت: مهلةٌ قصيرة قبل الرجوع — بين إغلاق نافذة السن وفتح نافذة الطلب لحظةٌ لا تكون فيها أيٌّ منهما */
-    if (s.need && !s.need() && s.onLost) { if (!lostAt) lostAt = Date.now(); else if (Date.now() - lostAt > 1500) jumpTo(s.onLost.to); return; }
-    lostAt = 0;
+    if (s.need && !s.need() && s.onLost) {
+      if (pending()) { lostAt = 0; place(null, s); syncWait(s); return; }   /* نافذةٌ في الطريق: لا رجوع */
+      if (!lostAt) lostAt = Date.now(); else if (Date.now() - lostAt > 1500) jumpTo(s.onLost.to);
+      return;
+    }
+    lostAt = 0; syncWait(s);
     var t = s.sel ? s.sel() : null;
-    place(t && (shown(t) || !labOpening()) ? t : null, s);   /* أثناء انتظار نافذة الطلب: البطاقة وحدها، لا إطارَ على عنصرٍ غاب */
+    place(t && (shown(t) || !pending()) ? t : null, s);   /* أثناء انتظار نافذة الطلب: البطاقة وحدها، لا إطارَ على عنصرٍ غاب */
   }
+  function syncWait(s) { var w = q('.sdt-wait'); if (s.act && w) { var tx = T(pending() ? UI.opening : UI.wait); if (w.textContent !== tx) w.textContent = tx; } }
   function onDocClick(e) {
     var t = e.target;
-    if (t && t.closest && t.closest('#toothLabBtn')) labWaitUntil = Date.now() + 15000;
+    if (!t || !t.closest || t.closest('.sdt-card, .sdt-pick')) return;
+    if (t.closest('#toothLabBtn')) labWaitUntil = Date.now() + 15000;
+    else if (t.closest(PEND_SEL)) pendUntil = Date.now() + 8000;
   }
   function reflow() { if (active && el.card && el.card.classList.contains('on')) { var s = steps[idx]; place(s.sel ? s.sel() : null, s); } }
 
