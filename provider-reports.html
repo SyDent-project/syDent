@@ -1840,7 +1840,7 @@ function _renderLayerPR() {
           + (!d.is_owner ? '<button class="sy-act" onclick="openLedger(\'' + d.id + '\',\'' + (_renderCur || '') + '\')">📒 كشف حساب</button>' : '')
           // المالك هو الدافع لا المستفيد (مرآة قاعدة payouts.html): أرباحه سحبٌ من حقوق الملكية
           // لا مصروفاً — ودفعةٌ مسجَّلة له كانت ستدخل مصاريف المحاسبة وتُنقص صافي الربح خطأً.
-          + ((poIsOwner() && !d.is_owner) ? '<button class="sy-act sy-act-primary" data-en="💵 Record a payout" onclick="openPayoutModal(\'' + d.id + '\',\'' + (_renderCur || '') + '\')">💵 تسجيل دفعة</button>' : '')
+          + ((poIsOwner() && !d.is_owner) ? '<button class="sy-act sy-act-primary" onclick="openPayoutModal(\'' + d.id + '\',\'' + (_renderCur || '') + '\')" data-en="💵 Record a payout">💵 تسجيل دفعة</button>' : '')
         + '</div>'
       + '</div>'
     + '</div>';
