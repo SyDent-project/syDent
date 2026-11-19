@@ -72,7 +72,7 @@
         + '<div class="rs-tr rs-th" role="row"><span role="columnheader"></span><span role="columnheader">' + esc(snap.cols.cur) + '</span>'
         + '<span role="columnheader">' + esc(snap.cols.prev) + '</span><span role="columnheader">' + esc(snap.cols.ly) + '</span></div>';
       sec.rows.forEach(function (r) {
-        html += '<div class="rs-tr" role="row"><span class="rs-lbl" role="rowheader">' + esc(r.label) + (r.note ? '<small>' + esc(r.note) + '</small>' : '') + '</span>'
+        html += '<div class="rs-tr" role="row"><span class="rs-lbl" role="rowheader"' + (r.en ? ' data-en="' + esc(r.en) + '"' : '') + '>' + esc(r.label) + (r.note ? '<small>' + esc(r.note) + '</small>' : '') + '</span>'
           + '<span class="rs-v rs-cur" data-l="' + esc(snap.cols.cur) + '"><b>' + val(r, r.cur) + '</b></span>'
           + '<span class="rs-v" data-l="' + esc(snap.cols.prev) + '">' + val(r, r.prev) + ' ' + changeHtml(r, change(r, r.cur, r.prev)) + '</span>'
           + '<span class="rs-v" data-l="' + esc(snap.cols.ly) + '">' + val(r, r.ly) + ' ' + changeHtml(r, change(r, r.cur, r.ly)) + '</span></div>';
