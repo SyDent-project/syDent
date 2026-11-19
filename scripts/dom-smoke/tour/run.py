@@ -10,6 +10,8 @@
   • صفحة المرضى: البطاقة التجريبية سطرٌ مثبّت أعلى القائمة بلا رقم ولا تُعدّ، تختفي أثناء البحث، و«✕ حذف» يزيلها نهائياً.
   • بطاقة مريضٍ حقيقي: لا خطوات تفاعلية (الجولة لا تُنشئ شيئاً على مريضٍ حقيقي).
   • المخابر: الخطوات التي لا عنصر لها في عيادةٍ بلا مخابر لا تُعدّ.
+  • نافذة سنٍّ بطيئة (الموبايل، بلاغ المالك): تُفتح بعد 3 ثوانٍ من النقر — الفصول لا تعود إلى أولها، وتصل إلى ختامها.
+  • الطبيب يسبق الجولة: ينقر السن 15 بنفسه وهو على «مداخل أخرى» — الفصل يلحق به إلى «فئة العلاج» ولا يعود إلى أوله.
   • الجولة المفصّلة: زرّ «🧭 جولة مفصّلة» على بطاقةٍ حقيقية يفتح البطاقة التجريبية بقائمة الفصول (ومعه from)، وكل فصلٍ من الستة
     يُمشى بـ«نفّذ عنّي» حتى خطوة ختامه (الجلسة · الحشوة والأسطح MOD · المعالجة اللبية بكل الجذور · المخبر · الدفعات · الموعد) — بلا قفزٍ ولا تكرار.
   • المخزون: فارغاً 8 خطوات (البطاقات المخفية لا تُعدّ) · وبأصنافٍ ناقصة ودفعةٍ قاربت صلاحيتها 13 خطوة كاملة.
@@ -203,6 +205,23 @@ with sync_playwright() as pw:
                 if k == 'd-pay':
                     ok(nm + ': فصل الدفعات لا يسجّل دفعة', p.evaluate("!document.querySelector('.modal-overlay.open')"))
                 p.context.close()
+        SLOW_TOOTH = "addEventListener('load',()=>{const o=window.openToothModal;window.openToothModal=function(){const a=arguments,t=this;return new Promise(r=>setTimeout(()=>r(o.apply(t,a)),3000))}})"
+        for k, n in (('d-sess', 13), ('d-fill', 8), ('d-endo', 8)):
+            def begin(p, k=k):
+                p.wait_for_selector('.sdt-pick:not([hidden]) .sdt-ch', timeout=30000); p.click('.sdt-ch[data-k="%s"]' % k)
+            fin = lambda p, t: p.evaluate("!document.querySelector('.sdt-cend').hidden")
+            p, T, E, A = walk(b, 'موبايل/نافذة سنٍّ بطيئة ' + k, 'patient-profile.html?id=demo&tour=detail', 390, 844, 2, until=fin, maxn=45, begin=begin, init=SLOW_TOOTH)
+            ok('موبايل: نافذة سنٍّ بطيئة — فصل %s يصل إلى ختامه بلا رجوعٍ ولا تكرار (%d)' % (k, n), len(T) == n and len(set(T)) == len(T) and fin(p, ''), T)
+            p.context.close()
+        def begin(p):
+            p.wait_for_selector('.sdt-pick:not([hidden]) .sdt-ch', timeout=30000); p.click('.sdt-ch[data-k="d-sess"]')
+        def ahead(p, t):
+            if t == 'مداخل أخرى' and not getattr(p, '_tapped', False):
+                p._tapped = True; p.evaluate("document.querySelector('#nseGrid [onclick=\"nsePick(15)\"]').click()")
+            return t == 'الأسطح'
+        p, T, E, A = walk(b, 'موبايل/الطبيب يسبق الجولة', 'patient-profile.html?id=demo&tour=detail', 390, 844, 2, until=ahead, maxn=30, begin=begin, init=SLOW_TOOTH)
+        ok('الطبيب يسبق الجولة (نقر السن بنفسه على نافذةٍ بطيئة): الفصل يلحق به ولا يعود إلى أوله', T and T[-1] == 'الأسطح' and T.count('كيف تُسجَّل جلسة؟') == 1, T)
+        p.context.close()
         ctx = b.new_context(viewport={'width': 1366, 'height': 768}, service_workers='block'); ctx.route('**/*', route)
         ctx.add_init_script('(()=>{try{localStorage.setItem("sydent.auth",%s);localStorage.setItem("sydent.lang","ar")}catch(e){}})()' % json.dumps(json.dumps(SESSION)))
         q = ctx.new_page(); q.goto('http://127.0.0.1:%d/patient-profile.html?id=P1' % PORT); q.wait_for_selector('.sd-tour-detail', timeout=30000)

@@ -111,6 +111,9 @@ function run(F) {
   const lostFn = fns.filter(fn => !new RegExp('function ' + fn + '\\b|var ' + fn + ' = |' + fn + ' = function').test(ppAll + F['labs.html'] + F['inventory.html']));
   ok(fns.length >= 8 && lostFn.length === 0, 'every page function the tours tap exists (' + fns.length + ')' + (lostFn.length ? ' — missing: ' + lostFn.join(', ') : ''));
   ok(/'treated'/.test(T0) && /'root-canal'/.test(T0) && /treatment_key:'treated'/.test(R('treatments.html')) && /treatment_key:'root-canal'/.test(R('treatments.html')), 'the filling and root-canal fallbacks are built-in catalogue treatments');
+  ok(/var PEND_SEL = '#nseGrid button, \.sd-page-head__actions button, \.crown-surface, \.root-part/.test(T0) && /if \(s\.need && !s\.need\(\) && s\.onLost\) \{\s*if \(pending\(\)\)/.test(T0) &&
+     /if \(s && s\.act && !s\.act\.done\(\)\) \{ if \(pending\(\)\) return;/.test(T0) && (T0.match(/ahead: AH_(TOOTH|S2|FILL|ENDO)/g) || []).length >= 10,
+    'a window still opening (slow phone) never sends a chapter back to its start, «Do it for me» is not repeated meanwhile, and chapters catch up when the dentist is ahead');
   // (٥) البطاقة التجريبية
   const pp = F['patient-profile.html'];
   const demoStart = pp.indexOf('var IS_DEMO = '), demoEnd = pp.indexOf('real.from = function', demoStart);
@@ -156,6 +159,8 @@ if (process.argv.includes('--self-test')) {
     ['a chapter loses its chapter-end', f => { f['tour.js'] = f['tour.js'].split("final: true, chapEnd: true, ico: '🗓️'").join("final: true, ico: '🗓️'"); }],
     ['a chapter taps a page function that does not exist', f => { f['tour.js'] = f['tour.js'].replace('[onclick="openApptModal()"]', '[onclick="openAppointment()"]'); }],
     ['the detailed tour no longer passes from', f => { f['tour.js'] = f['tour.js'].replace("(id ? '&from=' + id : '')", "''"); }],
+    ['a slow tooth window sends the chapter back again', f => { f['tour.js'] = f['tour.js'].replace('if (pending()) { lostAt = 0; place(null, s); syncWait(s); return; }', ''); }],
+    ['«Do it for me» repeats while a window opens', f => { f['tour.js'] = f['tour.js'].replace('if (s && s.act && !s.act.done()) { if (pending()) return;', 'if (s && s.act && !s.act.done()) {'); }],
     ['a tour loses its final step', f => { f['tour.js'] = f['tour.js'].replace("{ center: true, final: true, ico: '🎉',\n      title: { ar: 'أنت جاهز!', en: 'You\\'re all set!' },\n      body: { ar: 'الدورة", "{ center: true, ico: '🎉',\n      title: { ar: 'أنت جاهز!', en: 'You\\'re all set!' },\n      body: { ar: 'الدورة"); }]
   ];
   let caught = 0;
