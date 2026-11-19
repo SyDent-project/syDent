@@ -129,6 +129,8 @@ def walk(b, tag, path, w, h, sc, ls=None, until=None, maxn=40, lang='ar', init=N
             k2 = json.dumps([g['ttl'], [round(x) for x in g['s']], [round(x) for x in g['c']], g['cov']])
             if k2 == key: break
             key = k2; p.wait_for_timeout(150); g = p.evaluate(GEO)
+        if g['cov']:   # العنصر غاب للتوّ (نافذةٌ تُغلق): الجولة تلحق به في نبضتها التالية (300 م.ث) — نقيس بعدها لا قبلها
+            p.wait_for_timeout(450); g = p.evaluate(GEO)
         s, c = g['s'], g['c']; t = g['ttl']
         if not titles or titles[-1] != t: titles.append(t)
         acts += 1 if g['act'] else 0

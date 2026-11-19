@@ -330,21 +330,25 @@ async function suite(F) {
   /* تنبيهُ المخبر على الموعد: الدالةُ الحيّة تُشغَّل على حالات */
   const bctx = { labOrdersByAppt: {}, labOrdersByPatient: {}, dateStr: d => ymdLocal(d), escapeHtml: s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])) };
   vm.createContext(bctx);
-  vm.runInContext(fnSrc(F['appt-time.js'], 'function labStageOpen(o) {') + '\n' + fnSrc(F['appt-time.js'], 'function labStageName(o) {') + '\n' + fnSrc(F['appointments.html'], 'function getApptLabBadge(appt) {'), bctx);
+  vm.runInContext(fnSrc(F['appt-time.js'], 'function labStageOpen(o) {') + '\n' + fnSrc(F['appt-time.js'], 'function labStageName(o) {') + '\n' + fnSrc(F['appointments.html'], 'function labApptState(o, apptDate, linkedDirectly) {') + '\n' + fnSrc(F['appointments.html'], 'function getApptLabBadge(appt) {'), bctx);
   const badge = (orders, direct) => { bctx.labOrdersByAppt = direct === false ? {} : { A: orders }; bctx.labOrdersByPatient = direct === false ? { p1: orders } : {}; return bctx.getApptLabBadge({ id: 'A', patient_id: 'p1', date: addDays(2) }); };
   const s3 = [{ n: 'تسجيل العضة' }, { n: 'تجربة <i>' }, { n: 'تسليم' }];
   const bMid = badge([{ status: 'received', stages: s3, stage_idx: 1 }]), bFit = badge([{ status: 'checked', stages: s3, stage_idx: 2 }]), bOld = badge([{ status: 'checked' }]), bOldU = badge([{ status: 'checked' }], false);
   ok(bMid.tone === 'green' && bMid.title === 'شغل المخبر جاهز لهذا الموعد — تجربة &lt;i&gt;' && bFit.title === 'شغل المخبر جاهز للتركيب في هذا الموعد — تسليم'
     && bOld.title === 'شغل المخبر جاهز للتركيب في هذا الموعد' && bOldU.title === 'يوجد شغل جاهز للتركيب من المخبر',
     'appointment badge: a received mid stage is ready for its visit (not «to fit») and named — escaped · the last stage and plain orders read as before');
-  const bLate = badge([{ status: 'sent', date_due: addDays(1), stages: s3, stage_idx: 0 }]), bPend = badge([{ status: 'sent', date_due: addDays(9), stages: s3, stage_idx: 0 }]), bPendOld = badge([{ status: 'received' }]),
+  /* بلاغ المالك (19 تشرين الثاني): استحقاقٌ قبل الموعد لم يفت = سليم (كان «متأخر» لحظة الإنشاء) · فات = متأخر · بعد الموعد = برتقالي */
+  const bLate = badge([{ status: 'sent', date_due: addDays(-1), stages: s3, stage_idx: 0 }]), bPend = badge([{ status: 'sent', date_due: addDays(1), stages: s3, stage_idx: 0 }]),
+    bRisk = badge([{ status: 'sent', date_due: addDays(9), stages: s3, stage_idx: 0 }]), bRedo = badge([{ status: 'redo', date_due: addDays(-2) }]), bPendOld = badge([{ status: 'received' }]),
     bMix = badge([{ status: 'received', stages: s3, stage_idx: 0 }, { status: 'checked' }]);
-  ok(bLate.tone === 'red' && bLate.title === 'تنبيه: المخبر لم يصل قبل هذا الموعد (مرتبط مباشرة) — تسجيل العضة' && bPend.tone === 'blue' && bPend.title === 'طلب مخبر مرتبط بهذا الموعد — تسجيل العضة'
-    && bPendOld.tone === 'blue' && bPendOld.title === 'طلب مخبر مرتبط بهذا الموعد' && bMix.title === 'شغل المخبر جاهز للتركيب في هذا الموعد — تسجيل العضة',
-    'appointment badge: late and pending carry the stage · a plain received order is still pending · a mix keeps «to fit»');
+  ok(bLate.tone === 'red' && bLate.title === 'متأخر: عمل المخبر المرتبط بهذا الموعد لم يصل، وفات تاريخ استحقاقه أو حلّ يوم الموعد — تسجيل العضة'
+    && bPend.tone === 'blue' && bPend.title === 'طلب مخبر مرتبط بهذا الموعد — تسجيل العضة'
+    && bRisk.tone === 'orange' && bRisk.title === 'الاستحقاق بعد الموعد: تاريخ استحقاق طلب المخبر بعد يوم هذا الموعد — قد لا يصل العمل في وقته — تسجيل العضة'
+    && bRedo.tone === 'red' && bPendOld.tone === 'blue' && bPendOld.title === 'طلب مخبر مرتبط بهذا الموعد' && bMix.title === 'شغل المخبر جاهز للتركيب في هذا الموعد — تسجيل العضة',
+    'appointment badge: due before the appointment and not passed is fine (not «late» at creation) · passed = late · due after the appointment = orange · a redo back at the lab counts · stages named');
   ok((F['appt-views.js'].match(/اسمُ مرحلةٍ مهرَّب بالمصدر/g) || []).length === 4 && !/عناوين ثابتة \*\//.test(F['appt-views.js']), 'appt-views.js: the xss notes state the escaped stage name at every badge site');
   ok(F['index.html'].indexOf("((Array.isArray(lo.stages) && lo.stage_idx != null && lo.stages[lo.stage_idx] && lo.stages[lo.stage_idx].n) ? ' · ' + labEsc(lo.stages[lo.stage_idx].n) : '')") > -1, 'dashboard: the active lab list names the current stage — escaped');
-  [bMid, bFit, bOld, bOldU, bLate, bPend, bPendOld, bMix].forEach(b => { const tt = b.title.replace('&lt;i&gt;', '<i>'); add(tt); add(b.icon + ' ' + tt.split(':')[0]); });
+  [bMid, bFit, bOld, bOldU, bLate, bPend, bRisk, bRedo, bPendOld, bMix].forEach(b => { const tt = b.title.replace('&lt;i&gt;', '<i>'); add(tt); add(b.icon + ' ' + tt.split(':')[0]); });
   ['الفك العلوي — كامل', 'الفك السفلي — الأسنان 34، 35، 36', 'الفك السفلي — السن 34'].forEach(add);
   const all9 = Object.keys(seen), left9 = all9.filter(s => AR.test(E.t(s).split(CUSTOM).join('').split('تجربة <i>').join('')));
   ok(left9.length === 0 && E.t('🥽 شغل المخبر جاهز لهذا الموعد — تجربة الأسنان، تسليم') === '🥽 Lab work is ready for this appointment — Teeth try-in, Fit'
@@ -413,6 +417,8 @@ const MUTANTS = [
   ['profile: script tag missing', F => Object.assign({}, F, { 'patient-profile.html': F['patient-profile.html'].replace(/<script src="lab-stages\.js\?v=[^"]+"><\/script>\n/, '') })],
   ['read-only mode: undo left clickable', rep('labs.html', '[onclick*="undoLabStage("],', '')],
   /* ج3-ب */
+  ['owner report: an order due before its appointment reads «late» at once', rep('appointments.html', "if (due && due < today) return 'late';", "if (due && apptDate && due <= apptDate) return 'late';")],
+  ['due after the appointment: no orange warning', rep('appointments.html', "if (due && apptDate && due > apptDate && apptDate >= today) return 'risk';", "")],
   ['3b slip: stage name unescaped', rep('lab-slip.js', "<strong>' + esc(d.stage.name) + '</strong>'", "<strong>' + d.stage.name + '</strong>'")],
   ['3b slip area: a tooth session read as a denture', rep('lab-slip.js', "if (!sess || sess.tooth_num || (sess.arch !== 'U' && sess.arch !== 'L')) return null;", "if (!sess || (sess.arch !== 'U' && sess.arch !== 'L')) return null;")],   /* v733: السطرُ انقسم (خدمةُ الجهاز قبل فحص unit_teeth) */
   ['3b slip area: complete arch not recognised (mirror drift)', rep('lab-slip.js', "(full ? 'كامل' : ", "(false ? 'كامل' : ")],

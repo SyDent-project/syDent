@@ -21,29 +21,29 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261119h"></script>
-<link rel="stylesheet" href="appointments.css?v=20261119h">
+<script src="theme.js?v=20261119i"></script>
+<link rel="stylesheet" href="appointments.css?v=20261119i">
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261119h">
+<link rel="stylesheet" href="theme.css?v=20261119i">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261119h"></script>
-<script src="sy-modal.js?v=20261119h"></script>
-<script src="appt-followup.js?v=20261119h"></script>
-<script src="appt-conflict.js?v=20261119h"></script>
-<script src="pt-reliability.js?v=20261119h"></script>
-<script src="sched-blocks.js?v=20261119h"></script>
-<script src="appt-blocks.js?v=20261119h"></script>
-<script src="appt-series.js?v=20261119h"></script>
-<script src="appt-family.js?v=20261119h"></script>
-<script src="sidebar.js?v=20261119h"></script>
-<script src="inv-consume.js?v=20261119h"></script>
-<script src="timepicker.js?v=20261119h"></script>
-<script src="appt-booking.js?v=20261119h"></script>
-<script src="appt-portal.js?v=20261119h"></script>
-<script src="appt-wa.js?v=20261119h"></script>
-<script src="appt-time.js?v=20261119h"></script>
-<script src="appt-views.js?v=20261119h"></script>
-<script src="appt-modal.js?v=20261119h"></script>
+<script src="supabase-init.js?v=20261119i"></script>
+<script src="sy-modal.js?v=20261119i"></script>
+<script src="appt-followup.js?v=20261119i"></script>
+<script src="appt-conflict.js?v=20261119i"></script>
+<script src="pt-reliability.js?v=20261119i"></script>
+<script src="sched-blocks.js?v=20261119i"></script>
+<script src="appt-blocks.js?v=20261119i"></script>
+<script src="appt-series.js?v=20261119i"></script>
+<script src="appt-family.js?v=20261119i"></script>
+<script src="sidebar.js?v=20261119i"></script>
+<script src="inv-consume.js?v=20261119i"></script>
+<script src="timepicker.js?v=20261119i"></script>
+<script src="appt-booking.js?v=20261119i"></script>
+<script src="appt-portal.js?v=20261119i"></script>
+<script src="appt-wa.js?v=20261119i"></script>
+<script src="appt-time.js?v=20261119i"></script>
+<script src="appt-views.js?v=20261119i"></script>
+<script src="appt-modal.js?v=20261119i"></script>
 </head>
 <body>
 <script>
@@ -1066,6 +1066,20 @@ let mainTab     = 'schedule';
 //   2) Orders for this patient with NO appointment_id — legacy / unassigned fallback
 // Orders linked to a DIFFERENT appointment of the same patient are intentionally ignored,
 // so the badge appears only on the appointment it concerns.
+/* «متأخر» لطلب مخبر بالنسبة لموعد — بلاغ المالك (19 تشرين الثاني 2026): كان كلُّ طلبٍ استحقاقُه قبل الموعد
+   (الحالةُ السليمة) يُوسَم «متأخر» لحظةَ إنشائه. القاعدةُ الآن هي قاعدةُ صفحة المخابر ولوحة التحكم:
+   'late'  — العملُ ما زال عند المخبر (أُرسل/أُعيد) وفات تاريخُ استحقاقه، أو حلّ يومُ الموعد المربوط به مباشرة.
+   'risk'  — ما زال عند المخبر واستحقاقُه بعد يوم هذا الموعد: لن يلحق (تنبيهٌ برتقالي).
+   ''      — غير ذلك (وصل، أو استحقاقُه قبل الموعد ولم يفت بعد).
+   «اليوم» بتوقيت الجهاز (dateStr) — يطابق .lt('date_due', todayStr()) في اللوحة. */
+function labApptState(o, apptDate, linkedDirectly) {
+  if (!o || (o.status !== 'sent' && o.status !== 'redo')) return '';
+  var today = dateStr(new Date()), due = o.date_due ? String(o.date_due).slice(0, 10) : '';
+  if (due && due < today) return 'late';
+  if (linkedDirectly && apptDate && apptDate <= today) return 'late';
+  if (due && apptDate && due > apptDate && apptDate >= today) return 'risk';
+  return '';
+}
 function getApptLabBadge(appt) {
   if (!appt || !appt.id) return null;
   if (!appt.date) return null;
@@ -1082,44 +1096,24 @@ function getApptLabBadge(appt) {
   var hasDirect = direct.length > 0;
 
   var hasReady   = false;   // status checked
-  var hasOverdue = false;   // status sent/received & deadline <= apptDate
-  var hasPending = false;   // status sent/received
-
-  // For "directly linked" orders, the appointment date itself is the implicit deadline.
-  // The order is "late" only when:
-  //   - explicit date_due is set and falls on/before the appointment date, OR
-  //   - no date_due is set, the order is directly linked, AND the appointment date
-  //     has arrived or passed (today or earlier) — because the user explicitly tied
-  //     this work to that visit and it isn't ready yet.
-  // Unassigned orders retain legacy behavior: they need an explicit date_due.
-  // Use local-time dateStr (not UTC) so the "today" boundary matches the user's clock.
-  var todayStr = dateStr(new Date());
-  // Only 'sent' is at risk: 'received' means the work has physically arrived from
-  // the lab — even if the due date has passed, there's nothing to warn about.
-  function isOrderLate(o, linkedDirectly) {
-    if (o.status !== 'sent') return false;
-    if (o.date_due) {
-      return o.date_due.slice(0,10) <= apptDate;
-    }
-    if (linkedDirectly) {
-      // No explicit deadline → only overdue once the appointment day has arrived.
-      return apptDate <= todayStr;
-    }
-    return false;
-  }
+  var hasOverdue = false;   // labApptState → 'late'
+  var hasRisk    = false;   // labApptState → 'risk' (due after this appointment)
+  var hasPending = false;   // status sent/received/redo
 
   /* ج3-ب: طلبٌ بمراحل — اسمُ مرحلته يلحق العنوان، ومرحلةٌ وسطى «استُلمت» جاهزةٌ لزيارتها (لا خطوةَ فحصٍ قبل الأخيرة:
      زرُّ الصف بعد الاستلام «للمخبر: المرحلة التالية») فلا تُعدّ معلّقة، وعنوانُها «جاهز لهذا الموعد» لا «جاهز للتركيب». */
-  var readyFit = false, stReady = [], stLate = [], stPend = [];
+  var readyFit = false, stReady = [], stLate = [], stPend = [], stRisk = [];
   function note(arr, o) { var n = labStageName(o); if (n && arr.indexOf(n) === -1) arr.push(n); }
   function classify(o, linkedDirectly) {
     var mid = labStageOpen(o);
     if (o.status === 'checked' || (o.status === 'received' && mid)) {
       hasReady = true; note(stReady, o);
       if (!mid) readyFit = true;
-    } else if (o.status === 'sent' || o.status === 'received') {
+    } else if (o.status === 'sent' || o.status === 'received' || o.status === 'redo') {
       hasPending = true; note(stPend, o);
-      if (isOrderLate(o, linkedDirectly)) { hasOverdue = true; note(stLate, o); }
+      var st = labApptState(o, apptDate, linkedDirectly);
+      if (st === 'late') { hasOverdue = true; note(stLate, o); }
+      else if (st === 'risk') { hasRisk = true; note(stRisk, o); }
     }
   }
   function stageTail(arr) { return arr.length ? ' — ' + escapeHtml(arr.join('، ')) : ''; }
@@ -1132,8 +1126,15 @@ function getApptLabBadge(appt) {
       icon: '⚠️',
       color: 'var(--red)', rgb: '--red-rgb', tone: 'red',
       title: (hasDirect
-        ? 'تنبيه: المخبر لم يصل قبل هذا الموعد (مرتبط مباشرة)'
-        : 'تنبيه: طلب مخبر لم يصل قبل الموعد') + stageTail(stLate)
+        ? 'متأخر: عمل المخبر المرتبط بهذا الموعد لم يصل، وفات تاريخ استحقاقه أو حلّ يوم الموعد'
+        : 'متأخر: طلب مخبر للمريض لم يصل وفات تاريخ استحقاقه') + stageTail(stLate)
+    };
+  }
+  if (hasRisk) {
+    return {
+      icon: '⏰',
+      color: 'var(--orange)', rgb: '--orange-rgb', tone: 'orange',
+      title: 'الاستحقاق بعد الموعد: تاريخ استحقاق طلب المخبر بعد يوم هذا الموعد — قد لا يصل العمل في وقته' + stageTail(stRisk)
     };
   }
   if (hasReady) {

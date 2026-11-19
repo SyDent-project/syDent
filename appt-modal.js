@@ -302,23 +302,13 @@ function renderApptLabOrders(appt) {
     else if (o.status === 'checked')   { statusAr = 'تم الفحص';              statusBg = 'rgba(var(--green-rgb),0.15)';  statusCol = 'var(--green)'; }
     else if (o.status === 'redo')      { statusAr = 'إعادة';                 statusBg = 'rgba(var(--orange-rgb),0.15)';  statusCol = 'var(--orange)'; }
 
-    // Late tag only applies when work hasn't physically arrived yet (status='sent').
-    // Once received/checked, the lab work is at the clinic — no point warning "late".
-    // Direct-linked orders without an explicit date_due become late once the
-    // appointment day has arrived (the user tied this work to that visit).
-    // Use local-time dateStr so the "today" boundary matches the user's clock.
-    var atRisk = (o.status === 'sent');
-    var todayStr = dateStr(new Date());
-    var late;
-    if (!atRisk) {
-      late = false;
-    } else if (o.date_due) {
-      late = (apptDate && o.date_due.slice(0,10) <= apptDate);
-    } else {
-      // Direct-linked (this list is always direct) without explicit due → late once appt day arrives.
-      late = (apptDate && apptDate <= todayStr);
-    }
-    var lateTag = late ? '<span style="background:rgba(var(--red-rgb),0.15);color:var(--red);border:1px solid rgba(var(--red-rgb),0.4);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">⚠️ متأخر</span>' : '';
+    // قاعدةٌ واحدة مع شارة الموعد بالتقويم (labApptState في appointments.html) — هذه القائمة مربوطةٌ بالموعد مباشرة دائماً.
+    var _st = (typeof labApptState === 'function') ? labApptState(o, apptDate, true) : '';
+    var lateTag = _st === 'late'
+      ? '<span style="background:rgba(var(--red-rgb),0.15);color:var(--red);border:1px solid rgba(var(--red-rgb),0.4);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">⚠️ متأخر</span>'
+      : _st === 'risk'
+        ? '<span style="background:rgba(var(--orange-rgb),0.15);color:var(--orange);border:1px solid rgba(var(--orange-rgb),0.4);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;" title="تاريخ الاستحقاق بعد يوم هذا الموعد — قد لا يصل العمل في وقته">⏰ الاستحقاق بعد الموعد</span>'
+        : '';
 
     var toothPart = o.tooth_num ? ' • السن ' + o.tooth_num : '';
     var dueDate   = o.date_due ? (SyDT.numDate(o.date_due) || '—') : '—';   // v487
