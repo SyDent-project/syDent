@@ -6,6 +6,8 @@
   • لوحة التحكم: تبدأ الجولة وحدها عند أول زيارة · 13 خطوة · تنتهي وتُختم «انتهت» فلا تعود بعد التحديث.
   • البطاقة التجريبية: الفصل التفاعلي كاملاً بـ«نفّذ عنّي» — السن 27 ← التاج ← «حفظ + إرسال لمخبر» ← «مخبر تجريبي» وموعد التركيب
     في نافذة الطلب ← الحفظ ← الطلب يظهر في تبويب المخابر.
+  • نافذة الطلب البطيئة (شبكة الموبايل): تُفتح بعد 4 ثوانٍ من «حفظ + إرسال لمخبر» — الجولة تنتظرها ولا تعود إلى السن في الفراغ.
+  • صفحة المرضى: البطاقة التجريبية سطرٌ مثبّت أعلى القائمة بلا رقم ولا تُعدّ، تختفي أثناء البحث، و«✕ حذف» يزيلها نهائياً.
   • بطاقة مريضٍ حقيقي: لا خطوات تفاعلية (الجولة لا تُنشئ شيئاً على مريضٍ حقيقي).
   • المخابر: الخطوات التي لا عنصر لها في عيادةٍ بلا مخابر لا تُعدّ.
   • المخزون: فارغاً 8 خطوات (البطاقات المخفية لا تُعدّ) · وبأصنافٍ ناقصة ودفعةٍ قاربت صلاحيتها 13 خطوة كاملة.
@@ -92,11 +94,12 @@ if(T&&sp.classList.contains('on')){const L=[...document.querySelectorAll('.sdt-b
  cov=!(e&&(T.contains(e)||e.contains(T)));if(cov)window.__cov=(e?e.tagName+'#'+e.id+'.'+String(e.className).slice(0,50):'none')+' T='+JSON.stringify([r.top,r.bottom,r.left,r.right]);L.forEach(b=>b.style.visibility='');}
 return {ttl:document.querySelector('.sdt-ttl').textContent,s:[s.top,s.bottom,s.left,s.right],c:[k.top,k.bottom,k.left,k.right],on:sp.classList.contains('on'),vh:innerHeight,vw:innerWidth,sx:document.documentElement.scrollWidth,cov:cov,act:!!document.querySelector('.sdt-wait:not([hidden])')}}"""
 
-def walk(b, tag, path, w, h, sc, ls=None, until=None, maxn=40, lang='ar'):
+def walk(b, tag, path, w, h, sc, ls=None, until=None, maxn=40, lang='ar', init=None):
     ctx = b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=sc, service_workers='block')
     ctx.route('**/*', route)
     L = {'sydent.auth': json.dumps(SESSION), 'sydent.lang': lang, 'sydent_theme': 'light', 'sydent.tour.autostart': '1'}; L.update(ls or {})
     ctx.add_init_script('(()=>{const L=%s;for(const k in L){try{if(localStorage.getItem(k)===null)localStorage.setItem(k,L[k])}catch(e){}}})()' % json.dumps(L))
+    if init: ctx.add_init_script(init)
     p = ctx.new_page(); errs = []
     if os.environ.get('TOUR_SLOW'):   # محلياً: محاكاة مشغّلٍ بطيء (CI) لكشف ما يتعلّق بالتوقيت
         ctx.new_cdp_session(p).send('Emulation.setCPUThrottlingRate', {'rate': int(os.environ['TOUR_SLOW'])})
@@ -158,6 +161,10 @@ with sync_playwright() as pw:
         ok(nm + ': الطلب المحفوظ يظهر في تبويب المخابر', n > 0)
         p.context.close()
         if SELF: break
+        SLOW_LAB = "addEventListener('load',()=>{const o=window.openModal;window.openModal=function(id){if(id==='labOrderModal'){setTimeout(()=>o.apply(this,arguments),4000);return}return o.apply(this,arguments)}})"
+        p, T, E, A = walk(b, nm + '/نافذة طلبٍ بطيئة', 'patient-profile.html?id=demo', w, h, sc, until=done, maxn=50, init=SLOW_LAB)
+        ok(nm + ': نافذة الطلب البطيئة — لا رجوع إلى السن ولا خطوة مكرّرة (25 خطوة حتى تبويب المخابر)', len(T) == 25 and T[-1] == 'الطلب في تبويب «المخابر»' and T.count('ابدأ من السن') == 1, T)
+        p.context.close()
         p, T, E, A = walk(b, nm + '/المخابر', 'labs.html', w, h, sc)
         ok(nm + ': المخابر بلا مخابر = 7 خطوات (ما لا عنصر له لا يُعدّ)', len(T) == 7, T)
         p.context.close()
@@ -177,6 +184,23 @@ with sync_playwright() as pw:
         finally:
             for k in INV: TABLES.pop(k, None)
     if not SELF:
+        for nm, w, h, sc in sizes:
+            ctx = b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=sc, service_workers='block'); ctx.route('**/*', route)
+            ctx.add_init_script('(()=>{try{if(!sessionStorage.getItem("i")){sessionStorage.setItem("i",1);localStorage.setItem("sydent.auth",%s);localStorage.setItem("sydent.lang","ar")}}catch(e){}})()' % json.dumps(json.dumps(SESSION)))
+            q = ctx.new_page(); perr = []; q.on('pageerror', lambda e: perr.append(str(e)))
+            q.goto('http://127.0.0.1:%d/patients.html' % PORT); q.wait_for_selector('tr[data-patient-id]', timeout=30000); q.wait_for_timeout(600)
+            g = q.evaluate("(()=>{const r=[...document.querySelectorAll('#tableBody tr')];const d=r[0];return {first:!!(d&&d.hasAttribute('data-demo-row')),n:r.filter(x=>x.hasAttribute('data-demo-row')).length,badge:document.getElementById('countBadge').textContent,seq:d?d.querySelector('.seq-badge').textContent:'',vis:d?d.getBoundingClientRect().height>0:false,sx:document.documentElement.scrollWidth<=innerWidth+1}})()")
+            ok(nm + ': صفحة المرضى — البطاقة التجريبية أول سطر مع وجود مرضى', g['first'] and g['n'] == 1 and g['vis'], g)
+            ok(nm + ': صفحة المرضى — بلا رقم ولا تُعدّ في «N مريض»', g['seq'] == '🧪' and g['badge'].strip().startswith('1 '), g)
+            ok(nm + ': صفحة المرضى — لا تمرير أفقي', g['sx'], g)
+            q.fill('#searchInput', 'سامر'); q.wait_for_timeout(500)
+            ok(nm + ': صفحة المرضى — تختفي أثناء البحث', q.evaluate("!document.querySelector('#tableBody tr[data-demo-row]')"))
+            q.fill('#searchInput', ''); q.dispatch_event('#searchInput', 'input'); q.wait_for_timeout(500)
+            q.click('#tableBody tr[data-demo-row] .sy-act-danger'); q.wait_for_selector('[data-sy-act="ok"]', timeout=5000); q.click('[data-sy-act="ok"]'); q.wait_for_timeout(400)
+            q.reload(); q.wait_for_selector('tr[data-patient-id]', timeout=30000); q.wait_for_timeout(600)
+            ok(nm + ': صفحة المرضى — «✕ حذف» يزيلها ولا تعود بعد التحديث', q.evaluate("!document.querySelector('#tableBody tr[data-demo-row]')") and q.evaluate("localStorage.getItem('sydent.demoPatient.hidden')") == '1')
+            ok(nm + ': صفحة المرضى — صفرُ خطأ JS', not perr, perr[:2])
+            ctx.close()
         ctx = b.new_context(viewport={'width': 1366, 'height': 768}, service_workers='block'); ctx.route('**/*', route)
         ctx.add_init_script('(()=>{try{localStorage.setItem("sydent.auth",%s);localStorage.setItem("sydent.lang","ar")}catch(e){}})()' % json.dumps(json.dumps(SESSION)))
         q = ctx.new_page(); q.goto('http://127.0.0.1:%d/patient-profile.html?id=P1' % PORT); q.wait_for_timeout(7000)
@@ -197,4 +221,4 @@ if SELF:
 if FAILS:
     for f in FAILS[:15]: print('✗', f)
     print('❌ مثبت الجولات: %d فشل من %d — أولها: %s' % (len(FAILS), N[0], FAILS[0][:220])); sys.exit(1)
-print('✅ مثبت الجولات (متصفح حقيقي): %d توكيداً — اللوحة · البطاقة التجريبية تفاعلياً · بطاقة حقيقية · المخابر · المخزون · لابتوب وموبايل' % N[0])
+print('✅ مثبت الجولات (متصفح حقيقي): %d توكيداً — اللوحة · البطاقة التجريبية تفاعلياً (ونافذة طلبٍ بطيئة) · سطر البطاقة التجريبية بصفحة المرضى · بطاقة حقيقية · المخابر · المخزون · لابتوب وموبايل' % N[0])

@@ -472,16 +472,16 @@ textarea { resize: vertical; min-height: 80px; }
      كان عمودُ الإجراءات يكدّس الأزرار الثلاثة فوق بعضها بخلية ضيّقة. */
   .table-wrap table, .table-wrap tbody { display: block; width: 100%; }
   .table-wrap thead { display: none; }
-  tbody tr[data-patient-id] { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; }
-  tbody tr[data-patient-id] > td { display: flex; align-items: center; }   /* الخلايا تملأ ارتفاعَ السطر فيبقى لونُ الحالة متصلاً */
-  tbody tr[data-patient-id] > td:nth-child(2),
-  tbody tr[data-patient-id] > td:nth-child(4),
-  tbody tr[data-patient-id] > td:nth-child(5) { display: none; }
-  tbody tr[data-patient-id] > td:nth-child(1) { grid-column: 1; min-width: 0; }
-  tbody tr[data-patient-id] > td:nth-child(3) { grid-column: 2; }
-  tbody tr[data-patient-id] > td:nth-child(6) { display: block; grid-column: 1 / -1; padding: 0 10px 12px; }
-  tbody tr[data-patient-id] .patient-name { white-space: normal; }
-  tbody tr[data-patient-id] .action-btns { border-top: 1px dashed var(--border); padding-top: 10px; }
+  tbody tr:is([data-patient-id],[data-demo-row]) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; }
+  tbody tr:is([data-patient-id],[data-demo-row]) > td { display: flex; align-items: center; }   /* الخلايا تملأ ارتفاعَ السطر فيبقى لونُ الحالة متصلاً */
+  tbody tr:is([data-patient-id],[data-demo-row]) > td:nth-child(2),
+  tbody tr:is([data-patient-id],[data-demo-row]) > td:nth-child(4),
+  tbody tr:is([data-patient-id],[data-demo-row]) > td:nth-child(5) { display: none; }
+  tbody tr:is([data-patient-id],[data-demo-row]) > td:nth-child(1) { grid-column: 1; min-width: 0; }
+  tbody tr:is([data-patient-id],[data-demo-row]) > td:nth-child(3) { grid-column: 2; }
+  tbody tr:is([data-patient-id],[data-demo-row]) > td:nth-child(6) { display: block; grid-column: 1 / -1; padding: 0 10px 12px; }
+  tbody tr:is([data-patient-id],[data-demo-row]) .patient-name { white-space: normal; }
+  tbody tr:is([data-patient-id],[data-demo-row]) .action-btns { border-top: 1px dashed var(--border); padding-top: 10px; }
 }
 
 @media (max-width: 480px) {
@@ -1500,12 +1500,34 @@ function ptAdvRenderState(total) {
 }
 
 // ─── Render ───
-/* Demo patient card: dismissal = localStorage flag ('deletion' as promised on the card). */
-function obDemoDismiss() {
+/* Demo patient card: dismissal = localStorage flag ('deletion' as promised on the card).
+   طلبُ المالك (19 تشرين الثاني): البطاقة التجريبية تبقى بعد إضافة المرضى — سطرٌ مثبّت أعلى القائمة بلا رقم
+   ولا يُعدّ في «N مريض» — حتى يحذفها الطبيب بنفسه. تُخفى مؤقتاً أثناء البحث أو التصفية (ليست نتيجة بحث). */
+function obDemoHidden() {
+  try { return localStorage.getItem('sydent.demoPatient.hidden') === '1'; } catch(e){ return false; }
+}
+async function obDemoDismiss() {
+  if (window.SyDialog && !await SyDialog.confirm({ message: 'حذف البطاقة التجريبية؟\nلن تظهر في قائمة المرضى بعد ذلك. لا يتأثّر أيّ مريضٍ حقيقي.', danger: true })) return;
   try { localStorage.setItem('sydent.demoPatient.hidden', '1'); } catch(e){}
   var el = document.getElementById('obDemoCard');
   if (el) el.style.display = 'none';
-  if (typeof showToast === 'function') showToast('تم إخفاء البطاقة التجريبية');
+  var row = document.querySelector('#tableBody tr[data-demo-row]');
+  if (row) row.remove();
+  if (typeof showToast === 'function') showToast('تم حذف البطاقة التجريبية');
+}
+function obDemoRowHtml() {
+  return '<tr class="row-new" data-demo-row data-sub-write onclick="location.href=\'patient-profile.html?id=demo\'" onkeydown="if(event.key===\'Enter\'&&event.target===this)location.href=\'patient-profile.html?id=demo\'" tabindex="0" style="cursor:pointer;" title="بطاقة للتجربة — لا شيء فيها يُحفظ أو يدخل في تقاريرك">'
+    + '<td><div class="patient-cell"><div class="seq-badge" aria-hidden="true">🧪</div><div>'
+    + '<div class="patient-name">مريض تجريبي</div>'
+    + '<div class="patient-id">للتجربة — لا يُحفظ شيء ولا يدخل في تقاريرك</div></div></div></td>'
+    + '<td class="text-muted">—</td>'
+    + '<td><span class="badge yellow">تجريبي</span></td>'
+    + '<td class="text-muted">—</td>'
+    + '<td class="text-muted">—</td>'
+    + '<td data-sub-write><div class="action-btns sy-acts" onclick="event.stopPropagation()">'
+    + '<button type="button" class="sy-act" onclick="event.stopPropagation();location.href=\'patient-profile.html?id=demo\'">فتح البطاقة التجريبية</button>'
+    + '<button type="button" class="sy-act sy-act-danger" onclick="event.stopPropagation();obDemoDismiss()" title="حذف البطاقة التجريبية">✕ حذف</button>'
+    + '</div></td></tr>';
 }
 function render() {
   const filtered = getFiltered();
@@ -1538,9 +1560,7 @@ function render() {
       // Demo patient card: only for a truly-empty (new) tenant, and only until dismissed.
       var demoCard = document.getElementById('obDemoCard');
       if (demoCard) {
-        var demoHidden = false;
-        try { demoHidden = localStorage.getItem('sydent.demoPatient.hidden') === '1'; } catch(e){}
-        demoCard.style.display = (isTrulyEmpty && !demoHidden) ? 'block' : 'none';
+        demoCard.style.display = (isTrulyEmpty && !obDemoHidden()) ? 'block' : 'none';
       }
     }
   } else {
@@ -1548,7 +1568,9 @@ function render() {
     const seqMap = {};
     patients.forEach((p, idx) => { seqMap[p.id] = idx + 1; });
 
-    tbody.innerHTML = slice.map(p => {
+    const demoRow = (page === 1 && !obDemoHidden() && filter === 'all'
+      && !document.getElementById('searchInput').value.trim() && !ptAdvActive().length) ? obDemoRowHtml() : '';
+    tbody.innerHTML = demoRow /* xss-ok: نصٌّ ثابت بلا مدخلات */ + slice.map(p => {
       const rowCls = p.status === 'تحت العلاج' ? 'row-active'
                    : p.status === 'مكتمل'      ? 'row-done'
                    : 'row-new';
