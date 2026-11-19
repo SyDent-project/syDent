@@ -5,6 +5,8 @@
    (٣) كل معرّفٍ (#id أو getElementById/rowOf) تشير إليه الجولة موجودٌ في صفحته أو في الوحدات التي تبنيها.
    (٤) sidebar.js يحمّل tour.js على الصفحات الأربع بتوكنه، والجولة لا تكتب شيئاً بالقاعدة (لا sb.from/rpc/insert).
    (٤ب) كل زرٍّ تشير إليه جولة المخزون بـonclick موجودٌ في inventory.html، و«30 يوماً» = عتبة الصلاحية في الصفحة.
+   (٤د) الجولة المفصّلة: الفصول الستة موجودة وكلٌّ يختم بخطوةٍ ختامية فيها أزرار الفصول · زرّ «جولة مفصّلة» يفتح البطاقة التجريبية
+        بـtour=detail وfrom · كل دالةٍ تنقرها الفصول (onclick) موجودة في البطاقة · مفاتيح الحشوة والمعالجة اللبية مبنيّة في الكتالوج.
    (٥) البطاقة التجريبية فيها «مخبر تجريبي» نشط بالطبقة المحلية وموعدُ تركيبٍ قادم — بالذاكرة وحدها.
    --self-test يشغّل طفراتٍ يجب أن تُكشف كلها. */
 'use strict';
@@ -51,9 +53,10 @@ function run(F) {
   ok(arInEn.length === 0, 'English texts carry no Arabic letter' + (arInEn.length ? ' — ' + arInEn[0].where : ''));
   const notAr = texts.filter(x => x.v && x.v.ar && !AR.test(x.v.ar));
   ok(notAr.length === 0, 'Arabic texts are Arabic' + (notAr.length ? ' — ' + notAr[0].where : ''));
-  const untitled = ['dashboard', 'patient', 'labs', 'inventory'].some(p => tours[p].some(s => !s.title || !s.body));
+  const DCH = ['d-sess', 'd-fill', 'd-endo', 'd-lab', 'd-pay', 'd-appt'];
+  const untitled = ['dashboard', 'patient', 'labs', 'inventory'].concat(DCH).some(p => tours[p] && tours[p].some(s => !s.title || !s.body));
   ok(!untitled, 'every step has a title and a body');
-  const finals = ['dashboard', 'patient', 'labs', 'inventory'].every(p => tours[p][tours[p].length - 1].final === true);
+  const finals = ['dashboard', 'patient', 'labs', 'inventory'].concat(DCH.filter(k => tours[k])).every(p => tours[p][tours[p].length - 1].final === true);
   ok(finals, 'each tour ends on a final step');
   const uiMatch = F['tour.js'].match(/var UI = \{([\s\S]*?)\n  \};/);
   const uiBad = uiMatch ? [...uiMatch[1].matchAll(/en: '([^']*)'/g)].filter(m => AR.test(m[1])) : [1];
@@ -83,7 +86,7 @@ function run(F) {
   // (٤) التحميل · لا كتابة
   const sb = F['sidebar.js'];
   ok(/function loadTour\(/.test(sb) && /\n  loadTour\(activeId\);/.test(sb) && /'tour\.js' \+ \(q \? '\?' \+ q : ''\)/.test(sb) && /\['index', 'patient-profile', 'labs', 'inventory'\]/.test(sb), 'sidebar.js loads tour.js on the four pages with its own version token');
-  const invSrc = F['tour.js'].slice(F['tour.js'].indexOf('var INVENTORY = ['), F['tour.js'].indexOf('var TOURS = '));
+  const invSrc = F['tour.js'].slice(F['tour.js'].indexOf('var INVENTORY = ['), F['tour.js'].indexOf('الجولة المفصّلة (طلب المالك'));
   const onc = [...invSrc.matchAll(/\[onclick\^?="([\w]+)/g)].map(m => m[1]);
   const lostOnc = onc.filter(fn => !F['inventory.html'].includes('onclick="' + fn + '(') && !F['inventory.html'].includes("onclick=\"" + fn + "(\\''"));
   ok(onc.length >= 5 && lostOnc.length === 0, 'every inventory button the tour points at exists in inventory.html (' + [...new Set(onc)].join(', ') + ')' + (lostOnc.length ? ' — missing: ' + lostOnc.join(', ') : ''));
@@ -97,6 +100,17 @@ function run(F) {
   const aheadN = (F['tour.js'].match(/ahead: AHEAD_LAB/g) || []).length;
   ok(aheadN >= 4 && /id: 'lab-fill'/.test(F['tour.js']) && /closest\('#toothLabBtn'\)\) labWaitUntil = Date\.now\(\) \+ \d+/.test(F['tour.js']) && /dir >= 0 && s\.ahead && s\.ahead\.when\(\) && jumpTo/.test(F['tour.js']),
     'a slow lab window never sends the tour back to the tooth (wait after «Save + send to lab» · tooth steps jump ahead once it opens)');
+  // (٤د) الجولة المفصّلة
+  const lostCh = DCH.filter(k => !tours[k] || !tours[k].length || !tours[k][tours[k].length - 1].chapEnd);
+  ok(lostCh.length === 0, 'the six detailed-tour chapters exist and each ends on a chapter-end step' + (lostCh.length ? ' — ' + lostCh.join(', ') : ''));
+  const T0 = F['tour.js'];
+  ok(/'patient-profile\.html\?id=demo&tour=detail' \+ \(id \? '&from=' \+ id : ''\)/.test(T0) && /isDemo\(\) && \/\[\?&\]tour=detail/.test(T0) && /sd-tour-detail/.test(T0),
+    'the «Detailed tour» button opens the demo card with tour=detail and from, and the demo card opens the chapter picker');
+  const ppAll = F['patient-profile.html'] + F['pp-dental.js'] + F['pp-clinical.js'] + F['pp-core.js'];
+  const fns = [...new Set([...T0.matchAll(/\[onclick="([A-Za-z_]\w*)\(/g), ...T0.matchAll(/\[onclick\^?="([A-Za-z_]\w*)\(/g)].map(m => m[1]))];
+  const lostFn = fns.filter(fn => !new RegExp('function ' + fn + '\\b|var ' + fn + ' = |' + fn + ' = function').test(ppAll + F['labs.html'] + F['inventory.html']));
+  ok(fns.length >= 8 && lostFn.length === 0, 'every page function the tours tap exists (' + fns.length + ')' + (lostFn.length ? ' — missing: ' + lostFn.join(', ') : ''));
+  ok(/'treated'/.test(T0) && /'root-canal'/.test(T0) && /treatment_key:'treated'/.test(R('treatments.html')) && /treatment_key:'root-canal'/.test(R('treatments.html')), 'the filling and root-canal fallbacks are built-in catalogue treatments');
   // (٥) البطاقة التجريبية
   const pp = F['patient-profile.html'];
   const demoStart = pp.indexOf('var IS_DEMO = '), demoEnd = pp.indexOf('real.from = function', demoStart);
@@ -109,7 +123,7 @@ function run(F) {
 
 function files() {
   const F = {};
-  ['tour.js', 'sidebar.js', 'patient-profile.html', 'labs.html', 'inventory.html', 'index.html', 'lab-files.js', 'lab-stages.js', 'pp-dental.js', 'pp-clinical.js', 'i18n-en.js'].forEach(f => { F[f] = R(f); });
+  ['tour.js', 'sidebar.js', 'patient-profile.html', 'labs.html', 'inventory.html', 'pp-core.js', 'index.html', 'lab-files.js', 'lab-stages.js', 'pp-dental.js', 'pp-clinical.js', 'i18n-en.js'].forEach(f => { F[f] = R(f); });
   return F;
 }
 
@@ -138,6 +152,10 @@ if (process.argv.includes('--self-test')) {
     ['the inventory tour is gone', f => { f['tour.js'] = f['tour.js'].replace('labs: LABS, inventory: INVENTORY', 'labs: LABS'); }],
     ['the tooth steps no longer jump ahead to the open lab window', f => { f['tour.js'] = f['tour.js'].split('ahead: AHEAD_LAB, ').join(''); }],
     ['no wait after «Save + send to lab»', f => { f['tour.js'] = f['tour.js'].replace("labWaitUntil = Date.now() + 15000", "labWaitUntil = 0"); }],
+    ['a detailed chapter is gone', f => { f['tour.js'] = f['tour.js'].replace("'d-pay': D_PAY, ", ''); }],
+    ['a chapter loses its chapter-end', f => { f['tour.js'] = f['tour.js'].split("final: true, chapEnd: true, ico: '🗓️'").join("final: true, ico: '🗓️'"); }],
+    ['a chapter taps a page function that does not exist', f => { f['tour.js'] = f['tour.js'].replace('[onclick="openApptModal()"]', '[onclick="openAppointment()"]'); }],
+    ['the detailed tour no longer passes from', f => { f['tour.js'] = f['tour.js'].replace("(id ? '&from=' + id : '')", "''"); }],
     ['a tour loses its final step', f => { f['tour.js'] = f['tour.js'].replace("{ center: true, final: true, ico: '🎉',\n      title: { ar: 'أنت جاهز!', en: 'You\\'re all set!' },\n      body: { ar: 'الدورة", "{ center: true, ico: '🎉',\n      title: { ar: 'أنت جاهز!', en: 'You\\'re all set!' },\n      body: { ar: 'الدورة"); }]
   ];
   let caught = 0;

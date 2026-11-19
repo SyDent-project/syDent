@@ -10,6 +10,8 @@
   • صفحة المرضى: البطاقة التجريبية سطرٌ مثبّت أعلى القائمة بلا رقم ولا تُعدّ، تختفي أثناء البحث، و«✕ حذف» يزيلها نهائياً.
   • بطاقة مريضٍ حقيقي: لا خطوات تفاعلية (الجولة لا تُنشئ شيئاً على مريضٍ حقيقي).
   • المخابر: الخطوات التي لا عنصر لها في عيادةٍ بلا مخابر لا تُعدّ.
+  • الجولة المفصّلة: زرّ «🧭 جولة مفصّلة» على بطاقةٍ حقيقية يفتح البطاقة التجريبية بقائمة الفصول (ومعه from)، وكل فصلٍ من الستة
+    يُمشى بـ«نفّذ عنّي» حتى خطوة ختامه (الجلسة · الحشوة والأسطح MOD · المعالجة اللبية بكل الجذور · المخبر · الدفعات · الموعد) — بلا قفزٍ ولا تكرار.
   • المخزون: فارغاً 8 خطوات (البطاقات المخفية لا تُعدّ) · وبأصنافٍ ناقصة ودفعةٍ قاربت صلاحيتها 13 خطوة كاملة.
   • كل خطوة: البطاقة داخل الشاشة ولا تغطّي العنصر، صفرُ تمريرٍ أفقي، وصفرُ خطأ JS — على اللابتوب والموبايل.
 --self-test: يُخدَم tour.js بمعرّفٍ مكسور (زر الحفظ) فيجب أن يحمرّ."""
@@ -94,7 +96,7 @@ if(T&&sp.classList.contains('on')){const L=[...document.querySelectorAll('.sdt-b
  cov=!(e&&(T.contains(e)||e.contains(T)));if(cov)window.__cov=(e?e.tagName+'#'+e.id+'.'+String(e.className).slice(0,50):'none')+' T='+JSON.stringify([r.top,r.bottom,r.left,r.right]);L.forEach(b=>b.style.visibility='');}
 return {ttl:document.querySelector('.sdt-ttl').textContent,s:[s.top,s.bottom,s.left,s.right],c:[k.top,k.bottom,k.left,k.right],on:sp.classList.contains('on'),vh:innerHeight,vw:innerWidth,sx:document.documentElement.scrollWidth,cov:cov,act:!!document.querySelector('.sdt-wait:not([hidden])')}}"""
 
-def walk(b, tag, path, w, h, sc, ls=None, until=None, maxn=40, lang='ar', init=None):
+def walk(b, tag, path, w, h, sc, ls=None, until=None, maxn=40, lang='ar', init=None, begin=None):
     ctx = b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=sc, service_workers='block')
     ctx.route('**/*', route)
     L = {'sydent.auth': json.dumps(SESSION), 'sydent.lang': lang, 'sydent_theme': 'light', 'sydent.tour.autostart': '1'}; L.update(ls or {})
@@ -109,6 +111,7 @@ def walk(b, tag, path, w, h, sc, ls=None, until=None, maxn=40, lang='ar', init=N
         except Exception: pass
     p.goto('http://127.0.0.1:%d/%s' % (PORT, path))
     titles, acts = [], 0
+    if begin: begin(p)
     try: p.wait_for_selector('.sdt-card.on', timeout=30000)
     except Exception:
         ok(tag + ': الجولة تبدأ وحدها عند أول زيارة', False); ctx.close(); return p, titles, errs, acts
@@ -184,6 +187,34 @@ with sync_playwright() as pw:
         finally:
             for k in INV: TABLES.pop(k, None)
     if not SELF:
+        CH = {'d-sess': 13, 'd-fill': 8, 'd-endo': 8, 'd-lab': 19, 'd-pay': 6, 'd-appt': 5}
+        for nm, w, h, sc in sizes:
+            for k, n in CH.items():
+                def begin(p, k=k):
+                    p.wait_for_selector('.sdt-pick:not([hidden]) .sdt-ch', timeout=30000)
+                    p.click('.sdt-ch[data-k="%s"]' % k)
+                fin = lambda p, t: p.evaluate("!document.querySelector('.sdt-cend').hidden")
+                p, T, E, A = walk(b, nm + '/فصل ' + k, 'patient-profile.html?id=demo&tour=detail&from=P1', w, h, sc, until=fin, maxn=40, begin=begin)
+                ok(nm + ': فصل %s يصل إلى ختامه بـ%d خطوة متتالية' % (k, n), len(T) == n and len(set(T)) == len(T) and fin(p, ''), T)
+                if k == 'd-fill':
+                    ok(nm + ': الحشوة حُفظت سطراً واحداً على ثلاثة أسطح', p.evaluate("(window.sessions||[]).some(function(s){return String(s.tooth_num)==='46' && /^[MODBLV]{3}$/.test(s.surface||'') && s.surface.indexOf('M')>-1 && s.surface.indexOf('D')>-1})"))
+                if k == 'd-endo':
+                    ok(nm + ': المعالجة اللبية حُفظت على كل الجذور', p.evaluate("(window.sessions||[]).some(function(s){return String(s.tooth_num)==='47' && /R1/.test(s.surface||'') && /R2/.test(s.surface||'')})"))
+                if k == 'd-pay':
+                    ok(nm + ': فصل الدفعات لا يسجّل دفعة', p.evaluate("!document.querySelector('.modal-overlay.open')"))
+                p.context.close()
+        ctx = b.new_context(viewport={'width': 1366, 'height': 768}, service_workers='block'); ctx.route('**/*', route)
+        ctx.add_init_script('(()=>{try{localStorage.setItem("sydent.auth",%s);localStorage.setItem("sydent.lang","ar")}catch(e){}})()' % json.dumps(json.dumps(SESSION)))
+        q = ctx.new_page(); q.goto('http://127.0.0.1:%d/patient-profile.html?id=P1' % PORT); q.wait_for_selector('.sd-tour-detail', timeout=30000)
+        q.click('.sd-tour-detail'); q.wait_for_selector('.sdt-pick:not([hidden]) .sdt-ch', timeout=30000)
+        ok('بطاقة حقيقية: «🧭 جولة مفصّلة» يفتح البطاقة التجريبية بقائمة الفصول الستة', '/patient-profile.html?id=demo&tour=detail&from=P1' in q.url and q.evaluate("document.querySelectorAll('.sdt-ch').length") == 6, q.url)
+        q.click('.sdt-ch[data-k="d-appt"]'); q.wait_for_timeout(1500)
+        for i in range(8):
+            if q.evaluate("!document.querySelector('.sdt-cend').hidden"): break
+            q.click('.sdt-next'); q.wait_for_timeout(1300)
+        q.click('.sdt-back'); q.wait_for_timeout(2500)
+        ok('«ارجع لبطاقة المريض» يعيد إلى البطاقة الحقيقية، والفصل يُختم «تمّ»', q.url.endswith('patient-profile.html?id=P1') and q.evaluate("localStorage.getItem('sydent.tour.v1.d-appt')") == '{"done":true}', q.url)
+        ctx.close()
         for nm, w, h, sc in sizes:
             ctx = b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=sc, service_workers='block'); ctx.route('**/*', route)
             ctx.add_init_script('(()=>{try{if(!sessionStorage.getItem("i")){sessionStorage.setItem("i",1);localStorage.setItem("sydent.auth",%s);localStorage.setItem("sydent.lang","ar")}}catch(e){}})()' % json.dumps(json.dumps(SESSION)))
@@ -221,4 +252,4 @@ if SELF:
 if FAILS:
     for f in FAILS[:15]: print('✗', f)
     print('❌ مثبت الجولات: %d فشل من %d — أولها: %s' % (len(FAILS), N[0], FAILS[0][:220])); sys.exit(1)
-print('✅ مثبت الجولات (متصفح حقيقي): %d توكيداً — اللوحة · البطاقة التجريبية تفاعلياً (ونافذة طلبٍ بطيئة) · سطر البطاقة التجريبية بصفحة المرضى · بطاقة حقيقية · المخابر · المخزون · لابتوب وموبايل' % N[0])
+print('✅ مثبت الجولات (متصفح حقيقي): %d توكيداً — اللوحة · البطاقة التجريبية تفاعلياً (ونافذة طلبٍ بطيئة) · الجولة المفصّلة بفصولها الستة · سطر البطاقة التجريبية بصفحة المرضى · بطاقة حقيقية · المخابر · المخزون · لابتوب وموبايل' % N[0])
