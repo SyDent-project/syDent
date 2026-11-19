@@ -886,6 +886,9 @@ Object.assign(window.SyI18nDict, {
   'حذف البطاقة التجريبية': 'Delete the demo card',
   'تم إخفاء البطاقة التجريبية': 'The demo card is hidden',
   'تم حذف البطاقة التجريبية': 'The demo card is deleted',
+  'الاستحقاق بعد الموعد': 'Due after the appointment',
+  '⏰ الاستحقاق بعد الموعد': '⏰ Due after the appointment',
+  'تاريخ الاستحقاق بعد يوم هذا الموعد — قد لا يصل العمل في وقته': 'The due date is after this appointment\'s day — the work may not be back in time',
   'للتجربة — لا يُحفظ شيء ولا يدخل في تقاريرك': 'For trying things out — nothing is saved or counted in your reports',
   'بطاقة للتجربة — لا شيء فيها يُحفظ أو يدخل في تقاريرك': 'A card for trying things out — nothing in it is saved or counted in your reports',
   'حذف البطاقة التجريبية؟\nلن تظهر في قائمة المرضى بعد ذلك. لا يتأثّر أيّ مريضٍ حقيقي.': 'Delete the demo card?\nIt will no longer appear in the patients list. No real patient is affected.',
@@ -3341,11 +3344,15 @@ Object.assign(window.SyI18nDict, {
     'شغل المخبر جاهز لهذا الموعد': 'Lab work is ready for this appointment',
     'يوجد شغل جاهز من المخبر': 'Lab work is ready',
     'طلب مخبر مرتبط بهذا الموعد': 'Lab order linked to this appointment',
-    'طلب مخبر نشط': 'Active lab order'
+    'طلب مخبر نشط': 'Active lab order',
+    /* بلاغ المالك (19 تشرين الثاني): «متأخر» بقاعدة صفحة المخابر، و«الاستحقاق بعد الموعد» تنبيهٌ برتقالي */
+    'متأخر: عمل المخبر المرتبط بهذا الموعد لم يصل، وفات تاريخ استحقاقه أو حلّ يوم الموعد': 'Late: the lab work linked to this appointment is not back, and its due date has passed or the appointment day has come',
+    'متأخر: طلب مخبر للمريض لم يصل وفات تاريخ استحقاقه': 'Late: a lab order for this patient is not back and its due date has passed',
+    'الاستحقاق بعد الموعد: تاريخ استحقاق طلب المخبر بعد يوم هذا الموعد — قد لا يصل العمل في وقته': 'Due after the appointment: the lab order is due after this appointment\'s day — the work may not be back in time'
   };
   Object.keys(BADGE).forEach(function (k) { if (D[k] == null) D[k] = BADGE[k]; });
   var BADGE_RE = Object.keys(BADGE).map(function (k) { return k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|');
-  P.push([new RegExp('^((?:⚠️|🥽) )?(' + BADGE_RE + ') — (.+)$'), function (m, ic, base, names) {
+  P.push([new RegExp('^((?:⚠️|🥽|⏰) )?(' + BADGE_RE + ') — (.+)$'), function (m, ic, base, names) {
     return (ic || '') + BADGE[base] + ' — ' + names.split('، ').map(nm).join(', ');
   }]);
 })();
