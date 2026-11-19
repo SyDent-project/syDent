@@ -696,7 +696,7 @@
     keys: { ar: '<kbd>←</kbd> التالي · <kbd>→</kbd> السابق · <kbd>Esc</kbd> تأجيل', en: '<kbd>→</kbd> Next · <kbd>←</kbd> Back · <kbd>Esc</kbd> Later' }
   };
 
-  var el = {}, P = null, steps = [], idx = 0, active = false, seq = 0, poll = null, lastFocus = null, busy = false, lostAt = 0;
+  var el = {}, P = null, steps = [], idx = 0, active = false, seq = 0, poll = null, lastFocus = null, busy = false, lostAt = 0, shownAt = 0;
 
   function mk(tag, cls) { var n = document.createElement(tag); if (cls) n.className = cls; return n; }
   function q(s) { return el.card.querySelector(s); }
@@ -805,6 +805,7 @@
   function finish(silent) { save(P, { done: true }); stop(); if (!silent) toast(T(chapOf(P) > -1 ? UI.chapDone : UI.finished)); }
   function onNext() {
     if (busy) return;   /* نقرٌ أثناء الانتقال (جهازٌ بطيء أو نقرٌ مزدوج) لا يُحسب مرتين */
+    if (Date.now() - shownAt < 350) return;   /* خطوةٌ ظهرت للتوّ (قفزةٌ تلقائية بعد فتح نافذة): نقرةٌ قُصد بها ما قبلها لا تتخطّاها */
     var s = steps[idx];
     if (s && s.act && !s.act.done()) { var t = s.sel(); if (t && s.act.doIt) { try { s.act.doIt(t); } catch (e) {} } return; }
     next();
@@ -869,7 +870,7 @@
         if (t) bring(t, inNav);
         setTimeout(function () {
           if (!active || my !== seq) return;
-          place(t, s); el.card.classList.add('on'); busy = false;
+          place(t, s); el.card.classList.add('on'); busy = false; shownAt = Date.now();
           try { el.card.focus({ preventScroll: true }); } catch (e) {}
         }, t ? 120 : 0);
       }, w2);
