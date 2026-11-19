@@ -16,18 +16,18 @@
 /* ── Modal ── v451: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261119d"></script>
+<script src="theme.js?v=20261119e"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261119d"></script>
-<script src="sy-modal.js?v=20261119d"></script>
-<script src="sidebar.js?v=20261119d"></script>
-<script src="rpt-treat.js?v=20261119d"></script>
-<script src="rpt-newpt.js?v=20261119d"></script>
-<script src="rpt-att.js?v=20261119d"></script>
-<script src="rpt-ret.js?v=20261119d"></script>
-<script src="rpt-sum.js?v=20261119d"></script>
-<script src="mat-cost.js?v=20261119d"></script>
-<script src="pay-methods.js?v=20261119d"></script>
+<script src="supabase-init.js?v=20261119e"></script>
+<script src="sy-modal.js?v=20261119e"></script>
+<script src="sidebar.js?v=20261119e"></script>
+<script src="rpt-treat.js?v=20261119e"></script>
+<script src="rpt-newpt.js?v=20261119e"></script>
+<script src="rpt-att.js?v=20261119e"></script>
+<script src="rpt-ret.js?v=20261119e"></script>
+<script src="rpt-sum.js?v=20261119e"></script>
+<script src="mat-cost.js?v=20261119e"></script>
+<script src="pay-methods.js?v=20261119e"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -430,7 +430,7 @@ a.rt-row:hover{background:rgba(var(--green-rgb),0.04);}
 html[data-sub-level="read"] :is([onclick*="savePayout("],[onclick*="openPayoutModal("],[onclick*="deletePayout("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261119d">
+<link rel="stylesheet" href="theme.css?v=20261119e">
 </head>
 <body>
 <div class="main" id="sbMainContent">
@@ -1840,7 +1840,7 @@ function _renderLayerPR() {
           + (!d.is_owner ? '<button class="sy-act" onclick="openLedger(\'' + d.id + '\',\'' + (_renderCur || '') + '\')">📒 كشف حساب</button>' : '')
           // المالك هو الدافع لا المستفيد (مرآة قاعدة payouts.html): أرباحه سحبٌ من حقوق الملكية
           // لا مصروفاً — ودفعةٌ مسجَّلة له كانت ستدخل مصاريف المحاسبة وتُنقص صافي الربح خطأً.
-          + ((poIsOwner() && !d.is_owner) ? '<button class="sy-act sy-act-primary" onclick="openPayoutModal(\'' + d.id + '\',\'' + (_renderCur || '') + '\')">💵 تسجيل دفعة</button>' : '')
+          + ((poIsOwner() && !d.is_owner) ? '<button class="sy-act sy-act-primary" onclick="openPayoutModal(\'' + d.id + '\',\'' + (_renderCur || '') + '\')" data-en="💵 Record a payout">💵 تسجيل دفعة</button>' : '')
         + '</div>'
       + '</div>'
     + '</div>';
@@ -3342,8 +3342,8 @@ function _sumModel() {
     ] },
     { title: '📅 المواعيد', rows: [
       { label: 'نسبة الحضور', kind: 'pct', note: 'من المواعيد المنتهية', cur: A.cur.rate, prev: A.prev.rate, ly: A.ly.rate },
-      { label: 'غاب', kind: 'num', higherBad: true, cur: A.cur.missed, prev: A.prev.missed, ly: A.ly.missed },
-      { label: 'ألغى', kind: 'num', higherBad: true, cur: A.cur.cancelled, prev: A.prev.cancelled, ly: A.ly.cancelled }
+      { label: 'غاب', en: 'No-shows', kind: 'num', higherBad: true, cur: A.cur.missed, prev: A.prev.missed, ly: A.ly.missed },
+      { label: 'ألغى', en: 'Cancellations', kind: 'num', higherBad: true, cur: A.cur.cancelled, prev: A.prev.cancelled, ly: A.ly.cancelled }
     ] }
   ];
   var top = Object.keys(M.cur.rows).map(function(k){ return M.cur.rows[k]; })

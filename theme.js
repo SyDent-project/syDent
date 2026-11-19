@@ -105,7 +105,7 @@
   } catch (e) {}
   document.write('<script src="i18n-en.js' + (tok ? '?v=' + tok : '') + '"><\/script>');
 
-  var AR = /[؀-ۿ]/, ATTRS = ['placeholder', 'title', 'aria-label', 'alt'];
+  var AR = /[؀-ۿ]/, ATTRS = ['placeholder', 'title', 'aria-label', 'alt', 'data-l'];   // data-l: وسمُ الخانة بجداول التقارير على الهاتف (content: attr(data-l))
   var SKIP = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, NOSCRIPT: 1 };
   function dict() { return window.SyI18nDict || {}; }
   function leftovers(s) {   // كلماتٌ عربية معروفة بقيت داخل ناتج نمط (مثل «ل.س»)
