@@ -197,7 +197,7 @@
       tip: { ar: 'لتجربة الخطوات عملياً دون حفظ أي شيء: افتح <b>البطاقة التجريبية</b> من الزرّ في آخر هذه الجولة.', en: 'To try the steps hands-on without saving anything, open the <b>demo card</b> from the button at the end of this tour.' } },
 
     /* ② بالبطاقة التجريبية: تفاعلي */
-    { chap: 2, demo: true, id: 'lab-start', ico: '👆', ahead: AHEAD_LAB, prep: function () { labWaitUntil = 0; return closeOpenModals() + goTab('file'); },
+    { chap: 2, demo: true, id: 'lab-start', reveal: true, ico: '👆', ahead: AHEAD_LAB, prep: function () { labWaitUntil = 0; return closeOpenModals() + goTab('file'); },
       sel: function () { return $('[data-occ-cell="27"]') || $('[data-tooth-cell="27"]'); },
       act: { done: function () { return modalOpen('toothModal'); }, doIt: function (t) {
         /* النقرُ يُقرأ من السطح تحت المؤشّر (مسار SVG) لا من الخلية — فنرسله لما في منتصف السن */
@@ -241,9 +241,16 @@
       title: { ar: 'اربطه بموعد التركيب', en: 'Link it to the fitting appointment' },
       body: { ar: 'اختر: <b>🔄 الموعد القادم تلقائياً</b>، أو موعداً محدّداً من مواعيد المريض، أو <b>📅 تحديد موعد التركيب الآن</b> فيُنشأ الموعد تلقائياً. بالربط يعرف النظام أن هذا الموعد <b>يحتاج عودة العمل من المخبر قبله</b>.', en: 'Choose <b>🔄 Next appointment automatically</b>, a specific appointment of the patient, or <b>📅 Set the fitting appointment now</b> to create it. Linked, the system knows this appointment <b>needs the work back from the lab first</b>.' },
       tip: { ar: 'الافتراضي «غير مربوط بموعد» — اربطه ليعمل تنبيه التأخير وحساب الاستحقاق.', en: 'The default is «Not linked» — link it so the late alert and the due date work.' } },
+    /* بلاغ المالك (الموبايل): كانت خطوة شرح — الحاجز يمنع الاختيار، فيصل «حفظ» بلا مخبر («⚠️ اختر المخبر»). الآن تنفيذ: يختار الطبيب المخبر بنفسه */
     { chap: 2, demo: true, ico: '🎨', need: labModal, onLost: LOST_LAB, sel: function () { return rowOf('labOrderLabSelect'); },
+      act: { done: function () { var x = $('#labOrderLabSelect'); return !!(x && x.value); }, doIt: function () {
+        var x = $('#labOrderLabSelect'); if (!x) return;
+        var opts = $$('option', x).filter(function (o) { return o.value; });
+        var o = opts.filter(function (o) { return /مخبر تجريبي|Demo lab/.test(o.textContent); })[0] || opts[0];
+        if (o) { x.value = o.value; x.dispatchEvent(new Event('change', { bubbles: true })); }
+      } },
       title: { ar: 'المخبر', en: 'The lab' },
-      body: { ar: 'اختر المخبر، أو <b>＋</b> لإضافة مخبرٍ جديد في ثوانٍ. وفي البطاقة التجريبية <b>«مخبر تجريبي»</b> جاهزٌ للتجربة.', en: 'Choose the lab, or <b>＋</b> to add a new one in seconds. The demo card has a ready <b>«Demo lab»</b> to try.' } },
+      body: { ar: 'اختر المخبر من القائمة، أو <b>＋</b> لإضافة مخبرٍ جديد في ثوانٍ. <b>اختر «مخبر تجريبي»</b> — جاهزٌ في البطاقة التجريبية.', en: 'Choose the lab from the list, or <b>＋</b> to add a new one in seconds. <b>Choose «Demo lab»</b> — it is ready on the demo card.' } },
     { chap: 2, demo: true, ico: '🎨', need: labModal, onLost: LOST_LAB, sel: function () { var g = rowOf('labOrderShade'); return g ? (g.closest('.form-row') || g) : null; },
       title: { ar: 'اللون والكلفة', en: 'Shade and cost' },
       body: { ar: 'اكتب اللون أو اضغط <b>🎨</b> لاختيار الرمز من دليل <b>VITA classical</b> أو <b>3D-MASTER</b> أو <b>Chromascop</b> فيُكتب وحده. و<b>الكلفة</b> ما تدفعه العيادة للمخبر عن هذا العمل.', en: 'Type the shade or tap <b>🎨</b> to pick it from the <b>VITA classical</b>, <b>3D-MASTER</b> or <b>Chromascop</b> guide. The <b>cost</b> is what the clinic pays the lab for this work.' },
@@ -694,7 +701,7 @@
   var UI = {
     next: { ar: 'التالي', en: 'Next' }, prev: { ar: 'السابق', en: 'Back' }, later: { ar: 'تأجيل', en: 'Later' }, laterFirst: { ar: 'لاحقاً', en: 'Not now' },
     start: { ar: 'ابدأ الجولة', en: 'Start the tour' }, done: { ar: 'تمّ', en: 'Done' }, doIt: { ar: 'نفّذ عنّي', en: 'Do it for me' },
-    wait: { ar: 'بانتظار نقرتك…', en: 'Waiting for your tap…' }, opening: { ar: 'جارٍ الفتح…', en: 'Opening…' }, of: { ar: ' من ', en: ' of ' }, close: { ar: 'إغلاق الجولة', en: 'Close the tour' },
+    wait: { ar: 'بانتظار نقرتك…', en: 'Waiting for your tap…' }, opening: { ar: 'لحظة…', en: 'One moment…' }, of: { ar: ' من ', en: ' of ' }, close: { ar: 'إغلاق الجولة', en: 'Close the tour' },
     btn: { ar: 'جولة تعريفية', en: 'Guided tour' }, resume: { ar: 'تابع الجولة', en: 'Continue the tour' },
     snoozed: { ar: 'تأجّلت الجولة — أكملها من زر 🧭 في رأس الصفحة', en: 'Tour paused — continue it from the 🧭 button in the page header' },
     finished: { ar: 'انتهت الجولة ✓', en: 'Tour complete ✓' },
@@ -822,7 +829,7 @@
     if (busy) return;   /* نقرٌ أثناء الانتقال (جهازٌ بطيء أو نقرٌ مزدوج) لا يُحسب مرتين */
     if (Date.now() - shownAt < 350) return;   /* خطوةٌ ظهرت للتوّ (قفزةٌ تلقائية بعد فتح نافذة): نقرةٌ قُصد بها ما قبلها لا تتخطّاها */
     var s = steps[idx];
-    if (s && s.act && !s.act.done()) { if (pending()) return;   /* نقرةٌ سابقة ما زالت تفتح نافذتها: لا تُكرَّر (نافذتان بوضعين مختلفين) */
+    if (s && s.act && !s.act.done()) { if (pending() && !(s.need && s.need())) return;   /* نقرةٌ سابقة ما زالت تفتح نافذتها: لا تُكرَّر (نافذتان بوضعين مختلفين) — أمّا إن بقيت الشاشة (حفظٌ رُفض) فالتنفيذ متاح */
       var t = s.sel(); if (t && s.act.doIt) { try { s.act.doIt(t); } catch (e) {} } return; }
     next();
   }

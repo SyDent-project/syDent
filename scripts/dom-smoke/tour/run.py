@@ -11,6 +11,7 @@
   • بطاقة مريضٍ حقيقي: لا خطوات تفاعلية (الجولة لا تُنشئ شيئاً على مريضٍ حقيقي).
   • المخابر: الخطوات التي لا عنصر لها في عيادةٍ بلا مخابر لا تُعدّ.
   • نافذة سنٍّ بطيئة (الموبايل، بلاغ المالك): تُفتح بعد 3 ثوانٍ من النقر — الفصول لا تعود إلى أولها، وتصل إلى ختامها.
+  • فصل المخبر والمخطط ممرَّرٌ إلى 46 (بعد فصلَي الحشوة والمعالجة): السن 27 يُمرَّر إليه، والمخبر يُختار بخطوة تنفيذ قبل «حفظ».
   • الطبيب يسبق الجولة: ينقر السن 15 بنفسه وهو على «مداخل أخرى» — الفصل يلحق به إلى «فئة العلاج» ولا يعود إلى أوله.
   • الجولة المفصّلة: زرّ «🧭 جولة مفصّلة» على بطاقةٍ حقيقية يفتح البطاقة التجريبية بقائمة الفصول (ومعه from)، وكل فصلٍ من الستة
     يُمشى بـ«نفّذ عنّي» حتى خطوة ختامه (الجلسة · الحشوة والأسطح MOD · المعالجة اللبية بكل الجذور · المخبر · الدفعات · الموعد) — بلا قفزٍ ولا تكرار.
@@ -135,6 +136,7 @@ def walk(b, tag, path, w, h, sc, ls=None, until=None, maxn=40, lang='ar', init=N
         ok('%s «%s»: البطاقة لا تغطّي العنصر' % (tag, t), not g['on'] or s[1] <= c[0] + 1 or s[0] >= c[1] - 1 or s[3] <= c[2] + 1 or s[2] >= c[3] - 1)
         ok('%s «%s»: العنصر ظاهرٌ غير مغطّى' % (tag, t), not g['cov'], p.evaluate('window.__cov||""') if g['cov'] else '')
         ok('%s «%s»: لا تمرير أفقي' % (tag, t), g['sx'] <= g['vw'] + 1)
+        ok('%s «%s»: العنصر المضاء داخل الشاشة أفقياً (المخطط يُمرَّر إليه)' % (tag, t), not g['on'] or (s[3] > 8 and s[2] < g['vw'] - 8), s)
         if until and until(p, t): break
         if lang == 'en':
             e = p.evaluate("[getComputedStyle(document.querySelector('.sdt-body')).direction, /[\\u0600-\\u06FF]/.test(document.querySelector('.sdt-card').innerText)]")
@@ -213,6 +215,14 @@ with sync_playwright() as pw:
             p, T, E, A = walk(b, 'موبايل/نافذة سنٍّ بطيئة ' + k, 'patient-profile.html?id=demo&tour=detail', 390, 844, 2, until=fin, maxn=45, begin=begin, init=SLOW_TOOTH)
             ok('موبايل: نافذة سنٍّ بطيئة — فصل %s يصل إلى ختامه بلا رجوعٍ ولا تكرار (%d)' % (k, n), len(T) == n and len(set(T)) == len(T) and fin(p, ''), T)
             p.context.close()
+        def begin(p):   # بلاغ المالك: بعد فصلَي الحشوة والمعالجة كان المخطط ممرَّراً إلى 46/47 فيبقى السن 27 خارج الشاشة
+            p.wait_for_selector('.sdt-pick:not([hidden]) .sdt-ch', timeout=30000)
+            p.evaluate("document.querySelector('[data-occ-cell=\"46\"]').scrollIntoView({inline:'center',block:'nearest'})")
+            p.click('.sdt-ch[data-k="d-lab"]')
+        fin = lambda p, t: p.evaluate("!document.querySelector('.sdt-cend').hidden")
+        p, T, E, A = walk(b, 'موبايل/المخبر بعد تمرير المخطط', 'patient-profile.html?id=demo&tour=detail', 390, 844, 2, until=fin, maxn=40, begin=begin)
+        ok('موبايل: فصل المخبر والمخطط ممرَّرٌ بعيداً عن 27 — السن يُعرض ويصل الفصل إلى ختامه، والطلب محفوظ بمخبر', fin(p, '') and len(T) == 19 and p.evaluate("document.querySelectorAll('#labOrdersContent .sy-act-primary, #labOrdersContent .sy-acts').length") > 0, T)
+        p.context.close()
         def begin(p):
             p.wait_for_selector('.sdt-pick:not([hidden]) .sdt-ch', timeout=30000); p.click('.sdt-ch[data-k="d-sess"]')
         def ahead(p, t):
