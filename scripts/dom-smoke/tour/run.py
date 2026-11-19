@@ -208,6 +208,8 @@ with sync_playwright() as pw:
         q = ctx.new_page(); q.goto('http://127.0.0.1:%d/patient-profile.html?id=P1' % PORT); q.wait_for_selector('.sd-tour-detail', timeout=30000)
         q.click('.sd-tour-detail'); q.wait_for_selector('.sdt-pick:not([hidden]) .sdt-ch', timeout=30000)
         ok('بطاقة حقيقية: «🧭 جولة مفصّلة» يفتح البطاقة التجريبية بقائمة الفصول الستة', '/patient-profile.html?id=demo&tour=detail&from=P1' in q.url and q.evaluate("document.querySelectorAll('.sdt-ch').length") == 6, q.url)
+        q.click('.sdt-ch[data-k="d-pay"]'); q.wait_for_timeout(1800); q.click('.sdt-next'); q.wait_for_timeout(1500); q.click('.sdt-next'); q.wait_for_timeout(1800); q.click('.sdt-x'); q.wait_for_timeout(700)
+        ok('إغلاق الفصل (✕) يعيد إلى قائمة الفصول ويغلق نوافذه، و«ارجع لبطاقة المريض» فيها', q.evaluate("!document.querySelector('.sdt-pick').hidden && !document.querySelector('.sdt-pick-f').hidden && !document.querySelector('.modal-overlay.open') && !document.querySelector('.sdt-card.on')"))
         q.click('.sdt-ch[data-k="d-appt"]'); q.wait_for_timeout(1500)
         for i in range(8):
             if q.evaluate("!document.querySelector('.sdt-cend').hidden"): break
