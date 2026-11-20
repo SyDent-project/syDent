@@ -194,7 +194,7 @@ function englishEngine() {
 }
 const AR = /[\u0600-\u06FF]/;
 
-async function runAll(src) {
+async function runAll(src, opt_sw) {
   const fails = [];
   const ok = (name, cond, extra) => { if (!cond) fails.push(name + (extra ? ' [' + extra + ']' : '')); };
   const PURL = SB + '/rest/v1/patients?select=*&doctor_id=eq.' + U1;
@@ -439,10 +439,26 @@ async function runAll(src) {
     });
   }
 
+  /* ══ الخطوة 6: سقف كاش الأصول يسع الأسطول مرتين (توكن قديم + جديد) ══ */
+  {
+    const sw = (opt_sw || fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'));
+    const cap = parseInt((/MAX_ASSETS = (\d+)/.exec(sw) || [])[1], 10);
+    const set = new Set();
+    fs.readdirSync(ROOT).filter(f => /\.html$/.test(f)).forEach(f => {
+      const h = fs.readFileSync(path.join(ROOT, f), 'utf8');
+      for (const m of h.matchAll(/(?:src|href)="([^"#:]+\.(?:js|css|webp|png|svg|woff2))(?:\?[^"]*)?"/g)) set.add(m[1].replace(/^\//, ''));
+    });
+    try { fs.readdirSync(path.join(ROOT, 'fonts')).forEach(f => set.add('fonts/' + f)); } catch (e) {}
+    ['tour.js', 'guides.js', 'i18n-en.js'].forEach(f => { if (fs.existsSync(path.join(ROOT, f))) set.add(f); });
+    ok('s6: asset census is sane', set.size > 60, String(set.size));
+    ok('s6: asset cache cap holds the whole fleet twice', cap >= set.size * 2, 'cap=' + cap + ' assets=' + set.size);
+  }
+
   return fails;
 }
 
 const MUTATIONS = [
+  ['s6: asset cache cap back below the fleet', s => s, sw => sw.replace('MAX_ASSETS = 240', 'MAX_ASSETS = 80')],
   ['s5: sbSignOut wipes the queue again', s => s.replace("try { if (window.SyDentSyncGuard && !(await window.SyDentSyncGuard.beforeLogout())) return; } catch (e) {}\n    // Migration 107", "try { if (window.SyDentOffline) window.SyDentOffline.wipe(); } catch (e) {}\n    // Migration 107")],
   ['s5: guard never asks', s => s.replace("if (!D || typeof D.confirm !== 'function') return true;", 'return true;')],
   ['s5: guard asks about audit entries', s => s.replace("return ops.filter(function (o) { return o.table !== 'audit_log'; }).length;", 'return ops.length;')],
@@ -465,10 +481,11 @@ const MUTATIONS = [
   const fails = await runAll(LIVE);
   if (fails.length) { console.log('⛔ مثبت الأوفلاين: ' + fails.length + ' فشل'); fails.forEach(f => console.log('   ✗ ' + f)); process.exit(1); }
   if (process.argv.indexOf('--self-test') !== -1) {
-    for (const [name, mut] of MUTATIONS) {
-      const m = mut(LIVE);
-      if (m === LIVE) { console.log('⛔ طفرة لم تُطبَّق (المرساة تغيّرت): ' + name); process.exit(1); }
-      let f; try { f = await runAll(m); } catch (e) { f = ['threw: ' + e.message]; }
+    const SW = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
+    for (const [name, mut, swMut] of MUTATIONS) {
+      const m = mut(LIVE), msw = swMut ? swMut(SW) : SW;
+      if (m === LIVE && msw === SW) { console.log('⛔ طفرة لم تُطبَّق (المرساة تغيّرت): ' + name); process.exit(1); }
+      let f; try { f = await runAll(m, msw); } catch (e) { f = ['threw: ' + e.message]; }
       if (!f.length) { console.log('⛔ طفرة لم تُكشف: ' + name); process.exit(1); }
     }
     console.log('✅ مثبت الأوفلاين: كل التوكيدات خضراء + ' + MUTATIONS.length + ' طفرات مكشوفة');
