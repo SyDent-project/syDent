@@ -547,6 +547,8 @@ Object.assign(window.SyI18nDict, {
   'تم رفع العملية': 'The operation was uploaded',
   'لم تُرفع العملية — ما زال الخادم يرفضها': 'Not uploaded — the server still rejects it',
   'حُذفت العملية': 'Operation deleted',
+  'سُجّلت بلا اتصال وتُرفع تلقائياً عند عودة الإنترنت.': 'Recorded offline; they upload automatically when the internet is back.',
+  'بانتظار الرفع': 'Waiting to upload',
   'عُدّل الموعد من جهاز آخر بعد تعديلك': 'the appointment was changed from another device after your edit',
   'حُذف الموعد من جهاز آخر': 'the appointment was deleted from another device',
   'تطبيق تعديلي': 'Apply my edit',
