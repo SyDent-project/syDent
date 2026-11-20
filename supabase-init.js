@@ -2264,7 +2264,9 @@
 
   // تسجيل خروج
   window.sbSignOut = async function() {
-    try { if (window.SyDentOffline) window.SyDentOffline.wipe(); } catch (e) {}
+    /* الطابور المعلّق لا يُحذف عند الخروج (كان wipe يمسحه بصمت) — كاش القراءة
+       تمسحه لفّة signOut؛ وإن وُجد ما لم يُرفع يُسأل المستخدم أولاً. */
+    try { if (window.SyDentSyncGuard && !(await window.SyDentSyncGuard.beforeLogout())) return; } catch (e) {}
     // Migration 107: امسح العملة الدافئة كي لا يرث حسابٌ آخر على نفس الجهاز
     // رمز العيادة السابقة قبل أن يصل استعلام sidebar.
     try { if (window.SyDentCurrency) window.SyDentCurrency.clear(); } catch (e) {}
@@ -6053,6 +6055,8 @@ window.SyDentAccountDelete = (function () {
     }
     // 5) الحساب نفسه
     var del = await sb.rpc('delete_my_account');
+    /* حسابٌ حُذف: لا يبقى له شيء على الجهاز — الطابور أيضاً (لن يُرفع لأحد) */
+    try { if (!del.error && window.SyDentOffline) window.SyDentOffline.wipe(); } catch (e) {}
     try { await sb.auth.signOut(); } catch (e) {}
     if (del.error) {
       console.error('RPC delete error:', del.error);
@@ -6184,6 +6188,39 @@ window.SyDentAccountDelete = (function () {
       });
     }).catch(function () { syncNow(); });
   }
+
+  /* ── حارس الخروج: عمليات سُجّلت بلا اتصال ولم تُرفع ────────────────────────
+     يحاول رفعها أولاً إن كان الاتصال قائماً (مسقوف بـ8ث)، وما بقي يُسأل عنه
+     صاحبه: الخروج لا يحذفها — تبقى على الجهاز معزولةً بحسابه وتُرفع عند دخوله
+     من جديد. يعيد true للمتابعة و false للبقاء؛ أي خلل داخلي = متابعة (لا حبس). */
+  function pendingCount() {
+    return window.SyDentOffline.outboxList().then(function (ops) {
+      return ops.filter(function (o) { return o.table !== 'audit_log'; }).length;
+    });
+  }
+  function beforeLogout() {
+    try {
+      var O = window.SyDentOffline;
+      if (!O || !O.outboxList) return Promise.resolve(true);
+      return pendingCount().then(function (n) {
+        if (!n) return true;
+        var tryDrain = (window.navigator && window.navigator.onLine === false) ? Promise.resolve()
+          : Promise.race([O.drain().catch(function () {}), new Promise(function (r) { setTimeout(r, 8000); })]);
+        return tryDrain.then(pendingCount).then(function (left) {
+          if (!left) return true;
+          var D = window.SyDialog;
+          if (!D || typeof D.confirm !== 'function') return true;
+          return D.confirm({
+            title: 'عمليات لم تُرفع بعد',
+            message: 'لديك عمليات سُجّلت بلا اتصال ولم تُرفع إلى الخادم بعد.\n' +
+                     'الخروج لا يحذفها: تبقى محفوظة على هذا الجهاز وتُرفع تلقائياً عند دخولك بهذا الحساب من جديد.',
+            confirmText: 'خروج', cancelText: 'البقاء', danger: true
+          }).then(function (yes) { return !!yes; });
+        });
+      }).catch(function () { return true; });
+    } catch (e) { return Promise.resolve(true); }
+  }
+  window.SyDentSyncGuard = { beforeLogout: beforeLogout };
 
   function renderBadge(pending, failed) {
     try {

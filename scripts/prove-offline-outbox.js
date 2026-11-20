@@ -402,10 +402,50 @@ async function runAll(src) {
     ok('s4: a rejecting lock manager never throws and loses nothing', x.left === 2 && x.res.every(r => r.synced === 0 && r.failed === 0));
   }
 
+  /* ══ الخطوة 5: الخروج لا يحذف ما لم يُرفع — يرفعه أولاً أو يسأل ══ */
+  {
+    const q = async (t, table) => { t.navigator.onLine = false;
+      await t.SyDentOffline.fetch(SB + '/rest/v1/' + table, { method: 'POST', body: JSON.stringify({ patient_id: 'p1', date: '2026-11-21', amount: 5 }), headers: { 'Content-Type': 'application/json' } });
+      t.navigator.onLine = true; };
+    let t = mkTab(src, U1, async () => json(null, 201), newIDB(), { wire: true });
+    ok('s5: guard exported', !!t.SyDentSyncGuard && typeof t.SyDentSyncGuard.beforeLogout === 'function');
+    ok('s5: nothing pending → logout proceeds without a question', (await t.SyDentSyncGuard.beforeLogout()) === true && t.dialogs.length === 0);
+    await q(t, 'appointments');
+    ok('s5: pending + online → uploaded first, then logout proceeds silently', (await t.SyDentSyncGuard.beforeLogout()) === true && t.dialogs.length === 0 && (await t.SyDentOffline._outboxAll()).length === 0);
+    await q(t, 'audit_log'); t.navigator.onLine = false;
+    ok('s5: only an audit entry pending → no question', (await t.SyDentSyncGuard.beforeLogout()) === true && t.dialogs.length === 0);
+
+    t = mkTab(src, U1, async () => { throw new TypeError('Failed to fetch'); }, newIDB(), { wire: true });
+    await q(t, 'ledger_payments'); t.navigator.onLine = false;
+    t.script = [false];
+    ok('s5: pending + offline → asks, and «stay» cancels the logout', (await t.SyDentSyncGuard.beforeLogout()) === false && t.dialogs.length === 1 && t.dialogs[0].kind === 'confirm');
+    t.script = [true];
+    ok('s5: «sign out» proceeds', (await t.SyDentSyncGuard.beforeLogout()) === true);
+    ok('s5: the pending payment is still queued either way', (await t.SyDentOffline._outboxAll()).length === 1);
+    const tr = englishEngine(), d = t.dialogs[0].o;
+    [d.title, d.confirmText, d.cancelText].concat(String(d.message).split('\n')).forEach(x => {
+      const en = tr(x); ok('s5: English engine leaves no Arabic in «' + x + '»', en != null && !AR.test(en), String(en));
+    });
+
+    /* كل زر خروج يمرّ بالحارس، و sbSignOut لم يعد يمسح الطابور */
+    const R = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
+    const sbso = src.slice(src.indexOf('window.sbSignOut = async function() {'), src.indexOf("window.location.href = 'auth.html';", src.indexOf('window.sbSignOut = async function() {')));
+    ok('s5: sbSignOut no longer wipes the queue', sbso.length > 0 && !/SyDentOffline\.wipe\(\)/.test(sbso));
+    ok('s5: sbSignOut asks the guard before signing out', /SyDentSyncGuard\.beforeLogout\(\)\)\) return;[\s\S]*auth\.signOut\(\)/.test(sbso));
+    const sb = R('sidebar.js'), lo = sb.slice(sb.indexOf('window.doLogout = async function'), sb.indexOf('/* ─── Unified toast'));
+    ok('s5: sidebar logout asks the guard before signing out', /SyDentSyncGuard\.beforeLogout\(\)\)\) return;[\s\S]*auth\.signOut\(/.test(lo));
+    ['doctors.html', 'provider-reports.html'].forEach(f => {
+      ok('s5: ' + f + ' logout asks the guard', /async function doLogout\(\) \{\s+try \{ if \(window\.SyDentSyncGuard && !\(await window\.SyDentSyncGuard\.beforeLogout\(\)\)\) return; \}/.test(R(f)));
+    });
+  }
+
   return fails;
 }
 
 const MUTATIONS = [
+  ['s5: sbSignOut wipes the queue again', s => s.replace("try { if (window.SyDentSyncGuard && !(await window.SyDentSyncGuard.beforeLogout())) return; } catch (e) {}\n    // Migration 107", "try { if (window.SyDentOffline) window.SyDentOffline.wipe(); } catch (e) {}\n    // Migration 107")],
+  ['s5: guard never asks', s => s.replace("if (!D || typeof D.confirm !== 'function') return true;", 'return true;')],
+  ['s5: guard asks about audit entries', s => s.replace("return ops.filter(function (o) { return o.table !== 'audit_log'; }).length;", 'return ops.length;')],
   ['s4: drain no longer takes the cross-tab lock', s => s.replace("if (!L || typeof L.request !== 'function') return drainNow();", 'if (true) return drainNow();')],
   ['s4: losing tab drains anyway', s => s.replace("if (!lock) return { synced: 0, failed: 0, busy: true };", '')],
   ['s4: other tabs not told about queue changes', s => s.replace("if (!fromOtherTab && _bc) { try { _bc.postMessage(1); } catch (e) {} }", '')],

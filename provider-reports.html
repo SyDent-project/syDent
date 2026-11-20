@@ -3688,6 +3688,7 @@ function applyDoctorModeFilter() {
 }
 
 async function doLogout() {
+  try { if (window.SyDentSyncGuard && !(await window.SyDentSyncGuard.beforeLogout())) return; } catch (_g) {}
   await window.sb.auth.signOut();
   window.location.href = 'auth.html?logged_out=1';
 }
