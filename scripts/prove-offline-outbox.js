@@ -114,10 +114,15 @@ function mkTab(src, uid, net, idb, opt) {
     console: { warn() {}, info() {}, log() {}, error() {} }
   };
   win.window = win;
-  const el = () => ({ style: {}, setAttribute() {}, appendChild() {}, addEventListener() {}, classList: { add() {}, remove() {}, toggle() {} } });
+  const els = [];
+  const el = () => { const e = { style: {}, setAttribute() {}, appendChild() {}, addEventListener() {}, classList: { add() {}, remove() {}, toggle() {} } }; els.push(e); return e; };
+  win.byId = id => els.find(e => e.id === id) || null;
+  /* مؤقّتات الإقلاع الطويلة (تصريف 3ث · prefetch 8ث) تُكتم كي لا تتداخل مع السيناريو */
+  const st = (fn, ms) => (ms >= 3000 ? 0 : setTimeout(fn, ms));
   const ctx = vm.createContext({ window: win, navigator: win.navigator, localStorage: storage, sessionStorage: storage,
-    document: { getElementById: () => null, createElement: el, body: el(), documentElement: el(), readyState: 'complete', addEventListener() {} },
-    Response, AbortController, Promise, setTimeout, clearTimeout, setInterval() {}, console: win.console });
+    document: { getElementById: id => win.byId(id), createElement: el, body: el(), documentElement: el(), readyState: 'complete', addEventListener() {},
+      dispatchEvent() {} },
+    CustomEvent: function () {}, Response, AbortController, Promise, setTimeout: st, clearTimeout, setInterval() {}, console: win.console });
   vm.runInContext(slice(src, '/* ═══ SYDENT_OFFLINE_MODULE_START', '/* ═══ SYDENT_OFFLINE_MODULE_END ═══ */'), ctx);
   win.SyDentOffline.configureDrain(async () => ({ apikey: 'k', Authorization: 'Bearer t' }), recs => { win.synced = (win.synced || []).concat(recs); });
   if (opt.auth) {
@@ -135,8 +140,42 @@ function mkTab(src, uid, net, idb, opt) {
     if (a < 0 || b < 0 || c < 0) throw new Error('auth wrapper markers missing');
     vm.runInContext('(function(){' + src.slice(a, c + 8) + '})();', ctx);
   }
+  if (opt.wire) {
+    /* قسم التوصيل الحي: الشارة + نافذة المراجعة + التصريف */
+    if (!win.sb) win.sb = { auth: {} };
+    win.sb.supabaseKey = 'k';
+    win.sb.auth.getSession = async () => ({ data: { session: { access_token: 't' } } });
+    win.dialogs = []; win.script = [];
+    const next = (kind, o) => { win.dialogs.push({ kind, o }); return Promise.resolve(win.script.length ? win.script.shift() : (kind === 'confirm' ? false : null)); };
+    win.SyDialog = { choose: o => next('choose', o), confirm: o => next('confirm', o), alert: o => next('alert', o) };
+    const a = src.indexOf('(function () {\n  if (window.__sydentSyncWire) return;');
+    const b = src.indexOf('\n})();\n', a);
+    if (a < 0 || b < 0) throw new Error('sync wire markers missing');
+    vm.runInContext(src.slice(a, b + 7), ctx);
+  }
   return win;
 }
+
+/* محرّك الإنجليزية الحقيقي (theme.js + i18n-en.js) — نفس تحميل prove-i18n-render */
+function englishEngine() {
+  const R = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
+  const store = { 'sydent.lang': 'en' };
+  const el = () => ({ getAttribute: () => null, setAttribute() {}, closest: () => null, nodeName: 'DIV' });
+  const ctx = { console, setTimeout: () => 0,
+    localStorage: { getItem: k => store[k] || null, setItem: (k, v) => { store[k] = v; } },
+    location: { search: '', pathname: '/index.html', reload() {} },
+    document: { readyState: 'complete', title: '', documentElement: { classList: { add() {} } }, body: el(),
+      write() {}, querySelector: () => null, getElementById: () => null, addEventListener() {},
+      createTreeWalker: () => ({ nextNode: () => null }), createElement: () => Object.assign(el(), { addEventListener() {} }) },
+    MutationObserver: function () { this.observe = () => {}; } };
+  ctx.window = ctx; ctx.window.addEventListener = () => {};
+  vm.createContext(ctx);
+  const theme = R('theme.js'), start = theme.indexOf('/* ── SyI18n'), end = theme.indexOf('})();', start) + 5;
+  vm.runInContext(R('i18n-en.js'), ctx);
+  vm.runInContext(theme.slice(start, end), ctx);
+  return t => ctx.window.SyI18n.t(t);
+}
+const AR = /[\u0600-\u06FF]/;
 
 async function runAll(src) {
   const fails = [];
@@ -227,10 +266,97 @@ async function runAll(src) {
     ok('s2: 409 on a table without injected id is a failure', x.d.failed === 1 && x.ob.length === 1);
   }
 
+  /* ══ الخطوة 3: العمليات الفاشلة تُعرَض وتُدار — لا حذف صامت ══ */
+  {
+    const WEEK = 8 * 24 * 3600 * 1000;
+    const seed = async (t, table, method, row, urlTail) => {
+      t.navigator.onLine = false;
+      await t.SyDentOffline.fetch(SB + '/rest/v1/' + table + (urlTail || ''), { method, body: JSON.stringify(row), headers: { 'Content-Type': 'application/json' } });
+      t.navigator.onLine = true;
+    };
+    const FK = { code: '23503', message: 'violates foreign key constraint "ledger_payments_patient_id_fkey"', details: '' };
+    const idb = newIDB();
+    let reject = true;
+    const t = mkTab(src, U1, async () => (reject ? json(FK, 409) : json(null, 201)), idb, { wire: true });
+    await seed(t, 'appointments', 'POST', { patient_id: 'p1', patient_name: 'سامر الأحمد', date: '2026-11-21', time: '10:30:00' });
+    await seed(t, 'ledger_payments', 'POST', { patient_id: 'p1', amount: 50000, currency: 'SYP', date: '2026-11-20' });
+    await seed(t, 'audit_log', 'POST', { action: 'x' });
+    const other = mkTab(src, U2, async () => json(FK, 409), idb);
+    await seed(other, 'appointments', 'POST', { patient_id: 'p9', patient_name: 'غريب', date: '2026-11-22', time: '09:00:00' });
+    for (let i = 0; i < 5; i++) await t.SyDentOffline.drain();
+    /* تقادُم كل العمليات أكثر من أسبوع ثم تصريف: الكنّاس يعمل */
+    for (const r of await t.SyDentOffline._outboxAll()) { r.createdAt = Date.now() - WEEK; await t.SyDentOffline._outboxPut(r); }
+    await t.SyDentOffline.drain();
+    let mine = await t.SyDentOffline.outboxList();
+    ok('s3: a failed appointment and payment are never dropped automatically', mine.filter(o => o.table !== 'audit_log').length === 2 && mine.every(o => o.table === 'audit_log' || o.status === 'failed'), JSON.stringify(mine.map(o => o.table + ':' + o.status)));
+    ok('s3: an expired failed audit entry is still swept', !mine.some(o => o.table === 'audit_log'));
+    ok('s3: the list shows only the signed-in user\'s operations, without url or headers', mine.every(o => !o.url && !o.headers && !(o.row && o.row.patient_name === 'غريب')));
+    ok('s3: another user cannot discard my operation', (await other.SyDentOffline.outboxDiscard(mine[0].id)) === false && (await t.SyDentOffline.outboxList()).length === 2);
+
+    /* الشارة: نقرها يفتح النافذة بالعمليتين */
+    const badge = t.byId('sydent-sync-badge');
+    ok('s3: sync badge exists and is clickable', !!badge && typeof badge.onclick === 'function');
+    t.script = [null];
+    badge.onclick(); await sleep(60);
+    const first = t.dialogs[0];
+    ok('s3: clicking the badge lists the rejected operations', !!first && first.kind === 'choose' && first.o.choices.length === 2, first ? JSON.stringify(first.o.choices) : 'no dialog');
+    const flat = first ? first.o.choices.map(c => c.label.replace(/[\u2066-\u2069]/g, '') + ' | ' + c.sub.replace(/[\u2066-\u2069]/g, '')) : [];
+    ok('s3: appointment row shows kind, date, time and patient', flat.indexOf('موعد جديد · 2026-11-21 10:30 | سامر الأحمد') !== -1, flat.join(' ## '));
+    ok('s3: payment row shows amount, currency, date and the reason', flat.indexOf('دفعة · 50000 ل.س · 2026-11-20 | السجل المرتبط بها حُذف من جهاز آخر (HTTP 409 · 23503)') !== -1, flat.join(' ## '));
+
+    /* حذف: اختيار العملية الأولى ← «حذف» ← تأكيد */
+    t.dialogs = []; t.script = [0, 1, true];
+    badge.onclick(); await sleep(90);
+    ok('s3: delete asks for a danger confirmation first', t.dialogs.length === 3 && t.dialogs[2].kind === 'confirm' && t.dialogs[2].o.danger === true);
+    mine = await t.SyDentOffline.outboxList();
+    ok('s3: confirmed delete removes exactly that operation', mine.length === 1 && mine[0].table === 'ledger_payments');
+    /* إلغاء التأكيد لا يحذف */
+    t.dialogs = []; t.script = [0, 1, false];
+    badge.onclick(); await sleep(90);
+    ok('s3: declining the confirmation deletes nothing', (await t.SyDentOffline.outboxList()).length === 1);
+    /* إعادة المحاولة بعد زوال سبب الرفض */
+    reject = false; t.dialogs = []; t.script = [0, 0]; t.toasts.length = 0;
+    badge.onclick(); await sleep(120);
+    ok('s3: retry uploads the operation and clears it', (await t.SyDentOffline.outboxList()).length === 0 && t.toasts.some(m => /تم رفع العملية/.test(m)), t.toasts.join(' | '));
+    ok('s3: the other user\'s failed operation was untouched throughout', (await other.SyDentOffline.outboxList()).length === 1);
+
+    /* الإنجليزية: كل عقدة نص من النافذتين تمرّ بالمحرّك الحقيقي بلا حرف عربي (عدا اسم المريض) */
+    const tr = englishEngine();
+    const d2 = { title: 'x' };
+    const texts = [];
+    (first ? [first.o.title, first.o.message, first.o.cancelText] : []).forEach(x => texts.push(x));
+    (first ? first.o.choices : []).forEach(c => { texts.push(c.label); if (c.sub !== 'سامر الأحمد') texts.push(c.sub); });
+    const t3 = mkTab(src, U1, async () => json({ code: '42501', message: 'rls' }, 403), newIDB(), { wire: true });
+    await seed(t3, 'appointments', 'PATCH', { time: '11:00:00' }, '?id=eq.aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+    await seed(t3, 'appointments', 'DELETE', {}, '?id=eq.bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+    await seed(t3, 'ledger_payments', 'POST', { patient_id: 'p1', amount: 20, currency: 'USD', date: '2026-11-20' });
+    await t3.SyDentOffline.drain();
+    t3.script = [0, 1, false];
+    t3.byId('sydent-sync-badge').onclick(); await sleep(90);
+    t3.dialogs.forEach(d => {
+      [d.o.title, d.o.cancelText, d.o.confirmText].forEach(x => { if (x) texts.push(x); });
+      String(d.o.message || '').split('\n').forEach(x => { if (x) texts.push(x); });
+      (d.o.choices || []).forEach(c => { texts.push(c.label); texts.push(c.sub); });
+    });
+    ['✅ تم رفع العملية', '⚠️ لم تُرفع العملية — ما زال الخادم يرفضها', 'حُذفت العملية', '⚠️ 2 عملية لم تُرفع — اضغط شارة المزامنة للمراجعة'].forEach(x => texts.push(x));
+    ok('s3: enough English samples collected', texts.length >= 20, String(texts.length));
+    texts.forEach(x => {
+      const en = tr(x);
+      const out = en == null ? x : en;
+      ok('s3: English engine leaves no Arabic in «' + x.replace(/[\u2066-\u2069]/g, '') + '»', !AR.test(out), out);
+      ok('s3: English keeps the numbers of «' + x.replace(/[\u2066-\u2069]/g, '') + '»', (x.match(/\d+/g) || []).join(',') === (out.match(/\d+/g) || []).join(','), out);
+    });
+  }
+
   return fails;
 }
 
 const MUTATIONS = [
+  ['s3: failed appointments swept after a week again', s => s.replace("if (rec.table === 'audit_log' && Date.now() - (rec.createdAt || 0) > 7 * 24 * 3600 * 1000) {", 'if (Date.now() - (rec.createdAt || 0) > 7 * 24 * 3600 * 1000) {')],
+  ['s3: review list leaks other users', s => s.replace("return rows.filter(function (r) { return r && uid && r.uid === uid; }).map(function (r) {", 'return rows.map(function (r) {')],
+  ['s3: discard not limited to own operations', s => s.replace("if (rows[i] && rows[i].id === id && uid && rows[i].uid === uid) return rows[i];", 'if (rows[i] && rows[i].id === id) return rows[i];')],
+  ['s3: delete without confirmation', s => s.replace("if (!yes) return;\n                return O.outboxDiscard(op.id)", 'return O.outboxDiscard(op.id)')],
+  ['s3: badge click no longer opens the review', s => s.replace('el.onclick = function () { try { openSyncReview(); } catch (e) {} };', 'el.onclick = function () { try { syncNow(); } catch (e) {} };')],
   ['s2: any 409 counts as synced again', s => s.replace('if (res.status === 409 && isOwnDuplicate(rec, info)) return done();', 'if (res.status === 409) return done();')],
   ['s2: own-duplicate rule widened beyond inserts', s => s.replace("if (!rec || rec.method !== 'POST' || !UUID_INJECT_TABLES[rec.table]) return false;", 'if (!rec) return false;')],
   ['s1: logout no longer wipes', s => s.replace('var w = _wipeOfflineCache();', 'var w = Promise.resolve();')],
