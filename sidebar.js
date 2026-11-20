@@ -1393,6 +1393,8 @@ window.initSidebar = initSidebar;
 window.doLogout = async function() {
   if (window.__sbLoggingOut) return;                       // v301: second tap while signing out
   if (!await SyDialog.confirm({ message: 'هل تريد تسجيل الخروج؟', danger: false })) return;
+  /* عمليات سُجّلت بلا اتصال ولم تُرفع: تُرفع أولاً أو يُسأل عنها (لا تُحذف بالخروج) */
+  try { if (window.SyDentSyncGuard && !(await window.SyDentSyncGuard.beforeLogout())) return; } catch (_g) {}
   window.__sbLoggingOut = true;
   try {
     var _lo = document.querySelector('.sb-item[onclick*="doLogout"]');
