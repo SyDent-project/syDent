@@ -668,6 +668,14 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
       <svg class="shub-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
     </a>
 
+    <!-- قفل التطبيق على هذا الجهاز (SyDentAppLock بـsupabase-init.js) — إعداد الجهاز وحده -->
+    <a class="shub-card" href="#" id="appLockCard"
+       onclick="window.SyDentAppLock&&window.SyDentAppLock.openSettings();return false;">
+      <div class="shub-ic c"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+      <div class="shub-body"><div class="shub-title">قفل التطبيق على هذا الجهاز</div><div class="shub-desc" id="appLockCardDesc">يطلب رمزاً عند فتح التطبيق وبعد مدة خمول — على هذا الجهاز فقط</div></div>
+      <svg class="shub-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
+    </a>
+
     <!-- ═══ شريط التبويبات العرضي (نمط adm-nav) — يستبدل بطاقات الهاب ═══ -->
     <nav class="stg-nav" aria-label="أقسام الإعدادات">
       <button type="button" class="stg-nav-btn on" data-view="account"  onclick="settingsGo('account')">👤 الحساب</button>

@@ -1798,6 +1798,7 @@
         };
         window.sb.auth.signOut = function (opts) {
           _guClear(); _padmClear();
+          try { if (window.SyDentAppLock) window.SyDentAppLock.clear(); } catch (eA) {}   /* الخروج يلغي قفل الجهاز: الدخول التالي بكلمة المرور */
           var w = _wipeOfflineCache();
           return realSignOut(opts).then(function (res) { return w.then(function () { return res; }); });
         };
@@ -7131,3 +7132,249 @@ window.SyDentWA = (function () {
   }
   return { open: open, toScheme: toScheme, isDesktop: isDesktop, _consts: { FALLBACK_MS: FALLBACK_MS } };
 })();
+
+
+/* ═══ SYDENT_APPLOCK_START ═══
+   SyDent — قفل التطبيق على هذا الجهاز (اختياري)
+   ─────────────────────────────────────────────────────────────────────────
+   على جهاز مشترك أو موبايل: يطلب رمزاً (4–6 أرقام) عند فتح التطبيق وبعد مدة خمول.
+   • إعداد الجهاز وحده (localStorage): لا عمود ولا هجرة، ويعمل بلا اتصال. الرمز لا
+     يُخزَّن — يُخزَّن مشتقّه (PBKDF2-SHA256 · 150 ألف دورة · ملح عشوائي للجهاز).
+   • مستقلّ عن «وضع القفل» (أدوار المالك/الطبيب/السكرتيرة ورموزها): ذاك يحدّد مَن يعمل،
+     وهذا يحجب الشاشة عمّن يمسك الجهاز.
+   • خمس محاولات خاطئة ⇒ انتظار دقيقة. نسيان الرمز ⇒ «تسجيل الخروج» من شاشة القفل
+     (يمسح بيانات الجهاز المخزّنة كأي خروج) ثم الدخول بكلمة المرور؛ والخروج يلغي القفل.
+   • حدّه المعلن: حجبُ واجهةٍ لا تشفير — لا يحمي من شخصٍ يفتح أدوات المتصفح نفسها.
+   لا يظهر على الصفحات العامة ولا بلا جلسة. أي خلل داخلي = لا قفل (لا حبس خارج التطبيق). */
+(function () {
+  'use strict';
+  if (window.SyDentAppLock) return;
+  var K = 'sydent.applock', K_LAST = 'sydent.applock.last', K_FAIL = 'sydent.applock.fails', K_COOL = 'sydent.applock.cool';
+  var ITER = 150000, MAX_FAILS = 5, COOL_MS = 60000, IDLE_CHOICES = [1, 5, 15, 30];
+  var PUBLIC = ['auth', 'landing', 'reset-password', 'pending', 'privacy', 'book', 'intake', 'portal', 'offline', 'ui-kit'];
+  var OVERLAY_ID = 'syAppLock', _shown = false;
+
+  function ls() { return window.localStorage; }
+  function now() { return Date.now(); }
+  function sessionUid() {
+    try {
+      var s = JSON.parse(ls().getItem('sydent.auth') || 'null');
+      var sess = (s && s.user) ? s : (s && s.currentSession && s.currentSession.user) ? s.currentSession : (s && s.session && s.session.user) ? s.session : null;
+      return (sess && sess.user && sess.user.id) || null;
+    } catch (e) { return null; }
+  }
+  function isPublic() {
+    try {
+      var p = (window.location.pathname || '/').replace(/\.html$/, '').replace(/^\//, '');
+      return PUBLIC.indexOf(p) !== -1;
+    } catch (e) { return false; }
+  }
+  function cfg() {
+    try { var c = JSON.parse(ls().getItem(K) || 'null'); return (c && c.salt && c.hash && c.uid) ? c : null; } catch (e) { return null; }
+  }
+  function isOn() { var c = cfg(), u = sessionUid(); return !!(c && u && c.uid === u); }
+  function touch() { try { ls().setItem(K_LAST, String(now())); } catch (e) {} }
+  function shouldLock() {
+    try {
+      if (isPublic() || !isOn()) return false;
+      var c = cfg(), last = parseInt(ls().getItem(K_LAST) || '0', 10) || 0;
+      return now() - last > (c.idle || 5) * 60000;
+    } catch (e) { return false; }
+  }
+  function hex(buf) { return Array.prototype.map.call(new Uint8Array(buf), function (b) { return (b < 16 ? '0' : '') + b.toString(16); }).join(''); }
+  function unhex(h) { var a = new Uint8Array(h.length / 2); for (var i = 0; i < a.length; i++) a[i] = parseInt(h.substr(i * 2, 2), 16); return a; }
+  function derive(pin, saltHex) {
+    var C = window.crypto && window.crypto.subtle;
+    if (!C) return Promise.reject(new Error('no-crypto'));
+    return C.importKey('raw', new TextEncoder().encode(String(pin)), 'PBKDF2', false, ['deriveBits']).then(function (key) {
+      return C.deriveBits({ name: 'PBKDF2', salt: unhex(saltHex), iterations: ITER, hash: 'SHA-256' }, key, 256);
+    }).then(hex);
+  }
+  function validPin(pin) { return /^\d{4,6}$/.test(String(pin == null ? '' : pin)); }
+  function cooldownLeft() { try { var u = parseInt(ls().getItem(K_COOL) || '0', 10) || 0; return u > now() ? Math.ceil((u - now()) / 1000) : 0; } catch (e) { return 0; } }
+
+  function enable(pin, idleMin) {
+    var uid = sessionUid();
+    if (!uid) return Promise.resolve({ ok: false, reason: 'no_session' });
+    if (!validPin(pin)) return Promise.resolve({ ok: false, reason: 'invalid_format' });
+    var salt = hex(window.crypto.getRandomValues(new Uint8Array(16)));
+    return derive(pin, salt).then(function (h) {
+      ls().setItem(K, JSON.stringify({ v: 1, uid: uid, salt: salt, hash: h, idle: IDLE_CHOICES.indexOf(idleMin) !== -1 ? idleMin : 5 }));
+      ls().removeItem(K_FAIL); ls().removeItem(K_COOL);
+      touch();
+      return { ok: true };
+    }).catch(function () { return { ok: false, reason: 'unsupported' }; });
+  }
+  function verify(pin) {
+    var c = cfg();
+    if (!c) return Promise.resolve({ ok: false, reason: 'off' });
+    var left = cooldownLeft();
+    if (left) return Promise.resolve({ ok: false, reason: 'cooldown', secondsLeft: left });
+    if (!validPin(pin)) return Promise.resolve({ ok: false, reason: 'invalid_format' });
+    return derive(pin, c.salt).then(function (h) {
+      if (h === c.hash) { ls().removeItem(K_FAIL); ls().removeItem(K_COOL); return { ok: true }; }
+      var n = (parseInt(ls().getItem(K_FAIL) || '0', 10) || 0) + 1;
+      ls().setItem(K_FAIL, String(n));
+      if (n >= MAX_FAILS) { ls().setItem(K_COOL, String(now() + COOL_MS)); ls().removeItem(K_FAIL); return { ok: false, reason: 'cooldown', secondsLeft: COOL_MS / 1000 }; }
+      return { ok: false, reason: 'wrong', failsLeft: MAX_FAILS - n };
+    }).catch(function () { return { ok: false, reason: 'unsupported' }; });
+  }
+  function clear() { try { ls().removeItem(K); ls().removeItem(K_LAST); ls().removeItem(K_FAIL); ls().removeItem(K_COOL); } catch (e) {} hide(); }
+  function disable(pin) { return verify(pin).then(function (r) { if (r.ok) clear(); return r; }); }
+  function setIdle(min) { var c = cfg(); if (!c || IDLE_CHOICES.indexOf(min) === -1) return false; c.idle = min; ls().setItem(K, JSON.stringify(c)); return true; }
+
+  /* ── شاشة القفل ── */
+  function ensureStyle() {
+    if (document.getElementById('syAppLockStyle')) return;
+    var st = document.createElement('style');
+    st.id = 'syAppLockStyle';
+    st.textContent =
+      'html.sy-applocked body>*:not(#' + OVERLAY_ID + '){visibility:hidden!important}' +
+      '#' + OVERLAY_ID + '{position:fixed;inset:0;z-index:2147483600;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+      'gap:12px;padding:24px;background:var(--bg);color:var(--text);direction:rtl;text-align:center;font-family:inherit}' +
+      '#' + OVERLAY_ID + ' .al-ic{font-size:56px;line-height:1}' +
+      '#' + OVERLAY_ID + ' .al-t{font-size:20px;font-weight:800}' +
+      '#' + OVERLAY_ID + ' .al-s{font-size:14px;color:var(--text2)}' +
+      '#' + OVERLAY_ID + ' input{width:180px;max-width:70vw;padding:12px;border-radius:10px;border:1px solid var(--border2);background:var(--bg3);' +
+      'color:var(--text);font-size:22px;text-align:center;letter-spacing:6px;direction:ltr;font-family:inherit}' +
+      '#' + OVERLAY_ID + ' .al-ok{padding:11px 34px;border:0;border-radius:10px;background:var(--green);color:var(--on-accent);font-size:15px;font-weight:800;cursor:pointer;font-family:inherit}' +
+      '#' + OVERLAY_ID + ' .al-err{min-height:20px;font-size:13px;font-weight:700;color:var(--red)}' +
+      '#' + OVERLAY_ID + ' .al-out{margin-top:10px;background:transparent;border:0;color:var(--text2);font-size:13px;text-decoration:underline;cursor:pointer;font-family:inherit}';
+    (document.head || document.documentElement).appendChild(st);
+  }
+  function show() {
+    try {
+      ensureStyle();
+      document.documentElement.classList.add('sy-applocked');
+      _shown = true;
+      if (!document.body) { document.addEventListener('DOMContentLoaded', show); return; }
+      if (document.getElementById(OVERLAY_ID)) return;
+      var ov = document.createElement('div');
+      ov.id = OVERLAY_ID;
+      ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', 'التطبيق مقفل');
+      ov.innerHTML =
+        '<div class="al-ic" aria-hidden="true">🔒</div>' +
+        '<div class="al-t">التطبيق مقفل</div>' +
+        '<div class="al-s">أدخل رمز القفل للمتابعة</div>' +
+        '<input type="password" inputmode="numeric" autocomplete="off" maxlength="6" aria-label="رمز القفل">' +
+        '<button type="button" class="al-ok">فتح</button>' +
+        '<div class="al-err" role="alert"></div>' +
+        '<button type="button" class="al-out">نسيت الرمز؟ تسجيل الخروج</button>';
+      document.body.appendChild(ov);
+      var inp = ov.querySelector('input'), err = ov.querySelector('.al-err'), busy = false;
+      var submit = function () {
+        if (busy) return;
+        busy = true; err.textContent = '';
+        verify(inp.value).then(function (r) {
+          busy = false;
+          if (r.ok) { touch(); hide(); return; }
+          inp.value = '';
+          err.textContent = r.reason === 'cooldown' ? 'محاولات كثيرة — انتظر دقيقة ثم أعد المحاولة'
+            : r.reason === 'invalid_format' ? 'الرمز من 4 إلى 6 أرقام' : 'رمز غير صحيح';
+          try { inp.focus(); } catch (e) {}
+        });
+      };
+      ov.querySelector('.al-ok').addEventListener('click', submit);
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+      ov.querySelector('.al-out').addEventListener('click', function () {
+        try {
+          if (typeof window.sbSignOut === 'function') window.sbSignOut();
+          else if (window.sb && window.sb.auth) window.sb.auth.signOut().then(function () { window.location.href = 'auth.html'; });
+        } catch (e) {}
+      });
+      setTimeout(function () { try { inp.focus(); } catch (e) {} }, 60);
+    } catch (e) { hide(); }
+  }
+  function hide() {
+    _shown = false;
+    try {
+      document.documentElement.classList.remove('sy-applocked');
+      var ov = document.getElementById(OVERLAY_ID);
+      if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+    } catch (e) {}
+  }
+  function check() { try { if (!_shown && shouldLock()) show(); else if (_shown && !shouldLock()) hide(); } catch (e) {} }
+
+  /* ── الإعداد (من بطاقة الإعدادات) — بعُدّة النوافذ الموحّدة ── */
+  function askPin(message) {
+    var D = window.SyDialog;
+    var p = D.prompt({ title: 'قفل التطبيق', message: message, placeholder: '••••', confirmText: 'متابعة' });
+    try {
+      var all = document.querySelectorAll('.sy-dialog-input'), inp = all[all.length - 1];
+      if (inp) { inp.type = 'password'; inp.setAttribute('inputmode', 'numeric'); inp.setAttribute('maxlength', '6'); inp.setAttribute('autocomplete', 'off'); }
+    } catch (e) {}
+    return p;
+  }
+  function toast(m, bad) { try { if (typeof window.showToast === 'function') window.showToast(m, !!bad); } catch (e) {} }
+  function pickIdle() {
+    var labels = { 1: 'دقيقة واحدة', 5: '5 دقائق', 15: '15 دقيقة', 30: '30 دقيقة' };
+    return window.SyDialog.choose({ title: 'قفل التطبيق', message: 'مدة الخمول قبل القفل',
+      choices: IDLE_CHOICES.map(function (m) { return { label: labels[m] }; }) })
+      .then(function (i) { return (i == null) ? null : IDLE_CHOICES[i]; });
+  }
+  function openSettings() {
+    var D = window.SyDialog;
+    if (!D || !D.prompt || !D.choose) return Promise.resolve();
+    if (!isOn()) {
+      return askPin('رمز قفل جديد من 4 إلى 6 أرقام').then(function (a) {
+        if (a == null) return;
+        if (!validPin(a)) { toast('⚠️ الرمز من 4 إلى 6 أرقام', true); return; }
+        return askPin('أعد إدخال الرمز للتأكيد').then(function (b) {
+          if (b == null) return;
+          if (a !== b) { toast('⚠️ الرمزان غير متطابقين', true); return; }
+          return pickIdle().then(function (m) {
+            if (m == null) return;
+            return enable(a, m).then(function (r) {
+              if (r.ok) toast('🔒 تم تفعيل قفل التطبيق على هذا الجهاز');
+              else toast('⚠️ تعذّر تفعيل القفل على هذا المتصفح', true);
+              paintCard();
+            });
+          });
+        });
+      });
+    }
+    return D.choose({ title: 'قفل التطبيق', message: 'القفل مفعّل على هذا الجهاز',
+      choices: [{ label: 'قفل الآن' }, { label: 'تغيير مدة الخمول' }, { label: 'إيقاف القفل', sub: 'يتطلب رمز القفل الحالي' }] })
+      .then(function (i) {
+        if (i === 0) { try { ls().setItem(K_LAST, '0'); } catch (e) {} check(); return; }
+        if (i === 1) return pickIdle().then(function (m) { if (m != null && setIdle(m)) toast('تم حفظ مدة الخمول'); });
+        if (i === 2) {
+          return askPin('أدخل رمز القفل الحالي').then(function (p) {
+            if (p == null) return;
+            return disable(p).then(function (r) {
+              if (r.ok) toast('تم إيقاف قفل التطبيق');
+              else toast(r.reason === 'cooldown' ? '⚠️ محاولات كثيرة — انتظر دقيقة ثم أعد المحاولة' : '⚠️ رمز غير صحيح', true);
+              paintCard();
+            });
+          });
+        }
+      });
+  }
+  function paintCard() {
+    try {
+      var d = document.getElementById('appLockCardDesc');
+      if (d) d.textContent = isOn() ? 'مفعّل على هذا الجهاز' : 'يطلب رمزاً عند فتح التطبيق وبعد مدة خمول — على هذا الجهاز فقط';
+    } catch (e) {}
+  }
+
+  window.SyDentAppLock = { isOn: isOn, enable: enable, disable: disable, verify: verify, setIdle: setIdle, clear: clear,
+    shouldLock: shouldLock, check: check, openSettings: openSettings, paintCard: paintCard, _touch: touch };
+
+  /* ── التشغيل: فحص فوري (قبل ظهور البيانات) ثم دوري، والنشاط يؤجّل القفل ── */
+  try {
+    check();
+    var lastTouch = 0;
+    ['pointerdown', 'keydown'].forEach(function (ev) {
+      window.addEventListener(ev, function () {
+        if (_shown || !isOn()) return;
+        var t = now(); if (t - lastTouch < 5000) return;
+        lastTouch = t; touch();
+      }, true);
+    });
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') check(); });
+    window.addEventListener('storage', function (e) { if (e && (e.key === K_LAST || e.key === K)) check(); });   /* تبويب آخر فتح القفل أو ألغاه */
+    setInterval(check, 20000);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paintCard); else paintCard();
+  } catch (e) {}
+})();
+/* ═══ SYDENT_APPLOCK_END ═══ */
