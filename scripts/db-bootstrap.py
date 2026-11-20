@@ -87,6 +87,7 @@ AFTER_SNAPSHOT = [
     'migrations/218_demo_patient_hidden.sql',        # additive nullable column on clinic_settings (demo patient row deleted for the whole account); no grants, no policy change
     'migrations/219_consent_forms.sql',              # consent_templates + patient_consents (RLS owner-only + sub-guard), guard trigger, _consent_sync/consent_sync
     'migrations/220_portal_consents.sql',            # portal_show_consents + portal_consents/portal_consent_sign (anon doors) + patient_consents in the realtime publication
+    'migrations/221_consent_keep_after_done.sql',    # _consent_sync: a pending consent survives its treatment being completed (prune branch only)
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',

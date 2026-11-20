@@ -16,7 +16,8 @@ var PP_CONSENT_OK = false;       /* الجدولُ موجود (بعد الهجر
 var _ppConsentBusy = false;
 var _ppConsentSig = null;        /* بصمةُ الجلسات المخطّطة عند آخر مزامنة */
 var _ppConsentTimer = null;
-var PP_CONSENT_SELECT = 'id, treatment_key, treatment_name, title, body, teeth, status, auto, created_at, signed_at, signer_name, signer_relation, voided_at';
+var PP_CONSENT_SELECT = 'id, treatment_key, treatment_name, title, body, teeth, status, auto, session_ids, created_at, signed_at, signer_name, signer_relation, voided_at';
+var _ppConsentWarned = {};       /* موافقاتٌ نُبّه لإنجاز علاجها بلا توقيع (مرةً لكل موافقة) */
 
 function ppConsentWhen(iso) {
   if (!iso) return '';
@@ -55,7 +56,7 @@ async function ppConsentLoad(force) {
     if (r.error) {
       if (!/42P01|PGRST205|does not exist|schema cache/i.test((r.error.message || '') + ' ' + (r.error.code || ''))) console.warn('patient_consents load:', r.error);
       PP_CONSENTS = []; PP_CONSENT_OK = false;
-    } else { PP_CONSENTS = r.data || []; PP_CONSENT_OK = true; }
+    } else { PP_CONSENTS = r.data || []; PP_CONSENT_OK = true; ppConsentWarnDone(true); }   /* ما أُنجز قبل الفتح لا يُنبَّه عنه — الصفُّ يعرضه معلَّقاً */
   } catch (e) { console.warn('patient_consents:', e); PP_CONSENTS = []; PP_CONSENT_OK = false; }
   _ppConsentBusy = false;
   ppConsentRender();
@@ -65,9 +66,24 @@ async function ppConsentLoad(force) {
 /* نقطةُ المرور (renderTimeline): الخطةُ تغيّرت ⇒ مزامنةٌ مؤجَّلة لحظةً (عدّةُ رسماتٍ متتالية = نداءٌ واحد) */
 function ppConsentTouch() {
   if (!Array.isArray(PP_CONSENTS)) return;                 /* التحميلُ الأول لم ينتهِ بعد */
+  ppConsentWarnDone();
   if (ppConsentPlanSig() === _ppConsentSig) return;
   if (_ppConsentTimer) clearTimeout(_ppConsentTimer);
   _ppConsentTimer = setTimeout(function () { _ppConsentTimer = null; ppConsentLoad(true); }, 600);
+}
+
+/* أ4: علاجٌ أُنجز وموافقتُه ما زالت معلَّقة ⇒ تنبيهٌ واحد لحظةَ الإنجاز (بلا منع — قرار المالك). الموافقةُ تبقى معلَّقةً حتى تُوقَّع
+   أو تُلغى (M221). silent: خطُّ الأساس عند التحميل — ما أُنجز قبل فتح البطاقة يعرضه الصفُّ ولا يُنبَّه عنه كلَّ مرة. */
+function ppConsentWarnDone(silent) {
+  var list = (typeof sessions !== 'undefined' && Array.isArray(sessions)) ? sessions : [];
+  var done = {};
+  list.forEach(function (s) { if (s && s.id && (s.status || 'completed') === 'completed') done[s.id] = true; });
+  (PP_CONSENTS || []).forEach(function (c) {
+    if (c.status !== 'pending' || _ppConsentWarned[c.id]) return;
+    if (!(c.session_ids || []).some(function (id) { return done[id]; })) return;
+    _ppConsentWarned[c.id] = true;
+    if (!silent) showToast('⚠️ أُنجز العلاج وموافقته «' + (c.title || '') + '» لم تُوقَّع بعد', true);
+  });
 }
 
 function ppConsentRender() {
