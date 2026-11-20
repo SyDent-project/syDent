@@ -482,6 +482,79 @@
     if (!info || info.code !== '23505') return false;
     return info.message.indexOf('"' + rec.table + '_pkey"') !== -1 || /^Key \(id\)=/.test(info.details);
   }
+  /* ── كشف التعارض: موعدٌ عُدّل أو حُذف بلا اتصال وقد غيّره جهازٌ آخر بالأثناء ────────
+     كان آخرُ من يرفع يكتب فوق الآخر بصمت، وتعديلُ موعدٍ حذفه غيرُك يُحسب «تمّ» وهو لم
+     يغيّر شيئاً. الآن:
+     • عند الحفظ بلا اتصال تُحفَظ مع العملية قيمُ الأعمدة المعدَّلة «كما رآها المستخدم»
+       (آخر نسخة مكاشة للصف + ما طُوبِر عليه قبلها) — seenRow.
+     • قبل الرفع يُقرأ الصف من الخادم: غائب ⇒ تعديله تعارض «حُذف» (وحذفه = تمّ)؛ قيمةُ
+       عمودٍ تغيّرت عمّا رآه المستخدم ولا تساوي ما يريده ⇒ تعارض «عُدّل». التعارض لا يُرفع
+       ولا يُعاد تلقائياً: يظهر بنافذة «عمليات لم تُرفع» ليختار صاحبه (تطبيق تعديلي / ترك
+       نسخة الخادم). اختياره «تطبيق» يرفع بلا فحص (force).
+     فشل القراءة شبكياً يوقف التصريف؛ ردٌّ غير ناجح منها = الرفع كما كان (لا حبس). */
+  function seenRow(uid, table, id) {
+    return pfAllKeys().then(function (keys) {
+      var mine = keys.filter(function (k) {
+        return typeof k === 'string' && k.indexOf(uid + '|') === 0 && k.indexOf('/rest/v1/' + table) !== -1;
+      }).slice(0, 80);
+      var found = null, at = -1, chain = Promise.resolve();
+      mine.forEach(function (k) {
+        chain = chain.then(function () {
+          return idbGet(k).then(function (rec) {
+            if (!rec || (rec.savedAt || 0) <= at) return;
+            try {
+              var d = JSON.parse(rec.body);
+              (Array.isArray(d) ? d : [d]).forEach(function (r) { if (r && r.id === id) { found = r; at = rec.savedAt || 0; } });
+            } catch (e) {}
+          });
+        });
+      });
+      return chain.then(function () {
+        if (!found) return null;
+        return outboxAll().then(function (ops) {
+          ops.forEach(function (o) {
+            if (!o || o.uid !== uid || o.table !== table || o.method !== 'PATCH' || idFromUrl(o.url) !== id) return;
+            try { var p = JSON.parse(o.body || '{}'); for (var c in p) if (Object.prototype.hasOwnProperty.call(p, c)) found[c] = p[c]; } catch (e) {}
+          });
+          return found;
+        });
+      });
+    }).catch(function () { return null; });
+  }
+  function sameVal(a, b) {
+    if (a == null || a === '') return b == null || b === '';
+    if (b == null || b === '') return false;
+    var x = String(a), y = String(b);
+    if (/^\d\d:\d\d/.test(x) && /^\d\d:\d\d/.test(y)) return x.slice(0, 5) === y.slice(0, 5);   /* 10:00 = 10:00:00 */
+    return x === y;
+  }
+  function conflictCheck(rec, auth) {
+    if (!rec || rec.table !== 'appointments' || rec.force) return Promise.resolve('ok');
+    if (rec.method !== 'PATCH' && rec.method !== 'DELETE') return Promise.resolve('ok');
+    var id = idFromUrl(rec.url);
+    if (!id) return Promise.resolve('ok');
+    var cols = rec.base ? Object.keys(rec.base) : [];
+    if (rec.method === 'DELETE' && !cols.length) return Promise.resolve('ok');
+    var h = { Accept: 'application/json' };
+    for (var k in auth) h[k] = auth[k];
+    return window.fetch(rec.url.split('?')[0] + '?id=eq.' + encodeURIComponent(id) + '&select=' + ['id'].concat(cols).join(','),
+      { method: 'GET', headers: h }).then(function (res) {
+      if (res.status === 401) throw new Error('auth-401');
+      if (!res.ok) return 'ok';
+      return res.json().then(function (rows) {
+        if (!Array.isArray(rows)) return 'ok';
+        if (!rows.length) return rec.method === 'DELETE' ? 'done' : 'gone';
+        var srv = rows[0], patch = {};
+        if (rec.method === 'PATCH') { try { patch = JSON.parse(rec.body || '{}') || {}; } catch (e) {} }
+        for (var i = 0; i < cols.length; i++) {
+          var c = cols[i];
+          if (!sameVal(srv[c], rec.base[c]) && !(rec.method === 'PATCH' && sameVal(srv[c], patch[c]))) return 'changed';
+        }
+        return 'ok';
+      }, function () { return 'ok'; });
+    });
+  }
+
   /* رقم ملف المريض المسجَّل بلا اتصال: الصفحة تعطيه رقماً مؤقتاً (أعلى رقم تعرفه + 1) قد
      يكون أخذه جهازٌ آخر، والقاعدة تمنع التكرار (فهرس فريد). فقبل الرفع يُطلب الرقم من
      عدّاد الخادم الذرّي نفسه الذي تستعمله الصفحة أونلاين (next_patient_seq) ويُكتب مكان
@@ -536,8 +609,15 @@
             return;
           }
           return Promise.resolve(_getAuthHeaders()).then(function (auth) {
-            return allocPatientSeq(rec, auth).then(function () { return auth; });
-          }).then(function (auth) {
+            return allocPatientSeq(rec, auth).then(function () { return conflictCheck(rec, auth); })
+              .then(function (verdict) { return { auth: auth, verdict: verdict }; });
+          }).then(function (pre) {
+            if (pre.verdict === 'done') {            /* حذفُ موعدٍ سبق حذفه: لا شيء يُرفع */
+              synced++;
+              return outboxDelete(rec.id);
+            }
+            if (pre.verdict !== 'ok') return conflicted(rec, pre.verdict);
+            var auth = pre.auth;
             var headers = {};
             for (var k in auth) headers[k] = auth[k];
             if (rec.headers) {
@@ -584,7 +664,15 @@
       outboxNotify();
       return { synced: synced, failed: failed };
     });
-  }
+      /* تعارض: لا يُرفع ولا يُعاد تلقائياً (attempts=5) — يبقى لقرار صاحبه بنافذة المراجعة */
+    function conflicted(rec, verdict) {
+      failed++;
+      rec.status = 'failed'; rec.attempts = 5;
+      rec.lastError = 'CONFLICT ' + verdict;
+      console.warn('[SyDentOffline] drain conflict:', rec.method, rec.table, verdict);
+      return outboxMark(rec);
+    }
+}
 
   /* ── مراجعة الطابور: عرض عمليات المستخدم الحالي + إعادة محاولة + حذف ──────
      تُعرَض نسخٌ مختصرة (لا ترويسات ولا رابط)؛ والتعديل محصور بعمليات صاحب الجلسة. */
@@ -606,10 +694,11 @@
       return null;
     });
   }
-  function outboxRetry(id) {
+  function outboxRetry(id, force) {
     return outboxOwn(id).then(function (rec) {
       if (!rec) return { synced: 0, failed: 0 };
       rec.status = 'pending'; rec.attempts = 0; rec.lastError = '';
+      if (force) rec.force = true;           /* «تطبيق تعديلي»: يُرفع بلا فحص تعارض */
       return outboxMark(rec).then(function () { return drain(); });
     });
   }
@@ -857,7 +946,17 @@
           },
           createdAt: Date.now(), attempts: 0, status: 'pending'
         };
-        return outboxAdd(rec).then(function () {
+        var withBase = Promise.resolve();
+        if (qTable === 'appointments' && (method === 'PATCH' || method === 'DELETE') && idFromUrl(url)) {
+          withBase = seenRow(qUid, qTable, idFromUrl(url)).then(function (row) {
+            if (!row) return;
+            var cols = method === 'PATCH' ? Object.keys((echoRows && echoRows[0]) || {}) : ['date', 'time', 'status'];
+            var base = {}, n = 0;
+            cols.forEach(function (c) { if (c !== 'id' && Object.prototype.hasOwnProperty.call(row, c)) { base[c] = row[c]; n++; } });
+            if (n) rec.base = base;
+          }).catch(function () {});
+        }
+        return withBase.then(function () { return outboxAdd(rec); }).then(function () {
           var now = Date.now();
           if ((qTable === 'appointments' || qTable === 'ledger_payments' || qTable === 'patients') && now - _lastQueueToast > 2500) {
             _lastQueueToast = now;
@@ -6423,6 +6522,8 @@ window.SyDentAccountDelete = (function () {
   }
   function opReason(op) {
     var e = op.lastError || '', why;
+    if (e === 'CONFLICT changed') return 'عُدّل الموعد من جهاز آخر بعد تعديلك';
+    if (e === 'CONFLICT gone') return 'حُذف الموعد من جهاز آخر';
     if (e.indexOf('23503') !== -1) why = 'السجل المرتبط بها حُذف من جهاز آخر';
     else if (e.indexOf('23505') !== -1) why = 'تتعارض مع سجل موجود على الخادم';
     else if (e.indexOf('HTTP 403') !== -1 || e.indexOf('42501') !== -1) why = 'لا صلاحية لتنفيذها';
@@ -6452,23 +6553,30 @@ window.SyDentAccountDelete = (function () {
       }).then(function (i) {
         if (i == null || !bad[i]) return;
         var op = bad[i], nm = opWho(op);
+        /* الخيارات حسب الحالة: تعارض «عُدّل» = تطبيق تعديلي أو ترك نسخة الخادم ·
+           «حُذف» = لا شيء يُطبَّق عليه · غير ذلك = إعادة المحاولة أو الحذف */
+        var acts = op.lastError === 'CONFLICT changed'
+          ? [{ k: 'force', label: 'تطبيق تعديلي', sub: 'يُكتب فوق ما عُدّل من الجهاز الآخر' },
+             { k: 'drop', label: 'حذف العملية', sub: 'يبقى الموعد كما هو على الخادم' }]
+          : op.lastError === 'CONFLICT gone'
+            ? [{ k: 'drop', label: 'حذف العملية', sub: 'تُحذف من هذا الجهاز ولا تُرفع' }]
+            : [{ k: 'retry', label: 'إعادة المحاولة', sub: 'تُرفع الآن من جديد' },
+               { k: 'drop', label: 'حذف العملية', sub: 'تُحذف من هذا الجهاز ولا تُرفع' }];
         return D.choose({
           title: opLabel(op),
           message: (nm ? String(nm) + '\n' : '') + opReason(op) + '\n' + 'سُجّلت' + ' ' + iso(stamp(op.createdAt)),
-          choices: [
-            { label: 'إعادة المحاولة', sub: 'تُرفع الآن من جديد' },
-            { label: 'حذف العملية', sub: 'تُحذف من هذا الجهاز ولا تُرفع' }
-          ],
+          choices: acts.map(function (x) { return { label: x.label, sub: x.sub }; }),
           cancelText: 'إغلاق'
-        }).then(function (a) {
-          if (a === 0) {
-            return O.outboxRetry(op.id).then(function (r) {
+        }).then(function (ai) {
+          var a = (ai == null || !acts[ai]) ? null : acts[ai].k;
+          if (a === 'retry' || a === 'force') {
+            return O.outboxRetry(op.id, a === 'force').then(function (r) {
               if (typeof window.showToast !== 'function') return;
               if (r && r.synced > 0) window.showToast('✅ تم رفع العملية', false);
               else window.showToast('⚠️ لم تُرفع العملية — ما زال الخادم يرفضها', true);
             });
           }
-          if (a === 1) {
+          if (a === 'drop') {
             return D.confirm({ title: 'حذف العملية', message: 'حذف هذه العملية نهائياً؟ لن تُرفع إلى الخادم.', danger: true, confirmText: 'حذف' })
               .then(function (yes) {
                 if (!yes) return;
