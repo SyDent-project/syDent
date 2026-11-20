@@ -51,6 +51,19 @@ var VENDOR_WARM   = ['/vendor/supabase-2.110.8.min.js'];
    تدخل أيضاً مصدر REFRESH_PAGES فتُشفى ذاتياً لو جرى التثبيت بلا اتصال. */
 var CORE_PAGES    = ['/index.html', '/patients.html', '/patient-profile.html', '/appointments.html'];
 
+/* صفحات المنصة كلها (ما يستعمله حساب عيادة): تُحمَّل هي وأصولها مرةً واحدة بالخلفية بعد
+   التثبيت كي تعمل كل صفحة بلا اتصال من اليوم الأول — لا فقط ما سبق فتحه. الجلب «للناقص
+   حصراً» (صفحة غائبة · أصلٌ مسارُه غائب بأي توكن) فلا يتكرر مع النشرات. مثبت الصفحات يحمرّ
+   إن وُجد ملف صفحة ليس هنا ولا بقائمة الاستثناء المعلنة عنده. */
+var ALL_PAGES = CORE_PAGES.concat([
+  '/accounting.html', '/expenses.html', '/payouts.html', '/inventory.html', '/labs.html',
+  '/treatments.html', '/doctors.html', '/employees.html', '/provider-reports.html',
+  '/radiology.html', '/settings.html', '/subscription.html', '/audit-log.html', '/learn.html',
+  '/auth.html', '/pending.html', '/reset-password.html'
+]);
+/* أصول تُحمَّل من الكود لا من وسوم الصفحات (تُخدَم أوفلاين بمطابقة المسار) */
+var EXTRA_ASSETS = ['/tour.js', '/guides.js'];
+
 /* مضيفو الخطوط المسموح كاشهم (حصراً) */
 var FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 /* منع صريح — لا يُعترَض ولا يُكاش أبداً (ضمانة فوق فحص نفس-الأصل) */
@@ -120,6 +133,11 @@ self.addEventListener('activate', function (event) {
         });
         return copyCacheEntries(oldAssets, ASSETS, MAX_ASSETS)
           .then(function () { return copyCacheEntries(oldFonts, FONTS, MAX_FONTS); })
+          /* الصفحات تُنسخ بأجسامها ثم يُجدَّد الأحدث منها بعد claim (كما كان). كانت تُحذف
+             كلها ويُعاد جلب 15 فقط — فما زاد يضيع مع كل نشرة، وترحيلٌ بلا اتصال يترك
+             الجهاز بلا أي صفحة. الجسم القديم آمن الآن: أصوله مستضافة ذاتياً ومنسوخة معه،
+             وأي فتحٍ له أونلاين يحدّثه فوراً بالخلفية (handleNavigation). */
+          .then(function () { return copyCacheEntries(oldPages, PAGES, MAX_PAGES); })
           .then(function () { return collectPageUrls(oldPages); })
           .then(function (urls) {
             pageUrls = urls;
@@ -142,8 +160,9 @@ self.addEventListener('activate', function (event) {
     }).then(function () { return self.clients.claim(); })
       .then(function () {
         /* بعد claim كي لا يتأخر تولّي التحكم؛ waitUntil يُبقي العامل حياً */
-        if (KILL_SWITCH || !pageUrls.length) return;
-        return warmPagesInto(pageUrls);
+        if (KILL_SWITCH) return;
+        return (pageUrls.length ? warmPagesInto(pageUrls) : Promise.resolve())
+          .then(function () { return fillMissing(); });
       }).catch(function () {});
   })());
 });
@@ -234,12 +253,93 @@ function warmPagesInto(urls) {
       try { r = new Request(u, { cache: 'no-cache' }); } catch (e) { r = u; }
       return fetch(r).then(function (res) {
         if (res && res.ok && res.type === 'basic') {
-          return putPageSafe(res.url || u, res);
+          var finalKey = navKey(res.url || u), askedKey = navKey(u);
+          return putPageSafe(res.url || u, res).then(function () {
+            /* مضيفٌ يحوّل .html للمسار النظيف: النسخة تُحفَظ بالمفتاح النهائي، فالمفتاح
+               المطلوب (إن اختلف) يحمل جسماً أقدم — يُحذف كي لا يُخدَم قبل الطازج */
+            if (finalKey === askedKey) return;
+            return caches.open(PAGES).then(function (c) { return c.delete(askedKey); }).catch(function () {});
+          });
         }
       }).catch(function () { /* صفحة فشلت — REFRESH_PAGES يستأنف لاحقاً */ });
     });
   });
   return chain;
+}
+
+/* ── إكمال الناقص: كل صفحات المنصة وأصولها، مرة واحدة ──────────────────────
+   تسلسلي بفاصل (حفاظاً على نت سوريا) · يُتخطّى على «توفير البيانات» وشبكة 2G ·
+   يتوقف عند ثلاث إخفاقات متتالية (انقطاع) ويُستأنف مع REFRESH_PAGES التالي.
+   الأصل الموسوم يُجلب بعنوانه الحرفي من الصفحة؛ ما سبق كاشه بأي توكن لا يُعاد جلبه. */
+var FILL_GAP_MS = 120;
+function fillAllowed() {
+  try {
+    var c = self.navigator && self.navigator.connection;
+    if (c && (c.saveData || c.effectiveType === 'slow-2g' || c.effectiveType === '2g')) return false;
+  } catch (e) {}
+  return true;
+}
+function assetRefs(html) {
+  var out = [], seen = {}, m;
+  var re = /(?:src|href)=["']([^"'#<>]+?\.(?:js|css|webp|png|svg|woff2)(?:\?[^"'<>]*)?)["']/g;
+  while ((m = re.exec(html))) {
+    try {
+      var u = new URL(m[1].replace(/&amp;/g, '&'), self.location.origin + '/');
+      if (u.origin !== self.location.origin || u.pathname === '/sw.js') continue;
+      if (!seen[u.href]) { seen[u.href] = 1; out.push(u.href); }
+    } catch (e) {}
+  }
+  return out;
+}
+function fillMissing() {
+  if (KILL_SWITCH || !fillAllowed()) return Promise.resolve(0);
+  var fetchedN = 0, failRun = 0;
+  var gap = function () { return new Promise(function (r) { setTimeout(r, FILL_GAP_MS); }); };
+  var stop = function () { return failRun >= 3; };
+  return Promise.all([caches.open(PAGES), caches.open(ASSETS)]).then(function (cc) {
+    var pages = cc[0], assets = cc[1], htmls = [];
+    var chain = Promise.resolve();
+    /* 1) الصفحات الغائبة */
+    ALL_PAGES.forEach(function (pth) {
+      chain = chain.then(function () {
+        if (stop()) return;
+        return navLookup(new URL(pth, self.location.origin)).then(function (hit) {
+          if (hit) return hit.text().then(function (t) { htmls.push(t); });
+          var r; try { r = new Request(pth, { cache: 'no-cache' }); } catch (e) { r = pth; }
+          return fetch(r).then(function (res) {
+            if (!(res && res.ok && res.type === 'basic')) { failRun++; return; }
+            failRun = 0; fetchedN++;
+            return res.clone().text().then(function (t) {
+              htmls.push(t);
+              return putPageSafe(res.url || pth, res);
+            });
+          }, function () { failRun++; }).then(gap);
+        });
+      }).catch(function () {});
+    });
+    /* 2) أصولها الغائبة مساراً */
+    return chain.then(function () { return assets.keys(); }).then(function (keys) {
+      var have = {};
+      (keys || []).forEach(function (k) { have[assetPathKey(k.url)] = 1; });
+      var want = [], seenW = {};
+      htmls.forEach(function (h) { assetRefs(h).forEach(function (u) { if (!seenW[u]) { seenW[u] = 1; want.push(u); } }); });
+      EXTRA_ASSETS.forEach(function (pth) { want.push(self.location.origin + pth); });
+      var c2 = Promise.resolve();
+      want.forEach(function (u) {
+        c2 = c2.then(function () {
+          if (stop() || have[assetPathKey(u)]) return;
+          have[assetPathKey(u)] = 1;
+          var r; try { r = new Request(u); } catch (e) { r = u; }
+          return fetch(r).then(function (res) {
+            if (!(res && res.ok && res.type === 'basic' && !res.redirected)) { failRun++; return; }
+            failRun = 0; fetchedN++;
+            return assets.put(u, res);
+          }, function () { failRun++; }).then(gap);
+        }).catch(function () {});
+      });
+      return c2.then(function () { return trimCache(assets, MAX_ASSETS); });
+    });
+  }).then(function () { return fetchedN; }).catch(function () { return fetchedN; });
 }
 
 function trimCache(cache, max) {
@@ -276,6 +376,9 @@ function navKey(href) {
 
 /* بحث offline يجرّب المسار كما طُلب + مكافئه النظيف/الكامل (pretty URLs) */
 function navLookup(url) {
+  return navFind(url).then(function (f) { return f ? f.res : null; });
+}
+function navFind(url) {
   return caches.open(PAGES).then(function (cache) {
     var path = url.pathname;
     var variants = [path];
@@ -287,7 +390,7 @@ function navLookup(url) {
     function tryNext() {
       if (i >= variants.length) return null;
       var key = self.location.origin + variants[i++];
-      return cache.match(key).then(function (hit) { return hit || tryNext(); });
+      return cache.match(key).then(function (hit) { return hit ? { key: key, res: hit } : tryNext(); });
     }
     return tryNext();
   });
@@ -344,13 +447,18 @@ function notifyPageUpdated(url, clientId, tries) {
     }).catch(function () {});
   } catch (e) { return Promise.resolve(); }
 }
-function revalidatePage(url, shown, clientId) {
+function revalidatePage(url, shown, clientId, servedKey) {
   var r;
   try { r = new Request(url.href, { cache: 'no-cache' }); } catch (e) { r = url.href; }
   return fetch(r).then(function (net) {
     if (!(net && net.ok && net.type === 'basic')) return;
     return Promise.all([net.clone().text(), shown.text()]).then(function (t) {
-      return putPageSafe(net.url || url.href, net).then(function () {
+      /* النسخة الطازجة تُكتب بالمفتاح النهائي، وبالمفتاح الذي خُدمت منه الصفحة إن
+         اختلف (مضيفٌ يحوّل .html للمسار النظيف) — وإلا بقي المخدوم قديماً للأبد */
+      var copy = (servedKey && servedKey !== navKey(net.url || url.href))
+        ? putSafe(PAGES, servedKey, new Response(t[0], { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }), MAX_PAGES)
+        : Promise.resolve();
+      return copy.then(function () { return putPageSafe(net.url || url.href, net); }).then(function () {
         if (t[0] !== t[1]) return notifyPageUpdated(url, clientId, 0);
       });
     });
@@ -358,11 +466,11 @@ function revalidatePage(url, shown, clientId) {
 }
 function handleNavigation(event, url) {
   if (isNetworkFirstPath(url.pathname)) return handleNavigationNetworkFirst(event, url);
-  return navLookup(url).then(function (hit) {
-    if (!hit) return handleNavigationNetworkFirst(event, url);
-    var p = revalidatePage(url, hit.clone(), event.resultingClientId || '');
+  return navFind(url).then(function (f) {
+    if (!f) return handleNavigationNetworkFirst(event, url);
+    var p = revalidatePage(url, f.res.clone(), event.resultingClientId || '', f.key);
     try { event.waitUntil(p); } catch (e) {}
-    return hit;
+    return f.res;
   }).catch(function () { return handleNavigationNetworkFirst(event, url); });
 }
 
@@ -563,7 +671,7 @@ self.addEventListener('message', function (event) {
               CORE_PAGES.forEach(add);
               (keys || []).forEach(function (req) { add(req && req.url); });
               (saved || []).forEach(add);
-              return warmPagesInto(urls);
+              return warmPagesInto(urls).then(function () { return fillMissing(); });
             });
           });
         }).then(function () {
