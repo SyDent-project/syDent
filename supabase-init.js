@@ -618,6 +618,132 @@
   }
   try { window.addEventListener('offline', staleBarHide); } catch (e) {}
 
+  /* ── كتابة والاتصال قائم: معرّف عميلي + مهلة + إعادة محاولة بلا تكرار ──────
+     الحالة المستهدفة «اتصال قائم وإنترنت ميت»: طلب الحفظ يعلَق بلا رفض فيدور الزر
+     بلا نهاية، وإن وصل الطلب وضاع ردّه ثم أعاد المستخدم المحاولة تكرّر الموعد أو الدفعة.
+     • إدراجات المواعيد والدفعات (إدراج صِرف، بلا upsert) تحمل معرّفاً uuid من العميل —
+       نفس ما يفعله مسار الأوفلاين منذ Phase 2. إن فشلت المحاولة شبكياً (النتيجة مجهولة)
+       تُحفَظ معرّفاتها بالذاكرة 10 دقائق مفهرسةً ببصمة الحمولة؛ إعادةُ نفس الحمولة
+       تُرسَل بالمعرّفات نفسها: وصلت الأولى؟ يردّ الخادم 409 على المفتاح الأساسي فنعيد
+       للصفحة الصفّ المحفوظ فعلاً كنجاح. لم تصل؟ تُدرَج الآن. بعد أي نجاح تُمحى الذاكرة،
+       فدفعتان متطابقتان مقصودتان تبقيان دفعتين.
+     • كتابات جداول الطابور (مواعيد: إنشاء/تعديل/حذف · دفعات: إنشاء) تُقطع بعد
+       WRITE_TIMEOUT_MS برسالة واضحة — آمنٌ لأن إعادتها لا تكرّر شيئاً.
+     • أي كتابة جدول تتأخر SLOW_NOTICE_MS: تنبيه «الشبكة بطيئة» بلا قطع.
+     لا يمسّ التوزيع المالي ولا RPC ولا القراءة؛ وأي خلل داخلي = الطلب الأصلي كما هو. */
+  var WRITE_TIMEOUT_MS = 25000, SLOW_NOTICE_MS = 10000, RETRY_TTL_MS = 10 * 60 * 1000;
+  var _retryIds = {}, _lastSlowToast = 0;
+  function shallow(o) { var c = {}; for (var k in (o || {})) c[k] = o[k]; return c; }
+  function fingerprint(table, rows) {
+    return table + '|' + JSON.stringify(rows.map(function (r) {
+      var o = {};
+      Object.keys(r).sort().forEach(function (k) { if (k !== 'id' && k !== 'created_at' && k !== 'updated_at') o[k] = r[k]; });
+      return o;
+    }));
+  }
+  function isPlainInsert(url, prefer) {
+    return url.indexOf('on_conflict=') === -1 && (prefer || '').indexOf('resolution=') === -1;
+  }
+  /* إدراج المصفوفة يحمل ?columns= بأسماء الأعمدة؛ عمودٌ خارج القائمة يتجاهله الخادم —
+     فالمعرّف المحقون يُضاف إليها (وإلا وُلد معرّف آخر على الخادم وانكسرت اللاتكرارية) */
+  function withIdColumn(url) {
+    return url.replace(/([?&]columns=)([^&]*)/, function (m, a, v) {
+      var d; try { d = decodeURIComponent(v); } catch (e) { return m; }
+      return d.indexOf('"id"') !== -1 ? m : a + v + encodeURIComponent(',"id"');
+    });
+  }
+  function alreadySaved(url, input, init, ids, rows) {
+    var prefer = headerOf(input, init, 'prefer'), accept = headerOf(input, init, 'accept');
+    if (prefer.indexOf('return=representation') === -1) {
+      return Promise.resolve(new Response(null, { status: 201 }));
+    }
+    var sel = /[?&]select=([^&]*)/.exec(url);
+    var getUrl = url.split('?')[0] + '?id=in.(' + ids.join(',') + ')' + (sel ? '&select=' + sel[1] : '');
+    var h = {};
+    ['apikey', 'authorization', 'accept-profile', 'accept'].forEach(function (n) {
+      var v = headerOf(input, init, n); if (v) h[n] = v;
+    });
+    return window.fetch(getUrl, { method: 'GET', headers: h }).then(function (g) {
+      if (!g.ok) throw new Error('reread');
+      return g.text().then(function (body) {
+        /* عدة صفوف: تُعاد بترتيب الإدراج (in.() لا يضمن ترتيباً) */
+        if (ids.length > 1) {
+          try {
+            var arr = JSON.parse(body);
+            if (Array.isArray(arr) && arr.every(function (x) { return x && x.id; })) {
+              arr.sort(function (a, b) { return ids.indexOf(a.id) - ids.indexOf(b.id); });
+              body = JSON.stringify(arr);
+            }
+          } catch (e) {}
+        }
+        return new Response(body, { status: 201, headers: { 'Content-Type': 'application/json' } });
+      });
+    }).catch(function () { return synthWriteResponse('POST', prefer, accept, rows, null); });
+  }
+  function onlineWrite(input, init, url, method) {
+    var table = tableFromUrl(url);
+    var guarded = !!(table && table !== 'audit_log' && OUTBOX_METHODS[table] && OUTBOX_METHODS[table][method]);
+    var sendInput = input, sendInit = init, fp = null, ids = null, reused = false, rows = null;
+    if (guarded && method === 'POST' && UUID_INJECT_TABLES[table] && typeof input === 'string' &&
+        init && typeof init.body === 'string' && isPlainInsert(url, headerOf(input, init, 'prefer'))) {
+      try {
+        var parsed = JSON.parse(init.body);
+        var list = Array.isArray(parsed) ? parsed : [parsed];
+        if (list.length && list.every(function (r) { return r && typeof r === 'object' && !Array.isArray(r) && !r.id; })) {
+          fp = fingerprint(table, list);
+          var mem = _retryIds[fp];
+          if (mem && Date.now() - mem.at < RETRY_TTL_MS && mem.ids.length === list.length) { ids = mem.ids; reused = true; }
+          else ids = list.map(function () { return uuid(); });
+          list.forEach(function (r, i) { r.id = ids[i]; });
+          rows = list;
+          sendInit = shallow(init);
+          sendInit.body = JSON.stringify(Array.isArray(parsed) ? list : list[0]);
+          sendInput = withIdColumn(url);
+        }
+      } catch (e) { fp = null; ids = null; rows = null; reused = false; sendInput = input; sendInit = init; }
+    }
+    var timer = null, timedOut = false;
+    if (guarded && !(sendInit && sendInit.signal) && typeof AbortController === 'function') {
+      var ctrl = new AbortController();
+      sendInit = shallow(sendInit); sendInit.signal = ctrl.signal;
+      timer = setTimeout(function () { timedOut = true; try { ctrl.abort(); } catch (e) {} }, WRITE_TIMEOUT_MS);
+    }
+    var slow = setTimeout(function () {
+      var now = Date.now();
+      if (now - _lastSlowToast < 20000) return;
+      _lastSlowToast = now;
+      try {
+        if (typeof window.showToast === 'function') window.showToast('⏳ الشبكة بطيئة — ما زال الحفظ جارياً', false, 5000);
+      } catch (e) {}
+    }, SLOW_NOTICE_MS);
+    var settle = function () { clearTimeout(timer); clearTimeout(slow); };
+    return window.fetch(sendInput, sendInit).then(function (res) {
+      settle();
+      if (!fp) return res;
+      delete _retryIds[fp];                  /* الخادم أجاب ⇒ لا محاولة مجهولة النتيجة */
+      if (reused && res.status === 409) {
+        return res.clone().text().catch(function () { return ''; }).then(function (txt) {
+          if (!isOwnDuplicate({ method: 'POST', table: table }, pgError(txt))) return res;
+          return alreadySaved(url, input, init, ids, rows);   /* المحاولة السابقة وصلت */
+        });
+      }
+      return res;
+    }, function (err) {
+      settle();
+      if (fp) {                              /* النتيجة مجهولة ⇒ الإعادة بنفس المعرّفات */
+        var nowF = Date.now();
+        for (var k in _retryIds) if (nowF - _retryIds[k].at > RETRY_TTL_MS) delete _retryIds[k];
+        _retryIds[fp] = { ids: ids, at: nowF };
+      }
+      if (timedOut) {
+        var te = new TypeError('الشبكة لا تستجيب — لم يتأكد الحفظ، أعد المحاولة');
+        try { te.name = ''; } catch (e) {}
+        throw te;
+      }
+      throw err;
+    });
+  }
+
   function offlineFetch(input, init) {
     var url = urlOf(input);
     var method = methodOf(input, init);
@@ -660,7 +786,8 @@
         } catch (e) { echoRows = null; }
 
         var rec = {
-          uid: qUid, method: method, url: url, body: bodyText, table: qTable,
+          uid: qUid, method: method, body: bodyText, table: qTable,
+          url: (method === 'POST' && UUID_INJECT_TABLES[qTable]) ? withIdColumn(url) : url,
           headers: {
             ct: headerOf(input, init, 'content-type'),
             prefer: headerOf(input, init, 'prefer'),
@@ -707,6 +834,12 @@
         }, 350);
       }
       return Promise.reject(fwErr);
+    }
+
+    /* كتابة جدول والاتصال قائم (الانقطاع المعروف عولج أعلاه) */
+    if (isRest && !isRpc && (method === 'POST' || method === 'PATCH' || method === 'PUT' || method === 'DELETE') &&
+        !(window.navigator && window.navigator.onLine === false)) {
+      return onlineWrite(input, init, url, method);
     }
 
     /* يُكاش فقط: GET على جداول/فيوهات REST (لا rpc، لا auth، لا storage) */

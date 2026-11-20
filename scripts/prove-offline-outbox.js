@@ -120,7 +120,8 @@ function mkTab(src, uid, net, idb, opt) {
   const el = () => { const e = { style: {}, setAttribute() {}, appendChild() {}, addEventListener() {}, classList: { add() {}, remove() {}, toggle() {} } }; els.push(e); return e; };
   win.byId = id => els.find(e => e.id === id) || null;
   /* مؤقّتات الإقلاع الطويلة (تصريف 3ث · prefetch 8ث) تُكتم كي لا تتداخل مع السيناريو */
-  const st = (fn, ms) => (ms >= 3000 ? 0 : setTimeout(fn, ms));
+  /* opt.fast: الزمن مضغوط ×500 (مهلة الحفظ 25ث ← 50ms) لاختبار المهل نفسها */
+  const st = opt.fast ? (fn, ms) => setTimeout(fn, ms / 500) : (fn, ms) => (ms >= 3000 ? 0 : setTimeout(fn, ms));
   const ctx = vm.createContext({ window: win, navigator: win.navigator, localStorage: storage, sessionStorage: storage,
     document: { getElementById: id => win.byId(id), createElement: el, body: el(), documentElement: el(), readyState: 'complete', addEventListener() {},
       dispatchEvent() {} },
@@ -194,7 +195,7 @@ function englishEngine() {
 }
 const AR = /[\u0600-\u06FF]/;
 
-async function runAll(src, opt_sw) {
+async function runAll(src, opt_sw, only) {
   const fails = [];
   const ok = (name, cond, extra) => { if (!cond) fails.push(name + (extra ? ' [' + extra + ']' : '')); };
   const PURL = SB + '/rest/v1/patients?select=*&doctor_id=eq.' + U1;
@@ -202,7 +203,7 @@ async function runAll(src, opt_sw) {
   const cacheKey = (uid, url) => [uid, url, 'application/json', ''].join('|');
 
   /* ══ أساس: كاش القراءة + العزل + الجدار ══ */
-  {
+  if (!only) {
     const idb = newIDB();
     const t1 = mkTab(src, U1, async () => json([{ id: 'p1', name: 'مريض' }], 200, { 'content-range': '0-0/1' }), idb);
     let r = await t1.SyDentOffline.fetch(PURL, G);
@@ -222,7 +223,7 @@ async function runAll(src, opt_sw) {
   }
 
   /* ══ الخطوة 1: كل خروج يمسح كاش القراءة ويُبقي الطابور ══ */
-  {
+  if (!only || only === 's1') {
     const idb = newIDB();
     const t = mkTab(src, U1, async () => json([{ id: 'p1', name: 'مريض' }]), idb, { auth: true });
     await t.SyDentOffline.fetch(PURL, G); await sleep(25);
@@ -254,7 +255,7 @@ async function runAll(src, opt_sw) {
   }
 
   /* ══ الخطوة 2: 409 ليس «تمّ» إلا لتكرار العملية نفسها على المفتاح الأساسي ══ */
-  {
+  if (!only || only === 's2') {
     const PG = {
       fk:    { code: '23503', message: 'insert or update on table "ledger_payments" violates foreign key constraint "ledger_payments_patient_id_fkey"', details: 'Key (patient_id)=(p1) is not present in table "patients".' },
       pkey:  { code: '23505', message: 'duplicate key value violates unique constraint "ledger_payments_pkey"', details: 'Key (id)=(x) already exists.' },
@@ -284,7 +285,7 @@ async function runAll(src, opt_sw) {
   }
 
   /* ══ الخطوة 3: العمليات الفاشلة تُعرَض وتُدار — لا حذف صامت ══ */
-  {
+  if (!only || only === 's3') {
     const WEEK = 8 * 24 * 3600 * 1000;
     const seed = async (t, table, method, row, urlTail) => {
       t.navigator.onLine = false;
@@ -366,7 +367,7 @@ async function runAll(src, opt_sw) {
   }
 
   /* ══ الخطوة 4: تبويبان مفتوحان يصرّفان الطابور مرة واحدة ══ */
-  {
+  if (!only || only === 's4') {
     const run = async (locks) => {
       const idb = newIDB(), sent = [], bus = sharedBus();
       const net = async (u, i) => { sent.push((i.method || 'GET') + ' ' + u.replace(SB, '')); await sleep(30); return json(null, 201); };
@@ -403,7 +404,7 @@ async function runAll(src, opt_sw) {
   }
 
   /* ══ الخطوة 5: الخروج لا يحذف ما لم يُرفع — يرفعه أولاً أو يسأل ══ */
-  {
+  if (!only || only === 's5') {
     const q = async (t, table) => { t.navigator.onLine = false;
       await t.SyDentOffline.fetch(SB + '/rest/v1/' + table, { method: 'POST', body: JSON.stringify({ patient_id: 'p1', date: '2026-11-21', amount: 5 }), headers: { 'Content-Type': 'application/json' } });
       t.navigator.onLine = true; };
@@ -440,7 +441,7 @@ async function runAll(src, opt_sw) {
   }
 
   /* ══ الخطوة 6: سقف كاش الأصول يسع الأسطول مرتين (توكن قديم + جديد) ══ */
-  {
+  if (!only || only === 's6') {
     const sw = (opt_sw || fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'));
     const cap = parseInt((/MAX_ASSETS = (\d+)/.exec(sw) || [])[1], 10);
     const set = new Set();
@@ -455,7 +456,7 @@ async function runAll(src, opt_sw) {
   }
 
   /* ══ الخطوة 7: مدة قصوى للعمل بلا اتصال + عمر أقصى لمدخلات الكاش ══ */
-  {
+  if (!only || only === 's7') {
     const DAY = 24 * 3600 * 1000, SEEN = 'sydent.seen.' + U1;
     const boot = async () => { const idb = newIDB();
       const t = mkTab(src, U1, async () => json([{ id: 'p1', name: 'مريض' }]), idb);
@@ -494,10 +495,132 @@ async function runAll(src, opt_sw) {
     ok('s7: an entry not refreshed for 31 days is not served', r === null);
   }
 
+  /* ══ الخطوة 8: مهلة الحفظ + إعادة المحاولة بلا تكرار ══ */
+  if (!only || only === 's8') {
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+    const H = extra => Object.assign({ 'content-type': 'application/json', apikey: 'k', authorization: 'Bearer t', prefer: 'return=representation', accept: 'application/vnd.pgrst.object+json' }, extra || {});
+    const PAY = { doctor_id: U1, patient_id: 'p1', amount: 50000, method: 'cash', date: '2026-11-20', currency: 'SYP' };
+    const PK = { code: '23505', message: 'duplicate key value violates unique constraint "ledger_payments_pkey"', details: 'Key (id)=(x) already exists.' };
+    const mk = (net, opt) => { const calls = []; const t = mkTab(src, U1, (u, i) => { calls.push({ u, i, body: i.body ? JSON.parse(i.body) : null }); return net(u, i, calls); }, newIDB(), opt); t.calls = calls; return t; };
+    const post = (t, table, row, h, tail) => t.SyDentOffline.fetch(SB + '/rest/v1/' + table + (tail || '?select=*'), { method: 'POST', headers: H(h), body: JSON.stringify(row) });
+
+    /* المسار العادي */
+    let t = mk(async (u, i) => json(JSON.parse(i.body), 201));
+    let r = await post(t, 'ledger_payments', PAY);
+    ok('s8: online insert carries a client uuid and passes through', r.status === 201 && UUID.test(t.calls[0].body.id) && t.calls.length === 1);
+    r = await post(t, 'ledger_payments', PAY);
+    ok('s8: an identical payment after a SUCCESS is a new payment (new id)', UUID.test(t.calls[1].body.id) && t.calls[1].body.id !== t.calls[0].body.id);
+    await post(t, 'appointments', [{ patient_id: 'p1', date: '2026-11-21' }, { patient_id: 'p2', date: '2026-11-21' }], { accept: 'application/json' }, '?columns=%22patient_id%22%2C%22date%22&select=id');
+    const c3 = t.calls[2];
+    ok('s8: array insert — every row gets an id and the columns list includes it', c3.body.length === 2 && c3.body.every(x => UUID.test(x.id)) && decodeURIComponent(c3.u).indexOf('columns="patient_id","date","id"') !== -1 && c3.u.indexOf('&select=id') !== -1, c3.u);
+    await post(t, 'appointments', { patient_id: 'p1' }, { prefer: 'return=representation,resolution=merge-duplicates' });
+    await post(t, 'appointments', { patient_id: 'p1' }, null, '?on_conflict=id');
+    await post(t, 'appointments', { id: 'mine', patient_id: 'p1' });
+    ok('s8: upserts and rows with their own id are sent untouched', t.calls[3].body.id === undefined && t.calls[4].body.id === undefined && t.calls[5].body.id === 'mine');
+    const init6 = { method: 'POST', headers: H(), body: JSON.stringify({ name: 'x' }) };
+    let seen6 = null; t.fetch = (input, init) => { seen6 = init; return Promise.resolve(json({}, 201)); };
+    await t.SyDentOffline.fetch(SB + '/rest/v1/patients', init6);
+    ok('s8: a write to any other table is forwarded exactly as given (no id, no timeout)', seen6 === init6);
+    const init7 = { method: 'PATCH', headers: H(), body: '{}' };
+    await t.SyDentOffline.fetch(SB + '/rest/v1/ledger_payments?id=eq.x', init7);
+    ok('s8: editing a payment is not put under the timeout', seen6 === init7);
+
+    /* فشل شبكي ثم إعادة: المعرّف نفسه */
+    let mode = 'down';
+    t = mk(async (u, i) => {
+      if ((i.method || 'GET') === 'GET') return json({ id: 'server-row', amount: 50000 }, 200);
+      if (mode === 'down') throw new TypeError('Failed to fetch');
+      if (mode === 'dup') return json(PK, 409);
+      if (mode === 'fk') return json({ code: '23503', message: 'violates foreign key constraint', details: '' }, 409);
+      return json(JSON.parse(i.body), 201);
+    });
+    let err = null; try { await post(t, 'ledger_payments', PAY); } catch (e) { err = e; }
+    const id1 = t.calls[0].body.id;
+    ok('s8: a network failure surfaces as before', !!err && /Failed to fetch/.test(err.message));
+    mode = 'dup';
+    r = await post(t, 'ledger_payments', PAY);
+    const posts = t.calls.filter(c => c.i.method === 'POST'), gets = t.calls.filter(c => (c.i.method || 'GET') === 'GET');
+    ok('s8: the retry of the same payment reuses the same id', posts.length === 2 && posts[1].body.id === id1);
+    ok('s8: first attempt had landed (409 pkey) → the page gets the saved row as a success', r.status === 201 && (await r.json()).id === 'server-row');
+    ok('s8: the saved row is re-read by id with the caller\'s select and credentials', gets.length === 1 && gets[0].u === SB + '/rest/v1/ledger_payments?id=in.(' + id1 + ')&select=*' && gets[0].i.headers.authorization === 'Bearer t' && gets[0].i.headers.accept === 'application/vnd.pgrst.object+json', gets[0] && gets[0].u);
+    mode = 'ok';
+    await post(t, 'ledger_payments', PAY);
+    ok('s8: once answered, the next identical payment is a new one', t.calls[t.calls.length - 1].body.id !== id1);
+    /* الأولى لم تصل: الإعادة تُدرج بالمعرّف نفسه */
+    mode = 'down'; try { await post(t, 'appointments', { patient_id: 'p7', date: '2026-11-23' }); } catch (e) {}
+    const idA = t.calls[t.calls.length - 1].body.id;
+    mode = 'ok'; r = await post(t, 'appointments', { patient_id: 'p7', date: '2026-11-23' });
+    ok('s8: first attempt never arrived → the retry inserts with the same id', r.status === 201 && t.calls[t.calls.length - 1].body.id === idA);
+    /* حمولة مختلفة بعد فشل = معرّف جديد */
+    mode = 'down'; try { await post(t, 'appointments', { patient_id: 'p8', date: '2026-11-23' }); } catch (e) {}
+    const idB = t.calls[t.calls.length - 1].body.id;
+    mode = 'ok'; await post(t, 'appointments', { patient_id: 'p8', date: '2026-11-24' });
+    ok('s8: a different payload after a failure gets a new id', t.calls[t.calls.length - 1].body.id !== idB);
+    /* سلسلة مواعيد أُعيدت وكانت قد وصلت: الصفوف تعود بترتيب الإدراج */
+    {
+      let m2 = 'down', sentIds = null;
+      const t9 = mk(async (u, i) => {
+        if ((i.method || 'GET') === 'GET') return json([{ id: sentIds[1], n: 2 }, { id: sentIds[0], n: 1 }], 200);
+        sentIds = JSON.parse(i.body).map(x => x.id);
+        if (m2 === 'down') throw new TypeError('Failed to fetch');
+        return json({ code: '23505', message: 'duplicate key value violates unique constraint "appointments_pkey"', details: '' }, 409);
+      });
+      const two = [{ patient_id: 'p1', date: '2026-12-01' }, { patient_id: 'p1', date: '2026-12-08' }];
+      try { await post(t9, 'appointments', two, { accept: 'application/json' }, '?columns=%22patient_id%22%2C%22date%22&select=id,n'); } catch (e) {}
+      m2 = 'dup';
+      const r9 = await post(t9, 'appointments', two, { accept: 'application/json' }, '?columns=%22patient_id%22%2C%22date%22&select=id,n');
+      const back = await r9.json();
+      ok('s8: a recovered series comes back in insert order', r9.status === 201 && back.length === 2 && back[0].n === 1 && back[1].n === 2, JSON.stringify(back));
+    }
+    /* 409 حقيقي على إعادة = يمرّ كما هو */
+    mode = 'down'; try { await post(t, 'ledger_payments', Object.assign({}, PAY, { amount: 7 })); } catch (e) {}
+    mode = 'fk'; r = await post(t, 'ledger_payments', Object.assign({}, PAY, { amount: 7 }));
+    ok('s8: a real conflict on a retry is not masked as success', r.status === 409);
+
+    /* المهلة (زمن مضغوط) */
+    let aborted = false;
+    t = mk((u, i) => new Promise((res, rej) => { if (i.signal) i.signal.addEventListener('abort', () => { aborted = true; const e = new Error('aborted'); e.name = 'AbortError'; rej(e); }); }), { fast: true });
+    /* سباقٌ مع موعدٍ نهائي: بلا المهلة يعلَق الطلب أبداً، والمثبت يجب أن يحمرّ لا أن يعلَق معه */
+    err = null; try { await Promise.race([post(t, 'appointments', { patient_id: 'p1', date: '2026-11-21' }), sleep(600).then(() => { throw new Error('still hanging'); })]); } catch (e) { err = e; }
+    ok('s8: a hung appointment save is cut with a clear message', aborted && !!err && /الشبكة لا تستجيب/.test(err.message) && err.name === '');
+    ok('s8: the slow-network notice appears before the cut', t.toasts.some(m => /الشبكة بطيئة/.test(m)));
+    const idT = t.calls[0].body.id;
+    t.fetch = (input, init) => { t.calls.push({ u: input, i: init, body: JSON.parse(init.body) }); return Promise.resolve(json(JSON.parse(init.body), 201)); };
+    await post(t, 'appointments', { patient_id: 'p1', date: '2026-11-21' });
+    ok('s8: retry after a timeout reuses the id', t.calls[t.calls.length - 1].body.id === idT);
+    /* جدول آخر معلَّق: تنبيه بلا قطع */
+    let resolveLater, sig = 'unset';
+    t = mk((u, i) => new Promise(res => { sig = i.signal; resolveLater = () => res(json({}, 201)); }), { fast: true });
+    const pend = t.SyDentOffline.fetch(SB + '/rest/v1/patients', { method: 'POST', headers: H(), body: '{}' });
+    await sleep(120);
+    ok('s8: a slow save to another table is announced but never cut', sig === undefined && t.toasts.some(m => /الشبكة بطيئة/.test(m)));
+    resolveLater(); ok('s8: … and completes normally', (await pend).status === 201);
+    /* إشارة قطع من المُستدعي تُحترم */
+    const own = new AbortController(); let got = null;
+    t = mk(async (u, i) => { got = i.signal; return json({}, 201); });
+    await t.SyDentOffline.fetch(SB + '/rest/v1/appointments?id=eq.x', { method: 'PATCH', headers: H(), body: '{}', signal: own.signal });
+    ok('s8: a caller-supplied abort signal is kept', got === own.signal);
+    /* طابور الأوفلاين: إدراج المصفوفة يحمل عمود المعرّف */
+    t = mk(async () => json({}, 201)); t.navigator.onLine = false;
+    await post(t, 'appointments', [{ patient_id: 'p1', date: '2026-11-21' }], { accept: 'application/json' }, '?columns=%22patient_id%22%2C%22date%22');
+    const q = (await t.SyDentOffline._outboxAll())[0];
+    ok('s8: an array insert queued offline keeps its injected id on upload', !!q && decodeURIComponent(q.url).indexOf('"id"') !== -1 && UUID.test(JSON.parse(q.body)[0].id), q && q.url);
+    const tr8 = englishEngine();
+    ['⏳ الشبكة بطيئة — ما زال الحفظ جارياً', 'الشبكة لا تستجيب — لم يتأكد الحفظ، أعد المحاولة'].forEach(x => { const en = tr8(x); ok('s8: English engine leaves no Arabic in «' + x + '»', en != null && !AR.test(en), String(en)); });
+  }
+
   return fails;
 }
 
 const MUTATIONS = [
+  ['s8: ids not remembered after a network failure', s => s.replace("_retryIds[fp] = { ids: ids, at: nowF };", '')],
+  ['s8: memory kept after a success (a real second payment would vanish)', s => s.replace("delete _retryIds[fp];                  /* الخادم أجاب", "/* الخادم أجاب")],
+  ['s8: own-duplicate 409 on a retry not turned into success', s => s.replace("return alreadySaved(url, input, init, ids, rows);   /* المحاولة السابقة وصلت */", 'return res;')],
+  ['s8: any 409 on a retry masked as success', s => s.replace("if (!isOwnDuplicate({ method: 'POST', table: table }, pgError(txt))) return res;", '')],
+  ['s8: save timeout removed', s => s.replace("timer = setTimeout(function () { timedOut = true; try { ctrl.abort(); } catch (e) {} }, WRITE_TIMEOUT_MS);", '')],
+  ['s8: timeout applied to every table', s => s.replace("if (guarded && !(sendInit && sendInit.signal) && typeof AbortController === 'function') {", "if (!(sendInit && sendInit.signal) && typeof AbortController === 'function') {")],
+  ['s8: id column not added to array inserts', s => s.replace("return d.indexOf('\"id\"') !== -1 ? m : a + v + encodeURIComponent(',\"id\"');", 'return m;')],
+  ['s8: upserts get an injected id', s => s.replace("return url.indexOf('on_conflict=') === -1 && (prefer || '').indexOf('resolution=') === -1;", 'return true;')],
   ['s7: offline limit disabled', s => s.replace("return Date.now() - (parseInt(raw, 10) || 0) > OFFLINE_MAX_MS;", 'return false;')],
   ['s7: expired cache left on disk', s => s.replace("if (!quiet) staleBarShow(true);\n        wipeCache();", 'if (!quiet) staleBarShow(true);')],
   ['s7: entry age limit removed', s => s.replace("if (Date.now() - (rec.savedAt || 0) > CACHE_MAX_AGE_MS) return null;", '')],
@@ -521,20 +644,26 @@ const MUTATIONS = [
   ['s1: SIGNED_OUT ignored', s => s.replace("if (ev === 'SIGNED_OUT') _wipeOfflineCache();", '')]
 ];
 
+/* حلقة أحداث فرغت قبل الاكتمال (وعدٌ لا يُحسم أبداً) = خروجٌ صامت برمز 0 — يُحوَّل فشلاً صريحاً */
+let FINISHED = false;
+process.on('exit', code => { if (!FINISHED && code === 0) { console.log('⛔ مثبت الأوفلاين: توقّف قبل الاكتمال (وعدٌ لم يُحسم)'); process.exitCode = 1; } });
+const finish = code => { FINISHED = true; process.exit(code); };
+
 (async () => {
   const fails = await runAll(LIVE);
-  if (fails.length) { console.log('⛔ مثبت الأوفلاين: ' + fails.length + ' فشل'); fails.forEach(f => console.log('   ✗ ' + f)); process.exit(1); }
+  if (fails.length) { console.log('⛔ مثبت الأوفلاين: ' + fails.length + ' فشل'); fails.forEach(f => console.log('   ✗ ' + f)); finish(1); }
   if (process.argv.indexOf('--self-test') !== -1) {
     const SW = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
     for (const [name, mut, swMut] of MUTATIONS) {
       const m = mut(LIVE), msw = swMut ? swMut(SW) : SW;
-      if (m === LIVE && msw === SW) { console.log('⛔ طفرة لم تُطبَّق (المرساة تغيّرت): ' + name); process.exit(1); }
-      let f; try { f = await runAll(m, msw); } catch (e) { f = ['threw: ' + e.message]; }
-      if (!f.length) { console.log('⛔ طفرة لم تُكشف: ' + name); process.exit(1); }
+      if (m === LIVE && msw === SW) { console.log('⛔ طفرة لم تُطبَّق (المرساة تغيّرت): ' + name); finish(1); }
+      /* كل طفرة تُشغَّل على قسم خطوتها وحده (اسمها يبدأ بـ sN:) — التشغيل الكامل جرى أعلاه */
+      let f; try { f = await runAll(m, msw, name.slice(0, 2)); } catch (e) { f = ['threw: ' + e.message]; }
+      if (!f.length) { console.log('⛔ طفرة لم تُكشف: ' + name); finish(1); }
     }
     console.log('✅ مثبت الأوفلاين: كل التوكيدات خضراء + ' + MUTATIONS.length + ' طفرات مكشوفة');
   } else {
     console.log('✅ مثبت الأوفلاين: كل التوكيدات خضراء');
   }
-  process.exit(0);
-})().catch(e => { console.error('⛔ مثبت الأوفلاين: خطأ بالحامل', e); process.exit(2); });
+  finish(0);
+})().catch(e => { console.error('⛔ مثبت الأوفلاين: خطأ بالحامل', e); finish(2); });
