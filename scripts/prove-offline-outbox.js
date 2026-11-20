@@ -197,10 +197,42 @@ async function runAll(src) {
     ok('s1: SIGNED_OUT wipes the read cache', !(await s.SyDentOffline._get(cacheKey(U1, PURL))));
   }
 
+  /* ══ الخطوة 2: 409 ليس «تمّ» إلا لتكرار العملية نفسها على المفتاح الأساسي ══ */
+  {
+    const PG = {
+      fk:    { code: '23503', message: 'insert or update on table "ledger_payments" violates foreign key constraint "ledger_payments_patient_id_fkey"', details: 'Key (patient_id)=(p1) is not present in table "patients".' },
+      pkey:  { code: '23505', message: 'duplicate key value violates unique constraint "ledger_payments_pkey"', details: 'Key (id)=(x) already exists.' },
+      other: { code: '23505', message: 'duplicate key value violates unique constraint "appointments_slot_key"', details: 'Key (doctor_id, date, time)=(a, b, c) already exists.' }
+    };
+    const one = async (table, method, pg, urlTail) => {
+      const idb = newIDB();
+      const t = mkTab(src, U1, async () => json(pg, 409), idb);
+      t.navigator.onLine = false;
+      await t.SyDentOffline.fetch(SB + '/rest/v1/' + table + (urlTail || ''), { method, body: JSON.stringify({ patient_id: 'p1', amount: 5 }), headers: { 'Content-Type': 'application/json' } });
+      t.navigator.onLine = true;
+      const d = await t.SyDentOffline.drain();
+      const ob = await t.SyDentOffline._outboxAll();
+      return { d, ob, synced: (t.synced || []).length };
+    };
+    let x = await one('ledger_payments', 'POST', PG.fk);
+    ok('s2: payment hitting a deleted patient (409 FK) is kept, not reported synced', x.d.synced === 0 && x.d.failed === 1 && x.ob.length === 1 && x.ob[0].status === 'failed' && x.synced === 0, JSON.stringify(x.d));
+    ok('s2: the server reason is recorded on the op', x.ob[0] && /23503/.test(x.ob[0].lastError || '') && /foreign key/.test(x.ob[0].lastError || ''));
+    x = await one('ledger_payments', 'POST', PG.pkey);
+    ok('s2: replay of an already-delivered insert (409 pkey) counts as done', x.d.synced === 1 && x.ob.length === 0 && x.synced === 1);
+    x = await one('appointments', 'POST', PG.other);
+    ok('s2: 409 on another unique constraint is a failure', x.d.failed === 1 && x.ob.length === 1);
+    x = await one('appointments', 'PATCH', PG.pkey, '?id=eq.aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+    ok('s2: 409 on an edit is a failure', x.d.failed === 1 && x.ob.length === 1);
+    x = await one('audit_log', 'POST', PG.pkey);
+    ok('s2: 409 on a table without injected id is a failure', x.d.failed === 1 && x.ob.length === 1);
+  }
+
   return fails;
 }
 
 const MUTATIONS = [
+  ['s2: any 409 counts as synced again', s => s.replace('if (res.status === 409 && isOwnDuplicate(rec, info)) return done();', 'if (res.status === 409) return done();')],
+  ['s2: own-duplicate rule widened beyond inserts', s => s.replace("if (!rec || rec.method !== 'POST' || !UUID_INJECT_TABLES[rec.table]) return false;", 'if (!rec) return false;')],
   ['s1: logout no longer wipes', s => s.replace('var w = _wipeOfflineCache();', 'var w = Promise.resolve();')],
   ['s1: wipeCache clears the queue instead of the cache', s => s.replace("var t = db.transaction(STORE, 'readwrite');\n          t.objectStore(STORE).clear();", "var t = db.transaction(OUTBOX, 'readwrite');\n          t.objectStore(OUTBOX).clear();")],
   ['s1: SIGNED_OUT ignored', s => s.replace("if (ev === 'SIGNED_OUT') _wipeOfflineCache();", '')]
