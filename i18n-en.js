@@ -1908,7 +1908,7 @@ Object.assign(window.SyI18nDict, {
   "مثال: 5": "e.g. 5",
   "مثال: المخدّر المستخدم، التقنية…": "e.g. the anesthetic used, the technique…",
   "مثال: حشوة بيضاء صغيرة": "e.g. small white filling",
-  "الأطباء الذين يعملون في العيادة، ولون كل طبيب، وأسعاره الخاصة إن اختلفت عن قائمة العلاجات. إضافة طبيب أو حذفه تتم من صفحة الموظفين.": "The dentists who work at the clinic, each one's color, and their own prices if they differ from the treatment list. Dentists are added or removed from the Staff page.",
+  "الأطباء الذين يعملون في العيادة، ونسبة كل طبيب ولونه. إضافة طبيب أو حذفه تتم من صفحة الموظفين، والسعر الخاص بطبيب يُحدَّد من قائمة العلاجات.": "The dentists who work at the clinic, with each one's share and color. Dentists are added or removed from the Staff page, and a price for a specific dentist is set from the treatment list.",
   "لا يوجد أطباء بعد": "No dentists yet",
   "أضف أول طبيب من صفحة الموظفين — سيظهر هنا تلقائياً.": "Add the first dentist from the Staff page — they'll show up here automatically.",
   "＋ إضافة طبيب من صفحة الموظفين": "＋ Add a dentist from the Staff page",
