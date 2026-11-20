@@ -100,7 +100,8 @@ function slice(src, a, b) { const i = src.indexOf(a), j = src.indexOf(b, i + a.l
 function mkTab(src, uid, net, idb, opt) {
   opt = opt || {};
   const ls = new Map();
-  if (uid) ls.set('sydent.auth', JSON.stringify({ user: { id: uid }, access_token: 't' }));
+  if (uid) ls.set('sydent.auth', JSON.stringify({ user: { id: uid }, access_token: 't', refresh_token: 'REFRESH-SECRET',
+    expires_at: Math.floor(Date.now() / 1000) + ((opt && opt.expIn) !== undefined ? opt.expIn : 3600) }));
   const storage = { getItem: k => (ls.has(k) ? ls.get(k) : null), setItem: (k, v) => { ls.set(k, String(v)); }, removeItem: k => { ls.delete(k); },
     key: i => [...ls.keys()][i] || null, get length() { return ls.size; } };
   const listeners = {};
@@ -115,6 +116,7 @@ function mkTab(src, uid, net, idb, opt) {
   };
   win.window = win;
   if (opt.locks) win.navigator.locks = opt.locks;
+  if (opt.sw) win.navigator.serviceWorker = opt.sw;
   if (opt.bus) win.BroadcastChannel = opt.bus.Channel;
   const els = [];
   const el = () => { const e = { style: {}, setAttribute() {}, appendChild() {}, addEventListener() {}, classList: { add() {}, remove() {}, toggle() {} } }; els.push(e); return e; };
@@ -157,6 +159,22 @@ function mkTab(src, uid, net, idb, opt) {
     vm.runInContext(src.slice(a, b + 7), ctx);
   }
   return win;
+}
+
+/* sw.js الحي داخل vm: نفس IndexedDB والأقفال، شبكة مكتوبة، وعملاء (تبويبات مفتوحة) */
+function mkSW(idb, net, opt) {
+  opt = opt || {};
+  const L = {};
+  const noCache = { match: () => Promise.resolve(undefined), put: () => Promise.resolve(), delete: () => Promise.resolve(false), keys: () => Promise.resolve([]) };
+  const sb = { console: { warn() {}, log() {}, error() {} }, URL, setTimeout, clearTimeout, Promise, Date, JSON, Response,
+    caches: { open: () => Promise.resolve(noCache), keys: () => Promise.resolve([]), delete: () => Promise.resolve(false), match: () => Promise.resolve(undefined) },
+    Request: function (u) { this.url = u; },
+    fetch: (u, i) => net(typeof u === 'string' ? u : u.url, i || {}) };
+  sb.self = { location: { origin: 'https://sydent.app' }, addEventListener: (t, fn) => { L[t] = fn; }, skipWaiting: () => Promise.resolve(), registration: {},
+    indexedDB: idb, navigator: { locks: opt.locks }, clients: { claim: () => Promise.resolve(), matchAll: () => Promise.resolve(opt.clients || []) } };
+  sb.location = sb.self.location; sb.navigator = sb.self.navigator;
+  vm.createContext(sb); vm.runInContext(opt.swSrc || fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), sb);
+  return { sync: tag => new Promise((res, rej) => { let p = null; L.sync({ tag: tag, waitUntil: x => { p = x; } }); Promise.resolve(p).then(res, rej); }), sb };
 }
 
 /* Web Locks + BroadcastChannel مشتركان بين «تبويبات» الحامل */
@@ -929,10 +947,96 @@ async function runAll(src, opt_sw, only) {
     ['التطبيق مقفل', 'أدخل رمز القفل للمتابعة', 'فتح', 'رمز غير صحيح', 'محاولات كثيرة — انتظر دقيقة ثم أعد المحاولة', 'نسيت الرمز؟ تسجيل الخروج', 'قفل التطبيق على هذا الجهاز', 'مفعّل على هذا الجهاز', 'يطلب رمزاً عند فتح التطبيق وبعد مدة خمول — على هذا الجهاز فقط', 'رمز قفل جديد من 4 إلى 6 أرقام', 'أعد إدخال الرمز للتأكيد', 'مدة الخمول قبل القفل', 'دقيقة واحدة', '5 دقائق', '15 دقيقة', '30 دقيقة', '🔒 تم تفعيل قفل التطبيق على هذا الجهاز', 'القفل مفعّل على هذا الجهاز', 'قفل الآن', 'تغيير مدة الخمول', 'إيقاف القفل', 'يتطلب رمز القفل الحالي', 'أدخل رمز القفل الحالي', 'تم إيقاف قفل التطبيق', '⚠️ الرمزان غير متطابقين', '⚠️ الرمز من 4 إلى 6 أرقام', 'تم حفظ مدة الخمول', '⚠️ تعذّر تفعيل القفل على هذا المتصفح', 'قفل التطبيق'].forEach(x => { const en = tr7(x); ok('d7: English engine leaves no Arabic in «' + x + '»', en != null && !AR.test(en), String(en)); });
   }
 
+  /* ══ تطوير 8: مزامنة بالخلفية — الـWorker يرفع المواعيد الجديدة والتطبيق مغلق ══ */
+  if (!only || only === 'd8') {
+    const HK = { 'Content-Type': 'application/json', apikey: 'k', Prefer: 'return=minimal' };
+    const world = (o) => { o = o || {}; const w = { idb: newIDB(), locks: o.noLocks ? undefined : sharedLocks(), sent: [], mode: 'ok', regs: [], swMsg: null };
+      w.net = async (u, i) => { w.sent.push({ m: i.method || 'GET', u: u.replace(SB, ''), h: i.headers || {}, body: i.body });
+        if (w.mode === 'down') throw new TypeError('Failed to fetch');
+        if (w.mode === 'dup') return json({ code: '23505', message: 'duplicate key value violates unique constraint "appointments_pkey"', details: '' }, 409);
+        if (w.mode === 'fk') return json({ code: '23503', message: 'fk' }, 409);
+        return json(null, 201); };
+      const swMock = { ready: Promise.resolve({ sync: { register: tag => { w.regs.push(tag); return Promise.resolve(); } } }), addEventListener: (t, fn) => { w.swMsg = fn; } };
+      w.t = mkTab(src, U1, w.net, w.idb, { locks: w.locks, sw: swMock, expIn: o.expIn, wire: o.wire });
+      w.q = async (table, method, row, tail) => { w.t.navigator.onLine = false;
+        await w.t.SyDentOffline.fetch(SB + '/rest/v1/' + table + (tail || ''), { method, headers: HK, body: JSON.stringify(row) }); w.t.navigator.onLine = true; };
+      w.sw = (clients) => mkSW(w.idb, w.net, { locks: w.locks, clients, swSrc: opt_sw });
+      w.left = async () => (await w.t.SyDentOffline._outboxAll());
+      return w; };
+    const APPT = { patient_id: 'p1', patient_name: 'سامر', date: '2026-11-21', time: '10:00' };
+
+    let w = world(); await w.q('appointments', 'POST', APPT); await w.q('audit_log', 'POST', { action: 'x' }); await sleep(30);
+    const bg = await w.t.SyDentOffline._get('__bg|' + U1);
+    ok('d8: queuing offline stores what the worker needs — the access token and its expiry only', !!bg && bg.token === 't' && bg.apikey === 'k' && bg.exp > Date.now() / 1000 && JSON.stringify(bg).indexOf('REFRESH-SECRET') === -1, JSON.stringify(bg));
+    ok('d8: … and asks the browser for a background sync', w.regs.length === 2 && w.regs[0] === 'sydent-outbox');
+    w.sent.length = 0;
+    let n = await w.sw([]).sync('sydent-outbox');
+    ok('d8: app closed → the worker uploads the new appointment and the audit entry, in order', n === 2 && w.sent.length === 2 && w.sent[0].u.indexOf('/rest/v1/appointments') === 0 && w.sent[1].u.indexOf('/rest/v1/audit_log') === 0 && (await w.left()).length === 0, JSON.stringify(w.sent.map(x => x.u)));
+    ok('d8: … with the stored credentials and the injected id', w.sent[0].h.Authorization === 'Bearer t' && w.sent[0].h.apikey === 'k' && /^[0-9a-f-]{36}$/.test(JSON.parse(w.sent[0].body).id));
+    ok('d8: the lock is released afterwards', w.locks.held.size === 0);
+
+    w = world(); await w.q('appointments', 'POST', APPT); w.sent.length = 0;
+    const tab = { got: [], postMessage(m) { tab.got.push(m); } };
+    n = await w.sw([tab]).sync('sydent-outbox');
+    ok('d8: a tab is open → the worker hands the upload to it and sends nothing itself', n === 0 && w.sent.length === 0 && tab.got.length === 1 && tab.got[0].type === 'DRAIN_OUTBOX');
+    n = await w.sw([]).sync('some-other-tag');
+    ok('d8: an unrelated sync tag is ignored', w.sent.length === 0);
+
+    w = world(); await w.q('appointments', 'POST', APPT); await w.q('appointments', 'PATCH', { time: '11:00' }, '?id=eq.aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'); await w.q('appointments', 'POST', Object.assign({}, APPT, { time: '12:00' }));
+    w.sent.length = 0; n = await w.sw([]).sync('sydent-outbox');
+    let left = await w.left();
+    ok('d8: the worker stops at the first operation that needs a decision (an edit) and leaves the rest untouched', n === 1 && w.sent.length === 1 && left.length === 2 && left.every(o => o.status === 'pending'), n + '/' + left.length);
+
+    for (const first of [['patients', { name: 'x', local_id: 'P001' }], ['ledger_payments', { patient_id: 'p1', amount: 5, currency: 'SYP' }]]) {
+      w = world(); await w.q(first[0], 'POST', first[1]); await w.q('appointments', 'POST', APPT); w.sent.length = 0;
+      n = await w.sw([]).sync('sydent-outbox');
+      ok('d8: the worker never uploads a ' + first[0] + ' row (and nothing queued after it)', n === 0 && w.sent.length === 0 && (await w.left()).length === 2);
+    }
+
+    w = world({ expIn: -10 }); await w.q('appointments', 'POST', APPT); w.sent.length = 0;
+    n = await w.sw([]).sync('sydent-outbox');
+    ok('d8: an expired access token is never used', n === 0 && w.sent.length === 0 && (await w.left()).length === 1);
+
+    w = world(); await w.q('appointments', 'POST', APPT); w.mode = 'dup'; w.sent.length = 0;
+    n = await w.sw([]).sync('sydent-outbox');
+    ok('d8: «already there» (409 on the primary key) counts as uploaded', n === 1 && (await w.left()).length === 0);
+    w = world(); await w.q('appointments', 'POST', APPT); await w.q('audit_log', 'POST', { action: 'x' }); w.mode = 'fk'; w.sent.length = 0;
+    n = await w.sw([]).sync('sydent-outbox'); left = await w.left();
+    ok('d8: any other rejection stops the worker without marking anything failed', n === 0 && w.sent.length === 1 && left.length === 2 && left.every(o => o.status === 'pending'));
+    w = world(); await w.q('appointments', 'POST', APPT); w.mode = 'down';
+    let rejected = false; try { await w.sw([]).sync('sydent-outbox'); } catch (e) { rejected = true; }
+    ok('d8: a network failure rejects the sync (the browser retries) and loses nothing', rejected && (await w.left()).length === 1 && w.locks.held.size === 0);
+
+    w = world(); await w.q('appointments', 'POST', APPT); w.sent.length = 0;
+    w.locks.held.add('sydent-outbox-drain'); n = await w.sw([]).sync('sydent-outbox');
+    ok('d8: while a tab is draining (lock held) the worker uploads nothing', n === 0 && w.sent.length === 0);
+    w = world({ noLocks: true }); await w.q('appointments', 'POST', APPT); w.sent.length = 0;
+    n = await w.sw([]).sync('sydent-outbox');
+    ok('d8: without Web Locks the worker does not upload on its own', n === 0 && w.sent.length === 0);
+
+    w = world(); await w.q('appointments', 'POST', APPT); await w.t.SyDentOffline.wipeCache(); w.sent.length = 0;
+    n = await w.sw([]).sync('sydent-outbox');
+    ok('d8: after sign-out the stored token is gone and the worker uploads nothing', !(await w.t.SyDentOffline._get('__bg|' + U1)) && n === 0 && w.sent.length === 0);
+
+    /* تبويب مفتوح يستجيب لرسالة الـWorker */
+    w = world({ wire: true }); await w.q('appointments', 'POST', APPT); w.sent.length = 0;
+    ok('d8: an open tab listens for the worker', typeof w.swMsg === 'function');
+    w.swMsg({ data: { type: 'DRAIN_OUTBOX' } }); await sleep(120);
+    ok('d8: … and uploads when asked', w.sent.filter(x => x.m === 'POST').length === 1 && (await w.left()).length === 0);
+  }
+
   return fails;
 }
 
 const MUTATIONS = [
+  ['d8: worker uploads edits too', null, sw => sw.replace("op.status === 'failed' || op.method !== 'POST' || !BG_TABLES[op.table]) return false;", "op.status === 'failed' || !BG_TABLES[op.table]) return false;")],
+  ['d8: worker uploads patient rows', null, sw => sw.replace("var BG_TABLES = { appointments: 1, audit_log: 1 };", "var BG_TABLES = { appointments: 1, audit_log: 1, patients: 1 };")],
+  ['d8: expired token used', null, sw => sw.replace("if (!bg || !bg.token || !bg.apikey || !(bg.exp * 1000 - Date.now() > 30000)) return 0;", "if (!bg || !bg.token || !bg.apikey) return 0;")],
+  ['d8: worker uploads although a tab is open', null, sw => sw.replace("if (list && list.length) {", "if (false) {")],
+  ['d8: worker keeps going after a rejection', null, sw => sw.replace("return ok.then(function (yes) {\n                if (!yes) return false;", "return ok.then(function (yes) {\n                if (!yes) return true;")],
+  ['d8: worker ignores the drain lock', null, sw => sw.replace("return L.request(BG_LOCK, { ifAvailable: true }, function (lock) { return lock ? bgUpload() : 0; });", "return bgUpload();")],
+  ['d8: refresh token stored for the worker', s => s.replace("token: sess.access_token, exp: parseInt(sess.expires_at, 10) || 0 });", "token: sess.access_token, refresh: sess.refresh_token, exp: parseInt(sess.expires_at, 10) || 0 });")],
+  ['d8: open tab ignores the worker', s => s.replace("if (ev && ev.data && ev.data.type === 'DRAIN_OUTBOX') drainAndReport();", '')],
   ['d7: public pages get locked', s => s.replace("if (isPublic() || !isOn()) return false;", 'if (!isOn()) return false;')],
   ['d7: no wait after five wrong codes', s => s.replace("if (n >= MAX_FAILS) { ls().setItem(K_COOL, String(now() + COOL_MS)); ls().removeItem(K_FAIL); return { ok: false, reason: 'cooldown', secondsLeft: COOL_MS / 1000 }; }", '')],
   ['d7: right code accepted during the wait', s => s.replace("if (left) return Promise.resolve({ ok: false, reason: 'cooldown', secondsLeft: left });", '')],
@@ -1008,7 +1112,7 @@ const finish = code => { FINISHED = true; process.exit(code); };
   if (process.argv.indexOf('--self-test') !== -1) {
     const SW = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
     for (const [name, mut, swMut] of MUTATIONS) {
-      const m = mut(LIVE), msw = swMut ? swMut(SW) : SW;
+      const m = mut ? mut(LIVE) : LIVE, msw = swMut ? swMut(SW) : SW;
       if (m === LIVE && msw === SW) { console.log('⛔ طفرة لم تُطبَّق (المرساة تغيّرت): ' + name); finish(1); }
       /* كل طفرة تُشغَّل على قسم خطوتها وحده (اسمها يبدأ بـ sN:) — التشغيل الكامل جرى أعلاه */
       let f; try { f = await runAll(m, msw, name.slice(0, 2)); } catch (e) { f = ['threw: ' + e.message]; }

@@ -1,7 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    SyDent — sw.js · Service Worker (PWA — Phase 0: app-shell فقط)
    ─────────────────────────────────────────────────────────────────────────────
-   الوظيفة: يجعل «هيكل التطبيق» يفتح بلا إنترنت. لا يلمس البيانات إطلاقاً.
+   الوظيفة: يجعل «هيكل التطبيق» يفتح بلا إنترنت. لا يكاش أي بيانات إطلاقاً.
+   (الاستثناء الوحيد لمسّ البيانات: رفع مواعيد جديدة سُجّلت بلا اتصال عند sync والتطبيق
+    مغلق — انظر «مزامنة بالخلفية» أسفل الملف؛ لا قراءة ولا كاش ولا أي رمز مالي.)
 
    الاستراتيجيات (قرارات أمان مقصودة — لا تغيّرها بلا مراجعة):
    • تنقّلات HTML  → صفحةٌ لها نسخة بالكاش تُفتح منها فوراً وتُحدَّث بالخلفية
@@ -642,6 +644,106 @@ self.addEventListener('fetch', function (event) {
     event.respondWith(handleSWR(event, ASSETS, MAX_ASSETS, false));
   }
   /* ما تبقى من GET نفس-الأصل: يمر للشبكة بلا لمس */
+});
+
+/* ── مزامنة بالخلفية: رفع ما سُجّل بلا اتصال والتطبيق مغلق ────────────────────
+   الصفحة تطلب sync بوسم BG_TAG حين تطابِر عملية (supabase-init.js · bgArm). عند عودة
+   الاتصال يوقظنا المتصفح:
+   • تبويبٌ مفتوح؟ نوكل له الرفع (DRAIN_OUTBOX) — كل قواعد التصريف هناك — وننتهي.
+   • لا تبويب: نرفع بأنفسنا «أضيق مجموعة لا تحتاج قراراً»: مواعيد جديدة (POST بمعرّف
+     محقون ⇒ الإعادة لا تكرّر) وسجل التدقيق. بالترتيب، ونتوقف عند أول عملية غير ذلك
+     (تعديل/حذف موعد يلزمه فحص تعارض · مريض جديد يلزمه رقم ملف · أي جدول آخر) أو عند
+     أول ردّ ليس نجاحاً ولا تكراراً لنفس العملية — فلا نوسم شيئاً «فاشلاً» ولا نغيّر
+     حالة: ما لم نرفعه يبقى كما هو للصفحة عند فتحها.
+   • التوكن: نسخة توكن الوصول التي حفظتها الصفحة (صالحة ساعة على الأكثر) — منتهية؟
+     لا شيء يُرفع. لا تجديد جلسة هنا إطلاقاً.
+   • نفس قفل التصريف (Web Locks) الذي تستعمله التبويبات، فلا رفع مزدوج.
+   رفضُ الوعد عند فشل الشبكة يجعل المتصفح يعيد المحاولة لاحقاً بنفسه. */
+var BG_TAG = 'sydent-outbox', BG_DB = 'sydent-offline', BG_LOCK = 'sydent-outbox-drain';
+var BG_TABLES = { appointments: 1, audit_log: 1 };
+function bgIdb() {
+  return new Promise(function (resolve) {
+    try {
+      var req = self.indexedDB.open(BG_DB);
+      req.onupgradeneeded = function () { try { req.transaction.abort(); } catch (e) {} };   /* لا ننشئ قاعدة */
+      req.onsuccess = function () {
+        var db = req.result;
+        if (!db.objectStoreNames.contains('outbox') || !db.objectStoreNames.contains('rest_cache')) { try { db.close(); } catch (e) {} return resolve(null); }
+        resolve(db);
+      };
+      req.onerror = function () { resolve(null); };
+      req.onblocked = function () { resolve(null); };
+    } catch (e) { resolve(null); }
+  });
+}
+function bgReq(db, store, mode, fn) {
+  return new Promise(function (resolve) {
+    try {
+      var t = db.transaction(store, mode), r = fn(t.objectStore(store));
+      t.oncomplete = function () { resolve(r && r.result); };
+      t.onerror = function () { resolve(null); };
+      t.onabort = function () { resolve(null); };
+    } catch (e) { resolve(null); }
+  });
+}
+function bgOwnDuplicate(op, txt) {
+  try {
+    var j = JSON.parse(txt || 'null') || {};
+    if (op.table !== 'appointments' || j.code !== '23505') return false;
+    return String(j.message || '').indexOf('"appointments_pkey"') !== -1 || /^Key \(id\)=/.test(String(j.details || ''));
+  } catch (e) { return false; }
+}
+function bgDrain() {
+  if (KILL_SWITCH) return Promise.resolve(0);
+  var cl = self.clients;
+  var open = (cl && typeof cl.matchAll === 'function') ? cl.matchAll({ type: 'window' }).catch(function () { return []; }) : Promise.resolve([]);
+  return open.then(function (list) {
+    if (list && list.length) {
+      list.forEach(function (c) { try { c.postMessage({ type: 'DRAIN_OUTBOX' }); } catch (e) {} });
+      return 0;
+    }
+    var L = self.navigator && self.navigator.locks;
+    if (!L || typeof L.request !== 'function') return 0;      /* بلا قفل مشترك لا نرفع من هنا */
+    return L.request(BG_LOCK, { ifAvailable: true }, function (lock) { return lock ? bgUpload() : 0; });
+  });
+}
+function bgUpload() {
+  return bgIdb().then(function (db) {
+    if (!db) return 0;
+    var done = 0;
+    var finish = function (v) { try { db.close(); } catch (e) {} return v; };
+    return bgReq(db, 'outbox', 'readonly', function (os) { return os.getAll(); }).then(function (ops) {
+      ops = (ops || []).slice().sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
+      if (!ops.length) return 0;
+      var uid = ops[0].uid;
+      return bgReq(db, 'rest_cache', 'readonly', function (os) { return os.get('__bg|' + uid); }).then(function (bg) {
+        if (!bg || !bg.token || !bg.apikey || !(bg.exp * 1000 - Date.now() > 30000)) return 0;
+        var chain = Promise.resolve(true);
+        ops.forEach(function (op) {
+          chain = chain.then(function (go) {
+            if (!go) return false;
+            if (!op || op.uid !== uid || op.status === 'failed' || op.method !== 'POST' || !BG_TABLES[op.table]) return false;
+            var h = { apikey: bg.apikey, Authorization: 'Bearer ' + bg.token, 'Content-Type': (op.headers && op.headers.ct) || 'application/json' };
+            if (op.headers && op.headers.prefer) h.Prefer = op.headers.prefer;
+            return fetch(op.url, { method: 'POST', headers: h, body: op.body || undefined }).then(function (res) {
+              var ok = res.ok ? Promise.resolve(true)
+                : (res.status === 409 ? res.text().then(function (t) { return bgOwnDuplicate(op, t); }, function () { return false; }) : Promise.resolve(false));
+              return ok.then(function (yes) {
+                if (!yes) return false;
+                done++;
+                return bgReq(db, 'outbox', 'readwrite', function (os) { return os.delete(op.id); }).then(function () { return true; });
+              });
+            });
+          });
+        });
+        return chain.then(function () { return done; });
+      });
+    }).then(finish, function (e) { finish(0); throw e; });
+  });
+}
+self.addEventListener('sync', function (event) {
+  if (!event || event.tag !== BG_TAG) return;
+  event.waitUntil(bgDrain());
 });
 
 /* ── Phase 3: تحديث خلفي للصفحات المكاشة (يقلّص «النافذة الانتقالية») ──────
