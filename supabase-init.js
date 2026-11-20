@@ -368,8 +368,9 @@
 
   /* ── التصريف (drain): إعادة تشغيل الطابور بالترتيب عند عودة النت ──────────
      الترويسات تُعاد بناؤها بجلسة اللحظة (لا توكنات مخزّنة قديمة)؛
-     idempotency: insert بـUUID عميلي → 409 duplicate = «تمّ»؛ 4xx أخرى
-     (RLS/قيود) → توسم failed وتبقى للمراجعة؛ فشل شبكة → إيقاف وإبقاء. */
+     idempotency: insert بـUUID عميلي → 409 تكرار المفتاح الأساسي = «تمّ»؛ كل 4xx
+     أخرى (RLS/قيود/409 مفتاح أجنبي) → توسم failed وتبقى للمراجعة؛ فشل شبكة →
+     إيقاف وإبقاء. */
   /* v363 — الاشتراك غير الكامل يوقف الطابور ولا يستهلكه: الكتابةُ سترفضها RLS (M141)،
      ومحاولتُها كانت تحرق المحاولات الخمس ثم يُكنَس ما كُتب أوفلاين بعد 7 أيام — حتى لو
      جدّد المالك. الآن ينتظر الطابور التجديد بلا محاولة ولا عدّاد ولا كنس، ويستأنف وحده
@@ -394,6 +395,27 @@
       _pausedSub = false;
       return drainNow();
     }, function () { return drainNow(); });
+  }
+  /* جسم خطأ PostgREST: {code, message, details} — يُقرأ دفاعياً ويُقصّ */
+  function pgError(txt) {
+    try {
+      var j = JSON.parse(txt || 'null') || {};
+      return {
+        code: typeof j.code === 'string' ? j.code.slice(0, 12) : '',
+        message: typeof j.message === 'string' ? j.message.slice(0, 180) : '',
+        details: typeof j.details === 'string' ? j.details.slice(0, 180) : ''
+      };
+    } catch (e) { return { code: '', message: '', details: '' }; }
+  }
+  /* 409 يعيده PostgREST لتكرار المفتاح (23505) ولخرق المفتاح الأجنبي (23503) معاً.
+     «تمّ» = حالة واحدة حصراً: إدراجٌ بمعرّف uuid حقنّاه نحن وجده السيرفر موجوداً على
+     المفتاح الأساسي — أي أن محاولةً سابقة لهذه العملية نفسها وصلت. كل 409 آخر
+     (مريض/علاج/كرسي حُذف من جهاز آخر · قيد فريد غير المفتاح) فشلٌ يبقى للمراجعة —
+     كان يُحسب نجاحاً فتُحذف الدفعة أو الموعد من الطابور وتظهر «تمت المزامنة». */
+  function isOwnDuplicate(rec, info) {
+    if (!rec || rec.method !== 'POST' || !UUID_INJECT_TABLES[rec.table]) return false;
+    if (!info || info.code !== '23505') return false;
+    return info.message.indexOf('"' + rec.table + '_pkey"') !== -1 || /^Key \(id\)=/.test(info.details);
   }
   function drainNow() {
     if (_draining) return Promise.resolve({ synced: 0, failed: 0 });
@@ -427,19 +449,25 @@
               method: rec.method, headers: headers,
               body: rec.method === 'DELETE' ? undefined : (rec.body || undefined)
             }).then(function (res) {
-              if (res.ok || res.status === 409) {
-              synced++;
-              syncedRecs.push({ table: rec.table, method: rec.method, url: rec.url, body: rec.body });
-              return outboxDelete(rec.id);
-            }
+              var done = function () {
+                synced++;
+                syncedRecs.push({ table: rec.table, method: rec.method, url: rec.url, body: rec.body });
+                return outboxDelete(rec.id);
+              };
+              if (res.ok) return done();
               if (res.status === 401) { throw new Error('auth-401'); } /* جلسة — أوقف وأبقِ */
               /* v363: انتهى الاشتراك أثناء التصريف ⇒ أوقف وأبقِ (بلا عدّاد) */
               if ((res.status === 403 || res.status === 401) && subNotFull()) { _pausedSub = true; throw new Error('subscription-paused'); }
-              failed++;
-              rec.status = 'failed'; rec.attempts = (rec.attempts || 0) + 1;
-              rec.lastError = 'HTTP ' + res.status;
-              console.warn('[SyDentOffline] drain op failed:', rec.method, rec.table, rec.lastError);
-              return outboxMark(rec);
+              return res.text().catch(function () { return ''; }).then(function (txt) {
+                var info = pgError(txt);
+                /* 409 = «تمّ» فقط حين يكون تكرارَ هذه العملية نفسها (انظر isOwnDuplicate) */
+                if (res.status === 409 && isOwnDuplicate(rec, info)) return done();
+                failed++;
+                rec.status = 'failed'; rec.attempts = (rec.attempts || 0) + 1;
+                rec.lastError = 'HTTP ' + res.status + (info.code ? ' · ' + info.code : '') + (info.message ? ' · ' + info.message : '');
+                console.warn('[SyDentOffline] drain op failed:', rec.method, rec.table, rec.lastError);
+                return outboxMark(rec);
+              });
             });
           });
         });
