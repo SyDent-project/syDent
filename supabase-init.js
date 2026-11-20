@@ -217,7 +217,16 @@
     });
   }
 
-  function outboxNotify() {
+  /* تغيّرُ الطابور يُبلَّغ للتبويبات الأخرى كي تحدّث شارتها (التصريف يجري بتبويب واحد) */
+  var _bc = null;
+  try {
+    if (typeof window.BroadcastChannel === 'function') {
+      _bc = new window.BroadcastChannel('sydent-outbox');
+      _bc.onmessage = function () { outboxNotify(true); };
+    }
+  } catch (e) { _bc = null; }
+  function outboxNotify(fromOtherTab) {
+    if (!fromOtherTab && _bc) { try { _bc.postMessage(1); } catch (e) {} }
     outboxAll().then(function (rows) {
       var pending = 0, failed = 0;
       rows.forEach(function (r) {
@@ -388,7 +397,7 @@
   }
   function drain() {
     var s = window.SyDentSub;
-    if (!s || typeof s.load !== 'function') return drainNow();
+    if (!s || typeof s.load !== 'function') return drainOnce();
     return Promise.resolve(s.load()).then(function (st) {
       if (st && st.level && st.level !== 'full') {
         _pausedSub = true;
@@ -396,9 +405,28 @@
         return { synced: 0, failed: 0, paused: 'subscription' };
       }
       _pausedSub = false;
-      return drainNow();
-    }, function () { return drainNow(); });
+      return drainOnce();
+    }, function () { return drainOnce(); });
   }
+  /* ── تصريف واحد عبر كل التبويبات ─────────────────────────────────────────
+     _draining يحرس التبويب نفسه فقط: تبويبان مفتوحان كانا يعيدان تشغيل الطابور
+     نفسه بالتوازي (حدث online يصل الاثنين) فتُرسَل كل عملية مرتين — المواعيد
+     والدفعات يحميها المعرّف المحقون، وسجل التدقيق يتكرر. قفل Web Locks بنمط
+     ifAvailable: من لم يأخذه يخرج فوراً (التبويب الآخر يصرّف)، ويتحرّر القفل
+     تلقائياً بانتهاء التصريف أو إغلاق التبويب. متصفح بلا Web Locks = السلوك السابق. */
+  var DRAIN_LOCK = 'sydent-outbox-drain';
+  function drainOnce() {
+    var L = null;
+    try { L = window.navigator && window.navigator.locks; } catch (e) {}
+    if (!L || typeof L.request !== 'function') return drainNow();
+    try {
+      return Promise.resolve(L.request(DRAIN_LOCK, { ifAvailable: true }, function (lock) {
+        if (!lock) return { synced: 0, failed: 0, busy: true };
+        return drainNow();
+      })).catch(function () { return { synced: 0, failed: 0 }; });
+    } catch (e) { return drainNow(); }
+  }
+
   /* جسم خطأ PostgREST: {code, message, details} — يُقرأ دفاعياً ويُقصّ */
   function pgError(txt) {
     try {

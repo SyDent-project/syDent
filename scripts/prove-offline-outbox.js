@@ -114,6 +114,8 @@ function mkTab(src, uid, net, idb, opt) {
     console: { warn() {}, info() {}, log() {}, error() {} }
   };
   win.window = win;
+  if (opt.locks) win.navigator.locks = opt.locks;
+  if (opt.bus) win.BroadcastChannel = opt.bus.Channel;
   const els = [];
   const el = () => { const e = { style: {}, setAttribute() {}, appendChild() {}, addEventListener() {}, classList: { add() {}, remove() {}, toggle() {} } }; els.push(e); return e; };
   win.byId = id => els.find(e => e.id === id) || null;
@@ -154,6 +156,21 @@ function mkTab(src, uid, net, idb, opt) {
     vm.runInContext(src.slice(a, b + 7), ctx);
   }
   return win;
+}
+
+/* Web Locks + BroadcastChannel مشتركان بين «تبويبات» الحامل */
+function sharedLocks() {
+  const held = new Set();
+  return { held, request(name, o, cb) {
+    if (held.has(name)) return Promise.resolve(cb(null));
+    held.add(name);
+    return Promise.resolve().then(() => cb({ name })).finally(() => held.delete(name));
+  } };
+}
+function sharedBus() {
+  const chans = [];
+  return { Channel: function () { const me = this; me.onmessage = null; chans.push(me);
+    me.postMessage = d => chans.forEach(c => { if (c !== me && c.onmessage) setImmediate(() => c.onmessage({ data: d })); }); } };
 }
 
 /* محرّك الإنجليزية الحقيقي (theme.js + i18n-en.js) — نفس تحميل prove-i18n-render */
@@ -348,10 +365,50 @@ async function runAll(src) {
     });
   }
 
+  /* ══ الخطوة 4: تبويبان مفتوحان يصرّفان الطابور مرة واحدة ══ */
+  {
+    const run = async (locks) => {
+      const idb = newIDB(), sent = [], bus = sharedBus();
+      const net = async (u, i) => { sent.push((i.method || 'GET') + ' ' + u.replace(SB, '')); await sleep(30); return json(null, 201); };
+      const a = mkTab(src, U1, net, idb, { locks, bus }), b = mkTab(src, U1, net, idb, { locks, bus });
+      let bSeen = [];
+      b.SyDentOffline.onOutboxChange((p, f) => bSeen.push(p + f));
+      a.navigator.onLine = false;
+      await a.SyDentOffline.fetch(SB + '/rest/v1/audit_log', { method: 'POST', body: JSON.stringify({ action: 'x' }), headers: { 'Content-Type': 'application/json' } });
+      await a.SyDentOffline.fetch(SB + '/rest/v1/appointments', { method: 'POST', body: JSON.stringify({ patient_id: 'p1', date: '2026-11-21' }), headers: { 'Content-Type': 'application/json' } });
+      a.navigator.onLine = true;
+      await sleep(30); bSeen = [];
+      const res = await Promise.all([a.SyDentOffline.drain(), b.SyDentOffline.drain()]);
+      await sleep(40);
+      return { sent, res, left: (await a.SyDentOffline._outboxAll()).length, bSeen, a, b, locks };
+    };
+    const L = sharedLocks();
+    let x = await run(L);
+    ok('s4: two tabs → every queued operation is sent exactly once', x.sent.length === 2 && x.sent.filter(v => v.indexOf('audit_log') !== -1).length === 1, x.sent.join(' , '));
+    ok('s4: queue fully drained and the lock released', x.left === 0 && L.held.size === 0);
+    ok('s4: the tab that lost the lock reports busy, not a failure', x.res.some(r => r.busy) && x.res.reduce((n, r) => n + r.synced, 0) === 2 && x.res.every(r => r.failed === 0), JSON.stringify(x.res));
+    ok('s4: the other tab\'s badge is told the queue emptied', x.bSeen.length > 0 && x.bSeen[x.bSeen.length - 1] === 0, JSON.stringify(x.bSeen));
+    x.b.navigator.onLine = false;
+    await x.b.SyDentOffline.fetch(SB + '/rest/v1/appointments', { method: 'POST', body: JSON.stringify({ patient_id: 'p2', date: '2026-11-22' }), headers: { 'Content-Type': 'application/json' } });
+    x.b.navigator.onLine = true;
+    const again = await x.b.SyDentOffline.drain();
+    ok('s4: the losing tab can drain later (lock is not stuck)', again.synced === 1);
+    /* متصفح بلا Web Locks: السلوك السابق يعمل */
+    x = await run(undefined);
+    ok('s4: without Web Locks the queue still drains', x.left === 0);
+    /* request يرفض (SecurityError) ⇒ لا رمي ولا ضياع */
+    const broken = { request() { return Promise.reject(new Error('SecurityError')); } };
+    x = await run(broken);
+    ok('s4: a rejecting lock manager never throws and loses nothing', x.left === 2 && x.res.every(r => r.synced === 0 && r.failed === 0));
+  }
+
   return fails;
 }
 
 const MUTATIONS = [
+  ['s4: drain no longer takes the cross-tab lock', s => s.replace("if (!L || typeof L.request !== 'function') return drainNow();", 'if (true) return drainNow();')],
+  ['s4: losing tab drains anyway', s => s.replace("if (!lock) return { synced: 0, failed: 0, busy: true };", '')],
+  ['s4: other tabs not told about queue changes', s => s.replace("if (!fromOtherTab && _bc) { try { _bc.postMessage(1); } catch (e) {} }", '')],
   ['s3: failed appointments swept after a week again', s => s.replace("if (rec.table === 'audit_log' && Date.now() - (rec.createdAt || 0) > 7 * 24 * 3600 * 1000) {", 'if (Date.now() - (rec.createdAt || 0) > 7 * 24 * 3600 * 1000) {')],
   ['s3: review list leaks other users', s => s.replace("return rows.filter(function (r) { return r && uid && r.uid === uid; }).map(function (r) {", 'return rows.map(function (r) {')],
   ['s3: discard not limited to own operations', s => s.replace("if (rows[i] && rows[i].id === id && uid && rows[i].uid === uid) return rows[i];", 'if (rows[i] && rows[i].id === id) return rows[i];')],
