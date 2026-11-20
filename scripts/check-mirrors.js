@@ -894,7 +894,7 @@ try {
     stMism++; bad('theme.css (عُدّة النوافذ): قاعدة تراجع/تعطيل الأب (:has) مفقودة');
   }
   [['appointments.html', 5] /* v501: نافذةُ الحجوزات تُحقن من appt-blocks.js */, ['patients.html', 4], ['patient-profile.html', 42] /* M210: +fuModal +fuPickModal (جلسةُ المتابعة) · C3b: المواد ورقم الدفعة · v595: +ppIntakeModal (M177) · v635: +xrUpModal (M192) · v637: +xrGalModal · v642: +xrCamModal · v643: +xrInboxModal */,
-   ['treatments.html', 2], ['doctors.html', 1], ['employees.html', 2], ['payouts.html', 1],
+   ['treatments.html', 3] /* M219: +consentModal */, ['doctors.html', 1], ['employees.html', 2], ['payouts.html', 1],
    ['expenses.html', 2], ['inventory.html', 7] /* C3: نافذةُ الطلبيات والموردين · C3b: تتبّعُ الدفعة */, ['labs.html', 3],
    ['provider-reports.html', 3], ['audit-log.html', 1],
    ['settings.html', 5], ['learn.html', 1], ['subscription.html', 2], ['auth.html', 1], ['admin.html', 6]].forEach(([f, n]) => {
@@ -2425,10 +2425,10 @@ try {
      قراءة/خامل ⇒ لا شيء. الاشتراك بلا معالجات (التجديد مسموح بالقراءة) فخارج السجل. */
   const RO_REG = {
     "treatments.html": {
-      "write": ["resetToDefaults", "openAddModal", "saveTreatment", "matAddRow", "saveMaterials", "toggleFavorite", "editTreatment", "duplicateTreatment", "openMaterialsModal", "toggleActive", "deleteTreatment"],
+      "write": ["resetToDefaults", "openAddModal", "saveTreatment", "matAddRow", "saveMaterials", "toggleFavorite", "editTreatment", "duplicateTreatment", "openMaterialsModal", "toggleActive", "deleteTreatment", "openConsentModal", "saveConsentTpl"],   /* M219: موافقةُ المريض — الزرُّ والحفظُ كتابة */
       "guard": ["treatCardOpen"],
-      "read": ["printLegend", "resetFilters", "closeModal", "closeMaterialsModal"],
-      "inert": ["openTreatColorPicker", "matUpdateRowUnit"],
+      "read": ["printLegend", "resetFilters", "closeModal", "closeMaterialsModal", "closeConsentModal"],
+      "inert": ["openTreatColorPicker", "matUpdateRowUnit", "consentRestoreLib", "consentSyncFields", "consentCountChars"],   /* M219: داخل نافذة كتابةٍ لا تُفتح بالقراءة */
       "extra": [".drag-handle"]
     },
     "doctors.html": {
