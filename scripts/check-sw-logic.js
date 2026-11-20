@@ -139,12 +139,13 @@ const O = 'https://sydent.app';
   await fire('activate', {});
   A(sandbox.__claimed, 'offline: claim() نُفِّذ رغم فشل إعادة الجلب');
   const pg2 = store.get(CUR.pages);
-  A(!pg2 || !pg2.has(O + '/appointments.html'), 'offline: لا جسم قديم نُسخ ولا طازج (الشبكة مقطوعة)');
+  A(pg2 && pg2.get(O + '/appointments.html') === 'OLD-appt', 'offline: الصفحة تبقى بجسمها السابق فتُفتح بلا اتصال (كانت تُحذف فيبقى الجهاز بلا صفحات)');
   A(JSON.parse(store.get(CUR.pre).get(O + '/__page_set'))[0] === O + '/appointments.html',
     'offline: /__page_set نجا بقائمة الصفحة');
   ONLINE = true;
   await fire('message', { type: 'REFRESH_PAGES' });
   const pg3 = store.get(CUR.pages);
+  A(pg3 && !pg3.has(O + '/appointments.html'), 'REFRESH_PAGES: المفتاح القديم حُذف بعد حفظ الطازج بمفتاحه النهائي (لا نسختان)');
   A(pg3 && pg3.get(O + '/appointments') === 'FRESH:' + O + '/appointments',
     'REFRESH_PAGES استأنف من /__page_set وجلب الصفحة طازجة رغم كاش صفحات فارغ');
 
@@ -223,5 +224,5 @@ const O = 'https://sydent.app';
     'خطوط: تُخدَم من الكاش أوفلاين (نهاية أسطر 504 للخطوط)');
 
   if (process.exitCode) { console.error('⛔ حارس SW: توكيد فاشل واحد على الأقل'); }
-  else { console.log('✅ حارس SW: منطق الأوفلاين كامل (21 توكيداً — ترحيل ×2 · خانق · تسخين CORE+vendor · 308+غسل العلم · بطاقة offline · 504 صامت · خطوط CORS) على ' + V); }
+  else { console.log('✅ حارس SW: منطق الأوفلاين كامل (22 توكيداً — ترحيل ×2 · خانق · تسخين CORE+vendor · 308+غسل العلم · بطاقة offline · 504 صامت · خطوط CORS) على ' + V); }
 })().catch(e => { console.error('⛔ حارس SW: استثناء:', e); process.exit(1); });
