@@ -14,6 +14,7 @@ bash "$S/check-offline-guard.sh"      || FAIL=1
 node "$S/check-critical-logic.js" | tail -1 || FAIL=1
 node "$S/check-xss.js"             || FAIL=1
 node "$S/check-sw-logic.js"        || FAIL=1
+node "$S/prove-offline-outbox.js" --self-test | tail -1 || FAIL=1   # مثبت سلوكي لطبقة الأوفلاين: كاش القراءة + الطابور + مسح الكاش عند كل خروج — على الموديول الحي + طفرات
 node "$S/check-catalog-parity.js"   || FAIL=1
 node "$S/check-datatest-census.js"  || FAIL=1
 node "$S/check-plan-gating.js"      || FAIL=1
