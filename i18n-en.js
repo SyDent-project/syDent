@@ -4073,3 +4073,30 @@ Object.assign(window.SyI18nDict, {
   '⚠️ الموافقات غير متاحة بعد — حدّث الصفحة وحاول ثانيةً': '⚠️ Consents are not available yet — refresh the page and try again',
   '⚠️ احفظ العلاج أولاً ثم أضف موافقته': '⚠️ Save the treatment first, then add its consent'
 });
+
+/* ── M219 (step 2): treatment consents on the patient card ── */
+Object.assign(window.SyI18nDict, {
+  'موافقات العلاج': 'Treatment consents',
+  '✍️ موافقات العلاج': '✍️ Treatment consents',
+  'تُنشأ الموافقة تلقائياً عند وضع علاجٍ له نصّ موافقة في الخطة المعتمدة، ويوقّعها المريض من بوابته. الموقَّعة تبقى بنصّها كما وُقّع.': 'A consent is created automatically when a treatment that has a consent text enters the adopted plan, and the patient signs it from their portal. A signed consent keeps its text as signed.',
+  '🔗 إرسال البوابة للتوقيع': '🔗 Send the portal for signing',
+  'عرض الموافقات': 'View consents',
+  'يوقّع المريض موافقاته المعلَّقة من بوابته': 'The patient signs their pending consents from their portal',
+  'لا موافقات لهذا المريض.': 'No consents for this patient.',
+  '✅ موقَّعة': '✅ Signed',
+  'ملغاة': 'Cancelled',
+  '✍️ بانتظار التوقيع': '✍️ Awaiting signature',
+  'نصّ الموافقة': 'Consent text',
+  '🖨️ طباعة': '🖨️ Print',
+  'إلغاء هذه الموافقة المعلَّقة — لن تظهر للمريض': 'Cancel this pending consent — it will no longer show to the patient',
+  'إلغاء الموافقة': 'Cancel the consent',
+  'تراجع': 'Back',
+  'أُلغيت الموافقة ✓': 'Consent cancelled ✓',
+  '⚠️ بوابة المريض غير متاحة على هذا الحساب': '⚠️ The patient portal is not available on this account',
+  '⚠️ حسابك بوضع القراءة — لا يمكن الإلغاء': '⚠️ Your account is read-only — cannot cancel',
+  '⚠️ تعذّر الإلغاء — تحقّق من الاتصال وحاول ثانيةً': '⚠️ Could not cancel — check the connection and try again'
+});
+if (window.SyI18nPatterns) window.SyI18nPatterns.push(
+  [/^✍️ بانتظار التوقيع: (\d+)$/, '✍️ Awaiting signature: $1'],
+  [/^✅ موقَّعة: (\d+)$/, '✅ Signed: $1']
+);

@@ -893,7 +893,7 @@ try {
   if (KIT.indexOf(KPAR + ' > :is(.modal-box, .modal, .modal-card)') === -1) {
     stMism++; bad('theme.css (عُدّة النوافذ): قاعدة تراجع/تعطيل الأب (:has) مفقودة');
   }
-  [['appointments.html', 5] /* v501: نافذةُ الحجوزات تُحقن من appt-blocks.js */, ['patients.html', 4], ['patient-profile.html', 42] /* M210: +fuModal +fuPickModal (جلسةُ المتابعة) · C3b: المواد ورقم الدفعة · v595: +ppIntakeModal (M177) · v635: +xrUpModal (M192) · v637: +xrGalModal · v642: +xrCamModal · v643: +xrInboxModal */,
+  [['appointments.html', 5] /* v501: نافذةُ الحجوزات تُحقن من appt-blocks.js */, ['patients.html', 4], ['patient-profile.html', 43] /* M210: +fuModal +fuPickModal (جلسةُ المتابعة) · C3b: المواد ورقم الدفعة · v595: +ppIntakeModal (M177) · v635: +xrUpModal (M192) · v637: +xrGalModal · v642: +xrCamModal · v643: +xrInboxModal */,
    ['treatments.html', 3] /* M219: +consentModal */, ['doctors.html', 1], ['employees.html', 2], ['payouts.html', 1],
    ['expenses.html', 2], ['inventory.html', 7] /* C3: نافذةُ الطلبيات والموردين · C3b: تتبّعُ الدفعة */, ['labs.html', 3],
    ['provider-reports.html', 3], ['audit-log.html', 1],
@@ -2299,7 +2299,7 @@ try {
      خامل)، وسطرُ CSS بـpatient-profile.css مولَّدٌ من قائمة الكتابة ويُقارَن حرفياً،
      ومعالجٌ جديد بلا تصنيف يُسقط الحارس فيُجبر صاحبه على القرار. */
   // سجلُّ معالجات بطاقة المريض لوضع القراءة — مصدرٌ واحد يُنسخ حرفياً إلى check-mirrors (V11)
-  const PP_FILES = ['patient-profile.html', 'pp-core.js', 'pp-clinical.js', 'pp-dental.js', 'pp-modules.js', 'pp-plan.js', 'pp-timeline.js', 'pp-appt.js', 'pp-extras.js', 'pp-wa.js', 'pp-intake.js', 'pp-portal.js', 'pp-xray.js', 'pp-denture.js', 'pp-denture-svc.js', 'pp-followup.js'];
+  const PP_FILES = ['patient-profile.html', 'pp-core.js', 'pp-clinical.js', 'pp-dental.js', 'pp-modules.js', 'pp-plan.js', 'pp-timeline.js', 'pp-appt.js', 'pp-extras.js', 'pp-wa.js', 'pp-intake.js', 'pp-portal.js', 'pp-consent.js', 'pp-xray.js', 'pp-denture.js', 'pp-denture-svc.js', 'pp-followup.js'];
   const PP_WRITE = ['openApptModal', 'openNewSessionEntry', 'openModal', 'openWaHub', 'openPayModal', 'openEditModal', 'unlinkFromFamily', 'openFamilyLinkModal',
     'openPlannedApptModal', 'toggleBatchMode', 'toggleExamMode', 'toggleDraftMode', 'examUndo', 'batchApply', 'batchUndo', 'draftUndo', 'draftClearAll', 'draftSave',
     'draftSetWidth', 'draftSetEraser', 'perioDeleteExam', 'perioNewExam', 'perioSave', 'perioCreateExam', 'openObModal', 'openAdjustmentModal',
@@ -2318,7 +2318,7 @@ try {
     'clearToothStatus', 'removeSpacerUnit', 'dentRemoveUnit' /* M202: إزالةُ الجهاز المتحرك */, 'removeSocket', 'removeCondition', 'sxCancelExtraction', 'deleteImplantLog', 'linkToFamily', 'deleteImplantTemplate', 'batchSetStatus',
     'batchPickTx', 'examSetStatus', 'examSetMonths', 'examPick', 'planWa', 'planSetStatus', 'removePendingPP', 'unlinkSessionFromApptPP',
     'quickSchedulePlannedFromProfile', 'editPlannedFromProfile', 'deletePlannedFromProfile', 'pfDeleteFile', 'planNewVisit', 'planLinkVisitPick', 'planLinkVisit', 'ppIntakeSend', 'ppIntakeCopyLink', 'ppIntakeDismiss', 'ppIntakeApprove',   /* M177: إنشاءُ رابط الاستمارة وختمُها كتابة */
-    'ppPortalSend', 'ppPortalCopyLink', 'ppPortalRenew', 'ppPortalRevoke',   /* M180: إنشاءُ رابط البوابة وتجديدُه وإيقافُه كتابة */
+    'ppPortalSend', 'ppPortalCopyLink', 'ppPortalRenew', 'ppPortalRevoke', 'ppConsentSend', 'ppConsentVoid',   /* M219: إرسالُ البوابة للتوقيع وإلغاءُ المعلَّقة كتابة · M180: إنشاءُ رابط البوابة وتجديدُه وإيقافُه كتابة */
     'pfCamPick', 'pfEditXray', 'pfCleanOrphans',   /* M192: كاميرا الرفع · وسمُ الأشعة · تنظيفُ الملفات اليتيمة */
     'xrGalAttach',   /* v637: «📎 أضف صورة» من معرض السن */
     'pfToggleShare',   /* M193: مشاركةُ صورةٍ مع المريض ببوابته */
@@ -2332,7 +2332,7 @@ try {
     'historyToday', 'onTlTypeChip', 'onTlDateRangeChange', 'onTlSearchInput', 'onTlLoadMore', 'perioPickExam', 'perioToggleCompare', 'perioRunCompare', 'perioPrint',
     'pfApplyToothFilter', 'pfSetSeg', 'xrOpenGallery', 'xrGalView', 'xrGalPick', 'xrGalCompare', 'xrGalToFiles', 'xrGalClose', 'closeModal', 'openPrintChoice', 'doPrintRecord', 'openStatementModal', 'printTreatmentPlan', 'copyTreatmentPlan',
     'stmtSetPreset', 'printStatement', 'copyStatement', 'printPrescription', 'copyPrescription', 'printPostOp', 'copyPostOp',
-    'resetTimelineFilters', 'pfOpenFile', 'aiPlanCopy', 'aiPlanPrint', 'aiReferralCopy', 'aiReferralPrint', 'aiSeqCopy', 'ppWaComposeCopy', 'labAiCopy', 'labSlipPrint', 'ppApptOpenInCalendar', 'ppMsgSetFilter', 'ppMsgToggle', 'ppIntakeOpenReview', 'ppIntakePrint', 'planRowCtlToggle'];   /* v597: فتحُ لوحة المرحلة/البديل — عرضٌ بحت */
+    'resetTimelineFilters', 'ppConsentOpen', 'ppConsentPrint' /* M219: عرضُ الموافقات وطباعتُها قراءة */, 'pfOpenFile', 'aiPlanCopy', 'aiPlanPrint', 'aiReferralCopy', 'aiReferralPrint', 'aiSeqCopy', 'ppWaComposeCopy', 'labAiCopy', 'labSlipPrint', 'ppApptOpenInCalendar', 'ppMsgSetFilter', 'ppMsgToggle', 'ppIntakeOpenReview', 'ppIntakePrint', 'planRowCtlToggle'];   /* v597: فتحُ لوحة المرحلة/البديل — عرضٌ بحت */
   // حقولٌ وأزرارٌ تعيش داخل نوافذ/أوضاع كتابةٍ مداخلُها مخفية أو محروسة (أو حقول اللثة المقفلة بـreadOnly)
   const PP_INERT = ['toothUnitsChanged', 'draftSetEraserSize', 'pfOnFilesPicked', 'onAdjKindChange', 'sessApptChanged', 'snTplApply', 'snTplGlowSync', 'refTplApply',
     'onApptPlannedToggle', 'onProviderChange', 'implantApplyTemplate', 'labTplApply', 'onLabApptChange', 'labTplGlowSync', 'waTplApply', 'planRecalc',
@@ -2546,7 +2546,7 @@ try {
     const LISTENERS = {
       'index.html': 3, 'patients.html': 19   /* v442: عدّاد أحرف نص الرسالة (input) — قراءة بحتة · C2: إغلاق قائمة «أدوات» (عرضٌ فقط) · C2: شرائح الفلاتر النشطة (onclick ×2، تصفيةٌ محلية بلا كتابة) */, 'appointments.html': 3   /* v439: مستمع إغلاق modalOverlay بنقرةٍ خارجية حُذف — كان يمحو نموذجاً معبّأً · v565: مستمعُ «+N» انتقل إلى SyDentBadgeCap بـtheme.js (قراءةٌ بحتة) */, 'appt-views.js': 7   /* v498: نقرُ فترةٍ محجوزة ⇒ openBlockModal (محروسة) */, 'appt-blocks.js': 0, 'appt-time.js': 0, 'appt-wa.js': 1   /* v443: عدّاد أحرف نص التذكير (input) — قراءة بحتة */,
       'appt-booking.js': 0, 'appt-modal.js': 0, 'patient-profile.html': 11   /* C2: إغلاق قائمة «أدوات» (عرضٌ فقط) */, 'pp-core.js': 0, 'pp-clinical.js': 0, 'pp-dental.js': 2,
-      'pp-modules.js': 5, 'pp-plan.js': 2   /* v611: إغلاقُ لوحة «المرحلة/بديل» بنقرةٍ خارجية أو Escape — قراءة بحتة */, 'pp-timeline.js': 0, 'pp-appt.js': 3, 'pp-extras.js': 2, 'pp-wa.js': 1, 'pp-intake.js': 0, 'pp-portal.js': 0, 'pp-denture.js': 0   /* M202: صفر مستمعات — كلُّ نقراته onclick مصنّفة أعلاه */, 'pp-followup.js': 0   /* M210: صفر مستمعات — كلُّ نقراته onclick مصنّفة أعلاه */, 'pp-denture-svc.js': 4   /* M208: نقرُ شريحة الجهاز ومفتاحُها (فتحُ سجلّه — قراءة) · نقرُ نافذة الجهاز ومفتاحُ Escape: اختيارُ الخدمة محروسٌ بأول سطر (dsvLocked ⇒ blockReadOnly) وما بعده لا يُبلَغ إلا منه، والحفظُ محروسٌ ثانيةً */, 'pp-xray.js': 1 /* v635: «paste» (خارج القائمة) · v642: keydown للالتقاط — يعمل فقط ونافذةُ الكاميرا مفتوحة (مدخلاها محروسان) */,   /* v408: عدّاد أحرف نص الرسالة (input) — قراءة بحتة */
+      'pp-modules.js': 5, 'pp-plan.js': 2   /* v611: إغلاقُ لوحة «المرحلة/بديل» بنقرةٍ خارجية أو Escape — قراءة بحتة */, 'pp-timeline.js': 0, 'pp-appt.js': 3, 'pp-extras.js': 2, 'pp-wa.js': 1, 'pp-intake.js': 0, 'pp-portal.js': 0, 'pp-consent.js': 0, 'pp-denture.js': 0   /* M202: صفر مستمعات — كلُّ نقراته onclick مصنّفة أعلاه */, 'pp-followup.js': 0   /* M210: صفر مستمعات — كلُّ نقراته onclick مصنّفة أعلاه */, 'pp-denture-svc.js': 4   /* M208: نقرُ شريحة الجهاز ومفتاحُها (فتحُ سجلّه — قراءة) · نقرُ نافذة الجهاز ومفتاحُ Escape: اختيارُ الخدمة محروسٌ بأول سطر (dsvLocked ⇒ blockReadOnly) وما بعده لا يُبلَغ إلا منه، والحفظُ محروسٌ ثانيةً */, 'pp-xray.js': 1 /* v635: «paste» (خارج القائمة) · v642: keydown للالتقاط — يعمل فقط ونافذةُ الكاميرا مفتوحة (مدخلاها محروسان) */,   /* v408: عدّاد أحرف نص الرسالة (input) — قراءة بحتة */
       'treatments.html': 22   /* 18/11: زرُّ «فلترة» (عرضٌ فقط) + الترتيبُ باللمس (touchstart · contextmenu · نقرةُ ما بعد الإفلات) — الحفظُ عبر reorderTreatmentsByOrder و_touchReorderOff يُطفئه بوضع القراءة (محروسٌ أدناه) · M211: «يحتاج جلسات متابعة» — تغيُّرُ التصنيف يعيد افتراضَ المفتاح، ولمسُه يثبّته (داخل نافذة التعديل المخفيّة بالقراءة) */, 'doctors.html': 1, 'employees.html': 5, 'payouts.html': 1, 'expenses.html': 4, 'inventory.html': 5   /* v569: نافذةُ «جهّز الطلبية» (نقرٌ + إدخال) — قراءة بحتة · v570: نافذةُ الجرد (نقرٌ + إدخال) — الاعتمادُ وحده كتابة وزرُّه مخفيٌّ بالقراءة ومحروس */,
       'labs.html': 4, 'accounting.html': 11   /* v546: تصديرُ Excel — قراءة بحتة */, 'provider-reports.html': 3   /* v539: نقرُ تبويب العلاجات (ترتيبٌ · تفاصيلُ جلسات) · v545: طباعةُ الملخّص ونسخُه — قراءة بحتة */, 'audit-log.html': 6, 'settings.html': 2, 'learn.html': 1
     };

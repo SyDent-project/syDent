@@ -13,7 +13,8 @@ const ROOT = path.join(__dirname, '..');
 const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL', m); } };
-const FILES = ['migrations/219_consent_forms.sql', 'tx-consent.js', 'treatments.html', 'scripts/cache-bust.sh', 'scripts/db-bootstrap.py'];
+const FILES = ['migrations/219_consent_forms.sql', 'tx-consent.js', 'treatments.html', 'scripts/cache-bust.sh', 'scripts/db-bootstrap.py',
+  'pp-consent.js', 'patient-profile.html', 'pp-timeline.js', 'patient-profile.css'];
 const base = {}; FILES.forEach(f => { base[f] = read(f); });
 const rep = (f, a, b) => F => { const o = Object.assign({}, F); o[f] = F[f].split(a).join(b); return o; };
 
@@ -61,6 +62,124 @@ function mkEnv(F, opt) {
   vm.createContext(ctx);
   vm.runInContext(F['tx-consent.js'], ctx);
   return { w, els, el, calls, toasts, audit, rows: () => rows };
+}
+
+
+/* بطاقةُ المريض (أ2): الموديول دوالُّ عامة — تُشغَّل بـvm على DOM وقاعدةٍ وهميين */
+function mkCard(F, opt) {
+  opt = opt || {};
+  const els = {};
+  const el = id => els[id] || (els[id] = { id, innerHTML: '', textContent: '', style: {}, classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, contains(c) { return this._s.has(c); } } });
+  const calls = [], toasts = [], audit = [], opened = [], timers = [];
+  let rows = (opt.rows || []).map(r => Object.assign({}, r));
+  const q = table => {
+    const st = { table, op: 'select', filters: {}, cols: '', payload: null };
+    const api = {
+      select(c) { if (st.op === 'select') st.cols = c; return api; }, update(p) { st.op = 'update'; st.payload = p; return api; },
+      eq(k, v) { st.filters[k] = v; return api; }, order() { return api; }, limit() { return api; }, single() { st.single = true; return api; },
+      then(res, rej) {
+        calls.push(st); let out;
+        if (opt.missing) out = { data: null, error: { code: '42P01', message: 'does not exist' } };
+        else if (st.op === 'select') {
+          const m = rows.filter(r => Object.keys(st.filters).every(k => r[k] === st.filters[k]));
+          out = { data: st.single ? (m[0] || null) : m, error: null };
+        } else if (opt.failWrite) out = { data: null, error: { message: 'network' } };
+        else {
+          const i = rows.findIndex(r => Object.keys(st.filters).every(k => r[k] === st.filters[k]));
+          if (i < 0) out = { data: null, error: { message: 'no row' } };
+          else { rows[i] = Object.assign({}, rows[i], st.payload, st.payload.status === 'void' ? { voided_at: '2026-11-21T10:00:00Z' } : {}); out = { data: rows[i], error: null }; }
+        }
+        return Promise.resolve(out).then(res, rej);
+      }
+    };
+    return api;
+  };
+  const win = { document: { written: '', write(h) { this.written += h; }, close() {} }, focus() {}, print() {} };
+  const w = { sb: { from: q, rpc: (n, a) => { calls.push({ table: 'rpc:' + n, args: a }); return Promise.resolve({ data: 1, error: null }); } },
+    logAudit: (a, o) => audit.push([a, o]), SyDentSub: { blockReadOnly: () => !!opt.readOnly }, open: () => { opened.push(1); return win; } };
+  const ctx = { window: w, document: { getElementById: el }, console: { warn() {}, error() {}, log() {} },
+    currentUser: { id: 'own-1' }, patientId: 'pt-1', patient: { name: 'أحمد' },
+    sessions: opt.sessions || [{ id: 's1', status: 'planned', treatment_key: 'extracted', plan_option: null, parent_id: null }],
+    showToast: m => toasts.push(m), escapeHtml: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
+    fmtD: x => String(x).slice(0, 10), openModal: id => el(id).classList.add('open'), closeModal: id => el(id).classList.remove('open'),
+    SyDialog: { confirm: () => Promise.resolve(opt.decline ? false : true) }, ppPortalSend: () => { w._sent = (w._sent || 0) + 1; },
+    setTimeout: (f, ms) => { timers.push([f, ms]); return timers.length; }, clearTimeout: () => {}, CLINIC_SETTINGS_WA: { clinic_name: 'عيادة' } };
+  ctx.open = w.open; w.setTimeout = ctx.setTimeout;
+  vm.createContext(ctx);
+  vm.runInContext(F['pp-consent.js'], ctx);
+  return { ctx, w, el, calls, toasts, audit, opened, timers, win, rows: () => rows };
+}
+const ROW = (id, st, extra) => Object.assign({ id, owner_id: 'own-1', patient_id: 'pt-1', treatment_key: 'extracted', treatment_name: 'قلع', title: 'الموافقة على قلع الأسنان', body: 'نص', teeth: '46',
+  status: st, auto: true, created_at: '2026-11-20T10:00:00Z', signed_at: st === 'signed' ? '2026-11-21T09:00:00Z' : null, signer_name: st === 'signed' ? 'أحمد' : null, signer_relation: null, voided_at: null,
+  signature: st === 'signed' ? 'data:image/png;base64,AAAA' : null }, extra || {});
+
+async function suiteCard(F) {
+  const J = F['pp-consent.js'], P = F['patient-profile.html'];
+  let E = mkCard(F, { rows: [] });
+  await E.ctx.ppConsentLoad();
+  ok(E.calls[0].table === 'rpc:consent_sync' && E.calls[0].args.p_patient === 'pt-1' && E.calls[1].table === 'patient_consents'
+     && E.calls[1].filters.owner_id === 'own-1' && E.calls[1].filters.patient_id === 'pt-1', 'card: sync first, then a read scoped to the owner and the patient');
+  ok(E.calls[1].cols.indexOf('signature') < 0, 'card: the list never loads signature images');
+  ok(E.el('consentRow').style.display === 'none', 'card: no consents ⇒ the row stays hidden');
+  E = mkCard(F, { rows: [ROW('c1', 'pending'), ROW('c2', 'signed'), ROW('c3', 'void'), ROW('x', 'pending', { patient_id: 'other' }), ROW('y', 'pending', { owner_id: 'other' })] });
+  await E.ctx.ppConsentLoad();
+  let h = E.el('iConsent').innerHTML;
+  ok(E.el('consentRow').style.display === '' && h.indexOf('بانتظار التوقيع: 1') > -1 && h.indexOf('موقَّعة: 1') > -1 && h.indexOf('onclick="ppConsentSend()"') > -1 && h.indexOf('onclick="ppConsentOpen()"') > -1,
+     'card: the row counts this patient\'s pending and signed consents only');
+  /* plan signature */
+  let n = E.calls.length; E.ctx.ppConsentTouch();
+  ok(E.timers.length === 0 && E.calls.length === n, 'card: an unchanged plan triggers no sync');
+  E.ctx.sessions.push({ id: 's2', status: 'planned', treatment_key: 'implant', plan_option: null, parent_id: null });
+  E.ctx.ppConsentTouch(); E.ctx.ppConsentTouch();
+  ok(E.timers.length === 2 && E.timers[1][1] === 600, 'card: a changed plan schedules a debounced sync');
+  await E.timers[1][0](); await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r));
+  ok(E.calls.filter(c => c.table === 'rpc:consent_sync').length === 2, 'card: the debounced sync runs once');
+  E.ctx.sessions.push({ id: 's3', status: 'completed', treatment_key: 'implant' }, { id: 's4', status: 'planned', treatment_key: 'implant', parent_id: 's2' });
+  n = E.timers.length; E.ctx.ppConsentTouch();
+  ok(E.timers.length === n, 'card: completed sessions and follow-up visits do not count as a plan change');
+  /* list */
+  E.ctx.ppConsentOpen();
+  h = E.el('ppConsentList').innerHTML;
+  ok(E.el('ppConsentModal').classList.contains('open') && h.indexOf('ppConsentVoid(\'c1\')') > -1 && h.indexOf('ppConsentVoid(\'c2\')') < 0 && h.indexOf('ppConsentVoid(\'c3\')') < 0
+     && (h.match(/ppConsentPrint\(/g) || []).length === 3 && h.indexOf('وقّعها أحمد') > -1, 'card: only a pending consent can be cancelled; every consent can be printed');
+  ok(h.indexOf('c1') < h.indexOf('c2') && h.indexOf('c2') < h.indexOf('c3'), 'card: pending first, then signed, then cancelled');
+  /* XSS */
+  E = mkCard(F, { rows: [ROW('c1', 'pending', { title: '<img src=x onerror=alert(1)>', body: '<script>x</script>', treatment_name: '"><b>', teeth: '<i>' })] });
+  await E.ctx.ppConsentLoad(); E.ctx.ppConsentOpen(); h = E.el('ppConsentList').innerHTML;
+  ok(!/<img|<script|<b>|<i>/.test(h), 'card: stored text is escaped in the list');
+  await E.ctx.ppConsentPrint('c1');
+  ok(E.opened.length === 1 && !/<img src=x|<script>x|<b>|<i>/.test(E.win.document.written) && E.win.document.written.indexOf('اسم الموقّع وتوقيعه') > -1
+     && E.calls.filter(c => c.cols === 'signature').length === 0, 'card: printing a pending consent escapes everything, leaves a blank signature line, fetches no signature');
+  /* void */
+  E = mkCard(F, { rows: [ROW('c1', 'pending'), ROW('c2', 'signed')] }); await E.ctx.ppConsentLoad();
+  await E.ctx.ppConsentVoid('c2');
+  ok(E.calls.filter(c => c.op === 'update').length === 0, 'card: a signed consent is never sent for cancelling');
+  await E.ctx.ppConsentVoid('c1');
+  let u = E.calls.filter(c => c.op === 'update')[0];
+  ok(u && u.payload.status === 'void' && Object.keys(u.payload).length === 1 && u.filters.id === 'c1' && u.filters.owner_id === 'own-1' && u.filters.status === 'pending'
+     && E.audit.length === 1 && E.audit[0][0] === 'patient.consent_void' && E.el('iConsent').innerHTML.indexOf('بانتظار التوقيع') < 0,
+     'card: cancel writes status only, scoped to owner + still-pending, and logs it');
+  await E.ctx.ppConsentPrint('c2');
+  ok(E.calls.filter(c => c.cols === 'signature' && c.filters.id === 'c2' && c.filters.owner_id === 'own-1').length === 1 && E.win.document.written.indexOf('src="data:image/png;base64,AAAA"') > -1
+     && E.win.document.written.indexOf('وُقّعت إلكترونياً من بوابة المريض') > -1, 'card: printing a signed consent fetches its signature, scoped to the owner');
+  E = mkCard(F, { rows: [ROW('c1', 'pending')], decline: true }); await E.ctx.ppConsentLoad(); await E.ctx.ppConsentVoid('c1');
+  ok(E.calls.filter(c => c.op === 'update').length === 0, 'card: declining the confirmation cancels nothing');
+  E = mkCard(F, { rows: [ROW('c1', 'pending')], failWrite: true }); await E.ctx.ppConsentLoad(); await E.ctx.ppConsentVoid('c1');
+  ok(E.audit.length === 0 && E.el('iConsent').innerHTML.indexOf('بانتظار التوقيع: 1') > -1 && E.toasts.length === 1, 'card: a failed cancel says so and changes nothing');
+  E = mkCard(F, { rows: [ROW('c1', 'pending')], readOnly: true }); await E.ctx.ppConsentLoad(); await E.ctx.ppConsentVoid('c1'); E.ctx.ppConsentSend();
+  ok(E.calls.filter(c => c.op === 'update').length === 0 && !E.w._sent, 'card: read-only mode neither cancels nor sends');
+  E = mkCard(F, { rows: [ROW('c1', 'pending')] }); await E.ctx.ppConsentLoad(); E.ctx.ppConsentSend();
+  ok(E.w._sent === 1, 'card: sending for signature is the portal\'s own send');
+  E = mkCard(F, { missing: true }); await E.ctx.ppConsentLoad();
+  ok(E.el('consentRow').style.display === 'none' && E.toasts.length === 0, 'card: before the migration the row is hidden silently');
+  /* wiring */
+  ok((P.match(/<script src="pp-consent\.js\?v=/g) || []).length === 1 && P.indexOf('<script src="pp-consent.js?v=') > P.indexOf('<script src="pp-portal.js?v='), 'card: the module is loaded once, after the portal module');
+  ok(/id="consentRow" style="display:none;"/.test(P) && /<div class="modal-overlay sy-m" id="ppConsentModal">/.test(P), 'card: the row starts hidden; the modal is on the kit');
+  ok(/try \{ if \(typeof ppConsentTouch === 'function'\) ppConsentTouch\(\); \} catch \(e\)/.test(F['pp-timeline.js']) && F['pp-timeline.js'].indexOf('ppConsentTouch();') < F['pp-timeline.js'].indexOf("var container = document.getElementById('tlContent');"),
+     'card: the passage point touches the consents before any early return, guarded');
+  ok((P.match(/ppConsentLoad\(true\)/g) || []).length === 1 && /ppConsentLoad\(\); \} catch\(e\) \{\}/.test(P), 'card: loaded at start and on live refresh');
+  ok(F['patient-profile.css'].indexOf('[onclick*="ppConsentSend("],[onclick*="ppConsentVoid("]') > -1, 'card: read-only mode hides send and cancel');
+  ok((F['scripts/cache-bust.sh'].match(/pp-consent/g) || []).length === 3 && !/\.addEventListener\(|\.on(click|change|input)\s*=/.test(J), 'card: module in the fleet; zero event listeners');
 }
 
 async function suite(F) {
@@ -160,6 +279,7 @@ async function suite(F) {
   ok(/<div class="modal-overlay sy-m sy-m-md" id="consentModal">/.test(T) && /id="cnsBody" rows="12" maxlength="6000"/.test(T) && /id="cnsTitle" maxlength="120"/.test(T), 'page: the modal is on the kit with the database limits');
   ok(/\[onclick\*="openConsentModal\("\],\[onclick\*="saveConsentTpl\("\]/.test(T), 'page: read-only mode hides the button and the save');
   ok(J.indexOf('innerHTML') < 0, 'module: no HTML is built from text (textContent/value only)');
+  await suiteCard(F);
 }
 
 const MUTANTS = [
@@ -174,6 +294,25 @@ const MUTANTS = [
   ['follow-up visits consented', rep('migrations/219_consent_forms.sql', "AND COALESCE(s.status, 'completed') = 'planned' AND s.parent_id IS NULL\n       AND s.treatment_key = t.treatment_key", "AND COALESCE(s.status, 'completed') = 'planned'\n       AND s.treatment_key = t.treatment_key")],
   ['unadopted alternatives consented', rep('migrations/219_consent_forms.sql', "AND s.treatment_key = t.treatment_key\n       AND (v_opts <= 1 OR s.plan_option IS NULL OR s.plan_option NOT BETWEEN 1 AND 3);", "AND s.treatment_key = t.treatment_key;")],
   ['subscription gate dropped', rep('migrations/219_consent_forms.sql', "SELECT public._sub_guard_table('public.patient_consents');", '')],
+  ['card read not scoped to the patient', rep('pp-consent.js', ".eq('owner_id', currentUser.id).eq('patient_id', patientId)\n      .order(", ".eq('owner_id', currentUser.id)\n      .order(")],
+  ['signature images loaded with the list', rep('pp-consent.js', "signer_relation, voided_at';", "signer_relation, voided_at, signature';")],
+  ['row shown with nothing to show', rep('pp-consent.js', "if (!PP_CONSENT_OK || (!n.pending && !n.signed)) { row.style.display = 'none'; return; }", "")],
+  ['sync on every render', rep('pp-consent.js', "if (ppConsentPlanSig() === _ppConsentSig) return;", "")],
+  ['follow-ups count as plan changes', rep('pp-consent.js', "=== 'planned' && !s.parent_id; })", "=== 'planned'; })")],
+  ['signed consent cancellable', rep('pp-consent.js', "if (!c || c.status !== 'pending' || _ppConsentBusy) return;", "if (!c || _ppConsentBusy) return;")],
+  ['cancel not pinned to pending', rep('pp-consent.js', ".eq('id', id).eq('owner_id', currentUser.id).eq('status', 'pending')", ".eq('id', id).eq('owner_id', currentUser.id)")],
+  ['cancel not scoped to the owner', rep('pp-consent.js', ".eq('id', id).eq('owner_id', currentUser.id).eq('status', 'pending')", ".eq('id', id).eq('status', 'pending')")],
+  ['cancel without confirmation', rep('pp-consent.js', "cancelText: 'تراجع' })) return;", "cancelText: 'تراجع' })) { /* go on */ }")],
+  ['list title unescaped', rep('pp-consent.js', "<span class=\"ppc-title\">' + escapeHtml(c.title || '') + '</span>'", "<span class=\"ppc-title\">' + (c.title || '') + '</span>'")],
+  ['list body unescaped', rep('pp-consent.js', "<div class=\"pp-intake-txt\">' + escapeHtml(c.body || '') + '</div>", "<div class=\"pp-intake-txt\">' + (c.body || '') + '</div>")],
+  ['print body unescaped', rep('pp-consent.js', "'<div class=\"b\">' + E(c.body) + '</div>'", "'<div class=\"b\">' + c.body + '</div>'")],
+  ['signature fetched without owner scope', rep('pp-consent.js', ".select('signature').eq('id', id).eq('owner_id', currentUser.id).single();", ".select('signature').eq('id', id).single();")],
+  ['void works in read-only mode', rep('pp-consent.js', "async function ppConsentVoid(id) {\n  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;", "async function ppConsentVoid(id) {")],
+  ['send works in read-only mode', rep('pp-consent.js', "function ppConsentSend() {\n  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;", "function ppConsentSend() {")],
+  ['cancel rewrites more than the status', rep('pp-consent.js', ".update({ status: 'void' })", ".update({ status: 'void', body: 'x' })")],
+  ['passage point after the early return', rep('pp-timeline.js', "  try { if (typeof ppConsentTouch === 'function') ppConsentTouch(); } catch (e) { console.warn('ppConsentTouch:', e); }   /* M219: الخطةُ تغيّرت ⇒ موافقاتُها تُزامَن */\n", "")],
+  ['row visible before load', rep('patient-profile.html', 'id="consentRow" style="display:none;"', 'id="consentRow"')],
+  ['read-only mode leaves cancel visible', rep('patient-profile.css', ',[onclick*="ppConsentVoid("]', '')],
   ['read not scoped to the owner', rep('tx-consent.js', ".select('id, treatment_key, title, body').eq('owner_id', uid);", ".select('id, treatment_key, title, body');")],
   ['delete not scoped to the owner', rep('tx-consent.js', ".delete().eq('id', cur.id).eq('owner_id', uid);", ".delete().eq('id', cur.id);")],
   ['validation after the request', rep('tx-consent.js', "if (!title) return fail('اكتب عنوان الموافقة.');", '')],
