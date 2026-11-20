@@ -547,6 +547,8 @@ Object.assign(window.SyI18nDict, {
   'لم تُرفع العملية — ما زال الخادم يرفضها': 'Not uploaded — the server still rejects it',
   'حُذفت العملية': 'Operation deleted',
   'مضى أكثر من 14 يوماً بلا اتصال — اتصل بالإنترنت لعرض البيانات': 'More than 14 days without a connection — connect to the internet to view the data',
+  'الشبكة بطيئة — ما زال الحفظ جارياً': 'The network is slow — still saving',
+  'الشبكة لا تستجيب — لم يتأكد الحفظ، أعد المحاولة': 'The network is not responding — the save was not confirmed, try again',
   'عمليات لم تُرفع بعد': 'Operations not uploaded yet',
   'لديك عمليات سُجّلت بلا اتصال ولم تُرفع إلى الخادم بعد.': "You have operations recorded offline that haven't been uploaded to the server yet.",
   'الخروج لا يحذفها: تبقى محفوظة على هذا الجهاز وتُرفع تلقائياً عند دخولك بهذا الحساب من جديد.': 'Signing out does not delete them: they stay saved on this device and upload automatically when you sign in to this account again.',
