@@ -34,6 +34,32 @@
      أكثر من 35 ثانية بلا نتيجة فوق نسخةٍ حاضرة بالكاش). بلا نسخة مكاشة =
      انتظار الشبكة لآخرها تماماً كالسلوك السابق ⇒ التغيير إضافيّ صرف. */
   var NET_RESCUE_MS = 6000;
+  /* حدّان زمنيان للبيانات المخزّنة على الجهاز (كانت بلا أي مدة):
+     • OFFLINE_MAX_MS — أقصى مدة عمل بلا اتصال: إن مضى أكثر منها على آخر قراءة
+       ناجحة من الخادم (= آخر مرة قبِل فيها الخادم هذه الجلسة) لا يُخدَم شيء من الكاش
+       ويُمسح، حتى يتصل الجهاز من جديد. جهازٌ ضاع أو حسابٌ أُوقف لا يبقى قارئاً
+       لبيانات المرضى إلى الأبد.
+     • CACHE_MAX_AGE_MS — مدخلةٌ لم تتجدد طوال هذه المدة لا تُخدَم وتُشذَّب.
+     طابور الكتابة خارج الحدّين (لا يُمَسّ). تخزينٌ محجوب = السلوك السابق. */
+  var OFFLINE_MAX_MS = 14 * 24 * 3600 * 1000;
+  var CACHE_MAX_AGE_MS = 30 * 24 * 3600 * 1000;
+  var SEEN_EVERY_MS = 5 * 60 * 1000, _seenAt = 0;
+  function markSeen(uid) {
+    var now = Date.now();
+    if (!uid || now - _seenAt < SEEN_EVERY_MS) return;
+    _seenAt = now;
+    try { window.localStorage.setItem('sydent.seen.' + uid, String(now)); } catch (e) {}
+  }
+  function offlineExpired(uid) {
+    try {
+      var raw = window.localStorage.getItem('sydent.seen.' + uid);
+      if (!raw) {                       /* جهازٌ سبق هذه الميزة: العدّاد يبدأ الآن */
+        window.localStorage.setItem('sydent.seen.' + uid, String(Date.now()));
+        return false;
+      }
+      return Date.now() - (parseInt(raw, 10) || 0) > OFFLINE_MAX_MS;
+    } catch (e) { return false; }
+  }
   /* Phase 2/2.1: الجداول المسموح لكتاباتها الدخول للطابور offline — حصراً،
      وبالأفعال المحددة لكل جدول فقط:
      • appointments (جدولة غير مالية): إنشاء/تعديل/حذف.
@@ -117,11 +143,11 @@
         var cnt = os.count();
         cnt.onsuccess = function () {
           var extra = (cnt.result || 0) - MAX_ENTRIES;
-          if (extra <= 0) return;
-          var cur = os.index('savedAt').openCursor();
+          var cutoff = Date.now() - CACHE_MAX_AGE_MS;
+          var cur = os.index('savedAt').openCursor();   /* تصاعدي: الأقدم أولاً */
           cur.onsuccess = function () {
             var c = cur.result;
-            if (c && extra > 0) { extra--; c.delete(); c.continue(); }
+            if (c && (extra > 0 || (c.value && (c.value.savedAt || 0) < cutoff))) { extra--; c.delete(); c.continue(); }
           };
         };
       } catch (e) {}
@@ -559,7 +585,8 @@
      إعلانٍ عن قدمه هو صنف «رقم صحيح بنطاق خاطئ». يشفى ذاتياً: أول قراءة
      شبكة ناجحة تُخفيه، وكذلك الانتقال لانقطاعٍ صريح كي لا يتراكب مع الأحمر. */
   var STALE_ID = 'sydent-stale-banner';
-  function staleBarShow() {
+  var EXPIRED_TXT = '🔒 مضى أكثر من 14 يوماً بلا اتصال — اتصل بالإنترنت لعرض البيانات';
+  function staleBarShow(expired) {
     try {
       var b = document.getElementById(STALE_ID);
       if (!b) {
@@ -572,10 +599,14 @@
           'direction:rtl;font-family:inherit;font-size:13px;font-weight:700;' +
           'line-height:1.4;text-align:center;padding:7px 14px;color:#1f2937;' +
           'background:#fde68a;border-bottom:1px solid #d97706;';
-        b.textContent = '\u26A0\uFE0F \u0627\u0644\u0634\u0628\u0643\u0629 \u0628\u0637\u064A\u0626\u0629 \u2014 ' +
-          '\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0639\u0631\u0648\u0636\u0629 \u062D\u062A\u0649 \u0622\u062E\u0631 \u0645\u0632\u0627\u0645\u0646\u0629';
         (document.body || document.documentElement).appendChild(b);
       }
+      b.textContent = expired ? EXPIRED_TXT
+        : '\u26A0\uFE0F \u0627\u0644\u0634\u0628\u0643\u0629 \u0628\u0637\u064A\u0626\u0629 \u2014 ' +
+          '\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0639\u0631\u0648\u0636\u0629 \u062D\u062A\u0649 \u0622\u062E\u0631 \u0645\u0632\u0627\u0645\u0646\u0629';
+      /* انتهاء المدة يقع والجهاز بلا اتصال، أي والشريط الأحمر ظاهر بنفس الموضع —
+         رسالته أدقّ (السبب والحل) فتعلوه؛ شريط «الشبكة بطيئة» يبقى تحته كما كان. */
+      b.style.zIndex = expired ? '2147483001' : '2147482999';
       b.style.display = 'block';
     } catch (e) {}
   }
@@ -699,6 +730,7 @@
       return window.fetch(input, init).then(function (res) {
         if (res && res.ok) staleBarHide();   /* الشبكة عادت ⇒ لا ستالة معلنة */
         if (key && res && res.ok) {
+          markSeen(uid);                     /* الخادم قبِل الجلسة الآن ⇒ عدّاد الأوفلاين يُصفَّر */
           try {
             var cr = res.headers.get('content-range') || '';
             res.clone().text().then(function (body) {
@@ -709,10 +741,18 @@
         return res;
       });
     };
-    var fromCache = function () {
+    var fromCache = function (quiet) {
       if (!key) return Promise.resolve(null);
+      if (offlineExpired(uid)) {
+        /* تجاوز مدة العمل بلا اتصال: لا شيء يُخدَم، وما على القرص يُمسح. بفرع الإنقاذ
+           (الشبكة قائمة لكنها بطيئة) بلا شريط — الطلب نفسه سيصل ويصفّر العدّاد. */
+        if (!quiet) staleBarShow(true);
+        wipeCache();
+        return Promise.resolve(null);
+      }
       return idbGet(key).then(function (rec) {
         if (!rec) return null;
+        if (Date.now() - (rec.savedAt || 0) > CACHE_MAX_AGE_MS) return null;
         /* Phase 2: قراءات المواعيد المكاشة تُراكَب بعمليات الطابور المعلّقة
            لهذا المستخدم — فالموعد المحفوظ/المعدَّل/المحذوف offline يظهر فوراً */
         var ovTable = tableFromUrl(url);
@@ -753,7 +793,7 @@
     var rescueBranch = new Promise(function (r) { setTimeout(r, NET_RESCUE_MS); })
       .then(function () {
         if (netDone) return new Promise(function () {});
-        return fromCache().then(function (hit) {
+        return fromCache(true).then(function (hit) {
           if (!hit || netDone) return new Promise(function () {});
           staleBarShow();
           return hit;
