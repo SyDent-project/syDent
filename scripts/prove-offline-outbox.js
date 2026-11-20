@@ -454,10 +454,54 @@ async function runAll(src, opt_sw) {
     ok('s6: asset cache cap holds the whole fleet twice', cap >= set.size * 2, 'cap=' + cap + ' assets=' + set.size);
   }
 
+  /* ══ الخطوة 7: مدة قصوى للعمل بلا اتصال + عمر أقصى لمدخلات الكاش ══ */
+  {
+    const DAY = 24 * 3600 * 1000, SEEN = 'sydent.seen.' + U1;
+    const boot = async () => { const idb = newIDB();
+      const t = mkTab(src, U1, async () => json([{ id: 'p1', name: 'مريض' }]), idb);
+      await t.SyDentOffline.fetch(PURL, G); await sleep(25); return t; };
+    let t = await boot();
+    ok('s7: a successful server read stamps «last seen»', Math.abs(Date.now() - parseInt(t.localStorage.getItem(SEEN), 10)) < 5000);
+    t.navigator.onLine = false;
+    let r = await t.SyDentOffline.fetch(PURL, G).catch(() => null);
+    ok('s7: within the limit the cache is served offline', !!r && r.headers.get('X-SyDent-Offline-Cache') === '1');
+    /* 15 يوماً بلا اتصال */
+    await t.SyDentOffline.fetch(SB + '/rest/v1/appointments', { method: 'POST', body: JSON.stringify({ patient_id: 'p1', date: '2026-11-21' }), headers: { 'Content-Type': 'application/json' } });
+    t.localStorage.setItem(SEEN, String(Date.now() - 15 * DAY));
+    r = await t.SyDentOffline.fetch(PURL, G).catch(() => null);
+    await sleep(30);
+    ok('s7: past the limit nothing is served from the cache', r === null);
+    ok('s7: past the limit the patient rows are removed from disk', !(await t.SyDentOffline._get(cacheKey(U1, PURL))));
+    ok('s7: writes queued offline are not touched by the limit', (await t.SyDentOffline._outboxAll()).length === 1);
+    const bar = t.byId('sydent-stale-banner');
+    ok('s7: the user is told why and what to do', !!bar && bar.style.display === 'block' && /14/.test(bar.textContent || '') && /اتصل بالإنترنت/.test(bar.textContent || ''));
+    const en = englishEngine()(bar ? bar.textContent : '');
+    ok('s7: banner passes the English engine', en != null && !AR.test(en) && /14/.test(en), String(en));
+    /* عودة الاتصال: قراءة ناجحة تصفّر العدّاد وتخفي الشريط */
+    t.navigator.onLine = true;
+    await t.SyDentOffline.fetch(PURL + '&again=1', G); await sleep(25);
+    ok('s7: reconnecting hides the banner', bar && bar.style.display === 'none');
+    /* جهاز بلا ختم (سبق الميزة): يُخدَم ويبدأ العدّاد */
+    t = await boot(); t.localStorage.removeItem(SEEN); t.navigator.onLine = false;
+    r = await t.SyDentOffline.fetch(PURL, G).catch(() => null);
+    ok('s7: a device from before this feature keeps working and starts the clock', !!r && !!t.localStorage.getItem(SEEN));
+    /* مدخلة عمرها 31 يوماً لا تُخدَم ولو كانت الجلسة حديثة */
+    t = await boot();
+    const rec = await t.SyDentOffline._get(cacheKey(U1, PURL));
+    rec.savedAt = Date.now() - 31 * DAY; await t.SyDentOffline._put(rec);
+    t.navigator.onLine = false;
+    r = await t.SyDentOffline.fetch(PURL, G).catch(() => null);
+    ok('s7: an entry not refreshed for 31 days is not served', r === null);
+  }
+
   return fails;
 }
 
 const MUTATIONS = [
+  ['s7: offline limit disabled', s => s.replace("return Date.now() - (parseInt(raw, 10) || 0) > OFFLINE_MAX_MS;", 'return false;')],
+  ['s7: expired cache left on disk', s => s.replace("if (!quiet) staleBarShow(true);\n        wipeCache();", 'if (!quiet) staleBarShow(true);')],
+  ['s7: entry age limit removed', s => s.replace("if (Date.now() - (rec.savedAt || 0) > CACHE_MAX_AGE_MS) return null;", '')],
+  ['s7: server read no longer refreshes the stamp', s => s.replace("markSeen(uid);                     /* الخادم", "/* الخادم")],
   ['s6: asset cache cap back below the fleet', s => s, sw => sw.replace('MAX_ASSETS = 240', 'MAX_ASSETS = 80')],
   ['s5: sbSignOut wipes the queue again', s => s.replace("try { if (window.SyDentSyncGuard && !(await window.SyDentSyncGuard.beforeLogout())) return; } catch (e) {}\n    // Migration 107", "try { if (window.SyDentOffline) window.SyDentOffline.wipe(); } catch (e) {}\n    // Migration 107")],
   ['s5: guard never asks', s => s.replace("if (!D || typeof D.confirm !== 'function') return true;", 'return true;')],
