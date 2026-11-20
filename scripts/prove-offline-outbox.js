@@ -609,10 +609,75 @@ async function runAll(src, opt_sw, only) {
     ['⏳ الشبكة بطيئة — ما زال الحفظ جارياً', 'الشبكة لا تستجيب — لم يتأكد الحفظ، أعد المحاولة'].forEach(x => { const en = tr8(x); ok('s8: English engine leaves no Arabic in «' + x + '»', en != null && !AR.test(en), String(en)); });
   }
 
+  /* ══ تطوير 3: القوائم المرجعية الثابتة — فوراً من الكاش، بلا أي جدول مالي أو بوابة ══ */
+  if (!only || only === 'd3') {
+    const T = SB + '/rest/v1/appointment_types?select=*&doctor_id=eq.' + U1;
+    const quick = (p, ms) => Promise.race([p.then(r => r, () => 'rejected'), sleep(ms || 150).then(() => 'pending')]);
+    const bus = sharedBus();
+    let body = [{ id: 't1', name: 'فحص' }], hang = false, calls = 0;
+    const net = async (u, i) => { if ((i.method || 'GET') !== 'GET') return json({}, 201); calls++; if (hang) return new Promise(() => {}); return json(body); };
+    const idb = newIDB();
+    const t = mkTab(src, U1, net, idb, { bus });
+    let r = await t.SyDentOffline.fetch(T, G); await sleep(25);
+    ok('d3: first read comes from the server', !r.headers.get('X-SyDent-Offline-Cache') && calls === 1);
+    hang = true;
+    r = await quick(t.SyDentOffline.fetch(T, G));
+    ok('d3: a recent copy of a reference list is returned at once, without waiting for the network', r !== 'pending' && r !== 'rejected' && r.headers.get('X-SyDent-Offline-Cache') === '1');
+    ok('d3: … while the server is still asked in the background', calls === 2);
+    hang = false; body = [{ id: 't1', name: 'فحص' }, { id: 't2', name: 'تنظيف' }];
+    await t.SyDentOffline.fetch(T, G); await sleep(30);
+    r = await t.SyDentOffline.fetch(T, G);
+    ok('d3: the background answer is what the next read shows', (await r.json()).length === 2);
+    /* كتابة من هذا التبويب ⇒ القراءة التالية من الخادم */
+    await t.SyDentOffline.fetch(SB + '/rest/v1/appointment_types', { method: 'POST', body: '{}', headers: { 'Content-Type': 'application/json' } });
+    hang = true;
+    ok('d3: after saving to that table the next read waits for the server', (await quick(t.SyDentOffline.fetch(T, G))) === 'pending');
+    /* سباق: تحديثٌ بالخلفية انطلق قبل الحفظ ووصل بعده لا يُعتمد كنسخة حديثة */
+    {
+      let release = null, phase = 'ok', n2 = 0;
+      const net2 = async (u, i) => { if ((i.method || 'GET') !== 'GET') return json({}, 201); n2++;
+        if (phase === 'slow') return new Promise(res => { release = () => res(json([{ id: 'pre-save' }])); });
+        if (phase === 'hang') return new Promise(() => {});
+        return json([{ id: 'x' }]); };
+      const tr = mkTab(src, U1, net2, newIDB(), { bus: sharedBus() });
+      await tr.SyDentOffline.fetch(T, G); await sleep(25);
+      phase = 'slow'; await tr.SyDentOffline.fetch(T, G);                    /* من الكاش + تحديث خلفي معلَّق */
+      phase = 'ok'; await tr.SyDentOffline.fetch(SB + '/rest/v1/appointment_types', { method: 'POST', body: '{}', headers: { 'Content-Type': 'application/json' } });
+      await sleep(5); release(); await sleep(30);                            /* التحديث القديم يصل بعد الحفظ */
+      phase = 'hang';
+      ok('d3: a background refresh that started before a save is not trusted after it', (await quick(tr.SyDentOffline.fetch(T, G))) === 'pending');
+    }
+    /* كتابة من تبويب آخر */
+    hang = false; await t.SyDentOffline.fetch(T, G); await sleep(30);
+    const t2 = mkTab(src, U1, net, idb, { bus });
+    await t2.SyDentOffline.fetch(SB + '/rest/v1/appointment_types?id=eq.t1', { method: 'PATCH', body: '{}', headers: { 'Content-Type': 'application/json' } });
+    await sleep(30); hang = true;
+    ok('d3: a save in another tab invalidates the copy here too', (await quick(t.SyDentOffline.fetch(T, G))) === 'pending');
+    /* نسخة أقدم من 5 دقائق */
+    hang = false; await sleep(5); await t.SyDentOffline.fetch(T, G); await sleep(30);
+    const rec = await t.SyDentOffline._get(cacheKey(U1, T)); rec.savedAt = Date.now() - 6 * 60 * 1000; await t.SyDentOffline._put(rec);
+    hang = true;
+    ok('d3: a copy older than five minutes is not used — the server is awaited', (await quick(t.SyDentOffline.fetch(T, G))) === 'pending');
+    /* لا جدول مالي ولا بوابة: دائماً من الخادم أولاً */
+    for (const tb of ['patients', 'treatments', 'clinic_doctors', 'clinic_settings', 'clinic_employees', 'ledger_sessions', 'ledger_payments', 'payment_splits', 'appointments', 'trial_requests', 'subscription_plans', 'teeth_status']) {
+      const u = SB + '/rest/v1/' + tb + '?select=*&doctor_id=eq.' + U1;
+      hang = false; await t.SyDentOffline.fetch(u, G); await sleep(20); hang = true;
+      ok('d3: ' + tb + ' is never answered from the cache while online', (await quick(t.SyDentOffline.fetch(u, G))) === 'pending');
+    }
+    const lit = /var SWR_TABLES_RE = (.+);/.exec(src);
+    ok('d3: the instant-list table set is exactly the four reference tables', !!lit && lit[1] === '/\\/rest\\/v1\\/(appointment_types|operatories|wa_message_templates|expense_categories)(\\?|$)/', lit && lit[1]);
+  }
+
   return fails;
 }
 
 const MUTATIONS = [
+  ['d3: age limit removed', s => s.replace("if (rec && age >= 0 && age < SWR_MAX_AGE_MS && ", 'if (rec && ')],
+  ['d3: saves no longer invalidate', s => s.replace("(rec.reqAt || 0) > (_swrDirty[swrT] || 0) && ", '')],
+  ['d3: freshness judged by arrival time, not request time', s => s.replace("(rec.reqAt || 0) > (_swrDirty[swrT] || 0) && ", "(rec.savedAt || 0) > (_swrDirty[swrT] || 0) && ")],
+  ['d3: other tabs not told about a save', s => s.replace("if (!fromOtherTab && _bc) { try { _bc.postMessage({ swr: table }); } catch (e) {} }", '')],
+  ['d3: prices served from the cache', s => s.replace("(appointment_types|operatories|wa_message_templates|expense_categories)(\\?|$)/;", "(appointment_types|operatories|wa_message_templates|expense_categories|treatments)(\\?|$)/;")],
+  ['d3: no background refresh', s => s.replace("doNetwork().catch(function () {});\n          return cachedResponse(rec);", 'return cachedResponse(rec);')],
   ['s8: ids not remembered after a network failure', s => s.replace("_retryIds[fp] = { ids: ids, at: nowF };", '')],
   ['s8: memory kept after a success (a real second payment would vanish)', s => s.replace("delete _retryIds[fp];                  /* الخادم أجاب", "/* الخادم أجاب")],
   ['s8: own-duplicate 409 on a retry not turned into success', s => s.replace("return alreadySaved(url, input, init, ids, rows);   /* المحاولة السابقة وصلت */", 'return res;')],

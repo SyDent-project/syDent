@@ -248,7 +248,11 @@
   try {
     if (typeof window.BroadcastChannel === 'function') {
       _bc = new window.BroadcastChannel('sydent-outbox');
-      _bc.onmessage = function () { outboxNotify(true); };
+      _bc.onmessage = function (ev) {
+        var d = ev && ev.data;
+        if (d && typeof d === 'object' && d.swr) { _swrDirty[d.swr] = Date.now(); return; }
+        outboxNotify(true);
+      };
     }
   } catch (e) { _bc = null; }
   function outboxNotify(fromOtherTab) {
@@ -631,6 +635,23 @@
        WRITE_TIMEOUT_MS برسالة واضحة — آمنٌ لأن إعادتها لا تكرّر شيئاً.
      • أي كتابة جدول تتأخر SLOW_NOTICE_MS: تنبيه «الشبكة بطيئة» بلا قطع.
      لا يمسّ التوزيع المالي ولا RPC ولا القراءة؛ وأي خلل داخلي = الطلب الأصلي كما هو. */
+  /* ── قوائم مرجعية ثابتة: عرض فوري من الكاش + تحديث بالخلفية ───────────────
+     جداول إعداد غير مالية تُقرأ بكل صفحة تقريباً ولا تتغيّر إلا من الإعدادات: نسخةٌ
+     عمرها أقل من SWR_MAX_AGE_MS تُعاد فوراً والشبكة تحدّثها بالخلفية للطلب التالي.
+     • القائمة حصرية ومقصودة: لا جدول يدخل حساباً مالياً (الأسعار · حصص الأطباء ·
+       إعدادات العملة · الجلسات · الدفعات) ولا جدول بوابة (الاشتراك · الصلاحيات) —
+       هذه تبقى من الخادم أولاً دائماً.
+     • أي كتابة على الجدول من هذا التبويب أو تبويب آخر تُبطل نسخه — عند انطلاقها
+       وعند انتهائها (قراءةٌ بدأت أثناء الحفظ قد تسبق اعتماده) — فالصفحة حين تعيد
+       القراءة بعد الحفظ تأخذ من الخادم. جهاز آخر: أقصى تأخّر = عمر النسخة. */
+  var SWR_TABLES_RE = /\/rest\/v1\/(appointment_types|operatories|wa_message_templates|expense_categories)(\?|$)/;
+  var SWR_MAX_AGE_MS = 5 * 60 * 1000;
+  var _swrDirty = {};
+  function swrTable(url) { var m = SWR_TABLES_RE.exec(url); return m ? m[1] : null; }
+  function swrInvalidate(table, fromOtherTab) {
+    _swrDirty[table] = Date.now();
+    if (!fromOtherTab && _bc) { try { _bc.postMessage({ swr: table }); } catch (e) {} }
+  }
   var WRITE_TIMEOUT_MS = 25000, SLOW_NOTICE_MS = 10000, RETRY_TTL_MS = 10 * 60 * 1000;
   var _retryIds = {}, _lastSlowToast = 0;
   function shallow(o) { var c = {}; for (var k in (o || {})) c[k] = o[k]; return c; }
@@ -681,6 +702,8 @@
     }).catch(function () { return synthWriteResponse('POST', prefer, accept, rows, null); });
   }
   function onlineWrite(input, init, url, method) {
+    var st = swrTable(url);
+    if (st) swrInvalidate(st);
     var table = tableFromUrl(url);
     var guarded = !!(table && table !== 'audit_log' && OUTBOX_METHODS[table] && OUTBOX_METHODS[table][method]);
     var sendInput = input, sendInit = init, fp = null, ids = null, reused = false, rows = null;
@@ -716,7 +739,7 @@
         if (typeof window.showToast === 'function') window.showToast('⏳ الشبكة بطيئة — ما زال الحفظ جارياً', false, 5000);
       } catch (e) {}
     }, SLOW_NOTICE_MS);
-    var settle = function () { clearTimeout(timer); clearTimeout(slow); };
+    var settle = function () { clearTimeout(timer); clearTimeout(slow); if (st) swrInvalidate(st); };
     return window.fetch(sendInput, sendInit).then(function (res) {
       settle();
       if (!fp) return res;
@@ -860,6 +883,7 @@
       : null;
 
     var doNetwork = function () {
+      var reqAt = Date.now();                /* لحظة انطلاق الطلب — انظر صلاحية القوائم المرجعية */
       return window.fetch(input, init).then(function (res) {
         if (res && res.ok) staleBarHide();   /* الشبكة عادت ⇒ لا ستالة معلنة */
         if (key && res && res.ok) {
@@ -867,7 +891,7 @@
           try {
             var cr = res.headers.get('content-range') || '';
             res.clone().text().then(function (body) {
-              idbPut({ k: key, body: body, cr: cr, savedAt: Date.now() });
+              idbPut({ k: key, body: body, cr: cr, savedAt: Date.now(), reqAt: reqAt });
             }).catch(function () {});
           } catch (e) {}
         }
@@ -909,6 +933,23 @@
         return Promise.reject(new TypeError('Failed to fetch'));
       });
     }
+    /* قائمة مرجعية ثابتة ولها نسخة حديثة غير مُبطَلة ⇒ فوراً، والشبكة بالخلفية */
+    var swrT = key ? swrTable(url) : null;
+    if (swrT) {
+      return idbGet(key).then(function (rec) {
+        var age = rec ? Date.now() - (rec.savedAt || 0) : Infinity;
+        /* صالحة فقط إن «انطلق» طلبها بعد آخر كتابة على الجدول: طلبٌ انطلق قبل الحفظ
+           ووصل بعده يحمل بيانات ما قبل الحفظ ولو كان ختم حفظه أحدث */
+        if (rec && age >= 0 && age < SWR_MAX_AGE_MS && (rec.reqAt || 0) > (_swrDirty[swrT] || 0) && !offlineExpired(uid)) {
+          doNetwork().catch(function () {});
+          return cachedResponse(rec);
+        }
+        return networkFirst();
+      });
+    }
+    return networkFirst();
+
+    function networkFirst() {
     /* فرع الشبكة = السلوك السابق حرفياً (نجاح يمرّ · رفض يسقط للكاش ثم يرمي).
        وفرع الإنقاذ يضاف فوقه: بعد NET_RESCUE_MS تُخدَم النسخة المكاشة إن
        وُجدت، وبلا نسخة يبقى معلَّقاً أبداً فلا يفوز بالسباق ⇒ صفر انحدار. */
@@ -933,6 +974,7 @@
         });
       });
     return Promise.race([netBranch, rescueBranch]);
+    }
   }
 
   /* ── Prefetch بطاقات مرضى اليوم (تحسين اختياري فوق Phase 1) ──────────────
