@@ -377,6 +377,32 @@
         }
       } catch (e) {}
     });
+    /* الصفحة فُتحت فوراً من نسخةٍ مخزّنة ثم وصلت من الخادم نسخةٌ أحدث (نشر جديد):
+       ما دام المستخدم لم يلمسها بعد وهي حديثة الفتح نعيد التحميل مرةً واحدة فتظهر
+       الأحدث؛ وإن بدأ العمل عليها لا نقاطعه — تنبيه، والأحدث عند فتحها التالي.
+       حارس الحلقة: مرة كل دقيقة للتبويب على الأكثر. */
+    var syTouched = false, syOpenedAt = Date.now();
+    ['pointerdown', 'keydown', 'input'].forEach(function (ev) {
+      try { window.addEventListener(ev, function () { syTouched = true; }, true); } catch (e) {}
+    });
+    navigator.serviceWorker.addEventListener('message', function (ev) {
+      var d = ev && ev.data;
+      if (!d || d.type !== 'PAGE_UPDATED') return;
+      try {
+        var KEY = 'sydent.swr.reload';
+        var last = parseInt(window.sessionStorage.getItem(KEY) || '0', 10) || 0;
+        if (!syTouched && Date.now() - syOpenedAt < 15000 && Date.now() - last > 60000) {
+          window.sessionStorage.setItem(KEY, String(Date.now()));
+          window.location.reload();
+          return;
+        }
+      } catch (e) {}
+      try {
+        if (typeof window.showToast === 'function') {
+          window.showToast('✨ وصل إصدار أحدث من هذه الصفحة — يظهر عند فتحها من جديد', false, 5000);
+        }
+      } catch (e) {}
+    });
     window.addEventListener('load', function () {
       setTimeout(function () {
         try {

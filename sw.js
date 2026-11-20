@@ -4,8 +4,9 @@
    الوظيفة: يجعل «هيكل التطبيق» يفتح بلا إنترنت. لا يلمس البيانات إطلاقاً.
 
    الاستراتيجيات (قرارات أمان مقصودة — لا تغيّرها بلا مراجعة):
-   • تنقّلات HTML  → network-first: أونلاين تأخذ دائماً أحدث نشر (صفر «كود قديم
-     عالق»)؛ offline تُخدَم نسخة آخر زيارة، وإلا offline.html.
+   • تنقّلات HTML  → صفحةٌ لها نسخة بالكاش تُفتح منها فوراً وتُحدَّث بالخلفية
+     (والتبويب يعيد التحميل وحده إن وصل نشرٌ أحدث — انظر handleNavigation)؛
+     بلا نسخة: network-first، و offline تُخدَم نسخة آخر زيارة وإلا offline.html.
      ملاحظة pretty-URLs: Cloudflare Pages يحوّل /page.html → /page (308).
      طلب التنقّل الأول يرجع opaqueredirect (يُمرَّر كما هو بلا كاش)، والمتصفح
      يعيد التنقّل للمسار النظيف فيُكاش تحته. البحث offline يجرّب المسارين.
@@ -59,7 +60,7 @@ var DENY_HOST_SUBSTR = ['supabase.co', 'supabase.in', 'sentry'];
    نشرة يحمل الكاش نسختَي التوكن القديم والجديد معاً — فعيادةٌ تستعمل كل الصفحات
    كانت تفقد أصول صفحاتها الأقدم زيارةً فلا تفتح بلا اتصال. السقف الآن يسع الأسطول
    مرتين وزيادة، ومثبت الأوفلاين يحمرّ إن اقترب عدد الأصول منه. */
-var MAX_PAGES = 40, MAX_ASSETS = 240, MAX_FONTS = 30;
+var MAX_PAGES = 80, MAX_ASSETS = 240, MAX_FONTS = 30;   /* الصفحة تُكاش بمسارَيها (.html والنظيف) */
 
 /* ── install: precache صغير (offline.html + الأيقونة + manifest)
       + تسخين مكتبات vendor الحرجة بكاش ASSETS (أوفلاين من أول زيارة) ─────── */
@@ -297,8 +298,76 @@ function navLookup(url) {
    (مقيسٌ حيّاً: تجاوز ثماني ثوانٍ). الطلب لا يُقطع: يكمل ويحدّث الكاش. */
 var NAV_RESCUE_MS = 6000;
 
-/* ── التنقّلات: network-first ثم كاش ثم offline.html ────────────────────── */
+/* ── التنقّلات: فتحٌ فوري من الكاش + تحديثٌ بالخلفية ──────────────────────
+   كانت network-first: كل فتح صفحة ينتظر الـHTML من الشبكة ولو كانت نسخته حاضرة —
+   على نت بطيء ثوانٍ لكل تنقّل، وعلى «اتصال قائم وإنترنت ميت» ست ثوانٍ (مهلة الإنقاذ).
+   الآن: صفحةٌ لها نسخة بالكاش تُخدَم فوراً، ونسخة الشبكة تُجلب بالخلفية وتُكتب
+   مكانها. وإن اختلفت عن المعروضة (نشرٌ جديد) يُبلَّغ التبويب PAGE_UPDATED فيعيد
+   التحميل وحده ما دام المستخدم لم يلمس الصفحة بعد، وإلا تنبيه — فلا «كود قديم
+   عالق»: أقصى تأخّر عن النشر فتحةٌ واحدة تُصحَّح خلال ثوانٍ.
+   بلا نسخة بالكاش = السلوك السابق حرفياً (شبكة أولاً ثم offline.html).
+   الصفحات العامة التي يفتحها المريض (حجز · استمارة · بوابة) تبقى شبكة-أولاً. */
+var NAV_NETWORK_FIRST = ['/book', '/intake', '/portal'];
+function isNetworkFirstPath(path) {
+  var p = path.slice(-5) === '.html' ? path.slice(0, -5) : path;
+  return NAV_NETWORK_FIRST.indexOf(p) !== -1;
+}
+function samePage(a, b) {
+  var strip = function (p) { p = p.slice(-5) === '.html' ? p.slice(0, -5) : p; return (p === '/index' || p === '') ? '/' : p; };
+  try { return strip(new URL(a, self.location.origin).pathname) === strip(new URL(b, self.location.origin).pathname); }
+  catch (e) { return false; }
+}
+/* التبويب الناتج عن التنقّل قد لا يكون «جاهزاً» لحظةَ انتهاء المقارنة (الشبكة أسرع من
+   تحميل الصفحة) فلا يظهر بـclients بعد — نعيد المحاولة حتى ~6ث. المعرّف resultingClientId
+   يحدّد التبويب بعينه؛ وبغيابه (متصفح قديم) يُطابَق بالمسار. الرسالة تُصَفّ عند المتصفح حتى
+   يكتمل تحميل الصفحة، فلا تضيع. */
+function notifyPageUpdated(url, clientId, tries) {
+  try {
+    var cl = self.clients;
+    if (!cl) return Promise.resolve();
+    var msg = { type: 'PAGE_UPDATED', path: url.pathname };
+    var find = (clientId && typeof cl.get === 'function')
+      ? Promise.resolve(cl.get(clientId)).then(function (c) { return c ? [c] : []; })
+      : (typeof cl.matchAll === 'function'
+          ? cl.matchAll({ type: 'window' }).then(function (list) {
+              return (list || []).filter(function (c) { return samePage(c.url, url.href); });
+            })
+          : Promise.resolve([]));
+    return find.then(function (targets) {
+      if (targets.length) {
+        targets.forEach(function (c) { try { c.postMessage(msg); } catch (e) {} });
+        return;
+      }
+      if ((tries || 0) >= 12) return;
+      return new Promise(function (r) { setTimeout(r, 500); })
+        .then(function () { return notifyPageUpdated(url, clientId, (tries || 0) + 1); });
+    }).catch(function () {});
+  } catch (e) { return Promise.resolve(); }
+}
+function revalidatePage(url, shown, clientId) {
+  var r;
+  try { r = new Request(url.href, { cache: 'no-cache' }); } catch (e) { r = url.href; }
+  return fetch(r).then(function (net) {
+    if (!(net && net.ok && net.type === 'basic')) return;
+    return Promise.all([net.clone().text(), shown.text()]).then(function (t) {
+      return putPageSafe(net.url || url.href, net).then(function () {
+        if (t[0] !== t[1]) return notifyPageUpdated(url, clientId, 0);
+      });
+    });
+  }).catch(function () { /* بلا شبكة: المعروض هو أحدث ما لدينا */ });
+}
 function handleNavigation(event, url) {
+  if (isNetworkFirstPath(url.pathname)) return handleNavigationNetworkFirst(event, url);
+  return navLookup(url).then(function (hit) {
+    if (!hit) return handleNavigationNetworkFirst(event, url);
+    var p = revalidatePage(url, hit.clone(), event.resultingClientId || '');
+    try { event.waitUntil(p); } catch (e) {}
+    return hit;
+  }).catch(function () { return handleNavigationNetworkFirst(event, url); });
+}
+
+/* ── تنقّل بلا نسخة بالكاش (وصفحات المريض): network-first ثم كاش ثم offline.html ── */
+function handleNavigationNetworkFirst(event, url) {
   var req = event.request;
   var navDone = false;
   var netBranch = fetch(req).then(function (net) {

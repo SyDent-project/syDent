@@ -24,6 +24,7 @@ window.SyI18nDict = {
   'ليرة سورية': 'Syrian pound',
   'دولار أمريكي': 'US dollar',
   'تم تحديث SyDent للإصدار الأحدث': 'SyDent has been updated to the latest version',
+  'وصل إصدار أحدث من هذه الصفحة — يظهر عند فتحها من جديد': 'A newer version of this page arrived — it shows the next time you open it',
   'تم تثبيت SyDent كتطبيق': 'SyDent is installed as an app',
   'افتحه بلمسة واحدة من الشاشة الرئيسية لجهازك مثل أي تطبيق، بشاشة كاملة ودون شريط المتصفح.': 'Open it with one tap from your home screen like any app, full screen and without the browser bar.',
   'تثبيت SyDent كتطبيق': 'Install SyDent as an app',
