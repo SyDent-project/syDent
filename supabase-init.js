@@ -220,7 +220,10 @@
   function outboxNotify() {
     outboxAll().then(function (rows) {
       var pending = 0, failed = 0;
-      rows.forEach(function (r) { if (r.status === 'failed') failed++; else pending++; });
+      rows.forEach(function (r) {
+        if (r.status === 'failed') { if (r.table !== 'audit_log') failed++; }   /* سجل تدقيق فاشل: لا قرار للمستخدم فيه */
+        else pending++;
+      });
       _outboxListeners.forEach(function (fn) { try { fn(pending, failed); } catch (e) {} });
     });
   }
@@ -430,8 +433,10 @@
       rows.forEach(function (rec) {
         chain = chain.then(function () {
           if (rec.status === 'failed' && (rec.attempts || 0) >= 5) {
-            /* كنّاس: فاشلة نهائياً وأقدم من 7 أيام → أسقِطها كي لا تعلق الشارة للأبد */
-            if (Date.now() - (rec.createdAt || 0) > 7 * 24 * 3600 * 1000) {
+            /* كنّاس: سجل التدقيق وحده (تتبّعي) يُسقَط بعد 7 أيام. موعدٌ أو دفعةٌ فاشلة
+               لا تُحذف آلياً أبداً — كانت تُكنَس بصمت بعد أسبوع؛ الآن تبقى ظاهرةً بنافذة
+               «عمليات لم تُرفع» حتى يعيد صاحبها المحاولة أو يحذفها بنفسه. */
+            if (rec.table === 'audit_log' && Date.now() - (rec.createdAt || 0) > 7 * 24 * 3600 * 1000) {
               console.warn('[SyDentOffline] dropping permanently-failed op (>7d):', rec.method, rec.table, rec.lastError);
               return outboxDelete(rec.id);
             }
@@ -483,6 +488,40 @@
       }
       outboxNotify();
       return { synced: synced, failed: failed };
+    });
+  }
+
+  /* ── مراجعة الطابور: عرض عمليات المستخدم الحالي + إعادة محاولة + حذف ──────
+     تُعرَض نسخٌ مختصرة (لا ترويسات ولا رابط)؛ والتعديل محصور بعمليات صاحب الجلسة. */
+  function outboxList() {
+    var uid = currentUid();
+    return outboxAll().then(function (rows) {
+      return rows.filter(function (r) { return r && uid && r.uid === uid; }).map(function (r) {
+        var row = null;
+        try { var b = JSON.parse(r.body || 'null'); row = Array.isArray(b) ? (b[0] || null) : b; } catch (e) {}
+        return { id: r.id, table: r.table, method: r.method, status: r.status || 'pending',
+                 attempts: r.attempts || 0, createdAt: r.createdAt || 0, lastError: r.lastError || '', row: row };
+      });
+    });
+  }
+  function outboxOwn(id) {
+    var uid = currentUid();
+    return outboxAll().then(function (rows) {
+      for (var i = 0; i < rows.length; i++) if (rows[i] && rows[i].id === id && uid && rows[i].uid === uid) return rows[i];
+      return null;
+    });
+  }
+  function outboxRetry(id) {
+    return outboxOwn(id).then(function (rec) {
+      if (!rec) return { synced: 0, failed: 0 };
+      rec.status = 'pending'; rec.attempts = 0; rec.lastError = '';
+      return outboxMark(rec).then(function () { return drain(); });
+    });
+  }
+  function outboxDiscard(id) {
+    return outboxOwn(id).then(function (rec) {
+      if (!rec) return false;
+      return outboxDelete(rec.id).then(function (ok) { outboxNotify(); return ok; });
     });
   }
 
@@ -845,8 +884,9 @@
     isPausedForSubscription: function () { return _pausedSub; },
     configureDrain: function (getAuthHeaders, onSynced) { _getAuthHeaders = getAuthHeaders; _onSynced = onSynced || null; },
     onOutboxChange: function (fn) { _outboxListeners.push(fn); outboxNotify(); },
+    outboxList: outboxList, outboxRetry: outboxRetry, outboxDiscard: outboxDiscard,
     _get: idbGet, _put: idbPut, _uid: currentUid,
-    _outboxAdd: outboxAdd, _outboxAll: outboxAll, _overlay: applyOutboxOverlay   /* للاختبار */
+    _outboxAdd: outboxAdd, _outboxAll: outboxAll, _outboxPut: outboxMark, _overlay: applyOutboxOverlay   /* للاختبار */
   };
 })();
 /* ═══ SYDENT_OFFLINE_MODULE_END ═══ */
@@ -6000,7 +6040,7 @@ window.SyDentAccountDelete = (function () {
    SyDent Offline — توصيل التصريف + شارة المزامنة (PWA Phase 2)
    يصرّف طابور المواعيد المكتوبة offline عند عودة النت (حدث online + بعد
    التحميل + دورياً كل 60ث ما دام في معلّق) ويعرض شارة كهرمانية «⏳ بانتظار
-   المزامنة: N». الترويسات تُبنى بجلسة اللحظة (getSession يجدّد التوكن).
+   المزامنة: N»؛ نقرُها يفتح نافذة «عمليات لم تُرفع» إن وُجد ما رفضه الخادم. الترويسات تُبنى بجلسة اللحظة (getSession يجدّد التوكن).
    محروس بالكامل + idempotent — لا يمس أي سلوك قائم.
    ───────────────────────────────────────────────────────────────────────── */
 (function () {
@@ -6022,17 +6062,99 @@ window.SyDentAccountDelete = (function () {
       'padding:8px 14px;border-radius:10px;cursor:pointer;color:#1f2937;' +
       'background:#fde68a;border:1px solid #d97706;box-shadow:0 4px 14px rgba(0,0,0,.25);';
     el.title = 'اضغط لمحاولة المزامنة الآن';
-    el.onclick = function () {
-      try {
-        window.SyDentOffline.drain().then(function (r) {
-          if (r && r.paused === 'subscription' && typeof window.showToast === 'function') {
-            window.showToast('⏸ المزامنة متوقفة حتى تجديد الاشتراك — لن يُحذف شيء مما سجّلته', true);
-          }
-        });
-      } catch (e) {}
-    };
+    el.onclick = function () { try { openSyncReview(); } catch (e) {} };
     (document.body || document.documentElement).appendChild(el);
     return el;
+  }
+
+  function syncNow() {
+    try {
+      window.SyDentOffline.drain().then(function (r) {
+        if (r && r.paused === 'subscription' && typeof window.showToast === 'function') {
+          window.showToast('⏸ المزامنة متوقفة حتى تجديد الاشتراك — لن يُحذف شيء مما سجّلته', true);
+        }
+      });
+    } catch (e) {}
+  }
+
+  /* ── نافذة «عمليات لم تُرفع» ─────────────────────────────────────────────
+     عملية رفضها الخادم كانت تظهر رقماً بالشارة بلا أي وسيلة لمعرفة ما هي. الآن
+     نقرُ الشارة يعرضها (النوع · التاريخ · المبلغ · المريض · السبب) مع إعادة المحاولة
+     أو الحذف — بعُدّة النوافذ الموحّدة (SyDialog). بلا عمليات فاشلة = مزامنة فورية
+     كما كان. الأرقام والتواريخ معزولة الاتجاه؛ اسم المريض بسطرٍ مستقل (بيانات لا تُترجَم). */
+  function iso(v) { return '\u2068' + v + '\u2069'; }
+  function hhmm(t) { return String(t || '').slice(0, 5); }
+  function stamp(ms) {
+    try {
+      var d = new Date(ms), p = function (n) { return (n < 10 ? '0' : '') + n; };
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    } catch (e) { return ''; }
+  }
+  function opLabel(op) {
+    var r = op.row || {};
+    if (op.table === 'ledger_payments') {
+      return 'دفعة' + (r.amount != null ? ' · ' + iso(r.amount) + ' ' + (r.currency === 'USD' ? '$' : 'ل.س') : '') +
+        (r.date ? ' · ' + iso(r.date) : '');
+    }
+    var kind = op.method === 'POST' ? 'موعد جديد' : (op.method === 'DELETE' ? 'حذف موعد' : 'تعديل موعد');
+    var when = r.date ? ' · ' + iso(r.date + (r.time ? ' ' + hhmm(r.time) : '')) : '';
+    return kind + when;
+  }
+  function opReason(op) {
+    var e = op.lastError || '', why;
+    if (e.indexOf('23503') !== -1) why = 'السجل المرتبط بها حُذف من جهاز آخر';
+    else if (e.indexOf('23505') !== -1) why = 'تتعارض مع سجل موجود على الخادم';
+    else if (e.indexOf('HTTP 403') !== -1 || e.indexOf('42501') !== -1) why = 'لا صلاحية لتنفيذها';
+    else if (e.indexOf('HTTP 4') !== -1) why = 'رفض الخادم بياناتها';
+    else why = 'تعذّر رفعها';
+    var code = /HTTP \d+(?: · [0-9A-Z]{5})?/.exec(e);
+    return why + (code ? ' ' + iso('(' + code[0] + ')') : '');
+  }
+  function openSyncReview() {
+    var O = window.SyDentOffline, D = window.SyDialog;
+    if (!O.outboxList || !D || typeof D.choose !== 'function') { syncNow(); return Promise.resolve(); }
+    return O.outboxList().then(function (ops) {
+      var bad = ops.filter(function (o) { return o.status === 'failed' && o.table !== 'audit_log'; });
+      if (!bad.length) { syncNow(); return; }
+      return D.choose({
+        title: 'عمليات لم تُرفع',
+        message: 'سُجّلت بلا اتصال ورفضها الخادم عند الرفع. اختر عملية لإعادة المحاولة أو لحذفها.',
+        choices: bad.map(function (o) {
+          var nm = o.row && o.row.patient_name;
+          return { label: opLabel(o), sub: nm ? String(nm) : opReason(o) };
+        }),
+        cancelText: 'إغلاق'
+      }).then(function (i) {
+        if (i == null || !bad[i]) return;
+        var op = bad[i], nm = op.row && op.row.patient_name;
+        return D.choose({
+          title: opLabel(op),
+          message: (nm ? String(nm) + '\n' : '') + opReason(op) + '\n' + 'سُجّلت' + ' ' + iso(stamp(op.createdAt)),
+          choices: [
+            { label: 'إعادة المحاولة', sub: 'تُرفع الآن من جديد' },
+            { label: 'حذف العملية', sub: 'تُحذف من هذا الجهاز ولا تُرفع' }
+          ],
+          cancelText: 'إغلاق'
+        }).then(function (a) {
+          if (a === 0) {
+            return O.outboxRetry(op.id).then(function (r) {
+              if (typeof window.showToast !== 'function') return;
+              if (r && r.synced > 0) window.showToast('✅ تم رفع العملية', false);
+              else window.showToast('⚠️ لم تُرفع العملية — ما زال الخادم يرفضها', true);
+            });
+          }
+          if (a === 1) {
+            return D.confirm({ title: 'حذف العملية', message: 'حذف هذه العملية نهائياً؟ لن تُرفع إلى الخادم.', danger: true, confirmText: 'حذف' })
+              .then(function (yes) {
+                if (!yes) return;
+                return O.outboxDiscard(op.id).then(function () {
+                  if (typeof window.showToast === 'function') window.showToast('حُذفت العملية', false);
+                });
+              });
+          }
+        });
+      });
+    }).catch(function () { syncNow(); });
   }
 
   function renderBadge(pending, failed) {
@@ -6067,7 +6189,7 @@ window.SyDentAccountDelete = (function () {
             window.showToast('✅ تمت مزامنة ' + r.synced + ' عملية بنجاح', false);
           }
           if (r.failed > 0 && typeof window.showToast === 'function') {
-            window.showToast('⚠️ ' + r.failed + ' عملية لم تُرفع — راجع المواعيد', true);
+            window.showToast('⚠️ ' + r.failed + ' عملية لم تُرفع — اضغط شارة المزامنة للمراجعة', true);
           }
         } catch (e) {}
       });
