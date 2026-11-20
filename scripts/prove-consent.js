@@ -14,7 +14,8 @@ const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL', m); } };
 const FILES = ['migrations/219_consent_forms.sql', 'tx-consent.js', 'treatments.html', 'scripts/cache-bust.sh', 'scripts/db-bootstrap.py',
-  'pp-consent.js', 'patient-profile.html', 'pp-timeline.js', 'patient-profile.css'];
+  'pp-consent.js', 'patient-profile.html', 'pp-timeline.js', 'patient-profile.css',
+  'migrations/220_portal_consents.sql', 'portal.html', 'sidebar.js', 'settings.html'];
 const base = {}; FILES.forEach(f => { base[f] = read(f); });
 const rep = (f, a, b) => F => { const o = Object.assign({}, F); o[f] = F[f].split(a).join(b); return o; };
 
@@ -182,6 +183,49 @@ async function suiteCard(F) {
   ok((F['scripts/cache-bust.sh'].match(/pp-consent/g) || []).length === 3 && !/\.addEventListener\(|\.on(click|change|input)\s*=/.test(J), 'card: module in the fleet; zero event listeners');
 }
 
+/* أ3 (M220): بابا البوابة · صفحةُ المريض · الغلاف · الإعدادات */
+function fnBody(sql, name) { const i = sql.indexOf('CREATE OR REPLACE FUNCTION public.' + name + '('); const j = sql.indexOf('END; $$;', i); return i < 0 ? '' : sql.slice(i, j); }
+function suitePortal(F) {
+  const M = F['migrations/220_portal_consents.sql'], P = F['portal.html'], SB = F['sidebar.js'], ST = F['settings.html'];
+  const L = fnBody(M, 'portal_consents'), G = fnBody(M, 'portal_consent_sign');
+  const chain = b => /pp\.token = p_token AND pp\.revoked_at IS NULL AND pp\.expires_at >= now\(\)/.test(b) && /IF NOT FOUND OR NOT public\._intake_clinic_open\(v\.owner_id\) THEN\s+RETURN jsonb_build_object\('ok', false, 'reason', 'unavailable'\);/.test(b)
+    && /p_token !~ '\^\[0-9a-f\]\{64\}\$'/.test(b) && /JOIN public\.patients p ON p\.id = pp\.patient_id AND p\.doctor_id = pp\.owner_id/.test(b);
+  ok(chain(L) && chain(G), 'M220: both doors need a live, unrevoked link of an open clinic, bound to the owner\'s own patient');
+  ok(/COALESCE\(c\.portal_show_consents, true\) INTO v_show/.test(L) && /IF v_show IS DISTINCT FROM true AND FOUND THEN\s+RETURN jsonb_build_object\('ok', true, 'items', '\[\]'::jsonb\);/.test(L)
+     && /IF v_show IS DISTINCT FROM true AND FOUND THEN\s+RETURN jsonb_build_object\('ok', false, 'reason', 'unavailable'\);/.test(G), 'M220: the clinic switch empties the list and closes the signing door');
+  ok(/x\.owner_id = v\.owner_id AND x\.patient_id = v\.patient_id AND x\.status IN \('pending', 'signed'\)/.test(L) && L.indexOf("'signature'") < 0 && L.indexOf('signed_ua') < 0 && /LIMIT 40/.test(L),
+     'M220: the list is this patient\'s pending and signed consents — never a signature image, never another patient');
+  ok(L.indexOf('PERFORM public._consent_sync(v.owner_id, v.patient_id);') > L.indexOf('v_show IS DISTINCT FROM true'), 'M220: the derived sync runs only behind the link, clinic and switch checks');
+  ok(/char_length\(p_signature\) < 200 OR char_length\(p_signature\) > 120000\s+OR p_signature !~ '\^data:image\/png;base64,\[A-Za-z0-9\+\/\]\+=\*\$'/.test(G), 'M220: the signature must be a PNG data URL within the cap');
+  ok(/char_length\(v_name\) < 2 OR char_length\(v_name\) > 80 OR v_name ~ '\[<>\]'/.test(G) && /v_rel IS NOT NULL AND \(char_length\(v_rel\) > 40 OR v_rel ~ '\[<>\]'\)/.test(G), 'M220: signer name and relation are bounded and carry no markup');
+  ok(/WHERE x\.id = p_consent AND x\.owner_id = v\.owner_id AND x\.patient_id = v\.patient_id\s+FOR UPDATE;/.test(G) && /IF c\.status = 'signed' THEN\s+RETURN jsonb_build_object\('ok', true, 'reason', 'already'/.test(G)
+     && /IF c\.status <> 'pending' THEN RETURN jsonb_build_object\('ok', false, 'reason', 'not_signable'\); END IF;/.test(G), 'M220: only this patient\'s own pending consent is signable; a repeat is idempotent');
+  ok(/>= 30 THEN\s+RETURN jsonb_build_object\('ok', false, 'reason', 'rate'\);/.test(G), 'M220: a daily cap per patient');
+  const iOpen = G.indexOf("PERFORM set_config('sydent.consent_sign', '1', true);"), iUpd = G.indexOf('UPDATE public.patient_consents'), iClose = G.indexOf("PERFORM set_config('sydent.consent_sign', '', true);");
+  ok(iOpen > -1 && iOpen < iUpd && iUpd < iClose && /WHERE id = c\.id;/.test(G) && (G.match(/UPDATE public\./g) || []).length === 1 && !/p_body|p_title|body =|title =/.test(G),
+     'M220: one row is written through the door, which closes right after; the visitor never sends text');
+  ok(/INSERT INTO public\.audit_log/.test(G) && /'patient\.consent_sign'/.test(G) && G.indexOf('INSERT INTO public.audit_log') > iUpd, 'M220: every signature leaves an activity-log row');
+  ok(/REVOKE ALL ON FUNCTION public\.portal_consent_sign\(text, uuid, text, text, text\) FROM PUBLIC;\s+GRANT EXECUTE ON FUNCTION public\.portal_consent_sign\(text, uuid, text, text, text\) TO anon, authenticated;/.test(M)
+     && /ALTER PUBLICATION supabase_realtime ADD TABLE public\.patient_consents;/.test(M) && F['scripts/db-bootstrap.py'].indexOf("'migrations/220_portal_consents.sql'") > -1, 'M220: grants named; realtime publication; in the bootstrap plan');
+  /* portal page */
+  ok(/h \+= sectionConsents\(\);[^\n]*\n  h \+= sectionIntake\(INFO\.intake\);/.test(P) && /loadXrays\(\);[^\n]*\n    loadConsents\(\);/.test(P), 'portal: what awaits a signature shows first, and loads after the page');
+  ok(/p_consent: id, p_signature: sig, p_name: name, p_relation: rel === RELATIONS\[0\] \? null : rel \}\), 30000\)/.test(P) && !/p_body|p_title/.test(P), 'portal: sends id + signature + signer only');
+  ok(/if \(g\) g\.disabled = !\(a && a\.checked && n && n\.value\.trim\(\)\.length >= 2 && _sig\.has\) \|\| _cnsBusy;/.test(P) && /if \(!sig\) \{ say\('ارسم توقيعك داخل المربّع\.'\); return; \}/.test(P)
+     && /if \(!c \|\| !a \|\| !a\.checked\) \{ say\(/.test(P), 'portal: agree + name + a drawn signature are all required');
+  const sec = P.slice(P.indexOf('function sectionConsents'), P.indexOf('function closeConsent'));
+  ok((sec.match(/esc\(c\.title\)/g) || []).length === 3 && (sec.match(/esc\(c\.body\)/g) || []).length === 2 && (sec.match(/esc\(meta\)/g) || []).length === 3 && !/' \+ c\.(title|body|treatment|teeth|signer) \+ '/.test(sec),
+     'portal: every stored value is escaped');
+  ok(/if \(!c \|\| c\.status !== 'pending'\) return;/.test(P) && /c\.status = 'signed';/.test(P) && /catch \(e\) \{ say\('تعذّر الاتصال[^']*توقيعك ما زال في المربّع\.'\); \}/.test(P), 'portal: only a pending consent opens; a network failure keeps the drawing');
+  ok(/@media print\{ \.cns-ov\{display:none;\} \}/.test(P) && /\.cns-fld input\[type=text\]\{width:100%; min-height:46px;/.test(P) && /\.sig\{[^}]*touch-action:none;/.test(P), 'portal: touch-sized fields; the pad owns its touches; the sheet stays out of prints');
+  /* shell + settings + card */
+  ok(/sbIntakeSubscribe\(uid\);\n    sbConsentSubscribe\(uid\);/.test(SB) && /table: 'patient_consents', filter: 'owner_id=eq\.' \+ uid/.test(SB)
+     && /if \(!row \|\| row\.owner_id !== uid \|\| row\.status !== 'signed'\) return;\s+if \(old && old\.status === 'signed'\) return;/.test(SB) && /\.eq\('id', row\.patient_id\)\.eq\('doctor_id', row\.owner_id\)\.maybeSingle\(\)/.test(SB),
+     'shell: one owner-filtered channel; only a fresh signature toasts, naming the patient');
+  ok(/window\.onSyDentConsent = function \(row\) \{\s+try \{ if \(row && row\.patient_id === patientId\) ppConsentLoad\(true\); \}/.test(F['pp-consent.js']), 'card: a live signature refreshes only that patient\'s card');
+  ok(/id="ptShowConsents" class="bk-switch"/.test(ST) && /getElementById\('ptShowConsents'\)\.checked = row \? row\.portal_show_consents !== false : true;/.test(ST)
+     && /portal_show_consents: document\.getElementById\('ptShowConsents'\)\.checked,/.test(ST), 'settings: the switch loads (default on) and saves');
+}
+
 async function suite(F) {
   const M = F['migrations/219_consent_forms.sql'], J = F['tx-consent.js'], T = F['treatments.html'];
 
@@ -280,6 +324,7 @@ async function suite(F) {
   ok(/\[onclick\*="openConsentModal\("\],\[onclick\*="saveConsentTpl\("\]/.test(T), 'page: read-only mode hides the button and the save');
   ok(J.indexOf('innerHTML') < 0, 'module: no HTML is built from text (textContent/value only)');
   await suiteCard(F);
+  suitePortal(F);
 }
 
 const MUTANTS = [
@@ -313,6 +358,26 @@ const MUTANTS = [
   ['passage point after the early return', rep('pp-timeline.js', "  try { if (typeof ppConsentTouch === 'function') ppConsentTouch(); } catch (e) { console.warn('ppConsentTouch:', e); }   /* M219: الخطةُ تغيّرت ⇒ موافقاتُها تُزامَن */\n", "")],
   ['row visible before load', rep('patient-profile.html', 'id="consentRow" style="display:none;"', 'id="consentRow"')],
   ['read-only mode leaves cancel visible', rep('patient-profile.css', ',[onclick*="ppConsentVoid("]', '')],
+  ['revoked link still lists', rep('migrations/220_portal_consents.sql', "   WHERE pp.token = p_token AND pp.revoked_at IS NULL AND pp.expires_at >= now()\n   LIMIT 1;\n  IF NOT FOUND OR NOT public._intake_clinic_open(v.owner_id) THEN\n    RETURN jsonb_build_object('ok', false, 'reason', 'unavailable');\n  END IF;\n  SELECT COALESCE(c.portal_show_consents", "   WHERE pp.token = p_token\n   LIMIT 1;\n  IF NOT FOUND OR NOT public._intake_clinic_open(v.owner_id) THEN\n    RETURN jsonb_build_object('ok', false, 'reason', 'unavailable');\n  END IF;\n  SELECT COALESCE(c.portal_show_consents")],
+  ['switch off still signs', rep('migrations/220_portal_consents.sql', "  IF v_show IS DISTINCT FROM true AND FOUND THEN\n    RETURN jsonb_build_object('ok', false, 'reason', 'unavailable');\n  END IF;\n\n  -- the signature", "\n  -- the signature")],
+  ['signature image leaks into the list', rep('migrations/220_portal_consents.sql', "'status', pc.status, 'signed_at', pc.signed_at, 'signer', pc.signer_name)", "'status', pc.status, 'signed_at', pc.signed_at, 'signer', pc.signer_name, 'signature', pc.signature)")],
+  ['another patient\'s consent signable', rep('migrations/220_portal_consents.sql', "WHERE x.id = p_consent AND x.owner_id = v.owner_id AND x.patient_id = v.patient_id\n   FOR UPDATE;", "WHERE x.id = p_consent AND x.owner_id = v.owner_id\n   FOR UPDATE;")],
+  ['any data URL accepted as a signature', rep('migrations/220_portal_consents.sql', "OR p_signature !~ '^data:image/png;base64,[A-Za-z0-9+/]+=*$'", "OR p_signature !~ '^data:'")],
+  ['markup accepted in the signer name', rep('migrations/220_portal_consents.sql', "OR char_length(v_name) > 80 OR v_name ~ '[<>]' THEN", "OR char_length(v_name) > 80 THEN")],
+  ['cancelled consent signable', rep('migrations/220_portal_consents.sql', "IF c.status <> 'pending' THEN RETURN jsonb_build_object('ok', false, 'reason', 'not_signable'); END IF;", "")],
+  ['no daily cap', rep('migrations/220_portal_consents.sql', ">= 30 THEN\n    RETURN jsonb_build_object('ok', false, 'reason', 'rate');", ">= 30 THEN\n    NULL;")],
+  ['door left open after signing', rep('migrations/220_portal_consents.sql', "   WHERE id = c.id;\n  PERFORM set_config('sydent.consent_sign', '', true);", "   WHERE id = c.id;")],
+  ['signature without an activity-log row', rep('migrations/220_portal_consents.sql', "'patient.consent_sign'", "'patient.other'")],
+  ['sync before the link is checked', rep('migrations/220_portal_consents.sql', "\n  PERFORM public._consent_sync(v.owner_id, v.patient_id);\n", "\n")],
+  ['portal sends without a signature', rep('portal.html', "if (!sig) { say('ارسم توقيعك داخل المربّع.'); return; }", "")],
+  ['portal submit enabled without agreement', rep('portal.html', "!(a && a.checked && n && n.value.trim().length >= 2 && _sig.has) || _cnsBusy;", "!(n && n.value.trim().length >= 2 && _sig.has) || _cnsBusy;")],
+  ['portal title unescaped', rep('portal.html', "h += '<div class=\"cns-it\"><h3>' + esc(c.title) + '</h3>' + (meta ? '<p class=\"cns-meta\">' + esc(meta) + '</p>' : '')\n      + '<button", "h += '<div class=\"cns-it\"><h3>' + c.title + '</h3>' + (meta ? '<p class=\"cns-meta\">' + esc(meta) + '</p>' : '')\n      + '<button")],
+  ['portal body unescaped in the sheet', rep('portal.html', "<div class=\"cns-body\">' + esc(c.body) + '</div></div>'\n    + '<label class=\"cns-agree\">", "<div class=\"cns-body\">' + c.body + '</div></div>'\n    + '<label class=\"cns-agree\">")],
+  ['consents delay the page', rep('portal.html', "    loadConsents();   /* M220: ثانويّ — لا يؤخّر الصفحة */", "    await loadConsents();   /* M220 */")],
+  ['shell toasts every update', rep('sidebar.js', "if (!row || row.owner_id !== uid || row.status !== 'signed') return;", "if (!row || row.owner_id !== uid) return;")],
+  ['shell channel not owner-filtered', rep('sidebar.js', "table: 'patient_consents', filter: 'owner_id=eq.' + uid }", "table: 'patient_consents' }")],
+  ['live signature refreshes any card', rep('pp-consent.js', "if (row && row.patient_id === patientId) ppConsentLoad(true);", "if (row) ppConsentLoad(true);")],
+  ['settings switch not saved', rep('settings.html', "    portal_show_consents: document.getElementById('ptShowConsents').checked,   /* M220 */\n", "")],
   ['read not scoped to the owner', rep('tx-consent.js', ".select('id, treatment_key, title, body').eq('owner_id', uid);", ".select('id, treatment_key, title, body');")],
   ['delete not scoped to the owner', rep('tx-consent.js', ".delete().eq('id', cur.id).eq('owner_id', uid);", ".delete().eq('id', cur.id);")],
   ['validation after the request', rep('tx-consent.js', "if (!title) return fail('اكتب عنوان الموافقة.');", '')],

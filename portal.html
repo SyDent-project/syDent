@@ -149,6 +149,33 @@ tr:last-child td{border-bottom:none;}
 .xr-card{display:flex; flex-direction:column; gap:4px; padding:0 0 8px; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--bg); cursor:pointer; font:inherit; text-align:start;}
 .xr-card img{width:100%; height:110px; object-fit:cover; background:#05070a; display:block;}
 .xr-card .meta{padding:0 8px;}
+/* M220: موافقاتُ العلاج — البطاقة وورقةُ التوقيع (التوقيعُ إلزاميٌّ هنا بخلاف الاستمارة) */
+.cns-it{border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:10px; background:var(--bg);}
+.cns-it h3{font-size:14.5px; font-weight:800; margin:0 0 4px; overflow-wrap:anywhere;}
+.cns-meta{color:var(--text2); font-size:12.5px; margin:0 0 10px; overflow-wrap:anywhere;}
+.cns-done{color:var(--green2); font-weight:800; font-size:13px;}
+.cns-it details summary{cursor:pointer; color:var(--text2); font-size:13px; font-weight:700; min-height:44px; display:flex; align-items:center;}
+.cns-body{white-space:pre-wrap; font-size:14.5px; line-height:1.95; overflow-wrap:anywhere;}
+.cns-ov{position:fixed; inset:0; z-index:60; background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch;
+  padding:calc(14px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));}
+.cns-sheet{max-width:640px; margin:0 auto;}
+.cns-sheet h2{font-size:17px; font-weight:800; margin:0 0 4px; overflow-wrap:anywhere;}
+.cns-fld{margin-top:14px;}
+.cns-fld label{display:block; font-size:13px; font-weight:800; margin-bottom:6px;}
+.cns-fld input[type=text]{width:100%; min-height:46px; border:1px solid var(--line); border-radius:10px; padding:8px 12px; background:var(--card); color:var(--text); font-family:inherit;}
+.cns-agree{display:flex; gap:10px; align-items:flex-start; margin-top:16px; padding:12px; border:1.5px solid var(--line); border-radius:12px; background:var(--card); cursor:pointer; min-height:48px;}
+.cns-agree input{width:22px; height:22px; flex:none; margin-top:2px; accent-color:var(--green);}
+.cns-agree span{font-size:14px; font-weight:700; line-height:1.6;}
+.sig-wrap{position:relative; margin-top:8px;}
+.sig{display:block; width:100%; height:170px; background:#ffffff; border:1.5px dashed var(--line); border-radius:10px; touch-action:none; cursor:crosshair;}
+.sig-wrap.has .sig{border-style:solid; border-color:var(--green);}
+.sig-ph{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#6b7280; font-size:13px; pointer-events:none;}
+.sig-wrap.has .sig-ph{display:none;}
+.sig-tools{display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:12px; color:var(--text2);}
+.lnk{background:none; border:none; color:var(--green2); font-weight:800; font-family:inherit; font-size:14px; cursor:pointer; padding:4px 8px; min-height:44px; touch-action:manipulation;}
+.cns-acts{display:flex; gap:10px; margin-top:16px;}
+.cns-acts .btn{margin-top:0; flex:1;}
+@media print{ .cns-ov{display:none;} }
 .xr-ov{position:fixed; inset:0; z-index:50; background:rgba(5,7,10,.94); display:flex; align-items:center; justify-content:center; padding:56px 10px 60px;}
 .xr-ov img{max-width:100%; max-height:100%; object-fit:contain; touch-action:pinch-zoom;}
 .xr-x{position:absolute; top:12px; inset-inline-start:12px; width:44px; height:44px; border-radius:50%; border:0; background:rgba(255,255,255,.15); color:#fff; font-size:20px; cursor:pointer;}
@@ -595,6 +622,7 @@ function screenPortal(){
     + '<p class="sub">مرحباً ' + esc(firstName() || 'بك') + ' 👋 — هذه صفحتك الخاصة' + (INFO.expires_at ? '، صالحة حتى ' + esc(fmtDateTime(INFO.expires_at).slice(0, 10)) : '') + '.</p>'
     + (waPhone() ? '<a class="btn btn-wa" href="' + waHref('مرحباً، أنا ' + ((INFO && INFO.patient_name) || '') + '.') + '" target="_blank" rel="noopener">📱 تواصل مع العيادة عبر واتساب</a>' : '')
     + '</div>';
+  h += sectionConsents();   /* M220: ما ينتظر توقيعَ المريض أولاً */
   h += sectionIntake(INFO.intake);
   if (show.appts)   h += sectionAppts(INFO.appts);
   if (show.plan)    h += sectionPlan(INFO.plan);
@@ -652,6 +680,185 @@ function openXray(i){
   var x = document.querySelector('#xrOv .xr-x'); if (x && x.focus) x.focus();
 }
 function closeXray(){ var o = document.getElementById('xrOv'); if (o) o.remove(); document.body.style.overflow = ''; }
+
+/* ── M220: موافقاتُ العلاج — تُقرأ من portal_consents (تُزامِن الخطةَ المعتمدة ثم تعيد المعلَّق والموقَّع)،
+   وتُوقَّع من portal_consent_sign: الكتابةُ الثالثة المسمّاة للبوابة. النصُّ الموقَّع هو المخزَّن بالقاعدة — الصفحةُ
+   ترسل معرّفَ الموافقة والتوقيعَ واسمَ الموقّع وصفتَه فقط. التوقيعُ هنا إلزامي. ── */
+var CNS = null;        /* null = لم يُطلب · {items} · {err} */
+var CNS_OPEN = null;   /* معرّفُ الموافقة المفتوحة للتوقيع */
+var RELATIONS = ['المريض نفسه', 'وليّ الأمر', 'الوصيّ القانوني'];
+async function loadConsents(){
+  if (!TOKEN) return;
+  try {
+    if (!sb) throw new Error('vendor');
+    var res = await withTimeout(sb.rpc('portal_consents', { p_token: TOKEN }), 20000);
+    if (res.error || !res.data || res.data.ok !== true) { CNS = { items: [] }; return; }
+    CNS = { items: Array.isArray(res.data.items) ? res.data.items : [] };
+  } catch (e) { CNS = { items: [] }; }
+  if (!CNS_OPEN && !OPEN_CHG) screenPortal();
+}
+function findConsent(id){ var r = null; ((CNS && CNS.items) || []).forEach(function(x){ if (x.id === id) r = x; }); return r; }
+function consentMeta(c){
+  var m = [];
+  if (c.treatment) m.push('العلاج: ' + c.treatment);
+  if (c.teeth) m.push('السن: ' + c.teeth);
+  return m.join(' · ');
+}
+function sectionConsents(){
+  var items = (CNS && CNS.items) || [];
+  if (!items.length) return '';
+  var pend = items.filter(function(c){ return c.status === 'pending'; }), done = items.filter(function(c){ return c.status === 'signed'; });
+  var h = '<div class="card" id="cnsCard"><div class="sec-title"><span class="ic">✍️</span>موافقات العلاج</div>';
+  if (pend.length) h += '<p class="sec-hint">' + (pend.length === 1 ? 'لديك موافقة بانتظار توقيعك' : 'لديك ' + pend.length + ' موافقات بانتظار توقيعك') + ' — اقرأها ثم وقّع بإصبعك.</p>';
+  pend.forEach(function(c){
+    var meta = consentMeta(c);
+    h += '<div class="cns-it"><h3>' + esc(c.title) + '</h3>' + (meta ? '<p class="cns-meta">' + esc(meta) + '</p>' : '')
+      + '<button type="button" class="btn btn-go" onclick="openConsent(\'' + esc(c.id) + '\')">قراءة وتوقيع</button></div>';
+  });
+  done.forEach(function(c){
+    var meta = consentMeta(c);
+    h += '<div class="cns-it"><h3>' + esc(c.title) + '</h3>' + (meta ? '<p class="cns-meta">' + esc(meta) + '</p>' : '')
+      + '<p class="cns-done">✓ موقَّعة' + (c.signed_at ? ' بتاريخ ' + esc(fmtDateTime(c.signed_at)) : '') + (c.signer ? ' — ' + esc(c.signer) : '') + '</p>'
+      + '<details><summary>عرض النص الذي وقّعته</summary><div class="cns-body">' + esc(c.body) + '</div></details></div>';
+  });
+  return h + '</div>';
+}
+function openConsent(id){
+  var c = findConsent(id);
+  if (!c || c.status !== 'pending') return;
+  closeConsent();
+  CNS_OPEN = id;
+  var meta = consentMeta(c);
+  var o = document.createElement('div');
+  o.className = 'cns-ov'; o.id = 'cnsOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', c.title || 'موافقة');
+  o.innerHTML = '<div class="cns-sheet">'
+    + '<h2>' + esc(c.title) + '</h2>' + (meta ? '<p class="cns-meta">' + esc(meta) + '</p>' : '')
+    + '<div class="card" style="margin-top:10px;"><div class="cns-body">' + esc(c.body) + '</div></div>'
+    + '<label class="cns-agree"><input type="checkbox" id="cnsAgree" onchange="consentReady()"><span>قرأتُ النص أعلاه وفهمتُه، وأوافق عليه.</span></label>'
+    + '<div class="cns-fld"><label for="cnsName">اسم الموقّع</label><input type="text" id="cnsName" maxlength="80" autocomplete="name" oninput="consentReady()" value="' + esc((INFO && INFO.patient_name) || '') + '"></div>'
+    + '<div class="cns-fld"><label>صفة الموقّع</label><div class="chips" id="cnsRel">'
+    + RELATIONS.map(function(r, i){ return '<button type="button" class="chip' + (i === 0 ? ' on' : '') + '" aria-pressed="' + (i === 0 ? 'true' : 'false') + '" onclick="pickChip(this)">' + esc(r) + '</button>'; }).join('')
+    + '</div></div>'
+    + '<div class="cns-fld"><label>التوقيع <span style="font-weight:600;color:var(--text2);">(ارسم بإصبعك)</span></label>'
+    + '<div class="sig-wrap" id="sigWrap"><canvas class="sig" id="sigPad" aria-label="لوحة التوقيع"></canvas><div class="sig-ph">وقّع هنا</div></div>'
+    + '<div class="sig-tools"><span>التوقيع مطلوب لإتمام الموافقة.</span><button type="button" class="lnk" onclick="sigClear(); consentReady();">مسح التوقيع</button></div></div>'
+    + '<div class="warn" id="cnsErr" style="display:none;"></div>'
+    + '<div class="cns-acts"><button type="button" class="btn btn-ghost-sm" onclick="closeConsent()">رجوع</button>'
+    + '<button type="button" class="btn btn-go" id="cnsGo" onclick="signConsent(this)" disabled>توقيع وإرسال</button></div>'
+    + '</div>';
+  document.body.appendChild(o);
+  document.body.style.overflow = 'hidden';
+  sigInit();
+  o.scrollTop = 0;
+}
+function closeConsent(){
+  var o = document.getElementById('cnsOv'); if (o) o.remove();
+  document.body.style.overflow = '';
+  CNS_OPEN = null;
+  _sig.c = null; _sig.ctx = null; _sig.has = false; _sig.drawing = false;
+}
+function consentReady(){
+  var g = document.getElementById('cnsGo'), a = document.getElementById('cnsAgree'), n = document.getElementById('cnsName');
+  if (g) g.disabled = !(a && a.checked && n && n.value.trim().length >= 2 && _sig.has) || _cnsBusy;
+}
+var _cnsBusy = false;
+async function signConsent(btn){
+  if (_cnsBusy || !TOKEN || !CNS_OPEN) return;
+  var id = CNS_OPEN, c = findConsent(id);
+  var err = document.getElementById('cnsErr'), say = function(t){ if (err) { err.textContent = t; err.style.display = ''; err.scrollIntoView({ block: 'nearest' }); } };
+  var a = document.getElementById('cnsAgree'), n = document.getElementById('cnsName');
+  var name = n ? n.value.replace(/\s+/g, ' ').trim() : '';
+  if (!c || !a || !a.checked) { say('ضع علامة الموافقة على النص أولاً.'); return; }
+  if (name.length < 2) { say('اكتب اسم الموقّع.'); return; }
+  var sig = sigData();
+  if (!sig) { say('ارسم توقيعك داخل المربّع.'); return; }
+  var relEl = document.querySelector('#cnsRel .chip.on'), rel = relEl ? relEl.textContent : RELATIONS[0];
+  _cnsBusy = true;
+  if (err) err.style.display = 'none';
+  if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الإرسال…'; }
+  try {
+    if (!sb) throw new Error('vendor');
+    var res = await withTimeout(sb.rpc('portal_consent_sign', { p_token: TOKEN, p_consent: id, p_signature: sig, p_name: name, p_relation: rel === RELATIONS[0] ? null : rel }), 30000);
+    if (res.error) throw res.error;
+    var out = res.data || {};
+    if (out.ok) {
+      c.status = 'signed'; c.signed_at = out.signed_at || new Date().toISOString(); if (out.reason !== 'already') c.signer = name;
+      _cnsBusy = false;
+      closeConsent(); screenPortal();
+      flash('note', '✓ تم توقيع الموافقة — شكراً لك.');
+      return;
+    }
+    say(out.reason === 'bad_signature' ? 'التوقيع غير واضح — امسحه وارسمه من جديد.'
+      : out.reason === 'bad_name' ? 'اسم الموقّع غير صالح.'
+      : out.reason === 'not_signable' || out.reason === 'not_found' ? 'هذه الموافقة لم تعد متاحة — أعد تحميل الصفحة أو تواصل مع العيادة.'
+      : out.reason === 'rate' ? 'تعذّر التوقيع الآن — تواصل مع العيادة.'
+      : 'تعذّر التوقيع — أعد تحميل الصفحة أو تواصل مع العيادة.');
+  } catch (e) { say('تعذّر الاتصال — تحقق من الإنترنت ثم أعد المحاولة. توقيعك ما زال في المربّع.'); }
+  _cnsBusy = false;
+  if (btn) { btn.textContent = 'توقيع وإرسال'; }
+  consentReady();
+}
+/* لوحةُ التوقيع — مرآةُ intake.html (v620: نسبُ اللوحة نفسها عند التصدير) */
+var _sig = { c:null, ctx:null, drawing:false, has:false, last:null };
+function sigInit(){
+  var c = document.getElementById('sigPad');
+  if (!c) return;
+  _sig.c = c; _sig.ctx = c.getContext('2d'); _sig.has = false;
+  sigResize();
+  c.addEventListener('pointerdown', sigDown);
+  c.addEventListener('pointermove', sigMove);
+  c.addEventListener('pointerup', sigUp);
+  c.addEventListener('pointercancel', sigUp);
+  c.addEventListener('pointerleave', sigUp);
+}
+function sigResize(){
+  var c = _sig.c; if (!c) return;
+  var ratio = Math.min(2, window.devicePixelRatio || 1);
+  var w = c.clientWidth || 300, hgt = c.clientHeight || 170;
+  var keep = _sig.has ? c.toDataURL('image/png') : null;
+  c.width = Math.round(w * ratio); c.height = Math.round(hgt * ratio);
+  var ctx = _sig.ctx;
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1c1917';
+  if (keep) { var img = new Image(); img.onload = function(){ ctx.drawImage(img, 0, 0, w, hgt); }; img.src = keep; }
+}
+window.onresize = function(){ if (_sig.c) sigResize(); };
+function sigPos(e){
+  var r = _sig.c.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+function sigDown(e){
+  e.preventDefault();
+  _sig.drawing = true; _sig.last = sigPos(e);
+  try { _sig.c.setPointerCapture(e.pointerId); } catch(_e) {}
+}
+function sigMove(e){
+  if (!_sig.drawing) return;
+  e.preventDefault();
+  var p = sigPos(e), ctx = _sig.ctx;
+  ctx.beginPath(); ctx.moveTo(_sig.last.x, _sig.last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+  _sig.last = p;
+  if (!_sig.has) { _sig.has = true; var w = document.getElementById('sigWrap'); if (w) w.classList.add('has'); consentReady(); }
+}
+function sigUp(){ _sig.drawing = false; }
+function sigClear(){
+  if (!_sig.c) return;
+  _sig.has = false;
+  _sig.ctx.save(); _sig.ctx.setTransform(1,0,0,1,0,0); _sig.ctx.clearRect(0, 0, _sig.c.width, _sig.c.height); _sig.ctx.restore();
+  var w = document.getElementById('sigWrap'); if (w) w.classList.remove('has');
+}
+function sigData(){
+  if (!_sig.c || !_sig.has) return null;
+  try {
+    var cw = _sig.c.clientWidth || 300, ch = _sig.c.clientHeight || 170;
+    var H = Math.max(100, Math.min(400, Math.round(600 * ch / cw)));
+    var out = document.createElement('canvas'); out.width = 600; out.height = H;
+    var o = out.getContext('2d'); o.fillStyle = '#ffffff'; o.fillRect(0, 0, 600, H);
+    o.drawImage(_sig.c, 0, 0, 600, H);
+    var d = out.toDataURL('image/png');
+    return d.length <= 120000 ? d : null;
+  } catch(_e) { return null; }
+}
 
 /* M182: the patient confirms his own unconfirmed upcoming appointment — the portal's single write */
 var _confirmBusy = false;
@@ -797,6 +1004,7 @@ window.onbeforeprint = function(){ document.querySelectorAll('details').forEach(
     if (row.status !== 'ok') { screenDead('الرابط غير متاح', STATUS_MSG.unavailable, '🔗'); return; }
     screenPortal();
     loadXrays();   /* M193: ثانويّ — لا يؤخّر الصفحة */
+    loadConsents();   /* M220: ثانويّ — لا يؤخّر الصفحة */
   } catch (e) {
     clearTimeout(slowT);
     app('<div class="card center"><div class="big-icon">⚠️</div><h1>تعذّر التحميل</h1><p class="sub" style="margin-top:8px;">تحقق من الاتصال بالإنترنت ثم أعد تحميل الصفحة.</p>'

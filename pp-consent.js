@@ -192,3 +192,7 @@ async function ppConsentPrint(id) {
   w.document.close(); w.focus();
   setTimeout(function () { try { w.print(); } catch (_e) {} }, 300);
 }
+/* M220: وصولُ توقيعٍ لحظياً — sidebar.js يبثّ لكل صفحة؛ بطاقةُ المريض تُحدّث صفّها إن كان التوقيعُ لمريضها */
+window.onSyDentConsent = function (row) {
+  try { if (row && row.patient_id === patientId) ppConsentLoad(true); } catch (e) {}
+};

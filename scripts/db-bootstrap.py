@@ -86,6 +86,7 @@ AFTER_SNAPSHOT = [
     'migrations/217_portal_history_followups.sql',   # after 215: portal_info replaced in place (M215 + s.parent_id in the history subquery and a 'fu' flag on follow-up history rows) and re-granted by name (PUBLIC revoked, anon + authenticated only)
     'migrations/218_demo_patient_hidden.sql',        # additive nullable column on clinic_settings (demo patient row deleted for the whole account); no grants, no policy change
     'migrations/219_consent_forms.sql',              # consent_templates + patient_consents (RLS owner-only + sub-guard), guard trigger, _consent_sync/consent_sync
+    'migrations/220_portal_consents.sql',            # portal_show_consents + portal_consents/portal_consent_sign (anon doors) + patient_consents in the realtime publication
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',

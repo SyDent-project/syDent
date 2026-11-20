@@ -4100,3 +4100,11 @@ if (window.SyI18nPatterns) window.SyI18nPatterns.push(
   [/^✍️ بانتظار التوقيع: (\d+)$/, '✍️ Awaiting signature: $1'],
   [/^✅ موقَّعة: (\d+)$/, '✅ Signed: $1']
 );
+/* ── M220: the consent switch in the portal settings card ── */
+Object.assign(window.SyI18nDict, {
+  '✍️ موافقات العلاج وتوقيعها (للعلاجات التي لها نصّ موافقة في صفحة العلاجات)': '✍️ Treatment consents and signing (for treatments that have a consent text on the Treatments page)',
+  'موافقات بانتظار التوقيع': 'consents awaiting signature'
+});
+if (window.SyI18nPatterns) window.SyI18nPatterns.push(
+  [/^✍️ وقّع (.+) موافقة «(.*)» من بوابته$/, '✍️ $1 signed the consent «$2» from their portal']
+);
