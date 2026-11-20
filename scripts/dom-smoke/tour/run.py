@@ -57,6 +57,7 @@ INV = {'inventory_items': [
     {'id': 'I2', 'owner_id': UID, 'name': 'كمبوزيت — تطبيق', 'unit': 'تطبيق', 'quantity': 40, 'reorder_level': 5, 'reorder_qty': 25, 'purchase_price': 90000, 'currency': 'SYP', 'is_active': True},
     {'id': 'I3', 'owner_id': UID, 'name': 'قطن', 'unit': 'رول', 'quantity': 0, 'reorder_level': 3, 'is_active': True}],
   'inventory_batches': [{'id': 'B1', 'owner_id': UID, 'item_id': 'I2', 'quantity': 12, 'received_qty': 25, 'expiry_date': _soon, 'lot': 'A123', 'is_finished': False}]}
+WRITES = []   # كتابات الصفحة (جدول، طريقة، جسم) — لتوكيد ما يُحفظ على الحساب
 RPC = {'my_subscription_state': {'level': 'full', 'plan': 'pro', 'status': 'active'}}
 TOUR_SRC = open(os.path.join(ROOT, 'tour.js'), encoding='utf-8').read()
 
@@ -71,7 +72,8 @@ def route(rt):
         return rt.fulfill(status=200, content_type='application/json', body=json.dumps(RPC.get(n)))
     if '/rest/v1/' in u:
         acc = rt.request.headers.get('accept', ''); tbl = u.split('/rest/v1/')[1].split('?')[0]
-        if rt.request.method != 'GET': return rt.fulfill(status=201, content_type='application/json', body='[]')
+        if rt.request.method != 'GET':
+            WRITES.append((tbl, rt.request.method, rt.request.post_data or '')); return rt.fulfill(status=201, content_type='application/json', body='[]')
         rows = TABLES.get(tbl, [])
         if 'vnd.pgrst.object' in acc:
             return rt.fulfill(status=200, content_type='application/json', body=json.dumps(rows[0])) if rows else rt.fulfill(status=406, content_type='application/json', body='{"code":"PGRST116"}')
@@ -260,11 +262,32 @@ with sync_playwright() as pw:
             q.fill('#searchInput', 'سامر'); q.wait_for_timeout(500)
             ok(nm + ': صفحة المرضى — تختفي أثناء البحث', q.evaluate("!document.querySelector('#tableBody tr[data-demo-row]')"))
             q.fill('#searchInput', ''); q.dispatch_event('#searchInput', 'input'); q.wait_for_timeout(500)
+            del WRITES[:]
             q.click('#tableBody tr[data-demo-row] .sy-act-danger'); q.wait_for_selector('[data-sy-act="ok"]', timeout=5000); q.click('[data-sy-act="ok"]'); q.wait_for_timeout(400)
+            ok(nm + ': صفحة المرضى — «✕ حذف» يُحفظ على الحساب (clinic_settings.demo_patient_hidden_at)', any(w[0] == 'clinic_settings' and w[1] == 'PATCH' and 'demo_patient_hidden_at' in w[2] for w in WRITES), WRITES)
             q.reload(); q.wait_for_selector('tr[data-patient-id]', timeout=30000); q.wait_for_timeout(600)
             ok(nm + ': صفحة المرضى — «✕ حذف» يزيلها ولا تعود بعد التحديث', q.evaluate("!document.querySelector('#tableBody tr[data-demo-row]')") and q.evaluate("localStorage.getItem('sydent.demoPatient.hidden')") == '1')
             ok(nm + ': صفحة المرضى — صفرُ خطأ JS', not perr, perr[:2])
             ctx.close()
+        # طلب المالك: الحذف نهائيّ للحساب — جهازٌ آخر (بلا علامةٍ محلية) لا يرى السطر · حذفٌ قديم محلّي يُنقل إلى الحساب · بلا العمود يبقى كما كان
+        def demo_dev(cs, local, tag):
+            TABLES['clinic_settings'] = cs; del WRITES[:]
+            ctx = b.new_context(viewport={'width': 1366, 'height': 768}, service_workers='block'); ctx.route('**/*', route)
+            ctx.add_init_script('(()=>{try{if(!sessionStorage.getItem("i")){sessionStorage.setItem("i",1);localStorage.setItem("sydent.auth",%s);localStorage.setItem("sydent.lang","ar");%s}}catch(e){}})()' % (json.dumps(json.dumps(SESSION)), 'localStorage.setItem("sydent.demoPatient.hidden","1");' if local else ''))
+            q = ctx.new_page(); perr = []; q.on('pageerror', lambda e: perr.append(str(e)))
+            q.goto('http://127.0.0.1:%d/patients.html' % PORT); q.wait_for_selector('tr[data-patient-id]', timeout=30000); q.wait_for_timeout(2500)
+            r = {'row': q.evaluate("!!document.querySelector('#tableBody tr[data-demo-row]')"), 'local': q.evaluate("localStorage.getItem('sydent.demoPatient.hidden')"),
+                 'patch': any(w[0] == 'clinic_settings' and w[1] == 'PATCH' and 'demo_patient_hidden_at' in w[2] for w in WRITES)}
+            ok(tag + ': صفرُ خطأ JS', not perr, perr[:2]); ctx.close(); return r
+        r = demo_dev([{'owner_id': UID, 'demo_patient_hidden_at': '2026-11-19T20:00:00Z'}], False, 'جهازٌ آخر بعد الحذف')
+        ok('صفحة المرضى — حُذفت على جهاز ⇒ لا تظهر على جهازٍ آخر (والعلامة المحلية تُضبط)', not r['row'] and r['local'] == '1' and not r['patch'], r)
+        r = demo_dev([{'owner_id': UID, 'demo_patient_hidden_at': None}], True, 'حذفٌ محلي قديم')
+        ok('صفحة المرضى — حذفٌ قديم على هذا المتصفح ⇒ يُنقل إلى الحساب', not r['row'] and r['patch'], r)
+        r = demo_dev([{'owner_id': UID, 'demo_patient_hidden_at': None}], False, 'لم تُحذف')
+        ok('صفحة المرضى — لم تُحذف ⇒ تظهر ولا كتابة', r['row'] and not r['patch'] and r['local'] is None, r)
+        r = demo_dev([{'owner_id': UID}], False, 'العمود غائب')
+        ok('صفحة المرضى — بلا العمود (الهجرة لم تُطبَّق) ⇒ السلوك المحلي كما كان', r['row'] and not r['patch'], r)
+        TABLES.pop('clinic_settings', None)
         ctx = b.new_context(viewport={'width': 1366, 'height': 768}, service_workers='block'); ctx.route('**/*', route)
         ctx.add_init_script('(()=>{try{localStorage.setItem("sydent.auth",%s);localStorage.setItem("sydent.lang","ar")}catch(e){}})()' % json.dumps(json.dumps(SESSION)))
         q = ctx.new_page(); q.goto('http://127.0.0.1:%d/patient-profile.html?id=P1' % PORT); q.wait_for_timeout(7000)

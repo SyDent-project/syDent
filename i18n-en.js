@@ -891,7 +891,7 @@ Object.assign(window.SyI18nDict, {
   'تاريخ الاستحقاق بعد يوم هذا الموعد — قد لا يصل العمل في وقته': 'The due date is after this appointment\'s day — the work may not be back in time',
   'للتجربة — لا يُحفظ شيء ولا يدخل في تقاريرك': 'For trying things out — nothing is saved or counted in your reports',
   'بطاقة للتجربة — لا شيء فيها يُحفظ أو يدخل في تقاريرك': 'A card for trying things out — nothing in it is saved or counted in your reports',
-  'حذف البطاقة التجريبية؟\nلن تظهر في قائمة المرضى بعد ذلك. لا يتأثّر أيّ مريضٍ حقيقي.': 'Delete the demo card?\nIt will no longer appear in the patients list. No real patient is affected.',
+  'حذف البطاقة التجريبية؟\nلن تظهر في قائمة المرضى بعد ذلك على أيّ جهاز. لا يتأثّر أيّ مريضٍ حقيقي، وتبقى «🧭 جولة مفصّلة» في بطاقة كل مريض.': 'Delete the demo card?\nIt will no longer appear in the patients list on any device. No real patient is affected, and «🧭 Detailed tour» stays on every patient card.',
   'لا توجد نتائج': 'No results',
   'جرّب كلمة بحث مختلفة': 'Try a different search',
   'أو أضف مريضاً جديداً': 'or add a new patient',
