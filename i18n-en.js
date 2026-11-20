@@ -3911,3 +3911,110 @@ Object.assign(window.SyI18nDict, {
     [/^✓ مريضٌ بالعيادة: (.+)$/, '✓ A clinic patient: $1']
   );
 })();
+
+/* ── Section guides (guides.js) — review of 20 Nov 2026: text matched to the pages as they are now.
+      Fragments are the text nodes between the <b> labels; the labels themselves use the pages' own entries. ── */
+Object.assign(window.SyI18nDict, {
+  /* the guide window's own buttons — they had no entry and stayed Arabic in English */
+  'كل الأدلة في مركز التعلّم': 'All guides in the Learning center',
+  'فهمت': 'Got it',
+  /* start */
+  'واكتب اسم عيادتك في': 'and enter your clinic name under',
+  '(تبويب «العيادة») — يظهر في الطباعة والرسائل وصفحة الحجز الإلكتروني.': '(the «Clinic» tab) — it appears on printouts, messages and the online booking page.',
+  'في التبويب نفسه: فعّل': 'In the same tab: turn on',
+  'إن كنت تتعامل بالعملتين، وأضف': 'if you work in both currencies, add',
+  'لمواعيدك الشائعة بمدّتها، وحدّد أيام الدوام وساعاته في': 'for your common appointments with their length, and set the working days and hours under',
+  ': لكلٍّ منهم دوره، ومن يحتاج إلى الدخول إلى البرنامج يأخذ رقم سر (PIN).': ': each has a role, and whoever needs to sign in to the program gets a PIN.',
+  ': تأتي جاهزةً بأسعار صفر — ضع أسعارك، وعدّل الألوان التي تظهر على مخطط الأسنان.': ': it comes ready with prices at zero — set your prices, and adjust the colors shown on the dental chart.',
+  'جولة تعريفية': 'Guided tour',
+  ': زرّ في رأس لوحة التحكم وملف المريض والمخابر والمخزون يمشي معك خطوةً خطوة على الصفحة نفسها.': ': a button at the top of the Dashboard, the patient file, Labs and Inventory that walks you through the page itself, step by step.',
+  ': بطاقة في صفحة المرضى تجرّب عليها كل شيء بحرّية، فلا يُحفظ منها شيء.': ': a card on the Patients page where you can try everything freely; nothing in it is saved.',
+  /* dashboard */
+  ': ما جرى أمس، وموقعك من هدف الشهر، والأوقات الفارغة في الجدول.': ": what happened yesterday, where you stand against the month's goal, and the empty times in the schedule.",
+  ': شريط زمني لمواعيد اليوم حسب الساعة؛ اضغط أي موعد لفتح ملف مريضه.': ": a timeline of today's appointments by hour; click any appointment to open its patient's file.",
+  '(لصاحب العيادة، بعد تفعيله من الإعدادات): ملخّص اليوم، واسأل بياناتك، ومنشور توعوي — في «اسأل بياناتك» اكتب سؤالاً عادياً مثل «كم إيراد هذا الشهر؟».': "(for the clinic owner, once turned on in Settings): Today's summary, Ask your data, and an awareness post — in «Ask your data», type a plain question such as «What's this month's revenue?».",
+  /* appointments */
+  ': اكتب اسم المريض واختره من الاقتراحات ليرتبط الموعد بملفه، ثم التاريخ والوقت، ونوع العلاج والطبيب، واحفظ.': ": type the patient's name and pick them from the suggestions so the appointment is linked to their file, then the date and time, the treatment type and dentist, and save.",
+  'غيّر طريقة العرض (يوم، أسبوع، شهر، القادمة) من شريط التقويم، واسحب الموعد لتغيير وقته.': 'Change the view (Day, Week, Month, Upcoming) from the calendar bar, and drag an appointment to change its time.',
+  ': المرضى الذين يرغبون بموعد أبكر إن توفّر.': ': patients who would like an earlier appointment if one opens up.',
+  'على الموعد المربوط بطلب مخبر تظهر حال الطلب: ⚠️ «متأخر» إذا فات تاريخ استحقاقه أو حلّ يوم الموعد والعمل ما زال عند المخبر، و⏰ «الاستحقاق بعد الموعد» إذا كان استحقاقه بعد يوم الموعد.': "An appointment linked to a lab order shows the order's state: ⚠️ «Late» when its due date has passed, or the appointment day has come and the work is still at the lab; ⏰ «Due after the appointment» when its due date falls after the appointment day.",
+  /* patients */
+  'ابحث بالاسم أو الهاتف أو رقم المريض من شريط البحث، واضغط سطر المريض لفتح ملفه.': "Search by name, phone or patient number from the search bar, and click the patient's row to open their file.",
+  'سجّل «كيف سمع المريض عن العيادة؟» لكل مريض جديد لتعرف من التقارير أي مصدر يجلب أكثر المرضى.': 'Record «How did the patient hear about the clinic?» for every new patient, so the reports show which source brings the most patients.',
+  'أعلى القائمة بطاقة للتجربة: لا رقم لها ولا تُعدّ بين مرضاك، وتبقى حتى تحذفها بزرّ «✕ حذف».': 'at the top of the list is a card for trying things out: it has no number, is not counted among your patients, and stays until you delete it with «✕ Delete».',
+  /* patient file */
+  ': بيانات المريض وتحذيراته الطبية، ثم مخطط الأسنان — اضغط السن (أو سطحه أو جذره) فتفتح نافذة تختار فيها العلاج وحالته: منجز أو مخطط أو موجود.': ": the patient's details and medical alerts, then the dental chart — click a tooth (or its surface or root) and a window opens where you pick the treatment and its status: Done, Planned or Existing.",
+  ': كل ما سُجّل للمريض بسعره وطبيبه المعالج، ومنه يُحسب الإنتاج. تُسجَّل الجلسة من المخطط أو من زرّ «جلسة جديدة» أعلى الصفحة.': ': everything recorded for the patient, with its price and treating dentist — production is calculated from it. A session is recorded from the chart or from the «New session» button at the top of the page.',
+  ': مخطط اللثة ومقارنته بالفحص السابق.': ': the perio chart, and comparing it with the previous exam.',
+  ': الصور السريرية والمستندات، والوصفات الطبية، وتعليمات ما بعد الجلسة للطباعة أو الإرسال.': ': clinical photos and documents, prescriptions, and post-session instructions to print or send.',
+  ': الطباعة أو الحفظ PDF (ملف المريض بالأسعار أو بدونها، وكشف الحساب، وخطة العلاج)، و«🧪 المواد ورقم الدفعة».': ' menu: print or save as PDF (the patient file with or without prices, the account statement, and the treatment plan), and «🧪 Materials and batch number».',
+  'زرٌّ مستقل أعلى الصفحة: ملخّص للملف، وتقرير إحالة، وشرح الخطة للمريض.': 'is a separate button at the top of the page: a summary of the file, a referral report, and an explanation of the plan for the patient.',
+  'جولة مفصّلة': 'Detailed tour',
+  'أعلى الصفحة تفتح البطاقة التجريبية وتشرح بالتجربة: الجلسة، والحشوة والأسطح، والمعالجة اللبية والجذور، والإرسال إلى المخبر، والدفعات، والموعد.': 'at the top of the page opens the demo card and teaches by doing: sessions, fillings and surfaces, root canals and roots, sending to the lab, payments, and appointments.',
+  'رفع الأشعة والتقاطها من الجهاز مقفلان حالياً «قريباً»؛ الصور السريرية والمستندات تُرفع كالمعتاد.': 'Uploading X-rays and capturing them from the device are locked for now («Soon»); clinical photos and documents upload as usual.',
+  /* treatments */
+  ': الاسم، والسعر، والتصنيف، والجزء الذي يُطبَّق عليه (سطح تاج، جذر، السن كاملاً…)، واللون على المخطط.': ': the name, price, category, the part it applies to (crown surface, root, whole tooth…), and its color on the chart.',
+  ': فعّله للعلاجات التي تُرسل إلى المخبر (تيجان، جسور…)، و': ': turn it on for treatments that go to the lab (crowns, bridges…), and ',
+  'لما يمتدّ على أكثر من زيارة.': 'for treatments that take more than one visit.',
+  'في بطاقة العلاج اضغط': 'on the treatment card, click',
+  'لتربطه بالمواد التي يستهلكها؛ فتُعرض للخصم من المخزون عند تسجيل جلسة منجزة به، بعد تأكيدك.': 'to link it to the materials it uses; they are then offered for deduction from inventory when a done session with it is recorded, after you confirm.',
+  ': ورقة بالعلاجات وألوانها ورموزها وأسعارها.': ': a sheet of the treatments with their colors, codes and prices.',
+  'تضيف العلاجات الافتراضية الناقصة فقط، ولا تحذف أو تعدّل أي علاج موجود.': 'only adds the default treatments that are missing; it does not delete or change any existing treatment.',
+  'السعر الخاص بطبيب معيّن يُكتب في نافذة العلاج، في خانة «أسعار مخصصة للأطباء».': "A price for a specific dentist is entered in the treatment's window, under «Custom prices per dentist».",
+  /* dentists */
+  'الأطباء الذين يعملون في العيادة، ونسبة كل منهم ولونه.': "The dentists who work at the clinic, with each one's share and color.",
+  'في بطاقة الطبيب لتغيير تخصصه وهاتفه ونسبته من الجلسة ولونه المميّز الذي يظهر بجانب اسمه.': "on the dentist's card to change their specialty, phone, share of the session, and the color shown next to their name.",
+  'معالج افتراضي': 'Default dentist',
+  ': الطبيب الذي يُختار تلقائياً عند تسجيلك للجلسات.': ': the dentist selected automatically when you record sessions.',
+  'السعر الخاص بطبيب معيّن يُحدَّد من': 'A price for a specific dentist is set from',
+  '، في نافذة العلاج نفسه.': ", in the treatment's own window.",
+  /* labs */
+  'سجّل مخابرك أولاً من': 'First register your labs from',
+  ': الاسم ورقم الهاتف.': ': the name and phone number.',
+  ': المريض، والسن، ونوع العمل، والمخبر، واللون، والتكلفة، وتاريخ الإرسال وتاريخ الاستحقاق — واربطه بموعد التركيب إن وُجد.': ': the patient, tooth, work type, lab, shade, cost, sent date and due date — and link it to the fitting appointment if there is one.',
+  'يُعدّ الطلب متأخراً إذا فات تاريخ استحقاقه، أو حلّ يوم موعده المربوط والعمل ما زال عند المخبر.': 'An order counts as late when its due date has passed, or the day of its linked appointment has come and the work is still at the lab.',
+  'عند تسجيل علاج يحتاج إرسالاً للمخبر في ملف المريض يُفتح طلب المخبر من هناك مباشرة.': 'When you record a treatment that needs a lab in the patient file, the lab order opens right there.',
+  /* radiology */
+  'أرشيف الأشعة والصور السريرية لجميع المرضى — القسم مقفل حالياً «قريباً».': 'The archive of X-rays and clinical photos for all patients — the section is locked for now («Soon»).',
+  'القسم ظاهر في القائمة الجانبية بعلامة «قريباً»، ويُفتح عند جاهزيته.': 'The section shows in the side menu with a «Soon» badge, and opens once it is ready.',
+  'حتى ذلك الحين ارفع الصور السريرية والمستندات من ملف المريض (تبويب': 'Until then, upload clinical photos and documents from the patient file (the',
+  ')، واربط الصورة بسنّها إن شئت.': ' tab), and link a photo to its tooth if you like.',
+  'رفع الأشعة والتقاطها من الجهاز مقفلان مع القسم، وملفات الأشعة المرفوعة سابقاً تبقى ظاهرة في ملفات المريض.': "Uploading X-rays and capturing them from the device are locked with the section; X-ray files uploaded earlier stay visible in the patient's files.",
+  /* accounting */
+  ': الشهر الحالي، أو الشهر السابق، أو آخر 3 شهور، أو السنة الحالية، أو من تاريخ إلى تاريخ، ثم اضغط «تطبيق».': ': This month, Last month, Last 3 months, This year, or from one date to another — then press «Apply».',
+  ': ما دخل الصندوق في يوم واحد حسب طريقة الدفع، وما خرج منه، وما يجب أن يكون في الدرج نقداً.': ': what came into the till on one day by payment method, what went out, and how much cash should be in the drawer.',
+  'راجع التفاصيل: تفصيل المصروفات، وتكلفة المواد المستهلكة، وذمم المخابر، وتقادم ذمم المرضى، والأداء حسب الطبيب، والاتجاه الشهري.': 'Review the details: expense breakdown, cost of materials used, lab payables, patient receivables aging, performance by dentist, and the monthly trend.',
+  'كل عملة تُعرض في طبقة مستقلة؛ وبطاقة «الإجمالي الموحّد» تظهر عند العمل بالعملتين، وتجمعهما بسعر صرف تكتبه أنت.': 'Each currency is shown in its own layer; the «Combined total» card appears when you work in both currencies, and adds them up at an exchange rate you enter.',
+  /* expenses */
+  ': التصنيفات الأساسية جاهزة (إيجار، كهرباء، صيانة…)؛ عدّلها أو أضف ما يناسب عيادتك بلون وأيقونة.': ': the basic categories come ready (rent, electricity, maintenance…); edit them or add what suits your clinic, with a color and an icon.',
+  ': التاريخ، والمبلغ والعملة، والتصنيف، والوصف، وطريقة الدفع.': ': the date, amount and currency, category, description, and payment method.',
+  /* payouts */
+  ': الموظف، والفترة التي تغطّيها الدفعة (من – إلى)، والمبلغ والعملة، وطريقة الدفع.': ': the staff member, the period the payout covers (from – to), the amount and currency, and the payment method.',
+  'بعد اختيار الموظف والفترة يقترح النظام المبلغ المستحق حسب طريقة أجره (راتب، أو نسبة من الإنتاج، أو كلاهما)، مخصوماً منه ما دُفع له عنها.': 'Once you pick the staff member and the period, the system suggests the amount due by their pay model (salary, a share of production, or both), less what was already paid for it.',
+  /* reports */
+  ': كل علاج، وكم مرة أُجري، وكم أنتج.': ': each treatment, how many times it was done, and how much it produced.',
+  ': كلفة المواد حسب الصنف والشهر والعلاج والطبيب.': ': material cost by item, month, treatment and dentist.',
+  /* inventory */
+  ': الاسم، والوحدة، والكمية، وحدّ التنبيه، وكمية الطلب، وسعر الشراء.': ': the name, unit, quantity, alert level, order quantity, and purchase price.',
+  ': عُدّ الموجود فعلياً واكتبه؛ وعند اعتماد الجرد يُسجَّل الفرق وتصبح الكمية هي المعدودة.': ': count what is actually there and enter it; when you approve the count, the difference is recorded and the quantity becomes the counted one.',
+  'عند ربط العلاجات بالمواد (من قائمة العلاجات) تظهر نافذة «خصم مواد من المخزون» مع كل جلسة منجزة: أكّد الخصم أو تخطَّه.': 'Once treatments are linked to materials (from the Treatment list), the «Deduct materials from inventory» window appears with every done session: confirm the deduction or skip it.',
+  'المخزون للمتابعة والتنبيهات، ولا يدخل المحاسبة منه إلا ما تسجّله مصروفاً عند استلام طلبية.': 'Inventory is for tracking and alerts; none of it enters accounting except what you record as an expense when receiving an order.',
+  /* staff */
+  ': الاسم، والدور (طبيب أسنان، سكرتيرة…)، والهاتف، ونموذج التعويض (نسبة من الإنتاج، أو راتب شهري، أو كلاهما).': ': the name, the role (Dentist, Secretary…), the phone, and the pay model (a share of production, a monthly salary, or both).',
+  ': فعّله لمن سيستعمل النظام، وحدّد له رقم سر (PIN) من 4 إلى 6 أرقام يدخل به من شاشة القفل. ومن دونه يبقى الموظف للرواتب والتقارير فقط.': ': turn it on for anyone who will use the system, and set them a PIN of 4 to 6 digits to sign in from the lock screen. Without it, the staff member is kept for payroll and reports only.',
+  'لكل شخص لون مميّز يظهر بجانب اسمه، وللطبيب نسبة تُحسب منها مستحقاته.': 'Each person has a color shown next to their name, and a dentist has a share from which their dues are calculated.',
+  'يجعل جهاز الموظف للقراءة فقط فلا يسجّل بيانات جديدة، ويبقى سجلّه وأعماله السابقة.': "makes the staff member's device read-only, so they can't record new data; their record and past work remain.",
+  /* settings */
+  'حسابك وبيانات العيادة وطريقة عمل النظام، موزّعة على تبويبات أعلى الصفحة: الحساب، والعيادة، والمساعد الذكي، ومتقدّم.': "Your account, the clinic's details and how the system works, split into tabs at the top of the page: Account, Clinic, AI assistant, and Advanced.",
+  ': معلوماتك الشخصية والنقابية، ومعلومات الدخول، وتغيير كلمة المرور.': ': your personal and syndicate details, sign-in details, and changing the password.',
+  ': اسم العيادة الذي يراه المرضى في الطباعة والرسائل وصفحة الحجز.': ': the clinic name patients see on printouts, messages and the booking page.',
+  ': تذكير المواعيد ورقم واتساب العيادة، و': ": appointment reminders and the clinic's WhatsApp number, and ",
+  ': رابط تشاركه مع المرضى ليحجزوا بأنفسهم، ومعه أيام الدوام وساعاته.': ': a link you share with patients so they can book themselves, along with the working days and hours.',
+  ': رابط يملأ منه المريض تاريخه الطبي قبل الزيارة، وصفحة خاصة يقرأ فيها مواعيده وخطته وتعليماته.': ': a link where the patient fills in their medical history before the visit, and a private page where they read their appointments, plan and instructions.',
+  'في تبويب «متقدّم».': 'in the «Advanced» tab.',
+  /* activity log */
+  'انتبه للتنبيهات: تظهر عندما يحذف موظف دفعة أو جلسة، أو يغيّر سعر جلسة تغييراً كبيراً، أو يكثر التعديل على ملف مريض واحد في اليوم.': "Watch the alerts: they appear when a staff member deletes a payment or a session, changes a session price by a large amount, or makes many edits to one patient's file in a day.",
+  'كل سطر يبيّن الوقت، والموظف ودوره، ووصف ما جرى، ورابطاً إلى ملف المريض إن تعلّق بمريض.': 'Each row shows the time, the staff member and their role, a description of what happened, and a link to the patient file when it concerns a patient.',
+  'تخفي السجلات القديمة من العرض دون حذفها، ويمكن استرجاعها.': 'hides old records from view without deleting them, and they can be restored.',
+  'ينزّل السجل في ملف.': 'downloads the log as a file.'
+});
