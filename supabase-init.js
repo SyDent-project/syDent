@@ -18,7 +18,8 @@
    • auth/storage وكل ما هو خارج ‎/rest/v1/‎ يمرّ للشبكة بلا لمس.
    • الأرقام المالية المعروضة offline = «حتى آخر مزامنة» (عرض فقط)؛
      أي إعادة حساب تتم أونلاين حصراً — الجدار العازل محفوظ.
-   • تسجيل الخروج يمسح الكاش (sbSignOut → SyDentOffline.wipe).
+   • كل تسجيل خروج يمسح كاش القراءة: لفّة sb.auth.signOut (نقطة الاختناق
+     الوحيدة لكل أزرار الخروج) + حدث SIGNED_OUT → SyDentOffline.wipeCache.
    أي فشل داخلي (IndexedDB محجوب/كوتا) = تدهور رشيق لسلوك اليوم تماماً. */
 (function () {
   'use strict';
@@ -132,6 +133,32 @@
       if (_db) { try { _db.close(); } catch (e) {} _db = null; }
       if (window.indexedDB) window.indexedDB.deleteDatabase(DB_NAME);
     } catch (e) {}
+  }
+
+  /* مسح كاش القراءة وحده (بيانات المرضى المخزّنة) — يُنادى عند كل تسجيل خروج
+     عبر لفّة sb.auth.signOut وعند SIGNED_OUT. طابور الكتابة المعلّق لا يُمَسّ:
+     معزولٌ بـuid ولا يحمل توكناً، وحذفُه ضياعٌ صامت لما سُجّل بلا اتصال.
+     أختام prefetch تُمسح معه كي يُعاد التسخين بعد الدخول التالي. */
+  function wipeCache() {
+    try {
+      var ls = window.localStorage, dead = [];
+      for (var i = 0; i < ls.length; i++) {
+        var lk = ls.key(i);
+        if (lk && lk.indexOf('sydent.prefetch.') === 0) dead.push(lk);
+      }
+      dead.forEach(function (k) { ls.removeItem(k); });
+    } catch (e) {}
+    return idbOpen().then(function (db) {
+      return new Promise(function (resolve) {
+        try {
+          var t = db.transaction(STORE, 'readwrite');
+          t.objectStore(STORE).clear();
+          t.oncomplete = function () { resolve(true); };
+          t.onerror = function () { resolve(false); };
+          t.onabort = function () { resolve(false); };
+        } catch (e) { resolve(false); }
+      });
+    }).catch(function () { return false; });
   }
 
   /* uid الحالي من الجلسة المحفوظة — مفتاح العزل بين المستخدمين */
@@ -785,6 +812,7 @@
     fetch: offlineFetch,
     prefetchToday: prefetchToday,
     wipe: wipe,
+    wipeCache: wipeCache,
     drain: drain,
     isPausedForSubscription: function () { return _pausedSub; },
     configureDrain: function (getAuthHeaders, onSynced) { _getAuthHeaders = getAuthHeaders; _onSynced = onSynced || null; },
@@ -1271,7 +1299,31 @@
       function _guClear() { _guCache = null; _guInflight = null; }
       try {
         var realSignOut = window.sb.auth.signOut.bind(window.sb.auth);
-        window.sb.auth.signOut = function (opts) { _guClear(); _padmClear(); return realSignOut(opts); };
+        /* كاش القراءة الأوفلاين (بيانات المرضى) يُمسح هنا — نقطة الاختناق الوحيدة التي
+           يمرّ بها كل خروج (القائمة الجانبية · الصفحات · الحساب الموقوف · حذف الحساب).
+           الخروج نفسه يبدأ فوراً وبالتوازي (منادٍ لا ينتظر ثم ينتقل لا يخسر شيئاً)،
+           والوعد يُحَلّ بعد اكتمال الاثنين؛ المسح مسقوفٌ بـ1.5ث كي لا يعلّق الخروج. */
+        var _wipeOfflineCache = function () {
+          try {
+            var o = window.SyDentOffline;
+            if (!o || typeof o.wipeCache !== 'function') return Promise.resolve();
+            return Promise.race([
+              Promise.resolve(o.wipeCache()).catch(function () {}),
+              new Promise(function (r) { setTimeout(r, 1500); })
+            ]);
+          } catch (eW) { return Promise.resolve(); }
+        };
+        window.sb.auth.signOut = function (opts) {
+          _guClear(); _padmClear();
+          var w = _wipeOfflineCache();
+          return realSignOut(opts).then(function (res) { return w.then(function () { return res; }); });
+        };
+        /* خروجٌ لم يمرّ بالزر (جلسة سُحبت من السيرفر · خروج من تبويب آخر) */
+        try {
+          window.sb.auth.onAuthStateChange(function (ev) {
+            if (ev === 'SIGNED_OUT') _wipeOfflineCache();
+          });
+        } catch (eL) {}
       } catch (e0) { /* صامت — بدون تصفير تلقائي تبقى TTL الثلاثين ثانية الحارس */ }
 
       async function _guReal(jwt) {

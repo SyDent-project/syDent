@@ -1190,8 +1190,8 @@ try {
   }
 
   /* signOut هي نقطة الاختناق الوحيدة (9 مواضع تمرّ منها) */
-  if (!/signOut = function \(opts\) \{ _guClear\(\); _padmClear\(\); return realSignOut\(opts\); \};/.test(initSrc)) {
-    pqMism++; bad('signOut لا تمسح علامة الأدمن');
+  if (!/signOut = function \(opts\) \{\s+_guClear\(\); _padmClear\(\);\s+var w = _wipeOfflineCache\(\);\s+return realSignOut\(opts\)\.then\(/.test(initSrc)) {
+    pqMism++; bad('signOut لا تمسح علامة الأدمن أو كاش القراءة الأوفلاين');
   }
 
   /* كل نداء لـisPlatformAdmin يجب أن يمرّر هوية الجلسة الحالية حصراً.
