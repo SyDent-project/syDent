@@ -310,7 +310,7 @@
       }
     } catch (e) { console.warn('SyDentHuddle.load:', e); planned = []; apptsById = {}; }
     return compute({ today: ctx.today, appts: ctx.appts, patients: ctx.patients, fin: ctx.fin, reliab: ctx.reliab, planned: planned, apptsById: apptsById,
-      recallMonths: ctx.recallMonths, lastVisit: lastVisit, watches: watches, extractionKeys: extractionKeys, inprog: inprog, consents: consents });
+      recallMonths: ctx.recallMonths, lastVisit: lastVisit, watches: watches, consents: consents, extractionKeys: extractionKeys, inprog: inprog });
   }
 
   window.SyDentHuddle = { compute: compute, chipsHtml: chipsHtml, load: load, fmtAmount: fmtAmount, EPS: EPS,
