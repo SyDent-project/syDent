@@ -16,7 +16,7 @@ const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL', m); } }
 const FILES = ['migrations/219_consent_forms.sql', 'tx-consent.js', 'treatments.html', 'scripts/cache-bust.sh', 'scripts/db-bootstrap.py',
   'pp-consent.js', 'patient-profile.html', 'pp-timeline.js', 'patient-profile.css',
   'migrations/220_portal_consents.sql', 'portal.html', 'sidebar.js', 'settings.html',
-  'migrations/221_consent_keep_after_done.sql', 'migrations/224_consent_done_today.sql', 'consent-pending.js', 'huddle-flags.js', 'appt-modal.js', 'appointments.html', 'index.html'];
+  'migrations/221_consent_keep_after_done.sql', 'migrations/224_consent_done_today.sql', 'migrations/225_consent_planned_only.sql', 'consent-pending.js', 'huddle-flags.js', 'appt-modal.js', 'appointments.html', 'index.html'];
 const base = {}; FILES.forEach(f => { base[f] = read(f); });
 const rep = (f, a, b) => F => { const o = Object.assign({}, F); o[f] = F[f].split(a).join(b); return o; };
 
@@ -82,6 +82,7 @@ function mkCard(F, opt) {
       then(res, rej) {
         calls.push(st); let out;
         if (opt.missing) out = { data: null, error: { code: '42P01', message: 'does not exist' } };
+        else if (table === 'consent_templates') out = { data: (opt.keys || []).map(k => ({ treatment_key: k })), error: null };
         else if (st.op === 'select') {
           const m = rows.filter(r => Object.keys(st.filters).every(k => r[k] === st.filters[k]));
           out = { data: st.single ? (m[0] || null) : m, error: null };
@@ -96,20 +97,25 @@ function mkCard(F, opt) {
     };
     return api;
   };
-  const win = { document: { written: '', write(h) { this.written += h; }, close() {} }, focus() {}, print() {} };
+  const win = { document: { written: '', write(h) { this.written += h; }, close() {} }, focus() {}, print() {}, location: { href: '' }, opener: {}, closed: false, close() { this.closed = true; } };
+  const dialogs = [];
   const w = { sb: { from: q, rpc: (n, a) => { calls.push({ table: 'rpc:' + n, args: a }); return Promise.resolve({ data: 1, error: null }); } },
-    logAudit: (a, o) => audit.push([a, o]), SyDentSub: { blockReadOnly: () => !!opt.readOnly }, open: () => { opened.push(1); return win; } };
+    logAudit: (a, o) => audit.push([a, o]), SyDentSub: { blockReadOnly: () => !!opt.readOnly }, open: () => { opened.push(1); return opt.popupBlocked ? null : win; },
+    SyDialog: { confirm: o => { dialogs.push(['confirm', o]); return Promise.resolve(opt.decline ? false : true); },
+                choose: o => { dialogs.push(['choose', o]); return Promise.resolve(opt.pick === undefined ? null : opt.pick); } } };
   const ctx = { window: w, document: { getElementById: el }, console: { warn() {}, error() {}, log() {} },
     currentUser: { id: 'own-1' }, patientId: 'pt-1', patient: { name: 'أحمد' },
     sessions: opt.sessions || [{ id: 's1', status: 'planned', treatment_key: 'extracted', plan_option: null, parent_id: null }],
     showToast: m => toasts.push(m), escapeHtml: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
     fmtD: x => String(x).slice(0, 10), openModal: id => el(id).classList.add('open'), closeModal: id => el(id).classList.remove('open'),
-    SyDialog: { confirm: () => Promise.resolve(opt.decline ? false : true) }, ppPortalSend: () => { w._sent = (w._sent || 0) + 1; },
+    SyDialog: w.SyDialog, ppPortalSend: () => { w._sent = (w._sent || 0) + 1; },
+    ppPortalEnsureLive: () => { w._ensured = (w._ensured || 0) + 1; return opt.portalFails ? Promise.reject(new Error('net')) : Promise.resolve({ token: 'a'.repeat(64) }); },
+    ppPortalLink: t => 'https://sydent.app/portal.html?t=' + t, ppPortalRender: () => {}, ppPortalErr: () => 'ERR-PORTAL',
     setTimeout: (f, ms) => { timers.push([f, ms]); return timers.length; }, clearTimeout: () => {}, CLINIC_SETTINGS_WA: { clinic_name: 'عيادة' } };
   ctx.open = w.open; w.setTimeout = ctx.setTimeout;
   vm.createContext(ctx);
   vm.runInContext(F['pp-consent.js'], ctx);
-  return { ctx, w, el, calls, toasts, audit, opened, timers, win, rows: () => rows };
+  return { ctx, w, el, calls, toasts, audit, opened, timers, win, dialogs, rows: () => rows };
 }
 const ROW = (id, st, extra) => Object.assign({ id, owner_id: 'own-1', patient_id: 'pt-1', treatment_key: 'extracted', treatment_name: 'قلع', title: 'الموافقة على قلع الأسنان', body: 'نص', teeth: '46',
   status: st, auto: true, created_at: '2026-11-20T10:00:00Z', signed_at: st === 'signed' ? '2026-11-21T09:00:00Z' : null, signer_name: st === 'signed' ? 'أحمد' : null, signer_relation: null, voided_at: null,
@@ -119,9 +125,12 @@ async function suiteCard(F) {
   const J = F['pp-consent.js'], P = F['patient-profile.html'];
   let E = mkCard(F, { rows: [] });
   await E.ctx.ppConsentLoad();
-  ok(E.calls[0].table === 'rpc:consent_sync' && E.calls[0].args.p_patient === 'pt-1' && E.calls[1].table === 'patient_consents'
-     && E.calls[1].filters.owner_id === 'own-1' && E.calls[1].filters.patient_id === 'pt-1', 'card: sync first, then a read scoped to the owner and the patient');
-  ok(E.calls[1].cols.indexOf('signature') < 0, 'card: the list never loads signature images');
+  {
+    const iS = E.calls.findIndex(c => c.table === 'rpc:consent_sync'), iR = E.calls.findIndex(c => c.table === 'patient_consents'), rd = E.calls[iR], ky = E.calls.find(c => c.table === 'consent_templates');
+    ok(iS > -1 && iR > iS && E.calls[iS].args.p_patient === 'pt-1' && rd.filters.owner_id === 'own-1' && rd.filters.patient_id === 'pt-1', 'card: sync first, then a read scoped to the owner and the patient');
+    ok(rd.cols.indexOf('signature') < 0, 'card: the list never loads signature images');
+    ok(ky && ky.op === 'select' && ky.cols === 'treatment_key' && ky.filters.owner_id === 'own-1', 'card: the consent-text keys are one owner-scoped read');
+  }
   ok(E.el('consentRow').style.display === 'none', 'card: no consents ⇒ the row stays hidden');
   E = mkCard(F, { rows: [ROW('c1', 'pending'), ROW('c2', 'signed'), ROW('c3', 'void'), ROW('x', 'pending', { patient_id: 'other' }), ROW('y', 'pending', { owner_id: 'other' })] });
   await E.ctx.ppConsentLoad();
@@ -152,6 +161,7 @@ async function suiteCard(F) {
   await E.ctx.ppConsentPrint('c1');
   ok(E.opened.length === 1 && !/<img src=x|<script>x|<b>|<i>/.test(E.win.document.written) && E.win.document.written.indexOf('اسم الموقّع وتوقيعه') > -1
      && E.calls.filter(c => c.cols === 'signature').length === 0, 'card: printing a pending consent escapes everything, leaves a blank signature line, fetches no signature');
+  ok(/ولا تُنشأ من جديد لهذا العلاج\. متابعة؟', danger: true, confirmText: 'إلغاء الموافقة', cancelText: 'تراجع'/.test(J) && !/okText/.test(J), 'card: the cancel dialog says the consent will not come back, on a named button');
   /* void */
   E = mkCard(F, { rows: [ROW('c1', 'pending'), ROW('c2', 'signed')] }); await E.ctx.ppConsentLoad();
   await E.ctx.ppConsentVoid('c2');
@@ -210,6 +220,9 @@ function suitePortal(F) {
      && /ALTER PUBLICATION supabase_realtime ADD TABLE public\.patient_consents;/.test(M) && F['scripts/db-bootstrap.py'].indexOf("'migrations/220_portal_consents.sql'") > -1, 'M220: grants named; realtime publication; in the bootstrap plan');
   /* portal page */
   ok(/h \+= sectionConsents\(\);[^\n]*\n  h \+= sectionIntake\(INFO\.intake\);/.test(P) && /loadXrays\(\);[^\n]*\n    loadConsents\(\);/.test(P), 'portal: what awaits a signature shows first, and loads after the page');
+  ok(/var CNS_WANT = \(function\(\)\{ var m = \(location\.search \|\| ''\)\.match\(\/\[\?&\]c=\(\[0-9a-fA-F\]\{8\}-\[0-9a-fA-F\]\{4\}-\[0-9a-fA-F\]\{4\}-\[0-9a-fA-F\]\{4\}-\[0-9a-fA-F\]\{12\}\)\(\?:&\|\$\)\/\);/.test(P)
+     && /if \(CNS_WANT && !CNS_OPEN && !OPEN_CHG\) \{ var want = findConsent\(CNS_WANT\); CNS_WANT = null; if \(want && want\.status === 'pending'\) openConsent\(want\.id\); \}/.test(P),
+     'portal: a clinic link carrying c=<consent id> opens that pending consent once — the id must be a uuid and one of this patient\'s own');
   ok(/p_consent: id, p_signature: sig, p_name: name, p_relation: rel === RELATIONS\[0\] \? null : rel \}\), 30000\)/.test(P) && !/p_body|p_title/.test(P), 'portal: sends id + signature + signer only');
   ok(/if \(g\) g\.disabled = !\(a && a\.checked && n && n\.value\.trim\(\)\.length >= 2 && _sig\.has\) \|\| _cnsBusy;/.test(P) && /if \(!sig\) \{ say\('ارسم توقيعك داخل المربّع\.'\); return; \}/.test(P)
      && /if \(!c \|\| !a \|\| !a\.checked\) \{ say\(/.test(P), 'portal: agree + name + a drawn signature are all required');
@@ -236,24 +249,20 @@ async function suiteAlerts(F) {
      && /AND s\.parent_id IS NULL/.test(prune) && /AND EXISTS \(SELECT 1 FROM public\.consent_templates ct/.test(prune), 'M221: a pending consent survives its treatment being completed; unadopted alternatives and removed texts still drop');
   ok(add === add219 && add.length > 500, 'M221: the add branch is byte-identical to M219 (completed treatments never get a new consent)');
   ok(/REVOKE ALL ON FUNCTION public\._consent_sync\(uuid, uuid\) FROM PUBLIC, anon, authenticated;/.test(M) && F['scripts/db-bootstrap.py'].indexOf("'migrations/221_consent_keep_after_done.sql'") > -1, 'M221: still closed to everyone; in the bootstrap plan');
-  /* M224: علاجٌ سُجّل «منجزاً» اليوم مباشرةً يأخذ موافقتَه، والملغاةُ لا تتولّد من جديد — فرعُ الإضافة وحده */
+  /* M225 (تصحيحُ المالك): الموافقةُ للمخطّط وحده — المنجزُ لا يأخذ موافقةً بعد تنفيذه. يبقى من M224: الملغاةُ لا تتولّد من جديد. */
   {
-    const M4 = F['migrations/224_consent_done_today.sql'];
-    const prune4 = cut(M4, '-- (a) drop', '-- (b) add'), add4 = cut(M4, '-- (b) add', 'RETURN v_n;');
-    ok(prune4 === prune && prune4.length > 500, 'M224: the prune branch is byte-identical to M221');
-    ok(/v_today  DATE := \(now\(\) AT TIME ZONE 'Asia\/Damascus'\)::date;/.test(M4), 'M224: «today» is the clinic\'s date, not the server\'s');
-    ok(/AND s\.parent_id IS NULL\s+AND s\.treatment_key = t\.treatment_key\s+AND \(\(COALESCE\(s\.status, 'completed'\) = 'planned'\s+AND \(v_opts <= 1 OR s\.plan_option IS NULL OR s\.plan_option NOT BETWEEN 1 AND 3\)\)\s+-- M224[^\n]*\s+OR \(COALESCE\(s\.status, 'completed'\) = 'completed' AND s\.date = v_today\)\);/.test(add4),
-      'M224: the adopted plan as before, plus what was recorded as done TODAY — never older completed rows, never follow-up visits');
-    ok(/AND pc\.status IN \('pending','signed','void'\) AND x = ANY \(pc\.session_ids\)\);/.test(add4), 'M224: a cancelled consent still covers its sessions — it is never generated again');
-    const norm = x => x.replace(/\s+/g, ' ');
-    const back = norm(add4)
-      .replace(norm("AND s.parent_id IS NULL AND s.treatment_key = t.treatment_key AND ((COALESCE(s.status, 'completed') = 'planned' AND (v_opts <= 1 OR s.plan_option IS NULL OR s.plan_option NOT BETWEEN 1 AND 3)) -- M224: recorded as done today without ever being planned OR (COALESCE(s.status, 'completed') = 'completed' AND s.date = v_today));"),
-               norm("AND COALESCE(s.status, 'completed') = 'planned' AND s.parent_id IS NULL AND s.treatment_key = t.treatment_key AND (v_opts <= 1 OR s.plan_option IS NULL OR s.plan_option NOT BETWEEN 1 AND 3);"))
-      .replace("AND pc.status IN ('pending','signed','void') AND x = ANY (pc.session_ids)); -- M224: void covers too", "AND pc.status IN ('pending','signed') AND x = ANY (pc.session_ids));");
-    const tail = x => x.slice(x.indexOf('FOR t IN'));
-    ok(tail(back) === tail(norm(add)) && tail(back).length > 500, 'M224: apart from those two conditions the add branch is Migration 221\'s, statement for statement');
-    ok(/REVOKE ALL ON FUNCTION public\._consent_sync\(uuid, uuid\) FROM PUBLIC, anon, authenticated;/.test(M4) && !/GRANT/.test(M4.replace(/^--.*$/gm, '')) && F['scripts/db-bootstrap.py'].indexOf("'migrations/224_consent_done_today.sql'") > -1,
-      'M224: still closed to everyone; in the bootstrap plan');
+    const M5 = F['migrations/225_consent_planned_only.sql'];
+    const prune5 = cut(M5, '-- (a) drop', '-- (b) add'), add5 = cut(M5, '-- (b) add', 'RETURN v_n;');
+    const norm = x => x.replace(/\s+/g, ' '), tail = x => x.slice(x.indexOf('FOR t IN'));
+    ok(prune5 === prune && prune5.length > 500, 'M225: the prune branch is byte-identical to M221');
+    ok(/AND COALESCE\(s\.status, 'completed'\) = 'planned' AND s\.parent_id IS NULL\s+AND s\.treatment_key = t\.treatment_key\s+AND \(v_opts <= 1 OR s\.plan_option IS NULL OR s\.plan_option NOT BETWEEN 1 AND 3\);/.test(add5)
+       && !/v_today|s\.date/.test(M5.slice(M5.indexOf('CREATE OR REPLACE'))), 'M225: only PLANNED rows of the adopted plan get a consent — a treatment already performed never does');
+    ok(/AND pc\.status IN \('pending','signed','void'\) AND x = ANY \(pc\.session_ids\)\);/.test(add5), 'M225: a cancelled consent still covers its sessions — it is never generated again');
+    ok(tail(norm(add5)).replace("AND pc.status IN ('pending','signed','void') AND x = ANY (pc.session_ids)); -- void covers too (M224)", "AND pc.status IN ('pending','signed') AND x = ANY (pc.session_ids));") === tail(norm(add)) && tail(norm(add5)).length > 500,
+      'M225: apart from the cancelled-consent coverage, the add branch is Migration 221\'s statement for statement');
+    ok(/REVOKE ALL ON FUNCTION public\._consent_sync\(uuid, uuid\) FROM PUBLIC, anon, authenticated;/.test(M5) && !/GRANT/.test(M5.replace(/^--.*$/gm, ''))
+       && F['scripts/db-bootstrap.py'].indexOf("'migrations/225_consent_planned_only.sql'") > F['scripts/db-bootstrap.py'].indexOf("'migrations/224_consent_done_today.sql'")
+       && F['scripts/db-bootstrap.py'].indexOf("'migrations/224_consent_done_today.sql'") > -1, 'M225: still closed to everyone; applied after 224 in the bootstrap plan');
   }
   /* consent-pending.js on a fake DOM and database */
   const mk = (rows, opt) => {
@@ -303,27 +312,71 @@ async function suiteAlerts(F) {
   K.ctx.sessions[0].status = 'completed'; K.ctx.ppConsentTouch(); K.ctx.ppConsentTouch();
   ok(K.toasts.length === 1 && K.toasts[0].indexOf('لم تُوقَّع بعد') > -1, 'card: completing a treatment whose consent is pending warns once');
   ok(K.calls.filter(c => c.table === 'patient_consents' && c.op === 'select')[0].cols.indexOf('session_ids') > -1, 'card: the list carries the covered sessions');
-  /* M224: علاجٌ سُجّل «منجزاً» اليوم مباشرةً ⇒ مزامنةٌ واحدة، وموافقتُه الجديدة يُنبَّه عنها مرةً — لا عند الفتح */
+  /* M225: المخطّطُ يولّد الموافقة ويظهر حوارُها حيث يعمل الطبيب · المنجزُ مباشرةً لا موافقةَ له (تنبيهٌ واحد) */
   {
-    const d = new Date(), today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    const D = mkCard(F, { rows: [], sessions: [{ id: 'old', status: 'completed', treatment_key: 'extracted', date: '2020-01-05' }] });
-    await D.ctx.ppConsentLoad();
-    let n0 = D.timers.length;
-    D.ctx.sessions.push({ id: 'y1', status: 'completed', treatment_key: 'extracted', date: '2020-01-06' }); D.ctx.ppConsentTouch();
-    ok(D.timers.length === n0, 'card: a treatment recorded as done on another day asks for no sync');
-    D.ctx.sessions.push({ id: 'fu', status: 'completed', treatment_key: 'extracted', date: today, parent_id: 'old' }); D.ctx.ppConsentTouch();
-    ok(D.timers.length === n0, 'card: a follow-up visit done today asks for no sync');
-    D.ctx.sessions.push({ id: 'd1', status: 'completed', treatment_key: 'extracted', date: today }); D.ctx.ppConsentTouch(); D.ctx.ppConsentTouch();
-    ok(D.timers.length === n0 + 2 && D.toasts.length === 0, 'card: a treatment recorded as done today schedules the sync');
-    D.rows().push(ROW('n1', 'pending', { session_ids: ['d1'] }));   /* ما تولّده القاعدة */
-    await D.timers[D.timers.length - 1][0](); await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r));
-    ok(D.calls.filter(c => c.table === 'rpc:consent_sync').length === 2 && D.toasts.length === 1 && D.toasts[0].indexOf('لم تُوقَّع بعد') > -1
-       && D.el('consentRow').style.display === '' && D.el('iConsent').innerHTML.indexOf('بانتظار التوقيع: 1') > -1, 'card: its new consent shows at once and warns once');
-    D.ctx.ppConsentTouch(); await D.ctx.ppConsentLoad(true);
-    ok(D.toasts.length === 1, 'card: no second warning for the same consent');
-    const O = mkCard(F, { rows: [ROW('n1', 'pending', { session_ids: ['d1'] })], sessions: [{ id: 'd1', status: 'completed', treatment_key: 'extracted', date: today }] });
-    await O.ctx.ppConsentLoad();
-    ok(O.toasts.length === 0 && O.el('iConsent').innerHTML.indexOf('بانتظار التوقيع: 1') > -1, 'card: opening the card later shows it pending without a toast');
+    const tick = async () => { await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r)); };
+    const fire = async X => { await X.timers[X.timers.length - 1][0](); await tick(); };
+    const plan = (X, id) => { X.ctx.sessions.push({ id, status: 'planned', treatment_key: 'extracted' }); X.ctx.ppConsentTouch(); };
+    /* (أ) علاجٌ خُطّط للتوّ ⇒ مزامنةٌ ثم حوار؛ «لاحقاً» لا يفعل شيئاً */
+    let D = mkCard(F, { rows: [], sessions: [], keys: ['extracted'] });
+    await D.ctx.ppConsentLoad(); await tick();
+    plan(D, 'p1');
+    D.rows().push(ROW('n1', 'pending', { session_ids: ['p1'], teeth: '26' }));   /* ما تولّده القاعدة */
+    await fire(D);
+    const dg = D.dialogs.filter(x => x[0] === 'choose');
+    ok(dg.length === 1 && /موافقة المريض مطلوبة/.test(dg[0][1].title) && /«قلع» \(السن 26\)/.test(dg[0][1].message) && /قبل التنفيذ/.test(dg[0][1].message)
+       && dg[0][1].choices.length === 2 && /هذا الجهاز/.test(dg[0][1].choices[0].label) && /إرسال/.test(dg[0][1].choices[1].label) && dg[0][1].cancelText === 'لاحقاً',
+       'card: planning a treatment that needs consent raises the consent dialog right there — sign here · send · later');
+    ok(D.opened.length === 0 && !D.w._sent && !D.w._ensured && D.toasts.length === 0 && D.el('iConsent').innerHTML.indexOf('بانتظار التوقيع: 1') > -1, 'card: «later» does nothing — the consent stays pending in its row');
+    D.ctx.ppConsentTouch(); await D.ctx.ppConsentLoad(true); await tick();
+    ok(D.dialogs.filter(x => x[0] === 'choose').length === 1, 'card: the dialog is shown once per consent');
+    plan(D, 'p2'); D.rows()[0].session_ids = ['p1', 'p2']; D.rows()[0].teeth = '26، 27'; await fire(D);
+    ok(D.dialogs.filter(x => x[0] === 'choose').length === 1, 'card: a second tooth joining the same pending consent does not ask again');
+    /* (ب) الفتحُ الأول لا يعرض حواراً لما كان موجوداً */
+    const O = mkCard(F, { rows: [ROW('n1', 'pending', { session_ids: ['p1'] })], sessions: [{ id: 'p1', status: 'planned', treatment_key: 'extracted' }], keys: ['extracted'] });
+    await O.ctx.ppConsentLoad(); await tick();
+    ok(O.dialogs.length === 0 && O.toasts.length === 0 && O.el('iConsent').innerHTML.indexOf('بانتظار التوقيع: 1') > -1, 'card: opening the card never raises the dialog for what was already there');
+    /* (ج) «التوقيع الآن على هذا الجهاز»: النافذةُ تُفتح فوراً ثم تُوجَّه إلى بوابة المريض على الموافقة نفسها */
+    const S = mkCard(F, { rows: [], sessions: [], keys: ['extracted'], pick: 0 });
+    await S.ctx.ppConsentLoad(); await tick(); plan(S, 'p1');
+    const CID = '0f8fad5b-d9cb-469f-a165-70867728950e';
+    S.rows().push(ROW(CID, 'pending', { session_ids: ['p1'] })); await fire(S);
+    ok(S.opened.length === 1 && S.w._ensured === 1 && S.win.location.href === 'https://sydent.app/portal.html?t=' + 'a'.repeat(64) + '&c=' + CID && S.win.opener === null && !S.win.closed,
+      'card: «sign here» opens the patient\'s portal on that very consent, detached from the clinic tab');
+    ok(/var w = null;\s+try \{ w = window\.open\('', '_blank'\); \} catch \(e\) \{ w = null; \}\s+try \{\s+var row = await ppPortalEnsureLive\(\);/.test(F['pp-consent.js']), 'card: the tab is opened inside the click, before any network wait (else the browser blocks it)');
+    /* (د) «إرسال الرابط» */
+    const W = mkCard(F, { rows: [], sessions: [], keys: ['extracted'], pick: 1 });
+    await W.ctx.ppConsentLoad(); await tick(); plan(W, 'p1'); W.rows().push(ROW('n1', 'pending', { session_ids: ['p1'] })); await fire(W);
+    ok(W.w._sent === 1 && W.opened.length === 0, 'card: «send» goes through the portal message window');
+    /* (هـ) حالاتُ الفشل */
+    let B = mkCard(F, { rows: [ROW('n1', 'pending')], popupBlocked: true }); await B.ctx.ppConsentLoad(); await B.ctx.ppConsentSignHere('n1'); await tick();
+    ok(B.opened.length === 1 && /منع فتح النافذة/.test(B.toasts.join()), 'sign here: a blocked pop-up is said plainly');
+    B = mkCard(F, { rows: [ROW('n1', 'pending')], portalFails: true }); await B.ctx.ppConsentLoad(); await B.ctx.ppConsentSignHere('n1'); await tick();
+    ok(B.win.closed === true && B.win.location.href === '' && /ERR-PORTAL/.test(B.toasts.join()), 'sign here: no link ⇒ the blank tab is closed and the error is shown');
+    B = mkCard(F, { rows: [ROW('n1', 'pending')], readOnly: true }); await B.ctx.ppConsentLoad(); await B.ctx.ppConsentSignHere('n1'); await tick();
+    ok(B.opened.length === 0 && !B.w._ensured, 'sign here: refused on a read-only account');
+    B = mkCard(F, { rows: [ROW('n1', 'pending')] }); await B.ctx.ppConsentLoad(); await B.ctx.ppConsentSignHere('x"><script>'); await tick();
+    ok(B.win.location.href === 'https://sydent.app/portal.html?t=' + 'a'.repeat(64), 'sign here: anything that is not a consent id never reaches the link');
+    /* (و) منجزٌ مباشرةً: لا مزامنة ولا موافقة — تنبيهٌ واحد يدلّ على المسار؛ ولا تنبيهَ لقديمٍ أو مغطّى أو علاجٍ بلا نصّ */
+    const N = mkCard(F, { rows: [ROW('c9', 'signed', { session_ids: ['old2'] })], keys: ['extracted'],
+      sessions: [{ id: 'old1', status: 'completed', treatment_key: 'extracted' }, { id: 'old2', status: 'completed', treatment_key: 'extracted' }] });
+    await N.ctx.ppConsentLoad(); await tick();
+    let n0 = N.timers.length;
+    N.ctx.ppConsentTouch();
+    ok(N.toasts.length === 0, 'card: treatments done before the card was opened are never warned about');
+    N.ctx.sessions.push({ id: 'd1', status: 'completed', treatment_key: 'extracted', date: '2026-11-21' }); N.ctx.ppConsentTouch(); N.ctx.ppConsentTouch();
+    ok(N.timers.length === n0 && N.calls.filter(c => c.table === 'rpc:consent_sync').length === 1, 'card: a treatment recorded as done asks for no sync — no consent after the fact');
+    ok(N.toasts.length === 1 && /بلا موافقة موقَّعة/.test(N.toasts[0]) && /مخطط/.test(N.toasts[0]) && N.dialogs.length === 0, 'card: it is warned about once, pointing to the right path');
+    N.ctx.sessions.push({ id: 'd2', status: 'completed', treatment_key: 'filling' }, { id: 'd3', status: 'completed', treatment_key: 'extracted', parent_id: 'd1' }); N.ctx.ppConsentTouch();
+    ok(N.toasts.length === 1, 'card: a treatment with no consent text, or a follow-up visit, is not warned about');
+    /* مخطّطٌ له موافقة معلَّقة ثم أُنجز: تنبيهُ «لم تُوقَّع بعد» وحده — لا تنبيهَ «بلا موافقة» فوقه */
+    N.ctx.sessions.push({ id: 'p9', status: 'planned', treatment_key: 'extracted' }); N.ctx.ppConsentTouch();
+    N.rows().push(ROW('n9', 'pending', { session_ids: ['p9'] })); await fire(N);
+    N.ctx.sessions.filter(x => x.id === 'p9')[0].status = 'completed'; N.ctx.ppConsentTouch();
+    ok(N.toasts.length === 2 && /لم تُوقَّع بعد/.test(N.toasts[1]) && N.toasts.filter(t => /بلا موافقة موقَّعة/.test(t)).length === 1, 'card: a planned treatment done before its consent was signed gets the «not signed yet» warning only');
+    const N2 = mkCard(F, { rows: [], keys: [], sessions: [] }); await N2.ctx.ppConsentLoad(); await tick();
+    N2.ctx.sessions.push({ id: 'd1', status: 'completed', treatment_key: 'extracted' }); N2.ctx.ppConsentTouch();
+    ok(N2.toasts.length === 0, 'card: a clinic with no consent texts sees nothing');
   }
 }
 
@@ -488,19 +541,35 @@ const MUTANTS = [
   ['huddle chip dropped', rep('huddle-flags.js', "if (e.consent)   /* M219 · أ4: تنبيهٌ بلا منع */", "if (false)")],
   ['huddle read chained in sequence', rep('huddle-flags.js', "var consentsP = (todayIds.length && window.SyConsentPending) ? window.SyConsentPending.forPatients(uid, todayIds) : null;", "var consentsP = null; if (todayIds.length && window.SyConsentPending) consents = await window.SyConsentPending.forPatients(uid, todayIds);")],
   ['appointment modal hint not wired', rep('appt-modal.js', "'fPatientConsentHint');", "'x');")],
-  ['old completed treatments flood with consents', rep('migrations/224_consent_done_today.sql', "OR (COALESCE(s.status, 'completed') = 'completed' AND s.date = v_today));", "OR (COALESCE(s.status, 'completed') = 'completed'));")],
-  ['treatment recorded as done gets no consent', rep('migrations/224_consent_done_today.sql', "OR (COALESCE(s.status, 'completed') = 'completed' AND s.date = v_today));", ");")],
-  ['cancelled consent comes back', rep('migrations/224_consent_done_today.sql', "AND pc.status IN ('pending','signed','void') AND x = ANY", "AND pc.status IN ('pending','signed') AND x = ANY")],
-  ['«today» taken from the server clock', rep('migrations/224_consent_done_today.sql', "(now() AT TIME ZONE 'Asia/Damascus')::date", "current_date")],
-  ['follow-up visits get consents', rep('migrations/224_consent_done_today.sql', "       AND s.parent_id IS NULL\n       AND s.treatment_key = t.treatment_key\n       AND ((COALESCE", "       AND s.treatment_key = t.treatment_key\n       AND ((COALESCE")],
-  ['M224 reopens the sync to callers', rep('migrations/224_consent_done_today.sql', 'REVOKE ALL ON FUNCTION public._consent_sync(uuid, uuid) FROM PUBLIC, anon, authenticated;', '')],
-  ['M224 prunes differently', rep('migrations/224_consent_done_today.sql', "       AND (COALESCE(s.status, 'completed') = 'completed'\n            OR (COALESCE(s.status, 'completed') = 'planned'\n                AND", "       AND (false\n            OR (COALESCE(s.status, 'completed') = 'planned'\n                AND")],
-  ['M224 not in the plan', rep('scripts/db-bootstrap.py', "    'migrations/224_consent_done_today.sql',", "    # 224")],
-  ['done today never reaches the sync', rep('pp-consent.js', "return st === 'planned' || (st === 'completed' && String(s.date || '').slice(0, 10) === today);", "return st === 'planned';")],
-  ['every completed row triggers a sync', rep('pp-consent.js', "(st === 'completed' && String(s.date || '').slice(0, 10) === today)", "(st === 'completed')")],
-  ['follow-ups count as plan changes', rep('pp-consent.js', "    if (!s || s.parent_id) return false;\n    var st", "    if (!s) return false;\n    var st")],
-  ['new consent appears silently', rep('pp-consent.js', "PP_CONSENT_OK = true; ppConsentWarnDone(first); }", "PP_CONSENT_OK = true; ppConsentWarnDone(true); }")],
-  ['card toasts on every open', rep('pp-consent.js', "PP_CONSENT_OK = true; ppConsentWarnDone(first); }", "PP_CONSENT_OK = true; ppConsentWarnDone(false); }")],
+  ['follow-ups count as plan changes', rep('pp-consent.js', "=== 'planned' && !s.parent_id; })", "=== 'planned'; })")],
+  ['a performed treatment gets a consent', rep('migrations/225_consent_planned_only.sql', "       AND COALESCE(s.status, 'completed') = 'planned' AND s.parent_id IS NULL\n       AND s.treatment_key = t.treatment_key\n       AND (v_opts", "       AND s.parent_id IS NULL\n       AND s.treatment_key = t.treatment_key\n       AND (v_opts")],
+  ['cancelled consent comes back', rep('migrations/225_consent_planned_only.sql', "AND pc.status IN ('pending','signed','void') AND x = ANY", "AND pc.status IN ('pending','signed') AND x = ANY")],
+  ['M225 reopens the sync to callers', rep('migrations/225_consent_planned_only.sql', 'REVOKE ALL ON FUNCTION public._consent_sync(uuid, uuid) FROM PUBLIC, anon, authenticated;', '')],
+  ['M225 prunes differently', rep('migrations/225_consent_planned_only.sql', "       AND (COALESCE(s.status, 'completed') = 'completed'\n            OR (COALESCE(s.status, 'completed') = 'planned'\n                AND", "       AND (false\n            OR (COALESCE(s.status, 'completed') = 'planned'\n                AND")],
+  ['M225 not in the plan', rep('scripts/db-bootstrap.py', "    'migrations/225_consent_planned_only.sql',", "    # 225")],
+  ['completed treatment triggers a sync', rep('pp-consent.js', "return s && (s.status || 'completed') === 'planned' && !s.parent_id; })", "return s && !s.parent_id; })")],
+  ['new consent appears with no dialog', rep('pp-consent.js', "  if (fresh.length) ppConsentAsk(fresh);\n", "")],
+  ['dialog on every card open', rep('pp-consent.js', "      if (first) PP_CONSENTS.forEach(function (c) { _ppConsentAsked[c.id] = true; });   /* ما وُجد عند الفتح يعرضه الصفُّ بلا حوار */\n      else fresh = PP_CONSENTS.filter(", "      fresh = PP_CONSENTS.filter(")],
+  ['«later» opens the portal anyway', rep('pp-consent.js', "  if (pick === 0) ppConsentSignHere(list[0].id);", "  ppConsentSignHere(list[0].id);")],
+  ['«send» does nothing', rep('pp-consent.js', "  else if (pick === 1) ppConsentSend();", "")],
+  ['sign-here tab opened after the network wait', rep('pp-consent.js', "  var w = null;\n  try { w = window.open('', '_blank'); } catch (e) { w = null; }\n  try {\n    var row = await ppPortalEnsureLive();", "  var w = null;\n  try {\n    var row = await ppPortalEnsureLive();\n    try { w = window.open('', '_blank'); } catch (e) { w = null; }")],
+  ['sign-here opens the portal without the consent', rep('pp-consent.js', "? '&c=' + id : '');", "? '' : '');")],
+  ['sign-here passes raw text into the link', rep('pp-consent.js', "(/^[0-9a-f-]{36}$/i.test(String(id || '')) ? '&c=' + id : '')", "(id ? '&c=' + id : '')")],
+  ['sign-here keeps a handle on the clinic tab', rep('pp-consent.js', "try { w.opener = null; } catch (e2) {} ", "")],
+  ['blocked pop-up fails silently', rep('pp-consent.js', "    else showToast('⚠️ المتصفح منع فتح النافذة", "    else console.log('⚠️ المتصفح منع فتح النافذة")],
+  ['blank tab left open on failure', rep('pp-consent.js', "    if (w) { try { w.close(); } catch (e3) {} }\n", "")],
+  ['sign-here works on a read-only account', rep('pp-consent.js', "async function ppConsentSignHere(id) {\n  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;", "async function ppConsentSignHere(id) {")],
+  ['done-without-consent never warned', rep('pp-consent.js', "  ppConsentWarnDone();\n  ppConsentWarnBare();", "  ppConsentWarnDone();")],
+  ['old treatments warned on every open', rep('pp-consent.js', "    if (_ppConsentBase[s.id] || _ppConsentBare[s.id] || covered[s.id] || !PP_CONSENT_KEYS[s.treatment_key]) return;", "    if (_ppConsentBare[s.id] || covered[s.id] || !PP_CONSENT_KEYS[s.treatment_key]) return;")],
+  ['every treatment warned, consent text or not', rep('pp-consent.js', " || covered[s.id] || !PP_CONSENT_KEYS[s.treatment_key]) return;", " || covered[s.id]) return;")],
+  ['covered treatment warned', rep('pp-consent.js', "_ppConsentBare[s.id] || covered[s.id] || ", "_ppConsentBare[s.id] || ")],
+  ['done-without-consent warned again and again', rep('pp-consent.js', "    _ppConsentBare[s.id] = true;\n", "")],
+  ['consent-text keys read across clinics', rep('pp-consent.js', ".select('treatment_key').eq('owner_id', currentUser.id).limit(500);", ".select('treatment_key').limit(500);")],
+  ['cancel dialog promises the consent comes back', rep('pp-consent.js', "ولا تُنشأ من جديد لهذا العلاج. متابعة؟", "وتُنشأ من جديد. متابعة؟")],
+  ['portal link opens a signed consent for signing', rep('portal.html', "if (want && want.status === 'pending') openConsent(want.id); }", "if (want) openConsent(want.id); }")],
+  ['portal link reopens the consent on every refresh', rep('portal.html', "var want = findConsent(CNS_WANT); CNS_WANT = null; if", "var want = findConsent(CNS_WANT); if")],
+  ['portal link accepts anything as an id', rep('portal.html', "c=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?:&|$)", "c=([^&]+)")],
+  ['card toasts on every open', rep('pp-consent.js', "PP_CONSENT_OK = true; ppConsentWarnDone(first);", "PP_CONSENT_OK = true; ppConsentWarnDone(false);")],
   ['card never warns at completion', rep('pp-consent.js', "    if (!silent) showToast(", "    if (false) showToast(")],
   ['card warns again and again', rep('pp-consent.js', "if (c.status !== 'pending' || _ppConsentWarned[c.id]) return;", "if (c.status !== 'pending') return;")],
   ['read not scoped to the owner', rep('tx-consent.js', ".select('id, treatment_key, title, body').eq('owner_id', uid);", ".select('id, treatment_key, title, body');")],

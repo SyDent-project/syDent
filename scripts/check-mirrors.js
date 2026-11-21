@@ -2320,7 +2320,7 @@ try {
     'clearToothStatus', 'removeSpacerUnit', 'dentRemoveUnit' /* M202: إزالةُ الجهاز المتحرك */, 'removeSocket', 'removeCondition', 'sxCancelExtraction', 'deleteImplantLog', 'linkToFamily', 'deleteImplantTemplate', 'batchSetStatus',
     'batchPickTx', 'examSetStatus', 'examSetMonths', 'examPick', 'planWa', 'planSetStatus', 'removePendingPP', 'unlinkSessionFromApptPP',
     'quickSchedulePlannedFromProfile', 'editPlannedFromProfile', 'deletePlannedFromProfile', 'pfDeleteFile', 'planNewVisit', 'planLinkVisitPick', 'planLinkVisit', 'ppIntakeSend', 'ppIntakeCopyLink', 'ppIntakeDismiss', 'ppIntakeApprove',   /* M177: إنشاءُ رابط الاستمارة وختمُها كتابة */
-    'ppPortalSend', 'ppPortalCopyLink', 'ppPortalRenew', 'ppPortalRevoke', 'ppConsentSend', 'ppConsentVoid',   /* M219: إرسالُ البوابة للتوقيع وإلغاءُ المعلَّقة كتابة · M180: إنشاءُ رابط البوابة وتجديدُه وإيقافُه كتابة */
+    'ppPortalSend', 'ppPortalCopyLink', 'ppPortalRenew', 'ppPortalRevoke', 'ppConsentSend', 'ppConsentVoid', 'ppConsentSignHere',   /* M219: إرسالُ البوابة للتوقيع وإلغاءُ المعلَّقة كتابة · M180: إنشاءُ رابط البوابة وتجديدُه وإيقافُه كتابة */
     'pfCamPick', 'pfEditXray', 'pfCleanOrphans',   /* M192: كاميرا الرفع · وسمُ الأشعة · تنظيفُ الملفات اليتيمة */
     'xrGalAttach',   /* v637: «📎 أضف صورة» من معرض السن */
     'pfToggleShare',   /* M193: مشاركةُ صورةٍ مع المريض ببوابته */

@@ -4227,3 +4227,23 @@ if (window.SyI18nPatterns) window.SyI18nPatterns.push(
   }],
   [/^خصم غياب\/إجازة غير مدفوعة: (\d+) (?:يوم|أيام) \(−([\d,.]+) (\S+)\)$/, 'Absence / unpaid-leave deduction: $1 days (−$2 $3)']
 );
+
+/* ── M225: the consent dialog on the patient card · sign on this device ── */
+Object.assign(window.SyI18nDict, {
+  '✍️ موافقة المريض مطلوبة': '✍️ Patient consent required',
+  '✍️ التوقيع الآن على هذا الجهاز': '✍️ Sign now on this device',
+  'تُفتح الموافقة ليقرأها المريض ويوقّعها هنا': 'The consent opens for the patient to read and sign here',
+  '📱 إرسال رابط البوابة للمريض': '📱 Send the portal link to the patient',
+  'يوقّعها من هاتفه': 'They sign it from their phone',
+  '✍️ توقيع على هذا الجهاز': '✍️ Sign on this device',
+  'تُفتح بوابة المريض على هذا الجهاز ليوقّع': 'Opens the patient portal on this device to sign',
+  '⚠️ سُجّل العلاج منجزاً بلا موافقة موقَّعة — الموافقة تُوقَّع قبل التنفيذ: سجّله «مخطط» أولاً': '⚠️ The treatment was recorded as done with no signed consent — consent is signed before treatment: record it as «planned» first',
+  '⚠️ المتصفح منع فتح النافذة — اسمح بالنوافذ المنبثقة لهذا الموقع، أو أرسل الرابط للمريض': '⚠️ The browser blocked the new tab — allow pop-ups for this site, or send the link to the patient',
+  '❌ تعذّر فتح بوابة المريض': '❌ Could not open the patient portal'
+});
+if (window.SyI18nPatterns) window.SyI18nPatterns.push(
+  [/^علاج «(.*)» \(السن ([^)]*)\) يحتاج موافقة المريض قبل التنفيذ\.$/, 'Treatment «$1» (tooth $2) needs the patient\'s consent before it is carried out.'],
+  [/^علاج «(.*)» يحتاج موافقة المريض قبل التنفيذ\.$/, 'Treatment «$1» needs the patient\'s consent before it is carried out.'],
+  [/^(\d+) علاجات تحتاج موافقة المريض قبل التنفيذ: (.*)\.$/, function (m, n, list) { return n + ' treatments need the patient\'s consent before they are carried out: ' + list.replace(/\(السن /g, '(tooth ').replace(/،/g, ',') + '.'; }],
+  [/^ستُلغى الموافقة المعلَّقة «(.*)» ولن تظهر للمريض، ولا تُنشأ من جديد لهذا العلاج\. متابعة؟$/, 'The pending consent «$1» will be cancelled, will no longer show to the patient, and will not be created again for this treatment. Continue?']
+);
