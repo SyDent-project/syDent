@@ -74,10 +74,16 @@
     audit_log:       { POST: 1 },
     ledger_payments: { POST: 1 },
     /* مريض جديد بلا اتصال (بقرار المالك): إنشاء فقط — غير مالي. الاستقبال يسجّل المريض
-       ويحجز له موعداً والنت مقطوع. تعديل بطاقة مريض أو حذفها online حصراً. رقم الملف
+       ويحجز له موعداً والنت مقطوع. تعديل البطاقة: حقول محدّدة فقط (PATIENT_EDIT_COLS). رقم الملف
        (local_id) يُخصَّص من الخادم لحظة الرفع (انظر allocPatientSeq). */
-    patients:        { POST: 1 }
+    patients:        { POST: 1, PATCH: 1 }
   };
+  /* تعديل بطاقة مريض بلا اتصال: حقول الهوية والملف الطبي حصراً. جدول المرضى يحمل أيضاً
+     حقولاً مشتقة من المال (payment · payment_manual · last_visit) وبيانات المخطط والعائلة —
+     أي تعديل يمسّ حقلاً خارج هذه القائمة يبقى online حصراً (صفر أرقام مشتقة تُكتب offline).
+     الحذف online حصراً دائماً. */
+  var PATIENT_EDIT_COLS = { name: 1, phone: 1, dob: 1, gender: 1, allergies: 1, notes: 1, status: 1, medical_flags: 1, medical_flags_other: 1, referral_source: 1, referred_by_patient_id: 1, referrer_name: 1 };
+  var REFUSE_OFFLINE = { refuse: true };
   /* كلاهما عمود id من نوع uuid بقيمة افتراضية — الحقن العميلي آمن
      (Migration 64 يؤكد payment_id::uuid)؛ audit_log لا يُحقن (id تسلسلي). */
   var UUID_INJECT_TABLES = { appointments: 1, ledger_payments: 1, patients: 1 };
@@ -551,8 +557,14 @@
     if (/^\d\d:\d\d/.test(x) && /^\d\d:\d\d/.test(y)) return x.slice(0, 5) === y.slice(0, 5);   /* 10:00 = 10:00:00 */
     return x === y;
   }
+  function sameDeep(a, b) {                 /* مصفوفة/كائن (medical_flags) يُقارَنان بنصّهما */
+    if ((a && typeof a === 'object') || (b && typeof b === 'object')) {
+      try { return JSON.stringify(a == null ? null : a) === JSON.stringify(b == null ? null : b); } catch (e) { return false; }
+    }
+    return sameVal(a, b);
+  }
   function conflictCheck(rec, auth) {
-    if (!rec || rec.table !== 'appointments' || rec.force) return Promise.resolve('ok');
+    if (!rec || (rec.table !== 'appointments' && rec.table !== 'patients') || rec.force) return Promise.resolve('ok');
     if (rec.method !== 'PATCH' && rec.method !== 'DELETE') return Promise.resolve('ok');
     var id = idFromUrl(rec.url);
     if (!id) return Promise.resolve('ok');
@@ -571,7 +583,7 @@
         if (rec.method === 'PATCH') { try { patch = JSON.parse(rec.body || '{}') || {}; } catch (e) {} }
         for (var i = 0; i < cols.length; i++) {
           var c = cols[i];
-          if (!sameVal(srv[c], rec.base[c]) && !(rec.method === 'PATCH' && sameVal(srv[c], patch[c]))) return 'changed';
+          if (!sameDeep(srv[c], rec.base[c]) && !(rec.method === 'PATCH' && sameDeep(srv[c], patch[c]))) return 'changed';
         }
         return 'ok';
       }, function () { return 'ok'; });
@@ -706,7 +718,7 @@
         var row = null;
         try { var b = JSON.parse(r.body || 'null'); row = Array.isArray(b) ? (b[0] || null) : b; } catch (e) {}
         return { id: r.id, table: r.table, method: r.method, status: r.status || 'pending',
-                 attempts: r.attempts || 0, createdAt: r.createdAt || 0, lastError: r.lastError || '', row: row };
+                 attempts: r.attempts || 0, createdAt: r.createdAt || 0, lastError: r.lastError || '', row: row, who: r.who || '' };
       });
     });
   }
@@ -854,7 +866,10 @@
     var st = swrTable(url);
     if (st) swrInvalidate(st);
     var table = tableFromUrl(url);
-    var guarded = !!(table && table !== 'audit_log' && OUTBOX_METHODS[table] && OUTBOX_METHODS[table][method]);
+    /* تعديل صف مريض أونلاين خارج المهلة: كتاباته كثيرة ومتنوعة (المخطط · حالة الدفع · العائلة)
+       ضمن تدفقات متعددة الخطوات — لا تُقطع. */
+    var guarded = !!(table && table !== 'audit_log' && OUTBOX_METHODS[table] && OUTBOX_METHODS[table][method] &&
+                     !(table === 'patients' && method === 'PATCH'));
     var sendInput = input, sendInit = init, fp = null, ids = null, reused = false, rows = null;
     if (guarded && method === 'POST' && UUID_INJECT_TABLES[table] && typeof input === 'string' &&
         init && typeof init.body === 'string' && isPlainInsert(url, headerOf(input, init, 'prefer'))) {
@@ -979,7 +994,29 @@
             if (n) rec.base = base;
           }).catch(function () {});
         }
-        return withBase.then(function () { return outboxAdd(rec); }).then(function () {
+        if (qTable === 'patients' && method === 'PATCH') {
+          /* يُطابَر «ما تغيّر فعلاً» فقط (مقارنةً بالصف كما رآه المستخدم)، وبشرط أن يقع كله ضمن
+             حقول الهوية والملف الطبي. نموذج البطاقة يرسل حالة الدفع مع كل حفظ: إن لم تتغيّر
+             سقطت من الحمولة؛ وإن تغيّرت — أو تغيّر أي حقل خارج القائمة — يُرفض الحفظ كأي
+             كتابة تتطلب اتصالاً. بلا صفٍّ مكاش للمقارنة: تُقبل فقط حمولةٌ كلها ضمن القائمة. */
+          var pid = idFromUrl(url), patchAll = (echoRows && echoRows[0]) || null;
+          withBase = (pid && patchAll ? seenRow(qUid, 'patients', pid) : Promise.reject(REFUSE_OFFLINE)).then(function (row) {
+            var keep = {}, base = {}, n = 0;
+            Object.keys(patchAll).forEach(function (c) {
+              var seen = !!row && Object.prototype.hasOwnProperty.call(row, c);
+              if (seen && sameDeep(row[c], patchAll[c])) return;
+              keep[c] = patchAll[c]; n++;
+              if (seen) base[c] = row[c];
+            });
+            for (var c in keep) if (!PATIENT_EDIT_COLS[c]) throw REFUSE_OFFLINE;
+            if (!n) { rec.noop = true; return; }       /* لا شيء تغيّر: نجاح بلا مطابَرة */
+            rec.body = JSON.stringify(keep);
+            if (Object.keys(base).length) rec.base = base;
+            rec.who = String((row && row.name) || patchAll.name || '');
+          });
+        }
+        return withBase.then(function () { return rec.noop ? null : outboxAdd(rec); }).then(function () {
+          if (rec.noop) return synthWriteResponse(method, rec.headers.prefer, rec.headers.accept, echoRows, idFromUrl(url));
           bgArm(qUid, headerOf(input, init, 'apikey'));
           var now = Date.now();
           if ((qTable === 'appointments' || qTable === 'ledger_payments' || qTable === 'patients') && now - _lastQueueToast > 2500) {
@@ -992,12 +1029,16 @@
             } catch (e) {}
           }
           return synthWriteResponse(method, rec.headers.prefer, rec.headers.accept, echoRows, idFromUrl(url));
-        }).catch(function () {
+        }).catch(function (e) {
+          if (e === REFUSE_OFFLINE) return refuseOffline();
           /* فشل الطابور نفسه (IDB محجوب) → سلوك اليوم تماماً */
           return Promise.reject(new TypeError('Failed to fetch'));
         });
       }
+      return refuseOffline();
+    }
 
+    function refuseOffline() {
       /* رسالة الرفض بالعربي — الصفحات تعرض error.message مباشرة
          (name يُفرَّغ كي لا يسبقها "TypeError:" عند stringify) */
       var fwErr = new TypeError('لا يوجد اتصال بالإنترنت — العملية تتطلب اتصالاً');
@@ -6540,15 +6581,16 @@ window.SyDentAccountDelete = (function () {
       return 'دفعة' + (r.amount != null ? ' · ' + iso(r.amount) + ' ' + (r.currency === 'USD' ? '$' : 'ل.س') : '') +
         (r.date ? ' · ' + iso(r.date) : '');
     }
-    if (op.table === 'patients') return 'مريض جديد';
+    if (op.table === 'patients') return op.method === 'POST' ? 'مريض جديد' : 'تعديل بطاقة مريض';
     var kind = op.method === 'POST' ? 'موعد جديد' : (op.method === 'DELETE' ? 'حذف موعد' : 'تعديل موعد');
     var when = r.date ? ' · ' + iso(r.date + (r.time ? ' ' + hhmm(r.time) : '')) : '';
     return kind + when;
   }
   function opReason(op) {
     var e = op.lastError || '', why;
-    if (e === 'CONFLICT changed') return 'عُدّل الموعد من جهاز آخر بعد تعديلك';
-    if (e === 'CONFLICT gone') return 'حُذف الموعد من جهاز آخر';
+    var pat = op.table === 'patients';
+    if (e === 'CONFLICT changed') return pat ? 'عُدّلت بطاقة المريض من جهاز آخر بعد تعديلك' : 'عُدّل الموعد من جهاز آخر بعد تعديلك';
+    if (e === 'CONFLICT gone') return pat ? 'حُذف المريض من جهاز آخر' : 'حُذف الموعد من جهاز آخر';
     if (e.indexOf('23503') !== -1) why = 'السجل المرتبط بها حُذف من جهاز آخر';
     else if (e.indexOf('23505') !== -1) why = 'تتعارض مع سجل موجود على الخادم';
     else if (e.indexOf('HTTP 403') !== -1 || e.indexOf('42501') !== -1) why = 'لا صلاحية لتنفيذها';
@@ -6559,7 +6601,7 @@ window.SyDentAccountDelete = (function () {
   }
   function opWho(op) {
     var r = op.row || {};
-    return r.patient_name || (op.table === 'patients' ? r.name : '') || '';
+    return r.patient_name || op.who || (op.table === 'patients' ? r.name : '') || '';
   }
   function openSyncReview() {
     var O = window.SyDentOffline, D = window.SyDialog;
@@ -6601,7 +6643,7 @@ window.SyDentAccountDelete = (function () {
           ? [{ k: 'drop', label: 'حذف العملية', sub: 'تُحذف من هذا الجهاز ولا تُرفع' }]
           : op.lastError === 'CONFLICT changed'
           ? [{ k: 'force', label: 'تطبيق تعديلي', sub: 'يُكتب فوق ما عُدّل من الجهاز الآخر' },
-             { k: 'drop', label: 'حذف العملية', sub: 'يبقى الموعد كما هو على الخادم' }]
+             { k: 'drop', label: 'حذف العملية', sub: op.table === 'patients' ? 'تبقى البطاقة كما هي على الخادم' : 'يبقى الموعد كما هو على الخادم' }]
           : op.lastError === 'CONFLICT gone'
             ? [{ k: 'drop', label: 'حذف العملية', sub: 'تُحذف من هذا الجهاز ولا تُرفع' }]
             : [{ k: 'retry', label: 'إعادة المحاولة', sub: 'تُرفع الآن من جديد' },

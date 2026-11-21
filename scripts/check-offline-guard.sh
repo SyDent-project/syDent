@@ -2,7 +2,8 @@
 # SyDent — check-offline-guard.sh (الحارس السادس · v2): الجدار المالي لطبقة PWA.
 # عقد Phase 2.1 (دفعات offline بقرار المالك):
 #   • طابور الكتابة = (appointments|audit_log|ledger_payments|patients) حصراً.
-#   • patients: POST فقط (مريض جديد بلا اتصال — غير مالي؛ بقرار المالك). تعديل/حذف online حصراً.
+#   • patients: POST (مريض جديد) + PATCH لحقول الهوية والملف الطبي حصراً (PATIENT_EDIT_COLS) — بقرار المالك.
+#     حالة الدفع وآخر زيارة والمخطط والعائلة والحذف: online حصراً.
 #   • ledger_payments: POST فقط (إنشاء) — تعديل/حذف online حصراً.
 #   • حقن UUID: appointments + ledger_payments فقط (كلاهما id uuid — Migration 64).
 #   • حظر مطلق بكامل supabase-init.js: payment_splits / realloc_patient_splits /
@@ -45,8 +46,13 @@ else
   # whitelist الثلاثية حرفياً على سطر التعريف نفسه (بلا جدول رابع)
   grep 'var OUTBOX_TABLES_RE' <<< "$MOD" | grep -F '(appointments|audit_log|ledger_payments|patients)(' >/dev/null \
     || { echo "X whitelist الطابور تغيّرت عن الرباعية"; bad=1; }
-  grep -qF 'patients:        { POST: 1 }' <<< "$MOD" \
-    || { echo "X عقد (المريض = إنشاء فقط) كُسر"; bad=1; }
+  grep -qF 'patients:        { POST: 1, PATCH: 1 }' <<< "$MOD" \
+    || { echo "X عقد (المريض = إنشاء + تعديل، بلا حذف) كُسر"; bad=1; }
+  # تعديل المريض offline: حقول الهوية والملف الطبي حرفياً — لا payment ولا last_visit ولا أي حقل مشتق
+  grep -qF 'var PATIENT_EDIT_COLS = { name: 1, phone: 1, dob: 1, gender: 1, allergies: 1, notes: 1, status: 1, medical_flags: 1, medical_flags_other: 1, referral_source: 1, referred_by_patient_id: 1, referrer_name: 1 };' <<< "$MOD" \
+    || { echo "X قائمة حقول تعديل المريض offline تغيّرت"; bad=1; }
+  grep -qF "for (var c in keep) if (!PATIENT_EDIT_COLS[c]) throw REFUSE_OFFLINE;" <<< "$MOD" \
+    || { echo "X بوابة حقول تعديل المريض offline مفقودة"; bad=1; }
   grep -qF 'ledger_payments: { POST: 1 }' <<< "$MOD" \
     || { echo "X عقد (الدفعات = POST فقط) كُسر"; bad=1; }
   grep -qF 'audit_log:       { POST: 1 }' <<< "$MOD" \
@@ -65,7 +71,7 @@ if grep -q 'ledger_sessions' <<< "$WIRE"; then
 fi
 
 if [ "$bad" -eq 0 ]; then
-  echo "✅ حارس PWA v2: الجدار سليم (الطابور = مواعيد+تدقيق+دفعات-إنشاء-فقط+مريض-إنشاء-فقط؛ التوزيع online حصراً؛ صفر splits/realloc/FIFO بكامل الطبقة)"
+  echo "✅ حارس PWA v2: الجدار سليم (الطابور = مواعيد+تدقيق+دفعات-إنشاء-فقط+مريض-إنشاء-وتعديل-هوية؛ التوزيع online حصراً؛ صفر splits/realloc/FIFO بكامل الطبقة)"
 else
   echo "⛔ حارس PWA: خرق بالجدار المالي"; exit 1
 fi
