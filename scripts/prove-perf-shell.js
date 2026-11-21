@@ -17,7 +17,7 @@ function fnSrc(src, sig) {
   for (let k = j; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}') { d--; if (d === 0) return src.slice(i, k + 1); } }
   return '';
 }
-const base = { 'sidebar.js': read('sidebar.js'), 'supabase-init.js': read('supabase-init.js') };
+const base = { 'sidebar.js': read('sidebar.js'), 'supabase-init.js': read('supabase-init.js'), 'patient-profile.html': read('patient-profile.html') };
 
 async function suite(F) {
   const SB = fnSrc(F['sidebar.js'], 'async function refreshSidebarDynamic(');
@@ -64,6 +64,60 @@ async function suite(F) {
   const iDocs = I.indexOf('var _lockDocsP = loadDoctors()'), iAdm = I.indexOf("var adminCheck = await window.SyDentAuth.isPlatformAdmin(sUser.id);"), iEns = I.indexOf('    await _lockDocsP;   /* v555');
   const iHeal = I.indexOf('await ensureOwnerEmployee();', I.indexOf('var _lockDocsP'));
   ok(iDocs > -1 && iDocs < iAdm && iEns > iAdm && iHeal > iEns && iHeal - iEns < 120, 'lock: doctors cache starts with the admin check; the (possibly writing) owner-row heal stays after it');
+  /* ── (٤) v801 — الإقلاع: getUser وصفُّ المريض يبدآن مع تحميل السكربتات ── */
+  const PPH = F['patient-profile.html'];
+  const b0 = I.indexOf('  try {\n    var _bootU = sydentLocalSessionUser();'), b1 = I.indexOf('  } catch (eB) {}', b0);
+  ok(b0 > -1 && b1 > b0 && b0 > I.indexOf('window.sb.auth.getUser = async function (jwt) {') && b0 < I.indexOf('window.sbGetUser = async function'), 'boot: the early block sits after the single-flight getUser wrapper');
+  const bootSrc = b0 > -1 && b1 > b0 ? I.slice(b0, b1 + '  } catch (eB) {}'.length) : 'throw 1';
+  const bootRun = (sess, early, getUser) => { const log = [];
+    const win = { sb: { auth: { getUser: getUser || (() => { log.push('getUser'); return Promise.resolve({ data: { user: sess } }); }) } } };
+    if (early) win.__syEarly = (sb, uid) => { log.push('early:' + (sb === win.sb) + ':' + uid); if (early === 'throw') throw new Error('x'); };
+    new Function('window', 'sydentLocalSessionUser', bootSrc)(win, () => sess); return log; };
+  ok(bootRun({ id: 'U1' }, true).join() === 'getUser,early:true:U1', 'boot: with a local session getUser is requested at once and the page\'s early read is started with the session id');
+  ok(bootRun(null, true).length === 0, 'boot: without a local session (login page, public pages) nothing is requested');
+  ok(bootRun({ id: 'U1' }, false).join() === 'getUser', 'boot: a page with no early read still warms getUser');
+  ok(bootRun({ id: 'U1' }, 'throw').join() === 'getUser,early:true:U1', 'boot: a faulty early read never breaks the page');
+  let bootThrew = false; try { bootRun({ id: 'U1' }, true, () => { throw new Error('sync'); }); } catch (e) { bootThrew = true; }
+  ok(!bootThrew, 'boot: getUser throwing synchronously is contained');
+  let unh = 0; const onU = () => { unh++; }; process.on('unhandledRejection', onU);
+  bootRun({ id: 'U1' }, false, () => Promise.reject(new Error('net'))); await new Promise(r => setTimeout(r, 5)); process.removeListener('unhandledRejection', onU);
+  ok(unh === 0, 'boot: a failed warm-up is not an unhandled rejection');
+  /* الرأس: المعلِن قبل supabase-init، ولا يحمل مرساةَ الكتلة الرئيسية */
+  const hk0 = PPH.indexOf('<script>window.__syEarly=function(sb,uid){'), hk1 = PPH.indexOf('</script>', hk0);
+  ok(hk0 > -1 && hk0 < PPH.indexOf('<script src="supabase-init.js') && PPH.slice(hk0, hk1).indexOf('new URLSearchParams(location.search)') === -1, 'card: the early-read hook is declared before supabase-init.js and does not shadow the main-block anchor');
+  const hookSrc = hk0 > -1 ? PPH.slice(hk0 + '<script>'.length, hk1) : 'throw 1';
+  const hookRun = (href, uid) => { const calls = []; const win = {};
+    const q = { select(c) { calls.push('select:' + c); return q; }, eq(k, v) { calls.push('eq:' + k + '=' + v); return q; }, single() { calls.push('single'); return Promise.resolve({ data: { id: 'row' }, error: null }); } };
+    const sb = { from(t) { calls.push('from:' + t); return q; } };
+    new Function('window', 'location', 'URL', hookSrc)(win, { href }, URL); win.__syEarly(sb, uid); return { win, calls }; };
+  const PID = '8e71dc0e-ce50-409b-9487-c4987fcb9c20';
+  let hr = hookRun('https://x/patient-profile.html?id=' + PID, 'U1');
+  ok(hr.calls.join() === 'from:patients,select:*,eq:id=' + PID + ',eq:doctor_id=U1,single' && hr.win.__ppPatientPre && hr.win.__ppPatientPre.uid === 'U1' && hr.win.__ppPatientPre.id === PID
+    && (await hr.win.__ppPatientPre.p).data.id === 'row', 'card: the early read is the page\'s own patient query (same table, columns and owner filter), kept with the user and patient it was made for');
+  ok(hookRun('https://x/patient-profile.html?id=demo', 'U1').calls.length === 0 && hookRun('https://x/patient-profile.html', 'U1').calls.length === 0, 'card: the demo card and a missing id read nothing');
+  {
+    const win = {}; const sb = { from() { return { select() { return this; }, eq() { return this; }, single() { return Promise.reject(new Error('net')); } }; } };
+    new Function('window', 'location', 'URL', hookSrc)(win, { href: 'https://x/p?id=' + PID }, URL); win.__syEarly(sb, 'U1');
+    const rr = await win.__ppPatientPre.p; ok(rr && rr.error && rr.data === null, 'card: a failed early read resolves to an error result (never an unhandled rejection)');
+  }
+  /* loadAll: الاستهلاكُ مرةً واحدة، وبالمطابقة، وبالنجاح فقط */
+  const c0 = PPH.indexOf('  var _ppPre = window.__ppPatientPre; window.__ppPatientPre = null;'), c1 = PPH.indexOf(".eq('id', patientId).eq('doctor_id', currentUser.id).single();", c0);
+  ok(c0 > PPH.indexOf('async function loadAll() {') && c1 > c0 && c1 - c0 < 700, 'card: loadAll consumes the early read where it used to read the patient row');
+  const useSrc = c0 > -1 && c1 > c0 ? PPH.slice(c0, c1 + ".eq('id', patientId).eq('doctor_id', currentUser.id).single();".length) : 'throw 1';
+  const useRun = async (pre, uid, pid) => { let net = 0; const win = { __ppPatientPre: pre };
+    win.sb = { from() { const q = { select() { return q; }, eq() { return q; }, single() { net++; return Promise.resolve({ data: { id: 'net' }, error: null }); } }; return q; } };
+    const out = await new Function('window', 'currentUser', 'patientId', 'return (async function(){' + useSrc + '\nreturn { pd: pd, pErr: pErr }; })();')(win, { id: uid }, pid);
+    return { out, net, left: win.__ppPatientPre }; };
+  let ur = await useRun({ uid: 'U1', id: PID, p: Promise.resolve({ data: { id: 'early' }, error: null }) }, 'U1', PID);
+  ok(ur.out.pd.id === 'early' && ur.net === 0 && ur.left === null, 'card: a matching early read is used — no second patient round-trip — and is cleared');
+  ur = await useRun(null, 'U1', PID);
+  ok(ur.out.pd.id === 'net' && ur.net === 1, 'card: later loads (after a save, a live update) read from the database');
+  ur = await useRun({ uid: 'U1', id: PID, p: Promise.resolve({ data: null, error: { message: 'net' } }) }, 'U1', PID);
+  ok(ur.out.pd.id === 'net' && ur.net === 1 && !ur.out.pErr, 'card: a failed early read falls back to the normal read instead of showing an error');
+  ur = await useRun({ uid: 'OTHER', id: PID, p: Promise.resolve({ data: { id: 'early' }, error: null }) }, 'U1', PID);
+  ok(ur.out.pd.id === 'net' && ur.net === 1 && ur.left === null, 'card: an early read made for another user is never used');
+  ur = await useRun({ uid: 'U1', id: 'another-patient', p: Promise.resolve({ data: { id: 'early' }, error: null }) }, 'U1', PID);
+  ok(ur.out.pd.id === 'net' && ur.net === 1, 'card: an early read made for another patient is never used');
 }
 const rep = (f, a, b) => F0 => { const F = Object.assign({}, F0); F[f] = F[f].split(a).join(b); return F; };
 const MUTANTS = [
@@ -76,6 +130,22 @@ const MUTANTS = [
   ['plan catalogue after the trial row', rep('supabase-init.js', "        var _plansP = Promise.resolve(window.sb.from('subscription_plans')", "        var _trFirst = await window.sb.from('trial_requests').select('plan').eq('user_id', user.id).maybeSingle();\n        var _plansP = Promise.resolve(window.sb.from('subscription_plans')")],
   ['plan picks the wrong row', rep('supabase-init.js', "if (_pls.data[_pi] && _pls.data[_pi].code === code) { row = _pls.data[_pi]; break; }", "if (_pls.data[_pi]) { row = _pls.data[_pi]; break; }")],
   ['plan exception unhandled', rep('supabase-init.js', "          .then(function (r) { return r; }, function (e) { return { data: null, error: e }; });", "          .then(function (r) { return r; });")],
+  /* v801 */
+  ['getUser not warmed', rep('supabase-init.js', "      try { var _bootG = window.sb.auth.getUser(); if (_bootG && _bootG.catch) _bootG.catch(function () {}); } catch (eG) {}\n", "")],
+  ['warm-up rejection unhandled', rep('supabase-init.js', "if (_bootG && _bootG.catch) _bootG.catch(function () {});", "")],
+  ['early read without a session', rep('supabase-init.js', "    if (_bootU) {\n      try { var _bootG", "    if (true) {\n      try { var _bootG")],
+  ['boot faults escape (page breaks)', rep('supabase-init.js', "window.__syEarly(window.sb, _bootU.id); } catch (eE) {}\n    }\n  } catch (eB) {}", "window.__syEarly(window.sb, _bootU.id); } catch (eE) { throw eE; }\n    }\n  } catch (eB) { throw eB; }")],
+  ['early read not started', rep('supabase-init.js', "      try { if (typeof window.__syEarly === 'function') window.__syEarly(window.sb, _bootU.id); } catch (eE) {}\n", "")],
+  ['hook declared after the client', F0 => { const F = Object.assign({}, F0); let s = F['patient-profile.html'];
+    const a = s.indexOf('<script>window.__syEarly=function(sb,uid){'), b = s.indexOf('</script>', a) + 9; const blk = s.slice(a, b); s = s.slice(0, a) + s.slice(b);
+    const k = s.indexOf('<script src="sy-modal.js'); F['patient-profile.html'] = s.slice(0, k) + blk + s.slice(k); return F; }],
+  ['demo card reads the database', rep('patient-profile.html', "if(!id||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))return;", "if(!id)return;")],
+  ['early read drops the owner filter', rep('patient-profile.html', ".eq('id',id).eq('doctor_id',uid).single()", ".eq('id',id).single()")],
+  ['early read rejection unhandled', rep('patient-profile.html', ".single().then(function(r){return r;},function(e){return{data:null,error:e};})", ".single()")],
+  ['early read reused on every load (stale after a save)', rep('patient-profile.html', "var _ppPre = window.__ppPatientPre; window.__ppPatientPre = null;", "var _ppPre = window.__ppPatientPre;")],
+  ['failed early read shown as an error', rep('patient-profile.html', "(_ppPreRes && !_ppPreRes.error && _ppPreRes.data) ? _ppPreRes", "_ppPreRes ? _ppPreRes")],
+  ['early read used for another user', rep('patient-profile.html', "(_ppPre && _ppPre.uid === currentUser.id && _ppPre.id === patientId)", "(_ppPre && _ppPre.id === patientId)")],
+  ['early read used for another patient', rep('patient-profile.html', "(_ppPre && _ppPre.uid === currentUser.id && _ppPre.id === patientId)", "(_ppPre && _ppPre.uid === currentUser.id)")],
   ['owner heal before the admin check', rep('supabase-init.js', "    var _lockDocsP = loadDoctors().catch(function (e) { console.warn('[SyDentLock] loadDoctors:', e); });", "    var _lockDocsP = loadDoctors().catch(function (e) { console.warn('[SyDentLock] loadDoctors:', e); });\n    await ensureOwnerEmployee();")]
 ];
 (async () => {
