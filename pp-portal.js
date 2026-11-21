@@ -41,6 +41,7 @@ function ppPortalShowsText() {
   if (cs.portal_show_balance === true)  on.push('الرصيد');
   if (cs.portal_show_notes !== false)   on.push('التعليمات والروشتات');
   if (cs.portal_show_history !== false) on.push('العلاجات السابقة');   /* M187 · v629 */
+  if (cs.portal_show_consents !== false && typeof ppConsentCounts === 'function' && ppConsentCounts().pending) on.push('موافقات بانتظار التوقيع');   /* M220 */
   if (cs.portal_show_xrays === true)    on.push('صور الأشعة المشارَكة');   /* M193 · v638 */
   var chg = cs.portal_allow_changes === true && cs.portal_show_appts !== false;
   return on.length ? 'يعرض للمريض: ' + on.join(' · ') + (chg ? ' — ويستطيع إلغاء موعده أو طلب تغييره' : '') + ' (يُضبط من الإعدادات)' : 'كل الأقسام مطفأة — فعّلها من الإعدادات';

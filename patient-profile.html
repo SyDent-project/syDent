@@ -20,42 +20,43 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261121i"></script>
+<script src="theme.js?v=20261121j"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261121i"></script>
-<script src="sy-modal.js?v=20261121i"></script>
-<script src="appt-followup.js?v=20261121i"></script>
-<script src="lab-redo.js?v=20261121i"></script>
-<script src="lab-stages.js?v=20261121i"></script>
-<script src="lab-status.js?v=20261121i"></script>
-<script src="lab-shade.js?v=20261121i"></script>
-<script src="lab-due.js?v=20261121i"></script>
-<script src="lab-slip.js?v=20261121i"></script>
-<script src="lab-files.js?v=20261121i"></script>
-<script src="pay-methods.js?v=20261121i"></script>
-<script src="appt-conflict.js?v=20261121i"></script>
-<script src="sidebar.js?v=20261121i"></script>
-<script src="ref-pick.js?v=20261121i"></script>
-<script src="inv-consume.js?v=20261121i"></script>
-<script src="inv-trace.js?v=20261121i"></script>
-<script src="timepicker.js?v=20261121i"></script>
-<script src="pp-modules.js?v=20261121i"></script>
-<script src="pp-wa.js?v=20261121i"></script>
-<script src="pp-clinical.js?v=20261121i"></script>
-<script src="pp-dental.js?v=20261121i"></script>
-<script src="pp-denture.js?v=20261121i"></script>
-<script src="pp-denture-svc.js?v=20261121i"></script>
-<script src="pp-followup.js?v=20261121i"></script>
-<script src="pp-plan.js?v=20261121i"></script>
-<script src="pp-timeline.js?v=20261121i"></script>
-<script src="pp-appt.js?v=20261121i"></script>
-<script src="pp-core.js?v=20261121i"></script>
-<script src="pp-extras.js?v=20261121i"></script>
-<script src="pp-intake.js?v=20261121i"></script>
-<script src="pp-portal.js?v=20261121i"></script>
-<script src="xray-viewer.js?v=20261121i"></script>
-<script src="pp-xray.js?v=20261121i"></script>
-<link rel="stylesheet" href="patient-profile.css?v=20261121i">
+<script src="supabase-init.js?v=20261121j"></script>
+<script src="sy-modal.js?v=20261121j"></script>
+<script src="appt-followup.js?v=20261121j"></script>
+<script src="lab-redo.js?v=20261121j"></script>
+<script src="lab-stages.js?v=20261121j"></script>
+<script src="lab-status.js?v=20261121j"></script>
+<script src="lab-shade.js?v=20261121j"></script>
+<script src="lab-due.js?v=20261121j"></script>
+<script src="lab-slip.js?v=20261121j"></script>
+<script src="lab-files.js?v=20261121j"></script>
+<script src="pay-methods.js?v=20261121j"></script>
+<script src="appt-conflict.js?v=20261121j"></script>
+<script src="sidebar.js?v=20261121j"></script>
+<script src="ref-pick.js?v=20261121j"></script>
+<script src="inv-consume.js?v=20261121j"></script>
+<script src="inv-trace.js?v=20261121j"></script>
+<script src="timepicker.js?v=20261121j"></script>
+<script src="pp-modules.js?v=20261121j"></script>
+<script src="pp-wa.js?v=20261121j"></script>
+<script src="pp-clinical.js?v=20261121j"></script>
+<script src="pp-dental.js?v=20261121j"></script>
+<script src="pp-denture.js?v=20261121j"></script>
+<script src="pp-denture-svc.js?v=20261121j"></script>
+<script src="pp-followup.js?v=20261121j"></script>
+<script src="pp-plan.js?v=20261121j"></script>
+<script src="pp-timeline.js?v=20261121j"></script>
+<script src="pp-appt.js?v=20261121j"></script>
+<script src="pp-core.js?v=20261121j"></script>
+<script src="pp-extras.js?v=20261121j"></script>
+<script src="pp-intake.js?v=20261121j"></script>
+<script src="pp-portal.js?v=20261121j"></script>
+<script src="pp-consent.js?v=20261121j"></script>
+<script src="xray-viewer.js?v=20261121j"></script>
+<script src="pp-xray.js?v=20261121j"></script>
+<link rel="stylesheet" href="patient-profile.css?v=20261121j">
 <style>
 /* v270: رأسُ البطاقة للمريض ثنائي العملة — سطرٌ لكل طبقة بوسمه ولونه (كانت الطبقة
    الثانية مخفيّةً بتلميحِ hover لا يراه أحد). صفحيٌّ عمداً لا في patient-profile.css. */
@@ -80,7 +81,7 @@
 :root[data-theme="light"] .perio-arch-title.perio-arch-lower{border-top:2px dashed #7d8fa6;}   /* v345: أوضح بالفاتح */
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261121i">
+<link rel="stylesheet" href="theme.css?v=20261121j">
 </head>
 <body>
 <script>
@@ -199,6 +200,7 @@
         <div class="irow"><span class="ikey">التاريخ المرضي</span><span class="ival" id="iHistory">جارٍ التحميل…</span></div>
         <div class="irow pp-intake-row" id="intakeRow"><span class="ikey">استمارة المريض</span><span class="ival" id="iIntake"><span class="pp-intake-st">جارٍ التحميل…</span></span></div>   <!-- M177: استمارةُ المريض الرقمية — الرسم بـppIntakeRender (pp-intake.js) -->
         <div class="irow pp-intake-row" id="portalRow"><span class="ikey">بوابة المريض</span><span class="ival" id="iPortal"><span class="pp-intake-st">جارٍ التحميل…</span></span></div>   <!-- M180: بوابةُ المريض الخفيفة — الرسم بـppPortalRender (pp-portal.js) -->
+        <div class="irow pp-intake-row" id="consentRow" style="display:none;"><span class="ikey">موافقات العلاج</span><span class="ival" id="iConsent"></span></div>   <!-- M219: موافقاتُ العلاج — مخفيٌّ ما دام المريض بلا موافقات (pp-consent.js) -->
         <div class="irow"><span class="ikey">حالة الدفع</span><span class="ival" id="iPayStatus">—</span></div>
         <div class="irow"><span class="ikey">الحالة</span><span class="ival" id="iStatus">—</span></div>
         <div class="irow"><span class="ikey">المصدر</span><span class="ival" id="iSource">—</span></div>
@@ -1665,6 +1667,24 @@
 </div>
 
 <!-- WhatsApp Compose Modal — روشتة / تعليمات / رسالة حرة (click-to-chat only, not logged) -->
+<!-- M219: موافقاتُ العلاج — القائمةُ بحالتها ونصّها · طباعة · إلغاءُ المعلَّق (pp-consent.js) -->
+<div class="modal-overlay sy-m" id="ppConsentModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>✍️ موافقات العلاج</h3>
+      <button class="modal-close" onclick="closeModal('ppConsentModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="pp-intake-hint">تُنشأ الموافقة تلقائياً عند وضع علاجٍ له نصّ موافقة في الخطة المعتمدة، ويوقّعها المريض من بوابته. الموقَّعة تبقى بنصّها كما وُقّع.</div>
+      <div id="ppConsentList"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel-m" onclick="closeModal('ppConsentModal')">إغلاق</button>
+      <button type="button" class="btn btn-primary" onclick="ppConsentSend()" style="font-size:13px;">🔗 إرسال البوابة للتوقيع</button>
+    </div>
+  </div>
+</div>
+
 <!-- M177: مراجعةُ استمارة المريض — الإجاباتُ كما وصلت + خطةُ الدمج بخانةٍ لكل بند (pp-intake.js) -->
 <div class="modal-overlay sy-m" id="ppIntakeModal">
   <div class="modal-box">
@@ -3270,6 +3290,7 @@ async function loadAll() {
   try { await ppLoadClinicSettings(); } catch(e) { console.warn('ppLoadClinicSettings:', e); }
   try { if (typeof ppFlagsInit === 'function') ppFlagsInit(); } catch(e) {}   /* M148: غير حاجب — الهيدر يُرسم ثم تلحقه الأعلام */
   try { if (typeof ppIntakeLoad === 'function') ppIntakeLoad(); } catch(e) {}   /* M177: غير حاجب — صفُّ الاستمارة يلحق بعد معرفة الخطة */
+  try { if (typeof ppConsentLoad === 'function') ppConsentLoad(); } catch(e) {}   /* M219: غير حاجب — صفُّ الموافقات يلحق بعد تحميل الجلسات */
   try { if (typeof ppPortalLoad === 'function') ppPortalLoad(); } catch(e) {}   /* M180: غير حاجب — صفُّ البوابة يلحق بعد معرفة الخطة */
   try { await ppLoadReminderLogs(); }   catch(e) { console.warn('ppLoadReminderLogs:', e); }
     })(),
@@ -6614,6 +6635,7 @@ async function init() {
         try { if (_pfLoaded && typeof xrRequestsSync === 'function') xrRequestsSync(); } catch (e) {}              /* M194: طلباتُ الالتقاط */
         try { if (typeof ppIntakeLoad === 'function') ppIntakeLoad(true); } catch (e) {}
         try { if (typeof ppPortalLoad === 'function') ppPortalLoad(true); } catch (e) {}
+        try { if (typeof ppConsentLoad === 'function') ppConsentLoad(true); } catch (e) {}   /* M219 */
       } });
   }
   setTimeout(ppLoadSlow, 15000);   /* v567 */

@@ -74,7 +74,7 @@ async function suite(F) {
   /* (٣) الصفحة */
   const P = F['portal.html'];
   const rpcs = [...P.matchAll(/sb\.rpc\('([a-z_]+)'/g)].map(m => m[1]).sort().join();
-  ok(rpcs === 'portal_appt_change,portal_confirm,portal_info,portal_slots' && /var res = await withTimeout\(sb\.functions\.invoke\('portal-xray', \{ body: \{ t: TOKEN \} \}\), 20000\);/.test(P) && /if \(!sb \|\| !sb\.functions \|\| !TOKEN\) return;/.test(P),
+  ok(rpcs === 'portal_appt_change,portal_confirm,portal_consent_sign,portal_consents,portal_info,portal_slots' /* M220: بابا الموافقات — لا علاقة لهما بالأشعة */ && /var res = await withTimeout\(sb\.functions\.invoke\('portal-xray', \{ body: \{ t: TOKEN \} \}\), 20000\);/.test(P) && /if \(!sb \|\| !sb\.functions \|\| !TOKEN\) return;/.test(P),
      'page: no new RPC — one timed Edge call, guarded');
   ok(/screenPortal\(\);\n    loadXrays\(\);   \/\* M193/.test(P) && !/^document\.addEventListener/m.test(P), 'page: X-rays load after the page (never delay it) · no global listeners');
   const sx = fnSrc(P, 'function sectionXrays(){'), xrf = fnSrc(P, 'function xrFresh(){');

@@ -105,7 +105,8 @@
              recallMonths: فترةُ الاستدعاء بالأشهر (6 افتراضاً), lastVisit: {pid → 'YYYY-MM-DD'} آخرُ جلسةٍ مكتملة,
              watches: صفوفُ teeth_status لمرضى اليوم (patient_id, tooth_num, surface, treatment_key, review_at, status),
              extractionKeys: مفاتيحُ علاجات القلع (extracted دائماً),
-             inprog: ناتجُ SyFuUnbooked.load (pid → علاجاتٌ قيد الإنجاز بلا موعدٍ بعد يوم الهدل) أو null }
+             inprog: ناتجُ SyFuUnbooked.load (pid → علاجاتٌ قيد الإنجاز بلا موعدٍ بعد يوم الهدل) أو null,
+             consents: ناتجُ SyConsentPending.forPatients (pid → عددُ الموافقات المعلَّقة) أو {} }
      ⇒ { patient_id: { balance:[{cur,amount}], planned:n, altOnly:bool, warn:[], allergy:[], flags:[],
                        isNew, birthday, family:[{name, balance:[..], planned:n}] } }  لمرضى اليوم فقط. */
   function compute(ctx) {
@@ -165,7 +166,8 @@
       var e = { balance: balanceOf(pid), planned: freeByPt[pid] || 0, altOnly: !(freeByPt[pid] || 0) && !!altByPt[pid],
                 warn: warnParts(p), allergy: allergyParts(p), flags: Array.isArray(p.flags) ? p.flags.slice() : [],
                 isNew: false, birthday: false, family: [], recallDue: null, watches: [],
-                inprog: (ctx.inprog && Array.isArray(ctx.inprog[pid])) ? ctx.inprog[pid].slice() : [] };
+                inprog: (ctx.inprog && Array.isArray(ctx.inprog[pid])) ? ctx.inprog[pid].slice() : [],
+                consent: (ctx.consents && ctx.consents[pid] > 0) ? ctx.consents[pid] : 0 };   /* M219 · أ4 */
       var lv = ctx.lastVisit && ctx.lastVisit[pid] ? String(ctx.lastVisit[pid]).slice(0, 10) : '';
       if (lv && lv <= threshold) e.recallDue = { lastVisit: lv, months: months };
       e.watches = (watchByPt[pid] || []).slice().sort(function (x, y) { return (y.due - x.due) || String(x.review_at || '9999').localeCompare(String(y.review_at || '9999')); });
@@ -210,6 +212,8 @@
       out.push(chip('orange', '🔁 قيد الإنجاز بلا موعد', 'علاجٌ قيد الإنجاز بلا موعدٍ بعد هذه الزيارة: ' + e.inprog.map(function (b) {
         return '«' + ((window.SyFuUnbooked && window.SyFuUnbooked.label) ? window.SyFuUnbooked.label(b) : String(b.type || 'علاج')) + '»'; }).join(' · ')
         + ' — احجز زيارته التالية قبل أن يغادر', prof));
+    if (e.consent)   /* M219 · أ4: تنبيهٌ بلا منع */
+      out.push(chip('yellow', '✍️ موافقة بانتظار التوقيع', (window.SyConsentPending ? window.SyConsentPending.text(e.consent) : 'موافقة علاج بانتظار توقيع المريض'), prof));
     if (e.warn.length)
       out.push(chip('red', '⚠️ تحذير طبي', e.warn.join('، ')));
     if (e.allergy.length)
@@ -244,7 +248,7 @@
      كلُّ فشلٍ ⇒ {} للجزء المخطّط فقط (بقيةُ الأعلام من الصفوف المحمّلة). */
   async function load(uid, ctx) {
     ctx = ctx || {};
-    var planned = [], apptsById = {}, lastVisit = {}, watches = [], extractionKeys = [], inprog = null;
+    var planned = [], apptsById = {}, lastVisit = {}, watches = [], extractionKeys = [], inprog = null, consents = {};
     try {
       if (window.sb && uid) {
         var ids = {}, fam = {};
@@ -258,6 +262,8 @@
         });
         var list = Object.keys(ids);
         var todayIds = []; (ctx.appts || []).forEach(function (a) { if (a && a.patient_id && todayIds.indexOf(a.patient_id) < 0) todayIds.push(a.patient_id); });
+        /* M219 · أ4: الموافقاتُ المعلَّقة لمرضى اليوم — تنطلق الآن وتُنتظر بالآخر (لا جولةَ متتاليةً إضافية) */
+        var consentsP = (todayIds.length && window.SyConsentPending) ? window.SyConsentPending.forPatients(uid, todayIds) : null;
         if (todayIds.length && window.SyFuUnbooked) {
           /* ج3-ج: علاجاتُ مرضى اليوم «قيد الإنجاز» بلا موعدٍ بعد يوم الهدل — فشلُها ⇒ null (بلا رقاقة) ولا يمسّ بقية الأعلام */
           try { inprog = await window.SyFuUnbooked.load(uid, { day: ctx.today || ymdLocal(new Date()), strict: true, patientIds: todayIds }); }
@@ -300,10 +306,11 @@
             }
           }
         }
+        if (consentsP) { try { consents = await consentsP; } catch (eC) { consents = {}; } }
       }
     } catch (e) { console.warn('SyDentHuddle.load:', e); planned = []; apptsById = {}; }
     return compute({ today: ctx.today, appts: ctx.appts, patients: ctx.patients, fin: ctx.fin, reliab: ctx.reliab, planned: planned, apptsById: apptsById,
-      recallMonths: ctx.recallMonths, lastVisit: lastVisit, watches: watches, extractionKeys: extractionKeys, inprog: inprog });
+      recallMonths: ctx.recallMonths, lastVisit: lastVisit, watches: watches, consents: consents, extractionKeys: extractionKeys, inprog: inprog });
   }
 
   window.SyDentHuddle = { compute: compute, chipsHtml: chipsHtml, load: load, fmtAmount: fmtAmount, EPS: EPS,

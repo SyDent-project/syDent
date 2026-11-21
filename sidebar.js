@@ -975,6 +975,7 @@ async function refreshSidebarDynamic() {
     const { count: ikCount, error: ikErr } = _sbTake(await _sbIntakeP);
     if (!ikErr) sbIntakeBadge(ikCount || 0);
     sbIntakeSubscribe(uid);
+    sbConsentSubscribe(uid);   /* M220: توقيعُ موافقةٍ من بوابة المريض — توستٌ يسمّي المريض */
   } catch (e) { /* silent — الجدول غائب قبل M177 */ }
   try { sbPortalSubscribe(uid); } catch (e) { /* silent — الجدول غائب قبل M187 */ }
 }
@@ -1091,6 +1092,36 @@ function sbIntakeSubscribe(uid) {
         try { console.info('[intakes] realtime: ' + String(status || '') + (err ? ' — ' + (err.message || err) : '')); } catch (e3) {}
       });
   } catch (e) { _sbIntakeChan = null; }
+}
+
+/* ── M220: موافقاتُ العلاج — المريضُ وقّع من بوابته ───────────────────────
+   اشتراكٌ واحد لكل صفحة على UPDATE patient_consents (owner_id=uid): الانتقالُ إلى signed يُظهر توستاً يسمّي
+   المريض والموافقة ويستدعي window.onSyDentConsent(row) إن عرّفته الصفحة (بطاقةُ المريض تُحدّث صفّها).
+   لا شارة: الموقَّعة لا تنتظر فعلاً من العيادة. لا addEventListener (سجلّ وضع القراءة). */
+var _sbConsentChan = null;
+async function sbConsentToast(row) {
+  var name = '';
+  try {
+    var r = await window.sb.from('patients').select('name').eq('id', row.patient_id).eq('doctor_id', row.owner_id).maybeSingle();
+    if (!r.error && r.data) name = r.data.name || '';
+  } catch (e) {}
+  try { if (window.showToast) window.showToast('✍️ وقّع ' + (name || 'مريض') + ' موافقة «' + String(row.title || '').slice(0, 60) + '» من بوابته'); } catch (e2) {}
+}
+function sbConsentSubscribe(uid) {
+  if (_sbConsentChan || !uid || !window.sb || typeof window.sb.channel !== 'function') return;
+  try {
+    _sbConsentChan = window.sb.channel('consents-' + uid)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'patient_consents', filter: 'owner_id=eq.' + uid }, function (payload) {
+        var row = payload && payload.new, old = payload && payload.old;
+        if (!row || row.owner_id !== uid || row.status !== 'signed') return;
+        if (old && old.status === 'signed') return;
+        sbConsentToast(row);
+        try { if (typeof window.onSyDentConsent === 'function') window.onSyDentConsent(row); } catch (e2) {}
+      })
+      .subscribe(function (status, err) {
+        try { console.info('[consents] realtime: ' + String(status || '') + (err ? ' — ' + (err.message || err) : '')); } catch (e3) {}
+      });
+  } catch (e) { _sbConsentChan = null; }
 }
 
 // ─── JS ───

@@ -16,10 +16,10 @@
 /* ── Modal ── v453: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261121i"></script>
+<script src="theme.js?v=20261121j"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261121i"></script>
-<script src="pwd-policy.js?v=20261121i"></script>
+<script src="supabase-init.js?v=20261121j"></script>
+<script src="pwd-policy.js?v=20261121j"></script>
 <!-- ── Cloudflare Turnstile (CAPTCHA) ── Axis 3 / Item 2. Helper defined BEFORE the API
      script so window.onSyDentTurnstileLoad exists when the (async) script fires. -->
 <style>.cf-turnstile-box{margin:2px 0 14px;min-height:65px;display:flex;justify-content:center}.cf-turnstile-box>div{flex:1 1 100%;min-width:300px}/* v304: press feedback */
@@ -639,11 +639,11 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
 .pwd-toggle svg{display:block;width:20px;height:20px;flex-shrink:0;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261121i">
-<script src="sy-modal.js?v=20261121i"></script>
-<script src="sched-blocks.js?v=20261121i"></script>
-<script src="appt-blocks.js?v=20261121i"></script>
-<script src="sidebar.js?v=20261121i"></script>
+<link rel="stylesheet" href="theme.css?v=20261121j">
+<script src="sy-modal.js?v=20261121j"></script>
+<script src="sched-blocks.js?v=20261121j"></script>
+<script src="appt-blocks.js?v=20261121j"></script>
+<script src="sidebar.js?v=20261121j"></script>
 </head>
 <body>
 
@@ -1250,6 +1250,10 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
         <label for="ptShowHistory" style="margin:0;cursor:pointer;font-weight:700;">🗂️ العلاجات المنجزة سابقاً (آخر سنتين — المبالغ تظهر فقط إن كان الرصيد مفعّلاً)</label>
       </div>
       <div class="form-group bk-toggle-row">
+        <input type="checkbox" id="ptShowConsents" class="bk-switch">
+        <label for="ptShowConsents" style="margin:0;cursor:pointer;font-weight:700;">✍️ موافقات العلاج وتوقيعها (للعلاجات التي لها نصّ موافقة في صفحة العلاجات)</label>
+      </div>
+      <div class="form-group bk-toggle-row">
         <input type="checkbox" id="ptShowXrays" class="bk-switch">
         <label for="ptShowXrays" style="margin:0;cursor:pointer;font-weight:700;">🩻 صور الأشعة التي تشاركها مع المريض — مطفأ افتراضياً · لا يظهر إلا ما تضغط عليه «مشاركة مع المريض» بتبويب الملفات صورةً صورة (الأصل فقط، بلا تعليقاتك)</label>
       </div>
@@ -1847,6 +1851,7 @@ async function loadPortalSettings() {
   document.getElementById('ptShowNotes').checked   = row ? row.portal_show_notes !== false : true;
   /* M187 — graceful before the migration: the new controls simply keep their defaults */
   document.getElementById('ptShowHistory').checked  = row ? row.portal_show_history !== false : true;
+  document.getElementById('ptShowConsents').checked = row ? row.portal_show_consents !== false : true;   /* M220 */
   document.getElementById('ptAllowChanges').checked = row ? row.portal_allow_changes === true : false;
   document.getElementById('ptShowXrays').checked    = row ? row.portal_show_xrays === true : false;   /* M193 — مطفأ افتراضياً */
   document.getElementById('ptCancelMode').value     = (row && row.portal_cancel_mode === 'request') ? 'request' : 'direct';
@@ -1891,6 +1896,7 @@ async function savePortalSettings() {
     portal_show_balance: document.getElementById('ptShowBalance').checked,
     portal_show_notes:   document.getElementById('ptShowNotes').checked,
     portal_show_history:  document.getElementById('ptShowHistory').checked,    /* M187 */
+    portal_show_consents: document.getElementById('ptShowConsents').checked,   /* M220 */
     portal_allow_changes: document.getElementById('ptAllowChanges').checked,
     portal_show_xrays:    document.getElementById('ptShowXrays').checked,      /* M193 */
     portal_cancel_mode:   document.getElementById('ptCancelMode').value === 'request' ? 'request' : 'direct',

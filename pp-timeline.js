@@ -415,6 +415,7 @@ function renderTimeline() {
   /* v336: تبويبُ المواعيد يقرأ المصفوفةَ نفسها، وrenderTimeline نقطةُ المرور لكل
      تغيّر بيانات بالبطاقة — فيُحدَّث معها. محروس: فشلُه لا يمسّ السجل. */
   try { if (typeof renderApptsTab === 'function') renderApptsTab(); } catch (e) { console.warn('renderApptsTab:', e); }
+  try { if (typeof ppConsentTouch === 'function') ppConsentTouch(); } catch (e) { console.warn('ppConsentTouch:', e); }   /* M219: الخطةُ تغيّرت ⇒ موافقاتُها تُزامَن */
   var container = document.getElementById('tlContent');
   var countEl = document.getElementById('tlCount');
   var pagEl = document.getElementById('tlPagination');
