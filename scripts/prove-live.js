@@ -197,7 +197,8 @@ async function suite(S) {
   {
     const a = S.init.indexOf('      fetch: function (input, init) {\n        var f = (window.SyDentOffline'), b = S.init.indexOf('\n      }\n    }\n  });', a);
     ok(a > -1 && b > a, 'wiring: the shared client fetch is found');
-    const mk = win => new Function('window', 'return {' + S.init.slice(a, b) + '\n      } };')(win).fetch;
+    /* v802: قراءةُ الإعدادات المشتركة (sydentCs) لها مثبتُها (prove-settings-once) — هنا بديلٌ خامل */
+    const mk = win => new Function('window', 'sydentCs', 'return {' + S.init.slice(a, b) + '\n      } };')(win, { serve: () => null, writes: () => false, invalidate() {} }).fetch;
     const log = []; let resolveF, rejectF;
     const win = { SyLive: { noteWrite: (i, n) => { log.push('note:' + n.method); return () => log.push('done'); } }, fetch: () => new Promise((r, j) => { resolveF = r; rejectF = j; }) };
     let fx = a > -1 && b > a ? mk(win) : null;
@@ -367,7 +368,7 @@ async function run(S) { pass = 0; fail = 0; await suite(S); await auditSuite(S);
       ['client fetch not wired to SyLive', 'init', "done = (window.SyLive && window.SyLive.noteWrite) ? window.SyLive.noteWrite(input, init) : null;", "done = null;"],
       ['window left open after the response', 'init', "if (done) { try { p.then(done, done); } catch (e2) { done(); } }", ""],
       ['refused write opens a window', 'init', "if (gate) return gate.then(function (denied) { return denied || run(); });", "if (gate) { run(); return gate.then(function (denied) { return denied || run(); }); }"],
-      ['marker fault blocks the save', 'init', "} catch (e) { done = null; }\n          var p = f.apply(window, args);", "} catch (e) { throw e; }\n          var p = f.apply(window, args);"],
+      ['marker fault blocks the save', 'init', "} catch (e) { done = null; }\n          var csW = ", "} catch (e) { throw e; }\n          var csW = "],
       ['every delete reloads (cross-clinic storm)', 'init', "if (!(w.knows || knowsByDom)(table, id)) return;", ""],
       ['no debounce', 'init', "w.timer = setTimeout(function () { flush(w); }, DEBOUNCE_MS);", "flush(w);"],
       ['no tenant filter', 'init', "(col + '=eq.' + w.uid)", "undefined"],

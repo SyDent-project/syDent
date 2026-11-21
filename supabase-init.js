@@ -1378,6 +1378,105 @@
     return;
   }
 
+  /* ═══ SyDentCs:begin ═══ v802 — صفُّ إعدادات العيادة يُقرأ مرةً واحدة لكل تحميل صفحة ═══════════════════════════
+     القياس الحيّ: كلُّ صفحةٍ تقرأ صفَّ clinic_settings نفسَه 5–8 مرات عند فتحها — كلُّ قارئٍ (القائمة · القفل · الأعلام ·
+     الرسائل · الصفحة) يطلب أعمدتَه بطلبٍ مستقل. القرّاءُ هنا لا يتغيّرون: الطلبُ البسيط
+         GET /rest/v1/clinic_settings?select=<أعمدة أو *>&owner_id=eq.<uuid>
+     يُخدَم من قراءةٍ واحدة مشتركة للصف كاملاً (select=*) بإسقاط أعمدته المطلوبة، وبالشكل نفسه الذي يعيده PostgREST
+     (مصفوفةٌ بصفٍّ واحد، أو كائنٌ عند Accept: vnd.pgrst.object). الضمانات:
+       • يُخدَم فقط ما يطابق الشكلَ حرفياً (GET · المعاملان select وowner_id وحدهما · بلا Prefer/Range/signal) وصفُّه
+         موجود وكلُّ أعمدته المطلوبة فيه؛ أيُّ شيءٍ آخر — عمودٌ غائب (قاعدةٌ أقدم) · لا صف · فشلُ القراءة المشتركة ·
+         أكثر من صف — يذهب للشبكة بطلبه الأصلي كما كان، فالأخطاءُ والبدائلُ القديمة بمواضعها.
+       • المفتاح = المالك + رمز الجلسة (Authorization): لا يُخدَم مستخدمٌ من قراءة غيره.
+       • العمر: أثناء الطيران ثم TTL_MS بعد الوصول (يغطي رشقةَ الفتح)؛ وكلُّ كتابةٍ من هذا التبويب على الجدول أو
+         عبر RPC تُسقط المحفوظ عند بدئها وعند انتهائها — قراءةٌ بعد حفظٍ هي من القاعدة دائماً.
+       • القراءةُ المشتركة تمرّ بـfetch نفسه (لفّةُ الأوفلاين) فتُحفَظ للعمل بلا اتصال كأي قراءة. */
+  var sydentCs = (function () {
+    var TTL_MS = 10000, PATH = '/rest/v1/clinic_settings';
+    var COLS_RE = /^(\*|[a-z_][a-z0-9_]*(,[a-z_][a-z0-9_]*)*)$/;
+    var OWNER_RE = /^eq\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    /* نداءاتٌ تتكرر عند الفتح ولا تغيّر ما يقرؤه العميل من الصف: touch_presence يكتب last_seen_at وحده (لا يُقرأ) ·
+       my_subscription_state قراءة · consent_sync يكتب patient_consents فقط (M219–M224). أيُّ RPC غيرها يُسقط المحفوظ. */
+    var RPC_QUIET = { touch_presence: 1, my_subscription_state: 1, consent_sync: 1 };
+    var EMPTY = {};                 /* القراءةُ نجحت ولا صفَّ للمالك — القرّاءُ يذهبون للشبكة بلا قراءةٍ مشتركة ثانية */
+    var slots = {};
+    function invalidate() { slots = {}; }
+    function parse(input, init) {
+      try {
+        if (typeof input !== 'string' || input.indexOf(PATH + '?') < 0) return null;
+        if (String((init && init.method) || 'GET').toUpperCase() !== 'GET') return null;
+        if (init && init.signal) return null;
+        var u = new URL(input);
+        if (u.pathname !== PATH) return null;
+        var keys = []; u.searchParams.forEach(function (v, k) { keys.push(k); });
+        if (keys.length !== 2 || keys.indexOf('select') < 0 || keys.indexOf('owner_id') < 0) return null;
+        var sel = u.searchParams.get('select'), owner = u.searchParams.get('owner_id');
+        if (!COLS_RE.test(sel) || !OWNER_RE.test(owner)) return null;
+        var h = new Headers((init && init.headers) || {});
+        var auth = h.get('Authorization');
+        if (!auth || h.get('Prefer') || h.get('Range')) return null;
+        var acc = String(h.get('Accept') || '');
+        var obj = acc.indexOf('vnd.pgrst.object') > -1;
+        if (!obj && acc && acc.indexOf('application/json') < 0 && acc.indexOf('*/*') < 0) return null;
+        return { origin: u.origin, sel: sel, owner: owner, auth: auth, obj: obj, headers: h };
+      } catch (e) { return null; }
+    }
+    /* يعيد وعداً بالردّ إن كان الطلبُ قراءةً بسيطة للصف، وإلا null (الطلبُ يمضي بمساره). f = fetch المشترك (لفّة الأوفلاين). */
+    function serve(input, init, f, args) {
+      var q = parse(input, init);
+      if (!q) return null;
+      var key = q.owner.toLowerCase() + '|' + q.auth, slot = slots[key];
+      if (!slot || (slot.at && Date.now() - slot.at > TTL_MS)) {
+        slot = slots[key] = { at: 0, p: null };
+        var bh = new Headers(q.headers); bh.set('Accept', 'application/json');
+        var base = q.origin + PATH + '?select=*&owner_id=' + encodeURIComponent(q.owner);
+        var mine = slot;
+        slot.p = Promise.resolve().then(function () { return f.call(window, base, { method: 'GET', headers: bh }); })
+          .then(function (res) { return (res && res.ok) ? res.json() : null; })
+          .then(function (rows) {
+            mine.at = Date.now();
+            if (!Array.isArray(rows)) return null;
+            if (rows.length === 0) return EMPTY;
+            return (rows.length === 1 && rows[0] && typeof rows[0] === 'object') ? rows[0] : null;
+          }, function () { return null; });
+      }
+      var used = slot;
+      return used.p.then(function (row) {
+        var direct = function () { return f.apply(window, args); };
+        if (row === null) { if (slots[key] === used) delete slots[key]; return direct(); }   /* فشلٌ لا يُحفَظ */
+        if (row === EMPTY) return direct();
+        var out;
+        if (q.sel === '*') out = row;
+        else {
+          out = {};
+          var cols = q.sel.split(',');
+          for (var i = 0; i < cols.length; i++) {
+            if (!Object.prototype.hasOwnProperty.call(row, cols[i])) return direct();     /* عمودٌ لا تعرفه القاعدة ⇒ خطؤها هي */
+            out[cols[i]] = row[cols[i]];
+          }
+        }
+        var hd = { 'Content-Type': (q.obj ? 'application/vnd.pgrst.object+json' : 'application/json') + '; charset=utf-8' };
+        if (!q.obj) hd['Content-Range'] = '0-0/*';
+        return new Response(JSON.stringify(q.obj ? out : [out]), { status: 200, statusText: 'OK', headers: hd });
+      });
+    }
+    /* كتابةٌ قد تغيّر الصف؟ (أيُّ كتابةٍ على الجدول · أيُّ RPC عدا النداءات الدورية التي لا تمسّ ما يُقرأ) */
+    function writes(input, init) {
+      try {
+        var m = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+        if (m === 'GET' || m === 'HEAD' || m === 'OPTIONS') return false;
+        var u = typeof input === 'string' ? input : String((input && input.url) || '');
+        var i = u.indexOf('/rest/v1/'); if (i < 0) return false;
+        var p = u.slice(i + 9).split('?')[0];
+        if (p === 'clinic_settings') return true;
+        return p.indexOf('rpc/') === 0 && !RPC_QUIET[p.slice(4)];
+      } catch (e) { return false; }
+    }
+    return { serve: serve, writes: writes, invalidate: invalidate, _ttl: TTL_MS };
+  })();
+  window.SyDentCs = { invalidate: sydentCs.invalidate };
+  /* ═══ SyDentCs:end ═══ */
+
   const SUPABASE_URL = 'https://nxkalpjrqvpglphmiuui.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_UYcgZI4CE--gwIevdEPttg_ytxevCUN';
 
@@ -1395,6 +1494,9 @@
       fetch: function (input, init) {
         var f = (window.SyDentOffline && window.SyDentOffline.fetch) || window.fetch;
         var args = arguments;
+        /* v802: قراءةٌ بسيطة لصفّ إعدادات العيادة تُخدَم من قراءةٍ واحدة مشتركة (SyDentCs أعلاه) — قراءاتٌ فقط (GET) */
+        var csHit = sydentCs.serve(input, init, f, args);
+        if (csHit) return csHit;
         /* M141: بوابة الاشتراك — كلُّ كتابةٍ لحسابٍ منتهٍ تُرفض هنا برسالةٍ واضحة
            قبل الشبكة وقبل طابور الأوفلاين (SyDentSub أدناه). القاعدة تحرس فعلياً. */
         var gate = (window.SyDentSub && window.SyDentSub.writeGate) ? window.SyDentSub.writeGate(input, init) : null;
@@ -1403,8 +1505,11 @@
         var run = function () {
           var done = null;
           try { done = (window.SyLive && window.SyLive.noteWrite) ? window.SyLive.noteWrite(input, init) : null; } catch (e) { done = null; }
+          var csW = sydentCs.writes(input, init);   /* v802: كتابةٌ قد تغيّر صفَّ الإعدادات ⇒ المحفوظُ يسقط الآن وعند انتهائها */
+          if (csW) sydentCs.invalidate();
           var p = f.apply(window, args);
           if (done) { try { p.then(done, done); } catch (e2) { done(); } }
+          if (csW) { try { p.then(sydentCs.invalidate, sydentCs.invalidate); } catch (e3) {} }
           return p;
         };
         if (gate) return gate.then(function (denied) { return denied || run(); });
