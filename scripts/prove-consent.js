@@ -16,7 +16,7 @@ const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL', m); } }
 const FILES = ['migrations/219_consent_forms.sql', 'tx-consent.js', 'treatments.html', 'scripts/cache-bust.sh', 'scripts/db-bootstrap.py',
   'pp-consent.js', 'patient-profile.html', 'pp-timeline.js', 'patient-profile.css',
   'migrations/220_portal_consents.sql', 'portal.html', 'sidebar.js', 'settings.html',
-  'migrations/221_consent_keep_after_done.sql', 'consent-pending.js', 'huddle-flags.js', 'appt-modal.js', 'appointments.html', 'index.html'];
+  'migrations/221_consent_keep_after_done.sql', 'migrations/224_consent_done_today.sql', 'consent-pending.js', 'huddle-flags.js', 'appt-modal.js', 'appointments.html', 'index.html'];
 const base = {}; FILES.forEach(f => { base[f] = read(f); });
 const rep = (f, a, b) => F => { const o = Object.assign({}, F); o[f] = F[f].split(a).join(b); return o; };
 
@@ -236,6 +236,25 @@ async function suiteAlerts(F) {
      && /AND s\.parent_id IS NULL/.test(prune) && /AND EXISTS \(SELECT 1 FROM public\.consent_templates ct/.test(prune), 'M221: a pending consent survives its treatment being completed; unadopted alternatives and removed texts still drop');
   ok(add === add219 && add.length > 500, 'M221: the add branch is byte-identical to M219 (completed treatments never get a new consent)');
   ok(/REVOKE ALL ON FUNCTION public\._consent_sync\(uuid, uuid\) FROM PUBLIC, anon, authenticated;/.test(M) && F['scripts/db-bootstrap.py'].indexOf("'migrations/221_consent_keep_after_done.sql'") > -1, 'M221: still closed to everyone; in the bootstrap plan');
+  /* M224: علاجٌ سُجّل «منجزاً» اليوم مباشرةً يأخذ موافقتَه، والملغاةُ لا تتولّد من جديد — فرعُ الإضافة وحده */
+  {
+    const M4 = F['migrations/224_consent_done_today.sql'];
+    const prune4 = cut(M4, '-- (a) drop', '-- (b) add'), add4 = cut(M4, '-- (b) add', 'RETURN v_n;');
+    ok(prune4 === prune && prune4.length > 500, 'M224: the prune branch is byte-identical to M221');
+    ok(/v_today  DATE := \(now\(\) AT TIME ZONE 'Asia\/Damascus'\)::date;/.test(M4), 'M224: «today» is the clinic\'s date, not the server\'s');
+    ok(/AND s\.parent_id IS NULL\s+AND s\.treatment_key = t\.treatment_key\s+AND \(\(COALESCE\(s\.status, 'completed'\) = 'planned'\s+AND \(v_opts <= 1 OR s\.plan_option IS NULL OR s\.plan_option NOT BETWEEN 1 AND 3\)\)\s+-- M224[^\n]*\s+OR \(COALESCE\(s\.status, 'completed'\) = 'completed' AND s\.date = v_today\)\);/.test(add4),
+      'M224: the adopted plan as before, plus what was recorded as done TODAY — never older completed rows, never follow-up visits');
+    ok(/AND pc\.status IN \('pending','signed','void'\) AND x = ANY \(pc\.session_ids\)\);/.test(add4), 'M224: a cancelled consent still covers its sessions — it is never generated again');
+    const norm = x => x.replace(/\s+/g, ' ');
+    const back = norm(add4)
+      .replace(norm("AND s.parent_id IS NULL AND s.treatment_key = t.treatment_key AND ((COALESCE(s.status, 'completed') = 'planned' AND (v_opts <= 1 OR s.plan_option IS NULL OR s.plan_option NOT BETWEEN 1 AND 3)) -- M224: recorded as done today without ever being planned OR (COALESCE(s.status, 'completed') = 'completed' AND s.date = v_today));"),
+               norm("AND COALESCE(s.status, 'completed') = 'planned' AND s.parent_id IS NULL AND s.treatment_key = t.treatment_key AND (v_opts <= 1 OR s.plan_option IS NULL OR s.plan_option NOT BETWEEN 1 AND 3);"))
+      .replace("AND pc.status IN ('pending','signed','void') AND x = ANY (pc.session_ids)); -- M224: void covers too", "AND pc.status IN ('pending','signed') AND x = ANY (pc.session_ids));");
+    const tail = x => x.slice(x.indexOf('FOR t IN'));
+    ok(tail(back) === tail(norm(add)) && tail(back).length > 500, 'M224: apart from those two conditions the add branch is Migration 221\'s, statement for statement');
+    ok(/REVOKE ALL ON FUNCTION public\._consent_sync\(uuid, uuid\) FROM PUBLIC, anon, authenticated;/.test(M4) && !/GRANT/.test(M4.replace(/^--.*$/gm, '')) && F['scripts/db-bootstrap.py'].indexOf("'migrations/224_consent_done_today.sql'") > -1,
+      'M224: still closed to everyone; in the bootstrap plan');
+  }
   /* consent-pending.js on a fake DOM and database */
   const mk = (rows, opt) => {
     opt = opt || {}; const els = {}, calls = [];
@@ -284,6 +303,28 @@ async function suiteAlerts(F) {
   K.ctx.sessions[0].status = 'completed'; K.ctx.ppConsentTouch(); K.ctx.ppConsentTouch();
   ok(K.toasts.length === 1 && K.toasts[0].indexOf('لم تُوقَّع بعد') > -1, 'card: completing a treatment whose consent is pending warns once');
   ok(K.calls.filter(c => c.table === 'patient_consents' && c.op === 'select')[0].cols.indexOf('session_ids') > -1, 'card: the list carries the covered sessions');
+  /* M224: علاجٌ سُجّل «منجزاً» اليوم مباشرةً ⇒ مزامنةٌ واحدة، وموافقتُه الجديدة يُنبَّه عنها مرةً — لا عند الفتح */
+  {
+    const d = new Date(), today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const D = mkCard(F, { rows: [], sessions: [{ id: 'old', status: 'completed', treatment_key: 'extracted', date: '2020-01-05' }] });
+    await D.ctx.ppConsentLoad();
+    let n0 = D.timers.length;
+    D.ctx.sessions.push({ id: 'y1', status: 'completed', treatment_key: 'extracted', date: '2020-01-06' }); D.ctx.ppConsentTouch();
+    ok(D.timers.length === n0, 'card: a treatment recorded as done on another day asks for no sync');
+    D.ctx.sessions.push({ id: 'fu', status: 'completed', treatment_key: 'extracted', date: today, parent_id: 'old' }); D.ctx.ppConsentTouch();
+    ok(D.timers.length === n0, 'card: a follow-up visit done today asks for no sync');
+    D.ctx.sessions.push({ id: 'd1', status: 'completed', treatment_key: 'extracted', date: today }); D.ctx.ppConsentTouch(); D.ctx.ppConsentTouch();
+    ok(D.timers.length === n0 + 2 && D.toasts.length === 0, 'card: a treatment recorded as done today schedules the sync');
+    D.rows().push(ROW('n1', 'pending', { session_ids: ['d1'] }));   /* ما تولّده القاعدة */
+    await D.timers[D.timers.length - 1][0](); await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r));
+    ok(D.calls.filter(c => c.table === 'rpc:consent_sync').length === 2 && D.toasts.length === 1 && D.toasts[0].indexOf('لم تُوقَّع بعد') > -1
+       && D.el('consentRow').style.display === '' && D.el('iConsent').innerHTML.indexOf('بانتظار التوقيع: 1') > -1, 'card: its new consent shows at once and warns once');
+    D.ctx.ppConsentTouch(); await D.ctx.ppConsentLoad(true);
+    ok(D.toasts.length === 1, 'card: no second warning for the same consent');
+    const O = mkCard(F, { rows: [ROW('n1', 'pending', { session_ids: ['d1'] })], sessions: [{ id: 'd1', status: 'completed', treatment_key: 'extracted', date: today }] });
+    await O.ctx.ppConsentLoad();
+    ok(O.toasts.length === 0 && O.el('iConsent').innerHTML.indexOf('بانتظار التوقيع: 1') > -1, 'card: opening the card later shows it pending without a toast');
+  }
 }
 
 async function suite(F) {
@@ -404,7 +445,6 @@ const MUTANTS = [
   ['signature images loaded with the list', rep('pp-consent.js', "signer_relation, voided_at';", "signer_relation, voided_at, signature';")],
   ['row shown with nothing to show', rep('pp-consent.js', "if (!PP_CONSENT_OK || (!n.pending && !n.signed)) { row.style.display = 'none'; return; }", "")],
   ['sync on every render', rep('pp-consent.js', "if (ppConsentPlanSig() === _ppConsentSig) return;", "")],
-  ['follow-ups count as plan changes', rep('pp-consent.js', "=== 'planned' && !s.parent_id; })", "=== 'planned'; })")],
   ['signed consent cancellable', rep('pp-consent.js', "if (!c || c.status !== 'pending' || _ppConsentBusy) return;", "if (!c || _ppConsentBusy) return;")],
   ['cancel not pinned to pending', rep('pp-consent.js', ".eq('id', id).eq('owner_id', currentUser.id).eq('status', 'pending')", ".eq('id', id).eq('owner_id', currentUser.id)")],
   ['cancel not scoped to the owner', rep('pp-consent.js', ".eq('id', id).eq('owner_id', currentUser.id).eq('status', 'pending')", ".eq('id', id).eq('status', 'pending')")],
@@ -448,7 +488,19 @@ const MUTANTS = [
   ['huddle chip dropped', rep('huddle-flags.js', "if (e.consent)   /* M219 · أ4: تنبيهٌ بلا منع */", "if (false)")],
   ['huddle read chained in sequence', rep('huddle-flags.js', "var consentsP = (todayIds.length && window.SyConsentPending) ? window.SyConsentPending.forPatients(uid, todayIds) : null;", "var consentsP = null; if (todayIds.length && window.SyConsentPending) consents = await window.SyConsentPending.forPatients(uid, todayIds);")],
   ['appointment modal hint not wired', rep('appt-modal.js', "'fPatientConsentHint');", "'x');")],
-  ['card toasts on every open', rep('pp-consent.js', "PP_CONSENT_OK = true; ppConsentWarnDone(true); }", "PP_CONSENT_OK = true; ppConsentWarnDone(false); }")],
+  ['old completed treatments flood with consents', rep('migrations/224_consent_done_today.sql', "OR (COALESCE(s.status, 'completed') = 'completed' AND s.date = v_today));", "OR (COALESCE(s.status, 'completed') = 'completed'));")],
+  ['treatment recorded as done gets no consent', rep('migrations/224_consent_done_today.sql', "OR (COALESCE(s.status, 'completed') = 'completed' AND s.date = v_today));", ");")],
+  ['cancelled consent comes back', rep('migrations/224_consent_done_today.sql', "AND pc.status IN ('pending','signed','void') AND x = ANY", "AND pc.status IN ('pending','signed') AND x = ANY")],
+  ['«today» taken from the server clock', rep('migrations/224_consent_done_today.sql', "(now() AT TIME ZONE 'Asia/Damascus')::date", "current_date")],
+  ['follow-up visits get consents', rep('migrations/224_consent_done_today.sql', "       AND s.parent_id IS NULL\n       AND s.treatment_key = t.treatment_key\n       AND ((COALESCE", "       AND s.treatment_key = t.treatment_key\n       AND ((COALESCE")],
+  ['M224 reopens the sync to callers', rep('migrations/224_consent_done_today.sql', 'REVOKE ALL ON FUNCTION public._consent_sync(uuid, uuid) FROM PUBLIC, anon, authenticated;', '')],
+  ['M224 prunes differently', rep('migrations/224_consent_done_today.sql', "       AND (COALESCE(s.status, 'completed') = 'completed'\n            OR (COALESCE(s.status, 'completed') = 'planned'\n                AND", "       AND (false\n            OR (COALESCE(s.status, 'completed') = 'planned'\n                AND")],
+  ['M224 not in the plan', rep('scripts/db-bootstrap.py', "    'migrations/224_consent_done_today.sql',", "    # 224")],
+  ['done today never reaches the sync', rep('pp-consent.js', "return st === 'planned' || (st === 'completed' && String(s.date || '').slice(0, 10) === today);", "return st === 'planned';")],
+  ['every completed row triggers a sync', rep('pp-consent.js', "(st === 'completed' && String(s.date || '').slice(0, 10) === today)", "(st === 'completed')")],
+  ['follow-ups count as plan changes', rep('pp-consent.js', "    if (!s || s.parent_id) return false;\n    var st", "    if (!s) return false;\n    var st")],
+  ['new consent appears silently', rep('pp-consent.js', "PP_CONSENT_OK = true; ppConsentWarnDone(first); }", "PP_CONSENT_OK = true; ppConsentWarnDone(true); }")],
+  ['card toasts on every open', rep('pp-consent.js', "PP_CONSENT_OK = true; ppConsentWarnDone(first); }", "PP_CONSENT_OK = true; ppConsentWarnDone(false); }")],
   ['card never warns at completion', rep('pp-consent.js', "    if (!silent) showToast(", "    if (false) showToast(")],
   ['card warns again and again', rep('pp-consent.js', "if (c.status !== 'pending' || _ppConsentWarned[c.id]) return;", "if (c.status !== 'pending') return;")],
   ['read not scoped to the owner', rep('tx-consent.js', ".select('id, treatment_key, title, body').eq('owner_id', uid);", ".select('id, treatment_key, title, body');")],
