@@ -23,7 +23,7 @@
 --     Documentation only — it writes nothing to payroll. The payouts page
 --     reads it to SUGGEST a deduction line (never a silent deduction).
 --
--- Security: RLS owner-only + subscription gate (M141); no anon access.
+-- Security: RLS owner-only + subscription gate (M141); no anon access (the validator is not anon-callable either).
 --
 -- ROLLBACK:
 --   DROP TABLE IF EXISTS public.staff_leaves;
@@ -51,6 +51,10 @@ BEGIN
   END LOOP;
   RETURN true;
 END; $$;
+
+-- The CHECK below runs it as the writing role: the clinic's own session needs EXECUTE, nobody else does.
+REVOKE ALL ON FUNCTION public._work_schedule_ok(jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public._work_schedule_ok(jsonb) TO authenticated, service_role;
 
 -- ── 2) clinic_employees — schedule + yearly allowance ──────────────────
 ALTER TABLE public.clinic_employees

@@ -118,6 +118,8 @@ async function suite(F) {
     && /\^\(\[01\]\[0-9\]\|2\[0-3\]\):\[0-5\]\[0-9\]\$/.test(M) && /IF b <= a THEN RETURN false;/.test(M), 'M222: the schedule validator pins weekday keys, HH:MM pairs and end > start');
   ok(/ADD CONSTRAINT clinic_employees_work_schedule_ok CHECK \(public\._work_schedule_ok\(work_schedule\)\)/.test(M), 'M222: the column carries the validator as a CHECK (the booking functions cast safely)');
   ok(/annual_leave_days IS NULL OR annual_leave_days BETWEEN 0 AND 365/.test(M), 'M222: the allowance is bounded');
+  ok(/REVOKE ALL ON FUNCTION public\._work_schedule_ok\(jsonb\) FROM PUBLIC, anon;\s+GRANT EXECUTE ON FUNCTION public\._work_schedule_ok\(jsonb\) TO authenticated, service_role;/.test(M),
+    'M222: the validator is callable by the clinic session (the CHECK needs it), not by anon');
   ok(/owner_id\s+UUID NOT NULL REFERENCES auth\.users\(id\)\s+ON DELETE CASCADE/.test(M) && /employee_id\s+UUID NOT NULL REFERENCES public\.clinic_employees\(id\) ON DELETE CASCADE/.test(M)
     && /block_id\s+UUID REFERENCES public\.schedule_blocks\(id\) ON DELETE SET NULL/.test(M), 'M222: staff_leaves references owner, employee and (softly) the calendar block');
   ok(/kind\s+TEXT NOT NULL CHECK \(kind IN \('paid', 'unpaid', 'sick', 'absence'\)\)/.test(M) && /CHECK \(date_to >= date_from AND \(date_to - date_from\) <= 366\)/.test(M)
@@ -429,6 +431,8 @@ async function suite(F) {
 const MUTANTS = [
   ['schedule accepts weekday 7', rep('migrations/222_staff_hours_leaves.sql', "IF k !~ '^[0-6]$' OR", "IF k !~ '^[0-7]$' OR")],
   ['schedule accepts end before start', rep('migrations/222_staff_hours_leaves.sql', '    IF b <= a THEN RETURN false; END IF;\n', '')],
+  ['validator left open to anon', rep('migrations/222_staff_hours_leaves.sql', 'REVOKE ALL ON FUNCTION public._work_schedule_ok(jsonb) FROM PUBLIC, anon;', '')],
+  ['clinic session cannot run the CHECK', rep('migrations/222_staff_hours_leaves.sql', 'GRANT EXECUTE ON FUNCTION public._work_schedule_ok(jsonb) TO authenticated, service_role;', 'GRANT EXECUTE ON FUNCTION public._work_schedule_ok(jsonb) TO service_role;')],
   ['schedule column unchecked', rep('migrations/222_staff_hours_leaves.sql', 'CHECK (public._work_schedule_ok(work_schedule))', 'CHECK (true)')],
   ['leave for another clinic\'s employee', rep('migrations/222_staff_hours_leaves.sql', "\n                  AND EXISTS (SELECT 1 FROM public.clinic_employees e WHERE e.id = employee_id AND e.owner_id = (SELECT auth.uid()))", '')],
   ['leaves without the subscription gate', rep('migrations/222_staff_hours_leaves.sql', "SELECT public._sub_guard_table('public.staff_leaves');", '')],
