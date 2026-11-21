@@ -88,6 +88,8 @@ AFTER_SNAPSHOT = [
     'migrations/219_consent_forms.sql',              # consent_templates + patient_consents (RLS owner-only + sub-guard), guard trigger, _consent_sync/consent_sync
     'migrations/220_portal_consents.sql',            # portal_show_consents + portal_consents/portal_consent_sign (anon doors) + patient_consents in the realtime publication
     'migrations/221_consent_keep_after_done.sql',    # _consent_sync: a pending consent survives its treatment being completed (prune branch only)
+    'migrations/222_staff_hours_leaves.sql',         # clinic_employees.work_schedule/annual_leave_days (+ _work_schedule_ok CHECK) and staff_leaves (RLS owner-only + sub-guard); no anon grant
+    'migrations/223_booking_respects_doctor_hours.sql',   # after 189/222: _provider_off_slots (internal) + booking_blocked_slots and _portal_free_slots replaced in place — a dentist's hours and leave close online slots
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',

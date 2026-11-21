@@ -52,6 +52,7 @@
         rows = r.data || [];
       }
       if (window.SyDentBlocks) blocks = window.SyDentBlocks.expand(await window.SyDentBlocks.load(doctorId, base.date, base.date), base.date, base.date);
+      if (window.SyDentBlocks && base.provider_id && window.SyDentBlocks.offHours) blocks = blocks.concat(await window.SyDentBlocks.offHours(doctorId, base.date, base.date));   /* M222 */
       plan.forEach(function (s) {
         var cand = { id: null, date: base.date, time: s.time, duration: base.duration, provider_id: base.provider_id || null, operatory_id: base.operatory_id || null };
         var c = window.SyDentConflict ? window.SyDentConflict.find(cand, rows) : [];

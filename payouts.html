@@ -16,7 +16,7 @@
 /* ── Modal ── v447: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261121j"></script>
+<script src="theme.js?v=20261121k"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -270,6 +270,7 @@ button:disabled { opacity: .6; cursor: wait; }
 .field-hint { font-size: 11px; color: var(--text2); margin-top: 4px; }
 .field-hint.suggest { color: var(--green); font-weight: 600; cursor: pointer; white-space: pre-line; line-height: 1.6; }   /* v382: سطورُ التفصيل تحت الاقتراح */
 .field-hint.suggest:hover { text-decoration: underline; }
+.field-hint.suggest.leave { color: var(--orange-ink); margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border); }   /* M222 */
 
 .method-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .method-chip {
@@ -402,13 +403,14 @@ button:disabled { opacity: .6; cursor: wait; }
 html[data-sub-level="read"] :is([onclick*="openModal("],[onclick*="deleteCurrent("],[onclick*="savePayout("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261121j">
+<link rel="stylesheet" href="theme.css?v=20261121k">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261121j"></script>
-<script src="sy-modal.js?v=20261121j"></script>
-<script src="pay-methods.js?v=20261121j"></script>
-<script src="sidebar.js?v=20261121j"></script>
-<script src="timepicker.js?v=20261121j"></script>
+<script src="supabase-init.js?v=20261121k"></script>
+<script src="sy-modal.js?v=20261121k"></script>
+<script src="pay-methods.js?v=20261121k"></script>
+<script src="staff-leaves.js?v=20261121k"></script>
+<script src="sidebar.js?v=20261121k"></script>
+<script src="timepicker.js?v=20261121k"></script>
 </head>
 <body>
 
@@ -549,6 +551,8 @@ html[data-sub-level="read"] :is([onclick*="openModal("],[onclick*="deleteCurrent
         <label>المبلغ (<span data-cur>ل.س</span>) <span style="color:var(--red);">*</span></label>
         <input type="number" id="fldAmount" min="0" step="1000" placeholder="0" oninput="onAmountInput()">
         <div class="field-hint suggest" id="hintSuggest" onclick="applySuggestion()" style="display:none;"></div>
+        <!-- M222: خصمٌ مقترح للغياب والإجازة غير المدفوعة — سطرٌ ظاهر يطبّقه المالك بيده (لا خصمَ صامت) -->
+        <div class="field-hint suggest leave" id="hintLeave" onclick="applyLeaveDeduction()" style="display:none;"></div>
       </div>
 
       <div class="field">
@@ -808,8 +812,16 @@ async function loadAll() {
   await Promise.all([
     loadDoctors(),
     loadPayouts(),
-    loadSessions()
+    loadSessions(),
+    loadLeaves()
   ]);
+}
+
+/* M222: إجازاتُ وغياباتُ الموظفين — قراءةٌ فقط لاقتراح خصمٍ ظاهر. غيابُ الجدول/الفشل ⇒ لا سطر. */
+var staffLeaves = null;
+async function loadLeaves() {
+  try { staffLeaves = (window.SyStaffLeaves && currentUser) ? await window.SyStaffLeaves.load(currentUser.id, true) : null; }
+  catch (e) { staffLeaves = null; }
 }
 
 async function loadDoctors() {
@@ -1776,7 +1788,78 @@ function _suggestionDetail(sug, lbl) {
   return lines.length ? '\n' + lines.join('\n') : '';
 }
 
+/* M222: سطرُ الخصم المقترح يُحدَّث مع كل تحديثٍ للاقتراح (موظف · فترة · فتح النافذة) */
 function updateSuggestion() {
+  _updateSuggestionCore();
+  updateLeaveHint();
+}
+
+/* أيامُ الغياب/الإجازة غير المدفوعة ضمن الفترة ⇒ سطرٌ ظاهر تحت الاقتراح. لا يغيّر الاقتراحَ ولا المبلغ:
+   الخصمُ يُطبَّق بضغطةٍ صريحة فقط (applyLeaveDeduction) ويُكتب بالملاحظات. نصٌّ خالص بـtextContent. */
+function leaveDeductionFor(provider, from, to) {
+  var L = window.SyStaffLeaves;
+  if (!L || !staffLeaves || !staffLeaves.ok || !provider || !provider.employeeId || !from || !to || to < from) return null;
+  var leaves = staffLeaves.byEmp[provider.employeeId] || [];
+  if (!leaves.length) return null;
+  var wd = L.workDaysOf(staffLeaves.sched[provider.employeeId], staffLeaves.clinicDays);
+  var sum = L.summary(leaves, from, to, wd);
+  if (!(sum.paid + sum.unpaid + sum.sick + sum.absence)) return null;
+  var cm = provider.compensation_model || 'percentage', monthly = Number(provider.monthly_salary) || 0;
+  var salaried = (cm === 'salary' || cm === 'hybrid') && monthly > 0;
+  var cur = _providerSalaryCur(provider);
+  var d = L.deduction(salaried ? monthly : 0, leaves, from, to, wd);
+  return { sum: sum, days: d.days, baseDays: d.baseDays, cur: cur, amount: salaried ? window.SyDentPayroll.roundCur(d.amount, cur) : 0 };
+}
+function updateLeaveHint() {
+  var el = $('hintLeave'), L = window.SyStaffLeaves; if (!el || !L) return;
+  el.style.display = 'none'; el.dataset.amount = '0'; el.dataset.days = '0'; el.dataset.applied = '';
+  var provider = doctors.find(function(d){ return d.id === $('fldProvider').value; });
+  var r = leaveDeductionFor(provider, $('fldPeriodStart').value, $('fldPeriodEnd').value);
+  if (!r) return;
+  var parts = [];
+  if (r.sum.absence) parts.push('غياب ' + r.sum.absence);
+  if (r.sum.unpaid)  parts.push('إجازة غير مدفوعة ' + r.sum.unpaid);
+  if (r.sum.paid)    parts.push('إجازة مدفوعة ' + r.sum.paid);
+  if (r.sum.sick)    parts.push('إجازة مرضية ' + r.sum.sick);
+  var txt = '🏖 أيام ضمن الفترة: ' + parts.join(' · ');
+  if (r.amount > 0) {
+    var lbl = SyDentCurBag.lblOf(r.cur);
+    txt += '\n💡 خصم مقترح: ' + _fmtAmt(r.amount) + ' ' + lbl + ' (' + (r.baseDays ? r.days + ' من ' + r.baseDays + ' يوم دوام بالشهر' : L.daysTxt(r.days)) + ') — اضغط لخصمه من الراتب';
+    el.dataset.amount = String(r.amount); el.dataset.days = String(r.days); el.dataset.cur = r.cur;
+    el.style.cursor = 'pointer';
+  } else {
+    el.style.cursor = 'default';
+  }
+  el.textContent = txt;
+  el.style.display = 'block';
+}
+/* تطبيقُ الخصم صراحةً: يُطرح من بند «راتب أساسي» (المكتوب، وإلا راتبُ الاقتراح)، يُفتح التفصيل، ويُسجَّل بالملاحظات. مرّةً واحدة. */
+function applyLeaveDeduction() {
+  var el = $('hintLeave'), ded = Number(el.dataset.amount) || 0;
+  if (ded <= 0) return;
+  if (el.dataset.applied === '1' || $('fldNotes').value.indexOf('خصم غياب/إجازة غير مدفوعة:') !== -1) { showToast('الخصم مطبَّق على هذه الدفعة'); return; }
+  var base = Number($('fldSalary').value) || 0;
+  if (base <= 0) {
+    var sugSal = Number($('hintSuggest').dataset.salary) || 0;
+    if (sugSal <= 0) { showToast('⚠️ أدخل «راتب أساسي» بالتفصيل أولاً ليُخصم منه', true); return; }
+    if (_payModalCur() !== (el.dataset.cur === 'USD' ? 'USD' : 'SYP')) { try { window.SyDentCurPick.set('fldAmount', el.dataset.cur); } catch (e) {} }
+    base = sugSal;
+    if (!(Number($('fldShare').value) > 0)) { var shr = Number($('hintSuggest').dataset.share) || 0; $('fldShare').value = shr > 0 ? shr : ''; }
+  } else if (_payModalCur() !== (el.dataset.cur === 'USD' ? 'USD' : 'SYP')) {
+    showToast('⚠️ الخصم محسوب بعملة الراتب — عملة الدفعة مختلفة', true); return;
+  }
+  var left = window.SyDentPayroll.roundCur(Math.max(0, base - ded), el.dataset.cur === 'USD' ? 'USD' : 'SYP');
+  $('fldSalary').value = left > 0 ? left : '';
+  $('breakdownSection').classList.add('open');
+  onBreakdownChange();
+  var note = 'خصم غياب/إجازة غير مدفوعة: ' + window.SyStaffLeaves.daysTxt(el.dataset.days) + ' (−' + _fmtAmt(Math.min(ded, base)) + ' ' + SyDentCurBag.lblOf(el.dataset.cur) + ')';
+  var cur = $('fldNotes').value.trim();
+  if (cur.indexOf('خصم غياب/إجازة غير مدفوعة:') === -1) $('fldNotes').value = cur ? cur + '\n' + note : note;
+  el.dataset.applied = '1';
+  showToast('تم خصم ' + _fmtAmt(Math.min(ded, base)) + ' ' + SyDentCurBag.lblOf(el.dataset.cur) + ' من الراتب — راجع المبلغ قبل الحفظ');
+}
+
+function _updateSuggestionCore() {
   var hint = $('hintSuggest');
   var provId = $('fldProvider').value;
   var from = $('fldPeriodStart').value;
