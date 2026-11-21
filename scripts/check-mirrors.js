@@ -1190,7 +1190,7 @@ try {
   }
 
   /* signOut هي نقطة الاختناق الوحيدة (9 مواضع تمرّ منها) */
-  if (!/signOut = function \(opts\) \{\s+_guClear\(\); _padmClear\(\);\s+var w = _wipeOfflineCache\(\);\s+return realSignOut\(opts\)\.then\(/.test(initSrc)) {
+  if (!/signOut = function \(opts\) \{\s+_guClear\(\); _padmClear\(\);[^\n]*\n[^\n]*SyDentAppLock\.clear\(\)[^\n]*\n\s+var w = _wipeOfflineCache\(\);\s+return realSignOut\(opts\)\.then\(/.test(initSrc)) {
     pqMism++; bad('signOut لا تمسح علامة الأدمن أو كاش القراءة الأوفلاين');
   }
 

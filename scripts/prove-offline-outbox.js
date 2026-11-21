@@ -873,10 +873,74 @@ async function runAll(src, opt_sw, only) {
     ['سُجّلت بلا اتصال وتُرفع تلقائياً عند عودة الإنترنت.', 'بانتظار الرفع', d1 ? d1.o.choices[0].label : 'x', d1 ? d1.o.choices[1].label : 'x'].forEach(x => { const en = tr6(x); ok('d6: English engine leaves no Arabic in «' + x.replace(/[\u2066-\u2069]/g, '') + '»', en != null && !AR.test(en), String(en)); });
   }
 
+  /* ══ تطوير 7: قفل التطبيق على الجهاز (منطق الرمز والخمول والتبريد — الشاشة تُفحص بمتصفح حقيقي) ══ */
+  if (!only || only === 'd7') {
+    const lock = (uid, pathname) => {
+      const m = new Map(); if (uid) m.set('sydent.auth', JSON.stringify({ user: { id: uid } }));
+      const st = { now: 1e12, m };
+      const storage = { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) };
+      const el = () => ({ style: {}, setAttribute() {}, appendChild() {}, addEventListener() {}, classList: { add() {}, remove() {} }, querySelector: () => null });
+      const win = { localStorage: storage, location: { pathname: pathname || '/patients.html' }, crypto: require('crypto').webcrypto, addEventListener() {} };
+      const ctx = vm.createContext({ window: win, document: { getElementById: () => null, createElement: el, documentElement: el(), head: el(), body: null, readyState: 'complete', addEventListener() {}, visibilityState: 'visible' },
+        Date: { now: () => st.now }, TextEncoder, Uint8Array, Array, JSON, parseInt, Math, Promise, String, setInterval() {}, setTimeout });
+      vm.runInContext(slice(src, '/* ═══ SYDENT_APPLOCK_START', '/* ═══ SYDENT_APPLOCK_END ═══ */'), ctx);
+      st.L = win.SyDentAppLock; st.win = win; return st; };
+    const MIN = 60000;
+    let a = lock(U1);
+    ok('d7: off by default', a.L.isOn() === false && a.L.shouldLock() === false);
+    let r = await a.L.enable('12', 5);
+    ok('d7: a code that is not 4–6 digits is refused', r.ok === false && !a.L.isOn());
+    r = await a.L.enable('1234', 5);
+    const raw = a.m.get('sydent.applock') || '';
+    /* (لا بحث عن «1234» كنصٍّ داخل المخزَّن: ست عشريٌّ عشوائي قد يحويه صدفةً — تُفحص الحقول نفسها) */
+    const cfg7 = JSON.parse(raw || '{}');
+    ok('d7: turning it on stores a derived value, never the code', r.ok && a.L.isOn() && Object.keys(cfg7).sort().join(',') === 'hash,idle,salt,uid,v' &&
+      /^[0-9a-f]{64}$/.test(cfg7.hash) && /^[0-9a-f]{32}$/.test(cfg7.salt) && cfg7.idle === 5 && cfg7.uid === U1, raw.slice(0, 80));
+    ok('d7: not locked right after turning it on', a.L.shouldLock() === false);
+    a.now += 4 * MIN; ok('d7: still open within the idle period', a.L.shouldLock() === false);
+    a.now += 2 * MIN; ok('d7: locks once the idle period has passed', a.L.shouldLock() === true);
+    r = await a.L.verify('abcd'); ok('d7: a malformed code is refused without using up an attempt', r.reason === 'invalid_format' && !a.m.has('sydent.applock.fails'));
+    const tries = []; for (let i = 0; i < 4; i++) tries.push(await a.L.verify('9999'));
+    ok('d7: wrong codes are refused and counted down', tries.every(x => x.ok === false && x.reason === 'wrong') && tries[3].failsLeft === 1);
+    r = await a.L.verify('9999'); ok('d7: the fifth wrong code starts a one-minute wait', r.reason === 'cooldown');
+    r = await a.L.verify('1234'); ok('d7: during the wait even the right code is refused', r.ok === false && r.reason === 'cooldown');
+    a.now += 61000; r = await a.L.verify('1234'); ok('d7: after the wait the right code opens', r.ok === true);
+    a.L._touch(); ok('d7: activity postpones the lock', a.L.shouldLock() === false);
+    ok('d7: the idle period can be changed to an offered value only', a.L.setIdle(15) === true && a.L.setIdle(7) === false);
+    a.now += 10 * MIN; ok('d7: … and the new period is respected', a.L.shouldLock() === false); a.now += 6 * MIN; ok('d7: … until it passes', a.L.shouldLock() === true);
+    r = await a.L.disable('0000'); ok('d7: turning it off needs the right code', r.ok === false && a.L.isOn());
+    r = await a.L.disable('1234'); ok('d7: the right code turns it off and leaves nothing behind', r.ok && !a.L.isOn() && ![...a.m.keys()].some(k => k.indexOf('sydent.applock') === 0));
+    /* صفحات عامة / بلا جلسة / حساب آخر */
+    const b = lock(U1, '/auth.html'); await b.L.enable('1234', 1); b.now += 10 * MIN;
+    ok('d7: public pages are never locked', b.L.shouldLock() === false);
+    const c = lock(U1); await c.L.enable('1234', 1); c.now += 10 * MIN;
+    ok('d7: locked for the account that set it', c.L.shouldLock() === true);
+    c.m.set('sydent.auth', JSON.stringify({ user: { id: U2 } })); ok('d7: another account on the device is not locked by it', c.L.shouldLock() === false);
+    c.m.delete('sydent.auth'); ok('d7: no session → no lock', c.L.shouldLock() === false);
+    /* ملحٌ لكل جهاز */
+    const d1 = lock(U1), d2 = lock(U1); await d1.L.enable('1234', 5); await d2.L.enable('1234', 5);
+    ok('d7: the same code gives a different stored value on each device', JSON.parse(d1.m.get('sydent.applock')).hash !== JSON.parse(d2.m.get('sydent.applock')).hash);
+    /* الخروج يلغي القفل */
+    const t = mkTab(src, U1, async () => json([]), newIDB(), { auth: true });
+    let cleared = 0; t.SyDentAppLock = { clear: () => { cleared++; } };
+    await t.sb.auth.signOut({ scope: 'local' });
+    ok('d7: signing out clears the device lock', cleared === 1);
+    const tr7 = englishEngine();
+    ['التطبيق مقفل', 'أدخل رمز القفل للمتابعة', 'فتح', 'رمز غير صحيح', 'محاولات كثيرة — انتظر دقيقة ثم أعد المحاولة', 'نسيت الرمز؟ تسجيل الخروج', 'قفل التطبيق على هذا الجهاز', 'مفعّل على هذا الجهاز', 'يطلب رمزاً عند فتح التطبيق وبعد مدة خمول — على هذا الجهاز فقط', 'رمز قفل جديد من 4 إلى 6 أرقام', 'أعد إدخال الرمز للتأكيد', 'مدة الخمول قبل القفل', 'دقيقة واحدة', '5 دقائق', '15 دقيقة', '30 دقيقة', '🔒 تم تفعيل قفل التطبيق على هذا الجهاز', 'القفل مفعّل على هذا الجهاز', 'قفل الآن', 'تغيير مدة الخمول', 'إيقاف القفل', 'يتطلب رمز القفل الحالي', 'أدخل رمز القفل الحالي', 'تم إيقاف قفل التطبيق', '⚠️ الرمزان غير متطابقين', '⚠️ الرمز من 4 إلى 6 أرقام', 'تم حفظ مدة الخمول', '⚠️ تعذّر تفعيل القفل على هذا المتصفح', 'قفل التطبيق'].forEach(x => { const en = tr7(x); ok('d7: English engine leaves no Arabic in «' + x + '»', en != null && !AR.test(en), String(en)); });
+  }
+
   return fails;
 }
 
 const MUTATIONS = [
+  ['d7: public pages get locked', s => s.replace("if (isPublic() || !isOn()) return false;", 'if (!isOn()) return false;')],
+  ['d7: no wait after five wrong codes', s => s.replace("if (n >= MAX_FAILS) { ls().setItem(K_COOL, String(now() + COOL_MS)); ls().removeItem(K_FAIL); return { ok: false, reason: 'cooldown', secondsLeft: COOL_MS / 1000 }; }", '')],
+  ['d7: right code accepted during the wait', s => s.replace("if (left) return Promise.resolve({ ok: false, reason: 'cooldown', secondsLeft: left });", '')],
+  ['d7: lock applies to any account on the device', s => s.replace("function isOn() { var c = cfg(), u = sessionUid(); return !!(c && u && c.uid === u); }", 'function isOn() { return !!cfg(); }')],
+  ['d7: turning off without the code', s => s.replace("function disable(pin) { return verify(pin).then(function (r) { if (r.ok) clear(); return r; }); }", 'function disable(pin) { clear(); return Promise.resolve({ ok: true }); }')],
+  ['d7: sign-out leaves the lock on', s => s.replace("try { if (window.SyDentAppLock) window.SyDentAppLock.clear(); } catch (eA) {}", '')],
+  ['d7: idle period ignored', s => s.replace("return now() - last > (c.idle || 5) * 60000;", 'return false;')],
+  ['d7: same stored value on every device (no salt)', s => s.replace("var salt = hex(window.crypto.getRandomValues(new Uint8Array(16)));", "var salt = '00000000000000000000000000000000';")],
   ['d6: waiting operations hidden again', s => s.replace("var bad = all.filter(isBad).concat(all.filter(function (o) { return !isBad(o); }));   /* المرفوض أولاً */", 'var bad = all.filter(isBad);')],
   ['d6: a waiting operation offered «retry» instead of only delete', s => s.replace("var acts = !isBad(op)\n          ? [{ k: 'drop', label: 'حذف العملية', sub: 'تُحذف من هذا الجهاز ولا تُرفع' }]\n          : op.lastError === 'CONFLICT changed'", "var acts = op.lastError === 'CONFLICT changed'")],
   ['d6: click no longer uploads first', s => s.replace("var pre = offline ? Promise.resolve(null) : O.drain().catch(function () { return null; });", 'var pre = Promise.resolve(null);')],

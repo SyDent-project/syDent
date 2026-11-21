@@ -16,10 +16,10 @@
 /* ── Modal ── v453: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261121f"></script>
+<script src="theme.js?v=20261121g"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261121f"></script>
-<script src="pwd-policy.js?v=20261121f"></script>
+<script src="supabase-init.js?v=20261121g"></script>
+<script src="pwd-policy.js?v=20261121g"></script>
 <!-- ── Cloudflare Turnstile (CAPTCHA) ── Axis 3 / Item 2. Helper defined BEFORE the API
      script so window.onSyDentTurnstileLoad exists when the (async) script fires. -->
 <style>.cf-turnstile-box{margin:2px 0 14px;min-height:65px;display:flex;justify-content:center}.cf-turnstile-box>div{flex:1 1 100%;min-width:300px}/* v304: press feedback */
@@ -639,11 +639,11 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
 .pwd-toggle svg{display:block;width:20px;height:20px;flex-shrink:0;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261121f">
-<script src="sy-modal.js?v=20261121f"></script>
-<script src="sched-blocks.js?v=20261121f"></script>
-<script src="appt-blocks.js?v=20261121f"></script>
-<script src="sidebar.js?v=20261121f"></script>
+<link rel="stylesheet" href="theme.css?v=20261121g">
+<script src="sy-modal.js?v=20261121g"></script>
+<script src="sched-blocks.js?v=20261121g"></script>
+<script src="appt-blocks.js?v=20261121g"></script>
+<script src="sidebar.js?v=20261121g"></script>
 </head>
 <body>
 
@@ -665,6 +665,14 @@ input.bk-switch:checked::after { transform: translateX(-20px); }
        onclick="try{if(this.getAttribute('data-samsung')==='1'){if(window.SyDentPWA&&window.SyDentPWA.chromeIntentUrl)window.location.href=window.SyDentPWA.chromeIntentUrl();}else if(this.getAttribute('data-ios')!=='1'&&window.SyDentPWA&&window.SyDentPWA.promptInstall)window.SyDentPWA.promptInstall();}catch(e){}return false;">
       <div class="shub-ic c"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 21h16"/></svg></div>
       <div class="shub-body"><div class="shub-title">ثبّت SyDent كتطبيق</div><div class="shub-desc">تثبيت على سطح المكتب / الشاشة الرئيسية — يعمل بلا إنترنت</div></div>
+      <svg class="shub-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
+    </a>
+
+    <!-- قفل التطبيق على هذا الجهاز (SyDentAppLock بـsupabase-init.js) — إعداد الجهاز وحده -->
+    <a class="shub-card" href="#" id="appLockCard"
+       onclick="window.SyDentAppLock&&window.SyDentAppLock.openSettings();return false;">
+      <div class="shub-ic c"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+      <div class="shub-body"><div class="shub-title">قفل التطبيق على هذا الجهاز</div><div class="shub-desc" id="appLockCardDesc">يطلب رمزاً عند فتح التطبيق وبعد مدة خمول — على هذا الجهاز فقط</div></div>
       <svg class="shub-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
     </a>
 
