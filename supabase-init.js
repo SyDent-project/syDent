@@ -1398,8 +1398,17 @@
         /* M141: بوابة الاشتراك — كلُّ كتابةٍ لحسابٍ منتهٍ تُرفض هنا برسالةٍ واضحة
            قبل الشبكة وقبل طابور الأوفلاين (SyDentSub أدناه). القاعدة تحرس فعلياً. */
         var gate = (window.SyDentSub && window.SyDentSub.writeGate) ? window.SyDentSub.writeGate(input, init) : null;
-        if (gate) return gate.then(function (denied) { return denied || f.apply(window, args); });
-        return f.apply(window, args);
+        /* v801: كتابةُ هذا التبويب تُعلَّم لـSyLive (noteWrite) كي لا يُعامَل صداها بـRealtime كتغييرٍ من جهازٍ آخر
+           فيعيدَ تحميل الصفحة كاملةً بعد كل حفظ. تعليمٌ فقط — الطلبُ نفسه يمرّ كما هو ويعود وعدُه الأصلي. */
+        var run = function () {
+          var done = null;
+          try { done = (window.SyLive && window.SyLive.noteWrite) ? window.SyLive.noteWrite(input, init) : null; } catch (e) { done = null; }
+          var p = f.apply(window, args);
+          if (done) { try { p.then(done, done); } catch (e2) { done(); } }
+          return p;
+        };
+        if (gate) return gate.then(function (denied) { return denied || run(); });
+        return run();
       }
     }
   });
@@ -1911,6 +1920,22 @@
       };
     } catch (e) { /* صامت — يبقى السلوك الأصلي بلا لفّ */ }
   })();
+
+  /* ── v801: الإقلاع لا ينتظر جولاتٍ متتالية ───────────────────────────────────
+     القياس الحيّ (سوريا): كلُّ صفحةٍ كانت تنتظر getUser (جولةُ شبكة) بعد انتهاء تحميل سكربتاتها كلِّها، ثم تبدأ
+     بياناتها؛ وبطاقةُ المريض تزيد جولةً لصفّ المريض قبل دفعتها. الجولتان تبدآن الآن هنا — لحظةَ جهوز العميل، أثناء
+     تحميل بقية السكربتات — فتجدهما الصفحةُ جاهزتين:
+       (١) getUser: نداءٌ واحد يتشاركه كلُّ من يطلبه (single-flight أعلاه) ويُذكَر 30 ث — لا تغيّرَ بالدلالة ولا بالبوابة.
+       (٢) __syEarly(sb, uid): صفحةٌ تعلن قراءةً مبكرة بمعرّف الجلسة المحلية (بطاقةُ المريض: صفُّ المريض). قراءةٌ فقط،
+           تمرّ بالعميل نفسه (RLS والتوكن كما هما)، وتُستهلك مرةً واحدة؛ فشلُها يعيد الصفحةَ لمسارها العادي.
+     بلا جلسةٍ محلية (صفحةُ الدخول والصفحاتُ العامة) لا يُطلَق شيء. */
+  try {
+    var _bootU = sydentLocalSessionUser();
+    if (_bootU) {
+      try { var _bootG = window.sb.auth.getUser(); if (_bootG && _bootG.catch) _bootG.catch(function () {}); } catch (eG) {}
+      try { if (typeof window.__syEarly === 'function') window.__syEarly(window.sb, _bootU.id); } catch (eE) {}
+    }
+  } catch (eB) {}
 
   // ── هوية المستأجر لـSentry (المُعرّف وحده — صفر بيانات شخصية) ────────────
   // بلا هذه الكتلة يصل كل خطأٍ مجهولَ المصدر: «شيءٌ وقع بمكانٍ ما». معها يصير
@@ -7035,6 +7060,39 @@ window.SySlots = {
   var DEBOUNCE_MS = 700, HOLD_RETRY_MS = 1000, POLL_MS = 60000, AWAY_MS = 20000;
   var watchers = [], globalsWired = false;
 
+  /* v801 — صدى الكتابة المحلية. القياس الحيّ: كلُّ حفظٍ ببطاقة المريض كان يتبعه بعد 0.7 ث تحميلٌ كامل (~50 طلباً)
+     لأن Realtime يعيد للتبويب كتابتَه هو، وبالمواعيد كانت البياناتُ تُحمَّل مرتين. الصفحةُ حدّثت نفسها عند الحفظ،
+     فصدى كتابتها لا يستعجل شيئاً: يُؤجَّل إلى هدوءٍ (ECHO_QUIET_MS بعد آخر صدى وبلا كتابةٍ جارية) ولا يُسقَط أبداً —
+     تغييرُ جهازٍ آخر وقع بالنافذة نفسها يُلحَق بذلك التحميل، وما يقع خارجها يبقى لحظياً كما كان.
+     التعليم: كتابةُ REST على جدولٍ ⇒ نافذةٌ لذلك الجدول من بدء الطلب حتى ECHO_MS بعد ردّه؛ نداءُ RPC ⇒ نافذةٌ لكل
+     الجداول (لا يُعرف ما كتب) عدا نداءاتٍ دورية لا تكتب ما يُراقَب (RPC_QUIET). الخطأ بالاتجاه الآمن: نافذةٌ أوسع
+     تعني تأجيلاً لا فقداً. */
+  var ECHO_MS = 3000, ECHO_QUIET_MS = 15000;
+  var RPC_QUIET = { touch_presence: 1, my_subscription_state: 1 };
+  var localW = {};
+  function writeKey(input, init) {
+    var m = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+    if (m === 'GET' || m === 'HEAD' || m === 'OPTIONS') return null;
+    var u = typeof input === 'string' ? input : String((input && input.url) || '');
+    var i = u.indexOf('/rest/v1/');
+    if (i < 0) return null;
+    var p = u.slice(i + 9).split('?')[0];
+    if (!p) return null;
+    if (p.indexOf('rpc/') === 0) return RPC_QUIET[p.slice(4)] ? null : '*';
+    return p;
+  }
+  function noteWrite(input, init) {
+    var k = writeKey(input, init);
+    if (!k) return null;
+    var e = localW[k] || (localW[k] = { open: 0, until: 0 });
+    e.open++;
+    var closed = false;
+    return function () { if (closed) return; closed = true; e.open--; e.until = Date.now() + ECHO_MS; };
+  }
+  function echoOf(e, now) { return !!(e && (e.open > 0 || now < e.until)); }
+  function isEcho(table) { var now = Date.now(); return echoOf(localW[table], now) || echoOf(localW['*'], now); }
+  function writing() { var now = Date.now(); for (var k in localW) { if (echoOf(localW[k], now)) return true; } return false; }
+
   /* المستخدمُ مشغول ⇒ لا رسم: نافذةٌ/حوارٌ مفتوح · كتابةٌ بنصٍّ حرّ · حقلٌ داخل نافذةٍ أو نموذج · سحبٌ بالتقويم · قفلٌ صريح */
   function held() {
     var d = document;
@@ -7057,22 +7115,29 @@ window.SySlots = {
     try { return document.body.innerHTML.indexOf(String(id)) > -1; } catch (e) { return true; }
   }
   function schedule(w) {
-    w.dirty = true;
+    w.dirty = true; w.fast = true;
     clearTimeout(w.timer);
     w.timer = setTimeout(function () { flush(w); }, DEBOUNCE_MS);
+  }
+  /* v801: صدى كتابةِ هذا التبويب — تحميلٌ واحد مؤجَّل إلى الهدوء؛ تحميلٌ عاجل معلّق (تغييرٌ خارجي) لا يُؤخَّر به */
+  function scheduleQuiet(w) {
+    w.dirty = true;
+    if (w.fast) return;
+    clearTimeout(w.timer);
+    w.timer = setTimeout(function () { flush(w); }, ECHO_QUIET_MS);
   }
   async function flush(w) {
     if (!w.dirty || w.stopped) return;
     if (document.hidden) return;                                   /* يُطبَّق عند العودة للتبويب */
-    if (w.running || (w.hold !== false && held())) {
+    if (w.running || (w.hold !== false && held()) || (!w.fast && writing())) {   /* v801: تحميلُ الصدى لا يبدأ وسط حفظٍ جارٍ */
       clearTimeout(w.timer);
       w.timer = setTimeout(function () { flush(w); }, HOLD_RETRY_MS);
       return;
     }
-    w.dirty = false; w.running = true;
+    w.dirty = false; w.fast = false; w.running = true;
     try { await w.refresh(); } catch (e) { console.warn('SyLive refresh (' + w.name + '):', e); }
     w.running = false; w.lastRun = Date.now(); w.runs = (w.runs || 0) + 1;
-    if (w.dirty) schedule(w);
+    if (w.dirty && w.fast) schedule(w);                            /* صدىً وصل أثناء التحميل: مؤقّتُ هدوئه قائمٌ أصلاً */
   }
   function onEvent(w, table, payload) {
     if (!payload) return;
@@ -7081,6 +7146,7 @@ window.SySlots = {
       if (!id) return;
       if (!(w.knows || knowsByDom)(table, id)) return;            /* حذفٌ لعيادةٍ أخرى أو لصفٍّ غيرِ معروض */
     }
+    if (w.echoNow !== true && isEcho(table)) { scheduleQuiet(w); return; }   /* v801 */
     schedule(w);
   }
   function subscribe(w) {
@@ -7117,13 +7183,14 @@ window.SySlots = {
       watchers.forEach(function (w) { if (!w.live && !w.stopped && !document.hidden) schedule(w); });   /* أرضيةٌ حين تسقط القناة */
     }, POLL_MS);
   }
-  /* opts: { name, uid, tables: ['appointments', {t:'patients', filter:'id=eq.<pid>'}], refresh: async fn, knows?: fn(table,id), hold?: false } */
+  /* opts: { name, uid, tables: ['appointments', {t:'patients', filter:'id=eq.<pid>'}], refresh: async fn, knows?: fn(table,id), hold?: false,
+             echoNow?: true (v801: تحميلٌ خفيف يبقى فورياً حتى لصدى كتابة التبويب نفسه — شاراتُ القائمة) } */
   function watch(opts) {
     if (!opts || !opts.uid || typeof opts.refresh !== 'function' || !Array.isArray(opts.tables)) return null;
     var prev = watchers.filter(function (x) { return x.name === opts.name; })[0];
     if (prev) stop(prev);
     var w = { name: opts.name || 'page', uid: opts.uid, tables: opts.tables, refresh: opts.refresh, knows: opts.knows || null,
-              hold: opts.hold, dirty: false, live: false, wasDown: false, running: false, stopped: false, timer: null, runs: 0 };
+              hold: opts.hold, echoNow: opts.echoNow === true, dirty: false, fast: false, live: false, wasDown: false, running: false, stopped: false, timer: null, runs: 0 };
     watchers.push(w);
     wireGlobals();
     subscribe(w);
@@ -7134,8 +7201,8 @@ window.SySlots = {
     try { if (w.chan && window.sb) window.sb.removeChannel(w.chan); } catch (e) {}
     watchers = watchers.filter(function (x) { return x !== w; });
   }
-  window.SyLive = { watch: watch, stop: stop, held: held, tenantOf: tenantOf, _watchers: function () { return watchers; },
-                    _consts: { DEBOUNCE_MS: DEBOUNCE_MS, POLL_MS: POLL_MS, AWAY_MS: AWAY_MS } };
+  window.SyLive = { watch: watch, stop: stop, held: held, tenantOf: tenantOf, noteWrite: noteWrite, _watchers: function () { return watchers; },
+                    _consts: { DEBOUNCE_MS: DEBOUNCE_MS, POLL_MS: POLL_MS, AWAY_MS: AWAY_MS, ECHO_MS: ECHO_MS, ECHO_QUIET_MS: ECHO_QUIET_MS } };
 })();
 
 /* ═══ SYDENT_APPLOCK_START ═══

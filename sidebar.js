@@ -1243,7 +1243,7 @@ function initSidebar(activeId) {
     try {
       if (!window.sb || !window.SyLive) return;
       var r = await window.sb.auth.getUser(); var u = r && r.data && r.data.user;
-      if (u) window.SyLive.watch({ name: 'sidebar', uid: u.id, tables: ['appointments', 'booking_requests'], refresh: refreshSidebarDynamic, hold: false });
+      if (u) window.SyLive.watch({ name: 'sidebar', uid: u.id, tables: ['appointments', 'booking_requests'], refresh: refreshSidebarDynamic, hold: false, echoNow: true });   /* v801: الشاراتُ خفيفة — تبقى فوريةً بعد حفظ التبويب نفسه */
     } catch (e) {}
   }, 1500);
 

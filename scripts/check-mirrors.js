@@ -1970,7 +1970,9 @@ try {
   const ot = /var OPEN_TABLES = (\[[\s\S]*?\]);/.exec(block);
   const OPEN = ot ? vm.runInNewContext(ot[1]) : [];
   if (JSON.stringify(OPEN.slice().sort()) !== JSON.stringify(EXEMPT.slice().sort())) miss('OPEN_TABLES ≠ v_exempt بهجرة 141');
-  if (!/var gate = \(window\.SyDentSub && window\.SyDentSub\.writeGate\) \? window\.SyDentSub\.writeGate\(input, init\) : null;\s+if \(gate\) return gate\.then\(function \(denied\) \{ return denied \|\| f\.apply\(window, args\); \}\);/.test(si)) miss('fetch المشترك لا يمرّ بـwriteGate قبل الشبكة');
+  /* v801: الطلبُ يمرّ بغلافٍ يعلّم الكتابة لـSyLive (run) — النداءُ الوحيد للشبكة داخله، ولا يُستدعى إلا بعد حسم البوابة */
+  if (!/var gate = \(window\.SyDentSub && window\.SyDentSub\.writeGate\) \? window\.SyDentSub\.writeGate\(input, init\) : null;[\s\S]{0,600}?var run = function \(\) \{[\s\S]{0,400}?var p = f\.apply\(window, args\);[\s\S]{0,200}?return p;\s+\};\s+if \(gate\) return gate\.then\(function \(denied\) \{ return denied \|\| run\(\); \}\);\s+return run\(\);\s+\}/.test(si)
+      || (si.slice(si.indexOf('      fetch: function (input, init) {'), si.indexOf('/* ══ SyDentSub:begin')).match(/f\.apply\(|run\(\)/g) || []).join() !== 'f.apply(,run(),run()') miss('fetch المشترك لا يمرّ بـwriteGate قبل الشبكة');
   const eaa = /window\.ensureAccountAccessible = async function[\s\S]*?\n  \};/.exec(si);
   if (!eaa || !/if \(status === 'accepted'\) \{\s+if \(window\.SyDentSub\) return await window\.SyDentSub\.applyPageGate\(\);/.test(eaa[0])) miss('ensureAccountAccessible لا يمرّ بـapplyPageGate');
   const hb = extractFunction(si, 'presenceHeartbeat');

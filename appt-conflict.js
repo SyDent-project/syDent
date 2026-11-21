@@ -68,24 +68,32 @@
     return out.sort(function (a, b) { return a.startMin - b.startMin; });
   }
 
-  /* يجلب مواعيدَ اليوم نفسِه من القاعدة (نطاق الطبيب) ثم يطبّق find. */
+  /* يجلب مواعيدَ اليوم نفسِه من القاعدة (نطاق الطبيب) ثم يطبّق find.
+     v801: القراءاتُ الثلاث (مواعيدُ اليوم · الفتراتُ المغلقة · دوامُ الطبيب) مستقلة — تُطلَق معاً. كانت تُنتظر واحدةً
+     واحدة قبل كل حفظٍ ونقل (قياسٌ حيّ: 2.3 ث بين النقر وكتابة الموعد). النتيجةُ ومعالجةُ الخطأ كما هما: فشلُ قراءة
+     المواعيد ⇒ error (والحفظُ يتابع بلا حارس)، والفتراتُ ودوامُ الطبيب يعيدان فارغاً عند فشلهما كما كانا. */
   async function check(cand, doctorId) {
     var out = { conflicts: [], blocks: [], error: null };
     if (!window.sb || !doctorId || !cand || !cand.date || !cand.time) return out;
     try {
-      if (cand.provider_id || cand.operatory_id) {
-        var r = await window.sb.from('appointments').select(SELECT_COLS)
-          .eq('doctor_id', doctorId).eq('date', cand.date);
+      var B = window.SyDentBlocks || null;
+      var needAp = !!(cand.provider_id || cand.operatory_id);
+      var pAp = needAp ? window.sb.from('appointments').select(SELECT_COLS)
+          .eq('doctor_id', doctorId).eq('date', cand.date) : null;
+      /* v498 (M154): الفتراتُ المغلقة المانعة بنفس اليوم — SyDentBlocks هو المصدر (sched-blocks.js) */
+      var pBl = B ? B.load(doctorId, cand.date, cand.date) : null;
+      /* M222: خارج دوام الطبيب الخاص — حالاتٌ مانعة باسمه (تنبيهٌ يُتجاوز كغيره) */
+      var pOff = (B && cand.provider_id && B.offHours) ? B.offHours(doctorId, cand.date, cand.date) : null;
+      var got = await Promise.all([pAp, pBl, pOff]);
+      if (needAp) {
+        var r = got[0];
         if (r.error) { out.error = r.error; return out; }
         out.conflicts = find(cand, r.data || []);
       }
-      /* v498 (M154): الفتراتُ المغلقة المانعة بنفس اليوم — SyDentBlocks هو المصدر (sched-blocks.js) */
-      if (window.SyDentBlocks) {
-        var rows = await window.SyDentBlocks.load(doctorId, cand.date, cand.date);
-        var inst = window.SyDentBlocks.expand(rows, cand.date, cand.date);
-        /* M222: خارج دوام الطبيب الخاص — حالاتٌ مانعة باسمه (تنبيهٌ يُتجاوز كغيره) */
-        if (cand.provider_id && window.SyDentBlocks.offHours) inst = inst.concat(await window.SyDentBlocks.offHours(doctorId, cand.date, cand.date));
-        out.blocks = window.SyDentBlocks.blocking(inst, cand);
+      if (B) {
+        var inst = B.expand(got[1], cand.date, cand.date);
+        if (pOff) inst = inst.concat(got[2]);
+        out.blocks = B.blocking(inst, cand);
       }
       return out;
     } catch (e) { out.error = e; return out; }
