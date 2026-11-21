@@ -29,8 +29,17 @@ const FAKE_DB = `
     function run(st){
       window.__OPS.push(JSON.parse(JSON.stringify({ table: st.table, op: st.op, payload: st.payload })));
       var T = window.__DB[st.table] || (window.__DB[st.table] = []);
+      if (st.op === 'insert' && st.table === 'ledger_sessions' && window.__FAIL_LEDGER) {   /* v805: فشلٌ محقون */
+        var FL = window.__FAIL_LEDGER;
+        if (Array.isArray(st.payload) ? FL.array : (FL.singleFrom !== undefined && (window.__LEDGER_SINGLES = (window.__LEDGER_SINGLES || 0) + 1) > FL.singleFrom))
+          return { data: null, error: { message: 'insert refused (test)' } };
+        if (Array.isArray(st.payload) && FL.short) { var c0 = JSON.parse(JSON.stringify(st.payload[0])); c0.id = 'sess-' + (++window.__SID); T.push(c0); return { data: [c0], error: null }; }
+      }
       if (st.op === 'insert') { var rows = Array.isArray(st.payload) ? st.payload : [st.payload], made = [];
-        rows.forEach(function(r){ var c = JSON.parse(JSON.stringify(r)); if (!c.id) c.id = 'sess-' + (++window.__SID); T.push(c); made.push(c); });
+        rows.forEach(function(r){ var c = JSON.parse(JSON.stringify(r)); if (!c.id) c.id = 'sess-' + (++window.__SID);
+          /* الخادم: created_at = now() بدقّة الميكروثانية إن لم يُرسَل */
+          if (st.table === 'ledger_sessions' && !c.created_at && !window.__NO_CREATED) { window.__CLOCK = (window.__CLOCK || Date.UTC(2026, 10, 21, 10, 0, 0)) + 7; c.created_at = new Date(window.__CLOCK).toISOString().replace('Z', '') + '456+00:00'; }
+          T.push(c); made.push(c); });
         return { data: st.single ? made[0] : made, error: null }; }
       if (st.op === 'upsert' && Array.isArray(st.payload) && window.__FAIL_BULK) return { data: null, error: { message: 'bulk refused (test)' } };
       if (st.op === 'upsert') { var ur = Array.isArray(st.payload) ? st.payload : [st.payload];
@@ -118,7 +127,7 @@ async function behave(w) {
   const tabsOf = id => Array.from($(id).querySelectorAll('.tx-tab')).map(b => b.getAttribute('data-modetab'));
   const active = id => { const b = $(id).querySelector('.tx-tab-active'); return b ? b.getAttribute('data-modetab') : null; };
   const names = id => Array.from($(id).querySelectorAll('.exam-tx')).map(b => b.textContent.trim());
-  const reset = () => { w.__DB.teeth_status = []; w.__DB.ledger_sessions = []; w.__OPS = []; w.__TOASTS.length = 0; w.__REALLOC = 0; w.__MAT = 0; w.__FAIL_BULK = false;
+  const reset = () => { w.__DB.teeth_status = []; w.__DB.ledger_sessions = []; w.__OPS = []; w.__TOASTS.length = 0; w.__REALLOC = 0; w.__MAT = 0; w.__FAIL_BULK = false; w.__FAIL_LEDGER = null; w.__LEDGER_SINGLES = 0; w.__NO_CREATED = false;
     w.eval('teethMap = {}; sessions = []; window.teethDx = {}; patient.last_visit = null; patient.status = "جديد";'); };
   const toasts = () => w.__TOASTS.join(' | ');
   w.localStorage.removeItem('sydent_tx_usage');
@@ -281,8 +290,44 @@ async function behave(w) {
   $('batchPalette').querySelector('.exam-tx').click();
   w.batchToggleAt(36, 'O'); w.batchToggleAt(46, 'O'); w.batchApply(); await tick(5);
   await w.saveToothTreatment(); await tick(10);
-  r.bulkCarriesDiagnosisToSession = chartW().length === 1 && Array.isArray(chartW()[0].payload)
+  /* v805: موضعٌ عليه صفٌّ قبله (حالةٌ هنا) لا يدخل الطلبَ الجماعي — المسارُ القديم موضعاً موضعاً، والتشخيصُ يُحمل كما كان */
+  r.bulkCarriesDiagnosisToSession = chartW().length === 2 && chartW().every(o => !Array.isArray(o.payload))
     && w.__DB.ledger_sessions.length === 2 && w.__DB.ledger_sessions.every(x => /سبب العلاج/.test(x.notes || ''));
+  /* ── v805: جلساتُ الدفعة بطلبين، بترتيبها، وبلا رسمٍ يتيم عند الفشل ── */
+  const ledW = () => w.__OPS.filter(o => o.table === 'ledger_sessions' && o.op === 'insert');
+  const batch4 = async st => { w.batchSetStatus(st || 'completed'); $('batchTxTabs').querySelector('[data-modetab="restorative"]').click(); $('batchPalette').querySelector('.exam-tx').click();
+    [14, 24, 34, 44].forEach(n => w.batchToggleAt(n, 'O')); w.batchApply(); await tick(5); await w.saveToothTreatment(); await tick(15); };
+  reset(); await batch4();
+  const L4 = w.__DB.ledger_sessions;
+  r.sessionsTwoRequests = ledW().length === 2 && !Array.isArray(ledW()[0].payload) && Array.isArray(ledW()[1].payload) && ledW()[1].payload.length === 3 && L4.length === 4;
+  const t0 = Date.parse(L4[0].created_at);
+  r.sessionsServerAnchoredOrder = L4.map(x => x.tooth_num).join() === '14,24,34,44' && L4.slice(1).every((x, i) => Date.parse(x.created_at) === Math.floor(t0) + i + 1)
+    && L4.every((x, i) => i === 0 || x.created_at > L4[i - 1].created_at || Date.parse(x.created_at) > Date.parse(L4[i - 1].created_at));
+  r.sessionsListOrderAsBefore = w.eval('sessions.map(function(s){ return s.tooth_num; }).join()') === '44,34,24,14';
+  r.sessionsSameFields = ledW()[1].payload.every((x, i) => JSON.stringify(Object.keys(x).filter(k => k !== 'created_at').sort()) === JSON.stringify(Object.keys(ledW()[0].payload).sort()) && x.tooth_num === String([24, 34, 44][i]))
+    && L4.every(x => x.status === 'completed' && x.cost === 60000 && x.surface === 'O');
+  r.sessionsSideEffectsOnce = w.__REALLOC === 1 && w.__MAT === 1 && w.eval('patient.status') === 'تحت العلاج' && /تم تسجيل[\s\S]*4 أسنان/.test(toasts()) && !/توقفت/.test(toasts());
+  /* (أ) الطلبُ الجماعي يُرفض ⇒ الباقي سناً سناً ولا شيء يضيع */
+  reset(); w.__FAIL_LEDGER = { array: true }; await batch4();
+  r.sessionsBulkFailFallsBack = w.__DB.ledger_sessions.length === 4 && ledW().filter(o => !Array.isArray(o.payload)).length === 4 && w.__DB.teeth_status.length === 4 && !/توقفت/.test(toasts());
+  /* (ب) يتوقف عند السن الثالث ⇒ رسمُ الثالث والرابع يُمحى (كانا فارغين) ولا رسمَ بلا جلسة */
+  reset(); w.__FAIL_LEDGER = { array: true, singleFrom: 2 }; await batch4();
+  const ts3 = w.__DB.teeth_status.map(x => x.tooth_num).sort().join();
+  r.sessionsStopRollsBackChart = w.__DB.ledger_sessions.length === 2 && ts3 === '14,24' && !w.eval('(teethMap["34"] || {}).O') && !w.eval('(teethMap["44"] || {}).O')
+    && /توقفت الدفعة — سُجلت 2 من 4/.test(toasts()) && w.__REALLOC === 1;
+  /* (ج) الأولى تفشل ⇒ لا جلسة ولا رسم */
+  reset(); w.__FAIL_LEDGER = { singleFrom: 0 }; await batch4();
+  r.sessionsFirstFailNothingLeft = w.__DB.ledger_sessions.length === 0 && w.__DB.teeth_status.length === 0 && w.__REALLOC === 0 && w.eval('patient.status') !== undefined;
+  /* (د) ردٌّ جماعيٌّ ناقص (أُدرج بعضُه) ⇒ لا تخمين ولا تكرار: ما لم يُثبت يُمحى رسمه */
+  reset(); w.__FAIL_LEDGER = { short: true }; await batch4();
+  r.sessionsShortReplyNoDuplicates = ledW().length === 2 && w.__DB.ledger_sessions.length === 2 && w.__DB.teeth_status.map(x => x.tooth_num).sort().join() === '14,24'
+    && w.eval('sessions.length') === 2 && /توقفت الدفعة — سُجلت 2 من 4/.test(toasts());
+  /* (و) الخادمُ لم يُعِد وقتاً ⇒ لا ساعةَ جهاز ولا تعادل: الباقي سناً سناً بوقت الخادم */
+  reset(); w.__NO_CREATED = true; await batch4();
+  r.sessionsNoServerTimeNoGuess = ledW().length === 4 && ledW().every(o => !Array.isArray(o.payload) && !o.payload.created_at) && w.__DB.ledger_sessions.length === 4;
+  /* (هـ) مخطّط: الجلساتُ بطلبين أيضاً ولا مواد */
+  reset(); await batch4('planned');
+  r.sessionsPlannedTwoRequests = ledW().length === 2 && w.__DB.ledger_sessions.every(x => x.status === 'planned') && w.__MAT === 0;
   reset();
 
   /* ── الخروجُ من الوضع ينظّف مظهرَ التوثيق ── */
@@ -316,6 +361,18 @@ async function runAll(over) {
 
   const PM = 'pp-modules.js', PD = 'pp-dental.js', CSS = 'patient-profile.css', PH = 'patient-profile.html';
   const MUT = [
+    /* v805 */
+    ['sessions one request per tooth again', PD, "      if (_bBulk) { _bPend.push({ n: _bn, s: _bSurface, desc: _bDesc, pay: _bPay }); continue; }   /* v805 */\n", ""],
+    ['bulk sent without a server time', PD, "        if (isFinite(_bT0)) { try { _brr = await", "        if (true) { try { _brr = await"],
+    ['created_at from the device clock', PD, "if (isFinite(_bT0)) o.created_at = new Date(_bT0 + i + 1).toISOString();", "o.created_at = new Date(Date.now() + i + 1).toISOString();"],
+    ['ties between batch sessions', PD, "o.created_at = new Date(_bT0 + i + 1).toISOString();", "o.created_at = new Date(_bT0).toISOString();"],
+    ['bulk failure loses the rest', PD, "          for (var _bk = 1; _bk < _bPend.length; _bk++) { if (!(await _bOne(_bk))) break; }   /* لا شيء أُدرج ⇒ الباقي سناً سناً */\n", ""],
+    ['chart left drawn without its session', PD, "        _bFailed = true;\n        /* رسمُ ما لم تُسجَّل جلستُه", "        _bFailed = true; _bPend = [];\n        /* رسمُ ما لم تُسجَّل جلستُه"],
+    ['short reply re-inserted (duplicates)', PD, "        } else if (_brr && !_brr.error && Array.isArray(_brr.data) && _brr.data.length) {", "        } else if (false) {"],
+    ['short reply: returned rows ignored', PD, "if (i && !_bGot[i] && _bByKey[String(x.n) + '|' + x.s]) { _bTookSess(", "if (false) { _bTookSess("],
+    ['rollback removes rows that have a session', PD, "var _bLeft = _bPend.filter(function (x, i) { return !_bGot[i]; });", "var _bLeft = _bPend.slice(1);"],
+    ['occupied surface in the bulk path', PD, "if (_bKeys[_bpk] || ((teethMap[String(_bpn)] || {})[_bps]) || !batchAllowed(", "if (_bKeys[_bpk] || !batchAllowed("],
+    ['memory not restored on rollback', PD, "          if (_bm) { delete _bm[_bx.s]; if (_bm.__status) delete _bm.__status[_bx.s]; if (_bm.__review) delete _bm.__review[_bx.s]; }\n", ""],
     /* v801 */
     ['bulk-off (a request per position again)', PD, "if (_bSel.length > 1 && _bTp !== 'implant') {", "if (false) {"],
     ['bulk-rows-written-twice', PD, "var _br = _bBulk ? teethRowWrittenInBulk(_bRow)   /* v801: كُتب بالطلب الجماعي أعلاه */\n                         : await", "var _br = await"],

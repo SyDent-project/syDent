@@ -7051,7 +7051,9 @@ async function _saveToothTreatment_inner() {
       var _bRows = [], _bKeys = {}, _bPlain = true;
       for (var _bp = 0; _bp < _bSel.length && _bPlain; _bp++) {
         var _bpn = _bSel[_bp].n, _bps = _bSel[_bp].s, _bpk = _bpn + '|' + _bps;
-        if (_bKeys[_bpk] || !batchAllowed(_bpn, _bTr || {}, _bps).ok
+        /* v805: «بسيط» يشترط أيضاً موضعاً فارغاً (لا صفَّ قبله على السطح) — فإن تعذّر تسجيلُ جلسات الدفعة بعد الرسم الجماعي
+           يُمحى صفُّه فيعود المخطط حرفياً كما كان (لا رسمَ بلا جلسة). موضعٌ عليه صف ⇒ المسارُ القديم موضعاً موضعاً. */
+        if (_bKeys[_bpk] || ((teethMap[String(_bpn)] || {})[_bps]) || !batchAllowed(_bpn, _bTr || {}, _bps).ok
             || (_bps === 'WHOLE' && isExtractionKey(pendingToothStatus) && isExtractionLandedStatus(pendingTreatStatus))
             || ((_bps === 'CROWN_FULL' || _bps === 'WHOLE') && _bTp === 'crown_full')) { _bPlain = false; break; }
         _bKeys[_bpk] = true;
@@ -7070,6 +7072,28 @@ async function _saveToothTreatment_inner() {
         else console.warn('batch bulk chart write failed — writing tooth by tooth:', _bbr && _bbr.error);
       }
     }
+    var _bPend = [];   /* v805: جلساتُ الدفعة الجماعية — تُسجَّل بعد الحلقة بطلبين (لا طلبٍ لكل سن) */
+    /* ما يجري لكل جلسةٍ سُجّلت — حرفياً كما كان داخل الحلقة (المسارُ الفردي والجماعي يمرّان من هنا) */
+    var _bTookSess = function (row, n, sf, desc) {
+      if (!bNewSess) bNewSess = row;   // first session anchors the realloc guard
+      _bCreated++;
+      _bSessIds.push(row.id);
+      if (!_bLabSeen[String(n)]) {
+        _bLabSeen[String(n)] = true;
+        _bLabUnits.push({ session_id: row.id, tooth_num: n });
+      }
+      sessions.unshift(row);
+      // Phase 5: audit log (batch — one entry per session, logAudit pattern)
+      if (window.logAudit) {
+        window.logAudit('session.create', {
+          entityId: row.id,
+          patientId: patientId,
+          patientName: (patient && patient.name) || '',
+          description: 'إضافة جلسة (' + desc + '): ' + pendingToothLabel + ' — ' + cost + ' ' + _rowLbl(row),
+          newValue: { type: pendingToothLabel, cost: cost, date: date, status: pendingTreatStatus, provider_id: pendingProviderId, tooth_num: String(n), surface: sf, batch: true }
+        });
+      }
+    };
     for (var _bi = 0; _bi < _bSel.length; _bi++) {
       var _bn = _bSel[_bi].n;
       var _bSurface = _bSel[_bi].s;   // محلول لحظة النقر عبر examRouteSurface — لا إعادة حساب
@@ -7141,7 +7165,7 @@ async function _saveToothTreatment_inner() {
       if (pendingTreatStatus !== 'completed' && pendingTreatStatus !== 'planned') { _bCreated++; continue; }
       // Ledger session per tooth — byte-identical fields to the single-tooth path.
       var _bDesc = 'السن رقم ' + _bn + ' — ' + _bAreaLbl;
-      var _bl = await window.sb.from('ledger_sessions').insert({
+      var _bPay = {
         doctor_id: currentUser.id, patient_id: patientId,
         type: pendingToothLabel, description: _bDesc,
         cost: cost, date: date, notes: _bSessOnly ? notes : dxSessionNote(_bn, _bSurface, notes), tooth_num: String(_bn), surface: _bSurface,   /* v605 */
@@ -7149,30 +7173,72 @@ async function _saveToothTreatment_inner() {
         provider_id: pendingProviderId,
         treatment_key: getTreatment(pendingToothStatus) ? pendingToothStatus : null,   // v260
         currency: window.SyDentCurPick.read('toothCost')     // M125
-      }).select().single();
+      };
+      if (_bBulk) { _bPend.push({ n: _bn, s: _bSurface, desc: _bDesc, pay: _bPay }); continue; }   /* v805 */
+      var _bl = await window.sb.from('ledger_sessions').insert(_bPay).select().single();
       if (_bl.error) {
         console.error('batch ledger insert error:', _bl.error);
         showToast('⚠️ تسجيل جلسة السن ' + _bn + ' فشل: ' + _bl.error.message);
         _bFailed = true; break;
       }
-      if (_bl.data) {
-        if (!bNewSess) bNewSess = _bl.data;   // first session anchors the realloc guard
-        _bCreated++;
-        _bSessIds.push(_bl.data.id);
-        if (!_bLabSeen[String(_bn)]) {
-          _bLabSeen[String(_bn)] = true;
-          _bLabUnits.push({ session_id: _bl.data.id, tooth_num: _bn });
+      if (_bl.data) _bTookSess(_bl.data, _bn, _bSurface, _bDesc);
+    }
+    /* v805: جلساتُ الدفعة الجماعية بطلبين بدل طلبٍ لكل سن. الأولى وحدها تعطي وقتَ الخادم (created_at)، والباقي بطلبٍ واحد
+       بأوقاتٍ تتلوه بجزءٍ من الثانية بترتيب الأسنان — فالقوائمُ المرتّبة بالتاريخ ثم وقت الإنشاء ترتّبها كما كانت تماماً
+       (كلُّ سنٍّ بعد سابقه، لا تعادل ولا ساعة الجهاز). الطلبُ الجماعي ذرّي: فشله ⇒ لا شيء أُدرج، فيُكمَل سناً سناً كما كان
+       ويقف عند أول فشل. ما لم تُسجَّل جلستُه يُمحى صفُّ رسمه (كان موضعاً فارغاً) فيعود المخطط كما كان ولا يبقى رسمٌ بلا جلسة. */
+    if (_bPend.length) {
+      var _bDone = 0, _bGot = {};
+      var _bOne = async function (k) {
+        var r1 = await window.sb.from('ledger_sessions').insert(_bPend[k].pay).select().single();
+        if (r1.error || !r1.data) {
+          console.error('batch ledger insert error:', r1.error);
+          showToast('⚠️ تسجيل جلسة السن ' + _bPend[k].n + ' فشل: ' + ((r1.error && r1.error.message) || ''));
+          return null;
         }
-        sessions.unshift(_bl.data);
-        // Phase 5: audit log (batch — one entry per session, logAudit pattern)
-        if (window.logAudit) {
-          window.logAudit('session.create', {
-            entityId: _bl.data.id,
-            patientId: patientId,
-            patientName: (patient && patient.name) || '',
-            description: 'إضافة جلسة (' + _bDesc + '): ' + pendingToothLabel + ' — ' + cost + ' ' + _rowLbl(_bl.data),
-            newValue: { type: pendingToothLabel, cost: cost, date: date, status: pendingTreatStatus, provider_id: pendingProviderId, tooth_num: String(_bn), surface: _bSurface, batch: true }
-          });
+        _bTookSess(r1.data, _bPend[k].n, _bPend[k].s, _bPend[k].desc); _bDone++; _bGot[k] = true;
+        return r1.data;
+      };
+      var _bFirst = await _bOne(0);
+      if (_bFirst && _bPend.length > 1) {
+        var _bT0 = Date.parse(_bFirst.created_at);
+        var _bRest = _bPend.slice(1).map(function (x, i) {
+          var o = Object.assign({}, x.pay);
+          if (isFinite(_bT0)) o.created_at = new Date(_bT0 + i + 1).toISOString();
+          return o;
+        });
+        var _brr = null;
+        if (isFinite(_bT0)) { try { _brr = await window.sb.from('ledger_sessions').insert(_bRest).select(); } catch (eBR) { _brr = { error: eBR }; } }
+        var _bByKey = {};
+        if (_brr && !_brr.error && Array.isArray(_brr.data) && _brr.data.length === _bRest.length) {
+          _brr.data.forEach(function (row) { _bByKey[String(row.tooth_num) + '|' + row.surface] = row; });
+        }
+        var _bAll = _bPend.slice(1).every(function (x) { return !!_bByKey[String(x.n) + '|' + x.s]; });
+        if (_bAll) {
+          _bPend.slice(1).forEach(function (x, i) { _bTookSess(_bByKey[String(x.n) + '|' + x.s], x.n, x.s, x.desc); _bDone++; _bGot[i + 1] = true; });
+        } else if (_brr && !_brr.error && Array.isArray(_brr.data) && _brr.data.length) {
+          /* ردٌّ ناقص (لا يحدث مع إدراجٍ ذرّي — احتياط): ما عاد مُدرَجٌ فعلاً فيُعتمد، وما لم يعد لا يُعاد إدراجه (لا تكرار) */
+          console.warn('batch ledger bulk insert: partial reply — keeping what was returned');
+          _brr.data.forEach(function (row) { _bByKey[String(row.tooth_num) + '|' + row.surface] = row; });
+          _bPend.forEach(function (x, i) { if (i && !_bGot[i] && _bByKey[String(x.n) + '|' + x.s]) { _bTookSess(_bByKey[String(x.n) + '|' + x.s], x.n, x.s, x.desc); _bDone++; _bGot[i] = true; } });
+        } else {
+          console.warn('batch ledger bulk insert failed — continuing tooth by tooth:', _brr && _brr.error);
+          for (var _bk = 1; _bk < _bPend.length; _bk++) { if (!(await _bOne(_bk))) break; }   /* لا شيء أُدرج ⇒ الباقي سناً سناً */
+        }
+      }
+      if (_bDone < _bPend.length) {
+        _bFailed = true;
+        /* رسمُ ما لم تُسجَّل جلستُه يُمحى (موضعٌ كان فارغاً ⇒ الحذفُ يعيده حرفياً) */
+        var _bLeft = _bPend.filter(function (x, i) { return !_bGot[i]; });
+        for (var _bu = 0; _bu < _bLeft.length; _bu++) {
+          var _bx = _bLeft[_bu];
+          var _bdl = await window.sb.from('teeth_status').delete()
+            .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
+            .eq('tooth_num', String(_bx.n)).eq('surface', _bx.s);
+          if (_bdl.error) { console.error('batch chart rollback error:', _bdl.error); continue; }
+          var _bm = teethMap[String(_bx.n)];
+          if (_bm) { delete _bm[_bx.s]; if (_bm.__status) delete _bm.__status[_bx.s]; if (_bm.__review) delete _bm.__review[_bx.s]; }
+          try { dxSet(_bx.n, _bx.s, null); } catch (eDx) {}
         }
       }
     }

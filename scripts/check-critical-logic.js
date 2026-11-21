@@ -1754,8 +1754,12 @@ async function runDashFin(sc) {
     const pickOk = /if \(isConditionKey\(pendingToothStatus\) && s !== 'condition'\) \{/.test(pd);
     const batchOk = (function(){
       const i = pd.indexOf("if (isConditionKey(pendingToothStatus)) { _bCreated++; continue; }");
-      const j = pd.indexOf("from('ledger_sessions').insert({", i);
-      return i > 0 && j > i;
+      /* v805: الجلسةُ تُبنى حمولةً (_bPay) بعد البوابة ثم تُدرج فوراً أو تُجمَع للإدراج بعد الحلقة — كلاهما بعد البوابة،
+         ولا إدراجَ جلسةٍ بين بداية الحلقة والبوابة */
+      const loop = pd.indexOf("    var _bPend = [];");
+      const j = pd.indexOf("var _bPay = {", i), k = pd.indexOf("from('ledger_sessions').insert(_bPay)", j);
+      return i > 0 && loop > 0 && loop < i && j > i && k > j && pd.slice(loop, i).indexOf("from('ledger_sessions').insert(") === -1
+        && pd.indexOf("_bPend.push({ n: _bn, s: _bSurface, desc: _bDesc, pay: _bPay })", j) > j;
     })();
     const surfaceOk = /if \(tr && tr\.cond_scope === 'tooth'\) currentSurface = COND_SURFACE;/.test(pd)
       && /var COND_SURFACE = 'COND';/.test(pd);
