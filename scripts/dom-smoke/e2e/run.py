@@ -352,7 +352,7 @@ MUTANTS = [
   ('الإشعارُ يغطّي زرَّ «لاحقاً» على الهاتف', 'card390', 'pp-consent.js', "if (tst) tst.classList.remove('show');", "void 0;"),
   ('حوارٌ عند فتح البطاقة', 'open', 'pp-consent.js', "      if (first) PP_CONSENTS.forEach(function (c) { _ppConsentAsked[c.id] = true; });   /* ما وُجد عند الفتح يعرضه الصفُّ بلا حوار */\n      else fresh = PP_CONSENTS.filter(", "      fresh = PP_CONSENTS.filter("),
   ('نصُّ الموافقة يُحفظ لعلاجٍ آخر', 'tx', 'tx-consent.js', "{ owner_id: uid, treatment_key: key, title: title, body: body }", "{ owner_id: uid, treatment_key: 'x', title: title, body: body }"),
-  ('الحجزُ خارج الدوام بلا تنبيه', 'appt', 'appt-conflict.js', "if (cand.provider_id && window.SyDentBlocks.offHours) inst = inst.concat(", "if (false) inst = inst.concat("),
+  ('الحجزُ خارج الدوام بلا تنبيه', 'appt', 'sched-blocks.js', "  async function offHours(doctorId, from, to) {", "  async function offHours(doctorId, from, to) { return [];"),
   ('تلميحُ الموافقة غائبٌ عن نافذة الموعد', 'appt', 'appointments.html', '<script src="consent-pending.js', '<script src="consent-pending-x.js'),
   ('إجازةُ الطبيب لا تُغلق تقويمَه', 'emp', 'emp-time.js', "if (S.providerId && to >= today) {", "if (false) {"),
   ('إجازةُ المالك لا تُغلق تقويمَه', 'emp', 'emp-time.js', "if (!S.providerId && S.emp.role === 'owner') {", "if (false) {"),
@@ -379,6 +379,10 @@ with sync_playwright() as pw:
     bit = 0
     only = [a for a in sys.argv[1:] if a in SCEN or a == 'card390']
     if only: MUTANTS = [m for m in MUTANTS if m[1] in only]
+    dead = [t for t, sc, f, a, r in MUTANTS if a not in open(os.path.join(ROOT, f), encoding='utf-8').read()]
+    if dead:   # مرساةٌ اختفت من الملف = طفرةٌ ميتة؛ لا تُحسب «عضّت» باستثناء
+        for t in dead: print('  ✗ طفرةٌ بلا مرساة:', t)
+        print('❌ مثبت المسارات على الصفحات الحقيقية: %d طفرة بلا مرساة' % len(dead)); sys.exit(1)
     for title, scen, fname, a, r in MUTANTS:
         MUT.clear(); MUT[fname] = (a, r); FAILS.clear(); N[0] = 0
         try:
