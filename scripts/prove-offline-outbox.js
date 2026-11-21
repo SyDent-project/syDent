@@ -318,7 +318,7 @@ async function runAll(src, opt_sw, only) {
     badge.onclick(); await sleep(60);
     const first = t.dialogs[0];
     ok('s3: clicking the badge lists the rejected operations', !!first && first.kind === 'choose' && first.o.choices.length === 2, first ? JSON.stringify(first.o.choices) : 'no dialog');
-    const flat = first ? first.o.choices.map(c => c.label.replace(/[\u2066-\u2069]/g, '') + ' | ' + c.sub.replace(/[\u2066-\u2069]/g, '')) : [];
+    const flat = first ? first.o.choices.map(c => c.label.replace(/[\u2066-\u2069]/g, '').replace(/^[^\u0600-\u06FF]+/, '') + ' | ' + c.sub.replace(/[\u2066-\u2069]/g, '')) : [];
     ok('s3: appointment row shows kind, date, time and patient', flat.indexOf('موعد جديد · 2026-11-21 10:30 | سامر الأحمد') !== -1, flat.join(' ## '));
     ok('s3: payment row shows amount, currency, date and the reason', flat.indexOf('دفعة · 50000 ل.س · 2026-11-20 | السجل المرتبط بها حُذف من جهاز آخر (HTTP 409 · 23503)') !== -1, flat.join(' ## '));
 
@@ -834,10 +834,53 @@ async function runAll(src, opt_sw, only) {
     ['عُدّل الموعد من جهاز آخر بعد تعديلك', 'حُذف الموعد من جهاز آخر', 'تطبيق تعديلي', 'يُكتب فوق ما عُدّل من الجهاز الآخر', 'يبقى الموعد كما هو على الخادم'].forEach(x => { const en = tr5(x); ok('d5: English engine leaves no Arabic in «' + x + '»', en != null && !AR.test(en), String(en)); });
   }
 
+  /* ══ تطوير 6: النافذة تعرض المنتظر أيضاً (لا المرفوض فقط) ══ */
+  if (!only || only === 'd6') {
+    const HJ = { 'Content-Type': 'application/json' };
+    let mode = 'down'; const sent = [];
+    const net = async (u, i) => { if ((i.method || 'GET') === 'GET') return json([]); if (mode === 'down') throw new TypeError('Failed to fetch'); if (mode === 'fk') return json({ code: '23503', message: 'fk' }, 409); sent.push(u); return json(null, 201); };
+    const t = mkTab(src, U1, net, newIDB(), { wire: true });
+    const q = async (table, row) => { t.navigator.onLine = false; await t.SyDentOffline.fetch(SB + '/rest/v1/' + table, { method: 'POST', headers: HJ, body: JSON.stringify(row) }); };
+    await q('appointments', { patient_id: 'p1', patient_name: 'سامر', date: '2026-11-21', time: '10:30:00' });
+    await q('ledger_payments', { patient_id: 'p1', amount: 20, currency: 'USD', date: '2026-11-20' });
+    await q('audit_log', { action: 'x' });
+    const badge = t.byId('sydent-sync-badge');
+    /* بلا اتصال: النقر يعرض المنتظر */
+    t.dialogs = []; t.script = [null];
+    badge.onclick(); await sleep(80);
+    let d1 = t.dialogs[0];
+    ok('d6: offline, clicking the badge lists what is waiting to upload', !!d1 && d1.kind === 'choose' && d1.o.choices.length === 2 && d1.o.choices.every(c => c.label.indexOf('⏳') === 0), d1 && JSON.stringify(d1.o.choices));
+    ok('d6: the audit entry is not listed', !!d1 && !d1.o.choices.some(c => /سجل/.test(c.label)));
+    ok('d6: the window says they upload on their own', !!d1 && /تُرفع تلقائياً/.test(d1.o.message));
+    /* عملية منتظرة: الخيار الوحيد حذفها (بتأكيد) */
+    t.dialogs = []; t.script = [0, 0, true];
+    badge.onclick(); await sleep(120);
+    ok('d6: a waiting operation offers only «delete», behind a confirmation', t.dialogs.length === 3 && t.dialogs[1].o.choices.length === 1 && t.dialogs[1].o.choices[0].label === 'حذف العملية' && t.dialogs[2].kind === 'confirm' && t.dialogs[2].o.danger === true);
+    ok('d6: … and deleting it removes exactly that one', (await t.SyDentOffline.outboxList()).filter(o => o.table !== 'audit_log').length === 1);
+    /* أونلاين: النقر يرفع أولاً، ولا نافذة إن لم يبقَ شيء */
+    mode = 'ok'; t.navigator.onLine = true; t.dialogs = []; t.toasts.length = 0;
+    badge.onclick(); await sleep(120);
+    ok('d6: online, a click uploads first and opens nothing when nothing is left', t.dialogs.length === 0 && sent.length === 2 && t.toasts.some(m => /تمت مزامنة/.test(m)), t.dialogs.length + '/' + sent.length);
+    /* مرفوض + منتظر معاً: المرفوض أولاً بعلامته */
+    mode = 'fk'; await q('appointments', { patient_id: 'gone', patient_name: 'أ', date: '2026-11-23', time: '09:00:00' }); t.navigator.onLine = true;
+    await t.SyDentOffline.drain();
+    await q('appointments', { patient_id: 'p1', patient_name: 'ب', date: '2026-11-24', time: '09:00:00' });
+    t.dialogs = []; t.script = [null];
+    badge.onclick(); await sleep(80);
+    d1 = t.dialogs[0];
+    ok('d6: rejected operations come first, each kind marked', !!d1 && d1.o.choices.length === 2 && d1.o.choices[0].label.indexOf('⚠️') === 0 && d1.o.choices[1].label.indexOf('⏳') === 0, d1 && JSON.stringify(d1.o.choices.map(c => c.label)));
+    const tr6 = englishEngine();
+    ['سُجّلت بلا اتصال وتُرفع تلقائياً عند عودة الإنترنت.', 'بانتظار الرفع', d1 ? d1.o.choices[0].label : 'x', d1 ? d1.o.choices[1].label : 'x'].forEach(x => { const en = tr6(x); ok('d6: English engine leaves no Arabic in «' + x.replace(/[\u2066-\u2069]/g, '') + '»', en != null && !AR.test(en), String(en)); });
+  }
+
   return fails;
 }
 
 const MUTATIONS = [
+  ['d6: waiting operations hidden again', s => s.replace("var bad = all.filter(isBad).concat(all.filter(function (o) { return !isBad(o); }));   /* المرفوض أولاً */", 'var bad = all.filter(isBad);')],
+  ['d6: a waiting operation offered «retry» instead of only delete', s => s.replace("var acts = !isBad(op)\n          ? [{ k: 'drop', label: 'حذف العملية', sub: 'تُحذف من هذا الجهاز ولا تُرفع' }]\n          : op.lastError === 'CONFLICT changed'", "var acts = op.lastError === 'CONFLICT changed'")],
+  ['d6: click no longer uploads first', s => s.replace("var pre = offline ? Promise.resolve(null) : O.drain().catch(function () { return null; });", 'var pre = Promise.resolve(null);')],
+  ['d6: audit entries listed', s => s.replace("var all = ops.filter(function (o) { return o.table !== 'audit_log'; });", 'var all = ops;')],
   ['d5: conflict check skipped', s => s.replace("if (!rec || rec.table !== 'appointments' || rec.force) return Promise.resolve('ok');", "return Promise.resolve('ok');")],
   ['d5: edit of a deleted appointment counted as done', s => s.replace("if (!rows.length) return rec.method === 'DELETE' ? 'done' : 'gone';", "if (!rows.length) return rec.method === 'DELETE' ? 'done' : 'ok';")],
   ['d5: my own earlier edit seen as someone else\'s', s => s.replace("try { var p = JSON.parse(o.body || '{}'); for (var c in p) if (Object.prototype.hasOwnProperty.call(p, c)) found[c] = p[c]; } catch (e) {}", '')],

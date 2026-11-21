@@ -6539,23 +6539,42 @@ window.SyDentAccountDelete = (function () {
   function openSyncReview() {
     var O = window.SyDentOffline, D = window.SyDialog;
     if (!O.outboxList || !D || typeof D.choose !== 'function') { syncNow(); return Promise.resolve(); }
-    return O.outboxList().then(function (ops) {
-      var bad = ops.filter(function (o) { return o.status === 'failed' && o.table !== 'audit_log'; });
-      if (!bad.length) { syncNow(); return; }
+    /* النقر يرفع أولاً ما يمكن رفعه (كما كان)، ثم يعرض ما بقي: المرفوض «والمنتظر» معاً —
+       كان المنتظر رقماً بالشارة فقط، فلا يُعرَف ما الذي سُجّل بلا اتصال ولا يمكن التراجع عنه. */
+    var offline = !!(window.navigator && window.navigator.onLine === false);
+    var pre = offline ? Promise.resolve(null) : O.drain().catch(function () { return null; });
+    return pre.then(function (r) {
+      try {
+        if (r && typeof window.showToast === 'function') {
+          if (r.paused === 'subscription') window.showToast('⏸ المزامنة متوقفة حتى تجديد الاشتراك — لن يُحذف شيء مما سجّلته', true);
+          else if (r.synced > 0) window.showToast('✅ تمت مزامنة ' + r.synced + ' عملية بنجاح', false);
+        }
+      } catch (e) {}
+      return O.outboxList();
+    }).then(function (ops) {
+      var isBad = function (o) { return o.status === 'failed'; };
+      var all = ops.filter(function (o) { return o.table !== 'audit_log'; });
+      var bad = all.filter(isBad).concat(all.filter(function (o) { return !isBad(o); }));   /* المرفوض أولاً */
+      if (!bad.length) return;
+      var anyBad = bad.some(isBad);
       return D.choose({
         title: 'عمليات لم تُرفع',
-        message: 'سُجّلت بلا اتصال ورفضها الخادم عند الرفع. اختر عملية لإعادة المحاولة أو لحذفها.',
+        message: anyBad
+          ? 'سُجّلت بلا اتصال ورفضها الخادم عند الرفع. اختر عملية لإعادة المحاولة أو لحذفها.'
+          : 'سُجّلت بلا اتصال وتُرفع تلقائياً عند عودة الإنترنت.',
         choices: bad.map(function (o) {
           var nm = opWho(o);
-          return { label: opLabel(o), sub: nm ? String(nm) : opReason(o) };
+          return { label: (isBad(o) ? '⚠️ ' : '⏳ ') + opLabel(o), sub: nm ? String(nm) : (isBad(o) ? opReason(o) : 'بانتظار الرفع') };
         }),
         cancelText: 'إغلاق'
       }).then(function (i) {
         if (i == null || !bad[i]) return;
         var op = bad[i], nm = opWho(op);
-        /* الخيارات حسب الحالة: تعارض «عُدّل» = تطبيق تعديلي أو ترك نسخة الخادم ·
-           «حُذف» = لا شيء يُطبَّق عليه · غير ذلك = إعادة المحاولة أو الحذف */
-        var acts = op.lastError === 'CONFLICT changed'
+        /* الخيارات حسب الحالة: منتظرة = حذف فقط (ترفع وحدها) · تعارض «عُدّل» = تطبيق تعديلي أو
+           ترك نسخة الخادم · «حُذف» = لا شيء يُطبَّق عليه · غير ذلك = إعادة المحاولة أو الحذف */
+        var acts = !isBad(op)
+          ? [{ k: 'drop', label: 'حذف العملية', sub: 'تُحذف من هذا الجهاز ولا تُرفع' }]
+          : op.lastError === 'CONFLICT changed'
           ? [{ k: 'force', label: 'تطبيق تعديلي', sub: 'يُكتب فوق ما عُدّل من الجهاز الآخر' },
              { k: 'drop', label: 'حذف العملية', sub: 'يبقى الموعد كما هو على الخادم' }]
           : op.lastError === 'CONFLICT gone'
@@ -6564,7 +6583,7 @@ window.SyDentAccountDelete = (function () {
                { k: 'drop', label: 'حذف العملية', sub: 'تُحذف من هذا الجهاز ولا تُرفع' }];
         return D.choose({
           title: opLabel(op),
-          message: (nm ? String(nm) + '\n' : '') + opReason(op) + '\n' + 'سُجّلت' + ' ' + iso(stamp(op.createdAt)),
+          message: (nm ? String(nm) + '\n' : '') + (isBad(op) ? opReason(op) : 'بانتظار الرفع') + '\n' + 'سُجّلت' + ' ' + iso(stamp(op.createdAt)),
           choices: acts.map(function (x) { return { label: x.label, sub: x.sub }; }),
           cancelText: 'إغلاق'
         }).then(function (ai) {
