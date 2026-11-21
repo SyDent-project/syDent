@@ -741,12 +741,113 @@ async function runAll(src, opt_sw, only) {
     const tr4 = englishEngine()('مريض جديد'); ok('d4: review label passes the English engine', tr4 != null && !AR.test(tr4));
   }
 
+  /* ══ تطوير 5: كشف تعارض موعدٍ عُدّل/حُذف بلا اتصال وقد غيّره جهاز آخر ══ */
+  if (!only || only === 'd5') {
+    const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const LIST = SB + '/rest/v1/appointments?select=*&doctor_id=eq.' + U1 + '&date=eq.2026-11-21';
+    const HJ = { 'Content-Type': 'application/json' };
+    const base = { id: A, doctor_id: U1, patient_name: 'سامر', date: '2026-11-21', time: '10:00:00', status: 'scheduled', notes: 'n1' };
+    /* tab مع خادم وهمي: srv = الصف الحالي على الخادم (null = محذوف) */
+    const mk5 = (opt) => { const w = { srv: Object.assign({}, base), sent: [], gets: 0, down: false };
+      const net = async (u, i) => { const m = i.method || 'GET';
+        if (m === 'GET') { if (u.indexOf('id=eq.') !== -1) { w.gets++; if (w.down) throw new TypeError('Failed to fetch'); return json(w.srv ? [w.srv] : []); } return json([base]); }
+        w.sent.push({ m, u: u.replace(SB, ''), body: i.body ? JSON.parse(i.body) : null }); return json(null, 204); };
+      w.t = mkTab(src, U1, net, (opt && opt.idb) || newIDB(), opt); return w; };
+    const editOffline = async (w, patch, method) => { w.t.navigator.onLine = false;
+      await w.t.SyDentOffline.fetch(SB + '/rest/v1/appointments?id=eq.' + A, { method: method || 'PATCH', headers: HJ, body: method === 'DELETE' ? undefined : JSON.stringify(patch) });
+      w.t.navigator.onLine = true; };
+    const prime = async (w) => { await w.t.SyDentOffline.fetch(LIST, G); await sleep(25); };
+
+    let w = mk5(); await prime(w); await editOffline(w, { time: '11:00' });
+    const q0 = (await w.t.SyDentOffline._outboxAll())[0];
+    ok('d5: the edit remembers the value the user saw', q0 && q0.base && q0.base.time === '10:00:00' && Object.keys(q0.base).length === 1, JSON.stringify(q0 && q0.base));
+    let d = await w.t.SyDentOffline.drain();
+    ok('d5: untouched on the server → the edit is uploaded', d.synced === 1 && w.sent.length === 1 && w.sent[0].body.time === '11:00');
+
+    w = mk5(); await prime(w); await editOffline(w, { time: '11:00' }); w.srv.time = '12:30:00';
+    d = await w.t.SyDentOffline.drain();
+    let ob = await w.t.SyDentOffline._outboxAll();
+    ok('d5: changed from another device → NOT uploaded, kept as a conflict', w.sent.length === 0 && d.failed === 1 && ob.length === 1 && ob[0].lastError === 'CONFLICT changed', JSON.stringify(d));
+    const g1 = w.gets; await w.t.SyDentOffline.drain(); await w.t.SyDentOffline.drain();
+    ok('d5: a conflict is never retried on its own', w.gets === g1 && w.sent.length === 0);
+    d = await w.t.SyDentOffline.outboxRetry(ob[0].id, true);
+    ok('d5: «apply my edit» uploads it without re-checking', d.synced === 1 && w.sent.length === 1 && w.gets === g1);
+
+    w = mk5(); await prime(w); await editOffline(w, { time: '11:00' }); w.srv.time = '11:00:00';
+    d = await w.t.SyDentOffline.drain();
+    ok('d5: the other device made the same change → no conflict', d.synced === 1 && d.failed === 0);
+
+    w = mk5(); await prime(w); await editOffline(w, { time: '11:00' }); w.srv.notes = 'changed elsewhere';
+    d = await w.t.SyDentOffline.drain();
+    ok('d5: a change to a field I did not touch is not a conflict', d.synced === 1 && w.sent.length === 1);
+
+    w = mk5(); await prime(w); await editOffline(w, { time: '11:00' }); w.srv = null;
+    d = await w.t.SyDentOffline.drain(); ob = await w.t.SyDentOffline._outboxAll();
+    ok('d5: editing an appointment deleted elsewhere is a conflict, not a silent «done»', w.sent.length === 0 && ob.length === 1 && ob[0].lastError === 'CONFLICT gone');
+
+    w = mk5(); await prime(w); await editOffline(w, null, 'DELETE'); w.srv = null;
+    d = await w.t.SyDentOffline.drain();
+    ok('d5: deleting an appointment already deleted elsewhere is simply done', d.synced === 1 && w.sent.length === 0 && (await w.t.SyDentOffline._outboxAll()).length === 0);
+    w = mk5(); await prime(w); await editOffline(w, null, 'DELETE'); w.srv.time = '15:00:00';
+    d = await w.t.SyDentOffline.drain();
+    ok('d5: deleting an appointment someone else just moved is a conflict', w.sent.length === 0 && d.failed === 1);
+
+    w = mk5(); await prime(w); await editOffline(w, { time: '11:00' }); await editOffline(w, { time: '12:00' });
+    const two = await w.t.SyDentOffline._outboxAll();
+    ok('d5: a second offline edit is based on the first one', two[1].base && two[1].base.time === '11:00');
+    const origNet = w.t.fetch;
+    w.t.fetch = (input, init) => { const u = typeof input === 'string' ? input : input.url; const p = origNet(input, init);
+      if ((init.method || 'GET') === 'PATCH') { try { Object.assign(w.srv, JSON.parse(init.body)); } catch (e) {} } return p; };
+    d = await w.t.SyDentOffline.drain();
+    ok('d5: two edits of mine in a row do not conflict with each other', d.synced === 2 && d.failed === 0 && w.sent.length === 2, JSON.stringify(d));
+
+    w = mk5(); await prime(w); await editOffline(w, { time: '11:00' }); w.down = true;
+    d = await w.t.SyDentOffline.drain(); ob = await w.t.SyDentOffline._outboxAll();
+    ok('d5: if the check cannot reach the server nothing is uploaded and the edit stays pending', w.sent.length === 0 && ob.length === 1 && ob[0].status !== 'failed');
+
+    /* صف غير مكاش (موعد أُنشئ بلا اتصال ثم عُدّل): بلا أساس، والرفع يمرّ */
+    w = mk5(); await editOffline(w, { time: '11:00' });
+    ok('d5: no cached row → no base recorded', !(await w.t.SyDentOffline._outboxAll())[0].base);
+    d = await w.t.SyDentOffline.drain();
+    ok('d5: … and the edit still uploads when the row exists', d.synced === 1);
+    /* عزل: كاش حساب آخر لا يُستعمل أساساً */
+    const idbS = newIDB(); const wa = mk5({ idb: idbS }); await prime(wa);
+    const wb = { t: mkTab(src, U2, async () => json(null, 204), idbS) };
+    wb.t.navigator.onLine = false;
+    await wb.t.SyDentOffline.fetch(SB + '/rest/v1/appointments?id=eq.' + A, { method: 'PATCH', headers: HJ, body: JSON.stringify({ time: '09:00' }) });
+    ok('d5: another account\'s cached row is never used as the base', !(await wb.t.SyDentOffline._outboxAll()).filter(o => o.uid === U2)[0].base);
+
+    /* النافذة: خيارات التعارض */
+    const wu = { srv: Object.assign({}, base), sent: [] };
+    const netU = async (u, i) => { const m = i.method || 'GET'; if (m === 'GET') return json(u.indexOf('id=eq.') !== -1 ? (wu.srv ? [wu.srv] : []) : [base]); wu.sent.push(m); return json(null, 204); };
+    const tu = mkTab(src, U1, netU, newIDB(), { wire: true });
+    await tu.SyDentOffline.fetch(LIST, G); await sleep(25);
+    tu.navigator.onLine = false; await tu.SyDentOffline.fetch(SB + '/rest/v1/appointments?id=eq.' + A, { method: 'PATCH', headers: HJ, body: JSON.stringify({ time: '11:00' }) }); tu.navigator.onLine = true;
+    wu.srv.time = '13:00:00'; await tu.SyDentOffline.drain();
+    tu.dialogs = []; tu.script = [0, 0];
+    tu.byId('sydent-sync-badge').onclick(); await sleep(120);
+    const d1 = tu.dialogs[0], d2 = tu.dialogs[1];
+    ok('d5: the review window names the conflict', !!d1 && /عُدّل الموعد من جهاز آخر/.test(d1.o.choices[0].sub + ' ' + ((d2 && d2.o.message) || '')), d1 && JSON.stringify(d1.o.choices));
+    ok('d5: it offers «apply my edit» or leaving the server version', !!d2 && d2.o.choices.length === 2 && d2.o.choices[0].label === 'تطبيق تعديلي' && d2.o.choices[1].label === 'حذف العملية');
+    ok('d5: choosing «apply my edit» uploads it', wu.sent.length === 1 && (await tu.SyDentOffline.outboxList()).length === 0, wu.sent.length);
+    const tr5 = englishEngine();
+    ['عُدّل الموعد من جهاز آخر بعد تعديلك', 'حُذف الموعد من جهاز آخر', 'تطبيق تعديلي', 'يُكتب فوق ما عُدّل من الجهاز الآخر', 'يبقى الموعد كما هو على الخادم'].forEach(x => { const en = tr5(x); ok('d5: English engine leaves no Arabic in «' + x + '»', en != null && !AR.test(en), String(en)); });
+  }
+
   return fails;
 }
 
 const MUTATIONS = [
+  ['d5: conflict check skipped', s => s.replace("if (!rec || rec.table !== 'appointments' || rec.force) return Promise.resolve('ok');", "return Promise.resolve('ok');")],
+  ['d5: edit of a deleted appointment counted as done', s => s.replace("if (!rows.length) return rec.method === 'DELETE' ? 'done' : 'gone';", "if (!rows.length) return rec.method === 'DELETE' ? 'done' : 'ok';")],
+  ['d5: my own earlier edit seen as someone else\'s', s => s.replace("try { var p = JSON.parse(o.body || '{}'); for (var c in p) if (Object.prototype.hasOwnProperty.call(p, c)) found[c] = p[c]; } catch (e) {}", '')],
+  ['d5: same change by the other device treated as a conflict', s => s.replace(" && !(rec.method === 'PATCH' && sameVal(srv[c], patch[c]))) return 'changed';", ") return 'changed';")],
+  ['d5: conflict retried automatically', s => s.replace("rec.status = 'failed'; rec.attempts = 5;\n      rec.lastError = 'CONFLICT ' + verdict;", "rec.status = 'failed'; rec.attempts = 1;\n      rec.lastError = 'CONFLICT ' + verdict;")],
+  ['d5: «apply my edit» still blocked by the check', s => s.replace("if (force) rec.force = true;", '')],
+  ['d5: base taken from another account\'s cache', s => s.replace("return typeof k === 'string' && k.indexOf(uid + '|') === 0 && k.indexOf('/rest/v1/' + table) !== -1;", "return typeof k === 'string' && k.indexOf('/rest/v1/' + table) !== -1;")],
+  ['d5: unreachable check uploads anyway', s => s.replace("{ method: 'GET', headers: h }).then(function (res) {\n      if (res.status === 401) throw new Error('auth-401');\n      if (!res.ok) return 'ok';", "{ method: 'GET', headers: h }).catch(function () { return { ok: false, status: 0 }; }).then(function (res) {\n      if (res.status === 401) throw new Error('auth-401');\n      if (!res.ok) return 'ok';")],
   ['d4: any uncached patient history faked as empty', s => s.replace("if (m && !wantsObj && rowsOf('patients').some(function (r) { return r.id === m[1]; })) {", 'if (m && !wantsObj) {')],
-  ['d4: file number not taken from the server', s => s.replace("return allocPatientSeq(rec, auth).then(function () { return auth; });", 'return auth;')],
+  ['d4: file number not taken from the server', s => s.replace("return allocPatientSeq(rec, auth).then(function () { return conflictCheck(rec, auth); })", "return conflictCheck(rec, auth)")],
   ['d4: number allocated again on every retry', s => s.replace("rec.seqDone = true;", '')],
   ['d4: patients editable offline', s => s.replace("patients:        { POST: 1 }\n  };", "patients:        { POST: 1, PATCH: 1, DELETE: 1 }\n  };")],
   ['d4: unreachable counter ignored (upload with a guessed number)', s => s.replace("method: 'POST', headers: h, body: JSON.stringify({ n: rows.length })\n    }).then(function (res) {", "method: 'POST', headers: h, body: JSON.stringify({ n: rows.length })\n    }).catch(function () { return { ok: false, status: 0 }; }).then(function (res) {")],
