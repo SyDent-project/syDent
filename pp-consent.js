@@ -1,11 +1,14 @@
 /* ═════════════════════════════════════════════════════════════════════
    SyDent — pp-consent.js (M219 · أ2): موافقاتُ العلاج من بطاقة المريض
    ─────────────────────────────────────────────────────────────────────
-   الدورة: علاجٌ له نصُّ موافقة (صفحة العلاجات) يدخل الخطةَ المعتمدة — أو يُسجَّل «منجزاً» اليوم مباشرةً (M224) —
-   ⇒ consent_sync تولّد للمريض موافقةً
+   الدورة: علاجٌ له نصُّ موافقة (صفحة العلاجات) يدخل الخطةَ المعتمدة «مخطّطاً» ⇒ consent_sync تولّد للمريض موافقةً
    معلَّقة بنسخةٍ من النص ⇒ المريضُ يوقّعها من بوابته (أ3) ⇒ تظهر هنا موقَّعةً للعرض والطباعة.
    - المصدرُ القاعدة: consent_sync(patient) تُستدعى عند الفتح وعند تغيّر الجلسات المخطّطة (renderTimeline
      نقطةُ المرور) — idempotent، وتُعيد صفراً بوضع القراءة فلا كتابة.
+   - الموافقةُ تُوقَّع قبل التنفيذ: المخطّطُ وحده يولّد موافقة (M225 — تصحيحُ المالك). علاجٌ يُسجَّل «منجزاً» مباشرةً
+     وله نصُّ موافقة لا يأخذ موافقةً لاحقة؛ يُنبَّه عنه مرةً (تنبيهٌ بلا منع).
+   - لحظةَ تولّد موافقةٍ جديدة بعد تغيير الخطة يظهر حوارٌ حيث يعمل الطبيب (المخطط السنّي بعيدٌ عن صفّ الموافقات):
+     «التوقيع الآن على هذا الجهاز» (تُفتح بوابةُ المريض على الموافقة نفسها) · «إرسال الرابط» · «لاحقاً».
    - الصفُّ مخفيٌّ ما دام المريضُ بلا موافقات (عيادةٌ لا تستعمل الميزة لا ترى شيئاً).
    - الكتابةُ الوحيدة هنا «إلغاء» موافقةٍ معلَّقة (status = void). الموقَّعة لا تُعدَّل ولا تُحذف (زنادُ القاعدة).
    - التوقيعُ صورةٌ تُجلب عند العرض/الطباعة فقط (لا تُحمَّل مع القائمة).
@@ -19,6 +22,11 @@ var _ppConsentSig = null;        /* بصمةُ الجلسات المخطّطة �
 var _ppConsentTimer = null;
 var PP_CONSENT_SELECT = 'id, treatment_key, treatment_name, title, body, teeth, status, auto, session_ids, created_at, signed_at, signer_name, signer_relation, voided_at';
 var _ppConsentWarned = {};       /* موافقاتٌ نُبّه لإنجاز علاجها بلا توقيع (مرةً لكل موافقة) */
+var _ppConsentAsked = {};        /* موافقاتٌ عُرض حوارُها (مرةً لكل موافقة بهذه الصفحة) */
+var _ppConsentAsking = false;
+var PP_CONSENT_KEYS = null;      /* مفاتيحُ العلاجات التي لها نصُّ موافقة بهذه العيادة ({key: true}) — null = لم تُحمَّل */
+var _ppConsentBase = null;       /* جلساتٌ كانت موجودةً عند فتح البطاقة — لا يُنبَّه عن قديمها */
+var _ppConsentBare = {};         /* جلساتٌ نُبّه لتسجيلها منجزةً بلا موافقة */
 
 function ppConsentWhen(iso) {
   if (!iso) return '';
@@ -28,19 +36,11 @@ function ppConsentWhen(iso) {
   var hh = t.getHours(), mm = t.getMinutes();
   return d + ' ' + (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
 }
-function ppConsentToday() {
-  var d = new Date();
-  return d.getFullYear() + '-' + (d.getMonth() < 9 ? '0' : '') + (d.getMonth() + 1) + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate();
-}
-/* بصمةُ ما يهمّ التوليد: الجلساتُ المخطّطة (المعرّف · مفتاح العلاج · البديل) وما سُجّل «منجزاً» اليوم مباشرةً
-   (M224 — القاعدةُ تولّد له موافقتَه أيضاً) — تغيّرُها وحده يستدعي المزامنة. المنجزُ الأقدم لا يدخل. */
+/* بصمةُ ما يهمّ التوليد: الجلساتُ المخطّطة (المعرّف · مفتاح العلاج · البديل) — تغيّرُها وحده يستدعي المزامنة */
 function ppConsentPlanSig() {
-  var list = (typeof sessions !== 'undefined' && Array.isArray(sessions)) ? sessions : [], today = ppConsentToday();
-  return list.filter(function (s) {
-    if (!s || s.parent_id) return false;
-    var st = s.status || 'completed';
-    return st === 'planned' || (st === 'completed' && String(s.date || '').slice(0, 10) === today);
-  }).map(function (s) { return s.id + ':' + (s.treatment_key || '') + ':' + (s.plan_option == null ? '' : s.plan_option) + ':' + ((s.status || 'completed') === 'planned' ? 'p' : 'd'); })
+  var list = (typeof sessions !== 'undefined' && Array.isArray(sessions)) ? sessions : [];
+  return list.filter(function (s) { return s && (s.status || 'completed') === 'planned' && !s.parent_id; })
+    .map(function (s) { return s.id + ':' + (s.treatment_key || '') + ':' + (s.plan_option == null ? '' : s.plan_option); })
     .sort().join('|');
 }
 function ppConsentCounts() {
@@ -55,9 +55,16 @@ async function ppConsentLoad(force) {
   if (Array.isArray(PP_CONSENTS) && !force) { ppConsentRender(); return; }
   if (_ppConsentBusy) return;
   _ppConsentBusy = true;
-  var first = !Array.isArray(PP_CONSENTS);   /* الفتحُ الأول خطُّ أساسٍ صامت؛ ما يظهر بعده (علاجٌ سُجّل منجزاً للتوّ) يُنبَّه عنه مرةً */
+  var first = !Array.isArray(PP_CONSENTS);   /* الفتحُ الأول خطُّ أساسٍ صامت؛ ما يتولّد بعده (علاجٌ خُطّط للتوّ) يُعرض حوارُه مرةً */
+  var known = {}; (PP_CONSENTS || []).forEach(function (c) { known[c.id] = true; });
+  var fresh = [];
   try {
     _ppConsentSig = ppConsentPlanSig();
+    if (first) {
+      _ppConsentBase = {};
+      ((typeof sessions !== 'undefined' && Array.isArray(sessions)) ? sessions : []).forEach(function (s) { if (s && s.id) _ppConsentBase[s.id] = true; });
+      ppConsentLoadKeys();   /* غيرُ حاجب — يخدم تنبيهَ «منجزٌ بلا موافقة» وحده */
+    }
     var sy = await window.sb.rpc('consent_sync', { p_patient: patientId });
     if (sy.error && !/42883|PGRST202|does not exist|schema cache/i.test((sy.error.message || '') + ' ' + (sy.error.code || ''))) console.warn('consent_sync:', sy.error);
     var r = await window.sb.from('patient_consents').select(PP_CONSENT_SELECT)
@@ -66,17 +73,77 @@ async function ppConsentLoad(force) {
     if (r.error) {
       if (!/42P01|PGRST205|does not exist|schema cache/i.test((r.error.message || '') + ' ' + (r.error.code || ''))) console.warn('patient_consents load:', r.error);
       PP_CONSENTS = []; PP_CONSENT_OK = false;
-    } else { PP_CONSENTS = r.data || []; PP_CONSENT_OK = true; ppConsentWarnDone(first); }   /* ما أُنجز قبل الفتح لا يُنبَّه عنه — الصفُّ يعرضه معلَّقاً */
+    } else {
+      PP_CONSENTS = r.data || []; PP_CONSENT_OK = true; ppConsentWarnDone(first);   /* ما أُنجز قبل الفتح لا يُنبَّه عنه — الصفُّ يعرضه معلَّقاً */
+      if (first) PP_CONSENTS.forEach(function (c) { _ppConsentAsked[c.id] = true; });   /* ما وُجد عند الفتح يعرضه الصفُّ بلا حوار */
+      else fresh = PP_CONSENTS.filter(function (c) { return c.status === 'pending' && !known[c.id] && !_ppConsentAsked[c.id]; });
+    }
   } catch (e) { console.warn('patient_consents:', e); PP_CONSENTS = []; PP_CONSENT_OK = false; }
   _ppConsentBusy = false;
   ppConsentRender();
   var m = document.getElementById('ppConsentModal');
   if (m && m.classList.contains('open')) ppConsentRenderList();
+  if (fresh.length) ppConsentAsk(fresh);
+}
+/* مفاتيحُ العلاجات ذات نصّ الموافقة — قراءةٌ واحدة بنطاق المالك؛ الفشلُ أو غيابُ الجدول ⇒ لا تنبيه */
+async function ppConsentLoadKeys() {
+  try {
+    var r = await window.sb.from('consent_templates').select('treatment_key').eq('owner_id', currentUser.id).limit(500);
+    if (r.error) return;
+    var k = {}; (r.data || []).forEach(function (t) { if (t && t.treatment_key) k[t.treatment_key] = true; });
+    PP_CONSENT_KEYS = k;
+  } catch (e) {}
+}
+/* حوارُ الموافقة الجديدة — يظهر حيث يعمل الطبيب لحظةَ تخطيط العلاج. مرةً لكل موافقة؛ «لاحقاً» تُبقيها معلَّقةً بالصف. */
+function ppConsentAskText(list) {
+  var nm = function (c) { return '«' + (c.treatment_name || c.title || '') + '»' + (c.teeth ? ' (السن ' + c.teeth + ')' : ''); };
+  if (list.length === 1) return 'علاج ' + nm(list[0]) + ' يحتاج موافقة المريض قبل التنفيذ.';
+  return list.length + ' علاجات تحتاج موافقة المريض قبل التنفيذ: ' + list.map(nm).join('، ') + '.';
+}
+async function ppConsentAsk(list) {
+  list = (list || []).filter(function (c) { return c && c.status === 'pending' && !_ppConsentAsked[c.id]; });
+  if (!list.length || _ppConsentAsking) return;
+  list.forEach(function (c) { _ppConsentAsked[c.id] = true; });
+  var txt = ppConsentAskText(list);
+  if (!window.SyDialog || typeof window.SyDialog.choose !== 'function') { showToast('✍️ ' + txt); return; }
+  _ppConsentAsking = true;
+  var pick = null;
+  try {
+    /* إشعارُ «تمت الإضافة» ما زال ظاهراً أسفل الشاشة — على الهاتف يقع فوق زر «لاحقاً»؛ يُطوى ليبقى الحوارُ مقروءاً كلَّه */
+    var tst = document.getElementById('syToast'); if (tst) tst.classList.remove('show');
+    pick = await window.SyDialog.choose({ title: '✍️ موافقة المريض مطلوبة', message: txt, cancelText: 'لاحقاً', choices: [
+      { label: '✍️ التوقيع الآن على هذا الجهاز', sub: 'تُفتح الموافقة ليقرأها المريض ويوقّعها هنا' },
+      { label: '📱 إرسال رابط البوابة للمريض', sub: 'يوقّعها من هاتفه' }] });
+  } catch (e) { pick = null; }
+  _ppConsentAsking = false;
+  if (pick === 0) ppConsentSignHere(list[0].id);
+  else if (pick === 1) ppConsentSend();
+}
+/* التوقيعُ على جهاز العيادة: بوابةُ المريض نفسُها بتبويبٍ جديد، مفتوحةً على هذه الموافقة (c=). النافذةُ تُفتح فوراً
+   ضمن نقرة المستخدم ثم تُوجَّه بعد ضمان الرابط — وإلا حجبها المتصفحُ كنافذةٍ منبثقة. */
+async function ppConsentSignHere(id) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  if (!patient || !patientId) return;
+  if (typeof ppPortalEnsureLive !== 'function' || typeof ppPortalLink !== 'function') { showToast('⚠️ بوابة المريض غير متاحة على هذا الحساب'); return; }
+  var w = null;
+  try { w = window.open('', '_blank'); } catch (e) { w = null; }
+  try {
+    var row = await ppPortalEnsureLive();
+    if (typeof ppPortalRender === 'function') ppPortalRender();
+    var link = ppPortalLink(row.token) + (/^[0-9a-f-]{36}$/i.test(String(id || '')) ? '&c=' + id : '');
+    if (w) { try { w.opener = null; } catch (e2) {} w.location.href = link; }
+    else showToast('⚠️ المتصفح منع فتح النافذة — اسمح بالنوافذ المنبثقة لهذا الموقع، أو أرسل الرابط للمريض', true);
+  } catch (e) {
+    if (w) { try { w.close(); } catch (e3) {} }
+    console.warn('ppConsentSignHere:', e);
+    showToast(typeof ppPortalErr === 'function' ? ppPortalErr(e) : '❌ تعذّر فتح بوابة المريض', true);
+  }
 }
 /* نقطةُ المرور (renderTimeline): الخطةُ تغيّرت ⇒ مزامنةٌ مؤجَّلة لحظةً (عدّةُ رسماتٍ متتالية = نداءٌ واحد) */
 function ppConsentTouch() {
   if (!Array.isArray(PP_CONSENTS)) return;                 /* التحميلُ الأول لم ينتهِ بعد */
   ppConsentWarnDone();
+  ppConsentWarnBare();
   if (ppConsentPlanSig() === _ppConsentSig) return;
   if (_ppConsentTimer) clearTimeout(_ppConsentTimer);
   _ppConsentTimer = setTimeout(function () { _ppConsentTimer = null; ppConsentLoad(true); }, 600);
@@ -96,6 +163,20 @@ function ppConsentWarnDone(silent) {
   });
 }
 
+/* علاجٌ له نصُّ موافقة سُجّل «منجزاً» مباشرةً (لم يمرّ بالخطة، فلا موافقةَ له ولا تتولّد بعد التنفيذ) ⇒ تنبيهٌ واحد يدلّ
+   على المسار الصحيح. جلساتُ ما قبل فتح البطاقة لا يُنبَّه عنها، ولا ما غطّته موافقة (معلَّقة · موقَّعة · ملغاة). */
+function ppConsentWarnBare() {
+  if (!PP_CONSENT_KEYS || !_ppConsentBase) return;
+  var covered = {};
+  (PP_CONSENTS || []).forEach(function (c) { (c.session_ids || []).forEach(function (id) { covered[id] = true; }); });
+  ((typeof sessions !== 'undefined' && Array.isArray(sessions)) ? sessions : []).forEach(function (s) {
+    if (!s || !s.id || s.parent_id || (s.status || 'completed') !== 'completed') return;
+    if (_ppConsentBase[s.id] || _ppConsentBare[s.id] || covered[s.id] || !PP_CONSENT_KEYS[s.treatment_key]) return;
+    _ppConsentBare[s.id] = true;
+    showToast('⚠️ سُجّل العلاج منجزاً بلا موافقة موقَّعة — الموافقة تُوقَّع قبل التنفيذ: سجّله «مخطط» أولاً', true);
+  });
+}
+
 function ppConsentRender() {
   var row = document.getElementById('consentRow'), el = document.getElementById('iConsent');
   if (!row || !el) return;
@@ -107,6 +188,7 @@ function ppConsentRender() {
   if (n.pending) h += '<span class="pp-intake-st pp-intake-exp">✍️ بانتظار التوقيع: ' + n.pending + '</span>';
   if (n.signed)  h += '<span class="pp-intake-st pp-intake-new">✅ موقَّعة: ' + n.signed + '</span>';
   h += '<button type="button" class="btn btn-outline btn-sm pp-intake-btn" onclick="ppConsentOpen()">عرض الموافقات</button>';
+  if (n.pending) h += '<button type="button" class="btn btn-outline btn-sm pp-intake-btn" onclick="ppConsentSignHere()" title="تُفتح بوابة المريض على هذا الجهاز ليوقّع">✍️ توقيع على هذا الجهاز</button>';
   if (n.pending) h += '<button type="button" class="btn btn-outline btn-sm pp-intake-btn" onclick="ppConsentSend()" title="يوقّع المريض موافقاته المعلَّقة من بوابته">🔗 إرسال البوابة للتوقيع</button>';
   el.innerHTML = h;
 }
@@ -130,7 +212,8 @@ function ppConsentRenderList() {
     meta.push('أُنشئت ' + ppConsentWhen(c.created_at));
     if (c.status === 'signed') meta.push('وقّعها ' + (c.signer_name || '') + (c.signer_relation ? ' (' + c.signer_relation + ')' : '') + ' — ' + ppConsentWhen(c.signed_at));
     if (c.status === 'void' && c.voided_at) meta.push('أُلغيت ' + ppConsentWhen(c.voided_at));
-    var acts = '<button type="button" class="sy-act" onclick="ppConsentPrint(\'' + c.id + '\')">🖨️ طباعة</button>'
+    var acts = (c.status === 'pending' ? '<button type="button" class="sy-act sy-act-primary" onclick="ppConsentSignHere(\'' + c.id + '\')" title="تُفتح بوابة المريض على هذا الجهاز ليوقّع">✍️ توقيع على هذا الجهاز</button>' : '')
+      + '<button type="button" class="sy-act" onclick="ppConsentPrint(\'' + c.id + '\')">🖨️ طباعة</button>'
       + (c.status === 'pending' ? '<button type="button" class="sy-act sy-act-danger" onclick="ppConsentVoid(\'' + c.id + '\')" title="إلغاء هذه الموافقة المعلَّقة — لن تظهر للمريض">إلغاء</button>' : '');
     return '<div class="ppc-item' + (c.status === 'void' ? ' ppc-void' : '') + '">'
       + '<div class="ppc-head"><span class="ppc-title">' + escapeHtml(c.title || '') + '</span>' + st + '</div>'
@@ -162,7 +245,7 @@ async function ppConsentVoid(id) {
   if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
   var c = ppConsentById(id);
   if (!c || c.status !== 'pending' || _ppConsentBusy) return;
-  if (!await SyDialog.confirm({ title: 'إلغاء الموافقة', message: 'ستُلغى الموافقة المعلَّقة «' + (c.title || '') + '» ولن تظهر للمريض. إن بقي العلاج في الخطة تُنشأ له موافقةٌ جديدة عند أول تغييرٍ للخطة. متابعة؟', danger: true, okText: 'إلغاء الموافقة', cancelText: 'تراجع' })) return;
+  if (!await SyDialog.confirm({ title: 'إلغاء الموافقة', message: 'ستُلغى الموافقة المعلَّقة «' + (c.title || '') + '» ولن تظهر للمريض، ولا تُنشأ من جديد لهذا العلاج. متابعة؟', danger: true, confirmText: 'إلغاء الموافقة', cancelText: 'تراجع' })) return;
   _ppConsentBusy = true;
   try {
     var u = await window.sb.from('patient_consents').update({ status: 'void' })

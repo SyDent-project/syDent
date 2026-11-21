@@ -686,6 +686,9 @@ function closeXray(){ var o = document.getElementById('xrOv'); if (o) o.remove()
    ترسل معرّفَ الموافقة والتوقيعَ واسمَ الموقّع وصفتَه فقط. التوقيعُ هنا إلزامي. ── */
 var CNS = null;        /* null = لم يُطلب · {items} · {err} */
 var CNS_OPEN = null;   /* معرّفُ الموافقة المفتوحة للتوقيع */
+/* M225: رابطُ «التوقيع على هذا الجهاز» من بطاقة المريض بالعيادة يحمل c=<معرّف الموافقة> — تُفتح مباشرةً مرةً واحدة.
+   المعرّفُ يُطابَق على ما أعادته البوابةُ لهذا المريض وحده (findConsent)، فمعرّفٌ غريب لا يفتح شيئاً. */
+var CNS_WANT = (function(){ var m = (location.search || '').match(/[?&]c=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?:&|$)/); return m ? m[1].toLowerCase() : null; })();
 var RELATIONS = ['المريض نفسه', 'وليّ الأمر', 'الوصيّ القانوني'];
 async function loadConsents(){
   if (!TOKEN) return;
@@ -696,6 +699,7 @@ async function loadConsents(){
     CNS = { items: Array.isArray(res.data.items) ? res.data.items : [] };
   } catch (e) { CNS = { items: [] }; }
   if (!CNS_OPEN && !OPEN_CHG) screenPortal();
+  if (CNS_WANT && !CNS_OPEN && !OPEN_CHG) { var want = findConsent(CNS_WANT); CNS_WANT = null; if (want && want.status === 'pending') openConsent(want.id); }
 }
 function findConsent(id){ var r = null; ((CNS && CNS.items) || []).forEach(function(x){ if (x.id === id) r = x; }); return r; }
 function consentMeta(c){

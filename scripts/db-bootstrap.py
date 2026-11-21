@@ -91,6 +91,7 @@ AFTER_SNAPSHOT = [
     'migrations/222_staff_hours_leaves.sql',         # clinic_employees.work_schedule/annual_leave_days (+ _work_schedule_ok CHECK) and staff_leaves (RLS owner-only + sub-guard); no anon grant
     'migrations/223_booking_respects_doctor_hours.sql',   # after 189/222: _provider_off_slots (internal) + booking_blocked_slots and _portal_free_slots replaced in place — a dentist's hours and leave close online slots
     'migrations/224_consent_done_today.sql',         # after 221: _consent_sync replaced in place — a treatment recorded as done today gets its consent; a cancelled consent is not generated again
+    'migrations/225_consent_planned_only.sql',       # after 224: _consent_sync replaced in place — PLANNED rows only again (a performed treatment gets no consent); the cancelled-consent coverage of 224 stays
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',
