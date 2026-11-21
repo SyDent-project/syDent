@@ -222,7 +222,7 @@ async function suite(F) {
     const load = jsFn(F['sched-blocks.js'], 'load');
     ok(load && !/offHours|hoursMap|work_schedule/.test(load), 'load() is untouched — the calendar views never paint a doctor\'s hours over every chair');
   }
-  ok(/if \(cand\.provider_id && window\.SyDentBlocks\.offHours\) inst = inst\.concat\(await window\.SyDentBlocks\.offHours\(doctorId, cand\.date, cand\.date\)\);\s+out\.blocks = window\.SyDentBlocks\.blocking\(inst, cand\);/.test(F['appt-conflict.js']),
+  ok(/var pOff = \(B && cand\.provider_id && B\.offHours\) \? B\.offHours\(doctorId, cand\.date, cand\.date\) : null;[\s\S]{0,500}?if \(pOff\) inst = inst\.concat\(got\[2\]\);\s+out\.blocks = B\.blocking\(inst, cand\);/.test(F['appt-conflict.js']),
     'conflict guard: off-hours join the blocks it already warns about');
   ok(/base\.provider_id && window\.SyDentBlocks\.offHours\) blocks = blocks\.concat\(await window\.SyDentBlocks\.offHours\(doctorId, sorted\[0\], sorted\[sorted\.length - 1\]\)\);/.test(F['appt-series.js'])
     && /base\.provider_id && window\.SyDentBlocks\.offHours\) blocks = blocks\.concat\(await window\.SyDentBlocks\.offHours\(doctorId, base\.date, base\.date\)\);/.test(F['appt-family.js']), 'series and family pre-checks read the same off-hours');
@@ -469,7 +469,7 @@ const MUTANTS = [
   ['time after the end is free', rep('sched-blocks.js', '        if (b < 1440) mk(b, 1440, t, false);\n', '')],
   ['failed hours read throws', rep('sched-blocks.js', "} catch (e) { console.warn('SyDentBlocks.hoursMap:', e); return {}; }", '} catch (e) { throw e; }')],
   ['hours painted on every chair', rep('sched-blocks.js', "      return r.data || [];\n    } catch (e) { console.warn('SyDentBlocks.load:', e); return []; }", "      return (r.data || []).concat(await offHours(doctorId, from, to));\n    } catch (e) { console.warn('SyDentBlocks.load:', e); return []; }")],
-  ['conflict guard ignores hours', rep('appt-conflict.js', "        if (cand.provider_id && window.SyDentBlocks.offHours) inst = inst.concat(await window.SyDentBlocks.offHours(doctorId, cand.date, cand.date));\n", '')],
+  ['conflict guard ignores hours', rep('appt-conflict.js', "        if (pOff) inst = inst.concat(got[2]);\n", '')],
   ['series pre-check ignores hours', rep('appt-series.js', "blocks = blocks.concat(await window.SyDentBlocks.offHours(doctorId, sorted[0], sorted[sorted.length - 1]));", ';')],
   ['family pre-check ignores hours', rep('appt-family.js', "blocks = blocks.concat(await window.SyDentBlocks.offHours(doctorId, base.date, base.date));", ';')],
   ['hours update not scoped to the owner', rep('emp-time.js', ".update({ work_schedule: map }).eq('id', S.emp.id).eq('owner_id', u)", ".update({ work_schedule: map }).eq('id', S.emp.id)")],

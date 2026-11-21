@@ -28,6 +28,42 @@ function loadModule(src, hooks) {
 const SRC = read('appt-conflict.js');
 const R = (id, time, dur, prov, op, extra) => Object.assign({ id, date: '2026-10-01', time, duration: dur, provider_id: prov, operatory_id: op, status: 'confirmed', patient_name: 'P' + id }, extra || {});
 
+/* v801: check() على الوحدة الحيّة — القراءاتُ الثلاث (مواعيدُ اليوم · الفتراتُ المغلقة · دوامُ الطبيب) تُطلَق معاً
+   ولا تُنتظر واحدةٌ قبل بدء الأخرى، والنتيجةُ ومعالجةُ الخطأ كما كانتا. t(cond, msg) يستقبل كلَّ توكيد. */
+async function checkSuite(src, t) {
+  const mk = o => {
+    const ev = []; let relAp = null;
+    const win = { currentUser: { id: 'DOC' } };
+    win.sb = { from: () => { ev.push('ap'); const q = { select() { return q; }, eq() { return q; },
+      then(r, j) { return new Promise(res => { relAp = () => res(o.err ? { error: o.err } : { data: o.rows || [], error: null }); if (!o.gate) relAp(); }).then(r, j); } }; return q; } };
+    if (!o.noBlocks) win.SyDentBlocks = {
+      load: async () => { ev.push('bl'); if (o.blThrow) throw new Error('bl'); return o.blocks || []; },
+      offHours: async () => { ev.push('off'); return o.off || []; },
+      expand: rows => rows.slice(), blocking: inst => inst.filter(i => i.blocks) };
+    const ctx = { window: win, console: { warn() {} }, Number, parseInt, Math, String, RegExp, Promise };
+    vm.createContext(ctx); vm.runInContext(src, ctx);
+    return { C: win.SyDentConflict, ev, release: () => relAp && relAp() };
+  };
+  const cand = { id: 'X', date: '2026-10-01', time: '10:00', duration: 30, provider_id: 'A', operatory_id: 'K1' };
+  let h = mk({ gate: true, rows: [R(1, '10:10', 30, 'A', null)], blocks: [{ id: 'b1', blocks: true }, { id: 'b2', blocks: false }], off: [{ id: 'h1', blocks: true, offHours: true }] });
+  const p = h.C.check(cand, 'DOC'); await new Promise(r => setImmediate(r));
+  t(h.ev.join() === 'ap,bl,off', 'check: the three reads are launched together — blocks and hours do not wait for the appointments read');
+  h.release(); const o1 = await p;
+  t(o1.error === null && o1.conflicts.length === 1 && o1.blocks.length === 2 && o1.blocks[1].offHours === true, 'check: overlaps + blocking closures + off-hours are all reported');
+  h = mk({ err: { message: 'x' }, blocks: [{ blocks: true }] }); const o2 = await h.C.check(cand, 'DOC');
+  t(!!o2.error && o2.conflicts.length === 0 && o2.blocks.length === 0, 'check: a failed appointments read is reported as an error (the save proceeds unguarded, as before)');
+  h = mk({ blocks: [{ blocks: true }] }); const o3 = await h.C.check({ date: '2026-10-01', time: '10:00', duration: 30 }, 'DOC');
+  t(h.ev.join() === 'bl' && o3.blocks.length === 1 && o3.conflicts.length === 0 && !o3.error, 'check: no provider and no chair ⇒ no appointments read and no hours read; closures still apply');
+  h = mk({ rows: [] }); await h.C.check({ date: '2026-10-01', time: '10:00', duration: 30, operatory_id: 'K1' }, 'DOC');
+  t(h.ev.join() === 'ap,bl', 'check: chair only ⇒ working hours (per doctor) are not read');
+  h = mk({ noBlocks: true, rows: [R(1, '10:10', 30, 'A', null)] }); const o5 = await h.C.check(cand, 'DOC');
+  t(o5.conflicts.length === 1 && o5.blocks.length === 0 && !o5.error, 'check: without the closures module the overlap check stands alone');
+  h = mk({ blThrow: true, rows: [] }); const o6 = await h.C.check(cand, 'DOC');
+  t(!!o6.error, 'check: a loader that throws is an error, never a silent «free»');
+  h = mk({ rows: [R(1, '10:10', 30, 'A', null)] }); const o7 = await h.C.check({ date: '2026-10-01', duration: 30, provider_id: 'A' }, 'DOC');
+  t(h.ev.length === 0 && o7.conflicts.length === 0, 'check: no time ⇒ nothing is read');
+}
+
 function suite(C) {
   const cand = { id: 'X', date: '2026-10-01', time: '10:00', duration: 30, provider_id: 'A', operatory_id: 'K1' };
   const f = rows => C.find(cand, rows);
@@ -213,6 +249,7 @@ suite(loadModule(SRC));
   }
   ok(/appt-conflict\\\.js/.test(read('scripts/cache-bust.sh')) && (read('scripts/cache-bust.sh').match(/appt-conflict/g) || []).length === 3, 'cache-bust.sh: allow-listed (comment + regex + perl)');
   ok(!/window\.confirm\(|\balert\(|\bprompt\(/.test(SRC), 'module: no native browser dialogs');
+  await checkSuite(SRC, ok);
   ok(/SYDENT_APPT_CONFLICT_START/.test(SRC) && /SYDENT_APPT_CONFLICT_END/.test(SRC) && /if \(window\.SyDentConflict\) return;/.test(SRC), 'module: sentinels + idempotent');
 
   /* ── الإثبات العكسي ───────────────────────────────────────────────────── */
@@ -222,7 +259,14 @@ suite(loadModule(SRC));
       ['if (DEAD_STATUSES[x.status]) return;', '', 'dead statuses occupy'],
       ['if (!x || (cand.id && x.id === cand.id)) return;', 'if (!x) return;', 'self not excluded'],
       ['if (x.is_planned || !x.date || x.date !== cand.date) return;', 'if (!x.date) return;', 'other day counted'],
-      ["if (res.error) { console.warn('SyDentConflict: check failed — proceeding without guard:', res.error); return true; }", 'if (res.error) return false;', 'fail-closed on error']
+      ["if (res.error) { console.warn('SyDentConflict: check failed — proceeding without guard:', res.error); return true; }", 'if (res.error) return false;', 'fail-closed on error'],
+      /* v801 */
+      ['      var pBl = B ? B.load(', '      if (pAp) { var _seq = await pAp; pAp = _seq; }\n      var pBl = B ? B.load(', 'reads sequential again'],
+      ['        if (pOff) inst = inst.concat(got[2]);\n', '', 'working hours dropped from the check'],
+      ['        out.blocks = B.blocking(inst, cand);\n', '', 'closures ignored'],
+      ['var needAp = !!(cand.provider_id || cand.operatory_id);', 'var needAp = true;', 'appointments read with no shared resource'],
+      ['var pOff = (B && cand.provider_id && B.offHours)', 'var pOff = (B && B.offHours)', 'hours read without a doctor'],
+      ['        if (r.error) { out.error = r.error; return out; }\n', '', 'read error swallowed']
     ];
     let red = 0;
     for (const [a, b, name] of muts) {
@@ -232,8 +276,9 @@ suite(loadModule(SRC));
       suite(loadModule(M));
       const hh = { rows: [R(1, '10:10', 30, 'A')], answer: false, log: [] };
       const gone = (await loadModule(M, { err: { message: 'x' }, answer: false, log: [] }).confirm(cand, { doctorId: 'DOC' })) !== true;
+      let cs = 0; try { await checkSuite(M, c => { if (!c) cs++; }); } catch (e) { cs++; }
       console.log = savedLog;
-      const caught = fail > before || gone;
+      const caught = fail > before || gone || cs > 0;
       if (caught) red++; else console.log('MUTANT SURVIVED:', name);
       fail = before; pass = passBefore;   // الطفرات لا تُحسب على النتيجة الأصلية
     }
