@@ -25,13 +25,18 @@ PORT = 8830 + (1 if SELF else 0)
 serve(PORT)
 BASE = 'http://127.0.0.1:%d/' % PORT
 FAILS, N = [], [0]
+class Bite(Exception): pass
+W = 6000 if SELF else 15000   # مهلةُ انتظار ما يُفترض ظهورُه — أقصر في self-test: الطفرةُ تُسقطه فلا ننتظرها طويلاً
+CTXS = []
 def ok(tag, c, info=''):
     N[0] += 1
-    if not c: FAILS.append(tag + (' — ' + str(info)[:200] if info != '' else ''))
+    if not c:
+        FAILS.append(tag + (' — ' + str(info)[:200] if info != '' else ''))
+        if SELF: raise Bite(tag)   # الطفرةُ عضّت — لا حاجة لإكمال السيناريو
 
 MUT = {}   # {'file.js': (find, replace)} — يُطبَّق على ما يُخدَّم (self-test)
 def new_page(b, db, w=1366, h=768):
-    ctx = context(b, db, w, h)
+    ctx = context(b, db, w, h); CTXS.append(ctx)
     def serve_mut(rt):
         name = rt.request.url.split('?')[0].split('/')[-1]
         if name in MUT:
@@ -46,7 +51,7 @@ def new_page(b, db, w=1366, h=768):
 def toasts_on(p):
     p.evaluate("(function(){window.__toasts=[];var o=window.showToast;window.showToast=function(m){window.__toasts.push(String(m));return o&&o.apply(this,arguments);};})()")
 def dlg(p): return p.evaluate("(function(){var d=document.querySelector('.sy-dialog');if(!d)return null;var b=d.querySelector('.modal-box').getBoundingClientRect();return {text:d.innerText.replace(/\\n+/g,' | '),inView:b.top>=0&&b.left>=0&&b.right<=innerWidth+1&&b.bottom<=innerHeight+1};})()")
-def until(p, fn, ms=15000):
+def until(p, fn, ms=W):
     """ينتظر حتى يتحقّق شرطٌ على القاعدة (الطلباتُ تُجاب أثناء الانتظار) — بدل مهلةٍ ثابتة تخون على آلةٍ بطيئة."""
     t = time.time() + ms / 1000.0
     while time.time() < t:
@@ -55,7 +60,7 @@ def until(p, fn, ms=15000):
         except Exception: pass
         p.wait_for_timeout(120)
     return False
-def wait_dialog(p, ms=15000):
+def wait_dialog(p, ms=W):
     try: p.wait_for_selector('.sy-dialog', timeout=ms); p.wait_for_timeout(450); return True   # ورقةُ الهاتف تنزلق لمكانها
     except Exception: return False
 
@@ -84,8 +89,8 @@ def s_card(b, w=1366, h=768):
     shown = wait_dialog(p)
     d = dlg(p) or {'text': '', 'inView': False}
     clear = p.evaluate("(function(){var t=document.getElementById('syToast'),c=document.querySelector('.sy-dialog .btn-sy-cancel');if(!c)return false;if(!t||!t.classList.contains('show'))return true;var a=t.getBoundingClientRect(),b=c.getBoundingClientRect();return a.bottom<=b.top||a.top>=b.bottom||a.right<=b.left||a.left>=b.right;})()")
-    ok(T + ': لا إشعارَ يغطّي زرَّ «لاحقاً»', clear)
     ok(T + ': تخطيطُ القلع يُظهر حوارَ الموافقة حيث يعمل الطبيب', shown and 'موافقة المريض مطلوبة' in d['text'] and '«قلع» (السن 26)' in d['text'] and 'قبل التنفيذ' in d['text'], d['text'])
+    ok(T + ': لا إشعارَ يغطّي زرَّ «لاحقاً»', clear)
     ok(T + ': الحوارُ داخل الشاشة وفيه «التوقيع الآن» و«إرسال» و«لاحقاً»', d['inView'] and 'التوقيع الآن على هذا الجهاز' in d['text'] and 'إرسال رابط البوابة' in d['text'] and 'لاحقاً' in d['text'], d)
     cs = db.rows('patient_consents')
     ok(T + ': القاعدةُ تحمل موافقةً معلَّقة واحدة للسن 26 بنصّ العيادة', len(cs) == 1 and cs[0]['status'] == 'pending' and cs[0]['teeth'] == '26' and cs[0]['title'] == CONSENT_TPL['title'] and cs[0]['body'] == CONSENT_TPL['body'])
@@ -99,7 +104,7 @@ def s_card(b, w=1366, h=768):
     cs = db.rows('patient_consents')
     ok(T + ': سنٌّ ثانٍ ينضمّ للموافقة نفسها بلا حوارٍ ثانٍ', len(cs) == 1 and cs[0]['teeth'] == '26، 27' and len(cs[0]['session_ids']) == 2 and not dlg(p), [c['teeth'] for c in cs])
     add_tooth(p, 16, 'منجز'); p.wait_for_function("(function(){return window.__toasts.filter(function(t){return /16/.test(t);}).length>0;})()")
-    try: p.wait_for_function("window.__toasts.some(function(t){return t.indexOf('بلا موافقة موقَّعة')>-1;})", timeout=15000)
+    try: p.wait_for_function("window.__toasts.some(function(t){return t.indexOf('بلا موافقة موقَّعة')>-1;})", timeout=W)
     except Exception: pass
     p.wait_for_timeout(900)
     cs = db.rows('patient_consents'); ts = p.evaluate("window.__toasts")
@@ -109,7 +114,7 @@ def s_card(b, w=1366, h=768):
     p.locator('#consentRow').scroll_into_view_if_needed(); p.wait_for_timeout(200)
     cid = cs[0]['id']
     try:
-        with ctx.expect_page(timeout=8000) as pop:
+        with ctx.expect_page(timeout=min(W, 8000)) as pop:
             p.locator('#consentRow [onclick*="ppConsentSignHere("]').click()
         q = pop.value; q.set_default_timeout(15000); qerrs = []; q.on('pageerror', lambda e: qerrs.append(str(e)[:200]))
         q.wait_for_url('**/portal.html?t=*', timeout=10000)
@@ -127,7 +132,7 @@ def s_card(b, w=1366, h=768):
     ok(T + ': بالقائمة زرُّ «توقيع على هذا الجهاز» داخل بطاقته', li is True, li)
     q = None
     try:
-        with ctx.expect_page(timeout=8000) as pop:
+        with ctx.expect_page(timeout=min(W, 8000)) as pop:
             p.locator('#ppConsentList [onclick*="ppConsentSignHere("]').first.click()
         q = pop.value; q.set_default_timeout(15000); qerrs = []; q.on('pageerror', lambda e: qerrs.append(str(e)[:200]))
         q.wait_for_url('**/portal.html?t=*', timeout=10000)
@@ -135,7 +140,7 @@ def s_card(b, w=1366, h=768):
         ok(T + ': زرُّ القائمة يفتح تبويباً', False, e)
     if q:
         ok(T + ': الرابطُ يحمل معرّفَ الموافقة', ('&c=' + cid) in q.url, q.url)
-        try: q.wait_for_selector('#cnsOv', timeout=10000); opened = True
+        try: q.wait_for_selector('#cnsOv', timeout=W); opened = True
         except Exception: opened = False
         ok(T + ': البوابةُ تفتح على الموافقة نفسها جاهزةً للقراءة والتوقيع', opened and CONSENT_TPL['title'] in (q.evaluate("(document.getElementById('cnsOv')||{}).innerText||''")))
         if opened:
@@ -161,13 +166,13 @@ def s_card(b, w=1366, h=768):
     if shown:   # «التوقيع الآن» من الحوار نفسِه يفتح البوابة على الموافقة الجديدة
         q = None
         try:
-            with ctx.expect_page(timeout=8000) as pop:
+            with ctx.expect_page(timeout=min(W, 8000)) as pop:
                 p.locator('.sy-dialog .sy-dialog-choice').first.click()
             q = pop.value; q.wait_for_url('**/portal.html?t=*', timeout=10000)
         except Exception as e:
             ok(T + ': «التوقيع الآن» من الحوار يفتح تبويباً', False, e)
         if q:
-            try: q.wait_for_selector('#cnsOv', timeout=10000); op = True
+            try: q.wait_for_selector('#cnsOv', timeout=W); op = True
             except Exception: op = False
             ok(T + ': «التوقيع الآن» من الحوار يفتح البوابة على الموافقة الجديدة', op and pend and ('&c=' + pend[0]['id']) in q.url, q.url)
             q.close()
@@ -335,7 +340,7 @@ def s_dash(b):
       {'id': 'C2', 'owner_id': UID, 'patient_id': 'P2', 'treatment_key': 'extracted', 'title': 'x', 'body': 'x', 'session_ids': ['S2'], 'auto': True, 'status': 'signed', 'created_at': '2026-11-21T10:00:00Z'}]
     ctx, p, errs = new_page(b, db)
     p.goto(BASE + 'index.html', wait_until='domcontentloaded')
-    try: p.wait_for_function("[].some.call(document.querySelectorAll('.pt-flag'),function(e){return /موافقة بانتظار التوقيع/.test(e.textContent);})", timeout=30000); got = True
+    try: p.wait_for_function("[].some.call(document.querySelectorAll('.pt-flag'),function(e){return /موافقة بانتظار التوقيع/.test(e.textContent);})", timeout=W * 2); got = True
     except Exception: got = False
     chips = p.evaluate("[].map.call(document.querySelectorAll('.pt-flag'),function(e){var row=e.closest('[data-appt-id], .appt-item, li, tr')||e.parentElement.parentElement;return (/موافقة بانتظار/.test(e.textContent)?'C:':'-:')+row.innerText.replace(/\\n+/g,' ').slice(0,40);}).filter(function(x){return x[0]==='C';})")
     ok('dash: شارةُ «موافقة بانتظار التوقيع» على موعد صاحبها وحده', got and len(chips) == 1 and 'سامر' in chips[0], chips)
@@ -383,14 +388,20 @@ with sync_playwright() as pw:
     if dead:   # مرساةٌ اختفت من الملف = طفرةٌ ميتة؛ لا تُحسب «عضّت» باستثناء
         for t in dead: print('  ✗ طفرةٌ بلا مرساة:', t)
         print('❌ مثبت المسارات على الصفحات الحقيقية: %d طفرة بلا مرساة' % len(dead)); sys.exit(1)
+    T0 = time.time()
     for title, scen, fname, a, r in MUTANTS:
         MUT.clear(); MUT[fname] = (a, r); FAILS.clear(); N[0] = 0
         try:
             if scen == 'card390': s_card(b, 390, 844)
             else: SCEN[scen](b)
         except Exception as e: FAILS.append('exception ' + repr(e)[:120])
+        while CTXS:
+            try: CTXS.pop().close()
+            except Exception: pass
         if FAILS: bit += 1
         else: print('  ✗ طفرةٌ لم تعضّ:', title)
+        if '--times' in sys.argv: print('   %5.1fs  %s  ← %s' % (time.time() - T0, title, (FAILS or [''])[0][:70])); 
+        T0 = time.time()
     b.close()
     print(('✅' if bit == len(MUTANTS) else '❌') + ' مثبت المسارات على الصفحات الحقيقية: %d/%d طفرات تعضّ' % (bit, len(MUTANTS)))
     sys.exit(0 if bit == len(MUTANTS) else 1)
