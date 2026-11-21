@@ -42,7 +42,7 @@ function harness(S, opt) {
   vm.runInContext(liveSrc(S.init).replace(/window\.addEventListener/g, 'window.addEventListener'), ctx);
   const L = ctx.window.SyLive;
   let calls = 0; let release = null;
-  const w = L.watch({ name: 'p', uid: 'U1', tables: opt.tables || ['appointments', { t: 'patients', filter: 'id=eq.P1' }], hold: opt.hold,
+  const w = L.watch({ name: 'p', uid: 'U1', tables: opt.tables || ['appointments', { t: 'patients', filter: 'id=eq.P1' }], hold: opt.hold, echoNow: opt.echoNow,
     refresh: () => { calls++; if (opt.slow) return new Promise(r => { release = r; }); } });
   const ch = chans[0];
   const fire = (table, type, row) => ch.subs.filter(s => s.f.table === table && s.f.event === type).forEach(s => s.cb({ eventType: type, new: row || {}, old: row || {} }));
@@ -141,6 +141,83 @@ async function suite(S) {
   ok(h.calls() === 1, 'running: no overlapping reload while one is in flight');
   h.release(); await h.tick(10); await h.tick(1000);
   ok(h.calls() === 2, 'running: a change that arrived mid-reload triggers exactly one more reload');
+  /* (٦) v801 — صدى كتابة التبويب نفسه: لا تحميلَ كاملاً بعد كل حفظ، ولا فقدَ لتغييرٍ خارجي */
+  const REST = 'https://x.supabase.co/rest/v1/';
+  const wr = (h, path, method) => h.L.noteWrite(REST + path, { method: method || 'POST' });
+  h = harness(S); h.status('SUBSCRIBED');
+  let d1 = wr(h, 'appointments?id=eq.a1', 'PATCH');
+  ok(typeof d1 === 'function', 'echo: a REST write through the client is noted');
+  h.fire('appointments', 'UPDATE', { id: 'a1' }); await h.tick(900);
+  ok(h.calls() === 0, 'echo: the event arriving before the write\'s own response does not reload the page');
+  d1(); h.fire('appointments', 'UPDATE', { id: 'a1' }); await h.tick(4000);
+  ok(h.calls() === 0, 'echo: no full reload right after this tab\'s own save');
+  await h.tick(12000);
+  ok(h.calls() === 1, 'echo: never dropped — one reload once the page has been quiet (a change from another device inside the window is caught up)');
+  h = harness(S); h.status('SUBSCRIBED');
+  d1 = wr(h, 'appointments'); d1(); h.fire('appointments', 'INSERT', { id: 'a1' }); await h.tick(10000);
+  d1 = wr(h, 'appointments'); d1(); h.fire('appointments', 'INSERT', { id: 'a2' }); await h.tick(10000);
+  ok(h.calls() === 0, 'echo: consecutive saves keep pushing the quiet reload back (no reload between two actions)');
+  await h.tick(6000);
+  ok(h.calls() === 1, 'echo: a burst of saves ends in exactly one reload');
+  h = harness(S); h.status('SUBSCRIBED');
+  d1 = wr(h, 'appointments'); d1(); h.fire('appointments', 'INSERT', { id: 'a1' }); await h.tick(3500);
+  h.fire('appointments', 'UPDATE', { id: 'a9' }); await h.tick(800);
+  ok(h.calls() === 1, 'echo: a later change from another device reloads at once — it does not wait for the quiet timer');
+  h = harness(S); h.status('SUBSCRIBED');
+  h.fire('patients', 'UPDATE', { id: 'P1' }); await h.tick(300);
+  d1 = wr(h, 'patients?id=eq.P1', 'PATCH'); d1(); h.fire('patients', 'UPDATE', { id: 'P1' }); await h.tick(500);
+  ok(h.calls() === 1, 'echo: an own-write echo never delays a pending reload caused by another device');
+  h = harness(S); h.status('SUBSCRIBED');
+  d1 = wr(h, 'appointments'); d1(); h.fire('patients', 'UPDATE', { id: 'P1' }); await h.tick(800);
+  ok(h.calls() === 1, 'echo: the window is per table — a change on a table this tab did not write stays instant');
+  h = harness(S); h.status('SUBSCRIBED');
+  d1 = wr(h, 'rpc/some_write_fn'); d1(); h.fire('patients', 'UPDATE', { id: 'P1' }); await h.tick(4000);
+  ok(h.calls() === 0, 'echo: an RPC may write any table — its echoes are deferred whatever table they land on');
+  h = harness(S); h.status('SUBSCRIBED');
+  ok(wr(h, 'rpc/touch_presence') === null && wr(h, 'rpc/my_subscription_state') === null, 'echo: the periodic presence / subscription calls open no window (no blind spot every minute)');
+  ok(h.L.noteWrite(REST + 'appointments?select=*', { method: 'GET' }) === null && h.L.noteWrite(REST + 'appointments?select=id', { method: 'HEAD' }) === null && h.L.noteWrite(REST + 'appointments') === null, 'echo: reads open no window');
+  ok(h.L.noteWrite('https://x.supabase.co/auth/v1/token', { method: 'POST' }) === null && h.L.noteWrite('https://x.supabase.co/storage/v1/object/b/f', { method: 'POST' }) === null, 'echo: only REST writes are noted (auth / storage are not)');
+  h.fire('appointments', 'UPDATE', { id: 'a1' }); await h.tick(800);
+  ok(h.calls() === 1, 'echo: with no write from this tab every change is instant as before');
+  h = harness(S); h.status('SUBSCRIBED');
+  d1 = wr(h, 'appointments'); d1(); await h.tick(3200);
+  h.fire('appointments', 'UPDATE', { id: 'a1' }); await h.tick(800);
+  ok(h.calls() === 1, 'echo: the window closes ' + h.L._consts.ECHO_MS + 'ms after the response — later changes are instant');
+  h = harness(S); h.status('SUBSCRIBED');
+  d1 = wr(h, 'appointments'); d1(); h.fire('appointments', 'INSERT', { id: 'a1' }); await h.tick(14500);
+  const d2 = wr(h, 'patients?id=eq.P1', 'PATCH'); await h.tick(3000);
+  ok(h.calls() === 0, 'echo: the quiet reload does not start in the middle of a save that is still in flight');
+  d2(); await h.tick(4500);
+  ok(h.calls() === 1, 'echo: it runs once that save has settled');
+  h = harness(S, { hold: false, echoNow: true }); h.status('SUBSCRIBED');
+  d1 = wr(h, 'appointments'); d1(); h.fire('appointments', 'INSERT', { id: 'a1' }); await h.tick(800);
+  ok(h.calls() === 1, 'echoNow (sidebar badges): a light watcher still refreshes at once after this tab\'s own save');
+  ok(/refresh: refreshSidebarDynamic, hold: false, echoNow: true \}\);/.test(S.side), 'sidebar: the badge watcher is registered echoNow');
+  /* التوصيل: fetch المشترك بـcreateClient يعلّم الكتابة ويعيد وعدَ الطلب الأصلي نفسه */
+  {
+    const a = S.init.indexOf('      fetch: function (input, init) {\n        var f = (window.SyDentOffline'), b = S.init.indexOf('\n      }\n    }\n  });', a);
+    ok(a > -1 && b > a, 'wiring: the shared client fetch is found');
+    const mk = win => new Function('window', 'return {' + S.init.slice(a, b) + '\n      } };')(win).fetch;
+    const log = []; let resolveF, rejectF;
+    const win = { SyLive: { noteWrite: (i, n) => { log.push('note:' + n.method); return () => log.push('done'); } }, fetch: () => new Promise((r, j) => { resolveF = r; rejectF = j; }) };
+    let fx = a > -1 && b > a ? mk(win) : null;
+    if (fx) {
+      const p1 = fx('u', { method: 'POST' });
+      ok(log.join() === 'note:POST', 'wiring: every client request is passed to SyLive.noteWrite before it leaves');
+      resolveF({ ok: true }); const r1 = await p1; await new Promise(r => setImmediate(r));
+      ok(r1 && r1.ok === true && log.join() === 'note:POST,done', 'wiring: the caller gets the request\'s own response, and the window is closed when it settles');
+      log.length = 0; const p2 = fx('u', { method: 'PATCH' }); let threw = false;
+      rejectF(new Error('net')); try { await p2; } catch (e) { threw = true; } await new Promise(r => setImmediate(r));
+      ok(threw && log.join() === 'note:PATCH,done', 'wiring: a failed request still rejects to its caller and still closes the window');
+      const win2 = { fetch: () => Promise.resolve({ ok: 1 }) }; const r3 = await mk(win2)('u', { method: 'POST' });
+      ok(r3 && r3.ok === 1, 'wiring: without SyLive the request goes through untouched');
+      const win3 = { SyLive: { noteWrite: () => { throw new Error('x'); } }, fetch: () => Promise.resolve({ ok: 2 }) }; const r4 = await mk(win3)('u', { method: 'POST' });
+      ok(r4 && r4.ok === 2, 'wiring: a fault inside the marker never blocks a save');
+      const order = []; const win4 = { SyDentSub: { writeGate: () => Promise.resolve({ denied: true }) }, SyLive: { noteWrite: () => { order.push('note'); return null; } }, fetch: () => { order.push('net'); return Promise.resolve({}); } };
+      const r5 = await mk(win4)('u', { method: 'POST' });
+      ok(r5 && r5.denied === true && order.length === 0, 'wiring: a write refused by the subscription gate opens no window and reaches no network');
+    }
+  }
   /* (٥) v626 — الصفحاتُ الأربع */
   h = harness(S); h.status('SUBSCRIBED'); h.doc.drag = true;
   h.fire('appointments', 'UPDATE', { id: 'a1' }); await h.tick(4000);
@@ -270,7 +347,27 @@ async function run(S) { pass = 0; fail = 0; await suite(S); await auditSuite(S);
   if (process.argv.includes('--self-test')) {
     const mutants = [
       ['inline-display overlays ignored', 'init', "if (st && st.display && st.display !== 'none') return true;", ""],
-      ['repaint while a modal is open', 'init', "if (w.running || (w.hold !== false && held())) {", "if (w.running) {"],
+      ['repaint while a modal is open', 'init', "if (w.running || (w.hold !== false && held()) || (!w.fast && writing())) {", "if (w.running || (!w.fast && writing())) {"],
+      /* v801 */
+      ['own save reloads the whole page (echo storm)', 'init', "if (w.echoNow !== true && isEcho(table)) { scheduleQuiet(w); return; }   /* v801 */", ""],
+      ['echo dropped — a foreign change in the window is lost', 'init', "if (w.echoNow !== true && isEcho(table)) { scheduleQuiet(w); return; }   /* v801 */", "if (w.echoNow !== true && isEcho(table)) { return; }"],
+      ['echo delays a pending foreign reload', 'init', "    if (w.fast) return;\n", ""],
+      ['in-flight write not covered (echo before the response)', 'init', "return !!(e && (e.open > 0 || now < e.until));", "return !!(e && now < e.until);"],
+      ['window never opens after the response', 'init', "e.until = Date.now() + ECHO_MS;", "e.until = 0;"],
+      ['window never closes', 'init', "e.open--; e.until = Date.now() + ECHO_MS;", "e.until = Date.now() + ECHO_MS;"],
+      ['reads open a window', 'init', "if (m === 'GET' || m === 'HEAD' || m === 'OPTIONS') return null;", ""],
+      ['presence ping opens a window', 'init', "return RPC_QUIET[p.slice(4)] ? null : '*';", "return '*';"],
+      ['rpc write not treated as any-table', 'init', "return echoOf(localW[table], now) || echoOf(localW['*'], now);", "return echoOf(localW[table], now);"],
+      ['table write treated as any-table', 'init', "    return p;\n  }\n  function noteWrite", "    return '*';\n  }\n  function noteWrite"],
+      ['non-REST writes noted', 'init', "    if (i < 0) return null;\n    var p = u.slice(i + 9)", "    var p = u.slice(i + 9)"],
+      ['quiet reload starts mid-save', 'init', " || (!w.fast && writing())) {", ") {"],
+      ['quiet reload not rearmed as fast after a foreign event', 'init', "w.dirty = true; w.fast = true;", "w.dirty = true;"],
+      ['sidebar badges wait for the quiet reload', 'side', "hold: false, echoNow: true });", "hold: false });"],
+      ['echoNow ignored', 'init', "echoNow: opts.echoNow === true, ", ""],
+      ['client fetch not wired to SyLive', 'init', "done = (window.SyLive && window.SyLive.noteWrite) ? window.SyLive.noteWrite(input, init) : null;", "done = null;"],
+      ['window left open after the response', 'init', "if (done) { try { p.then(done, done); } catch (e2) { done(); } }", ""],
+      ['refused write opens a window', 'init', "if (gate) return gate.then(function (denied) { return denied || run(); });", "if (gate) { run(); return gate.then(function (denied) { return denied || run(); }); }"],
+      ['marker fault blocks the save', 'init', "} catch (e) { done = null; }\n          var p = f.apply(window, args);", "} catch (e) { throw e; }\n          var p = f.apply(window, args);"],
       ['every delete reloads (cross-clinic storm)', 'init', "if (!(w.knows || knowsByDom)(table, id)) return;", ""],
       ['no debounce', 'init', "w.timer = setTimeout(function () { flush(w); }, DEBOUNCE_MS);", "flush(w);"],
       ['no tenant filter', 'init', "(col + '=eq.' + w.uid)", "undefined"],
