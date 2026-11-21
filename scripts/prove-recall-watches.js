@@ -38,14 +38,14 @@ async function suite(F) {
     const FA = win.SyDentFetchAll;
     const mk = (pages) => { const orders = []; let call = 0; const b = () => ({
       order(k) { orders.push(k); return this; },
-      range(lo, hi) { const rows = pages[call++] || []; return Promise.resolve({ data: rows, error: null }); } }); return { b, orders }; };
+      range(lo, hi) { call++; const rows = pages[Math.floor(lo / 1000)] || []; return Promise.resolve({ data: rows, error: null }); } }); return { b, orders }; };   /* v805: الصفحةُ بإزاحتها (الصفحاتُ بعد الأولى تُطلب أمواجاً متوازية) */
     let m = mk([[1, 2]]); let r = await FA(m.b);
     ok(r.data.length === 2 && m.orders.join() === 'id', 'fetchall: default order is id (unchanged)');
     m = mk([[1]]); r = await FA(m.b, ['patient_id', 'tooth_num', 'surface']);
     ok(m.orders.join() === 'patient_id,tooth_num,surface' && r.data.length === 1, 'fetchall: composite keys applied in order, id never requested');
     const big = Array.from({ length: 1000 }, (_, i) => i);
     m = mk([big, [7]]); r = await FA(m.b, ['patient_id']);
-    ok(r.data.length === 1001 && m.orders.length === 2, 'fetchall: paging still walks pages with custom keys');
+    ok(r.data.length === 1001 && r.data[1000] === 7 && m.orders.length >= 2 && m.orders.every(k => k === 'patient_id'), 'fetchall: paging still walks pages with custom keys (every page ordered by them)');
     const eb = () => ({ order() { return this; }, range() { return Promise.resolve({ data: null, error: { message: 'x' } }); } });
     r = await FA(eb, 'patient_id');
     ok(r.error && r.data === null, 'fetchall: error surfaces unchanged');
