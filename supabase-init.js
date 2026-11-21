@@ -270,6 +270,29 @@
       _outboxListeners.forEach(function (fn) { try { fn(pending, failed); } catch (e) {} });
     });
   }
+  /* ── مزامنة بالخلفية (والتطبيق مغلق) ───────────────────────────────────────
+     عند تسجيل عملية بلا اتصال يُطلب من المتصفح «sync» واحد (Background Sync —
+     كروم/أندرويد؛ آيفون لا يدعمه)، فيوقظ الـService Worker حين يعود الاتصال ولو كان
+     التطبيق مغلقاً. إن وجد تبويباً مفتوحاً أوكل له الرفع (كما اليوم)؛ وإلا رفع بنفسه
+     «المواعيد الجديدة وسجل التدقيق فقط» بترتيبها حتى أول عملية لا تخصّه — انظر sw.js.
+     ما يحتاجه لذلك يُحفَظ هنا: مفتاح API وتوكن الوصول الحالي وانتهاؤه (ساعة على الأكثر)
+     — نسخةٌ مما بـlocalStorage أصلاً، بمخزن الكاش نفسه فيمسحها كل خروج (wipeCache)،
+     ولا يُحفَظ توكن التجديد إطلاقاً (الـWorker لا يجدّد جلسة). */
+  var BG_TAG = 'sydent-outbox';
+  function bgArm(uid, apikey) {
+    try {
+      var raw = JSON.parse(window.localStorage.getItem('sydent.auth') || 'null');
+      var sess = (raw && raw.user) ? raw : (raw && raw.currentSession) ? raw.currentSession : (raw && raw.session) ? raw.session : null;
+      if (!sess || !sess.access_token || !sess.user || sess.user.id !== uid) return;
+      idbPut({ k: '__bg|' + uid, savedAt: Date.now(), uid: uid, apikey: apikey || '',
+               token: sess.access_token, exp: parseInt(sess.expires_at, 10) || 0 });
+      var sw = window.navigator && window.navigator.serviceWorker;
+      if (sw && sw.ready && typeof sw.ready.then === 'function') {
+        sw.ready.then(function (reg) { if (reg && reg.sync && reg.sync.register) return reg.sync.register(BG_TAG); })
+          .catch(function () {});
+      }
+    } catch (e) {}
+  }
   function outboxAdd(rec) {
     return idbOpen().then(function (db) {
       return new Promise(function (resolve, reject) {
@@ -957,6 +980,7 @@
           }).catch(function () {});
         }
         return withBase.then(function () { return outboxAdd(rec); }).then(function () {
+          bgArm(qUid, headerOf(input, init, 'apikey'));
           var now = Date.now();
           if ((qTable === 'appointments' || qTable === 'ledger_payments' || qTable === 'patients') && now - _lastQueueToast > 2500) {
             _lastQueueToast = now;
@@ -6713,6 +6737,14 @@ window.SyDentAccountDelete = (function () {
         } catch (e) {}
       });
       window.SyDentOffline.onOutboxChange(renderBadge);
+      /* الـWorker استيقظ بـsync ووجد هذا التبويب مفتوحاً ⇒ الرفع من هنا (كل القواعد هنا) */
+      try {
+        if (window.navigator.serviceWorker) {
+          window.navigator.serviceWorker.addEventListener('message', function (ev) {
+            if (ev && ev.data && ev.data.type === 'DRAIN_OUTBOX') drainAndReport();
+          });
+        }
+      } catch (eSw) {}
       window.addEventListener('online', function () { setTimeout(drainAndReport, 1200); });
       setTimeout(drainAndReport, 3000);           /* بعد الإقلاع — يلتقط بقايا جلسة سابقة */
       /* prefetch بطاقات مرضى اليوم — خلفي هادئ، مرة/يوم، بعد استقرار الصفحة */
