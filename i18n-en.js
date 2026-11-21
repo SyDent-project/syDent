@@ -4159,3 +4159,71 @@ if (window.SyI18nPatterns) window.SyI18nPatterns.push(
   [/^✍️ للمريض (\d+) موافقات علاج بانتظار توقيعه — أرسل له رابط البوابة أو افتحها له على جهاز العيادة$/, '✍️ The patient has $1 treatment consents awaiting signature — send them the portal link or open it for them on the clinic device'],
   [/^⚠️ أُنجز العلاج وموافقته «(.*)» لم تُوقَّع بعد$/, '⚠️ The treatment was completed and its consent «$1» is not signed yet']
 );
+
+/* ── M222: working hours & leave (employees page · payout form) ── */
+Object.assign(window.SyI18nDict, {
+  '🕘 الدوام والإجازات': '🕘 Hours & leave',
+  '🕘 الدوام': '🕘 Working hours',
+  '🏖 الإجازات والغياب': '🏖 Leave & absence',
+  'دوام خاص بهذا الشخص': 'Own working hours for this person',
+  'يتبع دوام العيادة المحدَّد في الإعدادات.': 'Follows the clinic hours set in Settings.',
+  'دوام الطبيب: تنبيه عند حجز موعد له خارجه، ويحترمه الحجز الإلكتروني وبوابة المريض.': 'A dentist\'s hours: a warning when booking them outside those hours, and online booking and the patient portal respect them.',
+  'حفظ الدوام': 'Save hours',
+  'الرصيد السنوي (أيام)': 'Annual allowance (days)',
+  'إجازة مدفوعة': 'Paid leave',
+  'إجازة غير مدفوعة': 'Unpaid leave',
+  'إجازة مرضية': 'Sick leave',
+  'غياب': 'Absence',
+  'مثلاً: سفر': 'e.g. travel',
+  'إجازة الطبيب تُغلق تقويمه تلقائياً بحجز مغلق باسمه، ومواعيده ضمنها تبقى لتراجعها.': 'A dentist\'s leave closes their calendar automatically with a closed block in their name; their appointments inside it stay for you to review.',
+  'تسجيل': 'Record',
+  'تم حفظ الدوام ✓': 'Hours saved ✓',
+  'صار يتبع دوام العيادة ✓': 'Now follows the clinic hours ✓',
+  'اختر يوم دوام واحداً على الأقل، أو أوقف «دوام خاص» ليتبع دوام العيادة.': 'Pick at least one working day, or turn off «Own working hours» to follow the clinic hours.',
+  'الدوام غير متاح بعد على هذا الحساب.': 'Working hours are not available on this account yet.',
+  '⚠️ الدوام والإجازات غير متاحة بعد على هذا الحساب': '⚠️ Hours and leave are not available on this account yet',
+  '⚠️ تعذّر التحميل — تحقّق من الاتصال وحاول ثانيةً': '⚠️ Could not load — check the connection and try again',
+  'تُعدّ أيام الدوام فقط.': 'Only working days are counted.',
+  'تُعدّ الأيام التقويمية (لا دوام محدَّد).': 'Calendar days are counted (no working hours set).',
+  'لا إجازات ولا غيابات مسجَّلة.': 'No leave or absences recorded.',
+  '📅 مغلق على التقويم': '📅 Closed on the calendar',
+  'حجزٌ مغلق باسم الطبيب على التقويم': 'A closed block in the dentist\'s name on the calendar',
+  'اختر نوع الإجازة.': 'Choose the leave type.',
+  'أدخل تاريخ البداية والنهاية.': 'Enter the start and end dates.',
+  'تاريخ النهاية قبل البداية.': 'The end date is before the start.',
+  'المدّة أطول من سنة.': 'The period is longer than a year.',
+  'لهذا الشخص إجازةٌ أو غيابٌ مسجَّل ضمن هذه الفترة.': 'This person already has leave or an absence recorded within this period.',
+  'الإجازات غير متاحة بعد على هذا الحساب.': 'Leave is not available on this account yet.',
+  'حذف الإجازة': 'Delete the leave',
+  '⚠️ حُذفت الإجازة لكن الحجز المغلق بقي على التقويم — احذفه من صفحة المواعيد': '⚠️ The leave was deleted but the closed block is still on the calendar — delete it from the Appointments page',
+  'تم حذف الإجازة ✓': 'Leave deleted ✓',
+  '⚠️ تعذّر الحذف — تحقّق من الاتصال وحاول ثانيةً': '⚠️ Could not delete — check the connection and try again',
+  '⚠️ الرصيد السنوي رقمٌ بين 0 و365': '⚠️ The annual allowance is a number between 0 and 365',
+  'تم حفظ الرصيد السنوي ✓': 'Annual allowance saved ✓',
+  '⚠️ تعذّر حفظ الرصيد — حاول ثانيةً': '⚠️ Could not save the allowance — try again',
+  'الخصم مطبَّق على هذه الدفعة': 'The deduction is already applied to this payout',
+  '⚠️ أدخل «راتب أساسي» بالتفصيل أولاً ليُخصم منه': '⚠️ Enter «Base salary» in the breakdown first so it can be deducted from',
+  '⚠️ الخصم محسوب بعملة الراتب — عملة الدفعة مختلفة': '⚠️ The deduction is in the salary currency — the payout currency is different'
+});
+if (window.SyI18nPatterns) window.SyI18nPatterns.push(
+  [/^🕘 الدوام والإجازات: (.*)$/, '🕘 Hours & leave: $1'],
+  [/^أدخل وقت البداية والنهاية ليوم (.+)$/, 'Enter the start and end time for $1'],
+  [/^نهاية دوام (.+) يجب أن تكون بعد بدايته\.$/, 'The end of $1 must be after its start.'],
+  [/^المأخوذ هذه السنة: (\d+) (?:يوم|أيام) إجازة مدفوعة$/, 'Taken this year: $1 paid-leave days'],
+  [/^المأخوذ هذه السنة: (\d+) · الباقي: (-?\d+) من (\d+)$/, 'Taken this year: $1 · Left: $2 of $3'],
+  [/^(\d\d\/\d\d\/\d{4}) · (\d+) (?:يوم|أيام)$/, '$1 · $2 days'],
+  [/^(\d\d\/\d\d\/\d{4}) ← (\d\d\/\d\d\/\d{4}) · (\d+) (?:يوم|أيام)$/, '$1 → $2 · $3 days'],
+  [/^تم تسجيل (.+) ✓$/, '$1 recorded ✓'],
+  [/^⚠️ سُجّلت الإجازة — للطبيب (\d+) موعد ضمنها: راجعها من صفحة المواعيد$/, '⚠️ Leave recorded — the dentist has $1 appointments inside it: review them on the Appointments page'],
+  [/^سيُحذف سجلّ «(.*)» \((\d\d\/\d\d\/\d{4}) ← (\d\d\/\d\d\/\d{4})\) ويُفتح تقويم الطبيب في هذه الفترة\. متابعة؟$/, 'The «$1» record ($2 → $3) will be deleted and the dentist\'s calendar reopened for this period. Continue?'],
+  [/^سيُحذف سجلّ «(.*)» \((\d\d\/\d\d\/\d{4}) ← (\d\d\/\d\d\/\d{4})\)\. متابعة؟$/, 'The «$1» record ($2 → $3) will be deleted. Continue?'],
+  [/^تم خصم ([\d,.]+) (.+) من الراتب — راجع المبلغ قبل الحفظ$/, '$1 $2 deducted from the salary — review the amount before saving'],
+  /* the leave line under the payout suggestion: day counts per kind, then (optionally) the suggested deduction */
+  [/^🏖 أيام ضمن الفترة: (.+?)(?: 💡 خصم مقترح: ([\d,.]+) (\S+) \((\d+)(?: من (\d+) يوم دوام بالشهر| (?:يوم|أيام))\) — اضغط لخصمه من الراتب)?$/, function (m, list, amt, cur, days, base) {
+    var K = [['إجازة غير مدفوعة', 'unpaid leave'], ['إجازة مدفوعة', 'paid leave'], ['إجازة مرضية', 'sick leave'], ['غياب', 'absence']];
+    var out = '🏖 Days within the period: ' + K.reduce(function (t, k) { return t.replace(k[0], k[1]); }, list);
+    if (amt) out += ' 💡 Suggested deduction: ' + amt + ' ' + cur + ' (' + days + (base ? ' of ' + base + ' working days in the month' : ' days') + ') — click to deduct it from the salary';
+    return out;
+  }],
+  [/^خصم غياب\/إجازة غير مدفوعة: (\d+) (?:يوم|أيام) \(−([\d,.]+) (\S+)\)$/, 'Absence / unpaid-leave deduction: $1 days (−$2 $3)']
+);

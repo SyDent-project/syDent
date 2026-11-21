@@ -21,6 +21,8 @@
 <script src="supabase-init.js?v=20261121j"></script>
 <script src="sy-modal.js?v=20261121j"></script>
 <script src="sidebar.js?v=20261121j"></script>
+<script src="staff-leaves.js?v=20261121j"></script>
+<script src="emp-time.js?v=20261121j"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -219,8 +221,39 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 .pwd-toggle:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
 .pwd-toggle:active{transform:translateY(-50%) scale(0.92);}
 .pwd-toggle svg{display:block;width:20px;height:20px;flex-shrink:0;}
+/* M222: نافذةُ الدوام والإجازات (emp-time.js) */
+.st-tabs{display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);}
+.st-tab{flex:1;padding:10px 8px;min-height:44px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text2);font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.st-tab.on{color:var(--green);border-bottom-color:var(--green);}
+.st-tab:focus-visible{outline:2px solid var(--green);outline-offset:-2px;}
+.st-switch{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;min-height:44px;}
+.st-switch input{width:18px;height:18px;accent-color:var(--green);flex-shrink:0;}
+.st-note{font-size:11.5px;color:var(--text2);line-height:1.6;margin:6px 0 10px;}
+.st-day{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.st-day-n{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;min-height:40px;min-width:96px;}
+.st-day-n input{width:18px;height:18px;accent-color:var(--green);flex-shrink:0;}
+.st-day-t{display:flex;align-items:center;gap:6px;direction:ltr;flex-direction:row-reverse;}
+.st-day-t input{padding:8px 8px;min-height:40px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Cairo',sans-serif;font-size:13px;max-width:128px;}
+.st-day-t input:disabled{opacity:.45;}
+.st-sep{font-size:12px;color:var(--text2);direction:rtl;}
+.st-wide{width:100%;margin-top:10px;padding:11px 14px;font-size:13px;}
+.st-bal{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;}
+.st-bal label{font-size:12px;font-weight:700;color:var(--text2);}
+.st-bal input{width:84px;padding:8px 10px;min-height:40px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Cairo',sans-serif;font-size:13px;text-align:center;}
+.st-bal-v{font-size:12.5px;font-weight:700;color:var(--text);flex:1 1 160px;}
+.st-bal-v.st-over{color:var(--red-ink);}
+.st-add{margin:12px 0;padding:12px;border:1px dashed var(--border);border-radius:10px;}
+.st-add .form-group{margin-bottom:10px;}
+.st-leave{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.st-leave-m{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;flex:1 1 200px;}
+.st-kind{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;border:1px solid transparent;white-space:nowrap;}
+.st-leave-d{font-size:12.5px;font-weight:700;color:var(--text);}
+.st-leave-b{font-size:11px;color:var(--text2);}
+.st-leave-n{font-size:11.5px;color:var(--text2);flex-basis:100%;overflow-wrap:anywhere;}
+.st-none{font-size:12.5px;color:var(--text2);text-align:center;padding:16px 0;}
+@media (max-width: 480px){ .st-day-t input{max-width:112px;} }
 /* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
-html[data-sub-level="read"] :is([onclick*="openAddModal("],[onclick*="saveEmployee("],[onclick*="removeAllLockPins("],[onclick*="saveOwnerPin("],[onclick*="openOwnerPinModal("],[onclick*="openEditModal("],[onclick*="toggleActive("],[onclick*="deleteEmployee("],.drag-handle){display:none !important;}
+html[data-sub-level="read"] :is([onclick*="openAddModal("],[onclick*="saveEmployee("],[onclick*="removeAllLockPins("],[onclick*="saveOwnerPin("],[onclick*="openOwnerPinModal("],[onclick*="openEditModal("],[onclick*="toggleActive("],[onclick*="deleteEmployee("],[onclick*="openStaffTime("],[onclick*="saveStaffHours("],[onclick*="stAddLeave("],[onchange*="saveStaffAllowance("],.drag-handle){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
 <link rel="stylesheet" href="theme.css?v=20261121j">
@@ -489,6 +522,64 @@ html[data-sub-level="read"] :is([onclick*="openAddModal("],[onclick*="saveEmploy
       <button type="button" class="btn btn-outline" onclick="closeOwnerModal()">إلغاء</button>
       <button type="button" class="btn" id="removeLockBtn" onclick="removeAllLockPins()" style="background:transparent;border:1px solid var(--red-bd);color:var(--red-ink);display:none;">تعطيل قفل العيادة</button>
       <button type="button" class="btn btn-primary" id="saveOwnerBtn" onclick="saveOwnerPin()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Working hours & leaves (M222 · emp-time.js) -->
+<div class="modal-overlay sy-m" id="staffTimeModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="stTitle">🕘 الدوام والإجازات</h3>
+      <button class="modal-close" onclick="closeStaffTime()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="st-tabs" role="tablist">
+        <button type="button" class="st-tab on" id="stTab_hours" role="tab" aria-selected="true" onclick="stSwitchTab('hours')">🕘 الدوام</button>
+        <button type="button" class="st-tab" id="stTab_leaves" role="tab" aria-selected="false" onclick="stSwitchTab('leaves')">🏖 الإجازات والغياب</button>
+      </div>
+
+      <div id="stPane_hours" role="tabpanel">
+        <label class="st-switch"><input type="checkbox" id="stCustom" onchange="stToggleCustom()"> <span>دوام خاص بهذا الشخص</span></label>
+        <div class="st-note" id="stHoursHint">يتبع دوام العيادة المحدَّد في الإعدادات.</div>
+        <div id="stDays"></div>
+        <div class="st-note">دوام الطبيب: تنبيه عند حجز موعد له خارجه، ويحترمه الحجز الإلكتروني وبوابة المريض.</div>
+        <div class="modal-msg err" id="stHoursErr"></div>
+        <button type="button" class="btn btn-primary st-wide" id="stSaveHours" onclick="saveStaffHours()">حفظ الدوام</button>
+      </div>
+
+      <div id="stPane_leaves" role="tabpanel" style="display:none">
+        <div class="st-bal">
+          <label for="stAllow">الرصيد السنوي (أيام)</label>
+          <input type="number" id="stAllow" min="0" max="365" step="1" inputmode="numeric" placeholder="—" onchange="saveStaffAllowance()">
+          <span class="st-bal-v" id="stBalance"></span>
+        </div>
+        <div class="st-note" id="stCountNote"></div>
+
+        <div class="st-add">
+          <div class="form-group"><label for="stLKind">النوع</label>
+            <select id="stLKind">
+              <option value="paid">إجازة مدفوعة</option>
+              <option value="unpaid">إجازة غير مدفوعة</option>
+              <option value="sick">إجازة مرضية</option>
+              <option value="absence">غياب</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label for="stLFrom">من تاريخ</label><input type="date" id="stLFrom"></div>
+            <div class="form-group"><label for="stLTo">إلى تاريخ</label><input type="date" id="stLTo"></div>
+          </div>
+          <div class="form-group"><label for="stLNote">ملاحظة (اختياري)</label><input type="text" id="stLNote" maxlength="200" placeholder="مثلاً: سفر"></div>
+          <div class="st-note" id="stDocNote" style="display:none">إجازة الطبيب تُغلق تقويمه تلقائياً بحجز مغلق باسمه، ومواعيده ضمنها تبقى لتراجعها.</div>
+          <div class="modal-msg err" id="stLeaveErr"></div>
+          <button type="button" class="btn btn-primary st-wide" id="stAddLeave" onclick="stAddLeave()">تسجيل</button>
+        </div>
+
+        <div id="stLeaves"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeStaffTime()">إغلاق</button>
     </div>
   </div>
 </div>
@@ -907,15 +998,17 @@ function renderList() {
     }
 
     var actions = '';
+    /* M222: الدوام والإجازات — لكل بطاقة (المالك أيضاً: دوامُه كطبيب وإجازتُه) */
+    var timeBtn = '<button class="sy-act" onclick="openStaffTime(\'' + e.id + '\')">🕘 الدوام والإجازات</button>';
     if (e.role === 'owner') {
       actions =
-        '<button class="sy-act" onclick="openOwnerPinModal()">🔐 تغيير رقم سرّي</button>';
+        '<button class="sy-act" onclick="openOwnerPinModal()">🔐 تغيير رقم سرّي</button>' + timeBtn;
     } else {
       var toggleTitle = inactive
         ? 'إعادة تفعيل حساب هذا الموظف ليتمكن من تسجيل البيانات من جهازه'
         : 'منع جهاز هذا الموظف من تسجيل بيانات جديدة (الجهاز يصبح للقراءة فقط)';
       actions =
-        '<button class="sy-act" onclick="openEditModal(\'' + e.id + '\')">✏️ تعديل</button>' +
+        '<button class="sy-act" onclick="openEditModal(\'' + e.id + '\')">✏️ تعديل</button>' + timeBtn +
         '<button class="sy-act' + (inactive ? ' sy-act-primary' : ' sy-act-warn') + '" onclick="toggleActive(\'' + e.id + '\')" title="' + escapeHtml(toggleTitle) + '">' +
           (inactive ? '✅ تفعيل الحساب' : '🔒 تعطيل الحساب') +
         '</button>' +

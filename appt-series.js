@@ -49,6 +49,7 @@
       if (window.SyDentBlocks) {
         var sorted = dates.slice().sort();
         blocks = window.SyDentBlocks.expand(await window.SyDentBlocks.load(doctorId, sorted[0], sorted[sorted.length - 1]), sorted[0], sorted[sorted.length - 1]);
+        if (base.provider_id && window.SyDentBlocks.offHours) blocks = blocks.concat(await window.SyDentBlocks.offHours(doctorId, sorted[0], sorted[sorted.length - 1]));   /* M222 */
       }
       dates.forEach(function (ds) {
         var cand = { id: null, date: ds, time: base.time, duration: base.duration, provider_id: base.provider_id || null, operatory_id: base.operatory_id || null };

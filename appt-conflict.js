@@ -82,7 +82,10 @@
       /* v498 (M154): الفتراتُ المغلقة المانعة بنفس اليوم — SyDentBlocks هو المصدر (sched-blocks.js) */
       if (window.SyDentBlocks) {
         var rows = await window.SyDentBlocks.load(doctorId, cand.date, cand.date);
-        out.blocks = window.SyDentBlocks.blocking(window.SyDentBlocks.expand(rows, cand.date, cand.date), cand);
+        var inst = window.SyDentBlocks.expand(rows, cand.date, cand.date);
+        /* M222: خارج دوام الطبيب الخاص — حالاتٌ مانعة باسمه (تنبيهٌ يُتجاوز كغيره) */
+        if (cand.provider_id && window.SyDentBlocks.offHours) inst = inst.concat(await window.SyDentBlocks.offHours(doctorId, cand.date, cand.date));
+        out.blocks = window.SyDentBlocks.blocking(inst, cand);
       }
       return out;
     } catch (e) { out.error = e; return out; }
@@ -105,7 +108,7 @@
     blocks.forEach(function (i) { lines.push(window.SyDentBlocks.describeLine(i)); });
     var head = conflicts.length
       ? 'هذا الوقتُ يتداخل مع ' + (conflicts.length === 1 ? 'موعدٍ آخر' : (conflicts.length + ' مواعيدَ أخرى')) + (blocks.length ? ' ومع وقتٍ محجوز' : '') + ':'
-      : 'هذا الوقتُ يقع ضمن فترةٍ محجوزة على التقويم:';
+      : (blocks.every(function (i) { return i.offHours; }) ? 'هذا الوقتُ خارج دوام الطبيب:' : 'هذا الوقتُ يقع ضمن فترةٍ محجوزة على التقويم:');
     return head + '\n' + lines.join('\n') + '\n\nهل تريد ' + verb + ' رغم التعارض؟';
   }
 
