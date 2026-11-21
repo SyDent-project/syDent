@@ -1,7 +1,8 @@
 /* ═════════════════════════════════════════════════════════════════════
    SyDent — pp-consent.js (M219 · أ2): موافقاتُ العلاج من بطاقة المريض
    ─────────────────────────────────────────────────────────────────────
-   الدورة: علاجٌ له نصُّ موافقة (صفحة العلاجات) يدخل الخطةَ المعتمدة ⇒ consent_sync تولّد للمريض موافقةً
+   الدورة: علاجٌ له نصُّ موافقة (صفحة العلاجات) يدخل الخطةَ المعتمدة — أو يُسجَّل «منجزاً» اليوم مباشرةً (M224) —
+   ⇒ consent_sync تولّد للمريض موافقةً
    معلَّقة بنسخةٍ من النص ⇒ المريضُ يوقّعها من بوابته (أ3) ⇒ تظهر هنا موقَّعةً للعرض والطباعة.
    - المصدرُ القاعدة: consent_sync(patient) تُستدعى عند الفتح وعند تغيّر الجلسات المخطّطة (renderTimeline
      نقطةُ المرور) — idempotent، وتُعيد صفراً بوضع القراءة فلا كتابة.
@@ -27,11 +28,19 @@ function ppConsentWhen(iso) {
   var hh = t.getHours(), mm = t.getMinutes();
   return d + ' ' + (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
 }
-/* بصمةُ ما يهمّ التوليد: الجلساتُ المخطّطة (المعرّف · مفتاح العلاج · البديل) — تغيّرُها وحده يستدعي المزامنة */
+function ppConsentToday() {
+  var d = new Date();
+  return d.getFullYear() + '-' + (d.getMonth() < 9 ? '0' : '') + (d.getMonth() + 1) + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate();
+}
+/* بصمةُ ما يهمّ التوليد: الجلساتُ المخطّطة (المعرّف · مفتاح العلاج · البديل) وما سُجّل «منجزاً» اليوم مباشرةً
+   (M224 — القاعدةُ تولّد له موافقتَه أيضاً) — تغيّرُها وحده يستدعي المزامنة. المنجزُ الأقدم لا يدخل. */
 function ppConsentPlanSig() {
-  var list = (typeof sessions !== 'undefined' && Array.isArray(sessions)) ? sessions : [];
-  return list.filter(function (s) { return s && (s.status || 'completed') === 'planned' && !s.parent_id; })
-    .map(function (s) { return s.id + ':' + (s.treatment_key || '') + ':' + (s.plan_option == null ? '' : s.plan_option); })
+  var list = (typeof sessions !== 'undefined' && Array.isArray(sessions)) ? sessions : [], today = ppConsentToday();
+  return list.filter(function (s) {
+    if (!s || s.parent_id) return false;
+    var st = s.status || 'completed';
+    return st === 'planned' || (st === 'completed' && String(s.date || '').slice(0, 10) === today);
+  }).map(function (s) { return s.id + ':' + (s.treatment_key || '') + ':' + (s.plan_option == null ? '' : s.plan_option) + ':' + ((s.status || 'completed') === 'planned' ? 'p' : 'd'); })
     .sort().join('|');
 }
 function ppConsentCounts() {
@@ -46,6 +55,7 @@ async function ppConsentLoad(force) {
   if (Array.isArray(PP_CONSENTS) && !force) { ppConsentRender(); return; }
   if (_ppConsentBusy) return;
   _ppConsentBusy = true;
+  var first = !Array.isArray(PP_CONSENTS);   /* الفتحُ الأول خطُّ أساسٍ صامت؛ ما يظهر بعده (علاجٌ سُجّل منجزاً للتوّ) يُنبَّه عنه مرةً */
   try {
     _ppConsentSig = ppConsentPlanSig();
     var sy = await window.sb.rpc('consent_sync', { p_patient: patientId });
@@ -56,7 +66,7 @@ async function ppConsentLoad(force) {
     if (r.error) {
       if (!/42P01|PGRST205|does not exist|schema cache/i.test((r.error.message || '') + ' ' + (r.error.code || ''))) console.warn('patient_consents load:', r.error);
       PP_CONSENTS = []; PP_CONSENT_OK = false;
-    } else { PP_CONSENTS = r.data || []; PP_CONSENT_OK = true; ppConsentWarnDone(true); }   /* ما أُنجز قبل الفتح لا يُنبَّه عنه — الصفُّ يعرضه معلَّقاً */
+    } else { PP_CONSENTS = r.data || []; PP_CONSENT_OK = true; ppConsentWarnDone(first); }   /* ما أُنجز قبل الفتح لا يُنبَّه عنه — الصفُّ يعرضه معلَّقاً */
   } catch (e) { console.warn('patient_consents:', e); PP_CONSENTS = []; PP_CONSENT_OK = false; }
   _ppConsentBusy = false;
   ppConsentRender();
