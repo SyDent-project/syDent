@@ -39,7 +39,7 @@ async function suite(F) {
   async function run(opt) {
     const ev = [], pending = [];
     const later = (tag, val) => new Promise(res => { ev.push('start:' + tag); pending.push(() => { ev.push('done:' + tag); res(val); }); });
-    const stubQ = tag => ({ select() { return this; }, eq() { return this; }, in() { return this; }, order() { return this; },
+    const stubQ = tag => ({ select() { return this; }, eq() { return this; }, in() { return this; }, order() { return this; }, or(f) { this.__or = f; return this; },
       then(a, b) { return (opt.throwLab && tag === 'lab_orders' ? Promise.reject(new Error('net')) : later(tag, { data: opt.lab || [], error: null })).then(a, b); } });
     const ctx = {
       currentUser: { id: 'u1' }, console: { warn: () => ev.push('warn') }, mainTab: 'schedule', Promise, Object, String, parseFloat, Array,
@@ -47,9 +47,14 @@ async function suite(F) {
       dateStr: () => '2026-09-30', appointments: null, sessionsByAppt: null, plannedSessionsByPatient: null, altPlannedCountByPatient: null,
       labOrdersByPatient: null, labOrdersByAppt: null, _apptAux: opt.aux || null,
       window: { SyDentApptDead: (a) => a.status === 'cancelled',
-        SyDentFetchAll: build => { const q = build(); return q.__tbl === 'appointments'
+        SyDentFetchAll: build => { const q = build(); if (q.__tbl !== 'appointments') ev.push('ses-or:' + (q.__or || ''));
+          /* v804: القاعدةُ تطبّق فلترَ الاستعلام — العُدّةُ تطبّقه كما كُتب بالمصدر (opt.dbFilter)، فأيُّ تضييقٍ له يُسقط صفوفاً تحتاجها الصفحة */
+          const sesRows = () => { const all = opt.ses || []; if (!opt.dbFilter || !q.__or) return all;
+            const conds = String(q.__or).split(',').map(c => c.split('.'));
+            return all.filter(row => conds.some(c => (c[1] === 'not' && c[2] === 'is' && c[3] === 'null') ? (row[c[0]] !== null && row[c[0]] !== undefined) : (c[1] === 'eq' ? String(row[c[0]]) === c.slice(2).join('.') : true))); };
+          return q.__tbl === 'appointments'
             ? (opt.apErr ? later('appointments', { data: null, error: { message: 'x' } }) : later('appointments', { data: opt.ap || [], error: null }))
-            : (opt.throwSes ? Promise.reject(new Error('net')) : later('ledger_sessions', { data: opt.ses || [], error: null })); },
+            : (opt.throwSes ? Promise.reject(new Error('net')) : later('ledger_sessions', { data: sesRows(), error: null })); },
         sb: { from: t => Object.assign(stubQ(t), { __tbl: t }) } }
     };
     vm.createContext(ctx);
@@ -71,6 +76,21 @@ async function suite(F) {
   ok(r.ctx.appointments.length === 2 && r.ctx.sessionsByAppt.a1.length === 1 && !r.ctx.plannedSessionsByPatient.p1 && r.ctx.plannedSessionsByPatient.p2.length === 1
      && r.ctx.labOrdersByAppt.a1.length === 1 && r.ctx.labOrdersByPatient.p3.length === 1 && r.ev.slice(-2).join() === 'planned,render',
      'processing unchanged: dead-appointment planned item returns to scheduling · lab indices · render last');
+  /* v804 — الجلساتُ التي لا تستعملها الصفحة لا تُجلب، والخرائطُ الثلاث كما هي */
+  ok(r.ev.indexOf('ses-or:appointment_id.not.is.null,status.eq.planned') > -1, 'sessions: only rows tied to an appointment or still planned are requested');
+  ok((H.match(/\.eq\('doctor_id', currentUser\.id\)\.or\(_sesNeed\); \}\)/g) || []).length === 2 && /var _sesNeed = 'appointment_id\.not\.is\.null,status\.eq\.planned';/.test(H), 'sessions: the same filter on the main read and on the pre-M145 fallback');
+  {
+    const AP = [{ id: 'a1', status: 'confirmed' }, { id: 'a2', status: 'cancelled' }, { id: 'a3', status: 'completed' }];
+    const SES = []; let n = 0;
+    [null, 'a1', 'a2', 'a3', 'gone'].forEach(ap => ['planned', 'completed', 'existing_current', 'referred'].forEach(st => [null, 0, 1, 2, 3, 4].forEach(po => ['p1', 'p2', null].forEach(pt => {
+      SES.push({ id: 's' + (++n), appointment_id: ap, status: st, plan_option: po, patient_id: pt, type: 't' }); }))));
+    const snap = c => JSON.stringify([c.sessionsByAppt, c.plannedSessionsByPatient, c.altPlannedCountByPatient]);
+    const full = await run({ ap: AP, ses: SES }), cut = await run({ ap: AP, ses: SES, dbFilter: true });
+    const kept = SES.filter(x => x.appointment_id !== null || x.status === 'planned').length;
+    ok(snap(full.ctx) === snap(cut.ctx) && Object.keys(full.ctx.sessionsByAppt).length === 4 && full.ctx.plannedSessionsByPatient.p1.length > 0 && full.ctx.altPlannedCountByPatient.p1 > 0,
+       'sessions: over ' + SES.length + ' mixed rows the three maps are identical with and without the filter');
+    ok(kept < SES.length && kept === 288 + 18, 'sessions: the filter really drops rows (' + (SES.length - kept) + ' of ' + SES.length + ' — finished work with no appointment)');
+  }
   let released = false, rel;
   const aux = new Promise(res => { rel = () => { released = true; res(); }; });
   r = await run({ aux, release: () => rel() });
@@ -85,6 +105,10 @@ async function suite(F) {
 }
 const rep = (f, a, b) => F0 => { const F = Object.assign({}, F0); F[f] = F[f].split(a).join(b); return F; };
 const MUTANTS = [
+  ['every session of the clinic fetched again', rep('appointments.html', ".eq('doctor_id', currentUser.id).or(_sesNeed); }));", ".eq('doctor_id', currentUser.id); }));")],
+  ['fallback read unfiltered', rep('appointments.html', ".select(_sesCols).eq('doctor_id', currentUser.id).or(_sesNeed); });", ".select(_sesCols).eq('doctor_id', currentUser.id); });")],
+  ['filter drops finished work done at an appointment', rep('appointments.html', "var _sesNeed = 'appointment_id.not.is.null,status.eq.planned';", "var _sesNeed = 'status.eq.planned';")],
+  ['filter drops unscheduled planned items', rep('appointments.html', "var _sesNeed = 'appointment_id.not.is.null,status.eq.planned';", "var _sesNeed = 'appointment_id.not.is.null';")],
   ['back to sequential awaits', F0 => rep('appointments.html', '    loadClinicDoctors(),\n', '')(rep('appointments.html', '  await loadAppointments();    /* قراءاتُه', '  await loadClinicDoctors();\n  await loadAppointments();    /* قراءاتُه')(F0))],
   ['blocks awaited after', rep('appointments.html', "    loadBlocks()               /* v498", "    null               /* v498")],
   ['one failure aborts boot', rep('appointments.html', ".map(function (p) { return Promise.resolve(p).catch(function (e) { console.warn('calendar boot read:', e); }); }));", '.map(function (p) { return p; }));')],
@@ -95,6 +119,9 @@ const MUTANTS = [
   ['early reads not settled (unhandled rejection)', rep('appointments.html', 'var _labPre = _apptSettle(window.sb.from', 'var _labPre = (window.sb.from')],
   ['lab exception not rethrown into its catch', rep('appointments.html', '    if (_l0.e) throw _l0.e;\n', '    if (_l0.e) return;\n')]
 ];
+/* خروجٌ صامت (وعدٌ لم يُحسم فأفرغت الحلقة) لا يُحسب نجاحاً أبداً */
+let FINISHED = false;
+process.on('exit', code => { if (!FINISHED && code === 0) { console.log('❌ prove-perf-calendar: توقّف قبل الاكتمال'); process.exitCode = 1; } });
 (async () => {
   await suite(base);
   const bp = pass, bf = fail;
@@ -111,8 +138,8 @@ const MUTANTS = [
     pass = bp; fail = bf;
     const all = bit === MUTANTS.length;
     console.log((fail === 0 && all ? '✅' : '❌') + ' prove-perf-calendar: ' + pass + '/' + (pass + fail) + ' · mutants ' + bit + '/' + MUTANTS.length);
-    process.exit(fail === 0 && all ? 0 : 1);
+    FINISHED = true; process.exit(fail === 0 && all ? 0 : 1);
   }
   console.log((fail === 0 ? '✅' : '❌') + ' prove-perf-calendar: ' + pass + '/' + (pass + fail));
-  process.exit(fail === 0 ? 0 : 1);
+  FINISHED = true; process.exit(fail === 0 ? 0 : 1);
 })();

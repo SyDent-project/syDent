@@ -2255,19 +2255,34 @@
   window.SyDentFetchAll = async function (build, orderKeys) {
     /* v590: الجداولُ بلا عمود id (مفتاحٌ مركّب — teeth_status) تمرّر أعمدةَ ترتيبها؛ order('id') عليها
        كان خطأً صامتاً (42703) فاختفت مراقباتُ الأسنان من المتابعة كلياً منذ v548. */
-    var PAGE = 1000, out = [], off = 0;
+    /* v804: الصفحاتُ كانت تُطلب واحدةً واحدة — كلُّ ألف صفٍّ جولةُ شبكة (0.5–1 ث من سوريا)، فعيادةٌ بسنةِ عملٍ تنتظر
+       عشرات الجولات عند كل فتح. الصفحةُ الأولى وحدها كما كانت (معظمُ القراءات تنتهي عندها بلا أي طلبٍ زائد)، وما بعدها
+       أمواجٌ متوازية تتضاعف (2 ثم 4 ثم WAVE_MAX): الطلباتُ نفسُها بالعناوين نفسِها (فكاشُ الأوفلاين كما هو)، تُجمَع
+       بترتيب صفحاتها، ويقف الجمعُ عند أول صفحةٍ ناقصة — وما طُلب بعدها بالموجة نفسها يقع خلف نهاية البيانات فيُهمَل
+       (نتيجتُه وخطؤه معاً). خطأُ صفحةٍ قبل النهاية يُرجَع بالشكل نفسه { data:null, error }، واستثناؤها يُرمى كما كان. */
+    var PAGE = 1000, WAVE_MAX = 8, out = [], next = 0, wave = 1;
     var keys = Array.isArray(orderKeys) ? orderKeys : [orderKeys || 'id'];
-    for (;;) {
+    var fetchPage = function (i) {
       var q = build();
       for (var ki = 0; ki < keys.length; ki++) q = q.order(keys[ki]);
-      var res = await q.range(off, off + PAGE - 1);
-      if (!res || res.error) return { data: null, error: (res && res.error) || { message: 'fetch_failed' } };
-      var rows = res.data || [];
-      out = out.concat(rows);
-      if (rows.length < PAGE) break;
-      off += PAGE;
+      return Promise.resolve(q.range(i * PAGE, i * PAGE + PAGE - 1))
+        .then(function (r) { return { r: r }; }, function (e) { return { e: e, threw: true }; });
+    };
+    for (;;) {
+      var batch = [];
+      for (var w = 0; w < wave; w++) batch.push(fetchPage(next + w));
+      var got = await Promise.all(batch);
+      for (var g = 0; g < got.length; g++) {
+        if (got[g].threw) throw got[g].e;
+        var res = got[g].r;
+        if (!res || res.error) return { data: null, error: (res && res.error) || { message: 'fetch_failed' } };
+        var rows = res.data || [];
+        out = out.concat(rows);
+        if (rows.length < PAGE) return { data: out, error: null };
+      }
+      next += wave;
+      wave = Math.min(wave * 2, WAVE_MAX);
     }
-    return { data: out, error: null };
   };
 
   window.SyDentCurBag = (function () {
