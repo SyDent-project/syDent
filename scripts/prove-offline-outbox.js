@@ -708,9 +708,9 @@ async function runAll(src, opt_sw, only) {
     let r = await t.SyDentOffline.fetch(SB + '/rest/v1/patients?select=*', { method: 'POST', headers: H4, body: JSON.stringify({ doctor_id: U1, local_id: 'P008', name: 'ريم الخطيب', phone: '0944', status: 'جديد' }) });
     const np = await r.json();
     ok('d4: a new patient saved offline is queued and echoed with its id', r.status === 201 && /^[0-9a-f-]{36}$/.test(np.id) && np.name === 'ريم الخطيب');
-    let threw = false; try { await t.SyDentOffline.fetch(SB + '/rest/v1/patients?id=eq.p-old', { method: 'PATCH', body: '{}' }); } catch (e) { threw = true; }
+    let threw = false; try { await t.SyDentOffline.fetch(SB + '/rest/v1/patients?id=eq.p-old', { method: 'PATCH', headers: H4, body: JSON.stringify({ payment: 'مدفوع' }) }); } catch (e) { threw = true; }
     let threw2 = false; try { await t.SyDentOffline.fetch(SB + '/rest/v1/patients?id=eq.p-old', { method: 'DELETE' }); } catch (e) { threw2 = true; }
-    ok('d4: editing or deleting a patient offline is still refused', threw && threw2);
+    ok('d4: deleting a patient, or changing their payment status, offline is still refused', threw && threw2);
     r = await t.SyDentOffline.fetch(LIST, G);
     ok('d4: the new patient appears in the cached patient list', (await r.json()).map(x => x.name).join(',') === 'قديم,ريم الخطيب');
     r = await t.SyDentOffline.fetch(SB + '/rest/v1/patients?select=*&id=eq.' + np.id + '&doctor_id=eq.' + U1, { method: 'GET', headers: { Accept: 'application/vnd.pgrst.object+json' } }).catch(() => null);
@@ -1025,10 +1025,96 @@ async function runAll(src, opt_sw, only) {
     ok('d8: … and uploads when asked', w.sent.filter(x => x.m === 'POST').length === 1 && (await w.left()).length === 0);
   }
 
+  /* ══ تطوير 9: تعديل بطاقة المريض بلا اتصال — حقول الهوية والملف الطبي حصراً ══ */
+  if (!only || only === 'd9') {
+    const P = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const ROW = { id: P, doctor_id: U1, name: 'سامر', phone: '0944', gender: 'ذكر', dob: null, notes: '', allergies: 'لا يوجد', status: 'نشط', payment: 'متبقي', payment_manual: false, medical_flags: ['diabetes'], medical_flags_other: null, referral_source: null, last_visit: '2026-11-01' };
+    const LIST = SB + '/rest/v1/patients?select=*&doctor_id=eq.' + U1;
+    const ONE = SB + '/rest/v1/patients?id=eq.' + P + '&doctor_id=eq.' + U1;
+    const HJ = { 'Content-Type': 'application/json' };
+    const FORM = (over) => Object.assign({ name: 'سامر', gender: 'ذكر', dob: null, phone: '0944', allergies: 'لا يوجد', notes: '', status: 'نشط', payment: 'متبقي', payment_manual: false, medical_flags: ['diabetes'], medical_flags_other: null, referral_source: null }, over || {});
+    const mk9 = (opt) => { const w = { srv: Object.assign({}, ROW), sent: [], down: false };
+      const net = async (u, i) => { const m = i.method || 'GET';
+        if (m === 'GET') { if (u.indexOf('select=id') !== -1) { if (w.down) throw new TypeError('Failed to fetch'); return json(w.srv ? [w.srv] : []); } return json([ROW]); }
+        w.sent.push({ m, u: u.replace(SB, ''), body: i.body ? JSON.parse(i.body) : null, init: i }); return json(null, 204); };
+      w.t = mkTab(src, U1, net, newIDB(), opt); return w; };
+    const prime = async w => { await w.t.SyDentOffline.fetch(LIST, G); await sleep(25); };
+    const edit = async (w, body, method) => { w.t.navigator.onLine = false; let err = null, res = null;
+      try { res = await w.t.SyDentOffline.fetch(ONE, { method: method || 'PATCH', headers: HJ, body: body === undefined ? undefined : JSON.stringify(body) }); } catch (e) { err = e; }
+      w.t.navigator.onLine = true; return { err, res }; };
+    const q = async w => (await w.t.SyDentOffline._outboxAll());
+
+    let w = mk9(); await prime(w);
+    let r = await edit(w, FORM({ notes: 'ضغط مرتفع', phone: '0955' }));
+    let ops = await q(w);
+    ok('d9: an edit from the full card form is queued', !r.err && r.res && r.res.status === 204 && ops.length === 1);
+    ok('d9: only what actually changed is queued — never the payment status the form resends', ops[0] && Object.keys(JSON.parse(ops[0].body)).sort().join(',') === 'notes,phone', ops[0] && ops[0].body);
+    ok('d9: the values the user saw are kept for the conflict check', ops[0] && ops[0].base && ops[0].base.notes === '' && ops[0].base.phone === '0944' && ops[0].who === 'سامر');
+    w.t.navigator.onLine = false; r = await w.t.SyDentOffline.fetch(LIST, G); w.t.navigator.onLine = true;
+    ok('d9: the edit shows in the patient list offline', (await r.json())[0].notes === 'ضغط مرتفع');
+
+    w = mk9(); await prime(w);
+    r = await edit(w, FORM({ notes: 'x', payment: 'مدفوع', payment_manual: true }));
+    ok('d9: an edit that changes the payment status is refused offline, whole', !!r.err && /يتطلب|اتصال/.test(r.err.message) && (await q(w)).length === 0);
+    for (const body of [{ payment: 'مدفوع' }, { last_visit: '2026-11-21' }, { flags: ['vip'] }, { family_id: 'f1' }, { dentition_mode: 'mixed' }, { payment_manual: true }]) {
+      r = await edit(w, body);
+      ok('d9: «' + Object.keys(body)[0] + '» alone is never written offline', !!r.err && (await q(w)).length === 0);
+    }
+    r = await edit(w, undefined, 'DELETE');
+    ok('d9: deleting a patient offline is refused', !!r.err && (await q(w)).length === 0);
+    r = await edit(w, FORM());
+    ok('d9: saving the form with nothing changed succeeds and queues nothing', !r.err && (await q(w)).length === 0);
+
+    /* مريض غير مكاش: تُقبل حمولة كلها ضمن القائمة فقط */
+    w = mk9();
+    r = await edit(w, { notes: 'n' }); ok('d9: no cached row — a payload inside the allowed fields is queued', !r.err && (await q(w)).length === 1 && !(await q(w))[0].base);
+    r = await edit(w, FORM({ notes: 'n2' })); ok('d9: no cached row — a payload carrying the payment status is refused', !!r.err && (await q(w)).length === 1);
+
+    /* الرفع */
+    w = mk9(); await prime(w); await edit(w, FORM({ notes: 'ضغط' }));
+    let d = await w.t.SyDentOffline.drain();
+    ok('d9: unchanged on the server → the edit is uploaded with only the changed field', d.synced === 1 && w.sent.length === 1 && JSON.stringify(w.sent[0].body) === '{"notes":"ضغط"}');
+    w = mk9(); await prime(w); await edit(w, FORM({ notes: 'ضغط' })); w.srv.notes = 'سكري';
+    d = await w.t.SyDentOffline.drain(); ops = await q(w);
+    ok('d9: the same field changed from another device → conflict, not uploaded', w.sent.length === 0 && ops.length === 1 && ops[0].lastError === 'CONFLICT changed');
+    w = mk9(); await prime(w); await edit(w, FORM({ notes: 'ضغط' })); w.srv.phone = '0999'; w.srv.payment = 'مدفوع';
+    d = await w.t.SyDentOffline.drain();
+    ok('d9: other fields changed elsewhere (phone, payment) → no conflict', d.synced === 1);
+    w = mk9(); await prime(w); await edit(w, FORM({ medical_flags: ['diabetes', 'heart'] })); w.srv.medical_flags = ['asthma'];
+    d = await w.t.SyDentOffline.drain();
+    ok('d9: a list field (medical flags) changed elsewhere is detected', w.sent.length === 0 && d.failed === 1);
+    w = mk9(); await prime(w); await edit(w, FORM({ notes: 'ضغط' })); w.srv = null;
+    d = await w.t.SyDentOffline.drain(); ops = await q(w);
+    ok('d9: the patient was deleted elsewhere → conflict', w.sent.length === 0 && ops[0].lastError === 'CONFLICT gone');
+
+    /* أونلاين: تعديل المريض يمرّ كما هو (بلا مهلة ولا مسّ) */
+    w = mk9(); const initO = { method: 'PATCH', headers: HJ, body: JSON.stringify({ payment: 'مدفوع' }) };
+    await w.t.SyDentOffline.fetch(ONE, initO);
+    ok('d9: online, a patient update is forwarded exactly as given', w.sent.length === 1 && w.sent[0].init === initO);
+
+    /* النافذة */
+    const wu = mk9({ wire: true }); await prime(wu); await edit(wu, FORM({ notes: 'ضغط' })); wu.srv.notes = 'سكري'; await wu.t.SyDentOffline.drain();
+    wu.t.dialogs = []; wu.t.script = [0, null];
+    wu.t.byId('sydent-sync-badge').onclick(); await sleep(120);
+    const c0 = wu.t.dialogs[0] && wu.t.dialogs[0].o.choices[0], d2 = wu.t.dialogs[1];
+    ok('d9: the review window names the operation and the patient', !!c0 && /تعديل بطاقة مريض/.test(c0.label) && c0.sub === 'سامر', c0 && JSON.stringify(c0));
+    ok('d9: … and explains the conflict in patient terms', !!d2 && /عُدّلت بطاقة المريض من جهاز آخر/.test(d2.o.message) && d2.o.choices[1].sub === 'تبقى البطاقة كما هي على الخادم');
+    const tr9 = englishEngine();
+    ['تعديل بطاقة مريض', 'عُدّلت بطاقة المريض من جهاز آخر بعد تعديلك', 'حُذف المريض من جهاز آخر', 'تبقى البطاقة كما هي على الخادم'].forEach(x => { const en = tr9(x); ok('d9: English engine leaves no Arabic in «' + x + '»', en != null && !AR.test(en), String(en)); });
+    const lit = /var PATIENT_EDIT_COLS = \{([^}]*)\}/.exec(src);
+    ok('d9: no money-derived field is in the offline-editable list', !!lit && !/payment|last_visit|balance|family|flags:|dentition|teeth/.test(lit[1].replace('medical_flags', '')), lit && lit[1]);
+  }
+
   return fails;
 }
 
 const MUTATIONS = [
+  ['d9: field gate removed (payment status writable offline)', s => s.replace("for (var c in keep) if (!PATIENT_EDIT_COLS[c]) throw REFUSE_OFFLINE;", '')],
+  ['d9: payment added to the offline-editable fields', s => s.replace("var PATIENT_EDIT_COLS = { name: 1,", "var PATIENT_EDIT_COLS = { payment: 1, name: 1,")],
+  ['d9: unchanged fields not dropped (the form\'s payment status blocks every edit)', s => s.replace("if (seen && sameDeep(row[c], patchAll[c])) return;", '')],
+  ['d9: patient edits skip the conflict check', s => s.replace("if (!rec || (rec.table !== 'appointments' && rec.table !== 'patients') || rec.force) return Promise.resolve('ok');", "if (!rec || rec.table !== 'appointments' || rec.force) return Promise.resolve('ok');")],
+  ['d9: list fields compared as text only', s => s.replace("if (!sameDeep(srv[c], rec.base[c]) && !(rec.method === 'PATCH' && sameDeep(srv[c], patch[c]))) return 'changed';", "if (false) return 'changed';")],
+  ['d9: online patient updates put under the timeout', s => s.replace(" &&\n                     !(table === 'patients' && method === 'PATCH'));", ');')],
   ['d8: worker uploads edits too', null, sw => sw.replace("op.status === 'failed' || op.method !== 'POST' || !BG_TABLES[op.table]) return false;", "op.status === 'failed' || !BG_TABLES[op.table]) return false;")],
   ['d8: worker uploads patient rows', null, sw => sw.replace("var BG_TABLES = { appointments: 1, audit_log: 1 };", "var BG_TABLES = { appointments: 1, audit_log: 1, patients: 1 };")],
   ['d8: expired token used', null, sw => sw.replace("if (!bg || !bg.token || !bg.apikey || !(bg.exp * 1000 - Date.now() > 30000)) return 0;", "if (!bg || !bg.token || !bg.apikey) return 0;")],
@@ -1049,10 +1135,10 @@ const MUTATIONS = [
   ['d6: a waiting operation offered «retry» instead of only delete', s => s.replace("var acts = !isBad(op)\n          ? [{ k: 'drop', label: 'حذف العملية', sub: 'تُحذف من هذا الجهاز ولا تُرفع' }]\n          : op.lastError === 'CONFLICT changed'", "var acts = op.lastError === 'CONFLICT changed'")],
   ['d6: click no longer uploads first', s => s.replace("var pre = offline ? Promise.resolve(null) : O.drain().catch(function () { return null; });", 'var pre = Promise.resolve(null);')],
   ['d6: audit entries listed', s => s.replace("var all = ops.filter(function (o) { return o.table !== 'audit_log'; });", 'var all = ops;')],
-  ['d5: conflict check skipped', s => s.replace("if (!rec || rec.table !== 'appointments' || rec.force) return Promise.resolve('ok');", "return Promise.resolve('ok');")],
+  ['d5: conflict check skipped', s => s.replace("if (!rec || (rec.table !== 'appointments' && rec.table !== 'patients') || rec.force) return Promise.resolve('ok');", "return Promise.resolve('ok');")],
   ['d5: edit of a deleted appointment counted as done', s => s.replace("if (!rows.length) return rec.method === 'DELETE' ? 'done' : 'gone';", "if (!rows.length) return rec.method === 'DELETE' ? 'done' : 'ok';")],
   ['d5: my own earlier edit seen as someone else\'s', s => s.replace("try { var p = JSON.parse(o.body || '{}'); for (var c in p) if (Object.prototype.hasOwnProperty.call(p, c)) found[c] = p[c]; } catch (e) {}", '')],
-  ['d5: same change by the other device treated as a conflict', s => s.replace(" && !(rec.method === 'PATCH' && sameVal(srv[c], patch[c]))) return 'changed';", ") return 'changed';")],
+  ['d5: same change by the other device treated as a conflict', s => s.replace(" && !(rec.method === 'PATCH' && sameDeep(srv[c], patch[c]))) return 'changed';", ") return 'changed';")],
   ['d5: conflict retried automatically', s => s.replace("rec.status = 'failed'; rec.attempts = 5;\n      rec.lastError = 'CONFLICT ' + verdict;", "rec.status = 'failed'; rec.attempts = 1;\n      rec.lastError = 'CONFLICT ' + verdict;")],
   ['d5: «apply my edit» still blocked by the check', s => s.replace("if (force) rec.force = true;", '')],
   ['d5: base taken from another account\'s cache', s => s.replace("return typeof k === 'string' && k.indexOf(uid + '|') === 0 && k.indexOf('/rest/v1/' + table) !== -1;", "return typeof k === 'string' && k.indexOf('/rest/v1/' + table) !== -1;")],
@@ -1060,7 +1146,7 @@ const MUTATIONS = [
   ['d4: any uncached patient history faked as empty', s => s.replace("if (m && !wantsObj && rowsOf('patients').some(function (r) { return r.id === m[1]; })) {", 'if (m && !wantsObj) {')],
   ['d4: file number not taken from the server', s => s.replace("return allocPatientSeq(rec, auth).then(function () { return conflictCheck(rec, auth); })", "return conflictCheck(rec, auth)")],
   ['d4: number allocated again on every retry', s => s.replace("rec.seqDone = true;", '')],
-  ['d4: patients editable offline', s => s.replace("patients:        { POST: 1 }\n  };", "patients:        { POST: 1, PATCH: 1, DELETE: 1 }\n  };")],
+  ['d4: patients deletable offline', s => s.replace("patients:        { POST: 1, PATCH: 1 }\n  };", "patients:        { POST: 1, PATCH: 1, DELETE: 1 }\n  };")],
   ['d4: unreachable counter ignored (upload with a guessed number)', s => s.replace("method: 'POST', headers: h, body: JSON.stringify({ n: rows.length })\n    }).then(function (res) {", "method: 'POST', headers: h, body: JSON.stringify({ n: rows.length })\n    }).catch(function () { return { ok: false, status: 0 }; }).then(function (res) {")],
   ['d4: bulk import cut by the timeout', s => s.replace("if (guarded && small && !(sendInit && sendInit.signal)", 'if (guarded && !(sendInit && sendInit.signal)')],
   ['d4: queued rows of another account readable', s => s.replace("ops = ops.filter(function (o) { return o && o.uid === uid; });\n      if (!ops.length) return null;\n      var wantsObj", "if (!ops.length) return null;\n      var wantsObj")],
