@@ -4088,3 +4088,74 @@ Object.assign(window.SyI18nDict, {
   'تخفي السجلات القديمة من العرض دون حذفها، ويمكن استرجاعها.': 'hides old records from view without deleting them, and they can be restored.',
   'ينزّل السجل في ملف.': 'downloads the log as a file.'
 });
+
+/* ── M219: treatment consent (treatments page) — the consent text itself stays Arabic by design ── */
+Object.assign(window.SyI18nDict, {
+  'موافقة المريض': 'Patient consent',
+  'عند وضع هذا العلاج في خطة مريض تُنشأ له موافقةٌ بهذا النص، يقرؤها ويوقّعها من بوابة المريض. الموافقة الموقَّعة تحتفظ بنصّها كما وُقّع حتى لو عدّلته هنا لاحقاً.': 'When this treatment is added to a patient\'s plan, a consent with this text is created for them to read and sign from the patient portal. A signed consent keeps its text as signed, even if you edit it here later.',
+  'يحتاج موافقة المريض': 'Needs the patient\'s consent',
+  'أوقفه لإلغاء الموافقة عن هذا العلاج؛ الموافقات الموقَّعة سابقاً تبقى محفوظة.': 'Turn it off to remove consent from this treatment; consents already signed are kept.',
+  'عنوان الموافقة': 'Consent title',
+  'نصّ الموافقة': 'Consent text',
+  'استعادة النص الجاهز': 'Restore the ready-made text',
+  'النص الجاهز صياغةٌ عامة: راجعه وعدّله بما يوافق ممارستك قبل اعتماده.': 'The ready-made text is a general wording: review and adjust it to your practice before using it.',
+  '✍️ موافقة': '✍️ Consent',
+  '✍️ الموافقة': '✍️ Consent',
+  'يحتاج موافقة المريض قبل العلاج': 'Needs the patient\'s consent before treatment',
+  'نصّ الموافقة الذي يوقّعه المريض من بوابته قبل هذا العلاج': 'The consent text the patient signs from their portal before this treatment',
+  'تم حفظ نصّ الموافقة ✓': 'Consent text saved ✓',
+  'أُلغيت موافقة هذا العلاج ✓': 'Consent removed from this treatment ✓',
+  'لا تغيير': 'No change',
+  'اكتب عنوان الموافقة.': 'Enter the consent title.',
+  'العنوان أطول من 120 حرفاً.': 'The title is longer than 120 characters.',
+  'اكتب نصّ الموافقة.': 'Enter the consent text.',
+  'النص أطول من 6000 حرف.': 'The text is longer than 6000 characters.',
+  'الموافقات غير متاحة بعد على هذا الحساب.': 'Consents are not available on this account yet.',
+  'تعذّر الحفظ — تحقّق من الاتصال وحاول ثانيةً.': 'Could not save — check the connection and try again.',
+  '⚠️ الموافقات غير متاحة بعد — حدّث الصفحة وحاول ثانيةً': '⚠️ Consents are not available yet — refresh the page and try again',
+  '⚠️ احفظ العلاج أولاً ثم أضف موافقته': '⚠️ Save the treatment first, then add its consent'
+});
+
+/* ── M219 (step 2): treatment consents on the patient card ── */
+Object.assign(window.SyI18nDict, {
+  'موافقات العلاج': 'Treatment consents',
+  '✍️ موافقات العلاج': '✍️ Treatment consents',
+  'تُنشأ الموافقة تلقائياً عند وضع علاجٍ له نصّ موافقة في الخطة المعتمدة، ويوقّعها المريض من بوابته. الموقَّعة تبقى بنصّها كما وُقّع.': 'A consent is created automatically when a treatment that has a consent text enters the adopted plan, and the patient signs it from their portal. A signed consent keeps its text as signed.',
+  '🔗 إرسال البوابة للتوقيع': '🔗 Send the portal for signing',
+  'عرض الموافقات': 'View consents',
+  'يوقّع المريض موافقاته المعلَّقة من بوابته': 'The patient signs their pending consents from their portal',
+  'لا موافقات لهذا المريض.': 'No consents for this patient.',
+  '✅ موقَّعة': '✅ Signed',
+  'ملغاة': 'Cancelled',
+  '✍️ بانتظار التوقيع': '✍️ Awaiting signature',
+  'نصّ الموافقة': 'Consent text',
+  '🖨️ طباعة': '🖨️ Print',
+  'إلغاء هذه الموافقة المعلَّقة — لن تظهر للمريض': 'Cancel this pending consent — it will no longer show to the patient',
+  'إلغاء الموافقة': 'Cancel the consent',
+  'تراجع': 'Back',
+  'أُلغيت الموافقة ✓': 'Consent cancelled ✓',
+  '⚠️ بوابة المريض غير متاحة على هذا الحساب': '⚠️ The patient portal is not available on this account',
+  '⚠️ حسابك بوضع القراءة — لا يمكن الإلغاء': '⚠️ Your account is read-only — cannot cancel',
+  '⚠️ تعذّر الإلغاء — تحقّق من الاتصال وحاول ثانيةً': '⚠️ Could not cancel — check the connection and try again'
+});
+if (window.SyI18nPatterns) window.SyI18nPatterns.push(
+  [/^✍️ بانتظار التوقيع: (\d+)$/, '✍️ Awaiting signature: $1'],
+  [/^✅ موقَّعة: (\d+)$/, '✅ Signed: $1']
+);
+/* ── M220: the consent switch in the portal settings card ── */
+Object.assign(window.SyI18nDict, {
+  '✍️ موافقات العلاج وتوقيعها (للعلاجات التي لها نصّ موافقة في صفحة العلاجات)': '✍️ Treatment consents and signing (for treatments that have a consent text on the Treatments page)',
+  'موافقات بانتظار التوقيع': 'consents awaiting signature'
+});
+if (window.SyI18nPatterns) window.SyI18nPatterns.push(
+  [/^✍️ وقّع (.+) موافقة «(.*)» من بوابته$/, '✍️ $1 signed the consent «$2» from their portal']
+);
+/* ── M219 step 4: missing-consent alerts ── */
+Object.assign(window.SyI18nDict, {
+  '✍️ موافقة بانتظار التوقيع': '✍️ Consent awaiting signature',
+  '✍️ للمريض موافقة علاج بانتظار توقيعه — أرسل له رابط البوابة أو افتحها له على جهاز العيادة': '✍️ The patient has a treatment consent awaiting signature — send them the portal link or open it for them on the clinic device'
+});
+if (window.SyI18nPatterns) window.SyI18nPatterns.push(
+  [/^✍️ للمريض (\d+) موافقات علاج بانتظار توقيعه — أرسل له رابط البوابة أو افتحها له على جهاز العيادة$/, '✍️ The patient has $1 treatment consents awaiting signature — send them the portal link or open it for them on the clinic device'],
+  [/^⚠️ أُنجز العلاج وموافقته «(.*)» لم تُوقَّع بعد$/, '⚠️ The treatment was completed and its consent «$1» is not signed yet']
+);

@@ -753,6 +753,8 @@ function updatePatientMedHint(pid) {
     rel.classList.toggle('rel-red', !!(st && st.level === 2));
     rel.style.display = txt ? 'block' : 'none';
   }
+  /* M219 · أ4: موافقةُ علاجٍ بانتظار التوقيع — سطرٌ تحت سطر الالتزام (قراءةٌ واحدة بنطاق المالك، لا تمنع الحجز) */
+  if (window.SyConsentPending) window.SyConsentPending.hint((typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null, (rec && rec.id) ? rec.id : null, 'fPatientConsentHint');
 }
 function fpSuggestPick(name) {
   var input = document.getElementById('fPatient');

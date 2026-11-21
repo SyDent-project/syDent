@@ -21,6 +21,7 @@
 <script src="supabase-init.js?v=20261121i"></script>
 <script src="sy-modal.js?v=20261121i"></script>
 <script src="sidebar.js?v=20261121i"></script>
+<script src="tx-consent.js?v=20261121i"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -235,7 +236,7 @@ body.treat-touch-dragging{user-select:none;-webkit-user-select:none;}
 .ovr-empty{font-size:12px;color:var(--text2);padding:4px 0;}
 .treat-ovr-badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:var(--text2);background:var(--bg2);border:1px solid var(--border);border-radius:999px;padding:2px 8px;margin-top:6px;}
 /* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
-html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAddModal("],[onclick*="saveTreatment("],[onclick*="matAddRow("],[onclick*="saveMaterials("],[onclick*="toggleFavorite("],[onclick*="editTreatment("],[onclick*="duplicateTreatment("],[onclick*="openMaterialsModal("],[onclick*="toggleActive("],[onclick*="deleteTreatment("],.drag-handle){display:none !important;}
+html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAddModal("],[onclick*="saveTreatment("],[onclick*="matAddRow("],[onclick*="saveMaterials("],[onclick*="toggleFavorite("],[onclick*="editTreatment("],[onclick*="duplicateTreatment("],[onclick*="openMaterialsModal("],[onclick*="toggleActive("],[onclick*="deleteTreatment("],[onclick*="openConsentModal("],[onclick*="saveConsentTpl("],.drag-handle){display:none !important;}
 
 /* ── v405: مودال العلاج — أقسامٌ معنونة + هرميةٌ بثلاثة مستويات ── */
 #treatModal .modal-box{max-width:620px;display:flex;flex-direction:column;max-height:calc(100dvh - 40px);}
@@ -274,13 +275,13 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
 #treatModal .tg-ah{stroke:var(--green);}
 #treatModal .target-opt .target-title{font-size:12.5px;}
 #treatModal .target-opt .target-sub{font-size:10.5px;line-height:1.45;}
-#treatModal .tgl{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0;padding:11px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;cursor:pointer;}
-#treatModal .tgl-txt{display:flex;flex-direction:column;gap:2px;min-width:0;}
-#treatModal .tgl-t{font-size:13.5px;font-weight:700;color:var(--text);}
-#treatModal .tgl-s{font-size:11.5px;font-weight:500;line-height:1.55;color:var(--text2);}
-#treatModal .lab-toggle-switch{position:relative;display:inline-block;width:46px;height:24px;flex-shrink:0;}
-#treatModal .lab-toggle-switch input{position:absolute;opacity:0;width:0;height:0;padding:0;border:0;}
-#treatModal .lab-toggle-switch input:focus-visible + .lab-toggle-slider{outline:2px solid var(--green);outline-offset:2px;}
+#treatModal .tgl,#consentModal .tgl{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0;padding:11px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;cursor:pointer;}
+#treatModal .tgl-txt,#consentModal .tgl-txt{display:flex;flex-direction:column;gap:2px;min-width:0;}
+#treatModal .tgl-t,#consentModal .tgl-t{font-size:13.5px;font-weight:700;color:var(--text);}
+#treatModal .tgl-s,#consentModal .tgl-s{font-size:11.5px;font-weight:500;line-height:1.55;color:var(--text2);}
+#treatModal .lab-toggle-switch,#consentModal .lab-toggle-switch{position:relative;display:inline-block;width:46px;height:24px;flex-shrink:0;}
+#treatModal .lab-toggle-switch input,#consentModal .lab-toggle-switch input{position:absolute;opacity:0;width:0;height:0;padding:0;border:0;}
+#treatModal .lab-toggle-switch input:focus-visible + .lab-toggle-slider,#consentModal .lab-toggle-switch input:focus-visible + .lab-toggle-slider{outline:2px solid var(--green);outline-offset:2px;}
 #treatModal .tm-color{display:flex;align-items:stretch;gap:10px;}
 #treatModal .tm-swatch{font-size:17px;line-height:1;text-shadow:0 0 3px rgba(255,255,255,.9);width:46px;min-height:44px;padding:0;flex-shrink:0;cursor:pointer;border-radius:10px;border:1px solid var(--border);background:var(--green);}
 #treatModal .tm-color .tooth-preview{flex:1;min-width:0;margin:0;padding:6px 10px;}
@@ -627,6 +628,48 @@ html[data-sub-level="read"] :is([onclick*="resetToDefaults("],[onclick*="openAdd
   </div>
 </div>
 
+<!-- Modal: موافقة المريض على العلاج (M219 — tx-consent.js) -->
+<div class="modal-overlay sy-m sy-m-md" id="consentModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="cnsModalTitle">موافقة المريض</h3>
+      <button class="modal-close" onclick="closeConsentModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
+        عند وضع هذا العلاج في خطة مريض تُنشأ له موافقةٌ بهذا النص، يقرؤها ويوقّعها من بوابة المريض.
+        الموافقة الموقَّعة تحتفظ بنصّها كما وُقّع حتى لو عدّلته هنا لاحقاً.
+      </div>
+      <div class="form-group">
+        <label class="tgl">
+          <span class="tgl-txt">
+            <span class="tgl-t">يحتاج موافقة المريض</span>
+            <span class="tgl-s">أوقفه لإلغاء الموافقة عن هذا العلاج؛ الموافقات الموقَّعة سابقاً تبقى محفوظة.</span>
+          </span>
+          <span class="lab-toggle-switch"><input type="checkbox" id="cnsOn" onchange="consentSyncFields()"><span class="lab-toggle-slider"></span></span>
+        </label>
+      </div>
+      <div id="cnsFields">
+        <div class="form-group">
+          <label>عنوان الموافقة</label>
+          <input type="text" id="cnsTitle" maxlength="120">
+        </div>
+        <div class="form-group">
+          <label>نصّ الموافقة <span id="cnsCount" style="font-weight:400;color:var(--text2);font-size:11px;direction:ltr;display:inline-block;"></span></label>
+          <textarea id="cnsBody" rows="12" maxlength="6000" oninput="consentCountChars()" style="width:100%;line-height:1.8;"></textarea>
+        </div>
+        <button class="btn btn-outline" onclick="consentRestoreLib()" style="font-size:13px;padding:8px 16px;">استعادة النص الجاهز</button>
+        <div style="font-size:12px;color:var(--text2);margin-top:10px;">النص الجاهز صياغةٌ عامة: راجعه وعدّله بما يوافق ممارستك قبل اعتماده.</div>
+      </div>
+      <div id="cnsErr" style="display:none;margin-top:12px;font-size:13px;color:var(--red-ink);background:var(--red-soft);border:1px solid var(--red-bd);border-radius:10px;padding:10px 12px;"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel-m" onclick="closeConsentModal()">إلغاء</button>
+      <button class="btn-save-m" id="cnsSaveBtn" onclick="saveConsentTpl()">حفظ</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── Supabase-backed treatments ──
 var treatments = []; // populated from Supabase
@@ -755,6 +798,8 @@ async function loadTreatments() {
   if (await autoSeedDefaultsIfNeeded()) { return await loadTreatments(); }
 
   render();
+  /* M219: نصوصُ موافقة المريض — قراءةٌ موازية لا تؤخّر الرسم؛ عند وصولها تُعاد البطاقاتُ بشارتها وزرّها */
+  if (window.SyConsentTx) window.SyConsentTx.load().then(function (ok) { if (ok) render(); });
 }
 
 function fmt(n) { return Number(n||0).toLocaleString('en-US'); }
@@ -975,6 +1020,7 @@ function render() {
     var iconBg = 'background:' + bg + ';';
     var bar = 'background:' + bg + ';';
     var mvTag = (window.__m210T && multiVisitOf(t)) ? '<span class="treat-lab-tag treat-mv-tag" title="يحتاج جلسات متابعة">🔁 متعدد الجلسات</span>' : '';   /* M210 */
+    var cnsTag = (window.SyConsentTx && window.SyConsentTx.has(t.treatment_key)) ? '<span class="treat-lab-tag treat-cns-tag" title="يحتاج موافقة المريض قبل العلاج">✍️ موافقة</span>' : '';   /* M219 */
     var labTag = t.needs_lab ? '<span class="treat-lab-tag">🥽 مخبر' + (t.lab_days ? ' · ' + labDaysText(t.lab_days) : '') + '</span>' : '';   /* M161 */
     var targetMap = {   // v367: unified tones (theme.css) — same look as every other status chip
       'crown':      { text:'سطح تاج',     tone:'yellow' },
@@ -1019,7 +1065,7 @@ function render() {
           + '<div class="treat-swatch" style="' + iconBg + 'border:2px solid ' + fg + ';"></div>'
           + '<div class="treat-head-main">'
             + '<div class="treat-name">' + escapeHtml(t.name) + '</div>'
-            + '<div class="treat-tags">' + labTag + ' ' + mvTag + ' ' + targetTag + ' ' + catTag + ' ' + dentTag + ' ' + inactiveBadge + '</div>'
+            + '<div class="treat-tags">' + labTag + ' ' + mvTag + ' ' + cnsTag + ' ' + targetTag + ' ' + catTag + ' ' + dentTag + ' ' + inactiveBadge + '</div>'
             + laymanRow
           + '</div>'
           + favStar
@@ -1034,6 +1080,7 @@ function render() {
           + '<details class="trt-more"><summary class="sy-act" title="نسخ · المواد · ' + (isInactive ? 'تفعيل' : 'تعطيل') + (isProtectedTreatment(t) ? '' : ' · حذف') + '">⋯ المزيد</summary><div class="trt-more-menu sy-acts sy-acts-grid">'
           + '<button class="sy-act" onclick="duplicateTreatment(\'' + t.id + '\')" title="إنشاء نسخة جديدة من هذا العلاج">📋 نسخ</button>'
           + '<button class="sy-act" onclick="openMaterialsModal(\'' + t.id + '\')" title="ربط مواد المخزون التي تُستهلك مع هذا العلاج (تُخصم تلقائياً عند الجلسة)">🧰 المواد</button>'
+          + ((window.SyConsentTx && window.SyConsentTx.available()) ? '<button class="sy-act" onclick="openConsentModal(\'' + t.id + '\')" title="نصّ الموافقة الذي يوقّعه المريض من بوابته قبل هذا العلاج">✍️ الموافقة</button>' : '')
           + '<button class="sy-act' + (isInactive ? ' sy-act-primary' : ' sy-act-warn') + '" onclick="toggleActive(\'' + t.id + '\')" title="' + (isInactive ? 'تفعيل العلاج' : 'تعطيل العلاج (يخفيه من قائمة العلاجات في مخطط الأسنان)') + '">' + (isInactive ? '▶️ تفعيل' : '⏸️ تعطيل') + '</button>'
           + (isProtectedTreatment(t)
               ? ''
