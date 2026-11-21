@@ -32,6 +32,7 @@ const FAKE_DB = `
       if (st.op === 'insert') { var rows = Array.isArray(st.payload) ? st.payload : [st.payload], made = [];
         rows.forEach(function(r){ var c = JSON.parse(JSON.stringify(r)); if (!c.id) c.id = 'sess-' + (++window.__SID); T.push(c); made.push(c); });
         return { data: st.single ? made[0] : made, error: null }; }
+      if (st.op === 'upsert' && Array.isArray(st.payload) && window.__FAIL_BULK) return { data: null, error: { message: 'bulk refused (test)' } };
       if (st.op === 'upsert') { var ur = Array.isArray(st.payload) ? st.payload : [st.payload];
         ur.forEach(function(r){ var c = JSON.parse(JSON.stringify(r)), hit = -1;
           for (var i = 0; i < T.length; i++) if (st.table === 'teeth_status' && pk(T[i]) === pk(c)) hit = i;
@@ -117,7 +118,7 @@ async function behave(w) {
   const tabsOf = id => Array.from($(id).querySelectorAll('.tx-tab')).map(b => b.getAttribute('data-modetab'));
   const active = id => { const b = $(id).querySelector('.tx-tab-active'); return b ? b.getAttribute('data-modetab') : null; };
   const names = id => Array.from($(id).querySelectorAll('.exam-tx')).map(b => b.textContent.trim());
-  const reset = () => { w.__DB.teeth_status = []; w.__DB.ledger_sessions = []; w.__OPS = []; w.__TOASTS.length = 0; w.__REALLOC = 0; w.__MAT = 0;
+  const reset = () => { w.__DB.teeth_status = []; w.__DB.ledger_sessions = []; w.__OPS = []; w.__TOASTS.length = 0; w.__REALLOC = 0; w.__MAT = 0; w.__FAIL_BULK = false;
     w.eval('teethMap = {}; sessions = []; window.teethDx = {}; patient.last_visit = null; patient.status = "جديد";'); };
   const toasts = () => w.__TOASTS.join(' | ');
   w.localStorage.removeItem('sydent_tx_usage');
@@ -190,6 +191,9 @@ async function behave(w) {
   r.docWritesChartOnly = ts.length === 2 && ts.every(x => x.status === 'existing_other' && x.treatment_key === 'custom_1781292854422')
     && ts.map(x => x.tooth_num + ':' + x.surface).sort().join(',') === '16:MO,26:O'
     && w.__DB.ledger_sessions.length === 0 && w.__OPS.filter(o => o.table === 'ledger_sessions').length === 0;
+  /* v801: مواضعُ الدفعة تُكتب للمخطط بطلبٍ واحد (كانت طلباً لكل موضع) */
+  const chartW = () => w.__OPS.filter(o => o.table === 'teeth_status' && o.op === 'upsert');
+  r.bulkDocOneRequest = chartW().length === 1 && Array.isArray(chartW()[0].payload) && chartW()[0].payload.length === 2;
   r.docNoMoneySideEffects = w.__REALLOC === 0 && w.__MAT === 0 && w.__OPS.filter(o => o.table === 'patients').length === 0
     && w.eval('patient.status') === 'جديد' && w.eval('patient.last_visit') === null && w.eval('sessions.length') === 0;
   r.docToast = /وُثّق حشوة كومبوزت كموجودٍ مسبقاً على 2 مواضع — بلا تكلفة/.test(toasts()) && !/جلسة لكل سن/.test(toasts());
@@ -203,6 +207,7 @@ async function behave(w) {
   $('batchPalette').querySelector('.exam-tx').click();
   w.batchToggleAt(18, 'O'); w.batchApply(); await tick(5);
   await w.saveToothTreatment(); await tick(10);
+  r.singleSelectionPerTooth = chartW().length === 1 && !Array.isArray(chartW()[0].payload);   /* موضعٌ واحد ⇒ المسارُ القديم ببدائله */
   r.docExtraction = w.__DB.teeth_status.length === 1 && w.__DB.teeth_status[0].surface === 'WHOLE' && w.__DB.teeth_status[0].status === 'existing_current'
     && w.__DB.ledger_sessions.length === 0 && w.isExtracted(18) === true;
 
@@ -215,6 +220,11 @@ async function behave(w) {
   r.sessionModalUntouched = !st2.hasAttribute('data-batch-doc') && saveBtn.textContent === 'حفظ كجلسة' && $('toothCost').value === '60000';
   await w.saveToothTreatment(); await tick(10);
   const ls = w.__DB.ledger_sessions;
+  r.bulkCompletedOneChartRequest = chartW().length === 1 && Array.isArray(chartW()[0].payload) && chartW()[0].payload.length === 2
+    && chartW()[0].payload.every(x => JSON.stringify(Object.keys(x)) === '["doctor_id","patient_id","tooth_num","surface","treatment_key","status","provider_id","review_at"]' && x.status === 'completed' && x.review_at === null)
+    && w.__OPS.findIndex(o => o.table === 'teeth_status') < w.__OPS.findIndex(o => o.table === 'ledger_sessions');   /* الرسمُ قبل أي جلسة */
+  r.bulkSessionsKeepOrder = ls.map(x => x.tooth_num + ':' + x.surface).join(',') === '36:O,46:O' && w.__OPS.filter(o => o.table === 'ledger_sessions' && o.op === 'insert').length === 2
+    && w.eval('teethMap["36"].O') === w.eval('pendingToothStatus') && w.eval('teethMap["46"].__status.O') === 'completed';
   r.completedStillBills = ls.length === 2 && ls.every(x => x.status === 'completed' && x.cost === 60000) && w.__REALLOC === 1 && w.__MAT === 1
     && w.eval('patient.status') === 'تحت العلاج' && w.__DB.teeth_status.length === 2 && /جلسة لكل سن/.test(toasts());
   reset();
@@ -222,6 +232,58 @@ async function behave(w) {
   $('batchPalette').querySelector('.exam-tx').click();
   w.batchToggleAt(36, 'O'); w.batchApply(); await tick(5); await w.saveToothTreatment(); await tick(10);
   r.plannedStillBills = w.__DB.ledger_sessions.length === 1 && w.__DB.ledger_sessions[0].status === 'planned' && w.__MAT === 0;
+
+  /* ── v801: الطلبُ الجماعي — البدائلُ والحدود ── */
+  /* (أ) فشلُ الطلب الجماعي ⇒ لا شيء ضاع: الحلقةُ تكتب موضعاً موضعاً كما كانت */
+  reset(); w.__FAIL_BULK = true;
+  w.batchSetStatus('completed');
+  $('batchTxTabs').querySelector('[data-modetab="restorative"]').click();
+  $('batchPalette').querySelector('.exam-tx').click();
+  w.batchToggleAt(36, 'O'); w.batchToggleAt(46, 'O'); w.batchApply(); await tick(5);
+  await w.saveToothTreatment(); await tick(10);
+  r.bulkFailureFallsBack = chartW().length === 3 && chartW().filter(o => !Array.isArray(o.payload)).length === 2
+    && w.__DB.teeth_status.length === 2 && w.__DB.ledger_sessions.length === 2 && /جلسة لكل سن/.test(toasts()) && !/توقفت الدفعة/.test(toasts());
+  /* (ب) موضعٌ تسبق صفَّه خطوة (قلعٌ منجز يمحو السن) ⇒ لا طلبَ جماعي إطلاقاً */
+  reset();
+  w.batchSetStatus('completed');
+  $('batchTxTabs').querySelector('[data-modetab="surgical"]').click();
+  $('batchPalette').querySelector('.exam-tx').click();
+  w.batchToggleAt(18, 'O'); w.batchToggleAt(28, 'O'); w.batchApply(); await tick(5);
+  await w.saveToothTreatment(); await tick(10);
+  r.bulkSkipsLandedExtraction = chartW().length === 2 && chartW().every(o => !Array.isArray(o.payload)) && w.isExtracted(18) === true && w.isExtracted(28) === true
+    && w.__DB.ledger_sessions.length === 2;
+  /* (ج) قلعٌ مخطّط (السن قائم — لا محو) صفٌّ بسيط ⇒ طلبٌ واحد */
+  reset();
+  w.batchSetStatus('planned');
+  $('batchPalette').querySelector('.exam-tx').click();
+  w.batchToggleAt(18, 'O'); w.batchToggleAt(28, 'O'); w.batchApply(); await tick(5);
+  await w.saveToothTreatment(); await tick(10);
+  r.bulkPlannedExtraction = chartW().length === 1 && Array.isArray(chartW()[0].payload) && w.__DB.ledger_sessions.length === 2 && w.__DB.ledger_sessions.every(x => x.status === 'planned');
+  /* (د) المرآةُ بالذاكرة: الصفُّ المكتوب جماعياً يترك التشخيصَ كما يتركه المسارُ الفردي — علاجٌ فوق حالةٍ سريرية يحمل «سبب العلاج» */
+  {
+    const cond = 'cond-sensitivity', tx = w.eval('TREATMENTS.filter(function(t){ return (t.target_part || "crown") === "crown"; })[0].id');
+    const seed = 'teethMap = { "36": { O: "' + cond + '", __status: { O: "condition" } }, "46": { O: "' + tx + '", __status: { O: "planned" } }, "37": {} }; window.teethDx = {}; teethDx = window.teethDx;';
+    const rows = [['36', 'O', 'planned'], ['46', 'O', 'completed'], ['37', 'M', 'completed'], ['36', 'O', 'condition']];
+    const mk = (n, sf, st) => JSON.stringify({ doctor_id: 'doc-1', patient_id: 'pat-1', tooth_num: n, surface: sf, treatment_key: st === 'condition' ? cond : tx, status: st, provider_id: null, review_at: null });
+    let same = true, carried = false;
+    for (const [n, sf, st] of rows) {
+      w.eval(seed); w.eval('teethRowWrittenInBulk(' + mk(n, sf, st) + ')'); const a = JSON.stringify(w.eval('window.teethDx'));
+      w.eval(seed); await w.eval('upsertTeethStatusWithFallback(' + mk(n, sf, st) + ', { onConflict: "doctor_id,patient_id,tooth_num,surface" })'); const b = JSON.stringify(w.eval('window.teethDx'));
+      if (a !== b) same = false;
+      if (n === '36' && st === 'planned' && a.indexOf(cond) > -1) carried = true;
+    }
+    r.bulkMirrorParity = same && carried;
+  }
+  reset();
+  w.eval('teethMap = { "36": { O: "cond-sensitivity", __status: { O: "condition" } }, "46": { O: "cond-sensitivity", __status: { O: "condition" } } }; window.teethDx = {}; teethDx = window.teethDx;');
+  w.batchSetStatus('planned');
+  $('batchTxTabs').querySelector('[data-modetab="restorative"]').click();
+  $('batchPalette').querySelector('.exam-tx').click();
+  w.batchToggleAt(36, 'O'); w.batchToggleAt(46, 'O'); w.batchApply(); await tick(5);
+  await w.saveToothTreatment(); await tick(10);
+  r.bulkCarriesDiagnosisToSession = chartW().length === 1 && Array.isArray(chartW()[0].payload)
+    && w.__DB.ledger_sessions.length === 2 && w.__DB.ledger_sessions.every(x => /سبب العلاج/.test(x.notes || ''));
+  reset();
 
   /* ── الخروجُ من الوضع ينظّف مظهرَ التوثيق ── */
   w.batchSetStatus('existing_other');
@@ -254,6 +316,14 @@ async function runAll(over) {
 
   const PM = 'pp-modules.js', PD = 'pp-dental.js', CSS = 'patient-profile.css', PH = 'patient-profile.html';
   const MUT = [
+    /* v801 */
+    ['bulk-off (a request per position again)', PD, "if (_bSel.length > 1 && _bTp !== 'implant') {", "if (false) {"],
+    ['bulk-rows-written-twice', PD, "var _br = _bBulk ? teethRowWrittenInBulk(_bRow)   /* v801: كُتب بالطلب الجماعي أعلاه */\n                         : await", "var _br = await"],
+    ['bulk-failure-loses-the-batch', PD, "if (_bbr && !_bbr.error) _bBulk = true;", "_bBulk = true;"],
+    ['bulk-over-a-landed-extraction', PD, "            || (_bps === 'WHOLE' && isExtractionKey(pendingToothStatus) && isExtractionLandedStatus(pendingTreatStatus))\n", ""],
+    ['bulk-skips-the-diagnosis-mirror', PD, "  try { dxMirrorAfterWrite(row, _pk, _ps); } catch (e) { console.warn('dx mirror:', e); }\n  return { error: null };", "  return { error: null };"],
+    ['bulk-mirror-reads-wrong-previous-state', PD, "(_pm.__status || {})[row.surface] || (_pk ? 'completed' : null);\n  try { dxMirrorAfterWrite(row, _pk, _ps); }", "null;\n  try { dxMirrorAfterWrite(row, _pk, _ps); }"],
+    ['bulk-row-shape-drifts', PD, "          status: pendingTreatStatus, provider_id: pendingProviderId,\n          review_at: null\n        });\n      }\n      if (_bPlain) {", "          status: pendingTreatStatus, provider_id: pendingProviderId\n        });\n      }\n      if (_bPlain) {"],
     ['existing-creates-session', PD, "if (pendingTreatStatus !== 'completed' && pendingTreatStatus !== 'planned') { _bCreated++; continue; }", ''],
     ['doc-touches-patient', PD, "if (!_bDoc && patient.status === 'جديد') _bUpd.status = 'تحت العلاج';", "if (patient.status === 'جديد') _bUpd.status = 'تحت العلاج';"],
     ['doc-toast-says-session', PD, "} else if (_bCreated && _bDoc) {", "} else if (false) {"],

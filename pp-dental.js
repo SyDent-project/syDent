@@ -4624,6 +4624,14 @@ async function upsertTeethStatusWithFallback(row, opts) {
   if (res && !res.error) { try { dxMirrorAfterWrite(row, _pk, _ps); } catch (e) { console.warn('dx mirror:', e); } }
   return res;
 }
+/* v801: صفٌّ كُتب للتوّ ضمن upsert جماعي ناجح (دفعةُ التحديد المتعدد بطلبٍ واحد) — المرآةُ بالذاكرة نفسُها التي
+   يجريها upsertTeethStatusWithFallback بعد نجاحه، بالمفتاح والحالة السابقين كما هما قبل تحديث teethMap. */
+function teethRowWrittenInBulk(row) {
+  var _tn = String(row.tooth_num), _pm = (typeof teethMap !== 'undefined' ? (teethMap[_tn] || {}) : {});
+  var _pk = _pm[row.surface] || null, _ps = (_pm.__status || {})[row.surface] || (_pk ? 'completed' : null);
+  try { dxMirrorAfterWrite(row, _pk, _ps); } catch (e) { console.warn('dx mirror:', e); }
+  return { error: null };
+}
 
 /* v430: قفلُ منتقي الحالة على «مراقبة» حين يكون المختارُ حالةً سريرية — والعكسُ يفكّه.
    الشرطُ الحاسم عند الكتابة لا بالواجهة (condNormalizePending)، وهذا للوضوح البصري. */
@@ -7033,6 +7041,35 @@ async function _saveToothTreatment_inner() {
     // anchors that tooth's order.
     var _bLabUnits = [], _bLabSeen = {};
     var _bSessIds = [];   /* M169: كلُّ جلسةٍ أُنشئت بالدفعة — خصمُ المواد يتوزّع عليها */
+    /* v801 (قياسٌ حيّ: كلُّ جولةٍ للخادم ~0.5–1 ث، والدفعةُ كانت جولةَ رسمٍ لكل موضع): صفوفُ المخطط «البسيطة» تُكتب
+       كلُّها بطلبٍ واحد ثم تمضي الحلقةُ كما هي على صفوفٍ مكتوبة. «بسيط» = لا خطوةَ تسبق كتابةَ الصف لذلك الموضع
+       (لا مسحَ زرعة · لا محوَ قلعٍ منجز · لا ضمَّ أسطح تاجٍ كامل) وكلُّ موضعٍ مؤهَّل ومفتاحُه (سن|سطح) فريد — فالأهليةُ
+       لا يغيّرها صفٌّ بسيط كُتب قبله، والفحصُ المسبق = الفحصَ داخل الحلقة. أيُّ شرطٍ يختلّ أو أيُّ خطأٍ بالطلب الجماعي ⇒
+       لا شيء كُتب (عبارةٌ واحدة) والحلقةُ تكتب موضعاً موضعاً كما كانت برسائلها وبدائلها للقواعد الأقدم. */
+    var _bBulk = false;
+    if (_bSel.length > 1 && _bTp !== 'implant') {
+      var _bRows = [], _bKeys = {}, _bPlain = true;
+      for (var _bp = 0; _bp < _bSel.length && _bPlain; _bp++) {
+        var _bpn = _bSel[_bp].n, _bps = _bSel[_bp].s, _bpk = _bpn + '|' + _bps;
+        if (_bKeys[_bpk] || !batchAllowed(_bpn, _bTr || {}, _bps).ok
+            || (_bps === 'WHOLE' && isExtractionKey(pendingToothStatus) && isExtractionLandedStatus(pendingTreatStatus))
+            || ((_bps === 'CROWN_FULL' || _bps === 'WHOLE') && _bTp === 'crown_full')) { _bPlain = false; break; }
+        _bKeys[_bpk] = true;
+        _bRows.push({
+          doctor_id: currentUser.id, patient_id: patientId,
+          tooth_num: String(_bpn), surface: _bps, treatment_key: pendingToothStatus,
+          status: pendingTreatStatus, provider_id: pendingProviderId,
+          review_at: null
+        });
+      }
+      if (_bPlain) {
+        var _bbr = null;
+        try { _bbr = await window.sb.from('teeth_status').upsert(_bRows, { onConflict: 'doctor_id,patient_id,tooth_num,surface' }); }
+        catch (eBulk) { _bbr = { error: eBulk }; }
+        if (_bbr && !_bbr.error) _bBulk = true;
+        else console.warn('batch bulk chart write failed — writing tooth by tooth:', _bbr && _bbr.error);
+      }
+    }
     for (var _bi = 0; _bi < _bSel.length; _bi++) {
       var _bn = _bSel[_bi].n;
       var _bSurface = _bSel[_bi].s;   // محلول لحظة النقر عبر examRouteSurface — لا إعادة حساب
@@ -7083,7 +7120,8 @@ async function _saveToothTreatment_inner() {
           var _bcdx = await subsumeCrownSurfaces(_bn, isExtractionLandedStatus(pendingTreatStatus), patientId);
           if (_bcdx) _bRow.dx_key = dxJoin(dxPairs(_bRow.dx_key || '').concat(dxPairs(_bcdx)));
         }
-        var _br = await upsertTeethStatusWithFallback(_bRow, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
+        var _br = _bBulk ? teethRowWrittenInBulk(_bRow)   /* v801: كُتب بالطلب الجماعي أعلاه */
+                         : await upsertTeethStatusWithFallback(_bRow, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
         if (_br.error) {
           console.error('batch teeth_status save error:', _br.error);
           showToast('⚠️ خطأ حفظ السن ' + _bn + ': ' + _br.error.message);
