@@ -519,7 +519,7 @@ async function runAll(src, opt_sw, only) {
     ok('s8: upserts and rows with their own id are sent untouched', t.calls[3].body.id === undefined && t.calls[4].body.id === undefined && t.calls[5].body.id === 'mine');
     const init6 = { method: 'POST', headers: H(), body: JSON.stringify({ name: 'x' }) };
     let seen6 = null; t.fetch = (input, init) => { seen6 = init; return Promise.resolve(json({}, 201)); };
-    await t.SyDentOffline.fetch(SB + '/rest/v1/patients', init6);
+    await t.SyDentOffline.fetch(SB + '/rest/v1/treatments', init6);
     ok('s8: a write to any other table is forwarded exactly as given (no id, no timeout)', seen6 === init6);
     const init7 = { method: 'PATCH', headers: H(), body: '{}' };
     await t.SyDentOffline.fetch(SB + '/rest/v1/ledger_payments?id=eq.x', init7);
@@ -591,7 +591,7 @@ async function runAll(src, opt_sw, only) {
     /* جدول آخر معلَّق: تنبيه بلا قطع */
     let resolveLater, sig = 'unset';
     t = mk((u, i) => new Promise(res => { sig = i.signal; resolveLater = () => res(json({}, 201)); }), { fast: true });
-    const pend = t.SyDentOffline.fetch(SB + '/rest/v1/patients', { method: 'POST', headers: H(), body: '{}' });
+    const pend = t.SyDentOffline.fetch(SB + '/rest/v1/treatments', { method: 'POST', headers: H(), body: '{}' });
     await sleep(120);
     ok('s8: a slow save to another table is announced but never cut', sig === undefined && t.toasts.some(m => /الشبكة بطيئة/.test(m)));
     resolveLater(); ok('s8: … and completes normally', (await pend).status === 201);
@@ -668,10 +668,90 @@ async function runAll(src, opt_sw, only) {
     ok('d3: the instant-list table set is exactly the four reference tables', !!lit && lit[1] === '/\\/rest\\/v1\\/(appointment_types|operatories|wa_message_templates|expense_categories)(\\?|$)/', lit && lit[1]);
   }
 
+  /* ══ تطوير 4: مريض جديد بلا اتصال — يُسجَّل ويظهر ويُحجز له، ورقم ملفه من الخادم عند الرفع ══ */
+  if (!only || only === 'd4') {
+    const H4 = { 'Content-Type': 'application/json', Prefer: 'return=representation', Accept: 'application/vnd.pgrst.object+json' };
+    const LIST = SB + '/rest/v1/patients?select=*&doctor_id=eq.' + U1;
+    const sent = []; let seqMode = 'ok', seqCalls = 0;
+    const net = async (u, i) => {
+      const m = i.method || 'GET';
+      if (m === 'GET') return json([{ id: 'p-old', name: 'قديم', local_id: 'P007', doctor_id: U1 }]);
+      if (u.indexOf('/rpc/next_patient_seq') !== -1) { seqCalls++;
+        if (seqMode === 'down') throw new TypeError('Failed to fetch');
+        if (seqMode === 'missing') return json({ code: 'PGRST202' }, 404);
+        return json(41 + seqCalls); }
+      sent.push({ m, u: u.replace(SB, ''), body: i.body ? JSON.parse(i.body) : null });
+      return json(null, 201);
+    };
+    const idb = newIDB();
+    const t = mkTab(src, U1, net, idb);
+    await t.SyDentOffline.fetch(LIST, G); await sleep(25);
+    t.navigator.onLine = false;
+    let r = await t.SyDentOffline.fetch(SB + '/rest/v1/patients?select=*', { method: 'POST', headers: H4, body: JSON.stringify({ doctor_id: U1, local_id: 'P008', name: 'ريم الخطيب', phone: '0944', status: 'جديد' }) });
+    const np = await r.json();
+    ok('d4: a new patient saved offline is queued and echoed with its id', r.status === 201 && /^[0-9a-f-]{36}$/.test(np.id) && np.name === 'ريم الخطيب');
+    let threw = false; try { await t.SyDentOffline.fetch(SB + '/rest/v1/patients?id=eq.p-old', { method: 'PATCH', body: '{}' }); } catch (e) { threw = true; }
+    let threw2 = false; try { await t.SyDentOffline.fetch(SB + '/rest/v1/patients?id=eq.p-old', { method: 'DELETE' }); } catch (e) { threw2 = true; }
+    ok('d4: editing or deleting a patient offline is still refused', threw && threw2);
+    r = await t.SyDentOffline.fetch(LIST, G);
+    ok('d4: the new patient appears in the cached patient list', (await r.json()).map(x => x.name).join(',') === 'قديم,ريم الخطيب');
+    r = await t.SyDentOffline.fetch(SB + '/rest/v1/patients?select=*&id=eq.' + np.id + '&doctor_id=eq.' + U1, { method: 'GET', headers: { Accept: 'application/vnd.pgrst.object+json' } }).catch(() => null);
+    ok('d4: their card opens offline (single row by id)', !!r && (await r.json()).name === 'ريم الخطيب');
+    r = await t.SyDentOffline.fetch(SB + '/rest/v1/ledger_sessions?select=*&patient_id=eq.' + np.id, G).catch(() => null);
+    ok('d4: their (empty) history loads instead of failing', !!r && (await r.json()).length === 0);
+    await t.SyDentOffline.fetch(SB + '/rest/v1/appointments', { method: 'POST', headers: H4, body: JSON.stringify({ doctor_id: U1, patient_id: np.id, patient_name: 'ريم الخطيب', date: '2026-11-22', time: '10:00' }) });
+    r = await t.SyDentOffline.fetch(SB + '/rest/v1/appointments?select=*&patient_id=eq.' + np.id, G).catch(() => null);
+    ok('d4: an appointment booked for them offline shows on their card', !!r && (await r.json()).length === 1);
+    r = await t.SyDentOffline.fetch(SB + '/rest/v1/ledger_sessions?select=*&patient_id=eq.99999999-9999-4999-8999-999999999999', G).catch(() => null);
+    ok('d4: an uncached list for an EXISTING patient still fails — never shown as empty', r === null);
+    r = await t.SyDentOffline.fetch(SB + '/rest/v1/appointments?select=*&doctor_id=eq.' + U1 + '&date=eq.2026-11-22', G).catch(() => null);
+    ok('d4: an uncached day list is not faked from the queue', r === null);
+    const other = mkTab(src, U2, net, idb); other.navigator.onLine = false;
+    r = await other.SyDentOffline.fetch(SB + '/rest/v1/patients?select=*&id=eq.' + np.id, G).catch(() => null);
+    ok('d4: another account on the device cannot read the queued patient', r === null);
+
+    /* الرفع: العدّاد مقطوع ⇒ لا شيء يُرسَل والكل باقٍ */
+    seqMode = 'down'; t.navigator.onLine = true;
+    let d = await t.SyDentOffline.drain();
+    ok('d4: if the file-number counter is unreachable nothing is uploaded and nothing is lost', sent.length === 0 && (await t.SyDentOffline._outboxAll()).length === 2 && d.failed === 0, JSON.stringify(d));
+    seqMode = 'ok';
+    d = await t.SyDentOffline.drain();
+    ok('d4: the patient is uploaded before their appointment', sent.length === 2 && sent[0].u.indexOf('/rest/v1/patients') === 0 && sent[1].u.indexOf('/rest/v1/appointments') === 0 && d.synced === 2, JSON.stringify(sent.map(x => x.u)));
+    ok('d4: the file number is the one the server counter allocated, not the offline guess', sent[0].body.local_id === 'P043' && sent[0].body.id === np.id && sent[1].body.patient_id === np.id, sent[0] && sent[0].body.local_id);
+    /* عدّاد غائب (قاعدة قديمة) ⇒ يُرفع بالرقم المؤقت كما تفعل الصفحة */
+    const t3 = mkTab(src, U1, net, newIDB()); t3.navigator.onLine = false;
+    await t3.SyDentOffline.fetch(SB + '/rest/v1/patients', { method: 'POST', headers: H4, body: JSON.stringify({ doctor_id: U1, local_id: 'P050', name: 'x' }) });
+    seqMode = 'missing'; sent.length = 0; t3.navigator.onLine = true; await t3.SyDentOffline.drain();
+    ok('d4: without the counter the offline number is used, as the page itself does', sent.length === 1 && sent[0].body.local_id === 'P050');
+    /* الرفع فشل بعد التخصيص ⇒ إعادة المحاولة لا تحرق رقماً ثانياً */
+    let fail = true; seqMode = 'ok';
+    const net5 = async (u, i) => { if (u.indexOf('/rpc/next_patient_seq') !== -1) { seqCalls++; return json(90); } if (fail) return json({ message: 'boom' }, 500); return json(null, 201); };
+    const t5 = mkTab(src, U1, net5, newIDB()); t5.navigator.onLine = false;
+    await t5.SyDentOffline.fetch(SB + '/rest/v1/patients', { method: 'POST', headers: H4, body: JSON.stringify({ doctor_id: U1, local_id: 'P001', name: 'y' }) });
+    t5.navigator.onLine = true; const before = seqCalls;
+    await t5.SyDentOffline.drain(); fail = false; await t5.SyDentOffline.drain();
+    ok('d4: a retried upload does not allocate a second number', seqCalls - before === 1 && (await t5.SyDentOffline._outboxAll()).length === 0, seqCalls - before);
+    /* أونلاين: المريض الجديد يحمل معرّفاً (إعادة المحاولة لا تكرره) والاستيراد الكبير بلا مهلة */
+    let seen = null; const t6 = mkTab(src, U1, async (u, i) => { seen = i; return json({}, 201); }, newIDB());
+    await t6.SyDentOffline.fetch(SB + '/rest/v1/patients?select=*', { method: 'POST', headers: H4, body: JSON.stringify({ doctor_id: U1, name: 'z' }) });
+    ok('d4: online, a new patient carries a client id and the save timeout', !!JSON.parse(seen.body).id && !!seen.signal);
+    const big = []; for (let i = 0; i < 400; i++) big.push({ doctor_id: U1, name: 'مريض رقم ' + i, phone: '09' + i, notes: 'استيراد' });
+    await t6.SyDentOffline.fetch(SB + '/rest/v1/patients?columns=%22doctor_id%22%2C%22name%22%2C%22phone%22%2C%22notes%22', { method: 'POST', headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify(big) });
+    ok('d4: a bulk import is never put under the save timeout', !seen.signal && JSON.parse(seen.body).length === 400);
+    const tr4 = englishEngine()('مريض جديد'); ok('d4: review label passes the English engine', tr4 != null && !AR.test(tr4));
+  }
+
   return fails;
 }
 
 const MUTATIONS = [
+  ['d4: any uncached patient history faked as empty', s => s.replace("if (m && !wantsObj && rowsOf('patients').some(function (r) { return r.id === m[1]; })) {", 'if (m && !wantsObj) {')],
+  ['d4: file number not taken from the server', s => s.replace("return allocPatientSeq(rec, auth).then(function () { return auth; });", 'return auth;')],
+  ['d4: number allocated again on every retry', s => s.replace("rec.seqDone = true;", '')],
+  ['d4: patients editable offline', s => s.replace("patients:        { POST: 1 }\n  };", "patients:        { POST: 1, PATCH: 1, DELETE: 1 }\n  };")],
+  ['d4: unreachable counter ignored (upload with a guessed number)', s => s.replace("method: 'POST', headers: h, body: JSON.stringify({ n: rows.length })\n    }).then(function (res) {", "method: 'POST', headers: h, body: JSON.stringify({ n: rows.length })\n    }).catch(function () { return { ok: false, status: 0 }; }).then(function (res) {")],
+  ['d4: bulk import cut by the timeout', s => s.replace("if (guarded && small && !(sendInit && sendInit.signal)", 'if (guarded && !(sendInit && sendInit.signal)')],
+  ['d4: queued rows of another account readable', s => s.replace("ops = ops.filter(function (o) { return o && o.uid === uid; });\n      if (!ops.length) return null;\n      var wantsObj", "if (!ops.length) return null;\n      var wantsObj")],
   ['d3: age limit removed', s => s.replace("if (rec && age >= 0 && age < SWR_MAX_AGE_MS && ", 'if (rec && ')],
   ['d3: saves no longer invalidate', s => s.replace("(rec.reqAt || 0) > (_swrDirty[swrT] || 0) && ", '')],
   ['d3: freshness judged by arrival time, not request time', s => s.replace("(rec.reqAt || 0) > (_swrDirty[swrT] || 0) && ", "(rec.savedAt || 0) > (_swrDirty[swrT] || 0) && ")],
@@ -683,7 +763,7 @@ const MUTATIONS = [
   ['s8: own-duplicate 409 on a retry not turned into success', s => s.replace("return alreadySaved(url, input, init, ids, rows);   /* المحاولة السابقة وصلت */", 'return res;')],
   ['s8: any 409 on a retry masked as success', s => s.replace("if (!isOwnDuplicate({ method: 'POST', table: table }, pgError(txt))) return res;", '')],
   ['s8: save timeout removed', s => s.replace("timer = setTimeout(function () { timedOut = true; try { ctrl.abort(); } catch (e) {} }, WRITE_TIMEOUT_MS);", '')],
-  ['s8: timeout applied to every table', s => s.replace("if (guarded && !(sendInit && sendInit.signal) && typeof AbortController === 'function') {", "if (!(sendInit && sendInit.signal) && typeof AbortController === 'function') {")],
+  ['s8: timeout applied to every table', s => s.replace("if (guarded && small && !(sendInit && sendInit.signal) && typeof AbortController === 'function') {", "if (small && !(sendInit && sendInit.signal) && typeof AbortController === 'function') {")],
   ['s8: id column not added to array inserts', s => s.replace("return d.indexOf('\"id\"') !== -1 ? m : a + v + encodeURIComponent(',\"id\"');", 'return m;')],
   ['s8: upserts get an injected id', s => s.replace("return url.indexOf('on_conflict=') === -1 && (prefer || '').indexOf('resolution=') === -1;", 'return true;')],
   ['s7: offline limit disabled', s => s.replace("return Date.now() - (parseInt(raw, 10) || 0) > OFFLINE_MAX_MS;", 'return false;')],

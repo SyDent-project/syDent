@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SyDent — check-offline-guard.sh (الحارس السادس · v2): الجدار المالي لطبقة PWA.
 # عقد Phase 2.1 (دفعات offline بقرار المالك):
-#   • طابور الكتابة = (appointments|audit_log|ledger_payments) حصراً.
+#   • طابور الكتابة = (appointments|audit_log|ledger_payments|patients) حصراً.
+#   • patients: POST فقط (مريض جديد بلا اتصال — غير مالي؛ بقرار المالك). تعديل/حذف online حصراً.
 #   • ledger_payments: POST فقط (إنشاء) — تعديل/حذف online حصراً.
 #   • حقن UUID: appointments + ledger_payments فقط (كلاهما id uuid — Migration 64).
 #   • حظر مطلق بكامل supabase-init.js: payment_splits / realloc_patient_splits /
@@ -42,13 +43,15 @@ else
     echo "X الموديول يذكر جداول ledger_* غير الدفعات: $LVARS"; bad=1
   fi
   # whitelist الثلاثية حرفياً على سطر التعريف نفسه (بلا جدول رابع)
-  grep 'OUTBOX_TABLES_RE' <<< "$MOD" | grep -F '(appointments|audit_log|ledger_payments)(' >/dev/null \
-    || { echo "X whitelist الطابور تغيّرت عن الثلاثية"; bad=1; }
+  grep 'var OUTBOX_TABLES_RE' <<< "$MOD" | grep -F '(appointments|audit_log|ledger_payments|patients)(' >/dev/null \
+    || { echo "X whitelist الطابور تغيّرت عن الرباعية"; bad=1; }
+  grep -qF 'patients:        { POST: 1 }' <<< "$MOD" \
+    || { echo "X عقد (المريض = إنشاء فقط) كُسر"; bad=1; }
   grep -qF 'ledger_payments: { POST: 1 }' <<< "$MOD" \
     || { echo "X عقد (الدفعات = POST فقط) كُسر"; bad=1; }
   grep -qF 'audit_log:       { POST: 1 }' <<< "$MOD" \
     || { echo "X عقد (audit_log = POST فقط) كُسر"; bad=1; }
-  grep -qF 'UUID_INJECT_TABLES = { appointments: 1, ledger_payments: 1 };' <<< "$MOD" \
+  grep -qF 'UUID_INJECT_TABLES = { appointments: 1, ledger_payments: 1, patients: 1 };' <<< "$MOD" \
     || { echo "X قائمة حقن UUID تغيّرت"; bad=1; }
   # الشرط الحارس نفسه (الجسد بعده تفرّع fast-fail/تمرير — الدلالة: لا كاش لغير GET)
   grep -qF "if (!isRest || isRpc || method !== 'GET') {" <<< "$MOD" \
@@ -62,7 +65,7 @@ if grep -q 'ledger_sessions' <<< "$WIRE"; then
 fi
 
 if [ "$bad" -eq 0 ]; then
-  echo "✅ حارس PWA v2: الجدار سليم (الطابور = مواعيد+تدقيق+دفعات-إنشاء-فقط؛ التوزيع online حصراً؛ صفر splits/realloc/FIFO بكامل الطبقة)"
+  echo "✅ حارس PWA v2: الجدار سليم (الطابور = مواعيد+تدقيق+دفعات-إنشاء-فقط+مريض-إنشاء-فقط؛ التوزيع online حصراً؛ صفر splits/realloc/FIFO بكامل الطبقة)"
 else
   echo "⛔ حارس PWA: خرق بالجدار المالي"; exit 1
 fi

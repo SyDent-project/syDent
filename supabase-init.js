@@ -60,7 +60,7 @@
       return Date.now() - (parseInt(raw, 10) || 0) > OFFLINE_MAX_MS;
     } catch (e) { return false; }
   }
-  /* Phase 2/2.1: الجداول المسموح لكتاباتها الدخول للطابور offline — حصراً،
+  /* Phase 2/2.1 (+ مريض جديد): الجداول المسموح لكتاباتها الدخول للطابور offline — حصراً،
      وبالأفعال المحددة لكل جدول فقط:
      • appointments (جدولة غير مالية): إنشاء/تعديل/حذف.
      • audit_log (append-only): إنشاء فقط.
@@ -68,16 +68,20 @@
        تعديل/حذف الدفعات online حصراً، والتوزيع (splits/FIFO) يبقى online
        حصراً عبر مسارات الصفحة القائمة — **صفر أرقام مشتقة تُكتب offline**.
      أي توسيع = قرار معماري يمرّ بالحارس (check-offline-guard يكسر البناء). */
-  var OUTBOX_TABLES_RE = /\/rest\/v1\/(appointments|audit_log|ledger_payments)(\?|$)/;
+  var OUTBOX_TABLES_RE = /\/rest\/v1\/(appointments|audit_log|ledger_payments|patients)(\?|$)/;
   var OUTBOX_METHODS = {
     appointments:    { POST: 1, PATCH: 1, DELETE: 1 },
     audit_log:       { POST: 1 },
-    ledger_payments: { POST: 1 }
+    ledger_payments: { POST: 1 },
+    /* مريض جديد بلا اتصال (بقرار المالك): إنشاء فقط — غير مالي. الاستقبال يسجّل المريض
+       ويحجز له موعداً والنت مقطوع. تعديل بطاقة مريض أو حذفها online حصراً. رقم الملف
+       (local_id) يُخصَّص من الخادم لحظة الرفع (انظر allocPatientSeq). */
+    patients:        { POST: 1 }
   };
   /* كلاهما عمود id من نوع uuid بقيمة افتراضية — الحقن العميلي آمن
      (Migration 64 يؤكد payment_id::uuid)؛ audit_log لا يُحقن (id تسلسلي). */
-  var UUID_INJECT_TABLES = { appointments: 1, ledger_payments: 1 };
-  var OVERLAY_TABLES = { appointments: 1, ledger_payments: 1 };
+  var UUID_INJECT_TABLES = { appointments: 1, ledger_payments: 1, patients: 1 };
+  var OVERLAY_TABLES = { appointments: 1, ledger_payments: 1, patients: 1 };
   var _db = null, _putCount = 0, _lastWriteToast = 0, _lastQueueToast = 0;
   var _outboxListeners = [], _getAuthHeaders = null, _onSynced = null, _draining = false;
 
@@ -478,6 +482,37 @@
     if (!info || info.code !== '23505') return false;
     return info.message.indexOf('"' + rec.table + '_pkey"') !== -1 || /^Key \(id\)=/.test(info.details);
   }
+  /* رقم ملف المريض المسجَّل بلا اتصال: الصفحة تعطيه رقماً مؤقتاً (أعلى رقم تعرفه + 1) قد
+     يكون أخذه جهازٌ آخر، والقاعدة تمنع التكرار (فهرس فريد). فقبل الرفع يُطلب الرقم من
+     عدّاد الخادم الذرّي نفسه الذي تستعمله الصفحة أونلاين (next_patient_seq) ويُكتب مكان
+     المؤقت — مرةً واحدة للعملية. فشل شبكة = يُرمى فيتوقف التصريف ويبقى كل شيء؛ ردٌّ غير
+     ناجح من العدّاد = الرفع بالرقم المؤقت كما تفعل الصفحة عند تعذّر العدّاد. */
+  function allocPatientSeq(rec, auth) {
+    if (!rec || rec.table !== 'patients' || rec.method !== 'POST' || rec.seqDone) return Promise.resolve();
+    var parsed, rows;
+    try { parsed = JSON.parse(rec.body || 'null'); rows = Array.isArray(parsed) ? parsed : [parsed]; } catch (e) { return Promise.resolve(); }
+    if (!rows.length || !rows[0]) return Promise.resolve();
+    var h = { 'Content-Type': 'application/json' };
+    for (var k in auth) h[k] = auth[k];
+    return window.fetch(rec.url.split('/rest/v1/')[0] + '/rest/v1/rpc/next_patient_seq', {
+      method: 'POST', headers: h, body: JSON.stringify({ n: rows.length })
+    }).then(function (res) {
+      if (res.status === 401) throw new Error('auth-401');
+      if (!res.ok) return;
+      return res.json().then(function (end) {
+        end = parseInt(end, 10);
+        if (!(end >= rows.length)) return;
+        rows.forEach(function (r, i) {
+          var n = String(end - rows.length + 1 + i);
+          while (n.length < 3) n = '0' + n;
+          r.local_id = 'P' + n;
+        });
+        rec.body = JSON.stringify(Array.isArray(parsed) ? rows : rows[0]);
+        rec.seqDone = true;
+        return outboxMark(rec);
+      });
+    });
+  }
   function drainNow() {
     if (_draining) return Promise.resolve({ synced: 0, failed: 0 });
     if (window.navigator && window.navigator.onLine === false) return Promise.resolve({ synced: 0, failed: 0 });
@@ -501,6 +536,8 @@
             return;
           }
           return Promise.resolve(_getAuthHeaders()).then(function (auth) {
+            return allocPatientSeq(rec, auth).then(function () { return auth; });
+          }).then(function (auth) {
             var headers = {};
             for (var k in auth) headers[k] = auth[k];
             if (rec.headers) {
@@ -726,7 +763,9 @@
       } catch (e) { fp = null; ids = null; rows = null; reused = false; sendInput = input; sendInit = init; }
     }
     var timer = null, timedOut = false;
-    if (guarded && !(sendInit && sendInit.signal) && typeof AbortController === 'function') {
+    /* حمولة كبيرة (استيراد مرضى · سلسلة طويلة) قد تحتاج أكثر من المهلة على نت بطيء — بلا قطع */
+    var small = !(sendInit && typeof sendInit.body === 'string' && sendInit.body.length > 20000);
+    if (guarded && small && !(sendInit && sendInit.signal) && typeof AbortController === 'function') {
       var ctrl = new AbortController();
       sendInit = shallow(sendInit); sendInit.signal = ctrl.signal;
       timer = setTimeout(function () { timedOut = true; try { ctrl.abort(); } catch (e) {} }, WRITE_TIMEOUT_MS);
@@ -820,7 +859,7 @@
         };
         return outboxAdd(rec).then(function () {
           var now = Date.now();
-          if ((qTable === 'appointments' || qTable === 'ledger_payments') && now - _lastQueueToast > 2500) {
+          if ((qTable === 'appointments' || qTable === 'ledger_payments' || qTable === 'patients') && now - _lastQueueToast > 2500) {
             _lastQueueToast = now;
             var qMsg = (qTable === 'ledger_payments')
               ? '📴 حُفظت الدفعة بلا اتصال — ستُرفع تلقائياً عند عودة الإنترنت'
@@ -908,7 +947,7 @@
         return Promise.resolve(null);
       }
       return idbGet(key).then(function (rec) {
-        if (!rec) return null;
+        if (!rec) return synthFromQueue(url, uid, headerOf(input, init, 'accept'));
         if (Date.now() - (rec.savedAt || 0) > CACHE_MAX_AGE_MS) return null;
         /* Phase 2: قراءات المواعيد المكاشة تُراكَب بعمليات الطابور المعلّقة
            لهذا المستخدم — فالموعد المحفوظ/المعدَّل/المحذوف offline يظهر فوراً */
@@ -975,6 +1014,40 @@
       });
     return Promise.race([netBranch, rescueBranch]);
     }
+  }
+
+  /* ── قراءة بلا نسخة بالكاش تخصّ سجلاً ما زال بالطابور ───────────────────────
+     مريضٌ سُجّل بلا اتصال لا يعرفه الخادم بعد، فلا كاش لبطاقته ولا لما يتبعها:
+     (أ) طلبُ صفٍّ بمعرّفه (id=eq) من جدول له تراكب ⇒ الصفّ المطابَر نفسه.
+     (ب) طلبُ توابع مريضٍ مطابَر (patient_id=eq.<معرّفه>) ⇒ قائمة فارغة — صحيحةٌ حرفياً،
+         فلا شيء له على الخادم — مع تراكب ما طُوبِر له (موعده الجديد مثلاً).
+     لا شيء غير ذلك: قائمةٌ غير مكاشة لسجلٍّ موجود تبقى فشلاً لا «فارغة». */
+  function synthFromQueue(url, uid, accept) {
+    return outboxAll().then(function (ops) {
+      ops = ops.filter(function (o) { return o && o.uid === uid; });
+      if (!ops.length) return null;
+      var wantsObj = (accept || '').indexOf('vnd.pgrst.object') !== -1;
+      var rowsOf = function (table) {
+        var out = [];
+        ops.forEach(function (o) {
+          if (o.method !== 'POST' || o.table !== table) return;
+          try { var b = JSON.parse(o.body || 'null'); (Array.isArray(b) ? b : [b]).forEach(function (r) { if (r && r.id) out.push(r); }); } catch (e) {}
+        });
+        return out;
+      };
+      var table = tableFromUrl(url), id = idFromUrl(url);
+      if (table && OVERLAY_TABLES[table] && id) {
+        var hit = rowsOf(table).filter(function (r) { return r.id === id && rowPassesFilters(r, url, uid); });
+        if (!hit.length) return null;
+        return cachedResponse({ body: JSON.stringify(wantsObj ? hit[0] : hit) });
+      }
+      var m = /[?&]patient_id=eq\.([0-9a-fA-F-]{36})(&|$)/.exec(url);
+      if (m && !wantsObj && rowsOf('patients').some(function (r) { return r.id === m[1]; })) {
+        var body = (table && OVERLAY_TABLES[table]) ? applyOutboxOverlay('[]', url, uid, ops, table) : '[]';
+        return cachedResponse({ body: body });
+      }
+      return null;
+    }).catch(function () { return null; });
   }
 
   /* ── Prefetch بطاقات مرضى اليوم (تحسين اختياري فوق Phase 1) ──────────────
@@ -6343,6 +6416,7 @@ window.SyDentAccountDelete = (function () {
       return 'دفعة' + (r.amount != null ? ' · ' + iso(r.amount) + ' ' + (r.currency === 'USD' ? '$' : 'ل.س') : '') +
         (r.date ? ' · ' + iso(r.date) : '');
     }
+    if (op.table === 'patients') return 'مريض جديد';
     var kind = op.method === 'POST' ? 'موعد جديد' : (op.method === 'DELETE' ? 'حذف موعد' : 'تعديل موعد');
     var when = r.date ? ' · ' + iso(r.date + (r.time ? ' ' + hhmm(r.time) : '')) : '';
     return kind + when;
@@ -6357,6 +6431,10 @@ window.SyDentAccountDelete = (function () {
     var code = /HTTP \d+(?: · [0-9A-Z]{5})?/.exec(e);
     return why + (code ? ' ' + iso('(' + code[0] + ')') : '');
   }
+  function opWho(op) {
+    var r = op.row || {};
+    return r.patient_name || (op.table === 'patients' ? r.name : '') || '';
+  }
   function openSyncReview() {
     var O = window.SyDentOffline, D = window.SyDialog;
     if (!O.outboxList || !D || typeof D.choose !== 'function') { syncNow(); return Promise.resolve(); }
@@ -6367,13 +6445,13 @@ window.SyDentAccountDelete = (function () {
         title: 'عمليات لم تُرفع',
         message: 'سُجّلت بلا اتصال ورفضها الخادم عند الرفع. اختر عملية لإعادة المحاولة أو لحذفها.',
         choices: bad.map(function (o) {
-          var nm = o.row && o.row.patient_name;
+          var nm = opWho(o);
           return { label: opLabel(o), sub: nm ? String(nm) : opReason(o) };
         }),
         cancelText: 'إغلاق'
       }).then(function (i) {
         if (i == null || !bad[i]) return;
-        var op = bad[i], nm = op.row && op.row.patient_name;
+        var op = bad[i], nm = opWho(op);
         return D.choose({
           title: opLabel(op),
           message: (nm ? String(nm) + '\n' : '') + opReason(op) + '\n' + 'سُجّلت' + ' ' + iso(stamp(op.createdAt)),
