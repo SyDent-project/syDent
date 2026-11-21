@@ -7296,8 +7296,7 @@ window.SyDentWA = (function () {
   function check() { try { if (!_shown && shouldLock()) show(); else if (_shown && !shouldLock()) hide(); } catch (e) {} }
 
   /* ── الإعداد (من بطاقة الإعدادات) — بعُدّة النوافذ الموحّدة ── */
-  function askPin(message) {
-    var D = window.SyDialog;
+  function askPin(D, message) {
     var p = D.prompt({ title: 'قفل التطبيق', message: message, placeholder: '••••', confirmText: 'متابعة' });
     try {
       var all = document.querySelectorAll('.sy-dialog-input'), inp = all[all.length - 1];
@@ -7306,9 +7305,9 @@ window.SyDentWA = (function () {
     return p;
   }
   function toast(m, bad) { try { if (typeof window.showToast === 'function') window.showToast(m, !!bad); } catch (e) {} }
-  function pickIdle() {
+  function pickIdle(D) {                    /* D = عُدّة الحوار، مفحوصةٌ بـopenSettings (صفحة الإعدادات تحمّلها) */
     var labels = { 1: 'دقيقة واحدة', 5: '5 دقائق', 15: '15 دقيقة', 30: '30 دقيقة' };
-    return window.SyDialog.choose({ title: 'قفل التطبيق', message: 'مدة الخمول قبل القفل',
+    return D.choose({ title: 'قفل التطبيق', message: 'مدة الخمول قبل القفل',
       choices: IDLE_CHOICES.map(function (m) { return { label: labels[m] }; }) })
       .then(function (i) { return (i == null) ? null : IDLE_CHOICES[i]; });
   }
@@ -7316,13 +7315,13 @@ window.SyDentWA = (function () {
     var D = window.SyDialog;
     if (!D || !D.prompt || !D.choose) return Promise.resolve();
     if (!isOn()) {
-      return askPin('رمز قفل جديد من 4 إلى 6 أرقام').then(function (a) {
+      return askPin(D, 'رمز قفل جديد من 4 إلى 6 أرقام').then(function (a) {
         if (a == null) return;
         if (!validPin(a)) { toast('⚠️ الرمز من 4 إلى 6 أرقام', true); return; }
-        return askPin('أعد إدخال الرمز للتأكيد').then(function (b) {
+        return askPin(D, 'أعد إدخال الرمز للتأكيد').then(function (b) {
           if (b == null) return;
           if (a !== b) { toast('⚠️ الرمزان غير متطابقين', true); return; }
-          return pickIdle().then(function (m) {
+          return pickIdle(D).then(function (m) {
             if (m == null) return;
             return enable(a, m).then(function (r) {
               if (r.ok) toast('🔒 تم تفعيل قفل التطبيق على هذا الجهاز');
@@ -7337,9 +7336,9 @@ window.SyDentWA = (function () {
       choices: [{ label: 'قفل الآن' }, { label: 'تغيير مدة الخمول' }, { label: 'إيقاف القفل', sub: 'يتطلب رمز القفل الحالي' }] })
       .then(function (i) {
         if (i === 0) { try { ls().setItem(K_LAST, '0'); } catch (e) {} check(); return; }
-        if (i === 1) return pickIdle().then(function (m) { if (m != null && setIdle(m)) toast('تم حفظ مدة الخمول'); });
+        if (i === 1) return pickIdle(D).then(function (m) { if (m != null && setIdle(m)) toast('تم حفظ مدة الخمول'); });
         if (i === 2) {
-          return askPin('أدخل رمز القفل الحالي').then(function (p) {
+          return askPin(D, 'أدخل رمز القفل الحالي').then(function (p) {
             if (p == null) return;
             return disable(p).then(function (r) {
               if (r.ok) toast('تم إيقاف قفل التطبيق');
