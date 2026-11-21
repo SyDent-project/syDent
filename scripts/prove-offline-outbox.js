@@ -892,7 +892,10 @@ async function runAll(src, opt_sw, only) {
     ok('d7: a code that is not 4–6 digits is refused', r.ok === false && !a.L.isOn());
     r = await a.L.enable('1234', 5);
     const raw = a.m.get('sydent.applock') || '';
-    ok('d7: turning it on stores a derived value, never the code', r.ok && a.L.isOn() && raw.indexOf('1234') === -1 && /"hash":"[0-9a-f]{64}"/.test(raw) && /"salt":"[0-9a-f]{32}"/.test(raw), raw.slice(0, 80));
+    /* (لا بحث عن «1234» كنصٍّ داخل المخزَّن: ست عشريٌّ عشوائي قد يحويه صدفةً — تُفحص الحقول نفسها) */
+    const cfg7 = JSON.parse(raw || '{}');
+    ok('d7: turning it on stores a derived value, never the code', r.ok && a.L.isOn() && Object.keys(cfg7).sort().join(',') === 'hash,idle,salt,uid,v' &&
+      /^[0-9a-f]{64}$/.test(cfg7.hash) && /^[0-9a-f]{32}$/.test(cfg7.salt) && cfg7.idle === 5 && cfg7.uid === U1, raw.slice(0, 80));
     ok('d7: not locked right after turning it on', a.L.shouldLock() === false);
     a.now += 4 * MIN; ok('d7: still open within the idle period', a.L.shouldLock() === false);
     a.now += 2 * MIN; ok('d7: locks once the idle period has passed', a.L.shouldLock() === true);
