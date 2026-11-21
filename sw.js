@@ -543,6 +543,85 @@ function anyTokenAsset(url) {
   }).catch(function () { return null; });
 }
 
+/* ── v803: بيانُ الأصول — ملفٌ لم يتغيّر محتواه لا يُنزَّل من جديد بعد كل نشرة ─────
+   كسرُ الكاش يدوّر التوكن على **كل** الأصول المشتركة، فبعد كل نشرةٍ كان الجهازُ ينزّل كلَّ ملفات الصفحة من جديد
+   (~1MB مضغوطة لبطاقة المريض) وهو يحمل معظمَها حرفياً بالتوكن السابق. البناءُ ينشر /asset-manifest.json
+   (scripts/hash-dist.js): توكنُ هذه النشرة و sha256 لكل ملف. به يُثبَت أن نسخةً بالكاش هي محتوى التوكن المطلوب
+   حرفياً:
+     • التوكنُ المطلوب غائب ونسخةُ المسار نفسِه بتوكنٍ أقدم تطابق البيان ⇒ تُخدَم وتُحفَظ تحت المفتاح الجديد بلا شبكة.
+       (درسُ v131 قائم: لا يُكتب تحت مفتاحٍ جديد إلا جسمٌ **ثبتت** مطابقتُه — لا تخمينَ بالمسار ولا بالتوكن.)
+     • التوكنُ المطلوب موجود ويطابق البيان ⇒ لا تصحيحَ بالخلفية من الشبكة (لا شيء يُصحَّح)؛ وإن لم يطابق (تسمّمُ
+       سباق النشر) يبقى التصحيحُ كما كان فيُشفى.
+   البيانُ لا يُوثَق به إلا إن حمل التوكنَ المطلوب نفسَه (بيانُ نشرةٍ أخرى لا يقول شيئاً عن هذه). بلا بيان · بلا
+   crypto · ملفٌ غير مذكور · مهلةٌ انقضت ⇒ السلوكُ السابق حرفياً (الشبكة). */
+var MANIFEST_URL = '/asset-manifest.json', MAN_KEY = '/__asset_manifest', MAN_WAIT_MS = 2500, MAN_RETRY_MS = 600000;
+var _manMem = {}, _manFailAt = {}, _provenMem = {};
+function tokenOf(u) { try { return new URL(u, self.location.origin).searchParams.get('v') || ''; } catch (e) { return ''; } }
+function relPathOf(u) { try { return new URL(u, self.location.origin).pathname.replace(/^\//, ''); } catch (e) { return ''; } }
+function sha256Hex(res) {
+  try {
+    var cr = self.crypto || (typeof crypto !== 'undefined' ? crypto : null);
+    if (!res || !cr || !cr.subtle || typeof res.arrayBuffer !== 'function') return Promise.resolve(null);
+    return res.arrayBuffer().then(function (buf) { return cr.subtle.digest('SHA-256', buf); }).then(function (d) {
+      var b = new Uint8Array(d), h = '';
+      for (var i = 0; i < b.length; i++) h += (b[i] < 16 ? '0' : '') + b[i].toString(16);
+      return h;
+    }).catch(function () { return null; });
+  } catch (e) { return Promise.resolve(null); }
+}
+function manifestOk(m, tok) { return !!(m && tok && m.token === tok && m.files && typeof m.files === 'object'); }
+/* بيانُ توكنٍ بعينه: الذاكرة ← الكاش (PRECACHE، بمفتاح التوكن — ثابتٌ ما ثبت التوكن) ← الشبكة مرةً واحدة */
+function manifestFor(tok) {
+  if (!tok || KILL_SWITCH) return Promise.resolve(null);
+  if (_manMem[tok]) return _manMem[tok];
+  if (_manFailAt[tok] && Date.now() - _manFailAt[tok] < MAN_RETRY_MS) return Promise.resolve(null);
+  var key = MAN_KEY + '-' + tok;
+  var p = caches.open(PRECACHE).then(function (pc) {
+    return pc.match(key).then(function (hit) {
+      return hit ? hit.text().then(function (t) { try { return JSON.parse(t); } catch (e) { return null; } }) : null;
+    }).then(function (kept) {
+      if (manifestOk(kept, tok)) return kept;
+      var r; try { r = new Request(MANIFEST_URL, { cache: 'no-store' }); } catch (e) { r = MANIFEST_URL; }
+      return fetch(r).then(function (net) {
+        if (!(net && net.ok)) return null;
+        return net.text().then(function (t) {
+          var j = null; try { j = JSON.parse(t); } catch (e) { j = null; }
+          if (!manifestOk(j, tok)) return null;
+          return pc.put(key, new Response(t, { status: 200, headers: { 'Content-Type': 'application/json' } }))
+            .then(function () { return j; }, function () { return j; });
+        });
+      });
+    });
+  }).catch(function () { return null; }).then(function (m) {
+    if (!m) { _manFailAt[tok] = Date.now(); delete _manMem[tok]; }
+    return m;
+  });
+  _manMem[tok] = p;
+  return p;
+}
+/* هل هذا الجسمُ هو محتوى url (مساره وتوكنه) حرفياً بحسب بيان نشرته؟ */
+function provenCurrent(res, url) {
+  var tok = tokenOf(url);
+  if (!tok || !res) return Promise.resolve(false);
+  return manifestFor(tok).then(function (m) {
+    var want = m && m.files[relPathOf(url)];
+    if (!want || typeof want !== 'string') return false;
+    return sha256Hex(res).then(function (h) { return !!h && h === want; });
+  }).catch(function () { return false; });
+}
+/* التوكنُ المطلوب غائب: نسخةُ المسار نفسِه بتوكنٍ أقدم، إن ثبتت مطابقتُها خلال المهلة، تُحفَظ تحت المفتاح المطلوب وتُخدَم */
+function reuseSamePath(url) {
+  return anyTokenAsset(url).then(function (old) {
+    if (!old) return null;
+    var late = new Promise(function (r) { setTimeout(function () { r(false); }, MAN_WAIT_MS); });
+    return Promise.race([provenCurrent(old.clone(), url), late]).then(function (ok) {
+      if (!ok) return null;
+      _provenMem[url] = 1;
+      return putSafe(ASSETS, url, old.clone(), MAX_ASSETS).then(function () { return old; });
+    });
+  }).catch(function () { return null; });
+}
+
 /* ── الأصول الموسومة ?v= : cache-first ──────────────────────────────────── */
 function handleVersionedAsset(event) {
   var req = event.request;
@@ -554,18 +633,30 @@ function handleVersionedAsset(event) {
      ذاتياً بالتحميل التالي — وأوفلاين يبقى السلوك كما كان (فشل الشبكة
      صامت والمكاش سيّد). */
   return caches.match(req).then(function (cached) {
-    var refresh = fetch(req).then(function (net) {
-      if (net && net.ok && net.type === 'basic' && !net.redirected) {
-        return putSafe(ASSETS, req.url, net.clone(), MAX_ASSETS).then(function () { return net; });
-      }
-      return net;
-    }).catch(function () { return null; });
-    if (cached) { event.waitUntil(refresh); return cached; }
-    return refresh.then(function (net) {
-      if (net) return net;
-      /* الشبكة فشلت والتوكن المطلوب غائب ⇒ نسخة نفس المسار بأي توكن، وإلا 504 */
-      return anyTokenAsset(req.url).then(function (old) {
-        return old || new Response('', { status: 504, statusText: 'offline & uncached' });
+    var refresh = function () {
+      return fetch(req).then(function (net) {
+        if (net && net.ok && net.type === 'basic' && !net.redirected) {
+          return putSafe(ASSETS, req.url, net.clone(), MAX_ASSETS).then(function () { return net; });
+        }
+        return net;
+      }).catch(function () { return null; });
+    };
+    if (cached) {
+      /* v803: نسخةٌ ثبت بالبيان أنها محتوى هذا التوكن حرفياً لا تُصحَّح من الشبكة؛ غيرُ المثبتة تُصحَّح كما كانت */
+      var bg = _provenMem[req.url] ? Promise.resolve(null)
+        : provenCurrent(cached.clone(), req.url).then(function (ok) { if (ok) { _provenMem[req.url] = 1; return null; } return refresh(); });
+      try { event.waitUntil(bg); } catch (e) {}
+      return cached;
+    }
+    /* v803: التوكنُ المطلوب غائب ⇒ نسخةُ المسار نفسِه إن ثبتت مطابقتُها، وإلا الشبكة كما كانت */
+    return reuseSamePath(req.url).then(function (same) {
+      if (same) return same;
+      return refresh().then(function (net) {
+        if (net) return net;
+        /* الشبكة فشلت والتوكن المطلوب غائب ⇒ نسخة نفس المسار بأي توكن، وإلا 504 */
+        return anyTokenAsset(req.url).then(function (old) {
+          return old || new Response('', { status: 504, statusText: 'offline & uncached' });
+        });
       });
     });
   });
