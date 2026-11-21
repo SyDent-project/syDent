@@ -7064,76 +7064,6 @@ window.SySlots = {
                     _consts: { DEBOUNCE_MS: DEBOUNCE_MS, POLL_MS: POLL_MS, AWAY_MS: AWAY_MS } };
 })();
 
-/* ═══════════════ SyDentWA — فتحُ واتساب من الحاسوب بالتطبيق مباشرة (v652 · v653: المغادرةُ تُراقَب على النافذة المسبقة) ═══════════════
-   طلبُ المالك 19/10/2026: على الكمبيوتر يفتح زرُّ الإرسال تطبيقَ WhatsApp Desktop مباشرةً — لا صفحةَ wa.me الوسيطة التي تسأل بعدها.
-   - حاسوب: `whatsapp://send?phone=…&text=…` من التبويب الحالي (لا تبويبَ جديداً). المتصفحُ يسأل مرةً «فتح WhatsApp؟» وله «تذكّر اختياري».
-     إن لم يغادر التركيزُ الصفحةَ خلال FALLBACK_MS (لا تطبيقَ مثبّت ⇒ لا حوارَ ولا blur) ⇒ احتياطٌ: wa.me بتبويبٍ جديد كما كان
-     (ما زلنا داخل مهلة تفعيل المستخدم — 5 ث بكروم/فايرفوكس — فلا يحجبه مانعُ النوافذ).
-   - جوال وآيباد: wa.me بتبويبٍ جديد كما كان (يفتح التطبيقَ مباشرةً أصلاً).
-   - نافذةٌ فُتحت مسبقاً داخل النقرة (`pre` — نمطُ المخبر: فتحٌ قبل await ثم توجيه): على الحاسوب تُوجَّه هي للمخطّط،
-     وتُغلق عند النجاح أو تُوجَّه لـwa.me احتياطاً؛ فلا يُفتح تبويبٌ ثانٍ.
-   - روابطُ `<a href="https://wa.me/…">` بكل الصفحات تُلتقط بمستمعٍ واحد على المستند (مرحلةُ الالتقاط — قبل stopPropagation الداخلي)؛
-     Ctrl/⌘/Shift/Alt والزرُّ الأوسط تُترك للمتصفح (المستخدم يريد تبويباً).
-   - الفتحُ الجماعي بالأدمن (حتى 5 تبويبات) خارجَه عمداً — مخطّطٌ واحد لا يحمل أكثرَ من محادثة.
-   الصفحاتُ العامة (book · intake · portal · landing · privacy) لا تحمّل هذا الملف (#735) وتبقى على wa.me. المثبت: prove-wa-desktop. */
-window.SyDentWA = (function () {
-  'use strict';
-  var FALLBACK_MS = 1600;
-  function isDesktop() {
-    var ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
-    if (/Android|iPhone|iPad|iPod|IEMobile|Windows Phone|Mobile/i.test(ua)) return false;
-    if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return false;   /* iPadOS يتنكّر حاسوباً */
-    return true;
-  }
-  function toScheme(url) {
-    var m = /^https:\/\/wa\.me\/(\d*)\/?(?:\?text=([^#&]*))?/.exec(String(url || ''));
-    if (!m) return '';
-    var q = [];
-    if (m[1]) q.push('phone=' + m[1]);
-    if (m[2]) q.push('text=' + m[2]);
-    return 'whatsapp://send' + (q.length ? '?' + q.join('&') : '');
-  }
-  /* open(url, pre?) — url رابطُ wa.me الجاهز؛ pre نافذةٌ فُتحت داخل النقرة (أو null إن حُجبت). يعيد النافذةَ إن وُجدت. */
-  function open(url, pre) {
-    url = String(url || '');
-    var scheme = toScheme(url);
-    if (!scheme || !isDesktop()) {
-      if (pre) { try { pre.location.href = url; } catch (e) {} return pre; }
-      return window.open(url, '_blank', 'noopener');
-    }
-    var left = false;
-    function onLeave() { left = true; }
-    var tab = pre || null;
-    /* v653: مع نافذةٍ مسبقة (المخبر) تكون هي الأماميةَ — فالصفحةُ الأصلية فقدت التركيزَ عند فتحها قبل هذا النداء، والتطبيقُ
-       حين يُفتح يأخذ التركيزَ من النافذةِ المسبقة. فتُراقَب المغادرةُ عليها أيضاً، وإلا ذهب الاحتياطُ إلى wa.me دائماً (فتحٌ مزدوج). */
-    function track(m) {
-      window[m]('blur', onLeave); document[m]('visibilitychange', onLeave);
-      if (tab) { try { tab[m]('blur', onLeave); } catch (e) {} try { tab.document[m]('visibilitychange', onLeave); } catch (e) {} }
-    }
-    track('addEventListener');
-    try { if (tab) tab.location.href = scheme; else window.location.href = scheme; } catch (e) {}
-    setTimeout(function () {
-      track('removeEventListener');
-      if (tab && tab.closed) return;   /* أغلقها المستخدم بنفسه ⇒ لا شيء */
-      if (left) { if (tab) { try { tab.close(); } catch (e) {} } return; }
-      if (tab) { try { tab.location.href = url; } catch (e) {} return; }
-      window.open(url, '_blank', 'noopener');
-    }, FALLBACK_MS);
-    return tab;
-  }
-  if (typeof document !== 'undefined') {   /* الحُرّاس تحمّل الملفَ بـvm بلا مستند */
-    document.addEventListener('click', function (e) {
-      if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-      var t = e.target, a = t && t.closest ? t.closest('a[href^="https://wa.me/"]') : null;
-      if (!a || !isDesktop()) return;
-      e.preventDefault();
-      open(a.getAttribute('href'));
-    }, true);
-  }
-  return { open: open, toScheme: toScheme, isDesktop: isDesktop, _consts: { FALLBACK_MS: FALLBACK_MS } };
-})();
-
-
 /* ═══ SYDENT_APPLOCK_START ═══
    SyDent — قفل التطبيق على هذا الجهاز (اختياري)
    ─────────────────────────────────────────────────────────────────────────
@@ -7377,3 +7307,72 @@ window.SyDentWA = (function () {
   } catch (e) {}
 })();
 /* ═══ SYDENT_APPLOCK_END ═══ */
+
+/* ═══════════════ SyDentWA — فتحُ واتساب من الحاسوب بالتطبيق مباشرة (v652 · v653: المغادرةُ تُراقَب على النافذة المسبقة) ═══════════════
+   طلبُ المالك 19/10/2026: على الكمبيوتر يفتح زرُّ الإرسال تطبيقَ WhatsApp Desktop مباشرةً — لا صفحةَ wa.me الوسيطة التي تسأل بعدها.
+   - حاسوب: `whatsapp://send?phone=…&text=…` من التبويب الحالي (لا تبويبَ جديداً). المتصفحُ يسأل مرةً «فتح WhatsApp؟» وله «تذكّر اختياري».
+     إن لم يغادر التركيزُ الصفحةَ خلال FALLBACK_MS (لا تطبيقَ مثبّت ⇒ لا حوارَ ولا blur) ⇒ احتياطٌ: wa.me بتبويبٍ جديد كما كان
+     (ما زلنا داخل مهلة تفعيل المستخدم — 5 ث بكروم/فايرفوكس — فلا يحجبه مانعُ النوافذ).
+   - جوال وآيباد: wa.me بتبويبٍ جديد كما كان (يفتح التطبيقَ مباشرةً أصلاً).
+   - نافذةٌ فُتحت مسبقاً داخل النقرة (`pre` — نمطُ المخبر: فتحٌ قبل await ثم توجيه): على الحاسوب تُوجَّه هي للمخطّط،
+     وتُغلق عند النجاح أو تُوجَّه لـwa.me احتياطاً؛ فلا يُفتح تبويبٌ ثانٍ.
+   - روابطُ `<a href="https://wa.me/…">` بكل الصفحات تُلتقط بمستمعٍ واحد على المستند (مرحلةُ الالتقاط — قبل stopPropagation الداخلي)؛
+     Ctrl/⌘/Shift/Alt والزرُّ الأوسط تُترك للمتصفح (المستخدم يريد تبويباً).
+   - الفتحُ الجماعي بالأدمن (حتى 5 تبويبات) خارجَه عمداً — مخطّطٌ واحد لا يحمل أكثرَ من محادثة.
+   الصفحاتُ العامة (book · intake · portal · landing · privacy) لا تحمّل هذا الملف (#735) وتبقى على wa.me. المثبت: prove-wa-desktop. */
+window.SyDentWA = (function () {
+  'use strict';
+  var FALLBACK_MS = 1600;
+  function isDesktop() {
+    var ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+    if (/Android|iPhone|iPad|iPod|IEMobile|Windows Phone|Mobile/i.test(ua)) return false;
+    if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return false;   /* iPadOS يتنكّر حاسوباً */
+    return true;
+  }
+  function toScheme(url) {
+    var m = /^https:\/\/wa\.me\/(\d*)\/?(?:\?text=([^#&]*))?/.exec(String(url || ''));
+    if (!m) return '';
+    var q = [];
+    if (m[1]) q.push('phone=' + m[1]);
+    if (m[2]) q.push('text=' + m[2]);
+    return 'whatsapp://send' + (q.length ? '?' + q.join('&') : '');
+  }
+  /* open(url, pre?) — url رابطُ wa.me الجاهز؛ pre نافذةٌ فُتحت داخل النقرة (أو null إن حُجبت). يعيد النافذةَ إن وُجدت. */
+  function open(url, pre) {
+    url = String(url || '');
+    var scheme = toScheme(url);
+    if (!scheme || !isDesktop()) {
+      if (pre) { try { pre.location.href = url; } catch (e) {} return pre; }
+      return window.open(url, '_blank', 'noopener');
+    }
+    var left = false;
+    function onLeave() { left = true; }
+    var tab = pre || null;
+    /* v653: مع نافذةٍ مسبقة (المخبر) تكون هي الأماميةَ — فالصفحةُ الأصلية فقدت التركيزَ عند فتحها قبل هذا النداء، والتطبيقُ
+       حين يُفتح يأخذ التركيزَ من النافذةِ المسبقة. فتُراقَب المغادرةُ عليها أيضاً، وإلا ذهب الاحتياطُ إلى wa.me دائماً (فتحٌ مزدوج). */
+    function track(m) {
+      window[m]('blur', onLeave); document[m]('visibilitychange', onLeave);
+      if (tab) { try { tab[m]('blur', onLeave); } catch (e) {} try { tab.document[m]('visibilitychange', onLeave); } catch (e) {} }
+    }
+    track('addEventListener');
+    try { if (tab) tab.location.href = scheme; else window.location.href = scheme; } catch (e) {}
+    setTimeout(function () {
+      track('removeEventListener');
+      if (tab && tab.closed) return;   /* أغلقها المستخدم بنفسه ⇒ لا شيء */
+      if (left) { if (tab) { try { tab.close(); } catch (e) {} } return; }
+      if (tab) { try { tab.location.href = url; } catch (e) {} return; }
+      window.open(url, '_blank', 'noopener');
+    }, FALLBACK_MS);
+    return tab;
+  }
+  if (typeof document !== 'undefined') {   /* الحُرّاس تحمّل الملفَ بـvm بلا مستند */
+    document.addEventListener('click', function (e) {
+      if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+      var t = e.target, a = t && t.closest ? t.closest('a[href^="https://wa.me/"]') : null;
+      if (!a || !isDesktop()) return;
+      e.preventDefault();
+      open(a.getAttribute('href'));
+    }, true);
+  }
+  return { open: open, toScheme: toScheme, isDesktop: isDesktop, _consts: { FALLBACK_MS: FALLBACK_MS } };
+})();
