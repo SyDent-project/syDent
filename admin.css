@@ -1060,7 +1060,7 @@ header{
   display:flex;gap:6px;align-items:center;flex:1;min-width:220px;
 }
 .tpl-test-send input{
-  flex:1;padding:8px 11px;font-size:12px;
+  flex:1;min-width:0;padding:8px 11px;font-size:12px;   /* min-width:0 — عرضُ الحقل الذاتي كان يدفع زرَّ «تجريبي» تحت «افتراضي» على الهواتف (390–412px) */
   background:var(--bg3);color:var(--text);
   border:1px solid var(--border);border-radius:8px;
 }
