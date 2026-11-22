@@ -542,13 +542,15 @@ async function loadPlatformSettings() {
     var inp = document.getElementById('fSupportPhone');
     if (inp && document.activeElement !== inp) {
       inp.value = PLATFORM_SETTINGS_CACHE.support_phone || '';
-      // After (re)load, the input matches DB → save button disabled.
-      var btn = document.getElementById('btnSaveSupport');
-      if (btn) btn.disabled = true;
+      // After (re)load, the input matches DB → save button disabled (and says «✓ محفوظ» when set).
+      onSupportPhoneInput();
     }
     // Phase X11: rehydrate the new Section H inputs from the same cache.
     // Defined later in the file — call defensively in case ordering shifts.
     if (typeof hydratePsUI === 'function') hydratePsUI();
+    // Preview/test send use the real support values from this cache — repaint
+    // if the template editor is already open (it may have rendered first).
+    if (typeof renderTplPreview === 'function') { try { renderTplPreview(); } catch(_){} }
   } catch(e) { console.warn('loadPlatformSettings error:', e); }
 }
 
@@ -562,6 +564,7 @@ function onSupportPhoneInput() {
   var current = (PLATFORM_SETTINGS_CACHE.support_phone || '').trim();
   var typed   = (inp.value || '').trim();
   btn.disabled = (typed === current);
+  btn.textContent = (typed === current && current) ? '✓ محفوظ' : '💾 حفظ';   // رماديٌّ بلا حالة بدا «معطّلاً» (المالك، 7 نوفمبر)
 }
 
 async function saveSupportPhone() {
@@ -597,13 +600,20 @@ async function saveSupportPhone() {
       return;
     }
     PLATFORM_SETTINGS_CACHE.support_phone = val;
+    // الحقلُ الآخر («إعدادات المنصة ← معلومات الدعم») ومعاينةُ القالب يقرآن الذاكرة نفسها — يُحدَّثان فوراً.
+    //   حقلُ الرقم وحده — لا hydratePsUI (تمسح تعديلاتٍ غير محفوظة بالحقول الأخرى).
+    var psInp = document.getElementById('psSupportPhone');
+    if (psInp && document.activeElement !== psInp && !_psFieldDirty.support_phone) psInp.value = val;
+    if (typeof _updatePsSaveButtons === 'function') { try { _updatePsSaveButtons(); } catch(_){} }
+    if (typeof renderTplPreview === 'function') { try { renderTplPreview(); } catch(_){} }
     SyDialog.alert('✅ تم حفظ رقم الدعم الفني.');
   } catch(ex) {
     console.error('saveSupportPhone exception:', ex);
     SyDialog.alert('❌ خطأ غير متوقع: ' + (ex && ex.message ? ex.message : String(ex)));
   } finally {
     _saveSupportPhoneInFlight = false;
-    if (btn) { btn.textContent = '💾 حفظ'; btn.disabled = true; }
+    if (btn) btn.disabled = true;
+    onSupportPhoneInput();   // نصُّ الزر بحسب ما حُفظ فعلاً («✓ محفوظ» أو «💾 حفظ»)
   }
 }
 
@@ -1004,7 +1014,16 @@ function _updatePsSaveButtons() {
   var platformDirty = _psFieldDirty.platform_name || _psFieldDirty.renewal_message;
   var b1 = document.getElementById('btnPsSaveSupport');
   var b2 = document.getElementById('btnPsSavePlatform');
-  if (b1) b1.disabled = !supportDirty || _psSaveSupportInFlight;
+  if (b1) {
+    b1.disabled = !supportDirty || _psSaveSupportInFlight;
+    // A grey button with no state reads as «broken» (owner, 7 Nov 2026): when
+    // nothing is pending and something is saved, say so instead.
+    if (!_psSaveSupportInFlight) {
+      var c = PLATFORM_SETTINGS_CACHE || {};
+      var hasSaved = String(c.support_phone || '').trim() || String(c.support_email || '').trim();
+      b1.textContent = supportDirty ? '💾 حفظ معلومات الدعم' : (hasSaved ? '✓ محفوظ — عدّل الحقول للتغيير' : '💾 حفظ معلومات الدعم');
+    }
+  }
   if (b2) b2.disabled = !platformDirty || _psSavePlatformInFlight;
   var b3 = document.getElementById('btnPsSaveUsdRate'); // Migration 105
   if (b3) b3.disabled = !_psFieldDirty.usd_report_rate || _psSaveUsdRateInFlight;
@@ -1152,10 +1171,13 @@ async function savePsSupportInfo() {
       var legacyInp = document.getElementById('fSupportPhone');
       if (legacyInp && document.activeElement !== legacyInp) {
         legacyInp.value = PLATFORM_SETTINGS_CACHE.support_phone || '';
-        var legacyBtn = document.getElementById('btnSaveSupport');
-        if (legacyBtn) legacyBtn.disabled = true;
+        onSupportPhoneInput();   // الزرُّ رماديّ ويقول «✓ محفوظ»
       }
     }
+
+    // The template preview/test send read the same cache — repaint so the
+    // real support number shows up without a reload.
+    if (typeof renderTplPreview === 'function') { try { renderTplPreview(); } catch(_){} }
 
     SyDialog.alert('✅ تم حفظ معلومات الدعم.');
   } catch(ex) {

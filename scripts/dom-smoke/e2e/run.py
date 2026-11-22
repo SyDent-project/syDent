@@ -11,6 +11,7 @@
   emp       — الموظفون: الدوامُ الخاص · إجازةُ الطبيب تُنشئ حجزَه المغلق وتُعلن مواعيدَه · الحذف يزيل الاثنين.
   pay       — الرواتب: سطرُ «خصم مقترح» ظاهر، لا يُخصم شيء حتى يُضغط، والحفظُ يحمل المبلغَ والملاحظة.
   dash      — اللوحة: شارةُ «موافقة بانتظار التوقيع» على موعد اليوم.
+  admin     — لوحة الإدارة: رقمُ الدعم المحفوظ بمعاينة القوالب و«تجريبي» · «✓ محفوظ» · «تجريبي» ظاهرٌ على الهاتف.
 --self-test: كلُّ طفرةٍ (ملفٌ يُخدَّم معدَّلاً) يجب أن تُسقط سيناريو واحداً على الأقل."""
 import os, sys, json, time, datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -42,7 +43,7 @@ def new_page(b, db, w=1366, h=768):
         if name in MUT:
             src = open(os.path.join(ROOT, name), encoding='utf-8').read(); a, r = MUT[name]
             if a not in src: raise RuntimeError('طفرةٌ بلا مرساة: ' + name)
-            return rt.fulfill(status=200, content_type='text/html; charset=utf-8' if name.endswith('.html') else 'application/javascript; charset=utf-8', body=src.replace(a, r))
+            return rt.fulfill(status=200, content_type='text/html; charset=utf-8' if name.endswith('.html') else ('text/css; charset=utf-8' if name.endswith('.css') else 'application/javascript; charset=utf-8'), body=src.replace(a, r))
         return rt.fallback()
     ctx.route('http://127.0.0.1:%d/**' % PORT, serve_mut)
     p = ctx.new_page(); p.set_default_timeout(15000); errs = []
@@ -346,7 +347,46 @@ def s_dash(b):
     ok('dash: شارةُ «موافقة بانتظار التوقيع» على موعد صاحبها وحده', got and len(chips) == 1 and 'سامر' in chips[0], chips)
     ok('dash: صفرُ خطأ JS', not errs, errs[:2]); ctx.close()
 
-SCEN = {'card': s_card, 'open': s_open, 'tx': s_tx, 'appt': s_appt, 'emp': s_emp, 'pay': s_pay, 'dash': s_dash}
+ADM_TPL = 'مرحباً {name} 👋\nتم تفعيل حسابك على SyDent.\n\n📞 للدعم الفني: {support_phone}\n\nبالتوفيق!'
+def s_admin(b, w=1366, h=768):
+    """لوحة الإدارة: رقمُ الدعم المحفوظ يظهر بمعاينة القوالب وبرسالة «تجريبي» (لا الوهمي)، والحفظُ يحدّثها فوراً،
+    وزرُّ الحفظ يقول «✓ محفوظ» بدل رماديٍّ صامت، وزرُّ «تجريبي» لا يغطّيه «افتراضي» على الهاتف (تقرير المالك 7 نوفمبر)."""
+    T = 'admin[%d]' % w
+    db = base_db()
+    db.t['platform_admins'] = [{'id': 'pa1', 'user_id': UID, 'role': 'admin'}]
+    db.t['platform_settings'] = [{'key': 'support_phone', 'value': '0934012433'}, {'key': 'support_email', 'value': ''}, {'key': 'platform_name', 'value': 'SyDent'}]
+    db.t['notification_templates'] = [{'id': 'n%d' % i, 'code': c, 'title': c, 'body': ADM_TPL, 'is_active': True, 'sort_order': i, 'variables': []} for i, c in enumerate(['wa_welcome', 'wa_reminder', 'wa_suspended', 'wa_renewed'])]
+    ctx, p, errs = new_page(b, db, w, h)
+    p.goto(BASE + 'admin.html', wait_until='domcontentloaded')
+    p.wait_for_function("typeof selectTplTab==='function' && typeof PLATFORM_SETTINGS_CACHE!=='undefined' && PLATFORM_SETTINGS_CACHE.platform_name==='SyDent'", timeout=30000)
+    p.wait_for_timeout(900)
+    p.evaluate("adminGo('st')"); p.wait_for_timeout(300)
+    p.evaluate("(function(){var e=document.querySelector('.tpl-editor-body,#tplEditorBody');if(!e||getComputedStyle(e).display==='none')toggleTplEditor();})()"); p.wait_for_timeout(400)
+    p.evaluate("selectTplTab('wa_welcome', document.querySelector('[data-tpl-code=wa_welcome]'))"); p.wait_for_timeout(500)
+    bub = p.evaluate("document.getElementById('tplPreviewBubble').textContent")
+    ok(T + ': المعاينةُ تحمل رقمَ الدعم المحفوظ لا الوهمي', '0934012433' in bub and '0991234567' not in bub, bub)
+    ok(T + ': سطرُ المعاينة يقول إن رقم الدعم حقيقي', 'رقم الدعم حقيقي' in p.evaluate("document.getElementById('tplPreviewMeta').textContent"))
+    p.evaluate("(function(){window.__wa=[];var W=window.SyDentWA;try{W.open=function(u){window.__wa.push(u);};}catch(e){}if(String(W.open).indexOf('__wa')<0)window.SyDentWA=Object.assign({},W,{open:function(u){window.__wa.push(u);}});})()")
+    p.fill('#tplTestPhone', '0933111222'); p.evaluate("sendTplTest()"); p.wait_for_timeout(150)
+    import urllib.parse
+    u = p.evaluate("window.__wa"); txt = urllib.parse.unquote(u[0].split('text=')[-1]) if u else ''
+    ok(T + ': «تجريبي» يرسل الرقمَ المحفوظ', '0934012433' in txt and '0991234567' not in txt, txt)
+    lbl = p.evaluate("(function(){var b=document.getElementById('btnPsSaveSupport');return [b.disabled,b.textContent.trim()];})()")
+    ok(T + ': زرُّ «معلومات الدعم» المحفوظة يقول «✓ محفوظ»', lbl[0] and lbl[1].startswith('✓ محفوظ'), lbl)
+    row = p.evaluate("(function(){var t=document.querySelector('.btn-test-send-tpl');t.scrollIntoView({block:'center'});var a=t.getBoundingClientRect(),c=document.getElementById('btnResetTpl').getBoundingClientRect();var hit=document.elementFromPoint(a.left+a.width/2,a.top+a.height/2);return {free:a.right<=c.left||c.right<=a.left||a.bottom<=c.top||c.bottom<=a.top,hit:!!hit&&(hit===t||t.contains(hit))};})()")
+    ok(T + ': زرُّ «تجريبي» ظاهرٌ لا يغطّيه «افتراضي»', row['free'] and row['hit'], row)
+    p.evaluate("(function(){var b=document.querySelector('#psSection .ps-card');if(!b||b.getBoundingClientRect().height===0)psToggle();})()"); p.wait_for_timeout(300)
+    inp = p.locator('#psSupportPhone'); inp.scroll_into_view_if_needed(); inp.fill('0944555666'); inp.dispatch_event('input')
+    p.fill('#psPlatformName', 'اسم غير محفوظ'); p.dispatch_event('#psPlatformName', 'input')
+    p.locator('#btnPsSaveSupport').click(); wait_dialog(p); p.locator('.sy-dialog .btn-sy-ok').click(); p.wait_for_timeout(300)
+    ok(T + ': الحفظُ يكتب الرقمَ ويحدّث المعاينةَ فوراً', any(r['key'] == 'support_phone' and r['value'] == '0944555666' for r in db.rows('platform_settings')) and '0944555666' in p.evaluate("document.getElementById('tplPreviewBubble').textContent"))
+    f = p.locator('#fSupportPhone'); f.scroll_into_view_if_needed(); f.fill('0955777888'); f.dispatch_event('input')
+    p.locator('#btnSaveSupport').click(); wait_dialog(p); p.locator('.sy-dialog .btn-sy-ok').click(); p.wait_for_timeout(300)
+    ok(T + ': حفظُ حقل القوالب يحدّث المعاينةَ والحقلَ الآخر وزرُّه «✓ محفوظ»', '0955777888' in p.evaluate("document.getElementById('tplPreviewBubble').textContent") and p.evaluate("document.getElementById('psSupportPhone').value") == '0955777888' and p.evaluate("document.getElementById('btnSaveSupport').textContent.trim()") == '✓ محفوظ')
+    ok(T + ': …ولا يمسح تعديلاً غير محفوظ بحقلٍ آخر', p.evaluate("document.getElementById('psPlatformName').value") == 'اسم غير محفوظ')
+    ok(T + ': صفرُ خطأ JS', not errs, errs[:2]); ctx.close()
+
+SCEN = {'admin': s_admin, 'card': s_card, 'open': s_open, 'tx': s_tx, 'appt': s_appt, 'emp': s_emp, 'pay': s_pay, 'dash': s_dash}
 MUTANTS = [
   ('الحوارُ لا يظهر عند تخطيط العلاج', 'card', 'pp-consent.js', "  if (fresh.length) ppConsentAsk(fresh);\n", ""),
   ('البطاقةُ لا تزامن عند تغيّر الخطة', 'card', 'pp-timeline.js', "ppConsentTouch()", "void 0"),
@@ -363,6 +403,11 @@ MUTANTS = [
   ('إجازةُ المالك لا تُغلق تقويمَه', 'emp', 'emp-time.js', "if (!S.providerId && S.emp.role === 'owner') {", "if (false) {"),
   ('سطرُ الخصم غائب', 'pay', 'payouts.html', "  _updateSuggestionCore();\n  updateLeaveHint();", "  _updateSuggestionCore();"),
   ('خصمٌ صامت', 'pay', 'payouts.html', "  el.textContent = txt;\n  el.style.display = 'block';\n}", "  el.textContent = txt;\n  el.style.display = 'block';\n  if (r.amount > 0) { $('fldSalary').value = 1; }\n}"),
+  ('معاينةُ القالب بالرقم الوهمي', 'admin', 'admin-wa.js', "  var vars = Object.assign({}, TPL_MOCK_VARS);\n  var c = (typeof", "  return Object.assign({}, TPL_MOCK_VARS);\n  var vars; var c = (typeof"),
+  ('الحفظُ لا يحدّث المعاينة', 'admin', 'admin-settings.js', "    // real support number shows up without a reload.\n    if (typeof renderTplPreview === 'function') { try { renderTplPreview(); } catch(_){} }", "    // real support number shows up without a reload."),
+  ('زرٌّ رماديٌّ صامت', 'admin', 'admin-settings.js', "(hasSaved ? '✓ محفوظ — عدّل الحقول للتغيير' : '💾 حفظ معلومات الدعم')", "'💾 حفظ معلومات الدعم'"),
+  ('حفظُ حقل القوالب يمسح الحقول الأخرى', 'admin', 'admin-settings.js', "    if (psInp && document.activeElement !== psInp && !_psFieldDirty.support_phone) psInp.value = val;", "    if (typeof hydratePsUI === 'function') hydratePsUI();"),
+  ('«افتراضي» يغطّي «تجريبي» على الهاتف', 'admin390', 'admin.css', "flex:1;min-width:0;padding:8px 11px;font-size:12px;", "flex:1;padding:8px 11px;font-size:12px;"),
   ('شارةُ اللوحة غائبة', 'dash', 'huddle-flags.js', "if (e.consent)", "if (false)"),
 ]
 
@@ -374,7 +419,7 @@ with sync_playwright() as pw:
             try: SCEN[name](b)
             except Exception as e: ok(name + ': السيناريو أكمل بلا استثناء', False, repr(e)[:300])
         if not only:
-            for name in ('card', 'emp', 'pay'):   # الهاتف
+            for name in ('card', 'emp', 'pay', 'admin'):   # الهاتف
                 try: SCEN[name](b, 390, 844)
                 except Exception as e: ok(name + '[390]: السيناريو أكمل بلا استثناء', False, repr(e)[:300])
         b.close()
@@ -382,7 +427,7 @@ with sync_playwright() as pw:
         print(('✅' if not FAILS else '❌') + ' مثبت المسارات على الصفحات الحقيقية: ' + str(N[0] - len(FAILS)) + '/' + str(N[0]))
         sys.exit(0 if not FAILS else 1)
     bit = 0
-    only = [a for a in sys.argv[1:] if a in SCEN or a == 'card390']
+    only = [a for a in sys.argv[1:] if a in SCEN or a in ('card390', 'admin390')]
     if only: MUTANTS = [m for m in MUTANTS if m[1] in only]
     dead = [t for t, sc, f, a, r in MUTANTS if a not in open(os.path.join(ROOT, f), encoding='utf-8').read()]
     if dead:   # مرساةٌ اختفت من الملف = طفرةٌ ميتة؛ لا تُحسب «عضّت» باستثناء
@@ -393,6 +438,7 @@ with sync_playwright() as pw:
         MUT.clear(); MUT[fname] = (a, r); FAILS.clear(); N[0] = 0
         try:
             if scen == 'card390': s_card(b, 390, 844)
+            elif scen == 'admin390': s_admin(b, 390, 844)
             else: SCEN[scen](b)
         except Exception as e: FAILS.append('exception ' + repr(e)[:120])
         while CTXS:
