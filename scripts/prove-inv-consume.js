@@ -188,7 +188,10 @@ async function suite(F) {
   ok(PP.indexOf("maybePromptMaterialDeduction(_pd.k, _pd.l, _pd.m, _pd.s)") > -1, 'deferred lab path carries the sessions');
   ok(F['pp-clinical.js'].indexOf("m: 1, s: newSess ? [newSess.id] : [] }") > -1, 'tooth + lab path stores the session');
   const PD = F['pp-dental.js'];
-  ok(/_bCreated\+\+;\n\s+_bSessIds\.push\(_bl\.data\.id\);/.test(PD) && PD.indexOf('m: _bCreated, s: _bSessIds }') > -1 && PD.indexOf('maybePromptMaterialDeduction(pendingToothStatus, pendingToothLabel, _bCreated, _bSessIds)') > -1, 'batch teeth path passes every created session');
+  /* v806: كلُّ جلسةٍ تُسجَّل بالدفعة تمرّ من _bTookSess (المسارُ الفردي والجماعي) — وهي التي تعدّها وتجمع معرّفها */
+  ok(/var _bTookSess = function \(row, n, sf, desc\) \{[\s\S]{0,160}?_bCreated\+\+;\n\s+_bSessIds\.push\(row\.id\);/.test(PD)
+    && /if \(_bl\.data\) _bTookSess\(_bl\.data, _bn, _bSurface, _bDesc\);/.test(PD) && (PD.match(/_bTookSess\(/g) || []).length === 4
+    && PD.indexOf('m: _bCreated, s: _bSessIds }') > -1 && PD.indexOf('maybePromptMaterialDeduction(pendingToothStatus, pendingToothLabel, _bCreated, _bSessIds)') > -1, 'batch teeth path passes every created session');
   ok(PD.indexOf('maybePromptMaterialDeduction(pendingToothStatus, pendingToothLabel, 1, newSess ? [newSess.id] : [])') > -1, 'single tooth path passes the session');
   ['patient-profile.html', 'appointments.html'].forEach(f => ok(!/from\('inventory_movements'\)\.insert/.test(F[f]) && !/from\('inventory_items'\)\s*\.update/.test(F[f]), f + ': no direct stock write left'));
   const INV = F['inventory.html'];
@@ -224,7 +227,8 @@ const MUTANTS = [
   ['partial deduction reported as success', rep('inv-consume.js', 'if (it.deducted + 1e-9 < it.requested) {', 'if (false) {')],
   ['profile ignores the sessions', rep('patient-profile.html', 'contribs: _matSess.map(function(sid){ return { session_id: sid, qty: per }; })', 'contribs: []')],
   ['appointments lumps all sessions together', rep('appointments.html', ".push({ session_id: s.id || null, qty: Number(m.qty_per_use) || 1 });", ".push({ session_id: null, qty: Number(m.qty_per_use) || 1 });")],
-  ['batch path loses its sessions', rep('pp-dental.js', '        _bSessIds.push(_bl.data.id);\n', '')],
+  ['batch path loses its sessions', rep('pp-dental.js', '      _bSessIds.push(row.id);\n', '')],
+  ['bulk-recorded sessions skip the shared helper', rep('pp-dental.js', "_bPend.slice(1).forEach(function (x, i) { _bTookSess(_bByKey[String(x.n) + '|' + x.s], x.n, x.s, x.desc); _bDone++;", "_bPend.slice(1).forEach(function (x, i) { _bDone++;")],
   ['manual consume back to read-then-write', rep('inventory.html', "    if (reason === 'consume') {\n      var names = {};", "    if (false) {\n      var names = {};")],
   ['signed change not isolated', rep('inventory.html', '<bdi dir="ltr">\' + chTxt + \'</bdi>', '\' + chTxt + \'')],
   ['patient name unescaped in history', rep('inventory.html', 'escapeHtml(m.patient.name)', 'm.patient.name')]
