@@ -126,7 +126,7 @@ function page(F) {
     var CLINIC_DOCTORS = [{ id: 'd1', name: 'Dr Owner', is_owner: true, is_active: true, color: 'var(--green)' }, { id: 'd2', name: 'Dr Two', is_active: true }, { id: 'd3', name: 'Dr Off', is_active: false }];
     function getTreatment(k) { for (var i = 0; i < TREATMENTS.length; i++) if (TREATMENTS[i].treatment_key === k) return TREATMENTS[i]; return null; }
     function sessionTreatmentKey(s) { return s.treatment_key; }
-    function isSxSurface() { return false; }
+    function isSupTooth() { return false; }   /* ج1: السنُّ الزائد خارج هذا المثبت (اسمُه بـprove-supernumerary) */
     function getDefaultProviderId(p) { return p && p[0] ? p[0].id : null; }
     function computeSessionPaid() { return 0; } function _epsFor() { return 0.5; }
     function _rowCur(r) { return r.currency === 'USD' ? 'USD' : 'SYP'; } function _rowLbl(r) { return r.currency === 'USD' ? '$' : 'ل.س'; }

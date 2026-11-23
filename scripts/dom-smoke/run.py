@@ -63,7 +63,7 @@ with sync_playwright() as p:
     check("شريحةُ الحالات آخرَ الشريط بسطرها المستقل (v433: «حطها لحالها»)",
           len(opened["tabs"]) > 1 and "حالات سريرية" in opened["tabs"][-1], opened["tabs"])
     check("سطرُ الفصل وعنوانُ «وسمٌ سريري» فوقها", opened["break"] and opened["lead"], opened)
-    check("المكتبةُ الأربع عشرة داخل قائمة العلاجات المسموحة (C3: +غير بازغ · v578: +تسوس/تآكل/انزياح · v580: +سن زائد)", opened["conds"] == 14, opened["conds"])
+    check("المكتبةُ الثلاث عشرة داخل قائمة العلاجات المسموحة (C3: +غير بازغ · v578: +تسوس/تآكل/انزياح · ج1: «سن زائد» صار سنّاً مستقلاً)", opened["conds"] == 13, opened["conds"])
     # ── v577 (قرار المالك بصورة، 5 ت١ 2026): نافذةُ السن بمنتصف الشاشة دائماً على الحاسوب — لا إرساءَ جانبياً ──
     cen = page.evaluate("""async () => {
       /* المخططُ مرسومٌ فعلاً (وإلا فالإرساءُ يخرج مبكراً ولا يُقاس شيء) — سنٌّ بأقصى اليمين وأخرى بأقصى اليسار */
@@ -86,11 +86,11 @@ with sync_playwright() as p:
       return { buttons: Array.from(c.querySelectorAll('button.topt')).map(b => b.textContent.trim()),
                hint: !!c.querySelector('.tx-cond-hint'), errors: window.__ERRORS };
     }""")
-    named = [b for b in tab["buttons"] if "سليم" not in b]
-    check("نقرُ الشريحة يعرض الحالات الأربع عشرة فعلاً", len(named) == 14, tab["buttons"])
+    named = [b for b in tab["buttons"] if "سليم" not in b and "سن زائد" not in b]   # ج1: «➕ سن زائد» زرُّ إجراءٍ بصفّ الإجراءات لا حالة
+    check("نقرُ الشريحة يعرض الحالات الثلاث عشرة فعلاً", len(named) == 13, tab["buttons"])
     check("سطرُ التعريف فوق الشبكة", tab["hint"])
 
-    if len(named) != 14:
+    if len(named) != 13:
         # لا جدوى من متابعة النقر بلا أزرار — تقريرٌ نظيف بدل انهيار
         for o in oks:
             print("  ✓ " + o)
@@ -350,7 +350,7 @@ with sync_playwright() as p:
       await examStamp(26, 'O');
       const w2 = window.__WRITES.filter(x => x.table === 'teeth_status'); window.__examMode = false;
       r.cariesExamO = w2.length === 1 && w2[0].payload.surface === 'O' && w2[0].payload.treatment_key === 'cond-caries' && w2[0].payload.status === 'condition';
-      r.lib13 = COND_LIBRARY.length === 14 && COND_LIBRARY.every(c => c.price === 0);
+      r.lib13 = COND_LIBRARY.length === 13 && COND_LIBRARY.every(c => c.price === 0);
       return r;
     }""")
     check("v578: الجذرُ المتبقّي بلا مثلث بالمنظرين (الجذورُ وحدَها هي الرمز)", v578["retainedNoSym"], v578)
@@ -358,85 +358,9 @@ with sync_playwright() as p:
     check("v578: الانزياحُ سهمٌ نحو الجهة المنقورة (وحشيٌّ ⇒ يساراً بالربع 1) بالمنظرين", v578["driftDistal"], v578)
     check("v578: الانزياحُ يُحفظ من المودال على الجهة، ويرفض الإطباقي برسالة", v578["driftModalM"] and v578["driftRefusesO"], v578)
     check("v578: التسوسُ يُوسم من الفحص الأولي على السطح نفسه كحالة", v578["cariesExamO"], v578)
-    check("v578/579: المكتبةُ 14 حالة كلُّها بصفر سعر", v578["lib13"], v578)
+    check("v578/579 · ج1: المكتبةُ 13 حالة كلُّها بصفر سعر («سن زائد» صار سنّاً مستقلاً)", v578["lib13"], v578)
 
-    # ── v580: السنُّ الزائد — وسمٌ على الجار بجهته (SX<الجهة>) من المودال والفحص الأولي · خليةٌ بين السنّين · قلعٌ حقيقي بالجلسة · إلغاؤه · ومنجزٌ يُخفيه ──
-    v580 = page.evaluate("""async () => {
-      window.confirm = () => true; window.SyDialog = window.SyDialog || {}; SyDialog.confirm = async () => true; SyDialog.alert = async () => {};
-      if (typeof askDeletePlannedToothSessions === 'function') askDeletePlannedToothSessions = async () => ({ want:false, deleted:0 });
-      /* الجلسةُ الماليةُ تمرّ بدوالَّ من patient-profile.html غيرِ محمَّلةٍ بالعُدّة — بدائلُ فارغة (لا تمسّ ما نقيسه: الكتابات) */
-      ['reallocatePatientFunds','renderPayments','renderRecentSessions','renderTimeline','renderSessions','maybePromptMaterialDeduction','updatePatientLastVisit','refreshPlanSummary'].forEach(f => { if (typeof window[f] !== 'function') window[f] = async () => {}; });
-      const r = {}, W = () => window.__WRITES.filter(x => x.table === 'teeth_status'), S = () => window.__WRITES.filter(x => x.table === 'ledger_sessions');
-      const reset = () => { teethMap = {}; sessions = []; window.__WRITES.length = 0; window.__TOASTS.length = 0; window.__examMode = false; const t = rebuildToothMaps(); T_FILL = t.fill; T_STROKE = t.stroke; };
-      /* ① الوسمُ من المودال: نقرةُ الإنسي على 12 ⇒ صفٌّ على SXM بحالة condition، بلا سطرٍ مالي */
-      reset(); await openToothModal(12, 'M'); pickToothTreatment('cond-supernumerary', 'سن زائد'); await saveToothTreatment();
-      r.tagModal = W().length === 1 && W()[0].payload.surface === 'SXM' && W()[0].payload.status === 'condition' && W()[0].payload.treatment_key === 'cond-supernumerary' && S().length === 0
-                 && teethMap['12'] && teethMap['12'].SXM === 'cond-supernumerary';
-      /* الخليةُ تظهر بين السنّين بالمنظرين بعد الرسم — بتخطيط الصفحة الحقيقي (jaw-row/jaw-wrap كما بـpatient-profile.html) لقياس الهندسة RTL */
-      ['upperJaw','upperOcc','lowerOcc','lowerJaw'].forEach(id => { const e = document.getElementById(id); if (e) e.classList.add('jaw-row', id.indexOf('Occ') > 0 ? 'row-occ' : 'row-buc'); });
-      if (!document.getElementById('jawWrap')) { const wr = document.createElement('div'); wr.className = 'jaw-wrap'; wr.id = 'jawWrap'; wr.setAttribute('data-occview', 'all'); wr.setAttribute('data-dent', 'permanent'); const u0 = document.getElementById('upperJaw'); u0.parentNode.insertBefore(wr, u0); ['upperJaw','upperOcc','lowerOcc','lowerJaw'].forEach(id => wr.appendChild(document.getElementById(id))); }
-      renderTeeth(); try { renderOcclusal(); } catch (e) {}
-      const up = document.getElementById('upperJaw'), kids = Array.from(up.children).map(c => c.getAttribute('data-tooth-cell') || c.getAttribute('data-sx-cell') || '|');
-      /* RTL: السابقُ بالـDOM = اليمينُ البصري = الإنسيُّ بالربع 1 (مثبتٌ بلقطة متصفح 5 ت١) — ويُقاس بالهندسة أيضاً */
-      const cs = (sel) => document.querySelector(sel).getBoundingClientRect(), x12 = cs('#upperJaw [data-tooth-cell="12"]'), xsx = cs('#upperJaw [data-sx-cell="12:M"]'), x11 = cs('#upperJaw [data-tooth-cell="11"]');
-      r.cellDrawn = kids.indexOf('12:M') === kids.indexOf('12') - 1 && xsx.left > x12.right - 2 && xsx.right < x11.left + 2 && !!document.querySelector('#upperOcc [data-sx-occ="12:M"]');
-      /* ② الوسمُ من الفحص الأولي — نفسُ الصفِّ حرفاً بحرف؛ والإطباقيُّ مرفوض */
-      reset(); window.__examMode = true; examSelectedKey = 'cond-supernumerary'; examStatus = 'existing_other';
-      await examStamp(12, 'M'); const we = W();
-      await examStamp(12, 'O'); const weO = W().length;
-      window.__examMode = false;
-      r.tagExam = we.length === 1 && we[0].payload.surface === 'SXM' && we[0].payload.status === 'condition' && weO === 1 && window.__TOASTS.some(t => t.indexOf('سن زائد') >= 0);
-      /* ③ نقرةُ السن الزائد: القلعُ وحده بالقائمة، ولا حالاتَ */
-      reset(); teethMap = { '12': { SXM: 'cond-supernumerary', __status: { SXM: 'condition' } } };
-      teethMap['12'].COND = 'cond-abscess'; teethMap['12'].__status.COND = 'condition';   /* v583: خراجٌ على المضيف لا يظهر بنافذة زائده */
-      await openToothModal(12, 'SXM');
-      const _sxBtns = Array.from(document.querySelectorAll('#toothOptsContainer button')).map(b => b.textContent);
-      r.onlyExtraction = _txAllowed.length >= 1 && _txAllowed.every(t => (t.target_part || 'crown') === 'extraction' && !t.is_condition)
-                       && document.getElementById('toothModalTitle').textContent.indexOf('سن زائد إنسي') >= 0
-                       && _sxBtns.some(t => t.indexOf('إزالة «سن زائد»') >= 0) && !_sxBtns.some(t => t.indexOf('خراج') >= 0);
-      delete teethMap['12'].COND; delete teethMap['12'].__status.COND;
-      /* ④ قلعٌ مخطّط: صفُّ SXM يحمل القلع بحالة planned + جلسةٌ حقيقية على السن 12 بالسطح SXM (لا WHOLE) ⇒ ✕ على الخلية والسنُّ 12 نفسه قائم */
-      pickToothTreatment('extracted', 'قلع'); pickStatus('planned'); await saveToothTreatment();
-      const w4 = W(), s4 = S();
-      r.plannedExtraction = w4.length === 1 && w4[0].payload.surface === 'SXM' && w4[0].payload.treatment_key === 'extracted' && w4[0].payload.status === 'planned'
-                          && s4.length === 1 && s4[0].payload.surface === 'SXM' && String(s4[0].payload.tooth_num) === '12' && s4[0].payload.status === 'planned'
-                          && (s4[0].payload.description || '').indexOf('سن زائد إنسي') >= 0 && s4[0].payload.type === 'قلع — سن زائد إنسي'   /* v584: الاسمُ بكل القوائم */
-                          && sessionToothChipText('12', 'SXM') === 'سن زائد لـ 12' && sessionToothChipText('12', 'WHOLE') === 'سن 12' && !teethMap['12'].WHOLE && !isExtracted(12) && !isExtractionPlanned(12) && getDominantStatus(12) !== 'planned';   /* مسانيدُ السن المجاور عمياءُ عن SX */
-      renderTeeth();
-      r.plannedX = !!document.querySelector('#upperJaw [data-sx-cell="12:M"] .planned-x') && !!document.querySelector('#upperJaw [data-tooth-cell="12"]');
-      /* ⑤ إلغاءُ القلع المخطّط من المودال («سليم» على SX يمرّ بمسار الإلغاء لا بمسار السن المجاور) */
-      window.__WRITES.length = 0; await openToothModal(12, 'SXM');
-      r.cancelBtn = !!Array.from(document.querySelectorAll('#toothOptsContainer button')).find(b => b.textContent.indexOf('إلغاء قلع السن الزائد') >= 0);
-      await clearToothStatus(); await new Promise(res => setTimeout(res, 50));
-      const w5 = W();
-      r.cancelled = w5.length === 1 && w5[0].payload.surface === 'SXM' && w5[0].payload.treatment_key === 'cond-supernumerary' && w5[0].payload.status === 'condition'
-                  && teethMap['12'].SXM === 'cond-supernumerary' && teethMap['12'].__status.SXM === 'condition' && !teethMap['12'].WHOLE;
-      /* ⑥ قلعٌ منجز ⇒ الخليةُ تختفي والسنُّ 12 يبقى */
-      window.__WRITES.length = 0; await openToothModal(12, 'SXM'); pickToothTreatment('extracted', 'قلع'); pickStatus('completed'); await saveToothTreatment();
-      renderTeeth(); try { renderOcclusal(); } catch (e) {}
-      r.doneGone = !document.querySelector('#upperJaw [data-sx-cell="12:M"]') && !document.querySelector('#upperOcc [data-sx-occ="12:M"]')
-                 && !!document.querySelector('#upperJaw [data-tooth-cell="12"]') && !isExtracted(12) && S().length === 1 && S()[0].payload.surface === 'SXM';
-      /* ⑦ التحديدُ المتعدد لا يقبل السنَّ الزائد؛ والفحصُ الأولي يختم القلعَ وحده عليه */
-      reset(); teethMap = { '12': { SXM: 'cond-supernumerary', __status: { SXM: 'condition' } } };
-      window.__batchMode = true; batchToggleAt(12, 'SXM'); window.__batchMode = false;
-      r.batchRefused = window.__TOASTS.some(t => t.indexOf('التحديد المتعدد') >= 0);
-      window.__TOASTS.length = 0; window.__WRITES.length = 0; window.__examMode = true; examSelectedKey = 'cond-calculus'; examStatus = 'existing_other';
-      await examStamp(12, 'SXM'); const wc = W().length;
-      examSelectedKey = 'extracted'; examStatus = 'existing_other'; await examStamp(12, 'SXM'); const wx = W();
-      window.__examMode = false;
-      r.examSx = wc === 0 && wx.length === 1 && wx[0].payload.surface === 'SXM' && wx[0].payload.treatment_key === 'extracted' && !teethMap['12'].WHOLE;
-      r.errors = (window.__ERRORS || []).length === 0;
-      return r;
-    }""")
-    check("v580: «سن زائد» من المودال يُسجَّل على SXM كحالة بلا سطرٍ مالي", v580["tagModal"], v580)
-    check("v580: خليةُ السن الزائد تُرسم بين 12 والخطِّ الناصف بالمنظرين", v580["cellDrawn"], v580)
-    check("v580: الفحصُ الأولي يكتب الصفَّ نفسه ويرفض الإطباقي", v580["tagExam"], v580)
-    check("v580: نقرةُ السن الزائد تعرض القلعَ وحده بعنوانه", v580["onlyExtraction"], v580)
-    check("v580: قلعٌ مخطّط = صفُّ SXM + جلسةٌ حقيقية على 12 بالسطح SXM — والسنُّ 12 لا يُمسّ", v580["plannedExtraction"] and v580["plannedX"], v580)
-    check("v580: إلغاءُ القلع المخطّط يعيد السنَّ الزائد حالةً (مسارٌ خاص لا «سليم» السن المجاور)", v580["cancelBtn"] and v580["cancelled"], v580)
-    check("v580: القلعُ المنجز يُخفي الخليةَ ويبقي السنَّ 12 قائماً", v580["doneGone"], v580)
-    check("v580: التحديدُ المتعدد يرفضه، والفحصُ الأولي يختم القلعَ وحده عليه", v580["batchRefused"] and v580["examSx"], v580)
-    check("v580: صفرُ خطأ JS", v580["errors"], v580)
+    # ── v580 (الخيار أ) أُزيل مع ج1 (M226): السنُّ الزائد سنٌّ مستقل — مثبتُه scripts/prove-supernumerary.js
 
     # ── v581 (بلاغ المالك بأربع صور): نخرٌ على MOD يُرسم · نخرُ الحنكي الأمامي لا يمتدّ على الإنسي/الوحشي · إزالةُ التماس تزيل صفَّ الجار ──
     v581 = page.evaluate("""async () => {
@@ -605,8 +529,8 @@ with sync_playwright() as p:
                errors: window.__ERRORS };
     }""")
     check("الفحصُ الأولي: صفُّ الحالات ظاهر", ex["rowShown"])
-    check("الفحصُ الأولي: الحالاتُ الأربع عشرة بصفٍّ مستقلٍّ عن علاجات العيادة",
-          len(ex["names"]) == 14 and ex["separate"], ex["names"])
+    check("الفحصُ الأولي: الحالاتُ الثلاث عشرة بصفٍّ مستقلٍّ عن علاجات العيادة",
+          len(ex["names"]) == 13 and ex["separate"], ex["names"])
 
     ex_pick = page.evaluate("""() => {
       const btn = Array.from(document.querySelectorAll('#examCondPalette .exam-tx')).find(b => b.textContent.indexOf('قلح') >= 0);

@@ -4249,3 +4249,36 @@ if (window.SyI18nPatterns) window.SyI18nPatterns.push(
   [/^(\d+) علاجات تحتاج موافقة المريض قبل التنفيذ: (.*)\.$/, function (m, n, list) { return n + ' treatments need the patient\'s consent before they are carried out: ' + list.replace(/\(السن /g, '(tooth ').replace(/،/g, ',') + '.'; }],
   [/^ستُلغى الموافقة المعلَّقة «(.*)» ولن تظهر للمريض، ولا تُنشأ من جديد لهذا العلاج\. متابعة؟$/, 'The pending consent «$1» will be cancelled, will no longer show to the patient, and will not be created again for this treatment. Continue?']
 );
+
+/* ── ج1 (M226): السنُّ الزائد كسنٍّ مستقل — اسمُه بمكانه (بين سنّين · وحشي · دهليزي · حنكي/لساني)، منتقي المكان،
+   إزالتُه ورسائلُها. المكانُ يُترجم بدالةٍ واحدة تقرؤها كلُّ الأنماط. ── */
+(function () {
+  var PL = '(بين \\d+ و\\d+|(?:وحشي|دهليزي|حنكي|لساني) \\d+)';
+  function place(p) {
+    var m = /^بين (\d+) و(\d+)$/.exec(p); if (m) return 'between ' + m[1] + ' and ' + m[2];
+    m = /^(وحشي|دهليزي|حنكي|لساني) (\d+)$/.exec(p);
+    return m ? ({ 'وحشي': 'distal to ', 'دهليزي': 'buccal to ', 'حنكي': 'palatal to ', 'لساني': 'lingual to ' })[m[1]] + m[2] : p;
+  }
+  function sup(p) { return 'supernumerary tooth ' + place(p); }
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  Object.assign(window.SyI18nDict, {
+    'سن زائد': 'Supernumerary tooth',
+    'إزالة السن الزائد': 'Remove the supernumerary tooth',
+    'رجوع للعلاجات': 'Back to treatments',
+    'موجودٌ هنا': 'Already here',
+    'سنٌّ زائد بين سنّين أو وراء آخر سن أو دهليزي/حنكي لهذا السن': 'A supernumerary tooth between two teeth, behind the last tooth, or buccal/palatal to this tooth',
+    '🩺 السنُّ الزائد خارج الفحص الأولي — انقره بالوضع العادي': '🩺 Supernumerary teeth are outside the initial exam — click it in normal mode'
+  });
+  var R = function (s) { return new RegExp(s); };
+  window.SyI18nPatterns.push(
+    [R('^سن زائد ' + PL + '$'), function (m, p) { return cap(sup(p)); }],
+    [R('^السن الزائد ' + PL + '$'), function (m, p) { return cap(sup(p)); }],
+    [/^مكان السن الزائد حول السن (\d+)$/, 'Where is the supernumerary tooth around tooth $1'],
+    [R('^✅ أُضيف سن زائد ' + PL + ' — انقره لتسجيل علاجاته$'), function (m, p) { return '✅ Added a ' + sup(p) + ' — click it to record its treatments'; }],
+    [R('^✅ أُزيل سن زائد ' + PL + '$'), function (m, p) { return '✅ Removed the ' + sup(p); }],
+    [R('^⚠️ يوجد سن زائد ' + PL + ' — واحدٌ بكل مكان$'), function (m, p) { return '⚠️ There is already a ' + sup(p) + ' — one per place'; }],
+    [/^⚠️ لا يوجد هذا المكان حول السن (\d+)$/, '⚠️ This place does not exist around tooth $1'],
+    [R('^إزالة سن زائد ' + PL + ' من المخطط؟(?: ويُزال معه ما وُثّق عليه من حالات \\((\\d+)\\)\\.)?$'), function (m, p, n) { return 'Remove the ' + sup(p) + ' from the chart?' + (n ? ' What was documented on it (' + n + ') is removed with it.' : ''); }],
+    [R('^على سن زائد ' + PL + ' علاجاتٌ مسجّلة \\((\\d+)\\)\\. أزلها أولاً من نافذته، ثم أزل السن الزائد\\.$'), function (m, p, n) { return 'The ' + sup(p) + ' has recorded treatments (' + n + '). Remove them from its window first, then remove the supernumerary tooth.'; }]
+  );
+})();

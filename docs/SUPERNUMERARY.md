@@ -35,7 +35,8 @@ perioIsMolar` + المواضع ~1554 · 3188 · 5919 بـpp-dental.js، و`isFli
 
 ## البيانات
 - **الوجود:** صفٌّ بـ`teeth_status` على السطح المحجوز الجديد `SN` (نفس سابقة SPACER/SOCKET/COND/SX)،
-  `treatment_key = 'sup-present'`. حذفُه = إزالة السن الزائد (يُرفض إن كان عليه علاجٌ منجز).
+  `treatment_key = 'sup-present'` · `status = 'existing_current'` (لا `condition` ⇒ لا يُقرأ مراقبةً بقائمة المتابعة ولا بالهدل).
+  يُقرأ بخريطةٍ مستقلة `supMap` (نمط DENTURE) لا `teethMap` — محوُ صفوف السن (القلع المنجز · «سليم») لا يطاله. حذفُه = إزالة السن الزائد (يُرفض إن كان عليه علاجٌ منجز).
 - **كلُّ ما عداه** كأي سن: `teeth_status` / `ledger_sessions` / `lab_orders` / `patient_documents` /
   `perio_measurements` بـ`tooth_num = الرمز`.
 - **Migration:** `SN` بقيد سطح `teeth_status` · قيدُ `perio_measurements.tooth_num` يقبل الرموز ·
@@ -51,3 +52,15 @@ perioIsMolar` + المواضع ~1554 · 3188 · 5919 بـpp-dental.js، و`isFli
 
 ## الاختبار
 مثبتٌ مستقل بطفرات لكل إصدار + متصفح حقيقي (لابتوب/موبايل · فاتح/غامق · عربي/إنكليزي) — الأزرار داخل بطاقاتها.
+
+## حالة الإصدارات
+### ج1 — خلص (24/11/2026 · M226)
+- **الكود:** `pp-dental.js` — `isSupTooth · supCode · supPlace/supName · toothRef · supMorph` (كلُّ دوال الشكل) · `supRowPlan`
+  (بين السنّين بالصفّ · دهليزي/حنكي بممرّ المضيف «فوق/تحت» بالمنظرين) · `supOpenPicker / supAdd / supRemove` ·
+  نافذةُ السن كاملةً على الرمز (بلا جسر/زرعة/جهاز متحرك/حافظ مسافة/تماس مفتوح، وبعد قلعه المنجز لا شيء).
+  `patient-profile.html`: المحمّلان (`supTake` قبل `SyDenture.take`) والعرضُ التاريخي. `patients.html`: `SN` توثيقٌ لا مراقبة.
+- **الخيار أ أُزيل:** `cond-supernumerary` · `SXM/SXD` · `isSxSurface/sxState/sxCellsFor/condStorageSurface/sxCancelExtraction`.
+- **مؤقتاً بالإصدار الأول:** التحديدُ المتعدد والفحصُ الأولي يرفضان السنَّ الزائد برسالة (يدخلانه بـج2).
+- **M226:** `SN` بقيد السطح · `SXM/SXD` خرجا من القيدين · قيدُ البيريو يقبل رموز المضيف الدائم · صفوفُ SX التجريبية
+  حُوّلت (وجود + قلعٌ على WHOLE + جلساتُها + سجلُّ المخطط، بزناد السجل موقوفاً أثناء التحويل).
+- **المثبت:** `scripts/prove-supernumerary.js` (46 توكيداً · 19/19 طفرة) بـ`validate.sh`.

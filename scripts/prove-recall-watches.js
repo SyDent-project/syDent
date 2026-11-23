@@ -2,7 +2,7 @@
    الخلل: v548 لفّت قراءةَ teeth_status بـSyDentFetchAll الذي يرتّب بـorder('id') وteeth_status بلا عمود id (مفتاحٌ مركّب)
    ⇒ 42703 صامت ⇒ صفرُ مراقبات بالمتابعة والشارة منذ v548 (بلاغ المالك بصورة، 9 تشرين الأول 2026).
    (١) SyDentFetchAll: أعمدةُ ترتيبٍ اختيارية — تُطبَّق بترتيبها ولا يُستدعى 'id' معها؛ الافتراضي 'id' كما كان · التصفيحُ سليم;
-   (٢) patients.html: قراءةُ teeth_status تمرّر ['patient_id','tooth_num','surface'] · الحالاتُ السريرية (COND · SXM · SXD) تُستبعد من المراقبات (تكافؤ بانر البطاقة v430/v580);
+   (٢) patients.html: قراءةُ teeth_status تمرّر ['patient_id','tooth_num','surface'] · الحالاتُ السريرية (COND) ووجودُ السن الزائد (SN) تُستبعد من المراقبات (تكافؤ بانر البطاقة v430/v580);
    (٣) prmRecallList: صاحبُ المراقبة يظهر ولو حجز موعداً ويحمل تاريخَه (قرار المالك)؛ المتأخرُ عن المراجعة بلا مراقبة يبقى مستثنى بالموعد؛ التهدئةُ كما هي;
    (٤) prmApptExcludedCount يعدّ المتأخرين وحدهم · العرضُ يحمل شارةَ 📅 بتاريخ الموعد.
    --self-test: 8 طفرات لا بدّ أن تحمّر. */
@@ -56,7 +56,7 @@ async function suite(F) {
   const ctxP = { String, Object, Array, Date, Math, Number, JSON, console: { warn() {} } };
   vm.createContext(ctxP);
   vm.runInContext(slice(PH, 'prmIsClinicalCondSurface'), ctxP);
-  ok(['COND', 'SXM', 'SXD'].every(s => ctxP.prmIsClinicalCondSurface(s)) && ['O', 'M', 'WHOLE', 'R1', '', null].every(s => !ctxP.prmIsClinicalCondSurface(s)), 'patients: COND/SXM/SXD are clinical, surfaces are watches');
+  ok(['COND', 'SN'].every(s => ctxP.prmIsClinicalCondSurface(s)) && ['O', 'M', 'WHOLE', 'R1', '', null].every(s => !ctxP.prmIsClinicalCondSurface(s)), 'patients: COND/SN are documentation, surfaces are watches');
   /* (٣) */
   const P = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }, { id: 'c', name: 'C' }, { id: 'd', name: 'D' }, { id: 'e', name: 'E' }];
   const ctx = {

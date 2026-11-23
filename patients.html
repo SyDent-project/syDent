@@ -2841,7 +2841,7 @@ async function loadPrmMeta(){
       .eq('status', 'condition'); }, ['patient_id', 'tooth_num', 'surface']);
     var _wRows = (tw && !tw.error && tw.data) ? tw.data : [];
     if (tw && tw.error) console.warn('prm: تعذّر جلب المراقبات —', tw.error.message || tw.error);
-    //    v590: الحالاتُ السريرية (COND · السنُّ الزائد SXM/SXD) توثيقٌ دائم لا مراقبةٌ بموعد (v430/v580) —
+    //    v590: الحالاتُ السريرية (COND) توثيقٌ دائم لا مراقبةٌ بموعد (v430)، ووجودُ السن الزائد (SN · ج1) ليس مراقبة —
     //    بانرُ بطاقة المريض يستثنيها أصلاً؛ هنا كانت ستظهر «بلا موعد» على كل مريضٍ موسومٍ بحالة.
     _wRows = _wRows.filter(function(r){ return !prmIsClinicalCondSurface(r.surface); });
     // A5: حافة القلع — سن وُسم للمراقبة ثم قُلع يجب ألّا يُستدعى (تكافؤ مع تخطّي
@@ -2921,10 +2921,10 @@ async function loadPrmMeta(){
 
 // A5: فلترة صفوف المراقبة لأسنان قُلعت لاحقاً — نقية وقابلة للاختبار بمعزل.
 // exMap = { patient_id: { tooth_num: 1 } } أو null (⇒ بلا فلترة، تدهور رشيق).
-// ── MIRROR (دلالياً) ── COND_SURFACE + SX بـpp-dental.js: الأسطحُ المحجوزة للحالات السريرية لا للمراقبة
+// ── MIRROR (دلالياً) ── COND_SURFACE + SUP_SURFACE بـpp-dental.js: الأسطحُ المحجوزة للتوثيق لا للمراقبة
 function prmIsClinicalCondSurface(surface) {
   var s = String(surface || '');
-  return s === 'COND' || s === 'SXM' || s === 'SXD';
+  return s === 'COND' || s === 'SN';   /* ج1 (M226): SXM/SXD أُزيلا — السنُّ الزائد سنٌّ مستقل وصفُّ وجوده SN */
 }
 function prmFilterExtractedWatches(rows, exMap) {
   if (!exMap) return rows || [];

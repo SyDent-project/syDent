@@ -3234,6 +3234,7 @@ async function loadAll() {
     .eq('patient_id', patientId);
   teethMap = {};
   teethDx = {}; window.teethDx = teethDx;   /* v605 */
+  if (typeof supReset === 'function') supReset();   /* ج1: السنُّ الزائد */
   if (window.SyDenture) window.SyDenture.reset();   /* M202 */
   (td || []).forEach(ppIngestToothRow);
     })(),
@@ -3890,6 +3891,7 @@ async function toggleHistoryMode(){
     if (liveTeethMapRef) teethMap = liveTeethMapRef;
     liveTeethMapRef = null;
     if (window.SyDenture) window.SyDenture.histEnd();   /* M202: خريطةُ الجهاز الحيّة تعود كما كانت */
+    if (typeof supHistEnd === 'function') supHistEnd();   /* ج1 */
     document.body.classList.remove('hist-on');
     var eb = document.getElementById('examToggleBtn'); if (eb) eb.style.display = '';
     var hb = document.getElementById('histToggleBtn'); if (hb) hb.style.display = '';
@@ -3943,9 +3945,11 @@ function reconstructTeethMapAt(dateStr){
   }
   var map = {};
   if (window.SyDenture) window.SyDenture.histBegin();   /* M202: جهازُ ذلك اليوم يُعاد بناؤه من السجل نفسه */
+  if (typeof supHistBegin === 'function') supHistBegin();   /* ج1: والسنُّ الزائد كذلك */
   Object.keys(state).forEach(function(k){
     var ev = state[k], n = String(ev.tooth_num), s = ev.surface;
     if (window.SyDenture && window.SyDenture.take(ev)) return;   /* M202 */
+    if (typeof supTake === 'function' && supTake(ev)) return;   /* ج1 */
     if (!map[n]) map[n] = {};
     map[n][s] = ev.treatment_key;
     if (!map[n].__status) map[n].__status = {};
@@ -5128,6 +5132,7 @@ async function drawPendingImplantAfterExtraction(tn) {
    الصفحة واستعادةُ «تراجع» بالفحص الأولي (pp-denture.js) — كان جسمَ حلقة المحمّل حرفياً. */
 function ppIngestToothRow(t) {
   if (window.SyDenture && window.SyDenture.take(t)) return;   /* M202: صفُّ الجهاز المتحرك (surface='DENTURE') بخريطته المنفصلة — لا يدخل teethMap */
+  if (typeof supTake === 'function' && supTake(t)) return;   /* ج1: صفُّ وجود السن الزائد (SN) بخريطته المستقلة — لا يدخل teethMap */
   var n = String(t.tooth_num);
   var s = t.surface || 'O';
   if (t.dx_key) { if (!teethDx[n]) teethDx[n] = {}; teethDx[n][s] = t.dx_key; }   /* v605 (M179) */
