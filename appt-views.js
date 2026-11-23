@@ -38,6 +38,7 @@ function render() {
   else if (view==='booking') renderBookingRequests();
   else renderList();
   _syncTodayBtn();
+  if (typeof apptCheckRange === 'function') apptCheckRange();   /* v808: فترةٌ أقدم من المحمَّل ⇒ تُجلب ثم يُعاد الرسم */
 }
 
 // ─── «اليوم» feedback ──────────────────────────────────────────────────────

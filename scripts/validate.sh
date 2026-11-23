@@ -97,6 +97,7 @@ node "$S/prove-no-hidden-scroll.js" --self-test | tail -1 || FAIL=1   # v547: ل
 node "$S/prove-fetchall.js" --self-test | tail -1 || FAIL=1   # v548: قصّ 1000 صفّ بكل المنصة — SyDentFetchAll + جردٌ آلي لكل قراءة جماعية بلا تصفيح (استثناءاتٌ مسبَّبة)
 node "$S/prove-deepcode-b1.js" --self-test | tail -1 || FAIL=1   # v550: Deep Code دفعة ١ — شريطُ التنبيه الطبي اللاصق · لا «لا يوجد» قبل التحميل · هيكلُ التحميل · مسافةُ الزر العائم (والتنحّي بالتمرير محروسٌ غائباً — v579)
 node "$S/prove-perf-calendar.js" --self-test | tail -1 || FAIL=1   # v551: Deep Code #1 — إقلاعُ التقويم دفعةٌ متوازية (12 جولة ⇒ 1–2) · أولُ رسمٍ ينتظر الدفعة · المواعيد/الجلسات/المخابر معاً
+node "$S/prove-appt-window.js" --self-test | tail -1 || FAIL=1   # v808: صفحةُ المواعيد تحمّل نافذة (من أول الشهر الماضي) والأقدمُ عند الرجوع/بالمعرّف
 node "$S/prove-appt-quick-open.js" | tail -1 || FAIL=1   # v593: «موعد سريع» — الكتالوج/الأطباء مرةً بالإقلاع · أسماءُ المرضى مع الدفعة برابطٍ عميق · فتحُ النافذة بلا رحلات متسلسلة
 node "$S/prove-appt-quick-open.js" --self-test | tail -1 || FAIL=1   # v593: … و5 طفرات تعضّ
 node "$S/prove-intake.js" --self-test | tail -1 || FAIL=1   # v595: استمارةُ المريض الرقمية (M177) — مرايا المفاتيح ×3 · سطحٌ مستقلّ · ERR_MAP ≡ استثناءات الهجرة · بوابات الأمن · خطةُ الدمج اتحادٌ لا استبدال · الرسمُ بأزرارٍ حرفية · التوصيل ×6 — 10 طفرات تعضّ

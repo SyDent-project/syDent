@@ -111,6 +111,9 @@
       </div>
     </div>
 
+    <!-- v808: الفترةُ المعروضة أقدم من المحمَّل — يظهر حتى تصل مواعيدُها (apptCheckRange) -->
+    <div class="appt-range-status" id="apptRangeStatus" role="status" aria-live="polite" hidden>⏳ جارٍ تحميل مواعيد هذه الفترة…</div>
+
     <!-- Month View -->
     <div id="monthView">
       <div class="cal-grid">
@@ -899,6 +902,137 @@ function apptCollapseBadges(root) {
 var _apptAux = null;
 /* يحوّل وعداً إلى {r} أو {e} فلا يصير رفضاً غير ملتقَط وهو ينتظر دوره بالمعالجة. */
 function _apptSettle(p) { return Promise.resolve(p).then(function (r) { return { r: r }; }, function (e) { return { e: e }; }); }
+/* ═══ v808: تحميلُ المواعيد بنافذة — طلب المالك (23/11/2026): «الأشهر القديمة تتحمّل بس لما أرجع لورا» ═══
+   المحمَّل دائماً: كلُّ موعدٍ تاريخُه ≥ _apptFrom (افتراضياً أولُ الشهر الماضي) + كلُّ «بلا تاريخ» (is_planned).
+   • الرجوعُ لفترةٍ أقدم (شهر/أسبوع/يوم) ⇒ render يطلب apptEnsureFrom(أولَ شهرها) فتُجلب الأشهرُ الناقصة دفعةً واحدة
+     وتُدمج، مع غشاء «جارٍ التحميل» فوق الفترة حتى تصل (لا خانةَ فارغة تُقرأ «لا مواعيد»)، ويُجلب الشهرُ الذي قبلها
+     بالخلفية فيكون الرجوعُ التالي فورياً.
+   • موعدٌ أقدم مطلوبٌ بعينه (رابطٌ عميق · طلبُ بوابة/حجز · بندٌ مخطّط مربوطٌ به) ⇒ apptEnsureIds يجلبه بمعرّفه.
+   • التزامُ المريض ⇒ SyDentReliability.load (آخر 12 شهراً، خمسة أعمدة) لا المصفوفة.
+   الترتيبُ بعد الدمج = ترتيبُ الخادم (date ثم time تصاعدياً، «بلا تاريخ» آخراً). */
+var _apptFrom = null;        /* أقدمُ تاريخٍ محمَّلٍ متّصل 'YYYY-MM-DD' — null قبل أول تحميل */
+var _apptExtending = null;   /* { from, p } — تمديدٌ جارٍ (لا طلبين لنفس الفترة) */
+var _apptKeepIds = {};       /* معرّفاتٌ جُلبت من خارج النافذة ويُعاد جلبُها مع كل تحميل */
+var _apptReliab = null;      /* خريطةُ التزام المرضى من SyDentReliability.load */
+function _apptYmd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function _apptShiftMonth(ymd, n) { var p = ymd.split('-'); return _apptYmd(new Date(+p[0], +p[1] - 1 + n, 1)); }
+function _apptMonthOf(ymd) { return ymd.slice(0, 7) + '-01'; }
+function _apptDefaultFrom() { var t = new Date(); return _apptYmd(new Date(t.getFullYear(), t.getMonth() - 1, 1)); }
+function _apptWindowQuery(from) {
+  return function () { return window.sb.from('appointments').select('*')
+    .eq('doctor_id', currentUser.id)
+    .or('date.gte.' + from + ',date.is.null')
+    .order('date', { ascending: true })
+    .order('time', { ascending: true }); };
+}
+function _apptCmp(a, b) {
+  var ad = a.date || '', bd = b.date || '';
+  if (ad !== bd) { if (!ad) return 1; if (!bd) return -1; return ad < bd ? -1 : 1; }
+  var at = a.time || '', bt = b.time || '';
+  if (at === bt) return 0;
+  if (!at) return 1; if (!bt) return -1;
+  return at < bt ? -1 : 1;
+}
+/* يدمج صفوفاً جديدة (بلا تكرار معرّف) ويُبقي ترتيبَ الخادم. يعيد عددَ المضاف. */
+function _apptMerge(rows) {
+  if (!rows || !rows.length) return 0;
+  var have = {}; appointments.forEach(function (a) { have[a.id] = 1; });
+  var add = rows.filter(function (r) { return r && r.id && !have[r.id] && (have[r.id] = 1); });
+  if (!add.length) return 0;
+  appointments = appointments.concat(add).sort(_apptCmp);
+  return add.length;
+}
+/* أولُ يومٍ تعرضه الفترةُ الحالية (شهر: أولُ خانةٍ بالشبكة · أسبوع: بدايتُه · يوم: هو) — null للعروض المتجدّدة. */
+function _apptViewFrom() {
+  try {
+    if (view === 'month') { var y = currentDate.getFullYear(), mo = currentDate.getMonth(); return _apptYmd(new Date(y, mo, 1 - new Date(y, mo, 1).getDay())); }
+    if (view === 'week' && typeof _wkWeekStart === 'function') return _apptYmd(_wkWeekStart(selectedDate || currentDate || new Date()));
+    if (view === 'day' && selectedDate) return _apptYmd(selectedDate);
+  } catch (e) {}
+  return null;
+}
+/* يضمن تحميلَ كلِّ ما تاريخُه ≥ from. يعيد true إن أُضيف شيء. */
+function apptEnsureFrom(from) {
+  if (!currentUser || !_apptFrom) return Promise.resolve(false);
+  from = _apptMonthOf(from);
+  if (from >= _apptFrom) return Promise.resolve(false);
+  if (_apptExtending && _apptExtending.from <= from) return _apptExtending.p;
+  var upto = _apptFrom;
+  var p = window.SyDentFetchAll(function () { return window.sb.from('appointments').select('*')
+      .eq('doctor_id', currentUser.id).gte('date', from).lt('date', upto)
+      .order('date', { ascending: true }).order('time', { ascending: true }); })
+    .then(function (r) {
+      if (r.error) throw r.error;
+      var n = _apptMerge(r.data || []);
+      /* المجلوبُ [from, upto) متّصلٌ بالمحمَّل ما دام upto ≥ بدايتِه الحالية */
+      if (_apptFrom && upto >= _apptFrom && from < _apptFrom) _apptFrom = from;
+      return n > 0;
+    });
+  var rec = { from: from, p: p };
+  _apptExtending = rec;
+  p.then(function () { if (_apptExtending === rec) _apptExtending = null; },
+         function () { if (_apptExtending === rec) _apptExtending = null; });
+  return p;
+}
+/* يضمن وجودَ مواعيدَ بعينها (أقدم من النافذة) — تُحفظ معرّفاتُها لتُعاد مع كل تحميل. quiet ⇒ بلا تحذير. يعيد عددَ المضاف. */
+async function apptEnsureIds(ids, quiet) {
+  if (!currentUser || !ids || !ids.length) return 0;
+  if (!_apptFrom) {   /* قبل أول تحميل: تُحفظ وتُحلّ بآخر loadAppointments (لا جلبَ لما ستجلبه النافذةُ أصلاً) */
+    ids.forEach(function (id) { if (id && /^[0-9a-f-]{36}$/i.test(String(id))) _apptKeepIds[String(id)] = 1; });
+    return 0;
+  }
+  var have = {}; appointments.forEach(function (a) { have[a.id] = 1; });
+  var miss = [], seen = {};
+  ids.forEach(function (id) { if (id && !have[id] && !seen[id] && /^[0-9a-f-]{36}$/i.test(String(id))) { seen[id] = 1; miss.push(String(id)); } });
+  if (!miss.length) return 0;
+  var added = 0;
+  for (var i = 0; i < miss.length; i += 150) {
+    var part = miss.slice(i, i + 150);
+    var r = await window.sb.from('appointments').select('*').eq('doctor_id', currentUser.id).in('id', part);
+    if (r.error) { if (!quiet) console.warn('apptEnsureIds:', r.error); continue; }
+    (r.data || []).forEach(function (a) { _apptKeepIds[a.id] = 1; });
+    added += _apptMerge(r.data || []);
+  }
+  return added;
+}
+/* يجد موعداً محمّلاً أو يجلبه بمعرّفه (لكل فتحٍ بمعرّف قد يكون أقدم من النافذة). */
+async function apptFindById(id) {
+  var a = appointments.find(function (x) { return x.id === id; });
+  if (a) return a;
+  try { await apptEnsureIds([id]); } catch (e) {}
+  return appointments.find(function (x) { return x.id === id; }) || null;
+}
+/* يُستدعى من render: الفترةُ المعروضة أقدمُ من المحمَّل ⇒ غشاءٌ + جلبٌ + رسمٌ من جديد؛
+   وإلا يُجلب الشهرُ الذي قبلها بالخلفية (رجوعٌ فوري). */
+var _apptRangeErrAt = 0;
+function apptCheckRange() {
+  var need = _apptViewFrom();
+  var box = document.getElementById('scheduleView');
+  if (!need || !_apptFrom) { if (box) box.classList.remove('appt-range-loading'); return; }
+  need = _apptMonthOf(need);
+  if (need < _apptFrom) {
+    if (box) box.classList.add('appt-range-loading');
+    var st = document.getElementById('apptRangeStatus'); if (st) st.hidden = false;
+    apptEnsureFrom(need).then(function () {
+      if (box) box.classList.remove('appt-range-loading');
+      if (st) st.hidden = true;
+      render();
+    }, function (e) {
+      console.warn('apptEnsureFrom:', e);
+      if (box) box.classList.remove('appt-range-loading');
+      if (st) st.hidden = true;
+      if (Date.now() - _apptRangeErrAt > 4000) { _apptRangeErrAt = Date.now(); showToast('❌ تعذّر تحميل مواعيد هذه الفترة — تحقّق من الاتصال'); }
+    });
+    return;
+  }
+  if (box) box.classList.remove('appt-range-loading');
+  var st2 = document.getElementById('apptRangeStatus'); if (st2) st2.hidden = true;
+  var prev = _apptShiftMonth(need, -1);
+  if (prev < _apptFrom && !_apptExtending && (!window.navigator || window.navigator.onLine !== false)) {
+    apptEnsureFrom(prev).catch(function () {});   /* بالخلفية — لا رسمَ ولا رسالة */
+  }
+}
+
 async function loadAppointments() {
   if (!currentUser) return;
   /* DeepCode #1 (v551): المواعيد والجلسات وطلبات المخابر كانت ثلاث جولات متتالية — تُطلَق الآن معاً؛
@@ -908,6 +1042,10 @@ async function loadAppointments() {
      تتجاهل كلَّ ما عداهما. فالجلساتُ المنجزة بلا موعد (معظمُ سجلّ العيادة، تُسجَّل من بطاقة المريض) لا تُجلب أصلاً:
      الفلترُ نفسُه بالاستعلامين (الأصلي وبديلِ ما قبل M145) والنتيجةُ بالخرائط الثلاث مطابقة حرفياً. */
   var _sesNeed = 'appointment_id.not.is.null,status.eq.planned';
+  /* v808: التزامُ المريض بآخر 12 شهراً لا يُحسب من المصفوفة (صارت نافذة) — من المصدر الواحد SyDentReliability.load
+     (5 أعمدة · نفس التعريف حرفياً، المستعمل باللوحة والمرضى) بالتوازي مع المواعيد. */
+  var _apptReliabPre = (window.SyDentReliability && typeof window.SyDentReliability.load === 'function')
+    ? window.SyDentReliability.load(currentUser.id).catch(function(){ return null; }) : Promise.resolve(null);
   var _sesPre = _apptSettle(window.SyDentFetchAll(function(){ return window.sb.from('ledger_sessions').select(_sesCols + ', plan_option').eq('doctor_id', currentUser.id).or(_sesNeed); }));
   /* M206: id (كان غائباً ⇒ «تم التركيب» التلقائي عند إكمال الموعد يفشل دائماً: .eq('id', undefined)) + مراحلُ الطلب */
   var _labSel = 'id, patient_id, appointment_id, status, date_due, work_type, lab_name, lab_id, tooth_num, stages, stage_idx';
@@ -915,14 +1053,30 @@ async function loadAppointments() {
       .select(_labSel)
       .eq('doctor_id', currentUser.id)
       .in('status', ['sent','received','checked']));
-  const { data, error } = await window.SyDentFetchAll(function(){ return window.sb
-    .from('appointments')
-    .select('*')
-    .eq('doctor_id', currentUser.id)
-    .order('date', { ascending: true })
-    .order('time', { ascending: true }); });
+  /* v808: نافذةُ التحميل — من أول الشهر الماضي ولقدّام + كلُّ «بلا تاريخ»؛ الأقدمُ يُجلب شهراً شهراً عند الرجوع
+     (apptEnsureFrom) وما احتجناه منه بمعرّفه (apptEnsureIds). التحميلُ المعاد يحفظ ما مُدّ إليه. */
+  var _from = _apptFrom || _apptDefaultFrom();
+  var _apRes = await window.SyDentFetchAll(_apptWindowQuery(_from));
+  if (_apRes.error && window.navigator && window.navigator.onLine === false) {
+    /* بلا اتصال: كاشُ القراءة مفتاحُه الرابطُ حرفياً ⇒ إن بدأ شهرٌ جديد منذ آخر فتحٍ متصل فآخرُ نافذةٍ محفوظة
+       هي نافذةُ الشهر السابق (أو ما قبله) — تُقرأ هي بدل الفشل. */
+    var _tries = [_apptDefaultFrom(), _apptShiftMonth(_apptDefaultFrom(), -1)];
+    for (var _ti = 0; _ti < _tries.length && _apRes.error; _ti++) {
+      if (_tries[_ti] === _from) continue;
+      var _r2 = await window.SyDentFetchAll(_apptWindowQuery(_tries[_ti]));
+      if (!_r2.error) { _apRes = _r2; _from = _tries[_ti]; }
+    }
+  }
+  const data = _apRes.data, error = _apRes.error;
   if (error) { showToast('❌ خطأ في تحميل المواعيد'); return; }
+  /* تمديدٌ للخلف اكتمل أثناء هذا التحميل ⇒ أشهرُه (الأقدم من _from) تُنقل من المصفوفة السابقة ولا تضيع */
+  var _prevArr = appointments, _extFrom = (_apptFrom && _apptFrom < _from) ? _apptFrom : null;
   appointments = data || [];
+  if (_extFrom) {
+    _apptMerge(_prevArr.filter(function(a){ return a && a.date && a.date >= _extFrom && a.date < _from; }));
+    _from = _extFrom;
+  }
+  _apptFrom = _from;
 
   // Load sessions attached to any appointment + planned unattached sessions per patient
   sessionsByAppt = {};
@@ -942,6 +1096,10 @@ async function loadAppointments() {
     if (!sErr && ses) {
       /* v415: بندٌ مخطّط مربوط بموعدٍ ميت (ملغى/فائت/مكتمل/خرج مريضه — SyDentApptDead، نفس
          تعريف بطاقة المريض) يبقى بسجلّ موعده القديم **و**يعود متاحاً للجدولة من جديد. */
+      /* v808: بندٌ مخطّط مربوطٌ بموعدٍ أقدم من النافذة ⇒ يُجلب موعدُه بمعرّفه كي يُحكم «ميتاً» كما كان */
+      var _needIds = [];
+      ses.forEach(function(s){ if (s.status === 'planned' && s.appointment_id) _needIds.push(s.appointment_id); });
+      await apptEnsureIds(_needIds, true);
       var _apById = {}; appointments.forEach(function(a){ _apById[a.id] = a; });
       var _todayA = dateStr(new Date());   // تاريخٌ محلي (نفس مصدر بقية الصفحة) — لا UTC
       ses.forEach(function(s){
@@ -1007,6 +1165,10 @@ async function loadAppointments() {
       });
     }
   } catch(e) { console.warn('lab_orders for appts:', e); }
+
+  /* v808: ما جُلب بمعرّفه من خارج النافذة (طلبات الحجز/البوابة · رابطٌ عميق) يُعاد جلبُه بعد كل تحميل */
+  try { await apptEnsureIds(Object.keys(_apptKeepIds), true); } catch (e) { console.warn('appt keep ids:', e); }
+  try { _apptReliab = await _apptReliabPre; } catch (e) { _apptReliab = null; }
 
   /* DeepCode #1 (v551): أولُ رسمٍ بالإقلاع ينتظر القراءات المساندة (أطباء · كراسي · أنواع · إعدادات ·
      هواتف وأعلام · تذكير · حجوزات مغلقة) — كلُّ نداءٍ لاحق (_apptAux = null) يرسم فوراً كما كان. */
@@ -2388,7 +2550,7 @@ async function rebookFromAppt(id) {
 }
 
 async function editAppt(id) {
-  const a = appointments.find(x=>x.id===id);
+  const a = appointments.find(x=>x.id===id) || await apptFindById(id);   /* v808: قد يكون أقدم من النافذة */
   if (!a) return;
   editingId = id;
   selectedColor = a.color;
@@ -4306,6 +4468,9 @@ async function apptDeleteFile(id){
     var qp = new URLSearchParams(window.location.search);
     var waId = qp.get('wa');
     var editApptId = qp.get('editAppt');
+    /* v808: الرابطُ قد يشير لموعدٍ أقدم من النافذة المحمّلة ⇒ يُجلب بمعرّفه قبل المطابقة أدناه */
+    var _dlIds = [waId, editApptId, qp.get('dismiss')].filter(Boolean);
+    if (_dlIds.length) { try { await apptEnsureIds(_dlIds); } catch (e) { console.warn('deep-link appt:', e); } }
     // Phase 6 L extras: dashboard quick-template chip sends user here with
     // ?newWithTemplate=<id>. Open a brand-new appt modal + apply the template
     // automatically. Lowest priority — if 'wa' or 'editAppt' are also set,
@@ -4372,9 +4537,9 @@ async function apptDeleteFile(id){
           }
         }, 200);
       } else {
-        // loadAppointments() above pulls ALL appointments for this doctor
-        // (no date filter), so a missing id means the appointment has been
-        // deleted (or never existed). The DB FK SET NULL would normally
+        // loadAppointments() + apptEnsureIds() above have the window AND this
+        // exact id (fetched by id when older than the window), so a missing
+        // id means the appointment has been deleted (or never existed). The DB FK SET NULL would normally
         // null the lab order's appointment_id, but the user may have
         // clicked an old labs.html tab whose cache predates the deletion.
         showToast('⚠️ الموعد المرتبط لم يعد موجوداً — قد يكون محذوفاً');
