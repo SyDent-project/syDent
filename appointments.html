@@ -918,12 +918,12 @@ function _apptYmd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).p
 function _apptShiftMonth(ymd, n) { var p = ymd.split('-'); return _apptYmd(new Date(+p[0], +p[1] - 1 + n, 1)); }
 function _apptMonthOf(ymd) { return ymd.slice(0, 7) + '-01'; }
 function _apptDefaultFrom() { var t = new Date(); return _apptYmd(new Date(t.getFullYear(), t.getMonth() - 1, 1)); }
-function _apptWindowQuery(from) {
-  return function () { return window.sb.from('appointments').select('*')
+function _apptWindowRead(from) {   /* مصفّحةٌ بالجالب المشترك (prove-fetchall) */
+  return window.SyDentFetchAll(function () { return window.sb.from('appointments').select('*')
     .eq('doctor_id', currentUser.id)
     .or('date.gte.' + from + ',date.is.null')
     .order('date', { ascending: true })
-    .order('time', { ascending: true }); };
+    .order('time', { ascending: true }); });
 }
 function _apptCmp(a, b) {
   var ad = a.date || '', bd = b.date || '';
@@ -1056,14 +1056,14 @@ async function loadAppointments() {
   /* v808: نافذةُ التحميل — من أول الشهر الماضي ولقدّام + كلُّ «بلا تاريخ»؛ الأقدمُ يُجلب شهراً شهراً عند الرجوع
      (apptEnsureFrom) وما احتجناه منه بمعرّفه (apptEnsureIds). التحميلُ المعاد يحفظ ما مُدّ إليه. */
   var _from = _apptFrom || _apptDefaultFrom();
-  var _apRes = await window.SyDentFetchAll(_apptWindowQuery(_from));
+  var _apRes = await _apptWindowRead(_from);
   if (_apRes.error && window.navigator && window.navigator.onLine === false) {
     /* بلا اتصال: كاشُ القراءة مفتاحُه الرابطُ حرفياً ⇒ إن بدأ شهرٌ جديد منذ آخر فتحٍ متصل فآخرُ نافذةٍ محفوظة
        هي نافذةُ الشهر السابق (أو ما قبله) — تُقرأ هي بدل الفشل. */
     var _tries = [_apptDefaultFrom(), _apptShiftMonth(_apptDefaultFrom(), -1)];
     for (var _ti = 0; _ti < _tries.length && _apRes.error; _ti++) {
       if (_tries[_ti] === _from) continue;
-      var _r2 = await window.SyDentFetchAll(_apptWindowQuery(_tries[_ti]));
+      var _r2 = await _apptWindowRead(_tries[_ti]);
       if (!_r2.error) { _apRes = _r2; _from = _tries[_ti]; }
     }
   }
