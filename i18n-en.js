@@ -402,6 +402,8 @@ Object.assign(window.SyI18nDict, {
   'طبيب أسنان': 'Dentist',
   'دكتور': 'Doctor',
   'جارٍ التحميل…': 'Loading…',
+  'جارٍ تحميل مواعيد هذه الفترة': 'Loading this period’s appointments',   /* ⏳ … تبقى حولها (السطرُ الحيّ بالمواعيد) */
+  'تعذّر تحميل مواعيد هذه الفترة — تحقّق من الاتصال': 'Could not load this period’s appointments — check the connection',
   'جارٍ التحميل...': 'Loading...',
   'القائمة': 'Menu',
   'المالك': 'Owner',

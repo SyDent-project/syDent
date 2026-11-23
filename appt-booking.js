@@ -41,6 +41,11 @@ async function loadBookingRequests() {
   }
   updateBookingBadge();
   if (view === 'booking') renderBookingRequests();
+  /* v808: رسالةُ الطلب المؤكَّد تُبنى من موعده المربوط — قد يكون أقدم من نافذة المواعيد ⇒ يُجلب بمعرّفه */
+  if (typeof apptEnsureIds === 'function') {
+    var _bIds = bookingRequests.filter(function (r) { return r.status === 'confirmed' && r.appointment_id; }).map(function (r) { return r.appointment_id; });
+    apptEnsureIds(_bIds, true).then(function (n) { if (n && view === 'booking') renderBookingRequests(); }, function () {});
+  }
 }
 
 function updateBookingBadge() {

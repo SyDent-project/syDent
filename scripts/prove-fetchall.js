@@ -102,7 +102,9 @@ async function suite(F) {
 
   const has = (f, re, m) => ok(re.test(F[f]), m);
   has('patients.html', /await window\.SyDentFetchAll\(function\(\)\{ return window\.sb\s*\.from\('patients'\)\s*\.select\('\*'\)/, 'patients list paged');
-  has('appointments.html', /await window\.SyDentFetchAll\(function\(\)\{ return window\.sb\s*\.from\('appointments'\)\s*\.select\('\*'\)/, 'all appointments paged (calendar)');
+  /* v808: التقويمُ يحمّل نافذةً (من أول الشهر الماضي + «بلا تاريخ») والأقدمُ عند الرجوع — كلاهما بالجالب المصفّح */
+  has('appointments.html', /return window\.SyDentFetchAll\(function \(\) \{ return window\.sb\.from\('appointments'\)\.select\('\*'\)\s*\.eq\('doctor_id', currentUser\.id\)\s*\.or\('date\.gte\.' \+ from \+ ',date\.is\.null'\)/, 'calendar window paged (calendar)');
+  has('appointments.html', /window\.SyDentFetchAll\(function \(\) \{ return window\.sb\.from\('appointments'\)\.select\('\*'\)\s*\.eq\('doctor_id', currentUser\.id\)\.gte\('date', from\)\.lt\('date', upto\)/, 'older months paged when going back (calendar)');
   has('appt-booking.js', /window\.SyDentFetchAll\(function\(\)\{ return window\.sb\.from\('patients'\)\.select\('local_id'\)/, 'local_id sequence reads every patient (no duplicate numbers past 1000)');
   has('patient-profile.html', /window\.SyDentFetchAll\(function\(\)\{ return window\.sb\.from\('patients'\)\.select\('id,created_at'\)/, 'patient number sequence reads every patient');
   has('index.html', /window\.SyDentFetchAll\(function\(\)\{ return window\.sb\.from\('patients'\)\.select\('\*'\)\.eq\('doctor_id', uid\)/, 'dashboard patient count paged');

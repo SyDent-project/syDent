@@ -34,7 +34,10 @@ async function suite(F) {
   ok(iBook > -1 && iBook < iAux && !/await loadBookingRequests/.test(boot), 'boot: booking requests start with the batch and never block');
   ok(iAux > -1 && iApp > iAux && iNull > iApp && (boot.match(/await /g) || []).length === 1, 'boot: appointments load alongside the batch; the only await is loadAppointments; the barrier is cleared after');
   /* ── (٢) السلوك: loadAppointments الحيّة بـvm ── */
-  const code = [fnSrc(H, 'function _apptSettle('), fnSrc(H, 'async function loadAppointments(')].join('\n');
+  /* v808: loadAppointments تستعمل مساعدات النافذة (تحميلٌ من أول الشهر الماضي + جلبٌ بالمعرّف) — تُضمَّن كما هي */
+  const winStart = H.indexOf('/* ═══ v808: تحميلُ المواعيد بنافذة'), winEnd = H.indexOf('async function loadAppointments(');
+  const winCode = (winStart > -1 && winEnd > winStart) ? H.slice(winStart, winEnd) : '';
+  const code = [fnSrc(H, 'function _apptSettle('), winCode, fnSrc(H, 'async function loadAppointments(')].join('\n');
   ok(!!code && /var _apptAux = null;/.test(H), 'live functions + barrier declared');
   async function run(opt) {
     const ev = [], pending = [];

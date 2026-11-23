@@ -613,14 +613,20 @@ function getApptPtFlags(e) {
   if (!rec || !rec.flags) return '';
   return window.SyDentFlags.chipsHtml(rec.flags, window.APPT_FLAG_DEFS, 'pt-flag-sm');
 }
-/* v497: مؤشّرُ التزام المريض — يُحسب مرةً من مصفوفة `appointments` المحمّلة (يُعاد عند كل loadAppointments
-   لأنها مصفوفةٌ جديدة) عبر المصدر الواحد SyDentReliability (pt-reliability.js). صفر استعلام إضافي. */
+/* v497: مؤشّرُ التزام المريض عبر المصدر الواحد SyDentReliability (pt-reliability.js).
+   v808: المصفوفةُ صارت نافذة (من أول الشهر الماضي) فلا تكفي لآخر 12 شهراً ⇒ الخريطةُ من SyDentReliability.load
+   (`_apptReliab`، تُجلب مع كل loadAppointments). تعذّرت ⇒ تُحسب من المصفوفة فقط إن كانت تغطّي الأشهرَ الاثني عشر
+   كاملة (رجع المستخدم إليها)، وإلا لا شارة — لا رقمَ ناقصاً يُقرأ «ملتزم». */
 var _reliabCache = { src: null, map: {} };
 function getApptReliabStats(pid) {
   if (!window.SyDentReliability || !pid) return null;
+  if (typeof _apptReliab !== 'undefined' && _apptReliab) return _apptReliab[pid] || null;
+  var covered = typeof _apptFrom === 'undefined' || (_apptFrom && _apptFrom <= window.SyDentReliability.windowStart(_reliabToday()));
+  if (!covered) return null;
   if (_reliabCache.src !== appointments) { _reliabCache.src = appointments; _reliabCache.map = window.SyDentReliability.compute(appointments); }
   return _reliabCache.map[pid] || null;
 }
+function _reliabToday() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 function _apptReliabPid(e) {
   if (!e) return null;
   if (e.patient_id) return e.patient_id;

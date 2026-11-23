@@ -129,10 +129,16 @@ async function portalReqSet(id, status) {
 /* M189: «✅ اعتماد الوقت المطلوب» — the appointment modal (editAppt, the one battle-tested save path with its
    conflict checks) opens filled with the slot the patient asked for; the doctor reviews and saves. Saving moves the
    appointment ⇒ the server trigger closes the request ⇒ portalApproveSaved offers the WhatsApp confirmation. */
+/* v808: صفحةُ المواعيد تحمّل نافذةً (من أول الشهر الماضي) ⇒ موعدُ الطلب قد يكون أقدم منها فيُجلب بمعرّفه
+   (apptFindById بـappointments.html). صفحاتٌ أخرى تحمّل هذا الملف بلا مصفوفة مواعيد ⇒ null كما كان. */
+async function _portalApptOf(apptId) {
+  if (typeof apptFindById === 'function') return apptFindById(apptId);
+  return (typeof appointments !== 'undefined' && appointments) ? (appointments.find(function (x) { return x.id === apptId; }) || null) : null;
+}
 async function portalReqApprove(id) {
   var r = portalRequests.find(function (x) { return x.id === id; });
   if (!r || !r.appointment_id || !r.requested_date || !r.requested_time) return;
-  var a = (typeof appointments !== 'undefined' && appointments) ? appointments.find(function (x) { return x.id === r.appointment_id; }) : null;
+  var a = await _portalApptOf(r.appointment_id);
   if (!a) { showToast('⚠️ الموعد غير موجود — ربما حُذف'); return; }
   await editAppt(r.appointment_id);
   window._portalApproveCtx = { reqId: r.id, apptId: r.appointment_id, patientId: r.patient_id, name: r.patient_name_snapshot || '',
@@ -232,12 +238,12 @@ async function portalMovedSent() {
   } catch (e) { console.warn('moved msg log:', e); }
 }
 
-function portalReqOpenAppt(id) {
+async function portalReqOpenAppt(id) {
   var r = portalRequests.find(function (x) { return x.id === id; });
   if (!r || !r.appointment_id) return;
-  var a = (typeof appointments !== 'undefined' && appointments) ? appointments.find(function (x) { return x.id === r.appointment_id; }) : null;
+  var a = await _portalApptOf(r.appointment_id);
   if (!a) { showToast('⚠️ الموعد غير موجود — ربما حُذف'); return; }
-  editAppt(r.appointment_id);
+  await editAppt(r.appointment_id);
   var hint = r.kind === 'change'
     ? ('🔁 ' + (r.patient_name_snapshot || '') + ' يطلب تغيير الموعد' + (r.preference ? ' — يفضّل ' + (PORTAL_PREF_AR[r.preference] || '') : '') + (r.note ? ' — ' + r.note : ''))
     : ('✕ ' + (r.patient_name_snapshot || '') + ' يطلب إلغاء الموعد' + (r.reason ? ' — ' + r.reason : ''));
