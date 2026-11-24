@@ -4281,13 +4281,20 @@ if (window.SyI18nPatterns) window.SyI18nPatterns.push(
     'السن الزائد وحشي': 'supernumerary tooth distal to', 'سن زائد وحشي': 'supernumerary tooth distal to', 'زائد وحشي': 'supernumerary distal to',
     'السن الزائد دهليزي': 'supernumerary tooth buccal to', 'سن زائد دهليزي': 'supernumerary tooth buccal to', 'زائد دهليزي': 'supernumerary buccal to',
     'السن الزائد حنكي': 'supernumerary tooth palatal to', 'سن زائد حنكي': 'supernumerary tooth palatal to', 'زائد حنكي': 'supernumerary palatal to',
-    'السن الزائد لساني': 'supernumerary tooth lingual to', 'سن زائد لساني': 'supernumerary tooth lingual to', 'زائد لساني': 'supernumerary lingual to'
+    'السن الزائد لساني': 'supernumerary tooth lingual to', 'سن زائد لساني': 'supernumerary tooth lingual to', 'زائد لساني': 'supernumerary lingual to',
+    /* ج3 (M227): صندوقُ «أسنان زائدة» بفحص اللثة */
+    '🦷 أسنان زائدة': '🦷 Supernumerary teeth', 'أسنان زائدة': 'Supernumerary teeth',
+    'السن الزائد لا يدخل جدول القياسات — اكتب ملاحظتك عليه هنا (جيب، نزف، حركة…)': 'A supernumerary tooth is not in the measurement table — write your note on it here (pocket, bleeding, mobility…)',
+    'لم يعد موجوداً': 'no longer present', 'ملاحظة…': 'Note…'
   });
   var R = function (s) { return new RegExp(s); };
   window.SyI18nPatterns.push(
     [R('^سن زائد ' + PL + '$'), function (m, p) { return cap(sup(p)); }],
     [R('^السن الزائد ' + PL + '$'), function (m, p) { return cap(sup(p)); }],
     [/^مكان السن الزائد حول السن (\d+)$/, 'Where is the supernumerary tooth around tooth $1'],
+    /* ج3: حقلُ الملاحظة وسطرُ الفحص المقارَن به */
+    [R('^ملاحظة سن زائد ' + PL + '$'), function (m, p) { return 'Note on the ' + sup(p); }],
+    [/^كان \((.+)\):$/, 'Was ($1):'],
     /* ج2: ملخّصُ أسنان الأشعة «الأسنان: 12، زائد بين 12 و13» */
     [R('^الأسنان: ((?:\\d+|زائد ' + PL + ')(?:، (?:\\d+|زائد ' + PL + '))*)$'), function (m, list) { return 'Teeth: ' + list.split('، ').map(function (x) { var k = /^زائد (.+)$/.exec(x); return k ? 'supernumerary ' + place(k[1]) : x; }).join(', '); }],
     [R('^⚠️ السن الزائد ' + PL + ': (.+)$'), function (m, p, r) { var D = window.SyI18nDict; return '⚠️ ' + cap(sup(p)) + ': ' + (D[r] != null ? D[r] : r); }],

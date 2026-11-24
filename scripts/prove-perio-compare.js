@@ -24,7 +24,8 @@ function fnSrc(src, name) {
   return src.slice(start, j + 1);
 }
 const FNS = ['perioClearCompareMarks', 'perioExitCompareState', 'perioToggleCompare', 'perioRunCompare', 'updatePerioStats',
-             'perioPrintArch', 'perioPrintCompareBlock', 'perioNowStats', 'perioCalcCal', 'perioIsMolar'];
+             'perioPrintArch', 'perioPrintCompareBlock', 'perioNowStats', 'perioCalcCal', 'perioIsMolar',
+             'perioSupRender', 'perioSupList', 'perioSupLive', 'perioSupNotesNow'];   /* ج3: صندوقُ ملاحظات السن الزائد يُعاد رسمه بالدخول/الخروج من المقارنة */
 
 const T = [16, 11, 46];
 const SITES = ['mb', 'b', 'db', 'ml', 'l', 'dl'];

@@ -2340,7 +2340,7 @@ try {
     'onApptPlannedToggle', 'onProviderChange', 'implantApplyTemplate', 'labTplApply', 'labToothHint' /* ج2: عرضٌ بلا كتابة */, 'onLabApptChange', 'labTplGlowSync', 'waTplApply', 'planRecalc',
     'rxApplyTemplate', 'postOpApplyTemplate', 'postOpApplyLibrary', 'onSplitInputChange', 'backToStep1', 'switchTxTab', 'toggleSurfaceChip', 'toggleRootChip',
     'selectAllRootChips', 'pickToothTreatment', 'supOpenPicker', 'supClosePicker' /* ج1: منتقي المكان داخل نافذة السن (مدخلُها محروس) */, 'regQuadToggle', 'regQuadAll', 'regArchToggle', 'regArchAll', 'bridgeExtraAdj', 'nsePick',
-    'perioPdInput', 'perioPdKey', 'perioRecInput', 'perioMobInput',
+    'perioPdInput', 'perioPdKey', 'perioRecInput', 'perioMobInput', 'perioSupInput' /* ج3: ملاحظةُ السن الزائد — حقلٌ readonly بالقراءة والمقارنة كحقول اللثة، والكتابةُ بـperioSave */,
     'xrUpClose', 'xrUpSubmit', 'xrToggleTooth', 'xrTeethQuick', 'xrTogglePrimary', 'xrSetType', 'xrSetSource', 'xrUpRemoveFile', 'xrUpAddFiles',
     'xrCamClose', 'xrCamStart', 'xrCamMirror', 'xrCamShot', 'xrCamRemove', 'xrCamDone',   /* v642: داخل نافذة الكاميرا (مدخلاها محروسان) */
     'xrInboxClose', 'xrInboxAssign', 'xrInboxDismiss',

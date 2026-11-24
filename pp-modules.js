@@ -1425,6 +1425,86 @@ var perioCompare = false, perioMaxSeq = 0, perioCmpLocked = [], perioCmpPrev = n
 var perioCmpExam = null, perioCmpRows = null;
 var PERIO_B = ['mb','b','db'], PERIO_L = ['ml','l','dl'];
 
+/* ═══ ج3 (M227): ملاحظةُ السنّ الزائد بفحص اللثة — قرارُ المالك 25/11 ════════════════════════════
+   السنُّ الزائد لا عمودَ له بجدول القياسات (كـOpen Dental وDentrix): إن كان عند المريض سنٌّ زائد
+   موجود (بمضيفٍ دائم، غير مقلوع) يظهر تحت الجدول صندوقُ «أسنان زائدة» — سطرٌ لكلٍّ منها باسمه وملاحظة.
+   تُحفظ مع الفحص بـperio_exams.sup_notes { رمز: نص } (الفارغُ لا يُحفظ، ≤ 300 حرف). سنٌّ قُلع أو أُزيل
+   بعد فحصٍ دُوّنت عليه ملاحظة يبقى سطرُه بذلك الفحص باسمه + «لم يعد موجوداً».
+   المسودةُ (ما يكتبه الطبيب قبل الحفظ) مربوطةٌ بمعرّف الفحص — لا تنتقل لفحصٍ آخر عند التبديل. */
+var PERIO_SUP_MAX = 300;
+var perioSupDraft = null;   /* { exam: id, notes: { رمز: نص } } */
+function perioSupLive(){ return (typeof supPerioCodes === 'function') ? supPerioCodes() : []; }
+function perioSupNameOf(c){ return (typeof supName === 'function') ? supName(c) : String(c); }
+function perioSupClean(o){
+  var out = {}, n = 0;
+  if (!o || typeof o !== 'object') return null;
+  Object.keys(o).sort().forEach(function(k){
+    if (!/^[1-4][1-8][1-4]$/.test(k)) return;
+    var v = typeof o[k] === 'string' ? o[k].trim().slice(0, PERIO_SUP_MAX) : '';
+    if (v && n < 40) { out[k] = v; n++; }
+  });
+  return n ? out : null;
+}
+function perioSupNotesNow(){
+  if (!perioCurrent) return {};
+  if (perioSupDraft && perioSupDraft.exam === perioCurrent.id) return perioSupDraft.notes;
+  return perioCurrent.sup_notes || {};
+}
+function perioSupList(){
+  var live = perioSupLive(), set = {}, cur = perioSupNotesNow(), prev = (perioCompare && perioCmpExam && perioCmpExam.sup_notes) || {};
+  live.forEach(function(c){ set[c] = 1; });
+  Object.keys(cur).concat(Object.keys(prev)).forEach(function(c){ if (/^[1-4][1-8][1-4]$/.test(c) && (cur[c] || prev[c])) set[c] = 1; });
+  return Object.keys(set).sort().map(function(c){ return { code: c, live: live.indexOf(c) !== -1 }; });
+}
+function perioSupRender(){
+  var box = document.getElementById('perioSupBox');
+  if (!box) return;
+  var list = perioCurrent ? perioSupList() : [];
+  if (!list.length) { box.hidden = true; box.innerHTML = ''; return; }
+  var cur = perioSupNotesNow(), prev = (perioCompare && perioCmpExam && perioCmpExam.sup_notes) || null;
+  var ro = perioCompare || !!(window.SyDentSub && window.SyDentSub.isReadOnly());
+  box.innerHTML = '<div class="perio-sup-title">🦷 أسنان زائدة</div>'
+    + '<div class="perio-sup-hint">السن الزائد لا يدخل جدول القياسات — اكتب ملاحظتك عليه هنا (جيب، نزف، حركة…)</div>'
+    + list.map(function(s){
+        var nm = perioSupNameOf(s.code), v = cur[s.code] || '';
+        return '<div class="perio-sup-row" data-sup-row="' + s.code + '">'
+          + '<div class="perio-sup-name">' + escapeHtml(nm)
+          + (s.live ? '' : ' <span class="perio-sup-gone">لم يعد موجوداً</span>') + '</div>'
+          + '<input type="text" class="perio-sup-in" data-sup="' + s.code + '" maxlength="' + PERIO_SUP_MAX + '"'
+          + ' aria-label="' + escapeHtml('ملاحظة ' + nm) + '" placeholder="ملاحظة…" value="' + escapeHtml(v) + '"'
+          + (ro ? ' readonly' : '') + ' oninput="perioSupInput(this)">'
+          + (prev ? '<div class="perio-sup-prev"><span>' + escapeHtml('كان (' + fmtD(perioCmpExam.exam_date) + '):') + '</span> '
+              + (prev[s.code] ? '<span data-i18n-skip>' + escapeHtml(prev[s.code]) + '</span>' : '—') + '</div>' : '')
+          + '</div>';
+      }).join('');
+  box.hidden = false;
+}
+function perioSupInput(el){
+  if (!perioCurrent || perioCompare || el.readOnly) return;
+  if (!perioSupDraft || perioSupDraft.exam !== perioCurrent.id) perioSupDraft = { exam: perioCurrent.id, notes: Object.assign({}, perioCurrent.sup_notes || {}) };
+  var c = el.getAttribute('data-sup'), v = String(el.value || '').slice(0, PERIO_SUP_MAX);
+  if (v.trim()) perioSupDraft.notes[c] = v; else delete perioSupDraft.notes[c];
+  perioDirty = true;
+}
+/* ما يُحفظ: الملاحظاتُ غير الفارغة (null إن لم يبقَ شيء) */
+function perioSupCollect(){ return perioSupClean(perioSupNotesNow()); }
+function perioSupSame(a, b){ return JSON.stringify(perioSupClean(a)) === JSON.stringify(perioSupClean(b)); }
+function perioSupPrintHtml(){
+  var cur = perioSupCollect() || {}, prev = (perioCompare && perioCmpExam && perioCmpExam.sup_notes) || {};
+  var codes = Object.keys(cur).concat(Object.keys(prev).filter(function(c){ return !cur[c]; })).sort();
+  if (!codes.length) return '';
+  return '<div style="font-weight:800;font-size:12.5px;margin-top:6px;">أسنان زائدة</div>'
+    + '<ul style="margin:2px 0 0;padding-inline-start:18px;font-size:12px;">'
+    + codes.map(function(c){
+        /* نصُّ الطبيب بـdata-i18n-skip: لا يمرّ على مترجم الواجهة */
+        return '<li><b>' + escapeHtml(perioSupNameOf(c)) + '</b>: ' + (cur[c] ? '<span data-i18n-skip>' + escapeHtml(cur[c]) + '</span>' : '—')
+          + (perioCompare && perioCmpExam ? ' · <span style="color:#555;"><span>' + escapeHtml('كان (' + fmtD(perioCmpExam.exam_date) + '):') + '</span> '
+              + (prev[c] ? '<span data-i18n-skip>' + escapeHtml(prev[c]) + '</span>' : '—') + '</span>' : '')
+          + '</li>';
+      }).join('')
+    + '</ul>';
+}
+
 function perioIsExtracted(n){
   /* C3 (v489): «غير بازغ» لا مواقعَ سبرٍ له ⇒ يُعامَل بالبريو كغائب (خلاياه معطّلة،
      لا يُعدّ بالأسنان، «×» بالطباعة) — بالمسند نفسه الذي يقرؤه كلُّ البريو، ومن الخريطة
@@ -1442,14 +1522,14 @@ function perioDocName(id){
   return d ? d.name : '';
 }
 function initPerioTab(){
-  if (perioInited) return;
+  if (perioInited) { perioSupRender(); return; }   /* ج3: سنٌّ زائد أُضيف/قُلع منذ آخر فتح */
   perioInited = true;
   loadPerioExams(null);
 }
 
 async function loadPerioExams(selectId){
   var r = await window.sb.from('perio_exams')
-    .select('id, provider_id, exam_date, notes, created_at')
+    .select('id, provider_id, exam_date, notes, sup_notes, created_at')
     .eq('doctor_id', currentUser.id).eq('patient_id', patientId)
     .order('exam_date', { ascending: false }).order('created_at', { ascending: false });
   if (r.error) {
@@ -1484,6 +1564,7 @@ async function perioLoadExamData(id){
   perioRows = {}; perioLoadedTeeth = {};
   (r.data || []).forEach(function(row){ perioRows[row.tooth_num] = row; perioLoadedTeeth[row.tooth_num] = 1; });
   perioCurrent = perioExams.find(function(e){ return e.id === id; }) || null;
+  perioSupDraft = null;   /* ج3: مسودةُ ملاحظات الزائد تخصّ الفحص الذي كُتبت فيه */
   perioExitCompareState();
   perioDirty = false;
   renderPerioGrid();
@@ -1513,7 +1594,7 @@ function perioCellInputs(t, sites, dis){
   return out;
 }
 /* ── Perio v2 (M93): recession + derived CAL + molar furcation ── */
-function perioIsMolar(t){ return ((typeof supMorph === 'function' ? supMorph(t) : t) % 10) >= 6; }   /* السنُّ الزائد بشكل مضيفه (البيريو ج3) */
+function perioIsMolar(t){ return (t % 10) >= 6; }   /* أسنانُ FDI الدائمة وحدها — السنُّ الزائد بلا عمود (ج3: ملاحظةٌ بصندوقه) */
 function perioCellRec(t, sites, dis){
   var out = '';
   for (var i = 0; i < sites.length; i++) {
@@ -1632,6 +1713,7 @@ function renderPerioGrid(){
   panel.querySelectorAll('input.pd-in:not(.mob):not(.rec)').forEach(perioPaint);
   perioCalPaintAll();
   updatePerioStats();
+  perioSupRender();
   // M141-ب: وضعُ القراءة — القياساتُ تُعرض ولا تُكتب
   if (window.SyDentSub && window.SyDentSub.isReadOnly()) {
     panel.querySelectorAll('input.pd-in').forEach(function(el){ el.readOnly = true; });
@@ -1761,12 +1843,22 @@ async function _perioSave_inner() {
       .eq('doctor_id', currentUser.id).eq('exam_id', perioCurrent.id).in('tooth_num', cleared);
     if (r2.error) { showToast('⚠️ ' + r2.error.message); return; }
   }
+  /* ج3: ملاحظاتُ الأسنان الزائدة — تُكتب فقط إن تغيّرت */
+  var supNotes = perioSupCollect();
+  if (!perioSupSame(supNotes, perioCurrent.sup_notes)) {
+    var r3 = await window.sb.from('perio_exams').update({ sup_notes: supNotes })
+      .eq('doctor_id', currentUser.id).eq('id', perioCurrent.id);
+    if (r3.error) { showToast('⚠️ ' + r3.error.message); return; }
+    perioCurrent.sup_notes = supNotes;
+  }
+  perioSupDraft = null;
   perioLoadedTeeth = {};
   rows.forEach(function(r){ perioLoadedTeeth[r.tooth_num] = 1; });
   perioDirty = false;
   if (window.logAudit) window.logAudit('perio.update', {
     examId: perioCurrent.id, examDate: perioCurrent.exam_date,
-    patientId: patientId, patientName: (patient && patient.name) || '', teeth: rows.length
+    patientId: patientId, patientName: (patient && patient.name) || '', teeth: rows.length,
+    supNotes: supNotes ? Object.keys(supNotes).length : 0
   });
   showToast('💾 حُفظ فحص اللثة (' + rows.length + ' سناً)');
 }
@@ -1794,9 +1886,14 @@ async function _perioCreateExam_inner() {
   if (!d) { showToast('⚠️ حدّد تاريخ الفحص'); return; }
   var prov = document.getElementById('perioNewProv').value || null;
   var notes = document.getElementById('perioNewNotes').value.trim() || null;
-  var ins = await window.sb.from('perio_exams').insert({
-    doctor_id: currentUser.id, patient_id: patientId, provider_id: prov, exam_date: d, notes: notes
-  }).select().single();
+  var newRow = { doctor_id: currentUser.id, patient_id: patientId, provider_id: prov, exam_date: d, notes: notes };
+  /* ج3: «نسخ قيم آخر فحص» ينسخ ملاحظاتِ الأسنان الزائدة الموجودة الآن فقط (المقلوعُ لا يُنقل) */
+  if (document.getElementById('perioNewCopy').checked && perioExams.length && perioExams[0].sup_notes) {
+    var _live = perioSupLive(), _src = perioExams[0].sup_notes, _cp = {};
+    Object.keys(_src).forEach(function(k){ if (_live.indexOf(k) !== -1) _cp[k] = _src[k]; });
+    var _cl = perioSupClean(_cp); if (_cl) newRow.sup_notes = _cl;
+  }
+  var ins = await window.sb.from('perio_exams').insert(newRow).select().single();
   if (ins.error) { showToast('⚠️ ' + ins.error.message); return; }
   if (document.getElementById('perioNewCopy').checked && perioExams.length) {
     var prev = await window.sb.from('perio_measurements').select('*')
@@ -1871,6 +1968,7 @@ function perioExitCompareState(){
   var sv = document.getElementById('perioSaveBtn');
   if (sv && perioExams.length) sv.disabled = false;
   updatePerioStats();
+  perioSupRender();
 }
 async function perioToggleCompare(){
   if (perioCompare) { perioExitCompareState(); return; }
@@ -1951,6 +2049,7 @@ async function perioRunCompare(prevId){
   perioCmpExam = prev; perioCmpRows = pm;
   perioCompare = true;
   updatePerioStats();
+  perioSupRender();
   document.getElementById('perioCompareBtn').textContent = '✕ إنهاء المقارنة';
   document.getElementById('perioSaveBtn').disabled = true;
   showToast('🔍 مقارنة بفحص ' + fmtD(prev.exam_date));
@@ -2118,6 +2217,7 @@ function perioPrint(){
     + (perioCompare && perioCmpPrev && perioCmpRows ? perioPrintCompareBlock() : '<div style="font-size:12px;margin:4px 0 8px;">' + statsTxt + '</div>')
     + '<div style="font-weight:800;font-size:12.5px;">الفك العلوي</div>' + perioPrintArch(UPPER_T, 'حنكي', perioSrc, perioCompare ? perioCmpRows : null)
     + '<div style="font-weight:800;font-size:12.5px;">الفك السفلي</div>' + perioPrintArch(LOWER_T, 'لساني', perioSrc, perioCompare ? perioCmpRows : null)
+    + perioSupPrintHtml()
     + '<div style="font-size:10.5px;color:#555;margin-top:6px;">● نزف عند السبر · × سن مقلوع · القيم بالملم (أنسي · وسط · وحشي) · CAL = العمق + الانحسار (الانحسار الفارغ = 0) · التشعب على الأرحاء: 1=I · 2=II · 3=III · — لا ينطبق</div>'
     + '</div>';
   var pr = document.getElementById('printRoot');
