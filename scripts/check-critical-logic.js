@@ -1722,10 +1722,10 @@ async function runDashFin(sc) {
   try {
     const pd = read('pp-dental.js');
     /* v580: السطحُ SX (السنُّ الزائد) يُستثنى — قلعُه ليس قلعَ هذا السن؛ وإلا النصُّ حرفياً (عمياءُ الحالة) */
-    const isExSrc = /function isExtracted\(num\) \{\n  var sm = teethMap\[String\(num\)\] \|\| \{\};\n  if \(isExtractionKey\(sm\.WHOLE\)\) return true;\n  \/\/ Legacy: any surface marked as extracted\n  for \(var k in sm\) \{\n    if \(isSxSurface\(k\)\) continue;[^\n]*\n    if \(isExtractionKey\(sm\[k\]\)\) return true;\n  \}\n  return false;\n\}/.test(pd);
+    const isExSrc = /function isExtracted\(num\) \{\n  var sm = teethMap\[String\(num\)\] \|\| \{\};\n  if \(isExtractionKey\(sm\.WHOLE\)\) return true;\n  \/\/ Legacy: any surface marked as extracted\n  for \(var k in sm\) \{\n    if \(isExtractionKey\(sm\[k\]\)\) return true;\n  \}\n  return false;\n\}/.test(pd);
     const helpers = /function isExtractionPlanned\(num\)/.test(pd) && /function isExtractionDone\(num\)/.test(pd)
       && /function extractionStatusIsOpen\(st\) \{ return st === 'planned' \|\| st === 'referred'; \}/.test(pd);
-    const facialLoop = (pd.match(/else if \(isExtractionDone\((un|ln)\)\) (u|l)Html \+= buildExtractedPlaceholder\(/g) || []).length === 2
+    const facialLoop = (pd.match(/else if \(isExtractionDone\((un|ln)\)\) _c(U|L) = buildExtractedPlaceholder\(/g) || []).length === 2   /* ج1: الخليةُ تُجمَع ثم تُلفّ بممرّ السن الزائد */
       && !/else if \(isExtracted\((un|ln)\)\) (u|l)Html \+= buildExtractedPlaceholder\(/.test(pd);
     const occ = /var isExtract=isExtractionKey\(whole\)&&!occPlannedX/.test(pd) && /if\(occPlannedX\)\{[^\n]*planned-x[^\n]*pointer-events=[^\n]*none/.test(pd);
     const facialX = /var _pxSt = \(hasWhole && isExtractionKey\(wholeT\) && sm\.__status\) \? sm\.__status\.WHOLE : null;/.test(pd)
@@ -1745,7 +1745,7 @@ async function runDashFin(sc) {
     const pd = read('pp-dental.js');
     const core = read('pp-core.js');
     const lib = /var COND_DEFS = \[([\s\S]*?)\n\];/.exec(pd);
-    const libOk = !!lib && (lib[1].match(/\bid:'cond-/g) || []).length === 14   /* C3: +غير بازغ · v578: +تسوس/تآكل/انزياح · v580: +سن زائد */
+    const libOk = !!lib && (lib[1].match(/\bid:'cond-/g) || []).length === 13   /* C3: +غير بازغ · v578: +تسوس/تآكل/انزياح · v580: +سن زائد · ج1: «سن زائد» صار سنّاً مستقلاً لا حالة */
       && !/price\s*:\s*[1-9]/.test(/var COND_LIBRARY = COND_DEFS\.map[\s\S]*?\}\);/.exec(pd)[0]);
     const chokeOk = /return \(typeof getCondition === 'function'\) \? getCondition\(id\) : null;/.test(core)
       && /for \(var i=0; i<TREATMENTS\.length; i\+\+\) if \(TREATMENTS\[i\]\.id === id\) return TREATMENTS\[i\];/.test(core);
@@ -1837,15 +1837,11 @@ async function runDashFin(sc) {
       if ((pd.match(/condSurfaceFillSvg\(/g) || []).length !== 5 || (pd.match(/condDriftSvg\(/g) || []).length !== 3) return false;   /* v587: التعريف + وجهي (تماسٌ/سطح) + إطباقي (صندوقٌ/سطح) */
       if (!/_q2\.h \* 0\.6, 'cc' \+ gid, 2\.5\)/.test(pd) || !/_hh=ant\?_bh\*0\.5:third\*1\.35;/.test(pd)) return false;   /* v587: الإنسيُّ/الوحشيُّ لا شريطٌ بطول السن */
       if (!/id:'cond-drift'[^\n]*only:\['M','D','B','L'\]/.test(pd)) return false;
-      /* v580: السنُّ الزائد — مرساةٌ SX على الجار عبر مسندٍ واحد، ومسانيدُ السن المجاور عمياءُ عنها */
-      if (!/id:'cond-supernumerary'[^\n]*only:\['M','D'\], store:'sx'/.test(pd) || !/cond_store: c\.store \|\| null/.test(pd)) return false;
-      if (!/function condStorageSurface\(def, surf\)/.test(pd) || !/function sxState\(sm, side\)/.test(pd) || !/function sxCellsFor\(num, isUpper, occ\)/.test(pd)) return false;
-      if ((pd.match(/sxCellsFor\(/g) || []).length !== 4) return false;   /* التعريف + علوي + سفلي + إطباقي */
-      const _isEx = /function isExtracted\(num\) \{[\s\S]*?\n\}/.exec(pd), _exSf = /function extractionSurfaceOf\(num\) \{[\s\S]*?\n\}/.exec(pd), _dom = /function getDominantStatus\(num\) \{[\s\S]*?\n\}/.exec(pd);
-      if (!_isEx || !/isSxSurface\(k\)\) continue;/.test(_isEx[0]) || !_exSf || !/isSxSurface\(k\)\) continue;/.test(_exSf[0]) || !_dom || !/isSxSurface\(k\)\) continue;/.test(_dom[0])) return false;
-      if (!/isSxSurface\(currentSurface\)\) return !t\.is_condition && \(t\.target_part \|\| 'crown'\) === 'extraction';/.test(pd)) return false;
-      if (!/\} else if \(isSxSurface\(currentSurface\)\) \{\n\s*\/\* v580: قلعُ السن الزائد يبقى على مرساته SX/.test(pd)) return false;
-      if (!/if \(isSxSurface\(currentSurface\)\) \{\n\s*var _sxK = /.test(pd)) return false;   /* «سليم» على SX لا يطال الجار */
+      /* ج1 (M226): السنُّ الزائد سنٌّ مستقل — الخيارُ أ (SXM/SXD · cond-supernumerary) أُزيل كلياً، وخليتُه خليةُ سنٍّ على رمزه */
+      if (/id:'cond-supernumerary'/.test(pd) || /cond_store|isSxSurface\(|sxCellsFor\(|condStorageSurface\(|sxState\(|'SXM'|'SXD'/.test(pd)) return false;
+      if (!/function isSupTooth\(num\)/.test(pd) || !/function supCode\(host, where\)/.test(pd) || !/function supRowPlan\(arch, isUpper\)/.test(pd)) return false;
+      if ((pd.match(/supRowPlan\(/g) || []).length !== 4) return false;   /* التعريف + إطباقي + علوي + سفلي */
+      if (!/if \(isSupTooth\(n\)\) \{\n\s*var _tpSup = t\.target_part/.test(pd)) return false;   /* نافذتُه: لا جسرَ ولا زرعةَ ولا جهازَ عليه */
       /* v576: التماسُ المفتوح — مسندُ الجار والخطُّ الواحد بالمنظرين؛ وسهمُ الانطمار ذرويٌّ بلا قلبٍ مضاد */
       if (!/function proximalNeighbors\(num, side\)/.test(pd) || !/function condContactSides\(num, sm\)/.test(pd)) return false;
       if ((pd.match(/condContactLineSvg\(/g) || []).length !== 5) return false;   /* التعريف + ٢ وجهي + ٢ إطباقي */

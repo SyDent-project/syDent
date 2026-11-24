@@ -247,7 +247,7 @@ function staticChecks(over) {
     && /<button type="button" class="exam-btn exam-btn-edent" onclick="dentOpenEdentulous\(\)"[^>]*>🦷 فك أدرد<\/button>/.test(PPH);
   /* كلُّ محوٍ/تحديثٍ للسن بلا سطحٍ ولا وحدة يستثني صفَّ الجهاز */
   const sc = ['pp-dental.js', 'pp-modules.js', 'patient-profile.html', 'appointments.html', 'pp-denture.js'].map(f => scanWipes(F(f)));
-  r.wipesSpareDenture = sc.every(x => x.bad.length === 0) && sc.reduce((n, x) => n + x.guarded, 0) === 13;
+  r.wipesSpareDenture = sc.every(x => x.bad.length === 0) && sc.reduce((n, x) => n + x.guarded, 0) === 14;   /* ج1: + إزالةُ السن الزائد (supRemove) */
   /* مرآةُ صفحة المواعيد: إنجازُ جلسة الجهاز يقلب صفوفَ وحدتها بمعرّف الجلسة */
   const AP = F('appointments.html');
   r.apptCompleteMirror = /if \(s && !s\.tooth_num\) \{ await _apptSyncDentureRowsOnComplete\(s, providerOverride\); return; \}/.test(AP)
@@ -1415,7 +1415,7 @@ function i18nChecks(strings, over) {
     ['report-category-missing', 'rpt-treat.js', "    'prosth_removable':'🧩 تعويضات متحركة',\n", ''],
     ['regional-list-without-denture', PD, "if (tpR !== 'quadrant' && tpR !== 'arch' && tpR !== 'mouth' && !(window.SyDenture && window.SyDenture.isTp(tpR))) continue;", "if (tpR !== 'quadrant' && tpR !== 'arch' && tpR !== 'mouth') continue;"],
     ['save-branch-removed', PD, "  if (window.SyDenture && window.SyDenture.saveReady()) { await window.SyDenture.save(cost, units, date, notes); return; }\n", ''],
-    ['undo-extraction-open', PD, "  if (window.SyDenture && window.SyDenture.has(num) && !isBridgeTooth(num)) { showToast('🦷 السن ' + num + ' يعوّضه جهاز متحرك — أزل الجهاز أولاً'); return; }\n", ''],
+    ['undo-extraction-open', PD, "  if (window.SyDenture && window.SyDenture.has(num) && !isBridgeTooth(num)) { showToast('🦷 السن ' + toothRef(num) + ' يعوّضه جهاز متحرك — أزل الجهاز أولاً'); return; }\n", ''],
     ['remove-button-missing', PD, "    _special = window.SyDenture.removeBtnHtml(n) + _special;\n", ''],
     ['wipe-hits-denture-row', PD, "        .eq('tooth_num', String(currentTooth)).neq('surface', 'DENTURE');   /* M202 */", "        .eq('tooth_num', String(currentTooth));"],
     ['paint-hook-removed', PD, "  if (window.SyDenture) window.SyDenture.paint();   /* M202: طبقةُ الجهاز المتحرك — بعد اكتمال المنظرين (بلا جهاز ⇒ صفر أثر) */\n", ''],

@@ -92,6 +92,7 @@ AFTER_SNAPSHOT = [
     'migrations/223_booking_respects_doctor_hours.sql',   # after 189/222: _provider_off_slots (internal) + booking_blocked_slots and _portal_free_slots replaced in place — a dentist's hours and leave close online slots
     'migrations/224_consent_done_today.sql',         # after 221: _consent_sync replaced in place — a treatment recorded as done today gets its consent; a cancelled consent is not generated again
     'migrations/225_consent_planned_only.sql',       # after 224: _consent_sync replaced in place — PLANNED rows only again (a performed treatment gets no consent); the cancelled-consent coverage of 224 stays
+    'migrations/226_supernumerary_tooth.sql',        # after 209: SN in / SXM·SXD out of both surface checks, perio accepts supernumerary codes, SX test rows converted (history trigger paused inside); no function kept, no grant
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',

@@ -80,7 +80,7 @@ function measure(w) {
   r.driftLingualOcclusalOnly = dArrow(F(45, false)) === null && !!dArrow(O(45, false)) && dArrow(O(45, false)).dy < -5;   /* السفلي: اللسانيُّ أعلى الإطباقي */
   r.driftLabialAnterior = !!dArrow(O(43, false)) && dArrow(O(43, false)).dy > 5;
   r.retainedNoTriangle = syms(F(13, true)) === 0 && !!F(13, true).querySelector('.root-part') && !F(13, true).querySelector('[fill^="url(#cg"]');
-  r.libraryFourteen = w.COND_LIBRARY.length === 14;
+  r.libraryThirteen = w.COND_LIBRARY.length === 13;   /* ج1: «سن زائد» خرج من المكتبة — صار سنّاً مستقلاً */
   /* v581 (بلاغُ المالك بأربع صور): مركّبُ MOD يُرسم بكل حرف · الدهليزيُّ بالأمامي لا يُرى إطباقياً · حزامُ الحنكي الأمامي
      لا يمتدّ على الإنسي/الوحشي · سهمُ الانزياح الوجهي عند الجذر · إزالةُ التماس تزيل صفَّ الجار المقابل */
   set({ '38': { MOD: 'cond-caries', __status: { MOD: 'condition' } }, '11': { B: 'cond-wear', __status: { B: 'condition' } },
@@ -102,28 +102,7 @@ function measure(w) {
   r.driftArrowAtRoot = y14 !== null && y14 > 120;   /* التاجُ ≤ ~110 بالإحداثيات المحلية؛ الجذورُ أسفلَه */
   r.compositeSymbolCentred = O(36, false).querySelectorAll('.cond-sym').length === 1 && F(36, false).querySelectorAll('.cond-sym').length === 1;
   r.condRectsFor = w.condRectsFor([{key:'M'},{key:'O'},{key:'D'}], 'MOD').length === 3 && w.condRectsFor([{key:'M'},{key:'O'}], 'B').length === 0 && w.condRectsFor([{key:'COND'}], 'COND').length === 1;
-  /* v580: السنُّ الزائد — مرساةٌ على الجار (SX<الجهة>)، خليةٌ صغيرة بين السنّين بالمنظرين، قلعٌ مخطّط ✕، منجز ⇒ لا خلية */
-  const sxd = w.getCondition('cond-supernumerary');
-  r.sxStorage = w.condStorageSurface(sxd, 'M') === 'SXM' && w.condStorageSurface(sxd, 'D') === 'SXD' && w.condStorageSurface(sxd, 'O') === 'O'
-    && w.condStorageSurface(w.getCondition('cond-calculus'), 'M') === 'M'
-    && w.condSurfaceNotAllowed(sxd, 'SXM') === null && w.condSurfaceNotAllowed(sxd, 'SXD') === null && !!w.condSurfaceNotAllowed(sxd, 'O') && !!w.condSurfaceNotAllowed(sxd, 'COND');
-  r.sxLabels = w.surfLabelFor('SXM', 12) === 'سن زائد إنسي' && w.surfLabelFor('SXD', 12) === 'سن زائد وحشي' && w.conditionSiteLabel(12, 'SXM') === 'سن زائد إنسي';
-  set({ '12': { SXM: 'cond-supernumerary', __status: { SXM: 'condition' } }, '23': { SXD: 'cond-supernumerary', __status: { SXD: 'condition' } },
-        '46': { SXD: 'extracted', __status: { SXD: 'planned' } }, '47': { SXM: 'extracted', __status: { SXM: 'completed' } } });
-  w.renderTeeth(); try { w.renderOcclusal(); } catch (e) {}
-  const doc = w.document, upJ = doc.getElementById("upperJaw"), loJ = doc.getElementById("lowerJaw");
-  const kids = (el) => Array.from(el.children).map(c => c.getAttribute('data-tooth-cell') || c.getAttribute('data-sx-cell') || (c.classList.contains('midline') ? '|' : '?'));
-  const ku = kids(upJ), kl = kids(loJ);
-  r.sxCellRightOfTwelve = ku.indexOf('12:M') === ku.indexOf('12') - 1;        /* الربع 1: الإنسيُّ يميناً = السابقُ بالـDOM (RTL) */
-  r.sxCellRightOfTwentyThree = ku.indexOf('23:D') === ku.indexOf('23') - 1;  /* الربع 2: الوحشيُّ يميناً = السابقُ بالـDOM */
-  r.sxCellsCount = upJ.querySelectorAll('.sx-cell').length === 2 && loJ.querySelectorAll('.sx-cell').length === 1;
-  r.sxPlannedX = !!loJ.querySelector('[data-sx-cell="46:D"] .planned-x') && kl.indexOf('46:D') === kl.indexOf('46') + 1;   /* الربع 4: الوحشيُّ يساراً = التالي بالـDOM */
-  r.sxExtractedGone = !loJ.querySelector('[data-sx-cell="47:M"]');
-  r.sxHitWired = !!upJ.querySelector('[data-sx-cell="12:M"] .crown-surface[data-tooth="12"][data-surface="SXM"]');
-  r.sxOccCells = !!doc.querySelector('#upperOcc [data-sx-occ="12:M"]') && !!doc.querySelector('#lowerOcc [data-sx-occ="46:D"] .planned-x') && !doc.querySelector('#lowerOcc [data-sx-occ="47:M"]');
-  r.sxNoSymbolOnHost = F(12, true).querySelectorAll('.cond-sym').length === 0 && O(12, true).querySelectorAll('.cond-sym').length === 0;
-  r.sxState = !!w.sxState({ SXM: 'cond-supernumerary' }, 'M') && w.sxState({ SXM: 'extracted', __status: { SXM: 'completed' } }, 'M') === null
-    && w.sxState({ SXM: 'extracted', __status: { SXM: 'planned' } }, 'M').planned === true && w.sxState({}, 'M') === null;
+  /* v580 (الخيار أ: سنٌّ زائد مرساةٌ على الجار) أُزيل مع ج1 (M226) — مثبتُه الآن scripts/prove-supernumerary.js */
   r.occBeforeHits = (function(){ const h = w.buildOcclusalTooth(16, { D: 'cond-fracture', __status: { D: 'condition' } }, true); return h.indexOf('cond-sym') > 0 && h.indexOf('cond-sym') < h.indexOf('class="crown-surface"'); })();
   /* ③ سهمُ الانطمار */
   set({ '35': { COND: 'cond-impacted', __status: { COND: 'condition' } }, '15': { COND: 'cond-impacted', __status: { COND: 'condition' } },
@@ -152,9 +131,6 @@ function measure(w) {
     ['gap-symbol',   "if (_cd2.symbol === 'gap') continue;", ""],
     ['drift-wrong-way', "cy + uy*size*0.45, def.stroke, size);", "cy + uy*size*0.45, def.stroke, size).replace(/M ([0-9.\\-]+) ([0-9.\\-]+) L ([0-9.\\-]+) ([0-9.\\-]+)/, 'M $3 $4 L $1 $2');"],
     ['triangle-back', "symbol:null, draw:'no-crown'", "symbol:'ring', draw:'no-crown'"],
-    ['sx-side-swap', "var rightSide = mesialOnRight ? 'M' : 'D', leftSide = mesialOnRight ? 'D' : 'M';", "var rightSide = mesialOnRight ? 'D' : 'M', leftSide = mesialOnRight ? 'M' : 'D';"],
-    ['sx-extracted-still-drawn', "return (typeof extractionStatusIsOpen === 'function' && extractionStatusIsOpen(st)) ? { present: true, planned: true, key: k, status: st } : null;", "return { present: true, planned: extractionStatusIsOpen(st), key: k, status: st };"],
-    ['sx-store-on-M', "if (def && def.cond_store === 'sx' && /^[MD]$/.test(String(surf || ''))) return 'SX' + surf;", ""],
     ['composite-single-only', "for (i = 0; i < k.length; i++) for (j = 0; j < rects.length; j++) if (rects[j] && rects[j].key === k.charAt(i)) out.push(rects[j]);", "for (j = 0; j < rects.length; j++) if (rects[j] && rects[j].key === k) out.push(rects[j]);"],
     ['anterior-palatal-full-width', "I:[antX+cap,iEdgeY,antW-2*cap,iHv], L:[antX+cap,lFillY,antW-2*cap,lHv]", "I:[antX,iEdgeY,antW,iHv], L:[antX,lFillY,antW,lHv]"],
     ['proximal-full-strip-occ', "var _bh=(b.y1-b.y0), _cy=ant?(b.y0+_bh/2):(oY+third/2), _hh=ant?_bh*0.5:third*1.35;", "var _bh=(b.y1-b.y0), _cy=b.y0+_bh/2, _hh=_bh;"],

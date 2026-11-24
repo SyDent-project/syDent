@@ -698,7 +698,7 @@ async function behave(w, F) {
   w.__OPS = []; w.eval('window.__examMode = true'); await w.dsvClaspFromTooth(12); w.eval('window.__examMode = false');
   const subT = w.SyDentSub.blockReadOnly; w.SyDentSub.blockReadOnly = () => true; await w.dsvClaspFromTooth(12); w.SyDentSub.blockReadOnly = subT;
   ok(w.__OPS.length === 0 && dR().every(x => x.denture_clasps === '12'), 'tooth window: no clasp change in initial-exam mode or on a read-only subscription');
-  ok(/if \(window\.SyDentSvc && window\.SyDentSvc\.claspBtnHtml && !isSxSurface\(currentSurface\)\) _special = window\.SyDentSvc\.claspBtnHtml\(n\) \+ _special;/.test(F['pp-dental.js']),
+  ok(/if \(window\.SyDentSvc && window\.SyDentSvc\.claspBtnHtml && !isSupTooth\(n\)\) _special = window\.SyDentSvc\.claspBtnHtml\(n\) \+ _special;/.test(F['pp-dental.js']),
     'tooth window: the clasp action is wired into «actions on this tooth»');
   /* القراءةُ من الوصف صارمة: وصفٌ معدَّل أو خدمةٌ أخرى أو فكٌّ آخر ⇒ جلسةُ فكٍّ عادية */
   const CS = (d, extra) => SESS('c', Object.assign({ denture_unit: 'u-1', treatment_key: 'denture-clasp', description: d }, extra || {}));
@@ -1025,7 +1025,7 @@ const MUTANTS = [
   ['tooth clasp button on a denture tooth', rep(SV, "  if (!(n >= 11 && n <= 48) || dentHas(n) || !dentClaspOk(n)) return '';", "  if (!(n >= 11 && n <= 48)) return '';")],
   ['tooth clasp action ignores locks', rep(SV, "  n = parseInt(n, 10);\n  if (dsvLocked()) return;\n  var u = dsvClaspToothUnit(n);", "  n = parseInt(n, 10);\n  var u = dsvClaspToothUnit(n);")],
   ['tooth clasp button never says remove', rep(SV, "    + (has ? '✕ إلغاء الضمّة' : '＋ ضمّة على الرسم') + '</button>';", "    + '＋ ضمّة على الرسم' + '</button>';")],
-  ['tooth clasp action not wired', rep('pp-dental.js', "  if (window.SyDentSvc && window.SyDentSvc.claspBtnHtml && !isSxSurface(currentSurface)) _special = window.SyDentSvc.claspBtnHtml(n) + _special;\n", "")],
+  ['tooth clasp action not wired', rep('pp-dental.js', "  if (window.SyDentSvc && window.SyDentSvc.claspBtnHtml && !isSupTooth(n)) _special = window.SyDentSvc.claspBtnHtml(n) + _special;\n", "")],
   ['lab area ignores the clasp tooth', rep('lab-slip.js', "      if (sess.treatment_key === 'denture-clasp') {", "      if (false) {")],
   ['lab area trusts another jaw', rep('lab-slip.js', "        if (cm && cm[1] === jaw && ct.every(", "        if (cm && ct.every(")],
   ['lab area trusts a tooth of the other jaw', rep('lab-slip.js', "ct.every(function (t) { return qs.indexOf(Math.floor(t / 10)) !== -1 && t % 10 >= 1 && t % 10 <= 8; })", "ct.every(function (t) { return t % 10 >= 1 && t % 10 <= 8; })")],

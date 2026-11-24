@@ -50,6 +50,7 @@ function load(src, opt) {
     window: win, document: { getElementById: id => (id === 'watchDueBanner' ? el : null) }, console: { error() {}, warn() {} },
     Number, parseInt, String, Date, Array, Object, Promise, Math, RegExp, JSON, Infinity,
     teethMap: opt.teethMap || {}, currentUser: { id: 'doc' }, patientId: 'pat', COND_SURFACE: 'COND',
+    isSupTooth: () => false, toothRef: n => n, supPlace: n => n,   /* ج1: السنُّ الزائد خارج هذا المثبت (اسمُه بـprove-supernumerary) */
     isConditionKey: k => String(k || '').indexOf('cond-') === 0, isExtracted: () => false,
     getTreatment: k => ({ name: 'مراقبة ' + k }), escapeHtml: s => String(s), fmtDNum: d => String(d),
     toDay: () => opt.today || '2026-10-08', ppYmdLocal: d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),

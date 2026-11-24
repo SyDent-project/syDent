@@ -2317,7 +2317,7 @@ try {
     'openPostOpTemplateEdit', 'savePostOpTemplate', 'confirmMaterialDeduction', 'setSessionPhase', 'setSessionOption', 'adoptPlanOption', 'removeDxNote', 'openAltBridgePicker', 'openImplantAltBridgePicker', 'aiPlanOptPick', 'completeSessionFromProfile', 'ppSessionOpenLab',
     'delSession', 'openSplitEditor', 'delPayment', 'delAdjustment', 'advanceLabOrder', 'redoLabOrder', 'undoLabStage' /* M206: تراجعٌ عن مرحلة مخبر */, 'editLabOrder', 'delLabOrder',
     'deletePrescription', 'rxEditTemplate', 'deleteRxTemplate', 'deletePostOpNote', 'deletePostOpTemplate', 'removeImplant', 'undoExtraction',
-    'clearToothStatus', 'removeSpacerUnit', 'dentRemoveUnit' /* M202: إزالةُ الجهاز المتحرك */, 'removeSocket', 'removeCondition', 'sxCancelExtraction', 'deleteImplantLog', 'linkToFamily', 'deleteImplantTemplate', 'batchSetStatus',
+    'clearToothStatus', 'removeSpacerUnit', 'dentRemoveUnit' /* M202: إزالةُ الجهاز المتحرك */, 'removeSocket', 'removeCondition', 'supAdd', 'supRemove' /* ج1: إضافةُ السن الزائد وإزالتُه */, 'deleteImplantLog', 'linkToFamily', 'deleteImplantTemplate', 'batchSetStatus',
     'batchPickTx', 'examSetStatus', 'examSetMonths', 'examPick', 'planWa', 'planSetStatus', 'removePendingPP', 'unlinkSessionFromApptPP',
     'quickSchedulePlannedFromProfile', 'editPlannedFromProfile', 'deletePlannedFromProfile', 'pfDeleteFile', 'planNewVisit', 'planLinkVisitPick', 'planLinkVisit', 'ppIntakeSend', 'ppIntakeCopyLink', 'ppIntakeDismiss', 'ppIntakeApprove',   /* M177: إنشاءُ رابط الاستمارة وختمُها كتابة */
     'ppPortalSend', 'ppPortalCopyLink', 'ppPortalRenew', 'ppPortalRevoke', 'ppConsentSend', 'ppConsentVoid', 'ppConsentSignHere',   /* M219: إرسالُ البوابة للتوقيع وإلغاءُ المعلَّقة كتابة · M180: إنشاءُ رابط البوابة وتجديدُه وإيقافُه كتابة */
@@ -2339,7 +2339,7 @@ try {
   const PP_INERT = ['toothUnitsChanged', 'draftSetEraserSize', 'pfOnFilesPicked', 'onAdjKindChange', 'sessApptChanged', 'snTplApply', 'snTplGlowSync', 'refTplApply',
     'onApptPlannedToggle', 'onProviderChange', 'implantApplyTemplate', 'labTplApply', 'onLabApptChange', 'labTplGlowSync', 'waTplApply', 'planRecalc',
     'rxApplyTemplate', 'postOpApplyTemplate', 'postOpApplyLibrary', 'onSplitInputChange', 'backToStep1', 'switchTxTab', 'toggleSurfaceChip', 'toggleRootChip',
-    'selectAllRootChips', 'pickToothTreatment', 'regQuadToggle', 'regQuadAll', 'regArchToggle', 'regArchAll', 'bridgeExtraAdj', 'nsePick',
+    'selectAllRootChips', 'pickToothTreatment', 'supOpenPicker', 'supClosePicker' /* ج1: منتقي المكان داخل نافذة السن (مدخلُها محروس) */, 'regQuadToggle', 'regQuadAll', 'regArchToggle', 'regArchAll', 'bridgeExtraAdj', 'nsePick',
     'perioPdInput', 'perioPdKey', 'perioRecInput', 'perioMobInput',
     'xrUpClose', 'xrUpSubmit', 'xrToggleTooth', 'xrTeethQuick', 'xrTogglePrimary', 'xrSetType', 'xrSetSource', 'xrUpRemoveFile', 'xrUpAddFiles',
     'xrCamClose', 'xrCamStart', 'xrCamMirror', 'xrCamShot', 'xrCamRemove', 'xrCamDone',   /* v642: داخل نافذة الكاميرا (مدخلاها محروسان) */

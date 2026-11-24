@@ -781,7 +781,7 @@ function batchSyncUI() {
    حرفياً (examRouteSurface): حشوة = السطح المنقور · جذري = الجذر المنقور ·
    كامل/قلع/زراعة/تاج = السن كاملاً. نقرة ثانية على الموضع نفسه = إلغاء. */
 function batchToggleAt(n, clickedSurface) {
-  if (typeof isSxSurface === 'function' && isSxSurface(clickedSurface)) { showToast('🩺 السنُّ الزائد خارج التحديد المتعدد — انقره بالوضع العادي'); return; }   /* v580 */
+  if (typeof isSupTooth === 'function' && isSupTooth(n)) { showToast('🩺 السنُّ الزائد خارج التحديد المتعدد — انقره بالوضع العادي'); return; }   /* v580 · ج1: يدخلهما بالإصدار الثاني */
   if (!batchSelectedKey) { showToast('👆 اختر علاجاً من شريط التحديد أولاً'); return; }
   var t = getTreatment(batchSelectedKey);
   if (!t) { showToast('⚠️ العلاج المختار غير موجود'); return; }
@@ -1180,6 +1180,7 @@ async function _examStamp_inner(n, clickedSurface) {
   if (window.SyDentLock && window.SyDentLock.isDoctorAccountInactive && window.SyDentLock.isDoctorAccountInactive()) {
     showToast('🔒 حسابك غير نشط — لا يمكن تسجيل حالات'); return;
   }
+  if (typeof isSupTooth === 'function' && isSupTooth(n)) { showToast('🩺 السنُّ الزائد خارج الفحص الأولي — انقره بالوضع العادي'); return; }   /* ج1: يدخله بالإصدار الثاني */
   if (!examSelectedKey) { showToast('👆 اختر علاجاً من شريط الفحص أولاً'); return; }
   var t = getTreatment(examSelectedKey);
   if (!t) { showToast('⚠️ العلاج المختار غير موجود'); return; }
@@ -1202,12 +1203,6 @@ async function _examStamp_inner(n, clickedSurface) {
       if (t.cond_scope === 'both') s = _clk;
       else { showToast('🩺 «' + t.name + '» حالةٌ سطحية — انقر السطحَ التاجيَّ المطلوب لا الجذر'); return; }
     } else s = _clk;
-    if (typeof condStorageSurface === 'function') s = condStorageSurface(t, s);   /* v580: «سن زائد» ⇒ SX<الجهة> — نفسُ مسند المودال */
-  }
-  /* v580: نقرةُ خلية السن الزائد بالفحص الأولي — القلعُ وحده يُختم عليها، بمرساتها SX (لا WHOLE) */
-  if (typeof isSxSurface === 'function' && isSxSurface(clickedSurface)) {
-    if (_isCond || tp !== 'extraction') { showToast('🩺 على السن الزائد يُسجَّل القلعُ فقط'); return; }
-    s = clickedSurface;
   }
   var tn = String(n);
   var sm = teethMap[tn] || {};
@@ -1251,7 +1246,7 @@ async function _examStamp_inner(n, clickedSurface) {
   }
 
   // ── State guards (mirror of modal isAllowed) ──
-  var ok = (typeof isSxSurface === 'function' && isSxSurface(s)) ? { ok: true } : examAllowed(n, t);   /* v580: حالةُ السن المجاور لا تحكم السنَّ الزائد (مرآةُ isAllowed) */
+  var ok = examAllowed(n, t);
   if (!ok.ok) { showToast(ok.msg); return; }
   /* v434: حالةٌ محصورةٌ بأسطحٍ بعينها (تماسٌ مفتوح ⇒ إنسي/وحشي) */
   if (_isCond && typeof condSurfaceNotAllowed === 'function') {
@@ -1518,7 +1513,7 @@ function perioCellInputs(t, sites, dis){
   return out;
 }
 /* ── Perio v2 (M93): recession + derived CAL + molar furcation ── */
-function perioIsMolar(t){ return (t % 10) >= 6; }
+function perioIsMolar(t){ return ((typeof supMorph === 'function' ? supMorph(t) : t) % 10) >= 6; }   /* السنُّ الزائد بشكل مضيفه (البيريو ج3) */
 function perioCellRec(t, sites, dis){
   var out = '';
   for (var i = 0; i < sites.length; i++) {

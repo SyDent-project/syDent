@@ -23,43 +23,43 @@
      تستهلك النتيجة مرةً واحدة (معرّفٌ بصيغة uuid حصراً ⇒ بطاقةُ العرض التجريبي لا تقرأ شيئاً). -->
 <script>window.__syEarly=function(sb,uid){try{var id=new URL(location.href).searchParams.get('id');if(!id||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))return;window.__ppPatientPre={uid:uid,id:id,p:sb.from('patients').select('*').eq('id',id).eq('doctor_id',uid).single().then(function(r){return r;},function(e){return{data:null,error:e};})};}catch(e){}};</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261123a"></script>
+<script src="theme.js?v=20261124a"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261123a"></script>
-<script src="sy-modal.js?v=20261123a"></script>
-<script src="appt-followup.js?v=20261123a"></script>
-<script src="lab-redo.js?v=20261123a"></script>
-<script src="lab-stages.js?v=20261123a"></script>
-<script src="lab-status.js?v=20261123a"></script>
-<script src="lab-shade.js?v=20261123a"></script>
-<script src="lab-due.js?v=20261123a"></script>
-<script src="lab-slip.js?v=20261123a"></script>
-<script src="lab-files.js?v=20261123a"></script>
-<script src="pay-methods.js?v=20261123a"></script>
-<script src="appt-conflict.js?v=20261123a"></script>
-<script src="sidebar.js?v=20261123a"></script>
-<script src="ref-pick.js?v=20261123a"></script>
-<script src="inv-consume.js?v=20261123a"></script>
-<script src="inv-trace.js?v=20261123a"></script>
-<script src="timepicker.js?v=20261123a"></script>
-<script src="pp-modules.js?v=20261123a"></script>
-<script src="pp-wa.js?v=20261123a"></script>
-<script src="pp-clinical.js?v=20261123a"></script>
-<script src="pp-dental.js?v=20261123a"></script>
-<script src="pp-denture.js?v=20261123a"></script>
-<script src="pp-denture-svc.js?v=20261123a"></script>
-<script src="pp-followup.js?v=20261123a"></script>
-<script src="pp-plan.js?v=20261123a"></script>
-<script src="pp-timeline.js?v=20261123a"></script>
-<script src="pp-appt.js?v=20261123a"></script>
-<script src="pp-core.js?v=20261123a"></script>
-<script src="pp-extras.js?v=20261123a"></script>
-<script src="pp-intake.js?v=20261123a"></script>
-<script src="pp-portal.js?v=20261123a"></script>
-<script src="pp-consent.js?v=20261123a"></script>
-<script src="xray-viewer.js?v=20261123a"></script>
-<script src="pp-xray.js?v=20261123a"></script>
-<link rel="stylesheet" href="patient-profile.css?v=20261123a">
+<script src="supabase-init.js?v=20261124a"></script>
+<script src="sy-modal.js?v=20261124a"></script>
+<script src="appt-followup.js?v=20261124a"></script>
+<script src="lab-redo.js?v=20261124a"></script>
+<script src="lab-stages.js?v=20261124a"></script>
+<script src="lab-status.js?v=20261124a"></script>
+<script src="lab-shade.js?v=20261124a"></script>
+<script src="lab-due.js?v=20261124a"></script>
+<script src="lab-slip.js?v=20261124a"></script>
+<script src="lab-files.js?v=20261124a"></script>
+<script src="pay-methods.js?v=20261124a"></script>
+<script src="appt-conflict.js?v=20261124a"></script>
+<script src="sidebar.js?v=20261124a"></script>
+<script src="ref-pick.js?v=20261124a"></script>
+<script src="inv-consume.js?v=20261124a"></script>
+<script src="inv-trace.js?v=20261124a"></script>
+<script src="timepicker.js?v=20261124a"></script>
+<script src="pp-modules.js?v=20261124a"></script>
+<script src="pp-wa.js?v=20261124a"></script>
+<script src="pp-clinical.js?v=20261124a"></script>
+<script src="pp-dental.js?v=20261124a"></script>
+<script src="pp-denture.js?v=20261124a"></script>
+<script src="pp-denture-svc.js?v=20261124a"></script>
+<script src="pp-followup.js?v=20261124a"></script>
+<script src="pp-plan.js?v=20261124a"></script>
+<script src="pp-timeline.js?v=20261124a"></script>
+<script src="pp-appt.js?v=20261124a"></script>
+<script src="pp-core.js?v=20261124a"></script>
+<script src="pp-extras.js?v=20261124a"></script>
+<script src="pp-intake.js?v=20261124a"></script>
+<script src="pp-portal.js?v=20261124a"></script>
+<script src="pp-consent.js?v=20261124a"></script>
+<script src="xray-viewer.js?v=20261124a"></script>
+<script src="pp-xray.js?v=20261124a"></script>
+<link rel="stylesheet" href="patient-profile.css?v=20261124a">
 <style>
 /* v270: رأسُ البطاقة للمريض ثنائي العملة — سطرٌ لكل طبقة بوسمه ولونه (كانت الطبقة
    الثانية مخفيّةً بتلميحِ hover لا يراه أحد). صفحيٌّ عمداً لا في patient-profile.css. */
@@ -84,7 +84,7 @@
 :root[data-theme="light"] .perio-arch-title.perio-arch-lower{border-top:2px dashed #7d8fa6;}   /* v345: أوضح بالفاتح */
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261123a">
+<link rel="stylesheet" href="theme.css?v=20261124a">
 </head>
 <body>
 <script>
@@ -3234,6 +3234,7 @@ async function loadAll() {
     .eq('patient_id', patientId);
   teethMap = {};
   teethDx = {}; window.teethDx = teethDx;   /* v605 */
+  if (typeof supReset === 'function') supReset();   /* ج1: السنُّ الزائد */
   if (window.SyDenture) window.SyDenture.reset();   /* M202 */
   (td || []).forEach(ppIngestToothRow);
     })(),
@@ -3890,6 +3891,7 @@ async function toggleHistoryMode(){
     if (liveTeethMapRef) teethMap = liveTeethMapRef;
     liveTeethMapRef = null;
     if (window.SyDenture) window.SyDenture.histEnd();   /* M202: خريطةُ الجهاز الحيّة تعود كما كانت */
+    if (typeof supHistEnd === 'function') supHistEnd();   /* ج1 */
     document.body.classList.remove('hist-on');
     var eb = document.getElementById('examToggleBtn'); if (eb) eb.style.display = '';
     var hb = document.getElementById('histToggleBtn'); if (hb) hb.style.display = '';
@@ -3943,9 +3945,11 @@ function reconstructTeethMapAt(dateStr){
   }
   var map = {};
   if (window.SyDenture) window.SyDenture.histBegin();   /* M202: جهازُ ذلك اليوم يُعاد بناؤه من السجل نفسه */
+  if (typeof supHistBegin === 'function') supHistBegin();   /* ج1: والسنُّ الزائد كذلك */
   Object.keys(state).forEach(function(k){
     var ev = state[k], n = String(ev.tooth_num), s = ev.surface;
     if (window.SyDenture && window.SyDenture.take(ev)) return;   /* M202 */
+    if (typeof supTake === 'function' && supTake(ev)) return;   /* ج1 */
     if (!map[n]) map[n] = {};
     map[n][s] = ev.treatment_key;
     if (!map[n].__status) map[n].__status = {};
@@ -5128,6 +5132,7 @@ async function drawPendingImplantAfterExtraction(tn) {
    الصفحة واستعادةُ «تراجع» بالفحص الأولي (pp-denture.js) — كان جسمَ حلقة المحمّل حرفياً. */
 function ppIngestToothRow(t) {
   if (window.SyDenture && window.SyDenture.take(t)) return;   /* M202: صفُّ الجهاز المتحرك (surface='DENTURE') بخريطته المنفصلة — لا يدخل teethMap */
+  if (typeof supTake === 'function' && supTake(t)) return;   /* ج1: صفُّ وجود السن الزائد (SN) بخريطته المستقلة — لا يدخل teethMap */
   var n = String(t.tooth_num);
   var s = t.surface || 'O';
   if (t.dx_key) { if (!teethDx[n]) teethDx[n] = {}; teethDx[n][s] = t.dx_key; }   /* v605 (M179) */

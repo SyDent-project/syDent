@@ -20,7 +20,7 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('auth.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261123a"></script>
+<script src="theme.js?v=20261124a"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -509,13 +509,13 @@ textarea { resize: vertical; min-height: 80px; }
 }
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261123a">
+<link rel="stylesheet" href="theme.css?v=20261124a">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261123a"></script>
-<script src="sy-modal.js?v=20261123a"></script>
-<script src="pt-reliability.js?v=20261123a"></script>
-<script src="sidebar.js?v=20261123a"></script>
-<script src="ref-pick.js?v=20261123a"></script>
+<script src="supabase-init.js?v=20261124a"></script>
+<script src="sy-modal.js?v=20261124a"></script>
+<script src="pt-reliability.js?v=20261124a"></script>
+<script src="sidebar.js?v=20261124a"></script>
+<script src="ref-pick.js?v=20261124a"></script>
 </head>
 <body>
 <script>
@@ -2841,7 +2841,7 @@ async function loadPrmMeta(){
       .eq('status', 'condition'); }, ['patient_id', 'tooth_num', 'surface']);
     var _wRows = (tw && !tw.error && tw.data) ? tw.data : [];
     if (tw && tw.error) console.warn('prm: تعذّر جلب المراقبات —', tw.error.message || tw.error);
-    //    v590: الحالاتُ السريرية (COND · السنُّ الزائد SXM/SXD) توثيقٌ دائم لا مراقبةٌ بموعد (v430/v580) —
+    //    v590: الحالاتُ السريرية (COND) توثيقٌ دائم لا مراقبةٌ بموعد (v430)، ووجودُ السن الزائد (SN · ج1) ليس مراقبة —
     //    بانرُ بطاقة المريض يستثنيها أصلاً؛ هنا كانت ستظهر «بلا موعد» على كل مريضٍ موسومٍ بحالة.
     _wRows = _wRows.filter(function(r){ return !prmIsClinicalCondSurface(r.surface); });
     // A5: حافة القلع — سن وُسم للمراقبة ثم قُلع يجب ألّا يُستدعى (تكافؤ مع تخطّي
@@ -2921,10 +2921,10 @@ async function loadPrmMeta(){
 
 // A5: فلترة صفوف المراقبة لأسنان قُلعت لاحقاً — نقية وقابلة للاختبار بمعزل.
 // exMap = { patient_id: { tooth_num: 1 } } أو null (⇒ بلا فلترة، تدهور رشيق).
-// ── MIRROR (دلالياً) ── COND_SURFACE + SX بـpp-dental.js: الأسطحُ المحجوزة للحالات السريرية لا للمراقبة
+// ── MIRROR (دلالياً) ── COND_SURFACE + SUP_SURFACE بـpp-dental.js: الأسطحُ المحجوزة للتوثيق لا للمراقبة
 function prmIsClinicalCondSurface(surface) {
   var s = String(surface || '');
-  return s === 'COND' || s === 'SXM' || s === 'SXD';
+  return s === 'COND' || s === 'SN';   /* ج1 (M226): SXM/SXD أُزيلا — السنُّ الزائد سنٌّ مستقل وصفُّ وجوده SN */
 }
 function prmFilterExtractedWatches(rows, exMap) {
   if (!exMap) return rows || [];
