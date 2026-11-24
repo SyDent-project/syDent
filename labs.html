@@ -1678,7 +1678,7 @@ function renderTable() {
     var labArea = (window.SyLabSlip && SyLabSlip.areaOf) ? SyLabSlip.areaOf(lo) : null;
     rows += '<tr class="' + rowClass + (stLine ? ' has-lst' : '') + '">'
       + '<td class="patient-link">' + apptBadge + pLink + (seatLink ? '<div>' + seatLink + '</div>' : '') + '</td>'
-      + '<td>' + (lo.tooth_num ? '<span class="tooth-badge">سن ' + lo.tooth_num + '</span>' : (labArea ? '<span class="tooth-badge lab-area">' + escapeHtml(labArea.text) + '</span>' : '—')) + '</td>'
+      + '<td>' + (lo.tooth_num ? '<span class="tooth-badge">' + escapeHtml(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(lo.tooth_num) : 'سن ' + lo.tooth_num)) + '</span>' : (labArea ? '<span class="tooth-badge lab-area">' + escapeHtml(labArea.text) + '</span>' : '—')) + '</td>'
       + '<td>' + escapeHtml(lo.work_type || '—') + (window.SyLabFiles ? ' ' + SyLabFiles.badge(lo.id) : '') + redoLine + (window.SyLabStatus ? SyLabStatus.note(lo) : '') + '</td>'
       + '<td style="color:var(--text2)">' + escapeHtml(labNm) + '</td>'
       + '<td style="color:var(--text2)">' + escapeHtml(lo.shade || '—') + '</td>'
@@ -1696,7 +1696,7 @@ function renderTable() {
       +   pill
       + '</div>'
       + '<div class="oc-info">'
-      +   '<div><span class="lbl">السن:</span><span class="val">' + (lo.tooth_num || (labArea ? escapeHtml(labArea.text) : '—')) + '</span></div>'
+      +   '<div><span class="lbl">السن:</span><span class="val">' + (lo.tooth_num ? escapeHtml(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(lo.tooth_num) : String(lo.tooth_num))) : (labArea ? escapeHtml(labArea.text) : '—')) + '</span></div>'
       +   '<div><span class="lbl">العمل:</span><span class="val">' + escapeHtml(lo.work_type || '—') + (window.SyLabFiles ? ' ' + SyLabFiles.badge(lo.id) : '') + '</span></div>'
       +   '<div><span class="lbl">المخبر:</span><span class="val">' + escapeHtml(labNm) + '</span></div>'
       +   '<div><span class="lbl">اللون:</span><span class="val">' + escapeHtml(lo.shade || '—') + '</span></div>'

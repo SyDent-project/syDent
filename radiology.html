@@ -292,7 +292,7 @@ function rxRender() {
       + '<div class="rx-thumb">' + thumb + '</div>'
       + '<div class="rx-meta"><div class="rx-pt">' + escapeHtml(rxNames[d.patient_id] || 'مريض') + '</div>'
       + '<div class="rx-sub"><span>' + escapeHtml(rxDate(d.created_at)) + '</span>'
-      + (d.tooth_num ? '<span class="rx-chip">سن ' + escapeHtml(d.tooth_num) + '</span>' : '')
+      + (d.tooth_num ? '<span class="rx-chip">' + escapeHtml(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(d.tooth_num) : 'سن ' + d.tooth_num)) + '</span>' : '')
       + '</div></div></button>';
   });
   area.innerHTML = html + '</div>';
@@ -322,7 +322,7 @@ async function rxOpen(i) {
   if (!rxIsImg(d)) { window.open(url, '_blank', 'noopener'); return; }
   rxIdx = i;
   document.getElementById('rxVName').textContent = rxNames[d.patient_id] || 'مريض';
-  document.getElementById('rxVSub').textContent = rxDate(d.created_at) + (d.tooth_num ? ' · السن ' + d.tooth_num : '') + (d.note ? ' · ' + d.note : '');
+  document.getElementById('rxVSub').textContent = rxDate(d.created_at) + (d.tooth_num ? ' · ' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(d.tooth_num) : 'السن ' + d.tooth_num) : '') + (d.note ? ' · ' + d.note : '');
   document.getElementById('rxVProfile').href = 'patient-profile.html?id=' + encodeURIComponent(d.patient_id);
   document.getElementById('rxVDownload').href = url;
   document.getElementById('rxVImg').src = url;

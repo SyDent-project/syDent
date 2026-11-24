@@ -79,7 +79,7 @@ async function suite(F) {
   ok(/screenPortal\(\);\n    loadXrays\(\);   \/\* M193/.test(P) && !/^document\.addEventListener/m.test(P), 'page: X-rays load after the page (never delay it) · no global listeners');
   const sx = fnSrc(P, 'function sectionXrays(){'), xrf = fnSrc(P, 'function xrFresh(){');
   const c = { esc: s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'), fmtYmd: s => s, Date, String, Array, XR: null, XR_TYPES: { bitewing: 'مجنّحة' } };
-  vm.createContext(c); vm.runInContext(xrf + sx, c);
+  vm.createContext(c); vm.runInContext(['function ptSupPlace(n){', 'function ptToothNum(t){'].map(g => fnSrc(P, g)).join('\n') + xrf + sx, c);   /* ج2: أسنانُ الصورة الزائدة باسمها */
   const sec = xr => { c.XR = xr; return vm.runInContext('sectionXrays()', c); };
   const now = Date.now();
   ok(sec(null) === '' && sec({ loading: true }) === '' && sec({ off: true }) === '' && sec({ err: true }) === '' && sec({ items: [], at: now, ttl: 900000 }) === '', 'page: no section unless images were shared');

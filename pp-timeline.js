@@ -289,7 +289,7 @@ function renderTimelineRow(e) {
       : null;
     var toothPart;
     if (s.tooth_num) {
-      toothPart = ' — السن ' + escapeHtml(String(s.tooth_num)) + (surfaceShown ? ' (' + escapeHtml(String(surfaceShown)) + ')' : '');
+      toothPart = ' — ' + escapeHtml(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(s.tooth_num) : 'السن ' + s.tooth_num)) + (surfaceShown ? ' (' + escapeHtml(String(surfaceShown)) + ')' : '');
     } else if (s.quadrant && QUADRANT_LABELS[s.quadrant]) {
       // Phase 3 Feature G: regional session in timeline
       toothPart = ' — ' + escapeHtml(QUADRANT_LABELS[s.quadrant]);
@@ -353,7 +353,7 @@ function renderTimelineRow(e) {
   }
   else if (e.type === 'lab') {
     var lo = e.data;
-    var toothPart2 = lo.tooth_num ? ' — السن ' + escapeHtml(String(lo.tooth_num)) : '';
+    var toothPart2 = lo.tooth_num ? ' — ' + escapeHtml(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(lo.tooth_num) : 'السن ' + lo.tooth_num)) : '';
     title = '🥽 ' + escapeHtml(lo.work_type || 'طلب مخبر') + toothPart2;
     var statBadge3 = '<span class="tl-badge cbadge tone tone-' + e.statusTone + '">' + escapeHtml(e.statusLabel) + '</span>';
     var labPart = e.labName

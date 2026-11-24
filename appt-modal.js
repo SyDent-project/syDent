@@ -189,7 +189,7 @@ function renderApptProcedures(appt) {
       if (s.status === 'planned') statusBadge = '<span class="cbadge tone tone-red" style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">مخطّط</span>';
       else if (s.status === 'completed') statusBadge = '<span class="cbadge tone tone-blue" style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">منجز</span>';
       else statusBadge = '<span style="background:rgba(255,255,255,0.06);color:var(--text2);padding:2px 8px;border-radius:10px;font-size:11px;">' + (s.status||'—') + '</span>';
-      var toothPart = s.tooth_num ? ' • السن ' + s.tooth_num + (s.surface && s.surface !== 'WHOLE' ? '/' + s.surface : '') : '';
+      var toothPart = s.tooth_num ? ' • ' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(s.tooth_num) : 'السن ' + s.tooth_num) + (s.surface && s.surface !== 'WHOLE' ? '/' + s.surface : '') : '';
       // Phase 3 Feature G: show regional area inline (matches the description field)
       if (!s.tooth_num) {
         var QLBL = {'UR':'الربع العلوي الأيمن','UL':'الربع العلوي الأيسر','LL':'الربع السفلي الأيسر','LR':'الربع السفلي الأيمن'};
@@ -259,7 +259,7 @@ function renderApptProcedures(appt) {
     // — show region info instead of tooth number for regional sessions
     var toothPart;
     if (s.tooth_num) {
-      toothPart = ' (سن ' + s.tooth_num + ')';
+      toothPart = ' (' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(s.tooth_num) : 'سن ' + s.tooth_num) + ')';
     } else if (s.quadrant) {
       var QLBL2 = {'UR':'الربع العلوي الأيمن','UL':'الربع العلوي الأيسر','LL':'الربع السفلي الأيسر','LR':'الربع السفلي الأيمن'};
       toothPart = ' (' + (QLBL2[s.quadrant] || s.quadrant) + ')';
@@ -310,7 +310,7 @@ function renderApptLabOrders(appt) {
         ? '<span style="background:rgba(var(--orange-rgb),0.15);color:var(--orange);border:1px solid rgba(var(--orange-rgb),0.4);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;" title="تاريخ الاستحقاق بعد يوم هذا الموعد — قد لا يصل العمل في وقته">⏰ الاستحقاق بعد الموعد</span>'
         : '';
 
-    var toothPart = o.tooth_num ? ' • السن ' + o.tooth_num : '';
+    var toothPart = o.tooth_num ? ' • ' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(o.tooth_num) : 'السن ' + o.tooth_num) : '';
     var dueDate   = o.date_due ? (SyDT.numDate(o.date_due) || '—') : '—';   // v487
     var labLabel  = o.lab_name || '—';
 
@@ -446,7 +446,7 @@ function populateAddPlannedSelectA() {
   planned.forEach(function(s){
     var toothPart;
     if (s.tooth_num) {
-      toothPart = ' (سن ' + s.tooth_num + ')';
+      toothPart = ' (' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(s.tooth_num) : 'سن ' + s.tooth_num) + ')';
     } else if (s.quadrant) {
       var QLBL2 = {'UR':'الربع العلوي الأيمن','UL':'الربع العلوي الأيسر','LL':'الربع السفلي الأيسر','LR':'الربع السفلي الأيمن'};
       toothPart = ' (' + (QLBL2[s.quadrant] || s.quadrant) + ')';
@@ -481,7 +481,7 @@ function renderPendingPP_A() {
     items.forEach(function(s){
       var toothPart = '';
       if (s.tooth_num) {
-        toothPart = ' • السن ' + escapeHtml(String(s.tooth_num)) + (s.surface && s.surface !== 'WHOLE' ? '/' + escapeHtml(s.surface) : '');
+        toothPart = ' • ' + escapeHtml(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(s.tooth_num) : 'السن ' + s.tooth_num)) + (s.surface && s.surface !== 'WHOLE' ? '/' + escapeHtml(s.surface) : '');
       } else if (s.quadrant) {
         var QLBL = {'UR':'الربع العلوي الأيمن','UL':'الربع العلوي الأيسر','LL':'الربع السفلي الأيسر','LR':'الربع السفلي الأيمن'};
         toothPart = ' • ' + (QLBL[s.quadrant] || escapeHtml(s.quadrant));

@@ -731,7 +731,7 @@ function batchUndo() {
   if (!batchSel.length) { showToast('لا شيء للتراجع عنه'); return; }
   var last = batchSel.pop();
   batchSyncUI();
-  showToast('↩️ أُلغي تحديد السن ' + last.n + ' (' + _batchPosLbl(last.n, last.s) + ')');
+  showToast('↩️ أُلغي تحديد السن ' + (typeof toothRef === 'function' ? toothRef(last.n) : last.n) + ' (' + _batchPosLbl(last.n, last.s) + ')');
 }
 
 /* مزامنة الواجهة من batchSel: إبراز خلايا الأسنان + العدّاد + سطر الملخّص */
@@ -769,7 +769,7 @@ function batchSyncUI() {
   if (sm) {
     if (!units.length) { sm.style.display = 'none'; sm.textContent = ''; }
     else {
-      var parts = units.map(function(e){ return e.n + ' ' + _batchPosLbl(e.n, e.s); });
+      var parts = units.map(function(e){ return (typeof toothRef === 'function' ? toothRef(e.n) : e.n) + ' ' + _batchPosLbl(e.n, e.s); });
       sm.textContent = 'الجلسات: ' + parts.join(' · ');
       sm.style.display = 'block';
     }
@@ -781,7 +781,6 @@ function batchSyncUI() {
    حرفياً (examRouteSurface): حشوة = السطح المنقور · جذري = الجذر المنقور ·
    كامل/قلع/زراعة/تاج = السن كاملاً. نقرة ثانية على الموضع نفسه = إلغاء. */
 function batchToggleAt(n, clickedSurface) {
-  if (typeof isSupTooth === 'function' && isSupTooth(n)) { showToast('🩺 السنُّ الزائد خارج التحديد المتعدد — انقره بالوضع العادي'); return; }   /* v580 · ج1: يدخلهما بالإصدار الثاني */
   if (!batchSelectedKey) { showToast('👆 اختر علاجاً من شريط التحديد أولاً'); return; }
   var t = getTreatment(batchSelectedKey);
   if (!t) { showToast('⚠️ العلاج المختار غير موجود'); return; }
@@ -795,7 +794,7 @@ function batchToggleAt(n, clickedSurface) {
     batchSel.splice(idx, 1);
   } else {
     var v = batchAllowed(n, t, s);
-    if (!v.ok) { showToast('⚠️ السن ' + n + ': ' + v.msg); return; }
+    if (!v.ok) { showToast('⚠️ السن ' + (typeof toothRef === 'function' ? toothRef(n) : n) + ': ' + v.msg); return; }
     batchSel.push({ n: n, s: s });
   }
   batchSyncUI();
@@ -833,6 +832,7 @@ function renderBatchPalette() {
    guards, restricted to the four batch target_parts. */
 function batchAllowed(n, t, s) {
   var tp = t.target_part || 'crown';
+  var _sup = (typeof supTxRefusal === 'function') ? supTxRefusal(n, t) : null; if (_sup) return { ok: false, msg: _sup };   /* ج2: السنُّ الزائد — مسندُ نافذة السن نفسه */
   if (typeof txDentitionOk === 'function' && !txDentitionOk(t, n)) return { ok: false, msg: txDentitionMsg(t) };   /* M146 */
   if (isImplant(n)) return { ok: false, msg: 'مزروع' };
   var smN = teethMap[String(n)] || {};
@@ -888,7 +888,7 @@ function batchApply() {
   var bad = [];
   for (var i = 0; i < units.length; i++) {
     var v = batchAllowed(units[i].n, t, units[i].s);
-    if (!v.ok) bad.push(units[i].n + ' (' + v.msg + ')');
+    if (!v.ok) bad.push((typeof toothRef === 'function' ? toothRef(units[i].n) : units[i].n) + ' (' + v.msg + ')');
   }
   if (bad.length) { showToast('⚠️ أسنان غير مؤهلة لهذا العلاج: ' + bad.join('، ')); return; }
   batchOpenApplyModal(t, units);
@@ -916,7 +916,7 @@ function batchOpenApplyModal(t, units) {
   document.getElementById('toothFoot').style.display  = 'flex';
   syncOrthoField();          // batch treatments aren't ortho → keeps the field hidden
   renderBridgeUnitChips();   // hides itself (not a bridge treatment — palette excludes bridges)
-  var posList = units.map(function(e){ return e.n + ' ' + _batchPosLbl(e.n, e.s); });
+  var posList = units.map(function(e){ return (typeof toothRef === 'function' ? toothRef(e.n) : e.n) + ' ' + _batchPosLbl(e.n, e.s); });
   document.getElementById('toothStep2Title').textContent =
     '🦷 ' + t.name + ' — ' + units.length + ' ' + (units.length === 1 ? 'جلسة' : 'جلسات') + ' (' + posList.join('، ') + ')';
   _batchDocPrevCost = null;
@@ -1146,6 +1146,7 @@ function examReviewAt() {
    stay in the normal flow). */
 function examAllowed(n, t) {
   var tp = t.target_part || 'crown';
+  var _sup = (typeof supTxRefusal === 'function') ? supTxRefusal(n, t) : null; if (_sup) return { ok: false, msg: '🦷 ' + _sup };   /* ج2: السنُّ الزائد — مسندُ نافذة السن نفسه */
   if (typeof txDentitionOk === 'function' && !txDentitionOk(t, n)) return { ok: false, msg: '🦷 ' + txDentitionMsg(t) };   /* M146 */
   if (isImplant(n)) return { ok: false, msg: '🔩 سن مزروع — أزل الزراعة من الوضع العادي' };
   var smN = teethMap[String(n)] || {};
@@ -1180,7 +1181,6 @@ async function _examStamp_inner(n, clickedSurface) {
   if (window.SyDentLock && window.SyDentLock.isDoctorAccountInactive && window.SyDentLock.isDoctorAccountInactive()) {
     showToast('🔒 حسابك غير نشط — لا يمكن تسجيل حالات'); return;
   }
-  if (typeof isSupTooth === 'function' && isSupTooth(n)) { showToast('🩺 السنُّ الزائد خارج الفحص الأولي — انقره بالوضع العادي'); return; }   /* ج1: يدخله بالإصدار الثاني */
   if (!examSelectedKey) { showToast('👆 اختر علاجاً من شريط الفحص أولاً'); return; }
   var t = getTreatment(examSelectedKey);
   if (!t) { showToast('⚠️ العلاج المختار غير موجود'); return; }

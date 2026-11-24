@@ -685,7 +685,7 @@ function providerTypePrefix(pt) {
 var __QLBL_PR = {'UR':'علوي يمين','UL':'علوي يسار','LL':'سفلي يسار','LR':'سفلي يمين'};
 var __ALBL_PR = {'U':'الفك العلوي','L':'الفك السفلي'};
 function formatSessionToothCell(s) {
-  if (s.tooth_num) return escapeHtml(String(s.tooth_num));
+  if (s.tooth_num) return escapeHtml(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(s.tooth_num) : String(s.tooth_num)));
   if (s.quadrant && __QLBL_PR[s.quadrant]) return '<span style="font-size:11px;color:var(--text-muted,#8da0bd);">ربع ' + __QLBL_PR[s.quadrant] + '</span>';
   if (s.arch && __ALBL_PR[s.arch]) return '<span style="font-size:11px;color:var(--text-muted,#8da0bd);">' + __ALBL_PR[s.arch] + '</span>';
   return '—';
@@ -2142,7 +2142,7 @@ function buildProviderLedger(d) {
       var nm = s.patient_id ? (patientNames[s.patient_id] || '') : '';
       entries.push({ day: s.date || '', ts: s.created_at || '', id: String(s.id || ''), ord: 1, kind: 'earn',
         label: (s.type || s.description || 'جلسة') + (nm ? ' — ' + nm : ''),
-        sub: pctTxt + ' × ' + fmtSY(s.cost) + (s.tooth_num ? ' · سن ' + s.tooth_num : '') + (s.status === 'planned' ? ' · مخططة' : ''),
+        sub: pctTxt + ' × ' + fmtSY(s.cost) + (s.tooth_num ? ' · ' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(s.tooth_num) : 'سن ' + s.tooth_num) : '') + (s.status === 'planned' ? ' · مخططة' : ''),
         amt: (Number(s.cost) || 0) * pct / 100 });
     });
     if (basis === 'net') {
@@ -2151,7 +2151,7 @@ function buildProviderLedger(d) {
         var d_ = lo.date_sent ? new Date(lo.date_sent) : null;
         var nm = lo.patient_id ? (patientNames[lo.patient_id] || '') : '';
         entries.push({ day: (d_ && !isNaN(d_.getTime())) ? toDay(d_) : '', ts: lo.date_sent || '', id: String(lo.id || ''), ord: 2, kind: 'lab',
-          label: 'خصم مخبر' + (nm ? ' — ' + nm : '') + (lo.tooth_num ? ' · سن ' + lo.tooth_num : ''),
+          label: 'خصم مخبر' + (nm ? ' — ' + nm : '') + (lo.tooth_num ? ' · ' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(lo.tooth_num) : 'سن ' + lo.tooth_num) : ''),
           sub: pctTxt + ' × ' + fmtSY(lo.cost), amt: -((Number(lo.cost) || 0) * pct / 100) });
       });
     }

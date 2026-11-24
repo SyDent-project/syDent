@@ -23,7 +23,7 @@
   function dmy(s) { var p = String(s || '').slice(0, 10).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : ''; }
   function where(s) {
     if (!s) return '';
-    if (s.tooth_num) return 'سن ' + s.tooth_num;
+    if (s.tooth_num) return ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(s.tooth_num) : 'سن ' + s.tooth_num);
     if (s.quadrant && QUAD[s.quadrant]) return QUAD[s.quadrant];
     if (s.arch && ARCH[s.arch]) return ARCH[s.arch];
     return '';

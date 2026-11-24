@@ -374,7 +374,7 @@ function openDismissedCompleteModal(apptId, btnEl) {
     planned.forEach(function(s, idx){
       var area = '';
       if (s.tooth_num) {
-        area = ' • السن ' + s.tooth_num + (s.surface && s.surface !== 'WHOLE' ? '/' + s.surface : '');
+        area = ' • ' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(s.tooth_num) : 'السن ' + s.tooth_num) + (s.surface && s.surface !== 'WHOLE' ? '/' + s.surface : '');
       } else if (s.quadrant && QLBL[s.quadrant]) {
         area = ' • ' + QLBL[s.quadrant];
       } else if (s.arch && ALBL[s.arch]) {
@@ -418,7 +418,7 @@ function openDismissedCompleteModal(apptId, btnEl) {
   if (linkedLabs.length) {
     var labRows = linkedLabs.map(function(o){
       var statusLbl = (o.status === 'received') ? 'تم الاستلام' : (o.status === 'checked' ? 'مراجَع' : 'مُرسل');
-      var toothPart = o.tooth_num ? ' — السن ' + o.tooth_num : '';
+      var toothPart = o.tooth_num ? ' — ' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(o.tooth_num) : 'السن ' + o.tooth_num) : '';
       return '• ' + escapeHtml(o.work_type || 'طلب مخبر') + toothPart + ' (' + statusLbl + ')';
     }).join('<br>');
     labsListEl.innerHTML = labRows;

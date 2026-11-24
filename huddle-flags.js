@@ -228,7 +228,7 @@
       out.push(chip('lime', '🔁 فحص دوري مستحق', 'آخر جلسة مكتملة ' + ltr(dmy(e.recallDue.lastVisit)) + ' — أقدم من فترة الاستدعاء (' + ltr(String(e.recallDue.months)) + ' أشهر): اغتنم زيارته للفحص الدوري', prof));
     if (e.watches.length) {
       var dueN = e.watches.filter(function (w) { return w.due; }).length;
-      var wt = e.watches.slice(0, 8).map(function (w) { return 'السن ' + ltr(String(w.tooth_num)) + (w.surface && w.surface !== 'WHOLE' ? '/' + w.surface : '') + (w.review_at ? ' (مراجعة ' + ltr(dmy(w.review_at)) + (w.due ? ' — مستحقة' : '') + ')' : ' (بلا موعد مراجعة)'); });
+      var wt = e.watches.slice(0, 8).map(function (w) { return (((typeof window !== 'undefined' && window.SyTooth) && window.SyTooth.isSup(w.tooth_num)) ? window.SyTooth.the(w.tooth_num) : 'السن ' + ltr(String(w.tooth_num))) + (w.surface && w.surface !== 'WHOLE' ? '/' + w.surface : '') + (w.review_at ? ' (مراجعة ' + ltr(dmy(w.review_at)) + (w.due ? ' — مستحقة' : '') + ')' : ' (بلا موعد مراجعة)'); });
       if (e.watches.length > 8) wt.push('و' + ltr(String(e.watches.length - 8)) + ' غيرها');
       out.push(chip(dueN ? 'red' : 'gray', '👁 ' + (dueN ? 'مراقبة مستحقة ' + ltr(String(dueN)) : 'مراقبة ' + ltr(String(e.watches.length))), 'أسنان تحت المراقبة — أعد فحصها اليوم: ' + wt.join(' · '), prof));
     }

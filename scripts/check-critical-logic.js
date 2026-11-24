@@ -1841,7 +1841,7 @@ async function runDashFin(sc) {
       if (/id:'cond-supernumerary'/.test(pd) || /cond_store|isSxSurface\(|sxCellsFor\(|condStorageSurface\(|sxState\(|'SXM'|'SXD'/.test(pd)) return false;
       if (!/function isSupTooth\(num\)/.test(pd) || !/function supCode\(host, where\)/.test(pd) || !/function supRowPlan\(arch, isUpper\)/.test(pd)) return false;
       if ((pd.match(/supRowPlan\(/g) || []).length !== 4) return false;   /* التعريف + إطباقي + علوي + سفلي */
-      if (!/if \(isSupTooth\(n\)\) \{\n\s*var _tpSup = t\.target_part/.test(pd)) return false;   /* نافذتُه: لا جسرَ ولا زرعةَ ولا جهازَ عليه */
+      if (!/if \(supTxRefusal\(n, t\)\) return false;/.test(pd) || !/function supTxRefusal\(n, t\)\{/.test(pd)) return false;   /* نافذتُه: لا جسرَ ولا زرعةَ ولا جهازَ عليه — ج2: مسندٌ واحد مع الفحص الأولي والتحديد المتعدد */
       /* v576: التماسُ المفتوح — مسندُ الجار والخطُّ الواحد بالمنظرين؛ وسهمُ الانطمار ذرويٌّ بلا قلبٍ مضاد */
       if (!/function proximalNeighbors\(num, side\)/.test(pd) || !/function condContactSides\(num, sm\)/.test(pd)) return false;
       if ((pd.match(/condContactLineSvg\(/g) || []).length !== 5) return false;   /* التعريف + ٢ وجهي + ٢ إطباقي */

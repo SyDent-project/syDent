@@ -107,7 +107,7 @@
         if (String(s.date || '').slice(0, 10) !== day) return;
         if (s.parent_id) return;   /* M210: جلسةُ المتابعة بلا مال — ليست بنداً بإنتاج اليوم ولا تُعدّ «جلسة منجزة» */
         prod.count++; prod.total += Number(s.cost || 0);
-        prodI.push({ who: nm(N.patients, s.patient_id), pid: s.patient_id || null, what: [s.description, s.tooth_num ? 'سن ' + s.tooth_num : ''].filter(Boolean).join(' · '), note: '', time: null, amount: r2(s.cost || 0) });
+        prodI.push({ who: nm(N.patients, s.patient_id), pid: s.patient_id || null, what: [s.description, s.tooth_num ? ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(s.tooth_num) : 'سن ' + s.tooth_num) : ''].filter(Boolean).join(' · '), note: '', time: null, amount: r2(s.cost || 0) });
       });
       (data.payments || []).forEach(function (p) {
         if (rc(p) !== cur || String(p.date || '').slice(0, 10) !== day) return;

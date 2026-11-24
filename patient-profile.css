@@ -1267,6 +1267,9 @@ html[data-sub-level="read"] .spc-caret,html[data-sub-level="read"] .spc-panel{di
 /* v266: مدخل «جلسة جديدة» — شبكة FDI مصغّرة (تحترم dentitionMode) */
 .nse-grid{direction:rtl;display:flex;flex-direction:column;gap:10px;margin-bottom:12px;}
 .nse-row{display:grid;grid-template-columns:repeat(8,1fr) 10px repeat(8,1fr);gap:4px;align-items:stretch;}
+/* ج2: صفُّ الأسنان الزائدة بنافذة «جلسة جديدة» — أزرارٌ باسمها تلتفّ (لا شبكة FDI) */
+.nse-row.nse-sup{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);}
+.nse-row.nse-sup .nse-t.nse-t-sup{padding:6px 12px;white-space:normal;line-height:1.4;}
 .nse-row.nse-primary{grid-template-columns:repeat(5,1fr) 10px repeat(5,1fr);}
 .nse-mid{width:2px;justify-self:center;border-radius:2px;background:var(--border2,var(--border));}
 /* v737 (قرار المالك 16/11/2026): اتجاهُ الأسنان واحدٌ بكل اللغات — يمينُ المريض يسارَ الشاشة (كمنتقي الأشعة xr-chart). الواجهةُ الإنجليزية تفرض ltr
@@ -1573,6 +1576,10 @@ html[data-sub-level="read"] .wend-chip{cursor:default;}
 .xr-t{width:32px;height:34px;flex:0 0 auto;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;padding:0;}
 .xr-t.on{background:var(--green);border-color:var(--green);color:var(--on-accent);}
 @media (max-width:480px){ .xr-t{width:19px;height:32px;font-size:9.5px;border-radius:6px;} .xr-row{gap:2px;} .xr-mid{margin:0 2px;} }
+/* ج2: صفُّ الأسنان الزائدة بمنتقي أسنان الأشعة — أزرارٌ باسمها تلتفّ (لا عرضَ ثابت) */
+.xr-row.xr-sup{width:100%;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);}
+.xr-t.xr-t-sup{width:auto;min-width:0;height:auto;min-height:32px;padding:4px 10px;font-size:12px;white-space:normal;line-height:1.4;}
+@media (max-width:480px){ .xr-t.xr-t-sup{width:auto;height:auto;font-size:11px;} }
 .xr-quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
 .xr-q{border:1px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:9px;padding:5px 10px;min-height:36px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
 .xr-q.on{background:var(--yellow-soft);border-color:var(--yellow-bd);color:var(--text);}

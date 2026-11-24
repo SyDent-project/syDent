@@ -3315,7 +3315,7 @@ function prmWatchTeeth(ws){
   });
   teeth.sort(function(a, b){ return (+a) - (+b); });
   if (!teeth.length) return '';
-  return (teeth.length === 1 ? 'سن ' : 'الأسنان ') + teeth.join('، ');
+  return (teeth.length === 1 ? 'سن ' : 'الأسنان ') + teeth.map(function(t){ return (typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(t) : t; }).join('، ');   /* ج2: السنُّ الزائد باسمه */
 }
 // A3: تجميع صفوف المراقبة حسب تاريخ المراجعة → [{date, teethTxt}] بترتيب الأقرب أولاً (بلا موعد آخراً)
 function prmWatchByDate(ws){

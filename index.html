@@ -1963,7 +1963,7 @@ async function loadLabOrdersCard(uid, patientsList) {
       +     '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">'
       +       labEsc(lo.work_type || '—')
       +       ((Array.isArray(lo.stages) && lo.stage_idx != null && lo.stages[lo.stage_idx] && lo.stages[lo.stage_idx].n) ? ' · ' + labEsc(lo.stages[lo.stage_idx].n) : '')   /* ج3-ب: المرحلةُ الحالية */
-      +       (lo.tooth_num ? ' — سن ' + labEsc(lo.tooth_num) : '')
+      +       (lo.tooth_num ? ' — ' + labEsc(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(lo.tooth_num) : 'سن ' + lo.tooth_num)) : '')
       +       (lo.lab_name ? ' — ' + labEsc(lo.lab_name) : '')
       +     '</div>'
       +     (dueText ? '<div style="margin-top:3px;">' + dueText + '</div>' : '')
@@ -2587,7 +2587,7 @@ async function recordDashApptTime(apptId, fieldKey, btnEl) {
           var s = plannedList[0];
           var area = '';
           if (s.tooth_num) {
-            area = ' — السن ' + s.tooth_num + (s.surface && s.surface !== 'WHOLE' ? '/' + s.surface : '');
+            area = ' — ' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(s.tooth_num) : 'السن ' + s.tooth_num) + (s.surface && s.surface !== 'WHOLE' ? '/' + s.surface : '');
           }
           var costPart = (typeof s.cost === 'number' || (typeof s.cost === 'string' && s.cost !== ''))
             ? ' — ' + (parseFloat(s.cost) || 0).toLocaleString('en-US') + ' ' + ((typeof SyDentCurBag !== 'undefined') ? SyDentCurBag.lblOf(s.currency) : curLbl())
@@ -2595,7 +2595,7 @@ async function recordDashApptTime(apptId, fieldKey, btnEl) {
           summary = '«' + (s.type || 'علاج') + area + costPart + '»';
         } else {
           var lines = plannedList.slice(0, 5).map(function(ps){
-            var ar = ps.tooth_num ? ' (السن ' + ps.tooth_num + ')' : '';
+            var ar = ps.tooth_num ? ' (' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(ps.tooth_num) : 'السن ' + ps.tooth_num) + ')' : '';
             return '• ' + (ps.type || 'علاج') + ar;
           });
           if (plannedList.length > 5) lines.push('• ... و' + (plannedList.length - 5) + ' علاج آخر');
@@ -2680,11 +2680,11 @@ async function recordDashApptTime(apptId, fieldKey, btnEl) {
         var labSummary;
         if (labsList.length === 1) {
           var lo = labsList[0];
-          var labArea = lo.tooth_num ? ' — السن ' + lo.tooth_num : '';
+          var labArea = lo.tooth_num ? ' — ' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(lo.tooth_num) : 'السن ' + lo.tooth_num) : '';
           labSummary = '«' + (lo.work_type || 'طلب مخبر') + labArea + '»';
         } else {
           var labLines = labsList.slice(0, 5).map(function(lo){
-            var labAr = lo.tooth_num ? ' (السن ' + lo.tooth_num + ')' : '';
+            var labAr = lo.tooth_num ? ' (' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(lo.tooth_num) : 'السن ' + lo.tooth_num) + ')' : '';
             return '• ' + (lo.work_type || 'طلب مخبر') + labAr;
           });
           if (labsList.length > 5) labLines.push('• ... و' + (labsList.length - 5) + ' طلب آخر');

@@ -166,7 +166,7 @@ function renderLabOrders() {
       if (lObj) labDisplay = lObj.name;
     }
     // v328: شارةُ السن بلا انكسار («سن» فوق «35» — صورة المالك).
-    var toothChip = lo.tooth_num ? '<span class="tone tone-lime" style="border-width:1px;border-style:solid;padding:0 5px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;">سن ' + lo.tooth_num + '</span>' : '';
+    var toothChip = lo.tooth_num ? '<span class="tone tone-lime" style="border-width:1px;border-style:solid;padding:0 5px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;">' + escapeHtml(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(lo.tooth_num) : 'سن ' + lo.tooth_num)) + '</span>' : '';
     /* ج3-ب: طلبُ الجهاز المتحرك — فكُّه وأسنانُه مكان شارة السن · v727: صندوقٌ واحد (.lab-area بـtheme.css) يلتفّ نصُّه داخله */
     var _labAr = toothChip ? null : labOrderArea(lo);
     if (_labAr) toothChip = '<span class="tone tone-lime lab-area">' + escapeHtml(_labAr.text) + '</span>';

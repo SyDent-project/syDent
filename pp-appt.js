@@ -367,7 +367,7 @@ function populateAddPlannedSelectPP() {
   unattached.forEach(function(s){
     var toothPart;
     if (s.tooth_num) {
-      toothPart = ' (سن ' + s.tooth_num + ')';
+      toothPart = ' (' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(s.tooth_num) : 'سن ' + s.tooth_num) + ')';
     } else if (s.quadrant) {
       var QLBL2 = {'UR':'الربع العلوي الأيمن','UL':'الربع العلوي الأيسر','LL':'الربع السفلي الأيسر','LR':'الربع السفلي الأيمن'};
       toothPart = ' (' + (QLBL2[s.quadrant] || s.quadrant) + ')';
@@ -407,7 +407,7 @@ function renderApptProcedureListPP() {
       items.forEach(function(s){
         var toothPart = '';
         if (s.tooth_num) {
-          toothPart = ' • السن ' + escapeHtml(String(s.tooth_num)) + (s.surface && s.surface !== 'WHOLE' ? '/' + escapeHtml(s.surface) : '');
+          toothPart = ' • ' + escapeHtml(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(s.tooth_num) : 'السن ' + s.tooth_num)) + (s.surface && s.surface !== 'WHOLE' ? '/' + escapeHtml(s.surface) : '');
         } else if (s.quadrant) {
           var QLBL = {'UR':'الربع العلوي الأيمن','UL':'الربع العلوي الأيسر','LL':'الربع السفلي الأيسر','LR':'الربع السفلي الأيمن'};
           toothPart = ' • ' + (QLBL[s.quadrant] || escapeHtml(s.quadrant));
@@ -454,7 +454,7 @@ function renderApptProcedureListPP() {
       }
       var toothPart2 = '';
       if (s.tooth_num) {
-        toothPart2 = ' • السن ' + escapeHtml(String(s.tooth_num)) + (s.surface && s.surface !== 'WHOLE' ? '/' + escapeHtml(s.surface) : '');
+        toothPart2 = ' • ' + escapeHtml(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(s.tooth_num) : 'السن ' + s.tooth_num)) + (s.surface && s.surface !== 'WHOLE' ? '/' + escapeHtml(s.surface) : '');
       } else if (s.quadrant) {
         var QLBL2 = {'UR':'الربع العلوي الأيمن','UL':'الربع العلوي الأيسر','LL':'الربع السفلي الأيسر','LR':'الربع السفلي الأيمن'};
         toothPart2 = ' • ' + (QLBL2[s.quadrant] || escapeHtml(s.quadrant));
@@ -1139,7 +1139,7 @@ function ppApptLinkedHtml(a) {
   var list = (Array.isArray(sessions) ? sessions : []).filter(function(s){ return s && s.appointment_id === a.id; });
   if (!list.length) return '';
   var shown = list.slice(0, 3).map(function(s){
-    var tooth = s.tooth_num ? ' (س ' + escapeHtml(String(s.tooth_num)) + ')' : '';
+    var tooth = s.tooth_num ? ' (' + escapeHtml(((typeof window !== 'undefined' && window.SyTooth) && window.SyTooth.isSup(s.tooth_num)) ? window.SyTooth.chip(s.tooth_num) : 'س ' + s.tooth_num) + ')' : '';
     var mark = (s.status === 'planned') ? '<span class="appt-sess-planned">مخطّط</span>' : '<span class="appt-sess-done">✓</span>';
     return '<span class="appt-sess">' + mark + escapeHtml(s.type || 'علاج') + tooth + '</span>';
   }).join('');
