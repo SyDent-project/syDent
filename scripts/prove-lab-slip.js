@@ -86,7 +86,7 @@ const MUTANTS = [
   ['prints without a patient', rep('lab-slip.js', "if (!d.patientName) return 'اختر المريض أولاً';", '')],
   ['deciduous chart never used', rep('lab-slip.js', 'var kids = teeth.some(function (t) { return t >= 51; });', 'var kids = false;')],
   ['batch ignored', rep('lab-slip.js', 'var teeth = bt.length > 1 ? bt :', 'var teeth =')],
-  ['invalid teeth kept', rep('lab-slip.js', 'n % 10 >= 1 && n % 10 <= 8 && ', '')],
+  ['invalid teeth kept', rep('lab-slip.js', 'n % 10 >= 1 && n % 10 <= 8) || sup)', 'true) || sup)')],   /* ج2: السنُّ الزائد يُقبل برمزه القانوني وحده */
   ['prefetch every click', rep('lab-slip.js', 'if (clinic || loading || !sb || !uid) return loading;', 'if (!sb || !uid) return loading;')],
   ['slip not isolated in print', rep('theme.css', 'body.lsl-printing > *:not(#lslPrintRoot) { display: none !important; }', '')],
   ['profile header not prefetched', rep('pp-clinical.js', "  if (window.SyLabSlip && currentUser) SyLabSlip.prefetch(window.sb, currentUser.id);   /* v528: ترويسةُ الورقة مسبقاً (print متزامن — iOS) */\n", '')]

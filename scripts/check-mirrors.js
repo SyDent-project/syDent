@@ -2337,7 +2337,7 @@ try {
     'resetTimelineFilters', 'ppConsentOpen', 'ppConsentPrint' /* M219: عرضُ الموافقات وطباعتُها قراءة */, 'pfOpenFile', 'aiPlanCopy', 'aiPlanPrint', 'aiReferralCopy', 'aiReferralPrint', 'aiSeqCopy', 'ppWaComposeCopy', 'labAiCopy', 'labSlipPrint', 'ppApptOpenInCalendar', 'ppMsgSetFilter', 'ppMsgToggle', 'ppIntakeOpenReview', 'ppIntakePrint', 'planRowCtlToggle'];   /* v597: فتحُ لوحة المرحلة/البديل — عرضٌ بحت */
   // حقولٌ وأزرارٌ تعيش داخل نوافذ/أوضاع كتابةٍ مداخلُها مخفية أو محروسة (أو حقول اللثة المقفلة بـreadOnly)
   const PP_INERT = ['toothUnitsChanged', 'draftSetEraserSize', 'pfOnFilesPicked', 'onAdjKindChange', 'sessApptChanged', 'snTplApply', 'snTplGlowSync', 'refTplApply',
-    'onApptPlannedToggle', 'onProviderChange', 'implantApplyTemplate', 'labTplApply', 'onLabApptChange', 'labTplGlowSync', 'waTplApply', 'planRecalc',
+    'onApptPlannedToggle', 'onProviderChange', 'implantApplyTemplate', 'labTplApply', 'labToothHint' /* ج2: عرضٌ بلا كتابة */, 'onLabApptChange', 'labTplGlowSync', 'waTplApply', 'planRecalc',
     'rxApplyTemplate', 'postOpApplyTemplate', 'postOpApplyLibrary', 'onSplitInputChange', 'backToStep1', 'switchTxTab', 'toggleSurfaceChip', 'toggleRootChip',
     'selectAllRootChips', 'pickToothTreatment', 'supOpenPicker', 'supClosePicker' /* ج1: منتقي المكان داخل نافذة السن (مدخلُها محروس) */, 'regQuadToggle', 'regQuadAll', 'regArchToggle', 'regArchAll', 'bridgeExtraAdj', 'nsePick',
     'perioPdInput', 'perioPdKey', 'perioRecInput', 'perioMobInput',
@@ -2471,7 +2471,7 @@ try {
       "write": ["openLabOrderModal", "openLabModal", "labTplSaveCurrent", "labTplDeleteSelected", "labClearDateSent", "labAiDraftOrder", "labAiSaveAndSend", "saveLabOrder", "saveLab", "saveLabPayment", "editLab", "delLab", "advanceLabOrder", "redoLabOrder", "undoLabStage", "editLabOrder", "delLabOrder", "delLabPayment"],
       "guard": [],
       "read": ["applyFilter", "setLabPageSize", "closeModal", "closeLabModal", "openLabStatement", "labAiCopy", "labSlipPrint"],
-      "inert": ["labTplApply", "onLabOrderPatientChange", "onLabOrderAppointmentChange", "labTplGlowSync", "syncLabPaySource"],
+      "inert": ["labTplApply", "onLabOrderPatientChange", "onLabOrderAppointmentChange", "labTplGlowSync", "syncLabPaySource", "labToothHint" /* ج2: اسمُ السن الزائد تحت الحقل — عرضٌ بلا كتابة */],
       "extra": []
     },
     "accounting.html": {

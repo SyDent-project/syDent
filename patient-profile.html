@@ -1445,7 +1445,8 @@
       <div class="form-row">
         <div class="form-group">
           <label>رقم السن</label>
-          <input type="number" id="labOrderTooth" placeholder="مثال: 36" min="11" max="85">
+          <input type="number" id="labOrderTooth" placeholder="مثال: 36" min="11" max="85" oninput="labToothHint()">
+          <div id="labOrderToothName" class="lab-tooth-name" hidden></div>
           <!-- M86-lab: batch context — one lab order per tooth; the field is locked
                and the actual teeth are listed here (cost is entered PER tooth). -->
           <div id="labOrderBatchHint" style="display:none;font-size:11px;color:var(--text2);margin-top:6px;line-height:1.6;"></div>
@@ -5262,7 +5263,7 @@ async function _completeSessionFromProfile_inner(sessionId) {
   var toothPart = '';
   if (sess.tooth_num) {
     var surfLbl = (sess.surface && sess.surface !== 'WHOLE') ? ' / ' + surfLabelFor(sess.surface, sess.tooth_num) : '';
-    toothPart = '\nالسن: ' + sess.tooth_num + surfLbl;
+    toothPart = '\nالسن: ' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(sess.tooth_num) : sess.tooth_num) + surfLbl;   /* ج2 */
   } else if (sess.quadrant && QUADRANT_LABELS[sess.quadrant]) {
     toothPart = '\nالنطاق: ' + QUADRANT_LABELS[sess.quadrant];
   } else if (sess.arch && ARCH_LABELS[sess.arch]) {
@@ -5280,7 +5281,7 @@ async function _completeSessionFromProfile_inner(sessionId) {
   if (_rivals.length) {
     msg = '🔀 هذا البند من «الخيار ' + PLAN_OPTION_LABELS[planOptOf(sess)] + '» — إنجازُه يعني اعتماد هذا الخيار.\n'
         + 'سيُحذف ' + _rivals.length + ' بند مخطّط من الخيارات الأخرى:\n'
-        + _rivals.map(function(x){ return '   – ' + (x.type || '') + (x.tooth_num ? ' (سن ' + x.tooth_num + ')' : '') + ' [' + PLAN_OPTION_LABELS[planOptOf(x)] + ']'; }).join('\n')
+        + _rivals.map(function(x){ return '   – ' + (x.type || '') + (x.tooth_num ? ' (' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(x.tooth_num) : 'سن ' + x.tooth_num) + ')' : '') + ' [' + PLAN_OPTION_LABELS[planOptOf(x)] + ']'; }).join('\n')
         + '\n\n' + msg;
   }
   if (!await SyDialog.confirm({ message: msg, danger: _rivals.length > 0 })) return;   /* M145-h: اعتمادٌ يحذف بدائل ⇒ نمط الخطر */

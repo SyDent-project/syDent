@@ -7676,3 +7676,13 @@ window.SyTooth = (function () {
     list: function (str) { return String(str == null ? '' : str).replace(/\d{3}/g, function (m) { return isSup(m) ? 'زائد ' + place(m) : m; }); }
   };
 })();
+/* ج2: حقلُ «رقم السن» بنافذة طلب المخبر (بطاقة المريض · صفحة المخابر) يحمل الرمز كما يُحفظ — سطرٌ تحته يسمّي السنَّ الزائد */
+window.labToothHint = function () {
+  var i = document.getElementById('labOrderTooth'), o = document.getElementById('labOrderToothName');
+  if (!i || !o) return;
+  var v = String(i.value || '').trim(), sup = window.SyTooth && window.SyTooth.isSup(v);
+  if (i.getAttribute('data-max0') === null) i.setAttribute('data-max0', i.getAttribute('max') || '');
+  if (sup) i.removeAttribute('max'); else if (i.getAttribute('data-max0')) i.setAttribute('max', i.getAttribute('data-max0'));   /* سهما الحقل لا يقصّان الرمز إلى 48/85 */
+  o.textContent = sup ? window.SyTooth.chip(v) : '';   /* النصُّ وحده (الأيقونةُ بـCSS) — تترجمه الإنكليزية كاملاً */
+  o.hidden = !sup;
+};

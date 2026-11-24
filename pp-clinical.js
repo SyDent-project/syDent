@@ -513,6 +513,7 @@ function labTplApply(tid){
     /* حقن سطر السن من الحالة الحالية (labAiTeeth يغطي دفعة التحديد
        المتعدد) بعد سطر نوع العمل إن وُجد — القالب خُزّن بلا سطر سن. */
     var curTeeth = (typeof labAiTeeth === 'function') ? labAiTeeth() : '';
+    if (curTeeth && (typeof window !== 'undefined' && window.SyTooth)) curTeeth = window.SyTooth.list(curTeeth);   /* ج2: السنُّ الزائد باسمه بنصّ الأمر */
     if (curTeeth) {
       var lines2 = atxt.split('\n');
       var wtIdx = -1;
@@ -694,6 +695,7 @@ async function openLabOrderModal(prefill) {
   if (nDate) nDate.value = '';
   if (nTime) nTime.value = '';
   document.getElementById('labOrderTooth').value = prefill.tooth_num || '';
+  labToothHint();
   document.getElementById('labOrderShade').value = '';
   document.getElementById('labOrderCost').value = '';
   /* M127: الافتراضُ يتبع الواقع السريري — علاجٌ ما زال مخطّطاً يعني أن الطبعة
@@ -803,6 +805,7 @@ async function editLabOrder(id) {
   if (nDate2) nDate2.value = '';
   if (nTime2) nTime2.value = '';
   document.getElementById('labOrderTooth').value = lo.tooth_num || '';
+  labToothHint();
   document.getElementById('labOrderShade').value = lo.shade || '';
   document.getElementById('labOrderCost').value = lo.cost || '';
   // M125: التعديل يبدأ بعملة الطلب المحفوظة لا بعملة العيادة —
@@ -2802,6 +2805,7 @@ async function labAiDraftOrder() {
   var wtOpt = wtSel && wtSel.selectedIndex >= 0 ? wtSel.options[wtSel.selectedIndex] : null;
   var wtName = wtOpt ? String(wtOpt.textContent || '').trim() : '';
   var tooth = labAiTeeth();
+  if (tooth && (typeof window !== 'undefined' && window.SyTooth)) tooth = window.SyTooth.list(tooth);   /* ج2: السنُّ الزائد باسمه للصياغة */
   var shade = document.getElementById('labOrderShade').value.trim();
   var rawNotes = document.getElementById('labOrderNotes').value.trim();
   var dueDate = document.getElementById('labOrderDateDue').value.trim();
