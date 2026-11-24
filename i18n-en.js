@@ -4268,13 +4268,31 @@ if (window.SyI18nPatterns) window.SyI18nPatterns.push(
     'موجودٌ هنا': 'Already here',
     'قُلع — اضغط لإعادته': 'Extracted — tap to restore it',
     'سنٌّ زائد بين سنّين أو وراء آخر سن أو دهليزي/حنكي لهذا السن': 'A supernumerary tooth between two teeth, behind the last tooth, or buccal/palatal to this tooth',
-    '🩺 السنُّ الزائد خارج الفحص الأولي — انقره بالوضع العادي': '🩺 Supernumerary teeth are outside the initial exam — click it in normal mode'
+    '🩺 السنُّ الزائد خارج الفحص الأولي — انقره بالوضع العادي': '🩺 Supernumerary teeth are outside the initial exam — click it in normal mode',
+    /* ج2: أسبابُ رفض علاجٍ على السن الزائد (supTxRefusal — نافذةُ السن والفحصُ الأولي والتحديدُ المتعدد) */
+    'السن الزائد لا يقبل جسراً ولا زرعة': 'a supernumerary tooth takes no bridge or implant',
+    'السن الزائد لا يقبل علاجات موقع القلع': 'a supernumerary tooth takes no extraction-site treatment',
+    'السن الزائد خارج الجهاز المتحرك': 'a supernumerary tooth is outside the removable denture',
+    'التماس المفتوح بين سنَّين بالقوس': 'an open contact is between two arch teeth',
+    'السن الزائد مقلوع': 'the supernumerary tooth is extracted',
+    /* ج2: الاسمُ داخل نصٍّ مركّب («قلع • السن الزائد بين 12 و13/O») — كلُّ قطعةٍ عربية تُترجم وحدها */
+    'السن الزائد بين': 'supernumerary tooth between', 'سن زائد بين': 'supernumerary tooth between', 'زائد بين': 'supernumerary between',
+    'الزائد بين': 'supernumerary between', 'الزائد وحشي': 'supernumerary distal to', 'الزائد دهليزي': 'supernumerary buccal to', 'الزائد حنكي': 'supernumerary palatal to', 'الزائد لساني': 'supernumerary lingual to',
+    'السن الزائد وحشي': 'supernumerary tooth distal to', 'سن زائد وحشي': 'supernumerary tooth distal to', 'زائد وحشي': 'supernumerary distal to',
+    'السن الزائد دهليزي': 'supernumerary tooth buccal to', 'سن زائد دهليزي': 'supernumerary tooth buccal to', 'زائد دهليزي': 'supernumerary buccal to',
+    'السن الزائد حنكي': 'supernumerary tooth palatal to', 'سن زائد حنكي': 'supernumerary tooth palatal to', 'زائد حنكي': 'supernumerary palatal to',
+    'السن الزائد لساني': 'supernumerary tooth lingual to', 'سن زائد لساني': 'supernumerary tooth lingual to', 'زائد لساني': 'supernumerary lingual to'
   });
   var R = function (s) { return new RegExp(s); };
   window.SyI18nPatterns.push(
     [R('^سن زائد ' + PL + '$'), function (m, p) { return cap(sup(p)); }],
     [R('^السن الزائد ' + PL + '$'), function (m, p) { return cap(sup(p)); }],
     [/^مكان السن الزائد حول السن (\d+)$/, 'Where is the supernumerary tooth around tooth $1'],
+    /* ج2: ملخّصُ أسنان الأشعة «الأسنان: 12، زائد بين 12 و13» */
+    [R('^الأسنان: ((?:\\d+|زائد ' + PL + ')(?:، (?:\\d+|زائد ' + PL + '))*)$'), function (m, list) { return 'Teeth: ' + list.split('، ').map(function (x) { var k = /^زائد (.+)$/.exec(x); return k ? 'supernumerary ' + place(k[1]) : x; }).join(', '); }],
+    [R('^⚠️ السن الزائد ' + PL + ': (.+)$'), function (m, p, r) { var D = window.SyI18nDict; return '⚠️ ' + cap(sup(p)) + ': ' + (D[r] != null ? D[r] : r); }],
+    [R('^🦷 (السن الزائد (?:لا يقبل جسراً ولا زرعة|لا يقبل علاجات موقع القلع|خارج الجهاز المتحرك|مقلوع)|التماس المفتوح بين سنَّين بالقوس)$'), function (m, r) { var D = window.SyI18nDict; return '🦷 ' + cap(D[r] || r); }],
+    [R('^↩️ أُلغي تحديد السن الزائد ' + PL + ' \\((.+)\\)$'), function (m, p, q) { var D = window.SyI18nDict; return '↩️ ' + cap(sup(p)) + ' deselected (' + (D[q] != null ? D[q] : q) + ')'; }],
     [R('^✅ أُضيف سن زائد ' + PL + ' — انقره لتسجيل علاجاته$'), function (m, p) { return '✅ Added a ' + sup(p) + ' — click it to record its treatments'; }],
     [R('^✅ أُزيل سن زائد ' + PL + '$'), function (m, p) { return '✅ Removed the ' + sup(p); }],
     [R('^⚠️ يوجد سن زائد ' + PL + ' — واحدٌ بكل مكان$'), function (m, p) { return '⚠️ There is already a ' + sup(p) + ' — one per place'; }],

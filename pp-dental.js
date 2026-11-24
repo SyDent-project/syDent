@@ -5264,14 +5264,7 @@ async function openToothModal(n, surface) {
     /* ج1: السنُّ الزائد سنٌّ كامل (حشوات · لبية · تاج · قلع · حالات) — إلا ما يعوّض سناً مفقوداً أو يمتدّ لأسنانٍ أخرى:
        الجسر · الزرعة · الجهاز المتحرك وخدماته · حافظ المسافة · علاجات السنخ · التماس المفتوح (بين سنّين بالقوس) ·
        وبعد قلعه لا شيء (لا يُعوَّض). */
-    if (isSupTooth(n)) {
-      var _tpSup = t.target_part || 'crown';
-      if (_tpSup === 'bridge' || _tpSup === 'implant' || _tpSup === 'quadrant' || _tpSup === 'arch' || _tpSup === 'mouth') return false;
-      if (t.post_extraction === true || (typeof isSpacerTreatment === 'function' && isSpacerTreatment(t))) return false;
-      if ((window.SyDenture && (window.SyDenture.isTreatment(t) || window.SyDenture.isTp(_tpSup))) || (window.SyDentSvc && window.SyDentSvc.isTreatment(t))) return false;
-      if (t.id === COND_CONTACT_ID) return false;
-      if (isExtracted(n) && !isExtractionPlanned(n)) return false;
-    }
+    if (supTxRefusal(n, t)) return false;   /* مسندٌ واحد مع الفحص الأولي والتحديد المتعدد (pp-modules.js) */
     // M146: علاجٌ «لبنية فقط» لا يُعرض على سنٍّ دائم والعكس — بكل حالات السن
     if (!txDentitionOk(t, n)) return false;
     /* M202: الجهازُ المتحرك هندسةُ فكٍّ لا سنّ. ج2-أ (v717): السنُّ الذي يعوّضه جهازٌ يقبل الزرعةَ والجسر (بديلٌ بالخطة أو زرعةٌ تحت الجهاز) —
@@ -5639,6 +5632,19 @@ function supOpenPicker(n){
 function supClosePicker(){
   var m = document.getElementById('toothModal'); if (m) m.classList.remove('sup-picking');
   if (typeof renderTxTabs === 'function') renderTxTabs();
+}
+/* ج1 · ج2: ما لا يقبله السنُّ الزائد — مسندٌ واحد تقرؤه نافذةُ السن (isAllowed) والفحصُ الأولي (examAllowed) والتحديدُ
+   المتعدد (batchAllowed). null = مسموح (أو ليس سنّاً زائداً). ما يعوّض سناً مفقوداً أو يمتدّ لأسنانٍ أخرى لا يقع عليه،
+   والتماسُ المفتوح حدثٌ بين سنَّين بالقوس، وبعد قلعه المنجز لا شيء (يُعاد من منتقي المكان). */
+function supTxRefusal(n, t){
+  if (!isSupTooth(n) || !t) return null;
+  var tp = t.target_part || 'crown';
+  if (tp === 'bridge' || tp === 'implant' || tp === 'quadrant' || tp === 'arch' || tp === 'mouth') return 'السن الزائد لا يقبل جسراً ولا زرعة';
+  if (t.post_extraction === true || (typeof isSpacerTreatment === 'function' && isSpacerTreatment(t))) return 'السن الزائد لا يقبل علاجات موقع القلع';
+  if ((window.SyDenture && (window.SyDenture.isTreatment(t) || window.SyDenture.isTp(tp))) || (window.SyDentSvc && window.SyDentSvc.isTreatment(t))) return 'السن الزائد خارج الجهاز المتحرك';
+  if (t.id === COND_CONTACT_ID) return 'التماس المفتوح بين سنَّين بالقوس';
+  if (isExtracted(n) && !isExtractionPlanned(n)) return 'السن الزائد مقلوع';
+  return null;
 }
 var supAdd = ppGuarded('supAdd', _supAdd_inner, '⏳');
 async function _supAdd_inner(host, where) {
@@ -6415,6 +6421,21 @@ function nseRender() {
       }
       html += '<button type="button" class="' + cls + '" title="' + ttl + '"' + sty + ' onclick="nsePick(' + n + ')">' + n + '</button>';
     }
+    html += '</div>';
+  }
+  /* ج2: أسنانُ المريض الزائدة (غيرُ المقلوعة) صفٌّ مستقلّ بأسمائها — المدخلُ نفسه (السن ← العلاج ← المنطقة) */
+  var _sup = supCodes().filter(function (c) { return !isExtractionDone(c); }).sort();
+  if (_sup.length) {
+    html += '<div class="nse-row nse-sup">';
+    _sup.forEach(function (c) {
+      var tx = nseToothTx(c), sty = '', cls = 'nse-t nse-t-sup', ttl = '';
+      if (tx) {
+        var col = /^#[0-9a-fA-F]{3,8}$|^var\(--[a-z0-9-]+\)$/.test(String(tx.fill || '')) ? tx.fill : 'var(--green)', pl = getDominantStatus(c) === 'planned';
+        cls += pl ? ' nse-p' : ' nse-tx'; sty = ' style="border-color:' + col + ';box-shadow:inset 0 -3px 0 ' + col + ';"';
+        ttl = (pl ? 'مخطّط: ' : 'عليه علاج: ') + escapeHtml(tx.name || '');
+      }
+      html += '<button type="button" class="' + cls + '" title="' + ttl + '"' + sty + ' onclick="nsePick(' + c + ')">' + escapeHtml(supName(c)) + '</button>';
+    });
     html += '</div>';
   }
   grid.innerHTML = html;   /* أرقامٌ من الثوابت + اسمُ علاجٍ مهرَّب — لا نصّ مستخدم حرّ */
@@ -7206,13 +7227,13 @@ async function _saveToothTreatment_inner() {
       // Re-validate right before writing (chart state may have shifted mid-modal).
       var _bv = batchAllowed(_bn, _bTr || {}, _bSurface);
       if (!_bv.ok) {
-        showToast('⚠️ السن ' + _bn + ' لم يعد مؤهلاً (' + _bv.msg + ') — توقفت الدفعة');
+        showToast('⚠️ السن ' + toothRef(_bn) + ' لم يعد مؤهلاً (' + _bv.msg + ') — توقفت الدفعة');
         _bFailed = true; break;
       }
       /* v600: زرعةٌ على سنٍّ قلعُه مخطّط ⇒ جلسةُ خطةٍ فقط بلا مسحٍ ولا رسم (مرآةُ implantPending بالمودال) */
       var _bSessOnly = _bTp === 'implant' && isExtractionPlanned(_bn) && !isBridgeKey((teethMap[String(_bn)] || {}).PONTIC);
       if (_bSessOnly && pendingTreatStatus !== 'planned') {
-        showToast('🔩 قلعُ السن ' + _bn + ' ما زال مخطّطاً — الزرعة عليه تُضاف كعلاجٍ مخطّط — توقفت الدفعة');
+        showToast('🔩 قلعُ السن ' + toothRef(_bn) + ' ما زال مخطّطاً — الزرعة عليه تُضاف كعلاجٍ مخطّط — توقفت الدفعة');
         _bFailed = true; break;
       }
       if (_bSessOnly) _bSurface = 'WHOLE';
@@ -7226,7 +7247,7 @@ async function _saveToothTreatment_inner() {
           .eq('tooth_num', String(_bn)).neq('surface', 'DENTURE');   /* M202 */
         if (_bd.error) {
           console.error('batch implant pre-wipe error:', _bd.error);
-          showToast('⚠️ خطأ بالسن ' + _bn + ': ' + _bd.error.message);
+          showToast('⚠️ خطأ بالسن ' + toothRef(_bn) + ': ' + _bd.error.message);
           _bFailed = true; break;
         }
         teethMap[String(_bn)] = {};
@@ -7253,7 +7274,7 @@ async function _saveToothTreatment_inner() {
                          : await upsertTeethStatusWithFallback(_bRow, { onConflict: 'doctor_id,patient_id,tooth_num,surface' });
         if (_br.error) {
           console.error('batch teeth_status save error:', _br.error);
-          showToast('⚠️ خطأ حفظ السن ' + _bn + ': ' + _br.error.message);
+          showToast('⚠️ خطأ حفظ السن ' + toothRef(_bn) + ': ' + _br.error.message);
           _bFailed = true; break;   // M85.2: stop on the first failure (no partial-silent spam)
         }
         if (!teethMap[String(_bn)]) teethMap[String(_bn)] = {};
@@ -7269,7 +7290,7 @@ async function _saveToothTreatment_inner() {
          (completed/planned وحدهما يُنشئان سطراً بالسجل؛ ما عداهما توثيقٌ سريري بلا إنتاجٍ ولا ذمّة). */
       if (pendingTreatStatus !== 'completed' && pendingTreatStatus !== 'planned') { _bCreated++; continue; }
       // Ledger session per tooth — byte-identical fields to the single-tooth path.
-      var _bDesc = 'السن رقم ' + _bn + ' — ' + _bAreaLbl;
+      var _bDesc = (isSupTooth(_bn) ? supName(_bn) : 'السن رقم ' + _bn) + ' — ' + _bAreaLbl;   /* ج2 */
       var _bPay = {
         doctor_id: currentUser.id, patient_id: patientId,
         type: pendingToothLabel, description: _bDesc,
@@ -7283,7 +7304,7 @@ async function _saveToothTreatment_inner() {
       var _bl = await window.sb.from('ledger_sessions').insert(_bPay).select().single();
       if (_bl.error) {
         console.error('batch ledger insert error:', _bl.error);
-        showToast('⚠️ تسجيل جلسة السن ' + _bn + ' فشل: ' + _bl.error.message);
+        showToast('⚠️ تسجيل جلسة السن ' + toothRef(_bn) + ' فشل: ' + _bl.error.message);
         _bFailed = true; break;
       }
       if (_bl.data) _bTookSess(_bl.data, _bn, _bSurface, _bDesc);

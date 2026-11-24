@@ -323,7 +323,7 @@ async function suite(F) {
     ok(/area: /.test(sp) && sp.indexOf("stage: window.SyLabStages ? SyLabStages.forSlip(document.getElementById('labStagesBox'), id ? " + arr + ".find(function (x) { return x.id === id; }) : null) : null") > -1, file + ': the slip gets the location and the requested stage');
   }
   ok(/SyLabSlip\.loadAreas\(window\.sb, currentUser\.id, allOrders\)\s+\.then\(function\(got\)\{ if \(got\) \{ try \{ renderTable\(\); \}/.test(F['labs.html'])
-    && F['labs.html'].indexOf("(labArea ? '<span class=\"tooth-badge lab-area\">' + escapeHtml(labArea.text) + '</span>' : '—')") > -1 && F['labs.html'].indexOf("(lo.tooth_num || (labArea ? escapeHtml(labArea.text) : '—'))") > -1,
+    && F['labs.html'].indexOf("(labArea ? '<span class=\"tooth-badge lab-area\">' + escapeHtml(labArea.text) + '</span>' : '—')") > -1 && F['labs.html'].indexOf("(lo.tooth_num ? escapeHtml(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(lo.tooth_num) : String(lo.tooth_num))) : (labArea ? escapeHtml(labArea.text) : '—'))") > -1   /* ج2: السنُّ الزائد باسمه */,
     'labs.html: denture orders show their jaw and teeth in the tooth cell (table and card) — loaded after the table, escaped');
   ok(/function labOrderArea\(lo\) \{\n  if \(!lo \|\| lo\.tooth_num \|\| !lo\.session_id/.test(F['pp-clinical.js']) && F['pp-clinical.js'].indexOf("var _labAr = toothChip ? null : labOrderArea(lo);") > -1
     && F['pp-clinical.js'].indexOf("' + escapeHtml(_labAr.text) + '</span>';") > -1, 'pp-clinical.js: the same location from the loaded session, in place of the tooth chip — escaped');

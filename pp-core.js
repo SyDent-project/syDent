@@ -112,7 +112,7 @@ function buildPrintHtml(withPrices){
       if (r.diameter !== null && r.diameter !== undefined && r.diameter !== '') _dim += '⌀' + escapeHtml(String(r.diameter));
       if (r.length !== null && r.length !== undefined && r.length !== '') _dim += (_dim ? '×' : '') + escapeHtml(String(r.length));
       html += '<tr>'
-            + '<td style="' + td + '">' + escapeHtml(String(r.tooth_num || '')) + '</td>'
+            + '<td style="' + td + '">' + escapeHtml(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(r.tooth_num || '') : String(r.tooth_num || ''))) + '</td>'
             + '<td style="' + td + '">' + escapeHtml(r.brand || '—') + '</td>'
             + '<td style="' + td + '">' + (_dim || '—') + '</td>'
             + '<td style="' + td + '">' + escapeHtml(r.ref_no || '—') + '</td>'
@@ -134,7 +134,7 @@ function buildPrintHtml(withPrices){
     (sessions || []).slice().sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); }).forEach(function(s){
       html += '<tr>' +
         '<td style="' + td + '">' + escapeHtml(s.date || '') + '</td>' +
-        '<td style="' + td + '">' + escapeHtml(s.tooth_num != null ? String(s.tooth_num) : (((typeof fuIsChild === 'function' && fuIsChild(s)) ? fuWhereText(fuBaseOf(s)) : '') || ((window.SyDenture && window.SyDenture.sessWhere) ? window.SyDenture.sessWhere(s) : '') || '—')) + '</td>' +   /* ج2-ج: الجهازُ بفكّه وأسنانه */
+        '<td style="' + td + '">' + escapeHtml(s.tooth_num != null ? ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(s.tooth_num) : String(s.tooth_num)) : (((typeof fuIsChild === 'function' && fuIsChild(s)) ? fuWhereText(fuBaseOf(s)) : '') || ((window.SyDenture && window.SyDenture.sessWhere) ? window.SyDenture.sessWhere(s) : '') || '—')) + '</td>' +   /* ج2-ج: الجهازُ بفكّه وأسنانه */
         '<td style="' + td + '">' + escapeHtml(s.type || s.description || '—') + '</td>' +
         '<td style="' + td + '">' + escapeHtml(_ppSessionStatusAr(s.status)) + '</td>' +
         '<td style="' + td + '">' + escapeHtml(docMap[s.provider_id] || '—') + '</td>' +
@@ -177,7 +177,7 @@ function buildPrintHtml(withPrices){
             '<th style="' + th + '">السن</th><th style="' + th + '">نوع العمل</th><th style="' + th + '">المخبر</th><th style="' + th + '">الحالة</th></tr></thead><tbody>';
     (labOrders || []).forEach(function(lo){
       html += '<tr>' +
-        '<td style="' + td + '">' + escapeHtml(lo.tooth_num != null ? String(lo.tooth_num) : '—') + '</td>' +
+        '<td style="' + td + '">' + escapeHtml(lo.tooth_num != null ? ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(lo.tooth_num) : String(lo.tooth_num)) : '—') + '</td>' +
         '<td style="' + td + '">' + escapeHtml(lo.work_type || '—') + '</td>' +
         '<td style="' + td + '">' + escapeHtml(lo.lab_name || '—') + '</td>' +
         '<td style="' + td + '">' + escapeHtml(lo.status || '—') + '</td>' +

@@ -360,7 +360,7 @@ function ppWatchTeeth(ws){
   });
   teeth.sort(function(a, b){ return (+a) - (+b); });
   if (!teeth.length) return '';
-  return (teeth.length === 1 ? 'سن ' : 'الأسنان ') + teeth.join('، ');
+  return (teeth.length === 1 ? 'سن ' : 'الأسنان ') + teeth.map(function(t){ return (typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(t) : t; }).join('، ');   /* ج2: السنُّ الزائد باسمه */
 }
 // mirror of prmWatchByDate (patients.html) — group by review_at, nearest first, undated last
 function ppWatchByDate(ws){

@@ -256,7 +256,7 @@ async function _adoptPlanOption_inner(opt, opts) {
   var keep = planned.filter(function(s){ return planOptOf(s) === opt; });
   var msg = 'اعتماد الخيار ' + PLAN_OPTION_LABELS[opt] + '؟\n\n'
     + (drop.length ? '• سيُحذف ' + drop.length + ' بند مخطّط من الخيارات الأخرى:\n'
-        + drop.map(function(s){ return '   – ' + (s.type || '') + (s.tooth_num ? ' (سن ' + s.tooth_num + ')' : (planDentWhere(s) ? ' (' + planDentWhere(s) + ')' : '')) + ' [' + PLAN_OPTION_LABELS[planOptOf(s)] + ']'; }).join('\n') + '\n'
+        + drop.map(function(s){ return '   – ' + (s.type || '') + (s.tooth_num ? ' (' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(s.tooth_num) : 'سن ' + s.tooth_num) + ')' : (planDentWhere(s) ? ' (' + planDentWhere(s) + ')' : '')) + ' [' + PLAN_OPTION_LABELS[planOptOf(s)] + ']'; }).join('\n') + '\n'
       : '• لا بنود بخيارات أخرى للحذف.\n')
     + (keep.length
         ? '• بنود الخيار ' + PLAN_OPTION_LABELS[opt] + ' (' + keep.length + ') تصير جزءاً ثابتاً من الخطة.'
@@ -436,7 +436,7 @@ function planDentWhere(s) { return (window.SyDenture && window.SyDenture.sessWhe
 function planItemName(s) {
   var u = (typeof sessUnitsOf === 'function') ? sessUnitsOf(s) : 1;   /* v425 (M150) */
   var mult = u > 1 ? ' ×' + u : '';
-  var where = s.tooth_num ? ' (' + s.tooth_num + ')'
+  var where = s.tooth_num ? ' (' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(s.tooth_num) : s.tooth_num) + ')'
     : (s.quadrant && typeof QUADRANT_LABELS !== 'undefined' && QUADRANT_LABELS[s.quadrant]) ? ' (' + QUADRANT_LABELS[s.quadrant] + ')'
     : (s.arch && typeof ARCH_LABELS !== 'undefined' && ARCH_LABELS[s.arch]) ? ' (' + (planDentWhere(s) || ARCH_LABELS[s.arch]) + ')' : '';
   return (s.type || 'علاج') + where + mult;
@@ -618,7 +618,7 @@ function planVisitsForPatient() {
       var t = planTreatmentFor(s);
       var disp = t ? getDisplayName(t, true) : (s.type || '—');
       var u = (typeof sessUnitsOf === 'function') ? sessUnitsOf(s) : 1;   /* v425 (M150) */
-      return disp + (s.tooth_num ? ' (سن ' + s.tooth_num + ')' : (planDentWhere(s) ? ' (' + planDentWhere(s) + ')' : '')) + (u > 1 ? ' ×' + u : '');
+      return disp + (s.tooth_num ? ' (' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(s.tooth_num) : 'سن ' + s.tooth_num) + ')' : (planDentWhere(s) ? ' (' + planDentWhere(s) + ')' : '')) + (u > 1 ? ' ×' + u : '');
     });
     var when = (v.bucket === 'planned') ? 'يُحدَّد موعدها لاحقاً' : planVisitWhen(v);
     return { n: v.n, when: when, names: names };
@@ -915,7 +915,7 @@ function stmtAllRows() {
     if ((s.status || 'completed') === 'planned') return;   // المخطّط تقدير — ليس مستحقاً
     if (s.parent_id) return;   // M210: جلسةُ المتابعة بلا مال — ليست حركةً بكشف الحساب
     var label = s.type || s.description || 'جلسة علاج';
-    if (s.tooth_num != null) label += ' (سن ' + s.tooth_num + ')';
+    if (s.tooth_num != null) label += ' (' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(s.tooth_num) : 'سن ' + s.tooth_num) + ')';
     rows.push({ date: s.date || String(s.created_at||'').slice(0,10), ca: s.created_at || '',
                 label: label, note: (s.type && s.description) ? s.description : '',
                 debit: Number(s.cost||0), credit: 0, currency: s.currency });

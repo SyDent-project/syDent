@@ -96,7 +96,7 @@ async function ppConsentLoadKeys() {
 }
 /* حوارُ الموافقة الجديدة — يظهر حيث يعمل الطبيب لحظةَ تخطيط العلاج. مرةً لكل موافقة؛ «لاحقاً» تُبقيها معلَّقةً بالصف. */
 function ppConsentAskText(list) {
-  var nm = function (c) { return '«' + (c.treatment_name || c.title || '') + '»' + (c.teeth ? ' (السن ' + c.teeth + ')' : ''); };
+  var nm = function (c) { return '«' + (c.treatment_name || c.title || '') + '»' + (c.teeth ? ' (السن ' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.list(c.teeth) : c.teeth) + ')' : ''); };
   if (list.length === 1) return 'علاج ' + nm(list[0]) + ' يحتاج موافقة المريض قبل التنفيذ.';
   return list.length + ' علاجات تحتاج موافقة المريض قبل التنفيذ: ' + list.map(nm).join('، ') + '.';
 }
@@ -208,7 +208,7 @@ function ppConsentRenderList() {
       : (c.status === 'void' ? '<span class="tone tone-gray ppc-st">ملغاة</span>' : '<span class="tone tone-yellow ppc-st">✍️ بانتظار التوقيع</span>');
     var meta = [];
     if (c.treatment_name) meta.push('العلاج: ' + c.treatment_name);
-    if (c.teeth) meta.push('السن: ' + c.teeth);
+    if (c.teeth) meta.push('السن: ' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.list(c.teeth) : c.teeth));
     meta.push('أُنشئت ' + ppConsentWhen(c.created_at));
     if (c.status === 'signed') meta.push('وقّعها ' + (c.signer_name || '') + (c.signer_relation ? ' (' + c.signer_relation + ')' : '') + ' — ' + ppConsentWhen(c.signed_at));
     if (c.status === 'void' && c.voided_at) meta.push('أُلغيت ' + ppConsentWhen(c.voided_at));
@@ -258,7 +258,7 @@ async function ppConsentVoid(id) {
     if (typeof window.logAudit === 'function') {
       try {
         window.logAudit('patient.consent_void', { entityType: 'patient', entityId: patientId, patientId: patientId, patientName: patient && patient.name,
-          description: 'إلغاء موافقة معلَّقة: ' + (c.title || '') + (c.teeth ? ' — السن ' + c.teeth : '') });
+          description: 'إلغاء موافقة معلَّقة: ' + (c.title || '') + (c.teeth ? ' — السن ' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.list(c.teeth) : c.teeth) : '') });
       } catch (e2) {}
     }
   } catch (e) {
@@ -285,7 +285,7 @@ async function ppConsentPrint(id) {
   var E = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
   var rows = '<tr><td>المريض</td><td>' + E(patient && patient.name) + '</td></tr>'
     + (c.treatment_name ? '<tr><td>العلاج</td><td>' + E(c.treatment_name) + '</td></tr>' : '')
-    + (c.teeth ? '<tr><td>السن</td><td>' + E(c.teeth) + '</td></tr>' : '');
+    + (c.teeth ? '<tr><td>السن</td><td>' + E(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.list(c.teeth) : c.teeth)) + '</td></tr>' : '');
   var foot = c.status === 'signed'
     ? '<div class="sg"><div class="sl">توقيع ' + E(c.signer_name) + (c.signer_relation ? ' (' + E(c.signer_relation) + ')' : '') + '</div>'
       + (sig ? '<img src="' + sig + '" alt="التوقيع">' : '<div class="ln"></div>')

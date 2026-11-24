@@ -7637,3 +7637,42 @@ window.SyDentWA = (function () {
   }
   return { open: open, toScheme: toScheme, isDesktop: isDesktop, _consts: { FALLBACK_MS: FALLBACK_MS } };
 })();
+
+/* ═══ SyTooth — اسمُ السن بكل المنصة (السن الزائد ج2 · docs/SUPERNUMERARY.md) ═══════════════════════
+   السنُّ الزائد رمزُه مضيف×10+موضع (1 الفراغُ الإنسي · 2 وراء آخر سن · 3 دهليزي · 4 حنكي/لساني)؛ رقمُه
+   لا يُعرض أبداً — اسمُه بمكانه: «سن زائد بين 12 و13» · «سن زائد حنكي 16». أسماءُ FDI بالمضيف (بلا
+   سياق تسنين — المخططُ وحده يسمّي بالمضيف الظاهر، pp-dental.js supPlace). مرآتُه الدلالية:
+   isSupTooth بـpp-dental.js و portal.html (صفحةٌ عامة بلا هذا الملف) — scripts/prove-supernumerary.js. */
+window.SyTooth = (function () {
+  function validHost(h) { var q = Math.floor(h / 10), p = h % 10; return (q >= 1 && q <= 4 && p >= 1 && p <= 8) || (q >= 5 && q <= 8 && p >= 1 && p <= 5); }
+  function isSup(n) {
+    if (n === null || n === undefined || !/^\d{3}$/.test(String(n).trim())) return false;
+    n = parseInt(n, 10); var h = Math.floor(n / 10), p = n % 10, q = Math.floor(h / 10), hp = h % 10;
+    if (p < 1 || p > 4 || !validHost(h)) return false;
+    if (p === 1 && hp === 1 && (q === 2 || q === 3 || q === 6 || q === 7)) return false;
+    if (p === 2 && hp !== (q >= 5 ? 5 : 8)) return false;
+    return true;
+  }
+  function place(n) {
+    n = parseInt(n, 10); var h = Math.floor(n / 10), p = n % 10, q = Math.floor(h / 10), up = (q === 1 || q === 2 || q === 5 || q === 6);
+    if (p === 1) {
+      if (h % 10 === 1) { var t = (q % 2 === 1 ? q + 1 : q - 1) * 10 + 1; return 'بين ' + Math.min(h, t) + ' و' + Math.max(h, t); }
+      return 'بين ' + (h - 1) + ' و' + h;
+    }
+    if (p === 2) return 'وحشي ' + h;
+    if (p === 3) return 'دهليزي ' + h;
+    return (up ? 'حنكي ' : 'لساني ') + h;
+  }
+  function s(n) { return n === null || n === undefined ? '' : String(n).trim(); }
+  return {
+    isSup: isSup, place: place,
+    /* «سن 12» · «سن زائد بين 12 و13» — شارةٌ أو بين قوسين */
+    chip: function (n) { n = s(n); return isSup(n) ? 'سن زائد ' + place(n) : 'سن ' + n; },
+    /* «السن 12» · «السن الزائد بين 12 و13» — داخل جملة */
+    the: function (n) { n = s(n); return isSup(n) ? 'السن الزائد ' + place(n) : 'السن ' + n; },
+    /* «12» · «زائد بين 12 و13» — خانةُ جدولٍ عنوانُها «السن» */
+    num: function (n) { n = s(n); return isSup(n) ? 'زائد ' + place(n) : n; },
+    /* قائمةُ أسنانٍ نصّية «131، 12» (موافقات · وحدات) ⇒ كلُّ رمزٍ زائد باسمه */
+    list: function (str) { return String(str == null ? '' : str).replace(/\d{3}/g, function (m) { return isSup(m) ? 'زائد ' + place(m) : m; }); }
+  };
+})();

@@ -194,8 +194,10 @@ function run(F) {
   const reasons = [...ba.matchAll(/msg: '([^']+)'/g)].map(m => m[1]).concat([...td.matchAll(/'([^']*[\u0600-\u06FF][^']*)'/g)].map(m => m[1]));
   const untr = reasons.filter(r => t('⚠️ السن 16: ' + r) === null || /[\u0600-\u06FF]/.test(t('⚠️ السن 16: ' + r)));
   ok(reasons.length >= 12 && untr.length === 0, 'batch: every eligibility reason the code builds has a translation (' + reasons.length + ')' + (untr.length ? ' — missing: ' + untr.join(' | ') : ''));
-  ok(["'⚠️ السن ' + _bn + ' لم يعد مؤهلاً ('", "'⚠️ خطأ بالسن ' + _bn + ': '", "'⚠️ خطأ حفظ السن ' + _bn + ': '", "'⚠️ تسجيل جلسة السن ' + _bn + ' فشل: '", "'🔩 قلعُ السن ' + _bn + ' ما زال مخطّطاً"].every(x => PDx.includes(x))
-    && ["'⚠️ أسنان غير مؤهلة لهذا العلاج: ' + bad.join('، ')", "bad.push(units[i].n + ' (' + v.msg + ')')", "'↩️ أُلغي تحديد السن ' + last.n + ' ('"].every(x => PMx.includes(x)), 'batch: the error patterns match the strings the code actually builds');
+  /* ج2: رقمُ السن يمرّ بـtoothRef (السنُّ الزائد باسمه «الزائد بين 12 و13»؛ سنُّ FDI رقمُه كما هو ⇒ الأنماطُ \\d+ تبقى صالحة) */
+  ok(["'⚠️ السن ' + toothRef(_bn) + ' لم يعد مؤهلاً ('", "'⚠️ خطأ بالسن ' + toothRef(_bn) + ': '", "'⚠️ خطأ حفظ السن ' + toothRef(_bn) + ': '", "'⚠️ تسجيل جلسة السن ' + toothRef(_bn) + ' فشل: '", "'🔩 قلعُ السن ' + toothRef(_bn) + ' ما زال مخطّطاً"].every(x => PDx.includes(x))
+    && /function toothRef\(n\)\{ return isSupTooth\(n\) \? 'الزائد ' \+ supPlace\(n\) : n; \}/.test(PDx)
+    && ["'⚠️ أسنان غير مؤهلة لهذا العلاج: ' + bad.join('، ')", "bad.push((typeof toothRef === 'function' ? toothRef(units[i].n) : units[i].n) + ' (' + v.msg + ')')", "'↩️ أُلغي تحديد السن ' + (typeof toothRef === 'function' ? toothRef(last.n) : last.n) + ' ('"].every(x => PMx.includes(x)), 'batch: the error patterns match the strings the code actually builds');
   return out;
 }
 

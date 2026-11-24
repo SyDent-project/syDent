@@ -109,7 +109,7 @@
     meta = meta || {};
     return new Promise(function (resolve) {
       var today = ymd(new Date());
-      var sub = [meta.workType || lo.work_type, lo.tooth_num ? ('سن ' + lo.tooth_num) : '', meta.labName].filter(Boolean).map(esc).join(' · ');
+      var sub = [meta.workType || lo.work_type, lo.tooth_num ? ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(lo.tooth_num) : ('سن ' + lo.tooth_num)) : '', meta.labName].filter(Boolean).map(esc).join(' · ');
       var ov = document.createElement('div');
       ov.className = 'modal-overlay sy-m sy-m-sm open sy-dialog lrd-dialog';
       ov.setAttribute('data-sy-kind', 'labredo');

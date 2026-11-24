@@ -20,7 +20,13 @@ const { JSDOM, VirtualConsole } = require('jsdom');
 const SELF = process.argv.includes('--self-test');
 cp.execFileSync('node', [path.join(__dirname, 'dom-smoke', 'build-harness.js')], { stdio: 'ignore' });
 const HARNESS = fs.readFileSync(path.join(__dirname, 'dom-smoke', '.out', 'harness.html'), 'utf8');
-const FILES = ['pp-dental.js', 'pp-modules.js', 'patient-profile.html', 'patients.html', 'patient-profile.css', 'i18n-en.js', 'migrations/226_supernumerary_tooth.sql', 'scripts/validate.sh'];
+const FILES = ['pp-dental.js', 'pp-modules.js', 'patient-profile.html', 'patients.html', 'patient-profile.css', 'i18n-en.js', 'migrations/226_supernumerary_tooth.sql', 'scripts/validate.sh',
+  'supabase-init.js', 'portal.html'];
+/* ج2: مواضعُ عرض السن بالمنصة — كلٌّ يمرّ بـSyTooth (العددُ الأدنى لاستدعاءاته بالملف) */
+const SITES = { 'pp-plan.js': 8, 'pp-timeline.js': 4, 'pp-appt.js': 9, 'pp-core.js': 6, 'pp-clinical.js': 2, 'pp-extras.js': 5, 'pp-consent.js': 8, 'pp-wa.js': 2, 'pp-xray.js': 6,
+  'appt-modal.js': 10, 'appt-followup.js': 2, 'fu-unbooked.js': 2, 'appt-time.js': 4, 'index.html': 10, 'labs.html': 4, 'lab-redo.js': 2, 'radiology.html': 4,
+  'provider-reports.html': 6, 'acc-daysheet.js': 2, 'huddle-flags.js': 3, 'patients.html': 2, 'xray-viewer.js': 4 };   /* عددُ «window.SyTooth» بالملف حرفياً — موضعٌ يعود للرقم الخام يُنقصه */
+Object.keys(SITES).forEach(f => { if (!FILES.includes(f)) FILES.push(f); });
 const LIVE = {}; FILES.forEach(f => { LIVE[f] = fs.readFileSync(path.join(ROOT, f), 'utf8'); });
 
 function boot(F, label) {
@@ -113,9 +119,15 @@ async function measure(F, label) {
   await ev("openToothModal(12,'M')"); ev("supOpenPicker(12)");
   r.pickerRestoresExtracted = ev("(function(){ var d=document.querySelector('.sup-place[data-sup-where=\"D\"]'); return !!d && !d.disabled && d.classList.contains('sup-place-gone') && d.getAttribute('onclick')==='undoExtraction(131)' && /قُلع/.test(d.textContent) && !document.querySelector('#upperJaw [data-tooth-cell=\"131\"]'); })()");
   ev("closeModal('toothModal')");
-  r.batchExamRefuse = (ev("window.__TOASTS.length=0; window.__batchMode=true;"), ev("batchToggleAt(131,'M'); window.__batchMode=false; /خارج التحديد المتعدد/.test(window.__TOASTS.join('|'))"));
-  ev("window.__TOASTS.length=0; examSelectedKey='extracted';"); await ev("examStamp(131,'M')");
-  r.batchExamRefuse = r.batchExamRefuse && ev("/خارج الفحص الأولي/.test(window.__TOASTS.join('|'))");
+  /* ج2: الفحصُ الأولي والتحديدُ المتعدد يقبلانه بمسند نافذة السن نفسه */
+  set({}, ["131"]); ev("renderTeeth()");
+  r.examBatchShared = ev("(function(){ var f=getTreatment('custom_1781292854422'), x=getTreatment('extracted'), oc=getCondition(COND_CONTACT_ID), br=TREATMENTS.filter(function(t){return t.target_part==='bridge';})[0];"
+    + " return examAllowed(131,f).ok && batchAllowed(131,f,'M').ok && examAllowed(131,x).ok && !examAllowed(131,oc).ok && /بين سنَّين/.test(examAllowed(131,oc).msg)"
+    + " && !batchAllowed(131,br,'WHOLE').ok && batchAllowed(12,br,'WHOLE').ok !== undefined && supTxRefusal(12,br)===null && supTxRefusal(131,br)!==null; })()");
+  ev("window.__TOASTS.length=0; window.__WRITES.length=0; examSelectedKey='cond-caries'; examStatus='existing_other';");
+  await ev("examStamp(131,'M')");
+  r.examStamps = ev("(function(){ var w=window.__WRITES.filter(function(x){return x.table==='teeth_status';}); return w.length===1 && w[0].payload.tooth_num==='131' && w[0].payload.surface==='M' && w[0].payload.treatment_key==='cond-caries'; })()");
+  ev("examSelectedKey=null; window.__examMode=false;");
   r.noJsErrors = ev('(window.__ERRORS||[]).length === 0');
   /* ⑥ الملفات */
   const M = F['migrations/226_supernumerary_tooth.sql'], PH = F['patient-profile.html'], PT = F['patients.html'], PD = F['pp-dental.js'], PM = F['pp-modules.js'];
@@ -133,9 +145,28 @@ async function measure(F, label) {
   r.patientsWatch = /return s === 'COND' \|\| s === 'SN';/.test(PT);
   r.optionAGone = !/isSxSurface\(|sxCellsFor\(|condStorageSurface\(|'cond-supernumerary'|'SXM'|'SXD'/.test(PD + PM + PT + PH);
   r.addNotCondition = /treatment_key: SUP_KEY, status: 'existing_current'/.test(PD);
+  r.newSessionLists = /html \+= '<div class="nse-row nse-sup">';/.test(PD) && /onclick="nsePick\(' \+ c \+ '\)">' \+ escapeHtml\(supName\(c\)\)/.test(PD);   /* ج2: «جلسة جديدة» تعرض أسنانَه الزائدة باسمها */
   r.removeSparesDenture = /\.eq\('tooth_num', tn\)\.neq\('surface', 'DENTURE'\);   \/\* M202: نمطُ كلِّ محوٍ بلا سطح \*\//.test(PD);
   r.cssLane = /#upperJaw\.sup-lane > \.tooth-cell\{padding-bottom:56px;\}/.test(F['patient-profile.css']) && /#lowerJaw > \.sup-cell\{align-self:flex-start;\}/.test(F['patient-profile.css']);
   r.gate = /prove-supernumerary\.js" --self-test/.test(F['scripts/validate.sh']);
+  /* ⑦ ج2 — SyTooth: مصدرُ الاسم بالمنصة = رمزُ المخطط حرفياً (كلُّ 0–999) · مرآةُ البوابة العامة · كلُّ موضع عرضٍ يمرّ به */
+  const SI = F['supabase-init.js'], i0 = SI.indexOf('window.SyTooth = (function'), i1 = SI.indexOf('})();', i0) + 5;
+  const sx = { window: {} }; vm.createContext(sx); vm.runInContext(SI.slice(i0, i1), sx); const ST = sx.window.SyTooth;
+  const PO = F['portal.html'], pfs = ['ptSupPlace', 'ptToothNum', 'ptTeethText'].map(n => { const a = PO.indexOf('function ' + n + '('); let d = 0, k = PO.indexOf('{', a); for (; k < PO.length; k++) { if (PO[k] === '{') d++; else if (PO[k] === '}' && !--d) break; } return PO.slice(a, k + 1); });
+  const px = {}; vm.createContext(px); vm.runInContext(pfs.join('\n'), px);
+  const w2 = await boot(F, label + '-st'); w2.eval("dentitionMode='permanent'; flipState={};");
+  let same = true, mirror = true;
+  for (let c = 0; c < 1000; c++) {
+    const a = String(c).padStart(c < 100 ? 2 : 3, '0'), sup = w2.isSupTooth(a);
+    if (sup !== ST.isSup(a)) { same = false; break; }
+    if (sup && c < 500 && (w2.supPlace(a) !== ST.place(a) || ST.chip(a) !== w2.supName(a))) { same = false; break; }   /* المضيفُ الدائم: المخططُ والمنصة بالاسم نفسه (اللبنيُّ يسمّيه المخطط بالظاهر حسب التسنين) */
+    if ((px.ptSupPlace(a) || null) !== (sup ? ST.place(a) : null)) { mirror = false; break; }
+  }
+  w2.close();
+  r.syToothSameAsChart = same && ST.chip('12') === 'سن 12' && ST.the('131') === 'السن الزائد بين 12 و13' && ST.num('164') === 'زائد حنكي 16' && ST.num('45,44') === '45,44'
+    && ST.list('131، 12') === 'زائد بين 12 و13، 12' && ST.the(' 12') === 'السن 12';
+  r.portalMirror = mirror && px.ptTeethText('241، 21') === 'زائد بين 23 و24، 21' && /var _pl = ptSupPlace\(it\.tooth\); return _pl \? 'سن زائد ' \+ esc\(_pl\)/.test(PO);
+  r.sitesUseSyTooth = Object.keys(SITES).every(f => (F[f].match(/window\.SyTooth/g) || []).length === SITES[f]);
   /* الإنكليزية: المحرّكُ الحقيقي يقرأ القاموسَ والأنماط من i18n-en.js */
   const ctx = { window: {} }; vm.createContext(ctx); vm.runInContext(F['i18n-en.js'], ctx);
   const D = ctx.window.SyI18nDict, P = ctx.window.SyI18nPatterns;
@@ -159,14 +190,19 @@ const MUT = [
   ['SN row leaks into teethMap', rep('patient-profile.html', "  if (typeof supTake === 'function' && supTake(t)) return;", "  ")],
   ['remove wipes a denture row', rep('pp-dental.js', ".eq('tooth_num', tn).neq('surface', 'DENTURE');   /* M202: نمطُ كلِّ محوٍ بلا سطح */", ".eq('tooth_num', tn);")],
   ['history not rebuilt', rep('pp-dental.js', "function supHistBegin(){ if (_supLiveRef === null) _supLiveRef = supMap; supMap = {}; }", "function supHistBegin(){ }")],
-  ['bridge offered on a supernumerary', rep('pp-dental.js', "if (_tpSup === 'bridge' || _tpSup === 'implant' ||", "if (")],
+  ['bridge offered on a supernumerary', rep('pp-dental.js', "  if (tp === 'bridge' || tp === 'implant' || tp === 'quadrant' || tp === 'arch' || tp === 'mouth') return 'السن الزائد لا يقبل جسراً ولا زرعة';", "")],
   ['presence saved as a watch', rep('pp-dental.js', "treatment_key: SUP_KEY, status: 'existing_current'", "treatment_key: SUP_KEY, status: 'condition'")],
   ['removed with treatments on it', rep('pp-dental.js', "  if (sess.length || work.length) {", "  if (false) {")],
   ['two in one place', rep('pp-dental.js', "  if (supExists(c)) { showToast(", "  if (false) { showToast(")],
   ['extracted supernumerary still drawn', rep('pp-dental.js', "    if (isExtractionDone(c)) return;   /* قرارُ المالك (24 ت٢)", "    if (false) return;   /* قرارُ المالك (24 ت٢)")],
   ['extracted place cannot be restored', rep('pp-dental.js', "    h += (gone\n", "    h += (false\n")],
+  ['SyTooth midline not normalised', rep('supabase-init.js', "return 'بين ' + Math.min(h, t) + ' و' + Math.max(h, t); }\n      return 'بين ' + (h - 1) + ' و' + h;", "return 'بين ' + h + ' و' + t; }\n      return 'بين ' + (h - 1) + ' و' + h;")],
+  ['portal mirror drifts', rep('portal.html', "  if (p === 3) return 'دهليزي ' + h;\n  return ((q === 1", "  if (p === 3) return 'شدقي ' + h;\n  return ((q === 1")],
+  ['plan line keeps the raw number', rep('pp-plan.js', "    if (s.tooth_num != null) label += ' (' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(s.tooth_num) : 'سن ' + s.tooth_num) + ')';", "    if (s.tooth_num != null) label += ' (سن ' + s.tooth_num + ')';")],
+  ['lab badge keeps the raw number', rep('labs.html', "(lo.tooth_num ? '<span class=\"tooth-badge\">' + escapeHtml(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(lo.tooth_num) : 'سن ' + lo.tooth_num)) + '</span>'", "(lo.tooth_num ? '<span class=\"tooth-badge\">سن ' + lo.tooth_num + '</span>'")],
+  ['multi-select ignores the shared refusal', rep('pp-modules.js', "  var _sup = (typeof supTxRefusal === 'function') ? supTxRefusal(n, t) : null; if (_sup) return { ok: false, msg: _sup };", "  var _sup = null;")],
+  ['initial exam ignores the shared refusal', rep('pp-modules.js', "  var _sup = (typeof supTxRefusal === 'function') ? supTxRefusal(n, t) : null; if (_sup) return { ok: false, msg: '🦷 ' + _sup };", "  var _sup = null;")],
   ['taken place still clickable', rep('pp-dental.js', "'\"' + (taken ? ' disabled' : '') + ' onclick=\"supAdd(", "'\"' + ' onclick=\"supAdd(")],
-  ['multi-select takes it', rep('pp-modules.js', "  if (typeof isSupTooth === 'function' && isSupTooth(n)) { showToast('🩺 السنُّ الزائد خارج التحديد المتعدد", "  if (false) { showToast('🩺 السنُّ الزائد خارج التحديد المتعدد")],
   ['migration keeps SXM', rep('migrations/226_supernumerary_tooth.sql', "'SPACER'::text, 'SOCKET'::text, 'COND'::text, 'SN'::text, 'DENTURE'::text,", "'SPACER'::text, 'SOCKET'::text, 'COND'::text, 'SN'::text, 'SXM'::text, 'DENTURE'::text,")],
   ['migration conversion ≠ UI scheme', rep('migrations/226_supernumerary_tooth.sql', "           ELSE (h + 1) * 10 + 1 END", "           ELSE h * 10 + 2 END")],
   ['english name dropped', rep('i18n-en.js', "if (m) return 'between ' + m[1] + ' and ' + m[2];", "if (m) return p;")],

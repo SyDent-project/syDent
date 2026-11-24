@@ -39,13 +39,20 @@ function xrChartHtml() {
     return '<button type="button" class="xr-t' + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="xrToggleTooth(\'' + n + '\')">' + n + '</button>';
   }
   function row(a, b) { return '<div class="xr-row">' + a.map(btn).join('') + '<span class="xr-mid"></span>' + b.map(btn).join('') + '</div>'; }
-  return '<div class="xr-chart" dir="ltr">' + row(Q.ur, Q.ul) + '<div class="xr-occ"></div>' + row(Q.lr, Q.ll) + '</div>';
+  /* ج2: أسنانُ المريض الزائدة (القائمة غيرُ المقلوعة) صفٌّ مستقلّ بأسمائها — الوسمُ برمزها كأي سن */
+  var sup = (typeof supCodes === 'function' && typeof isExtractionDone === 'function') ? supCodes().filter(function (c) { return !isExtractionDone(c); }).sort() : [];
+  sel.forEach(function (t) { if ((typeof window !== 'undefined' && window.SyTooth) && window.SyTooth.isSup(t) && sup.indexOf(String(t)) === -1) sup.push(String(t)); });   /* وسمٌ قديم لسنٍّ أُزيل يبقى قابلاً للإلغاء */
+  var supRow = sup.length ? '<div class="xr-row xr-sup" dir="rtl">' + sup.map(function (c) {
+    var on = sel.indexOf(String(c)) > -1;
+    return '<button type="button" class="xr-t xr-t-sup' + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="xrToggleTooth(\'' + c + '\')">' + escapeHtml((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(c) : c) + '</button>';
+  }).join('') + '</div>' : '';
+  return '<div class="xr-chart" dir="ltr">' + row(Q.ur, Q.ul) + '<div class="xr-occ"></div>' + row(Q.lr, Q.ll) + supRow + '</div>';
 }
 function xrPaintTeeth() {
   var box = document.getElementById('xrUpTeeth');
   if (box) box.innerHTML = xrChartHtml();
   var sum = document.getElementById('xrUpTeethSum');
-  if (sum) sum.textContent = _xrUp.teeth.length ? ('الأسنان: ' + xrSortTeeth(_xrUp.teeth).join('، ')) : 'بلا أسنان محدّدة (اختياري للبانوراما والسيفالومترية)';
+  if (sum) sum.textContent = _xrUp.teeth.length ? ('الأسنان: ' + xrSortTeeth(_xrUp.teeth).map(function (t) { return (typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(t) : t; }).join('، ')) : 'بلا أسنان محدّدة (اختياري للبانوراما والسيفالومترية)';
   var pr = document.getElementById('xrUpPrimary');
   if (pr) { pr.classList.toggle('on', _xrUp.primary); pr.setAttribute('aria-pressed', _xrUp.primary ? 'true' : 'false'); }
 }

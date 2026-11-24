@@ -281,7 +281,7 @@ function _aiPlanLinesCore(planned){
       isTooth = false;
     } else if (isTooth) {
       var nm = _toothNameAr(s.tooth_num);
-      loc = nm ? (nm + ' (سن ' + s.tooth_num + ')') : ('السن ' + s.tooth_num);
+      loc = ((typeof window !== 'undefined' && window.SyTooth) && window.SyTooth.isSup(s.tooth_num)) ? window.SyTooth.the(s.tooth_num) : nm ? (nm + ' (سن ' + s.tooth_num + ')') : ('السن ' + s.tooth_num);   /* ج2: السنُّ الزائد باسمه */
       area = (s.surface && s.surface !== 'WHOLE' && typeof surfLabelFor === 'function')
         ? surfLabelFor(s.surface, s.tooth_num) : '';
       if (area) loc += ' / ' + area;
@@ -1056,7 +1056,7 @@ function renderPatientFiles(){
       if (_pfToothFilter && teeth.indexOf(_pfToothFilter) < 0) _pfToothFilter = '';
       fbar.style.display = 'flex';
       fsel.innerHTML = '<option value="">الكل</option>' + teeth.map(function(t){
-        return '<option value="' + t + '"' + (t === _pfToothFilter ? ' selected' : '') + '>السن ' + t + '</option>';
+        return '<option value="' + t + '"' + (t === _pfToothFilter ? ' selected' : '') + '>' + escapeHtml(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(t) : 'السن ' + t)) + '</option>';
       }).join('');
     } else {
       fbar.style.display = 'none';

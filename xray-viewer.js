@@ -180,7 +180,7 @@
     var meta = [];
     if (d.xray_type && window.SyDentFiles) meta.push(window.SyDentFiles.XRAY_TYPES[d.xray_type] || '');
     var ts = (d.teeth && d.teeth.length) ? d.teeth : (d.tooth_num ? [d.tooth_num] : []);
-    if (ts.length) meta.push('🦷 ' + ts.join('، '));
+    if (ts.length) meta.push('🦷 ' + ts.map(function (t) { return (typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(t) : t; }).join('، '));
     if (d.taken_at && window.SyDT) meta.push(window.SyDT.numDate(d.taken_at));
     E.meta.textContent = meta.filter(Boolean).join(' · ');
     E.count.textContent = S.docs.length > 1 ? (S.idx + 1) + '/' + S.docs.length : '';
@@ -650,7 +650,7 @@
     meta.push((doc.taken_at && window.SyDT) ? window.SyDT.numDate(doc.taken_at) : (window.SyDT && doc.created_at ? window.SyDT.numDate(doc.created_at) : ''));
     if (doc.xray_type && window.SyDentFiles) meta.push(window.SyDentFiles.XRAY_TYPES[doc.xray_type] || '');
     var ts = (doc.teeth && doc.teeth.length) ? doc.teeth : (doc.tooth_num ? [doc.tooth_num] : []);
-    if (ts.length) meta.push('🦷 ' + ts.join('، '));
+    if (ts.length) meta.push('🦷 ' + ts.map(function (t) { return (typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(t) : t; }).join('، '));
     lab.textContent = meta.filter(Boolean).join(' · ') || (doc.file_name || '');
     lab.title = doc.file_name || '';
     P.stage = el('div', 'xrv-stage'); P.stage.setAttribute('data-tool', 'pan');
