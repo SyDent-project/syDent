@@ -4266,6 +4266,7 @@ if (window.SyI18nPatterns) window.SyI18nPatterns.push(
     'إزالة السن الزائد': 'Remove the supernumerary tooth',
     'رجوع للعلاجات': 'Back to treatments',
     'موجودٌ هنا': 'Already here',
+    'قُلع — اضغط لإعادته': 'Extracted — tap to restore it',
     'سنٌّ زائد بين سنّين أو وراء آخر سن أو دهليزي/حنكي لهذا السن': 'A supernumerary tooth between two teeth, behind the last tooth, or buccal/palatal to this tooth',
     '🩺 السنُّ الزائد خارج الفحص الأولي — انقره بالوضع العادي': '🩺 Supernumerary teeth are outside the initial exam — click it in normal mode'
   });

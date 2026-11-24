@@ -2049,6 +2049,7 @@ function supRowPlan(arch, isUpper){
   var plan = { before: {}, after: {}, lane: {}, laneB: false, laneL: false };
   function push(m, i, c){ (m[i] = m[i] || []).push(c); }
   supCodes().sort().forEach(function(c){
+    if (isExtractionDone(c)) return;   /* قرارُ المالك (24 ت٢): القلعُ المنجز يُخفي السنَّ الزائد — لا شبحَ بين سنّين يوحي بسنٍّ ناقص؛ يبقى بالجلسات والسجل ويُعاد من منتقي المكان */
     var h = supHost(c), qn = normQuad(h);
     if ((qn === 1 || qn === 2) !== !!isUpper) return;
     var p = supPos(c), sh = supShown(h), i = sh ? arch.indexOf(sh) : -1, mr = (qn === 1 || qn === 4);
@@ -3979,7 +3980,7 @@ function addStatusBadges() {
     var sh = c.querySelector('.tooth-shape');
     if (sh && sh.style.opacity) sh.style.opacity = '';
   });
-  var allTeeth = activeUpper().concat(activeLower()).concat(supCodes());   /* ج1: والسنُّ الزائد كأي سن */
+  var allTeeth = activeUpper().concat(activeLower()).concat(supCodes().filter(function(c){ return !isExtractionDone(c); }));   /* ج1: والسنُّ الزائد كأي سن (المقلوعُ مخفي) */
   for (var i=0; i<allTeeth.length; i++) {
     var num = allTeeth[i];
     var sm = teethMap[String(num)] || {};
@@ -5616,11 +5617,13 @@ function supPickerHtml(n){
   var up = (normQuad(n) === 1 || normQuad(n) === 2), h = '';
   [['M', 'إنسي'], ['D', 'وحشي'], ['B', 'دهليزي'], ['L', up ? 'حنكي' : 'لساني']].forEach(function(o){
     var c = supCode(n, o[0]); if (!c) return;
-    var taken = supExists(c);
-    h += '<button type="button" class="topt sup-place" data-sup-where="' + o[0] + '"' + (taken ? ' disabled' : '')
-       + ' onclick="supAdd(' + n + ',\'' + o[0] + '\')">'
+    var taken = supExists(c), gone = taken && isExtractionDone(c);
+    /* مكانٌ قُلع زائدُه (مخفيٌّ بالمخطط) ⇒ الزرُّ يعيده بمسار «إلغاء القلع» نفسه (أسئلةُ الجلسات كما هي) */
+    h += (gone
+          ? '<button type="button" class="topt sup-place sup-place-gone" data-sup-where="' + o[0] + '" onclick="undoExtraction(' + c + ')">'
+          : '<button type="button" class="topt sup-place" data-sup-where="' + o[0] + '"' + (taken ? ' disabled' : '') + ' onclick="supAdd(' + n + ',\'' + o[0] + '\')">')
        + '<span class="sup-place-k">' + o[1] + '</span><span class="sup-place-v">' + escapeHtml(supName(c)) + '</span>'
-       + (taken ? '<span class="sup-place-t">موجودٌ هنا</span>' : '') + '</button>';
+       + (gone ? '<span class="sup-place-t">قُلع — اضغط لإعادته</span>' : taken ? '<span class="sup-place-t">موجودٌ هنا</span>' : '') + '</button>';
   });
   return '<div class="sup-picker"><div class="sup-picker-h">مكان السن الزائد حول السن ' + toothRef(n) + '</div>'
        + '<div class="sup-picker-grid">' + h + '</div>'
