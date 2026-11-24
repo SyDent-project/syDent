@@ -23,9 +23,9 @@ const HARNESS = fs.readFileSync(path.join(__dirname, 'dom-smoke', '.out', 'harne
 const FILES = ['pp-dental.js', 'pp-modules.js', 'patient-profile.html', 'patients.html', 'patient-profile.css', 'i18n-en.js', 'migrations/226_supernumerary_tooth.sql', 'scripts/validate.sh',
   'supabase-init.js', 'portal.html'];
 /* ج2: مواضعُ عرض السن بالمنصة — كلٌّ يمرّ بـSyTooth (العددُ الأدنى لاستدعاءاته بالملف) */
-const SITES = { 'pp-plan.js': 8, 'pp-timeline.js': 4, 'pp-appt.js': 9, 'pp-core.js': 6, 'pp-clinical.js': 2, 'pp-extras.js': 5, 'pp-consent.js': 8, 'pp-wa.js': 2, 'pp-xray.js': 6,
-  'appt-modal.js': 10, 'appt-followup.js': 2, 'fu-unbooked.js': 2, 'appt-time.js': 4, 'index.html': 10, 'labs.html': 4, 'lab-redo.js': 2, 'radiology.html': 4,
-  'provider-reports.html': 6, 'acc-daysheet.js': 2, 'huddle-flags.js': 3, 'patients.html': 2, 'xray-viewer.js': 4 };   /* عددُ «window.SyTooth» بالملف حرفياً — موضعٌ يعود للرقم الخام يُنقصه */
+const SITES = { 'pp-plan.js': 8, 'pp-timeline.js': 4, 'pp-appt.js': 9, 'pp-core.js': 6, 'pp-clinical.js': 6, 'pp-extras.js': 8, 'pp-consent.js': 8, 'pp-wa.js': 2, 'pp-xray.js': 16,
+  'appt-modal.js': 10, 'appt-followup.js': 2, 'fu-unbooked.js': 2, 'appt-time.js': 4, 'index.html': 10, 'labs.html': 8, 'lab-redo.js': 2, 'radiology.html': 4,
+  'provider-reports.html': 6, 'acc-daysheet.js': 2, 'huddle-flags.js': 3, 'patients.html': 2, 'xray-viewer.js': 4, 'lab-slip.js': 4, 'patient-profile.html': 4 };   /* عددُ «window.SyTooth» بالملف حرفياً — موضعٌ يعود للرقم الخام يُنقصه */   /* عددُ «window.SyTooth» بالملف حرفياً — موضعٌ يعود للرقم الخام يُنقصه */
 Object.keys(SITES).forEach(f => { if (!FILES.includes(f)) FILES.push(f); });
 const LIVE = {}; FILES.forEach(f => { LIVE[f] = fs.readFileSync(path.join(ROOT, f), 'utf8'); });
 
@@ -165,6 +165,17 @@ async function measure(F, label) {
   w2.close();
   r.syToothSameAsChart = same && ST.chip('12') === 'سن 12' && ST.the('131') === 'السن الزائد بين 12 و13' && ST.num('164') === 'زائد حنكي 16' && ST.num('45,44') === '45,44'
     && ST.list('131، 12') === 'زائد بين 12 و13، 12' && ST.the(' 12') === 'السن 12';
+  /* مراجعةُ ج2: ورقةُ المخبر تقرأ رمزَ الزائد وتسمّيه (كانت تُسقطه: 11–85 فقط) · حقلُ «رقم السن» يسمّيه ولا يقصّه السهمان */
+  const LS = F['lab-slip.js'];
+  const pt = (() => { const a = LS.indexOf('function parseTeeth('); let d = 0, k = LS.indexOf('{', a); for (; k < LS.length; k++) { if (LS[k] === '{') d++; else if (LS[k] === '}' && !--d) break; } const c2 = { window: { SyTooth: ST } }; vm.createContext(c2); vm.runInContext(LS.slice(a, k + 1), c2); return c2.parseTeeth; })();
+  r.labSlipKeepsSup = JSON.stringify(pt('131، 12')) === '[12,131]' && JSON.stringify(pt('211, 95')) === '[]' && /var _fdi = \(d\.teeth \|\| \[\]\)\.filter\(function \(t\) \{ return t < 100; \}\);/.test(LS)
+    && /esc\(d\.teeth\.map\(function \(t\) \{ return \(typeof window !== 'undefined' && window\.SyTooth\) \? window\.SyTooth\.num\(t\) : t; \}\)\.join\('، '\)\)/.test(LS);
+  const hx = (() => { const a = SI.indexOf('window.labToothHint = function'); return SI.slice(a, SI.indexOf('\n};', a) + 3); })();
+  const mk = (v, max) => { const at = { max: max }; return { value: v, getAttribute: k => (k in at ? at[k] : null), setAttribute: (k, x) => { at[k] = String(x); }, removeAttribute: k => { delete at[k]; }, at }; };
+  const runHint = (v, max) => { const inp = mk(v, max), out = { textContent: '', hidden: true }; const c3 = { window: { SyTooth: ST }, document: { getElementById: id => id === 'labOrderTooth' ? inp : out } }; vm.createContext(c3); vm.runInContext(hx, c3); c3.window.labToothHint(); return { inp, out }; };
+  const h1 = runHint('131', '85'), h2 = runHint('36', '85');
+  r.labToothNamed = h1.out.textContent === 'سن زائد بين 12 و13' && !h1.out.hidden && !('max' in h1.inp.at) && h2.out.hidden && h2.inp.at.max === '85'
+    && (F['patient-profile.html'].match(/oninput="labToothHint\(\)"/g) || []).length === 1 && /<div id="labOrderToothName" class="lab-tooth-name" hidden><\/div>/.test(F['labs.html']);
   r.portalMirror = mirror && px.ptTeethText('241، 21') === 'زائد بين 23 و24، 21' && /var _pl = ptSupPlace\(it\.tooth\); return _pl \? 'سن زائد ' \+ esc\(_pl\)/.test(PO);
   r.sitesUseSyTooth = Object.keys(SITES).every(f => (F[f].match(/window\.SyTooth/g) || []).length === SITES[f]);
   /* الإنكليزية: المحرّكُ الحقيقي يقرأ القاموسَ والأنماط من i18n-en.js */
@@ -202,6 +213,8 @@ const MUT = [
   ['lab badge keeps the raw number', rep('labs.html', "(lo.tooth_num ? '<span class=\"tooth-badge\">' + escapeHtml(((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.chip(lo.tooth_num) : 'سن ' + lo.tooth_num)) + '</span>'", "(lo.tooth_num ? '<span class=\"tooth-badge\">سن ' + lo.tooth_num + '</span>'")],
   ['multi-select ignores the shared refusal', rep('pp-modules.js', "  var _sup = (typeof supTxRefusal === 'function') ? supTxRefusal(n, t) : null; if (_sup) return { ok: false, msg: _sup };", "  var _sup = null;")],
   ['initial exam ignores the shared refusal', rep('pp-modules.js', "  var _sup = (typeof supTxRefusal === 'function') ? supTxRefusal(n, t) : null; if (_sup) return { ok: false, msg: '🦷 ' + _sup };", "  var _sup = null;")],
+  ['lab slip drops the code', rep('lab-slip.js', "      if (((n >= 11 && n <= 85 && n % 10 >= 1 && n % 10 <= 8) || sup) && out.indexOf(n) === -1) out.push(n);", "      if ((n >= 11 && n <= 85 && n % 10 >= 1 && n % 10 <= 8) && out.indexOf(n) === -1) out.push(n);")],
+  ['lab field arrows clip the code', rep('supabase-init.js', "  if (sup) i.removeAttribute('max'); else", "  if (false) i.removeAttribute('max'); else")],
   ['taken place still clickable', rep('pp-dental.js', "'\"' + (taken ? ' disabled' : '') + ' onclick=\"supAdd(", "'\"' + ' onclick=\"supAdd(")],
   ['migration keeps SXM', rep('migrations/226_supernumerary_tooth.sql', "'SPACER'::text, 'SOCKET'::text, 'COND'::text, 'SN'::text, 'DENTURE'::text,", "'SPACER'::text, 'SOCKET'::text, 'COND'::text, 'SN'::text, 'SXM'::text, 'DENTURE'::text,")],
   ['migration conversion ≠ UI scheme', rep('migrations/226_supernumerary_tooth.sql', "           ELSE (h + 1) * 10 + 1 END", "           ELSE h * 10 + 2 END")],

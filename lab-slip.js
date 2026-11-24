@@ -37,7 +37,8 @@
     var out = [];
     String(v == null ? '' : v).split(/[^0-9]+/).forEach(function (x) {
       var n = parseInt(x, 10);
-      if (n >= 11 && n <= 85 && n % 10 >= 1 && n % 10 <= 8 && out.indexOf(n) === -1) out.push(n);
+      var sup = (typeof window !== 'undefined' && window.SyTooth) && window.SyTooth.isSup(x);   /* ج2: السنُّ الزائد برمزه (يُسمّى بالورقة) */
+      if (((n >= 11 && n <= 85 && n % 10 >= 1 && n % 10 <= 8) || sup) && out.indexOf(n) === -1) out.push(n);
     });
     return out.sort(function (a, b) { return a - b; });
   }
@@ -132,7 +133,7 @@
     h += '</div>';
     h += '<table class="lsl-grid"><tbody>';
     h += '<tr><th>نوع العمل</th><td colspan="3"><strong>' + esc(d.workType || '—') + '</strong></td></tr>';
-    h += '<tr><th>الأسنان</th><td colspan="3">' + (d.area ? esc(d.area) : (d.teeth && d.teeth.length ? esc(d.teeth.join('، ')) : '—')) + '</td></tr>';
+    h += '<tr><th>الأسنان</th><td colspan="3">' + (d.area ? esc(d.area) : (d.teeth && d.teeth.length ? esc(d.teeth.map(function (t) { return (typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(t) : t; }).join('، ')) : '—')) + '</td></tr>';
     /* ج3-ب: المرحلةُ المطلوبة من المخبر الآن + تسلسلُ المراحل (المخبر يعرف ما يُعيده لهذه الزيارة) */
     if (d.stage && d.stage.name) {
       h += '<tr><th>المرحلة المطلوبة</th><td colspan="3"><strong>' + esc(d.stage.name) + '</strong>'
@@ -142,7 +143,8 @@
     h += '<tr><th>اللون</th><td>' + esc(d.shade || '—') + '</td><th>تاريخ الإرسال</th><td>' + esc(numDate(d.sent) || '—') + '</td></tr>';
     h += '<tr><th>مطلوب قبل</th><td colspan="3"' + (d.due ? ' class="lsl-due"' : '') + '>' + esc(numDate(d.due) || '—') + '</td></tr>';
     h += '</tbody></table>';
-    if (d.teeth && d.teeth.length) h += chart(d.teeth);
+    var _fdi = (d.teeth || []).filter(function (t) { return t < 100; });   /* ج2: المخططُ لأسنان FDI؛ الزائدُ باسمه بالسطر أعلاه */
+    if (_fdi.length) h += chart(_fdi);
     if (d.notes) h += '<div class="lsl-notes"><div class="lsl-k">تعليمات للمخبر</div><div class="lsl-pre">' + esc(d.notes) + '</div></div>';
     if (d.redo && d.redo.length) {
       var last = d.redo[d.redo.length - 1];

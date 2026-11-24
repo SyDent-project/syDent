@@ -225,7 +225,7 @@ async function xrOpenGallery(o) {
   if ((o.all || (o.tooth && typeof _toothXrayTeeth !== 'undefined' && _toothXrayTeeth[o.tooth])) && xrSoon()) return;
   if (!_pfLoaded) await loadPatientFiles();
   _xrGal.tooth = o.tooth ? String(o.tooth) : null; _xrGal.all = !!o.all; _xrGal.pick = [];
-  document.getElementById('xrGalTitle').textContent = _xrGal.tooth ? ('🦷 صور السن ' + _xrGal.tooth) : '⚖️ اختر صورتين للمقارنة';
+  document.getElementById('xrGalTitle').textContent = _xrGal.tooth ? ('🦷 صور ' + ((typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.the(_xrGal.tooth) : 'السن ' + _xrGal.tooth)) : '⚖️ اختر صورتين للمقارنة';
   xrGalPaint();
   openModal('xrGalModal');
 }
@@ -340,7 +340,7 @@ async function xrUpSubmit() {
     _xrUp.busy = false;
     if (!r0.ok) { showToast('❌ ' + (r0.reason === 'db' ? 'تعذّر حفظ الوسم' : SyDentFiles.message(r0)), true); return; }
     if (window.logAudit) { try { window.logAudit('patient.file_upload', { patientId: patientId, patientName: (patient && patient.name) || null,
-      description: 'تعديل وسم أشعة: ' + (_xrUp.editRow.file_name || '') + ' (' + xrTypeLabel(m.type) + (m.teeth.length ? ' · ' + m.teeth.join('،') : '') + ')' }); } catch (e) {} }
+      description: 'تعديل وسم أشعة: ' + (_xrUp.editRow.file_name || '') + ' (' + xrTypeLabel(m.type) + (m.teeth.length ? ' · ' + m.teeth.map(function (t) { return (typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(t) : t; }).join('،') : '') + ')' }); } catch (e) {} }
     xrUpClose(); showToast('✓ حُفظ الوسم');
     await loadPatientFiles();
     return;
@@ -363,7 +363,7 @@ async function xrUpSubmit() {
     if (r.ok) {
       done++;
       if (window.logAudit) { try { window.logAudit('patient.file_upload', { patientId: patientId, patientName: (patient && patient.name) || null,
-        description: 'رفع أشعة: ' + (f.name || '') + ' (' + xrTypeLabel(m.type) + (m.teeth.length ? ' · السن ' + m.teeth.join('،') : '') + ')' }); } catch (e) {} }
+        description: 'رفع أشعة: ' + (f.name || '') + ' (' + xrTypeLabel(m.type) + (m.teeth.length ? ' · السن ' + m.teeth.map(function (t) { return (typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(t) : t; }).join('،') : '') + ')' }); } catch (e) {} }
     } else {
       failed++;
       console.error('xray upload failed', r);
@@ -600,7 +600,7 @@ async function xrSendCaptureRequest(m) {
   var r = await window.sb.from('capture_requests').insert(row).select().single();
   _xrUp.busy = false;
   if (r.error) { showToast('❌ تعذّر إرسال الطلب — تحقّق من الاتصال', true); console.error('capture request', r.error); xrPaintFiles(); return; }
-  if (window.logAudit) { try { window.logAudit('patient.file_upload', { patientId: patientId, patientName: (patient && patient.name) || null, description: 'طلب التقاط من الجهاز: ' + xrTypeLabel(m.type) + (m.teeth.length ? ' · السن ' + m.teeth.join('،') : '') }); } catch (e) {} }
+  if (window.logAudit) { try { window.logAudit('patient.file_upload', { patientId: patientId, patientName: (patient && patient.name) || null, description: 'طلب التقاط من الجهاز: ' + xrTypeLabel(m.type) + (m.teeth.length ? ' · السن ' + m.teeth.map(function (t) { return (typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(t) : t; }).join('،') : '') }); } catch (e) {} }
   xrUpClose();
   showToast('📡 أُرسل الطلب — صوّر الآن بالحساس، والصورة تصل هنا تلقائياً');
   await xrLoadRequests();
@@ -624,7 +624,7 @@ function xrPaintRequests() {
   bar.innerHTML = _xrReqs.map(function (q) {
     var left = Math.max(0, Math.round((new Date(q.expires_at).getTime() - Date.now()) / 1000));
     return '<div class="pf-capreq" data-id="' + escapeHtml(q.id) + '"><span class="pf-capreq-dot"></span>' +
-      '<span class="pf-capreq-txt">⏳ بانتظار الصورة من الجهاز — ' + escapeHtml(xrTypeLabel(q.xray_type) || 'أشعة') + ((q.teeth || []).length ? ' · السن ' + escapeHtml(q.teeth.join('، ')) : '') + '</span>' +
+      '<span class="pf-capreq-txt">⏳ بانتظار الصورة من الجهاز — ' + escapeHtml(xrTypeLabel(q.xray_type) || 'أشعة') + ((q.teeth || []).length ? ' · السن ' + escapeHtml(q.teeth.map(function (t) { return (typeof window !== 'undefined' && window.SyTooth) ? window.SyTooth.num(t) : t; }).join('، ')) : '') + '</span>' +
       '<span class="pf-capreq-ttl" dir="ltr">' + String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0') + '</span>' +
       '<button type="button" class="sy-act" onclick="xrCancelRequest(\'' + q.id + '\')">إلغاء</button></div>';
   }).join('');

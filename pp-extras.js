@@ -318,7 +318,7 @@ function _aiPlanLinesCore(planned){
         return (a.rank - b.rank) || (a.rank2 - b.rank2) || (a.idx - b.idx);
       });
       var nm = _toothNameAr(n);
-      var head = nm ? (nm + ' (سن ' + n + ')') : ('السن ' + n);
+      var head = ((typeof window !== 'undefined' && window.SyTooth) && window.SyTooth.isSup(n)) ? window.SyTooth.the(n) : nm ? (nm + ' (سن ' + n + ')') : ('السن ' + n);   /* ج2: السنُّ الزائد باسمه بشرح الخطة */
       lines.push('- ' + head + ':');
       var sum = _planBag();
       g.forEach(function(e, k){

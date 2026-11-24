@@ -23,7 +23,7 @@
 /* ── Modal ── v448: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261124c"></script>
+<script src="theme.js?v=20261124d"></script>
 <style>
 :root {
   --bg:        #0a1628;
@@ -570,19 +570,19 @@ a.appt-badge:hover { background: rgba(var(--blue-rgb),0.28) !important; }
 html[data-sub-level="read"] :is([onclick*="openLabOrderModal("],[onclick*="openLabModal("],[onclick*="labTplSaveCurrent("],[onclick*="labTplDeleteSelected("],[onclick*="labClearDateSent("],[onclick*="labAiDraftOrder("],[onclick*="labAiSaveAndSend("],[onclick*="saveLabOrder("],[onclick*="saveLab("],[onclick*="saveLabPayment("],[onclick*="editLab("],[onclick*="delLab("],[onclick*="advanceLabOrder("],[onclick*="redoLabOrder("],[onclick*="undoLabStage("],[onclick*="editLabOrder("],[onclick*="delLabOrder("],[onclick*="delLabPayment("]){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261124c">
+<link rel="stylesheet" href="theme.css?v=20261124d">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261124c"></script>
-<script src="sy-modal.js?v=20261124c"></script>
-<script src="pay-methods.js?v=20261124c"></script>
-<script src="lab-redo.js?v=20261124c"></script>
-<script src="lab-stages.js?v=20261124c"></script>
-<script src="lab-status.js?v=20261124c"></script>
-<script src="lab-shade.js?v=20261124c"></script>
-<script src="lab-due.js?v=20261124c"></script>
-<script src="lab-slip.js?v=20261124c"></script>
-<script src="lab-files.js?v=20261124c"></script>
-<script src="sidebar.js?v=20261124c"></script>
+<script src="supabase-init.js?v=20261124d"></script>
+<script src="sy-modal.js?v=20261124d"></script>
+<script src="pay-methods.js?v=20261124d"></script>
+<script src="lab-redo.js?v=20261124d"></script>
+<script src="lab-stages.js?v=20261124d"></script>
+<script src="lab-status.js?v=20261124d"></script>
+<script src="lab-shade.js?v=20261124d"></script>
+<script src="lab-due.js?v=20261124d"></script>
+<script src="lab-slip.js?v=20261124d"></script>
+<script src="lab-files.js?v=20261124d"></script>
+<script src="sidebar.js?v=20261124d"></script>
 </head>
 <body>
 <script>
@@ -768,7 +768,8 @@ html[data-sub-level="read"] :is([onclick*="openLabOrderModal("],[onclick*="openL
       <div class="form-row">
         <div class="form-group">
           <label>رقم السن</label>
-          <input type="number" id="labOrderTooth" placeholder="مثال: 36" min="11" max="48">
+          <input type="number" id="labOrderTooth" placeholder="مثال: 36" min="11" max="48" oninput="labToothHint()">
+          <div id="labOrderToothName" class="lab-tooth-name" hidden></div>
         </div>
         <div class="form-group">
           <label>نوع العمل</label>
@@ -2001,6 +2002,7 @@ function labTplApply(tid){
     /* حقن سطر السن من الحالة الحالية (labAiTeeth يغطي دفعة التحديد
        المتعدد) بعد سطر نوع العمل إن وُجد — القالب خُزّن بلا سطر سن. */
     var curTeeth = (typeof labAiTeeth === 'function') ? labAiTeeth() : '';
+    if (curTeeth && (typeof window !== 'undefined' && window.SyTooth)) curTeeth = window.SyTooth.list(curTeeth);   /* ج2: السنُّ الزائد باسمه بنصّ الأمر */
     if (curTeeth) {
       var lines2 = atxt.split('\n');
       var wtIdx = -1;
@@ -2123,6 +2125,7 @@ function openLabOrderModal() {
   populateAppointmentSelect('', '');
   populateProviderSelect('');
   document.getElementById('labOrderTooth').value = '';
+  labToothHint();
   document.getElementById('labOrderShade').value = '';
   document.getElementById('labOrderCost').value = '';
   document.getElementById('labOrderDateSent').value = toDay();
@@ -2224,6 +2227,7 @@ async function editLabOrder(id) {
   }
 
   document.getElementById('labOrderTooth').value = lo.tooth_num || '';
+  labToothHint();
   document.getElementById('labOrderShade').value = lo.shade || '';
   document.getElementById('labOrderCost').value = lo.cost || '';
   // M125: التعديل يبدأ بعملة الطلب المحفوظة لا بعملة العيادة —
@@ -3082,6 +3086,7 @@ async function labAiDraftOrder() {
   var wtOpt = wtSel && wtSel.selectedIndex >= 0 ? wtSel.options[wtSel.selectedIndex] : null;
   var wtName = wtOpt ? String(wtOpt.textContent || '').trim() : '';
   var tooth = labAiTeeth();
+  if (tooth && (typeof window !== 'undefined' && window.SyTooth)) tooth = window.SyTooth.list(tooth);   /* ج2: السنُّ الزائد باسمه للصياغة */
   var shade = document.getElementById('labOrderShade').value.trim();
   var rawNotes = document.getElementById('labOrderNotes').value.trim();
   var dueDate = document.getElementById('labOrderDateDue').value.trim();
