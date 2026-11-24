@@ -59,12 +59,12 @@ async function measure(F, label) {
   r.smaller = ev("cellWidth(131)===42 && cellWidth(551)===Math.round(Math.round(60*PRIMARY_TOOTH_SCALE)*0.7) && toothAnatomy(164).cellW===42 && cellWidth(16)===60");
   /* ③ الرسم */
   set({ '131': { M: 'custom_1781292854422', __status: { M: 'completed' } }, '182': { WHOLE: 'extracted', __status: { WHOLE: 'planned' } }, '241': { WHOLE: 'extracted', __status: { WHOLE: 'completed' } } },
-      ['131', '111', '182', '241', '411', '461', '163', '164', '354', '211']);
+      ['131', '111', '182', '241', '251', '411', '461', '163', '164', '354', '211']);
   ev('renderTeeth()');
   const kids = (id) => ev("Array.from(document.getElementById('" + id + "').children).map(function(c){ return c.getAttribute('data-tooth-cell') || c.getAttribute('data-occ-cell') || (c.classList.contains('midline') ? '|' : '?'); })");
   const ku = kids('upperJaw'), kl = kids('lowerJaw'), ko = kids('upperOcc');
   r.betweenRight = ku.indexOf('131') === ku.indexOf('13') - 1 && ko.indexOf('131') === ko.indexOf('13') - 1;   /* الربع 1: الإنسيُّ يميناً = السابقُ بالـDOM (RTL) */
-  r.betweenQuad2 = ku.indexOf('241') === ku.indexOf('24') + 1;                                                  /* الربع 2: الإنسيُّ يساراً = التالي */
+  r.betweenQuad2 = ku.indexOf('251') === ku.indexOf('25') + 1;                                                  /* الربع 2: الإنسيُّ يساراً = التالي */
   r.midline = ku.indexOf('111') === ku.indexOf('|') + 1 && ku.indexOf('11') === ku.indexOf('111') + 1 && kl.indexOf('411') === kl.indexOf('41') - 1;
   r.distalLast = ku.indexOf('182') === ku.length - 1 && ku.indexOf('18') === ku.length - 2 && kl.indexOf('461') === kl.indexOf('46') - 1;
   r.noncanonicalIgnored = ku.indexOf('211') === -1 && ev("!supMap['211'] && !teethMap['211']");
@@ -75,7 +75,8 @@ async function measure(F, label) {
     + " && document.getElementById('lowerOcc').classList.contains('sup-lane-top') && !document.getElementById('lowerOcc').classList.contains('sup-lane-bot')");
   r.fullToothCell = ev("(function(){ var c=document.querySelector('#upperJaw > [data-tooth-cell=\"131\"]'); return !!c && c.classList.contains('sup-cell') && !!c.querySelector('.crown-surface[data-tooth=\"131\"][data-surface=\"M\"]')"
     + " && c.querySelector('svg.tooth-shape').getAttribute('width')==='42' && c.querySelector('.tooth-num').textContent==='+' && c.title==='السن الزائد بين 12 و13' && /fill-opacity/.test(c.innerHTML); })()");
-  r.extractionStates = ev("!!document.querySelector('[data-tooth-cell=\"182\"] .planned-x') && document.querySelector('#upperJaw > [data-tooth-cell=\"241\"]').classList.contains('extract-cell')");
+  /* قرارُ المالك 24 ت٢: المخطّطُ ✕ فوق السن · المنجزُ يُخفيه من المنظرين (لا شبح) ولا شارةَ له */
+  r.extractionStates = ev("!!document.querySelector('[data-tooth-cell=\"182\"] .planned-x') && !document.querySelector('[data-tooth-cell=\"241\"]') && !document.querySelector('[data-occ-cell=\"241\"]') && supExists(241)");
   r.noLaneWhenNone = (set({}, ['131']), ev("renderTeeth(); !document.getElementById('upperJaw').classList.contains('sup-lane') && !document.getElementById('upperOcc').classList.contains('sup-lane-top')"));
   /* ④ الخريطة */
   r.takeSwallows = ev("supReset(); var a=supTake({tooth_num:'131',surface:'SN',status:'existing_current'}), b=supTake({tooth_num:'211',surface:'SN'}), c=supTake({tooth_num:'131',surface:'M'});"
@@ -108,6 +109,10 @@ async function measure(F, label) {
   ev("sessions=[]; teethMap['123']={ COND: 'cond-abscess', __status: { COND: 'condition' } }; window.__WRITES.length=0;");
   await ev("supRemove(123)");
   r.removeDone = ev("(function(){ var w=window.__WRITES.filter(function(x){return x.table==='teeth_status';}); return w.length===1 && w[0].op==='delete' && !supExists(123) && !teethMap['123']; })()");
+  ev("teethMap['131']={ WHOLE: 'extracted', __status: { WHOLE: 'completed' } }; supTake({tooth_num:'131',surface:'SN'}); renderTeeth();");
+  await ev("openToothModal(12,'M')"); ev("supOpenPicker(12)");
+  r.pickerRestoresExtracted = ev("(function(){ var d=document.querySelector('.sup-place[data-sup-where=\"D\"]'); return !!d && !d.disabled && d.classList.contains('sup-place-gone') && d.getAttribute('onclick')==='undoExtraction(131)' && /قُلع/.test(d.textContent) && !document.querySelector('#upperJaw [data-tooth-cell=\"131\"]'); })()");
+  ev("closeModal('toothModal')");
   r.batchExamRefuse = (ev("window.__TOASTS.length=0; window.__batchMode=true;"), ev("batchToggleAt(131,'M'); window.__batchMode=false; /خارج التحديد المتعدد/.test(window.__TOASTS.join('|'))"));
   ev("window.__TOASTS.length=0; examSelectedKey='extracted';"); await ev("examStamp(131,'M')");
   r.batchExamRefuse = r.batchExamRefuse && ev("/خارج الفحص الأولي/.test(window.__TOASTS.join('|'))");
@@ -137,7 +142,7 @@ async function measure(F, label) {
   const tr = (s) => { if (D[s] != null) return D[s]; for (const p of P) if (p[0].test(s)) return s.replace(p[0], p[1]); return null; };
   r.english = tr('سن زائد بين 12 و13') === 'Supernumerary tooth between 12 and 13' && tr('السن الزائد حنكي 16') === 'Supernumerary tooth palatal to 16'
     && tr('سن زائد لساني 46') === 'Supernumerary tooth lingual to 46' && tr('✅ أُضيف سن زائد وحشي 18 — انقره لتسجيل علاجاته') === '✅ Added a supernumerary tooth distal to 18 — click it to record its treatments'
-    && tr('سن زائد') === 'Supernumerary tooth' && tr('إزالة السن الزائد') === 'Remove the supernumerary tooth' && tr('مكان السن الزائد حول السن 12') === 'Where is the supernumerary tooth around tooth 12'
+    && tr('قُلع — اضغط لإعادته') === 'Extracted — tap to restore it' && tr('سن زائد') === 'Supernumerary tooth' && tr('إزالة السن الزائد') === 'Remove the supernumerary tooth' && tr('مكان السن الزائد حول السن 12') === 'Where is the supernumerary tooth around tooth 12'
     && /^The supernumerary tooth between 12 and 13 has recorded treatments \(2\)\./.test(tr('على سن زائد بين 12 و13 علاجاتٌ مسجّلة (2). أزلها أولاً من نافذته، ثم أزل السن الزائد.') || '');
   w.close();
   return r;
@@ -158,7 +163,9 @@ const MUT = [
   ['presence saved as a watch', rep('pp-dental.js', "treatment_key: SUP_KEY, status: 'existing_current'", "treatment_key: SUP_KEY, status: 'condition'")],
   ['removed with treatments on it', rep('pp-dental.js', "  if (sess.length || work.length) {", "  if (false) {")],
   ['two in one place', rep('pp-dental.js', "  if (supExists(c)) { showToast(", "  if (false) { showToast(")],
-  ['taken place still clickable', rep('pp-dental.js', "+ '\"' + (taken ? ' disabled' : '')", "+ '\"' + ''")],
+  ['extracted supernumerary still drawn', rep('pp-dental.js', "    if (isExtractionDone(c)) return;   /* قرارُ المالك (24 ت٢)", "    if (false) return;   /* قرارُ المالك (24 ت٢)")],
+  ['extracted place cannot be restored', rep('pp-dental.js', "    h += (gone\n", "    h += (false\n")],
+  ['taken place still clickable', rep('pp-dental.js', "'\"' + (taken ? ' disabled' : '') + ' onclick=\"supAdd(", "'\"' + ' onclick=\"supAdd(")],
   ['multi-select takes it', rep('pp-modules.js', "  if (typeof isSupTooth === 'function' && isSupTooth(n)) { showToast('🩺 السنُّ الزائد خارج التحديد المتعدد", "  if (false) { showToast('🩺 السنُّ الزائد خارج التحديد المتعدد")],
   ['migration keeps SXM', rep('migrations/226_supernumerary_tooth.sql', "'SPACER'::text, 'SOCKET'::text, 'COND'::text, 'SN'::text, 'DENTURE'::text,", "'SPACER'::text, 'SOCKET'::text, 'COND'::text, 'SN'::text, 'SXM'::text, 'DENTURE'::text,")],
   ['migration conversion ≠ UI scheme', rep('migrations/226_supernumerary_tooth.sql', "           ELSE (h + 1) * 10 + 1 END", "           ELSE h * 10 + 2 END")],
