@@ -4395,7 +4395,8 @@ Object.assign(window.SyI18nDict, {
   'صلاحية واحدة مخصّصة عن دوره': 'One permission customised from their role',
   'الصلاحيات غير متاحة بعد على هذا الحساب': 'Permissions are not available on this account yet',
   'الصلاحيات غير متاحة بعد على هذا الحساب.': 'Permissions are not available on this account yet.',
-  'تعذّر الحفظ — تحقّق من الاتصال وحاول ثانيةً.': 'Could not save — check the connection and try again.'
+  'تعذّر الحفظ — تحقّق من الاتصال وحاول ثانيةً.': 'Could not save — check the connection and try again.',
+  'تعرض هذه الصفحة دفعاتك أنت فقط.': 'This page shows only your own payouts.'
 });
 if (window.SyI18nPatterns) window.SyI18nPatterns.push(
   [/^🛡️ الصلاحيات: (.*)$/, '🛡️ Permissions: $1'],
