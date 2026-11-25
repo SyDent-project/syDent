@@ -155,14 +155,15 @@ function planRowCtlHtml(s) {
     var on = (fn === 'setSessionPhase')
       ? 'onclick="setSessionPhase(\'' + s.id + '\',' + v + ')"'
       : 'onclick="setSessionOption(\'' + s.id + '\',' + v + ')"';
-    return '<button type="button" class="spc-chip ' + cls + (sel ? ' sel' : '') + '" title="' + ttl + '" ' + on + '>' + lbl + '</button>';
+    var en = ({ 'أ': 'A', 'ب': 'B', 'ج': 'C' })[lbl];   /* حرفُ الخيار وحده — إنجليزيتُه هنا لا بالقاموس المشترك (كلمةٌ واحدة ملتبسة) */
+    return '<button type="button" class="spc-chip ' + cls + (sel ? ' sel' : '') + '" title="' + ttl + '" ' + on + (en ? ' data-en="' + en + '"' : '') + '>' + lbl + '</button>';
   };
   return '<span class="sess-plan-ctl open">' + pill
     + '<span class="spc-panel">'
-    + '<span class="spc-row"><span class="spc-lbl" title="ترتيب التنفيذ داخل الخطة — المرحلة الأولى تُنفَّذ أولاً">المرحلة</span>'
+    + '<span class="spc-row"><span class="spc-lbl" title="ترتيب التنفيذ داخل الخطة — المرحلة الأولى تُنفَّذ أولاً" data-en="Stage">المرحلة</span>'
     + [[1, '1', 'المرحلة الأولى'], [2, '2', 'المرحلة الثانية'], [3, '3', 'المرحلة الثالثة'], [null, '—', 'بلا مرحلة']].map(function(p){ return chip('setSessionPhase', p[0], p[1], ph === p[0], 'spc-c-ph', p[2]); }).join('')
     + '</span>'
-    + '<span class="spc-row"><span class="spc-lbl" title="خيارٌ بديل يختار المريض واحداً منها — «—» = بند مشترك بكل الخيارات">بديل</span>'
+    + '<span class="spc-row"><span class="spc-lbl" title="خيارٌ بديل يختار المريض واحداً منها — «—» = بند مشترك بكل الخيارات" data-en="Alternative">بديل</span>'
     + [[1, 'أ', 'الخيار أ'], [2, 'ب', 'الخيار ب'], [3, 'ج', 'الخيار ج'], [null, '—', 'مشترك بكل الخيارات']].map(function(p){ return chip('setSessionOption', p[0], p[1], op === p[0], 'spc-c-op', p[2]); }).join('')
     + '</span>'
     + (op ? '<span class="spc-hint">بندٌ بديل — لا يُجدوَل ولا يدخل الزيارات قبل اعتماد الخيار ' + PLAN_OPTION_LABELS[op] + '</span>' : '')

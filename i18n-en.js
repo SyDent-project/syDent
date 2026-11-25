@@ -4405,3 +4405,100 @@ if (window.SyI18nPatterns) window.SyI18nPatterns.push(
   [/^تبدأ من صلاحيات دوره \((.+?)\) — (\d+) صلاحيات مخصّصة$/, 'Starts from their role\'s permissions ($1) — $2 customised'],
   [/^تبدأ من صلاحيات دوره \((.+?)\)$/, 'Starts from their role\'s permissions ($1)']
 );
+
+/* ── 25/11: بطاقة المريض بالإنجليزية — خطةُ العلاج وجدولُ الجلسات والمدفوعات والسجلّ وأقسامُها الفارغة
+   (وجدها مسحُ البطاقة بالمتصفح · SyI18n.missing). أسماءُ العلاجات والمخابر والأطباء بياناتُ العيادة: تبقى كما هي. ── */
+(function () {
+  var D = window.SyI18nDict, R = function (s) { return new RegExp(s); };
+  function cnt(n, one, many) { return n + ' ' + (String(n) === '1' ? one : many); }
+  var L3 = { 'أ': 'A', 'ب': 'B', 'ج': 'C' };
+  Object.assign(D, {
+    /* خطةُ العلاج: الزيارات والمراحل والبدائل */
+    '🗓️ زيارات الخطة': '🗓️ Plan visits', 'بلا زيارة بعد': 'No visit yet', '➕ زيارة': '➕ Visit', '🔗 موعد قائم': '🔗 Existing appointment',
+    'ربط بنود هذه المجموعة بموعدٍ قائم للمريض': "Link this group's items to one of the patient's existing appointments",
+    'المرحلة الأولى': 'Stage 1', 'المرحلة الثانية': 'Stage 2', 'المرحلة الثالثة': 'Stage 3', 'بلا مرحلة': 'No stage', 'غير مصنّفة': 'Unsorted',
+    'ترتيب / بديل': 'Order / alternative', 'المرحلة (ترتيب التنفيذ) والبديل (خيار للمريض) — اضغط للتعديل': "Stage (order of work) and alternative (the patient's choice) — tap to edit",
+    /* جدولُ الجلسات */
+    '🥽 مخبر': '🥽 Lab', 'غير مدفوع': 'Unpaid', 'لهذه الجلسة طلب مخبر مرتبط': 'This session has a linked lab order',
+    'إكمال هذا العلاج (تحويل من مخطّط إلى منجز)': 'Complete this treatment (planned → done)',
+    'لم يُوزَّع على هذه الجلسة أي مبلغ بعد': 'No amount has been allocated to this session yet',
+    'طلب المخبر أُنشئ ولم يُرسل بعد': 'The lab order was created but not sent yet', '📝 مسودّة مخبر': '📝 Lab draft',
+    'الموعد المرتبط أُلغي أو فات أو انتهى دون إنجاز هذا البند — البند بلا زيارة ويُجدوَل من جديد': 'The linked appointment was cancelled, missed or ended without this item being done — the item has no visit and is scheduled again',
+    '📅 موعد منتهٍ': '📅 Appointment ended', 'غير مُرسَل': 'Not sent', '(سجل الجلسات)': '(sessions log)',
+    /* المدفوعاتُ ورأسُ البطاقة */
+    'مخطط (لم يُنجز)': 'Planned (not done)', 'غير محتسب ضمن الرصيد': 'Not counted in the balance', '⚠️ على المريض': '⚠️ Owed by the patient', 'على المريض': 'Owed by the patient',
+    '⚠️ على المريض ل.س': '⚠️ Owed by the patient (SYP)', '⚠️ على المريض $': '⚠️ Owed by the patient ($)',
+    'مبلغ الجلسات المخططة التي لم تُنجز بعد — تقدير لا يدخل ضمن رصيد المريض': "The value of planned sessions not done yet — an estimate, not part of the patient's balance",
+    'المبلغ المستحق على المريض من قيمة العلاجات التي تمت': 'What the patient owes for the treatments done',
+    'المبلغ المستحق على المريض من قيمة العلاجات': 'What the patient owes for treatments',
+    'توزيع هذه الدفعة على الجلسات': 'Allocate this payment to sessions', '✏️ توزيع': '✏️ Allocate',
+    'حسابان بعملتين منفصلتين — لا يُجمعان. التفصيل بتبويب المدفوعات.': 'Two accounts in two separate currencies — not added together. Details in the Payments tab.',
+    /* الأقسامُ الفارغة */
+    '🩻 الأشعة': '🩻 X-rays', '📄 مستندات': '📄 Documents',
+    'لا توجد ملفات بعد — ارفع أول صورة أشعة أو مستند.': 'No files yet — upload the first X-ray or document.',
+    'لا توجد روشتات بعد — أنشئ أول روشتة لهذا المريض.': 'No prescriptions yet — create the first one for this patient.',
+    'لا تعليمات لهذا المريض بعد — أنشئ أول تعليمات.': 'No instructions for this patient yet — create the first ones.',
+    'لا مراسلات بعد — كل ما تُرسله لهذا المريض من زر «واتساب» (روشتة · تعليمات · خطة · تذكير…) يُسجَّل هنا بتاريخه ونصّه.': 'No messages yet — everything you send this patient with the «WhatsApp» button (prescription · instructions · plan · reminder…) is logged here with its date and text.',
+    'لا توجد عمليات مسجَّلة على هذا المريض بعد': 'No actions logged for this patient yet',
+    /* نافذةُ «ترتيب / بديل» */
+    /* «المرحلة» · «بديل» · حرفُ الخيار كلماتٌ مفردة ملتبسة: إنجليزيتُها بـdata-en بموضعها (pp-plan.js) لا هنا */
+    /* شريطُ «خيارات الخطة» */
+    '🔀 خيارات الخطة': '🔀 Plan options', '⏳ بانتظار قرار المريض': "⏳ Waiting for the patient's decision",
+    'بدائلُ يختار المريض واحداً منها — اضغط «اعتماد» على ما وافق عليه': 'Alternatives the patient chooses one of — press «Adopt» on the one they agreed to',
+    '١ ضع البدائل (شريحة «بديل» بصفّ البند) · ٢ اعتمد ما اختاره المريض · ٣ رتّب المعتمد بالمراحل وجدوِله بالزيارات': "1 set the alternatives (the «Alternative» chip on the item's row) · 2 adopt the patient's choice · 3 order what was adopted in stages and schedule it in visits",
+    '١ بدائل ← ٢ اعتماد ← ٣ ترتيب وزيارات': '1 Alternatives → 2 Adopt → 3 Order & visits',
+    'المشترك + بنود هذا الخيار': "The shared items + this option's items", 'اعتماد هذا الخيار وحذف بنود الخيارات الأخرى المخطّطة': "Adopt this option and delete the other options' planned items",
+    'مشترك': 'Shared', 'مع كل الخيارات — يُنفَّذ أيّاً كان المعتمد': 'With every option — done whichever is adopted', 'الإجمالي': 'Total',
+    'إجمالي كل خيار = البنود المشتركة + بنوده · البنود البديلة لا تُجدوَل ولا تدخل الزيارات قبل الاعتماد · لنقل بندٍ بين الخيارات: شريحة «ترتيب / بديل» بصفّه.': "Each option's total = the shared items + its own · alternative items are not scheduled or added to visits before adoption · to move an item between options: the «Order / alternative» chip on its row.",
+    'بنود مشتركة بكل الخيارات — تُنفَّذ أيّاً كان الخيار المعتمد': 'Items shared by every option — done whichever option is adopted',
+    'الرقم أعلاه يجمع كل البدائل؛ الفعلي = إجمالي الخيار المعتمد': 'The figure above adds up every alternative; the real one = the adopted option\'s total',
+    'بديلٌ ضمن خيارات الخطة': 'An alternative within the plan options', 'الخيار أ': 'Option A', 'الخيار ب': 'Option B', 'الخيار ج': 'Option C',
+    'مشترك بكل الخيارات': 'Shared by all options',
+    'ترتيب التنفيذ داخل الخطة — المرحلة الأولى تُنفَّذ أولاً': 'Order of work within the plan — stage 1 is done first',
+    'خيارٌ بديل يختار المريض واحداً منها — «—» = بند مشترك بكل الخيارات': 'Alternatives the patient chooses one of — «—» = an item shared by all options',
+    /* نافذةُ زيارة الخطة */
+    'ⓘ اختر العلاجات المخطّطة لربطها بالموعد. الربط يحدث تلقائياً عند الضغط على "حفظ الموعد".': 'ⓘ Choose the planned treatments to link to the appointment. They are linked when you press "Save appointment".',
+    'سيُربط': 'Will be linked', 'إزالة من القائمة': 'Remove from the list',
+    /* تأكيدُ إكمال العلاج */
+    'تأكيد إكمال العلاج': 'Confirm completing the treatment',
+    'سيتم تحويل الحالة من "مخطّط" إلى "منجز".': 'The status will change from "planned" to "done".',
+    /* محرّرُ توزيع الدفعة */
+    '💵 إجمالي الدفعة': '💵 Payment total', '📊 الإجمالي الموزّع:': '📊 Total allocated:', '💼 سيغطّي علاجاً منجَزاً:': '💼 Will cover completed treatment:', '💵 المجموع الكلي:': '💵 Grand total:',
+    '✓ مسددة بالكامل من دفعات أخرى': '✓ Fully paid by other payments', 'العلاجات': 'Treatments',
+    'لا تستقبل توزيعاً — الفائض يُحفَظ رصيداً مقدّماً وينتقل إليها تلقائياً عند الإكمال': 'Takes no allocation — any surplus is kept as credit and moves to it automatically when it is completed'
+  });
+  window.SyI18nPatterns.push(
+    [/^م([1-9])$/, 'S$1'],                                   /* شارةُ المرحلة بصفّ الجلسة */
+    [/^(🗓️ )?زيارة (\d+)$/, function (m, e, n) { return (e || '') + 'Visit ' + n; }],
+    [/^(\d+) بند · ([\d,.]+) (ل\.س|\$)$/, function (m, n, a, c) { return cnt(n, 'item', 'items') + ' · ' + a + ' ' + (c === '$' ? '$' : 'SYP'); }],
+    [/^↩︎ (\d+) بند كان مربوطاً بموعدٍ أُلغي أو فات أو انتهى دون إنجازه — عاد «بلا زيارة» ليُجدوَل من جديد\.$/, function (m, n) { return '↩︎ ' + cnt(n, 'item was', 'items were') + ' linked to an appointment that was cancelled, missed or ended without it — back to «No visit» to be scheduled again.'; }],
+    [/^🔬 (\d+) طلب مخبر مفتوح — اضغط للعرض$/, function (m, n) { return '🔬 ' + cnt(n, 'open lab order', 'open lab orders') + ' — tap to view'; }],
+    [/^دفعة: ([\d,.]+) (ل\.س|\$)$/, function (m, a, c) { return 'Payment: ' + a + ' ' + (c === '$' ? '$' : 'SYP'); }],
+    /* سطرُ السجلّ «العلاج — السن N»: اسمُ العلاج بيانٌ يبقى، والسنُّ يُترجم */
+    [/^(.+) — (?:السن|سن) (\d+)$/, '$1 — tooth $2'],
+    [/^(.+) \(س (\d+)\)$/, '$1 (t. $2)'],
+    [/^(.+) • (?:السن|سن) (\d+)(?: \((.+)\))?$/, function (m, t, n, sf) { return t + ' • tooth ' + n + (sf ? ' (' + (D[sf] != null ? D[sf] : sf) + ')' : ''); }],
+    [/^(.+) • سن زائد (بين (\d+) و(\d+)|(وحشي|دهليزي|حنكي|لساني) (\d+))(?: \((.+)\))?$/, function (m, t, pl, a, b, w, h, sf) {
+      var where = a ? 'between ' + a + ' and ' + b : ({ 'وحشي': 'distal to ', 'دهليزي': 'buccal to ', 'حنكي': 'palatal to ', 'لساني': 'lingual to ' })[w] + h;
+      return t + ' • supernumerary tooth ' + where + (sf ? ' (' + (D[sf] != null ? D[sf] : sf) + ')' : ''); }],
+    [/^🗓️ زيارة جديدة — (المرحلة الأولى|المرحلة الثانية|المرحلة الثالثة|بلا مرحلة)$/, function (m, ph) { return '🗓️ New visit — ' + D[ph]; }],
+    [/^للمريض موعدٌ قادم: (.+)$/, 'The patient has an upcoming appointment: $1'],
+    [/^(\d+) علاج سيُربط • ([\d,.]+) (ل\.س|\$)$/, function (m, n, a, c) { return cnt(n, 'treatment', 'treatments') + ' to link • ' + a + ' ' + (c === '$' ? '$' : 'SYP'); }],
+    [/^العلاج: (.+)$/, 'Treatment: $1'],
+    [/^خيار ([أبج])$/, function (m, o) { return 'Option ' + ({ 'أ': 'A', 'ب': 'B', 'ج': 'C' })[o]; }],
+    [/^(✓ )?اعتماد (?:الخيار )?([أبج])$/, function (m, c, o) { return (c || '') + 'Adopt option ' + L3[o]; }],
+    [/^(\d+) (بند|بنود)$/, function (m, n) { return cnt(n, 'item', 'items'); }],
+    [/^\+ (\d+) (?:بند مشترك|بنود مشتركة) \(أدناه\)$/, function (m, n) { return '+ ' + cnt(n, 'shared item', 'shared items') + ' (below)'; }],
+    [/^🔀 (\d+) بند ضمن خيارات بديلة لم يُعتمد أيٌّ منها بعد — لا يُجدوَل إلا المعتمد: اضغط «اعتماد» على الخيار الذي وافق عليه المريض أعلاه فتنتقل بنوده إلى هنا\.$/, function (m, n) { return '🔀 ' + cnt(n, 'item is', 'items are') + ' in alternative options none of which is adopted yet — only the adopted one is scheduled: press «Adopt» above on the option the patient agreed to and its items move here.'; }],
+    [/^🔀 يضمّ بدائل — (.+)$/, function (m, rest) { return '🔀 Includes alternatives — ' + rest.replace(/([أبج]):/g, function (x, o) { return L3[o] + ':'; }); }],
+    [/^🔀 هذا البند من «الخيار ([أبج])» — إنجازُه يعني اعتماد هذا الخيار\.$/, function (m, o) { return '🔀 This item belongs to «Option ' + L3[o] + '» — completing it adopts that option.'; }],
+    [/^سيُحذف (\d+) بند مخطّط من الخيارات الأخرى:$/, function (m, n) { return cnt(n, 'planned item', 'planned items') + ' from the other options will be deleted:'; }],
+    [/^– (.+) \((?:سن|السن) (\d+)\) \[([أبج])\]$/, function (m, t, n, o) { return '– ' + t + ' (tooth ' + n + ') [' + L3[o] + ']'; }],
+    [/^أُنجز بندٌ من «الخيار ([أبج])» من صفحة المواعيد والبدائل ما زالت مخطّطة — اعتمد الخيار لإزالتها وتحديث المخطط\.$/, function (m, o) { return 'An item of «Option ' + L3[o] + '» was completed from the appointments page while the alternatives are still planned — adopt the option to remove them and update the chart.'; }],
+    [/^أُنجزت بنودٌ من خيارين مختلفين \((.+)\) — راجع الخطة واعتمد الخيار الصحيح\.$/, function (m, l) { return 'Items of two different options were completed (' + l.replace(/[أبج]/g, function (o) { return L3[o]; }).replace(/ و/g, ' and ') + ') — review the plan and adopt the right option.'; }],
+    [/^بندٌ بديل — لا يُجدوَل ولا يدخل الزيارات قبل اعتماد الخيار ([أبج])$/, function (m, o) { return 'An alternative item — not scheduled and not in visits until option ' + ({ 'أ': 'A', 'ب': 'B', 'ج': 'C' })[o] + ' is adopted'; }],
+    [/^التكلفة: ([\d,.]+) (ل\.س|\$)$/, function (m, a, c) { return 'Cost: ' + a + ' ' + (c === '$' ? '$' : 'SYP'); }],
+    [/^(\d{1,2}\/\d{1,2}\/\d{4}) • متبقي على الجلسة:$/, '$1 • left on the session:'],
+    [/^([\d,.]+) من ([\d,.]+) (ل\.س|\$)$/, function (m, a, b, c) { return a + ' of ' + b + ' ' + (c === '$' ? '$' : 'SYP'); }]
+  );
+})();
