@@ -895,7 +895,9 @@ async function init() {
     var role = (window.SyDentLock && window.SyDentLock.getRole)
              ? window.SyDentLock.getRole()
              : 'owner';
-    if (role !== 'owner') {
+    /* M228: an employee the owner opened this page for passes (guardPage above decided the same) */
+    var _permOpen = !!(window.SyDentLock && window.SyDentLock.permOverride && window.SyDentLock.permOverride('expenses') === true);
+    if (role !== 'owner' && !_permOpen) {
       console.warn('[expenses] non-owner role detected:', role, '— redirecting to index');
       window.location.href = 'index.html';
       return;

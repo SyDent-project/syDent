@@ -3085,6 +3085,7 @@
   const LS_ROLE        = 'sydent.lock.role';        // 'owner'|'doctor'|'secretary'
   const LS_DOCTOR_ID   = 'sydent.lock.doctorId';    // UUID (when role=doctor)
   const LS_EMPLOYEE_ID = 'sydent.lock.employeeId';  // ← Phase 5: per-employee identity
+  const LS_PERMS       = 'sydent.lock.perms';       // M228: {e: employeeId, p: {key: bool}} — the locked employee's overrides
   const LS_FAIL_COUNT  = 'sydent.lock.failCount';
   const LS_COOLDOWN    = 'sydent.lock.cooldownUntil';
   const MAX_FAILS      = 5;
@@ -3217,6 +3218,141 @@
   function isOwner()     { return getRole() === 'owner'; }
   function isDoctor()    { return getRole() === 'doctor'; }
   function isSecretary() { return getRole() === 'secretary'; }
+
+  // ── M228: per-employee permissions over the role defaults ─────────
+  // The role defaults stay where they are (sidebar BLOCKED · each page's
+  // guardPage · owner-only delete). clinic_employees.permissions holds only
+  // the keys the owner flipped for that person; NULL = the role as today.
+  // Owner-only for good, never a key: employees · settings · subscription
+  // (they hold the lock PIN and the account). The owner is never overridden.
+  // Closed list — mirrored by the DB validator _staff_permissions_ok (M228).
+  var PERM_KEYS = ['patients', 'appointments', 'treatments', 'doctors', 'labs', 'radiology',
+                   'accounting', 'expenses', 'payouts', 'provider-reports', 'inventory', 'audit-log',
+                   'act.delete-patient'];
+  // page file (without .html) → its key; patient-profile follows the patients list
+  var PERM_PAGES = { 'patients': 'patients', 'patient-profile': 'patients', 'appointments': 'appointments',
+                     'treatments': 'treatments', 'doctors': 'doctors', 'labs': 'labs', 'radiology': 'radiology',
+                     'accounting': 'accounting', 'expenses': 'expenses', 'payouts': 'payouts',
+                     'provider-reports': 'provider-reports', 'inventory': 'inventory', 'audit-log': 'audit-log' };
+  // nav ids of one key (the radiology page carries two sidebar items)
+  var PERM_NAV = { 'radiology': ['radiology', 'radiology-photos'] };
+
+  function cleanPerms(p) {
+    var out = {};
+    if (!p || typeof p !== 'object' || Array.isArray(p)) return out;
+    PERM_KEYS.forEach(function(k){ if (typeof p[k] === 'boolean') out[k] = p[k]; });
+    return out;
+  }
+  function permsEqual(a, b) {
+    a = cleanPerms(a); b = cleanPerms(b);
+    var ka = Object.keys(a).sort(), kb = Object.keys(b).sort();
+    if (ka.join('|') !== kb.join('|')) return false;
+    return ka.every(function(k){ return a[k] === b[k]; });
+  }
+  function readPermCache() {
+    try {
+      var c = JSON.parse(localStorage.getItem(LS_PERMS) || 'null');
+      return (c && typeof c.e === 'string') ? c : null;
+    } catch(e) { return null; }
+  }
+  function writePermCache(empId, perms) {
+    try {
+      if (!empId) localStorage.removeItem(LS_PERMS);
+      else localStorage.setItem(LS_PERMS, JSON.stringify({ e: empId, p: cleanPerms(perms) }));
+    } catch(e) {}
+  }
+  // The overrides that apply on this device right now ({} for the owner).
+  function getPermOverrides() {
+    if (getRole() === 'owner') return {};
+    var eid = getEmployeeId();
+    var c = readPermCache();
+    return (eid && c && c.e === eid) ? cleanPerms(c.p) : {};
+  }
+  // true/false when the owner flipped this key for the locked employee, else null (= role default).
+  function permOverride(key) {
+    var o = getPermOverrides();
+    return Object.prototype.hasOwnProperty.call(o, key) ? o[key] : null;
+  }
+  // An action the role grants or not (roleDefault), unless the owner flipped it.
+  function can(key, roleDefault) {
+    if (getRole() === 'owner') return true;
+    var o = permOverride(key);
+    return o !== null ? o : !!roleDefault;
+  }
+  function currentPageKey() {
+    var f = String((window.location && window.location.pathname) || '').split('/').pop().replace(/\.html$/i, '').toLowerCase();
+    return Object.prototype.hasOwnProperty.call(PERM_PAGES, f) ? PERM_PAGES[f] : null;
+  }
+  // Sidebar: the role's hidden ids (sidebar.js BLOCKED), adjusted by the overrides.
+  function applyPermsToNav(blocked) {
+    var out = (blocked || []).slice();
+    var o = getPermOverrides();
+    Object.keys(o).forEach(function(k){
+      if (k.indexOf('act.') === 0) return;
+      (PERM_NAV[k] || [k]).forEach(function(id){
+        var i = out.indexOf(id);
+        if (o[k] && i >= 0) out.splice(i, 1);
+        if (!o[k] && i < 0) out.push(id);
+      });
+    });
+    return out;
+  }
+  // Fresh overrides from the employees list → cache; a change re-applies the page.
+  function syncPermsFromList() {
+    if (getRole() === 'owner') return;
+    var eid = getEmployeeId();
+    if (!eid || !_allEmployeesListCache) return;
+    var emp = _allEmployeesListCache.find(function(e){ return e.id === eid; });
+    if (!emp || !Object.prototype.hasOwnProperty.call(emp, 'permissions')) return;   // column not there yet → keep the cache
+    var before = getPermOverrides();
+    writePermCache(eid, emp.permissions);
+    if (!permsEqual(before, emp.permissions)) window.location.reload();
+  }
+  // Live: the owner saves on his device → this employee's device follows (SyLive holds while typing).
+  function watchPerms() {
+    if (getRole() === 'owner' || window._sydPermWatch || !window.SyLive || !window.sbGetUser) return;
+    var eid = getEmployeeId();
+    if (!eid) return;
+    window._sydPermWatch = true;
+    window.sbGetUser().then(function(u){
+      if (!u) { window._sydPermWatch = false; return; }
+      window.SyLive.watch({ name: 'sydent-perms', uid: u.id,
+        tables: [{ t: 'clinic_employees', filter: 'id=eq.' + eid }],
+        refresh: async function(){ invalidateEmployeesCache(); await loadEmployees(); syncPermsFromList(); } });
+    }).catch(function(){ window._sydPermWatch = false; });
+  }
+  // Before any page script: a page the owner closed for this employee never starts.
+  // (Capture on window runs ahead of every DOMContentLoaded listener on document.)
+  function enforcePagePermEarly() {
+    if (getRole() === 'owner') return;
+    var key = currentPageKey();
+    if (!key || permOverride(key) !== false) return;
+    window.__sydentBlocked = true;   // in-flight page loaders bail out
+    // The page's own scripts may still run (some start before DOMContentLoaded or
+    // rewrite the body), so the page stays intact underneath — hidden — and the
+    // blocked screen sits on top and comes back if anything removes it.
+    try {
+      var st = document.createElement('style');
+      st.id = 'sdPermHold';
+      st.textContent = 'html.sd-perm-blocked body > :not(#sdPermBlocked){display:none !important;}';
+      (document.head || document.documentElement).appendChild(st);
+      document.documentElement.classList.add('sd-perm-blocked');
+    } catch(e) {}
+    function cover() {
+      if (!document.body || document.getElementById('sdPermBlocked')) return;
+      var d = document.createElement('div');
+      d.id = 'sdPermBlocked';
+      d.innerHTML = blockedScreenHTML(getRole());
+      document.body.appendChild(d);
+    }
+    function start() {
+      cover();
+      try { new MutationObserver(cover).observe(document.body, { childList: true }); } catch(e) {}
+    }
+    if (document.readyState !== 'loading') start();
+    else document.addEventListener('DOMContentLoaded', start);
+  }
+  // ── M228 end ──
 
   // ── Owner's real person name (dynamic, no static "المالك") ─────
   // The owner identity must display the actual person's name, NOT the
@@ -3456,8 +3592,12 @@
       // Phase 5: employee identity (explicit: undefined=preserve, null=clear, value=set)
       if (newEmployeeId === null) {
         localStorage.removeItem(LS_EMPLOYEE_ID);
+        writePermCache(null);   // M228
       } else if (typeof newEmployeeId === 'string' && newEmployeeId.length > 0) {
         localStorage.setItem(LS_EMPLOYEE_ID, newEmployeeId);
+        // M228: the new person's overrides travel with the switch (the next page starts right)
+        var _pe = (_allEmployeesListCache || []).find(function(e){ return e.id === newEmployeeId; });
+        writePermCache(newEmployeeId, _pe ? _pe.permissions : null);
       }
     } catch(e) {
       console.error('[SyDentLock] applyRole failed:', e);
@@ -3472,7 +3612,10 @@
     var hideEls = document.querySelectorAll('[data-role-block]');
     for (var i = 0; i < hideEls.length; i++) {
       var blocked = (hideEls[i].getAttribute('data-role-block') || '').split(/\s+/);
-      if (blocked.indexOf(role) >= 0) {
+      // M228: data-perm="<key>" = the role list is the default, the owner may flip it per employee
+      var permKey = hideEls[i].getAttribute('data-perm');
+      var hideIt = permKey ? !can(permKey, blocked.indexOf(role) < 0) : blocked.indexOf(role) >= 0;
+      if (hideIt) {
         hideEls[i].style.display = 'none';
         hideEls[i].setAttribute('data-role-hidden', '1');
       } else if (hideEls[i].getAttribute('data-role-hidden') === '1') {
@@ -3509,17 +3652,19 @@
   // Allowed roles passed as array, e.g. ['owner']
   function guardPage(allowedRoles) {
     var role = getRole();
-    if (allowedRoles.indexOf(role) < 0) {
+    // M228: the owner may open or close this page for the locked employee
+    var key = currentPageKey();
+    var ov = key ? permOverride(key) : null;
+    var allowed = ov !== null ? ov : allowedRoles.indexOf(role) >= 0;
+    if (!allowed) {
       showBlockedScreen(role);
       return false;
     }
     return true;
   }
 
-  function showBlockedScreen(role) {
-    try {
-      window.__sydentBlocked = true;   // in-flight page loaders bail out
-      document.body.innerHTML =
+  function blockedScreenHTML(role) {
+    return (
         '<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg,#0a1628);padding:24px;font-family:\'Cairo\',sans-serif;text-align:center;direction:rtl;">' +
           '<div style="font-size:72px;margin-bottom:16px;">🔒</div>' +
           '<div style="font-size:22px;font-weight:800;color:var(--text,#e1f4ee);margin-bottom:10px;">لا تملك صلاحية</div>' +
@@ -3532,7 +3677,14 @@
           '<button onclick="window.SyDentLock.openSwitchModal()" style="padding:10px 22px;background:transparent;border:1px solid var(--border2,rgba(255,255,255,0.18));border-radius:10px;color:var(--text2,#8a9ab5);font-family:\'Cairo\',sans-serif;font-size:13px;cursor:pointer;margin-top:8px;">' +
             '🔓 تبديل الوضع' +
           '</button>' +
-        '</div>';
+        '</div>'
+    );
+  }
+
+  function showBlockedScreen(role) {
+    try {
+      window.__sydentBlocked = true;   // in-flight page loaders bail out
+      document.body.innerHTML = blockedScreenHTML(role);
     } catch(e) {
       console.error('[SyDentLock] showBlockedScreen failed:', e);
     }
@@ -3587,11 +3739,20 @@
       // the flag (defense-in-depth: prevents accidental lockout if an UPDATE
       // somehow flips an owner's access to false — Rule #16).
       var res = await window.sb.from('clinic_employees')
-        .select('id, name, role, doctor_id, pin_hash, is_active, has_system_access')
+        .select('id, name, role, doctor_id, pin_hash, is_active, has_system_access, permissions')
         .eq('owner_id', user.id)
         .or('has_system_access.eq.true,role.eq.owner')
         .order('role', { ascending: true })
         .order('name', { ascending: true });
+      // M228 not applied yet: same list without the overrides column (= role defaults)
+      if (res.error && /permissions/i.test(res.error.message || '')) {
+        res = await window.sb.from('clinic_employees')
+          .select('id, name, role, doctor_id, pin_hash, is_active, has_system_access')
+          .eq('owner_id', user.id)
+          .or('has_system_access.eq.true,role.eq.owner')
+          .order('role', { ascending: true })
+          .order('name', { ascending: true });
+      }
       // Pre-Migration-21 fallback: if has_system_access column doesn't
       // exist, retry without the filter (old behavior). 42703 = column
       // not found; PGRST205 = schema cache miss.
@@ -4724,7 +4885,7 @@
     // Phase 5: preload BOTH caches in parallel; refresh header & apply inactive
     // UI only once BOTH are loaded so isDoctorAccountInactive() has full data.
     // Header is also refreshed as each cache lands so user sees the name asap.
-    var empPromise = loadEmployees().then(function(){ refreshHeaderButton(); });
+    var empPromise = loadEmployees().then(function(){ refreshHeaderButton(); syncPermsFromList(); watchPerms(); });   /* M228 */
     var docPromise = loadDoctors().then(function(){ refreshHeaderButton(); });
     Promise.all([empPromise, docPromise]).then(function(){
       // Phase 4.1 + 5: now both caches are ready — check inactive status
@@ -5500,6 +5661,13 @@
     applyInactiveActionGuards: applyInactiveActionGuards,
     guardPage: guardPage,
     showBlockedScreen: showBlockedScreen,
+    // M228: per-employee permissions
+    PERM_KEYS: PERM_KEYS.slice(),
+    can: can,
+    permOverride: permOverride,
+    getPermOverrides: getPermOverrides,
+    applyPermsToNav: applyPermsToNav,
+    cleanPerms: cleanPerms,
     // Phase 5: audit log
     logAudit: logAudit,
     // constants (for UI consumers)
@@ -5507,6 +5675,8 @@
     ROLE_ICONS: ROLE_ICONS
   };
 
+  // M228: a page closed for this employee stops before any page script starts
+  enforcePagePermEarly();
   // Fire-and-forget init (safe even if some pages don't want the button — guardPage runs first)
   autoInit();
 })();

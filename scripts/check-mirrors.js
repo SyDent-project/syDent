@@ -894,7 +894,7 @@ try {
     stMism++; bad('theme.css (عُدّة النوافذ): قاعدة تراجع/تعطيل الأب (:has) مفقودة');
   }
   [['appointments.html', 5] /* v501: نافذةُ الحجوزات تُحقن من appt-blocks.js */, ['patients.html', 4], ['patient-profile.html', 43] /* M210: +fuModal +fuPickModal (جلسةُ المتابعة) · C3b: المواد ورقم الدفعة · v595: +ppIntakeModal (M177) · v635: +xrUpModal (M192) · v637: +xrGalModal · v642: +xrCamModal · v643: +xrInboxModal */,
-   ['treatments.html', 3] /* M219: +consentModal */, ['doctors.html', 1], ['employees.html', 3] /* M222: +staffTimeModal */, ['payouts.html', 1],
+   ['treatments.html', 3] /* M219: +consentModal */, ['doctors.html', 1], ['employees.html', 4] /* M222: +staffTimeModal · M228: +permModal */, ['payouts.html', 1],
    ['expenses.html', 2], ['inventory.html', 7] /* C3: نافذةُ الطلبيات والموردين · C3b: تتبّعُ الدفعة */, ['labs.html', 3],
    ['provider-reports.html', 3], ['audit-log.html', 1],
    ['settings.html', 5], ['learn.html', 1], ['subscription.html', 2], ['auth.html', 1], ['admin.html', 6]].forEach(([f, n]) => {
@@ -2438,10 +2438,10 @@ try {
       "guard": [], "read": ["closeModal"], "inert": ["openDocColorPicker"], "extra": []
     },
     "employees.html": {
-      "write": ["openAddModal", "saveEmployee", "removeAllLockPins", "saveOwnerPin", "openOwnerPinModal", "openEditModal", "toggleActive", "deleteEmployee", "openStaffTime", "saveStaffHours", "stAddLeave", "saveStaffAllowance"],
+      "write": ["openAddModal", "saveEmployee", "removeAllLockPins", "saveOwnerPin", "openOwnerPinModal", "openEditModal", "toggleActive", "deleteEmployee", "openStaffTime", "saveStaffHours", "stAddLeave", "saveStaffAllowance", "openPermModal", "savePerms"],   /* M228: +الصلاحيات */
       "guard": ["empCardOpen"],
-      "read": ["closeModal", "closeOwnerModal", "closeStaffTime", "stSwitchTab"],
-      "inert": ["onRoleChange", "updateCompensationFieldsVisibility", "openEmpDocColorPicker", "onSystemAccessChange", "onShareInput", "stToggleCustom"],
+      "read": ["closeModal", "closeOwnerModal", "closeStaffTime", "stSwitchTab", "closePermModal"],
+      "inert": ["onRoleChange", "updateCompensationFieldsVisibility", "openEmpDocColorPicker", "onSystemAccessChange", "onShareInput", "stToggleCustom", "permToggle", "permReset"],   /* M228: داخل نافذة كتابةٍ لا تُفتح بالقراءة */
       "extra": [".drag-handle"]
     },
     "payouts.html": {

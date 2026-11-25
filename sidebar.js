@@ -347,6 +347,15 @@ const navItems = [
   { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /></svg>', label: 'تسجيل خروج', href: '#',             id: 'logout', onClick: 'doLogout' },
 ];
 
+// Pages each device role does not see (owner sees everything). M228: also the
+// role defaults the employees page shows in its permissions window — one source.
+const SB_ROLE_BLOCKED = {
+  owner:     [],
+  doctor:    ['treatments', 'doctors', 'employees', 'settings', 'subscription', 'audit-log', 'expenses', 'inventory', 'payouts', 'accounting'],
+  secretary: ['treatments', 'doctors', 'employees', 'settings', 'subscription', 'provider-reports', 'audit-log', 'expenses', 'inventory', 'payouts', 'accounting']
+};
+window.SyDentNavBlocked = SB_ROLE_BLOCKED;
+
 // C1: حالة طيّ الكتل محفوظة بالمتصفح (راحة شخصية بس؛ أي فشل = كلها مفتوحة).
 const SB_GROUPS_KEY = 'sydent.sb.collapsed';
 function sbCollapsedGroups() {
@@ -377,12 +386,10 @@ function buildHTML(activeId) {
   // both Owner-only pages and provider-reports. We compute this at render
   // time so SyDentLock (attached synchronously by supabase-init.js) is ready.
   var role = (window.SyDentLock && window.SyDentLock.getRole) ? window.SyDentLock.getRole() : 'owner';
-  var BLOCKED = {
-    owner:     [],
-    doctor:    ['treatments', 'doctors', 'employees', 'settings', 'subscription', 'audit-log', 'expenses', 'inventory', 'payouts', 'accounting'],
-    secretary: ['treatments', 'doctors', 'employees', 'settings', 'subscription', 'provider-reports', 'audit-log', 'expenses', 'inventory', 'payouts', 'accounting']
-  };
+  var BLOCKED = SB_ROLE_BLOCKED;
   var blocked = BLOCKED[role] || [];
+  // M228: the owner may open or close pages for the locked employee (role list = the default)
+  if (window.SyDentLock && typeof window.SyDentLock.applyPermsToNav === 'function') blocked = window.SyDentLock.applyPermsToNav(blocked);
 
   // Drop blocked items + drop adjacent section headers that would become orphans.
   var filtered = navItems.filter(function(item){

@@ -1634,7 +1634,7 @@ function render() {
             <button class="sy-act sy-act-primary" onclick="event.stopPropagation();location.href='patient-profile.html?id=${p.id}&pay=1'" data-doctor-inactive-block data-sub-write>💰 تسجيل دفعة</button>
             <button class="sy-act sy-act-ico sy-act-more" onclick="toggleDotsMenu(this)" title="المزيد" aria-label="المزيد" data-test="patient-menu" data-sub-write>⋮</button>
             <div class="dots-menu" data-sub-write>
-              <button onclick="deletePatient('${p.id}')" data-test="patient-delete" data-role-block="doctor secretary">🗑️ حذف المريض</button>
+              <button onclick="deletePatient('${p.id}')" data-test="patient-delete" data-role-block="doctor secretary" data-perm="act.delete-patient">🗑️ حذف المريض</button>
             </div>
           </div>
         </td>
@@ -1994,7 +1994,8 @@ window.addEventListener('scroll', function() {
 
 async function deletePatient(id) {
   // Phase 4: Owner-only action (defense-in-depth — button also hidden via data-role-block)
-  if (window.SyDentLock && !window.SyDentLock.isOwner()) {
+  // M228: owner-only by default; the owner may grant it to an employee
+  if (window.SyDentLock && !(window.SyDentLock.can ? window.SyDentLock.can('act.delete-patient', false) : window.SyDentLock.isOwner())) {
     showToast('🔒 حذف المريض متاح للمالك فقط');
     return;
   }

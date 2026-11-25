@@ -252,8 +252,25 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 .st-leave-n{font-size:11.5px;color:var(--text2);flex-basis:100%;overflow-wrap:anywhere;}
 .st-none{font-size:12.5px;color:var(--text2);text-align:center;padding:16px 0;}
 @media (max-width: 480px){ .st-day-t input{max-width:112px;} }
+/* M228: الصلاحيات — نافذةُ الموظف ومفاتيحُها (تبدأ من دوره، والمخصّص يُعلَّم) */
+.emp-pin-status.emp-perm-chip{margin-top:6px;background:var(--yellow-soft);color:var(--yellow-ink);border-color:var(--yellow-bd);}
+.pm-sub{font-size:12px;color:var(--text2);margin-top:2px;line-height:1.6;}
+.pm-grp{padding-top:12px;}
+.pm-grp-t{font-size:12px;font-weight:800;color:var(--text2);padding-bottom:4px;}
+.pm-row{display:flex;align-items:center;gap:10px;min-height:44px;border-bottom:1px solid var(--border);}
+.pm-row:last-child{border-bottom:0;}
+.pm-lbl{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13.5px;color:var(--text);}
+.pm-custom{font-size:10.5px;font-weight:800;color:var(--on-yellow-solid);background:var(--yellow-solid);border-radius:999px;padding:0 7px;}
+.pm-lock{font-size:11.5px;color:var(--text2);white-space:nowrap;}
+.pm-sw{flex:none;width:46px;height:26px;border-radius:999px;border:0;padding:3px;display:flex;align-items:center;justify-content:flex-start;background:var(--border2);cursor:pointer;transition:background .15s;}
+.pm-sw[aria-checked="true"]{justify-content:flex-end;background:var(--green);}
+.pm-sw::before{content:'';width:20px;height:20px;border-radius:50%;background:#ffffff;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+.pm-sw:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
+.pm-note{font-size:12px;color:var(--text2);line-height:1.7;margin-top:14px;}
+.pm-reset{background:transparent;border:0;color:var(--text2);font-family:inherit;font-size:12.5px;font-weight:700;text-decoration:underline;padding:8px 4px;margin-inline-end:auto;cursor:pointer;}
+.pm-reset:hover{color:var(--green);}
 /* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
-html[data-sub-level="read"] :is([onclick*="openAddModal("],[onclick*="saveEmployee("],[onclick*="removeAllLockPins("],[onclick*="saveOwnerPin("],[onclick*="openOwnerPinModal("],[onclick*="openEditModal("],[onclick*="toggleActive("],[onclick*="deleteEmployee("],[onclick*="openStaffTime("],[onclick*="saveStaffHours("],[onclick*="stAddLeave("],[onchange*="saveStaffAllowance("],.drag-handle){display:none !important;}
+html[data-sub-level="read"] :is([onclick*="openAddModal("],[onclick*="saveEmployee("],[onclick*="removeAllLockPins("],[onclick*="saveOwnerPin("],[onclick*="openOwnerPinModal("],[onclick*="openEditModal("],[onclick*="toggleActive("],[onclick*="deleteEmployee("],[onclick*="openStaffTime("],[onclick*="saveStaffHours("],[onclick*="stAddLeave("],[onchange*="saveStaffAllowance("],[onclick*="openPermModal("],[onclick*="savePerms("],.drag-handle){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
 <link rel="stylesheet" href="theme.css?v=20261125b">
@@ -527,6 +544,29 @@ html[data-sub-level="read"] :is([onclick*="openAddModal("],[onclick*="saveEmploy
 </div>
 
 <!-- Working hours & leaves (M222 · emp-time.js) -->
+<!-- M228: صلاحيات الموظف — تبدأ من صلاحيات دوره، والمالك يفتح أو يغلق ما يريد -->
+<div class="modal-overlay sy-m" id="permModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h3 id="pmTitle">🛡️ الصلاحيات</h3>
+        <div class="pm-sub" id="pmSub"></div>
+      </div>
+      <button class="modal-close" onclick="closePermModal()" aria-label="إغلاق">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="pmList"></div>
+      <div class="pm-note">الصفحة المُطفأة تختفي من قائمته الجانبية، وإن فُتح رابطها مباشرةً تظهر شاشة 🔒. يصل التغيير إلى جهازه فوراً ويُسجَّل في سجل النشاطات.</div>
+      <div class="modal-msg err" id="pmErr"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="pm-reset" onclick="permReset()">العودة لصلاحيات الدور</button>
+      <button type="button" class="btn btn-outline" onclick="closePermModal()">إلغاء</button>
+      <button type="button" class="btn btn-primary" id="pmSave" onclick="savePerms()">حفظ</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay sy-m" id="staffTimeModal">
   <div class="modal-box">
     <div class="modal-head">
@@ -787,10 +827,20 @@ async function loadData(opts) {
   var empRes = await window.sb.from('clinic_employees')
     .select('id, name, role, doctor_id, pin_hash, is_active, created_at, updated_at, has_system_access, ' +
             'phone, color, notes, weekly_hours, monthly_salary, salary_currency, share_percent, ' +
-            'provider_type, compensation_model, sort_order')
+            'provider_type, compensation_model, sort_order, permissions')
     .eq('owner_id', currentUser.id)
     .order('role', { ascending: true })
     .order('name', { ascending: true });
+  // M228 not applied yet: the same list without the permissions column
+  if (empRes.error && /permissions/i.test(empRes.error.message || '')) {
+    empRes = await window.sb.from('clinic_employees')
+      .select('id, name, role, doctor_id, pin_hash, is_active, created_at, updated_at, has_system_access, ' +
+              'phone, color, notes, weekly_hours, monthly_salary, salary_currency, share_percent, ' +
+              'provider_type, compensation_model, sort_order')
+      .eq('owner_id', currentUser.id)
+      .order('role', { ascending: true })
+      .order('name', { ascending: true });
+  }
 
   // Pre-Migration-20/21/42 fallback: drop the new columns if any are missing.
   if (empRes.error && /42703|phone|color|notes|weekly_hours|monthly_salary|salary_currency|share_percent|provider_type|compensation_model|has_system_access|sort_order/i.test(
@@ -1000,6 +1050,12 @@ function renderList() {
     var actions = '';
     /* M222: الدوام والإجازات — لكل بطاقة (المالك أيضاً: دوامُه كطبيب وإجازتُه) */
     var timeBtn = '<button class="sy-act" onclick="openStaffTime(\'' + e.id + '\')">🕘 الدوام والإجازات</button>';
+    /* M228: الصلاحيات — لمن يدخل النظام فقط (المالك صلاحياته كاملة · «تتبع راتب فقط» لا يدخل النظام) */
+    var permBtn = (e.role !== 'owner' && hasAccess)
+      ? '<button class="sy-act" onclick="openPermModal(\'' + e.id + '\')">🛡️ الصلاحيات</button>' : '';
+    var permN = (e.role !== 'owner' && hasAccess) ? window.SyEmpPerms.countOverrides(e.permissions, e.role) : 0;
+    var permChip = permN
+      ? '<div class="emp-pin-status emp-perm-chip">🛡️ ' + (permN === 1 ? 'صلاحية واحدة مخصّصة عن دوره' : permN + ' صلاحيات مخصّصة عن دوره') + '</div>' : '';
     if (e.role === 'owner') {
       actions =
         '<button class="sy-act" onclick="openOwnerPinModal()">🔐 تغيير رقم سرّي</button>' + timeBtn;
@@ -1008,7 +1064,7 @@ function renderList() {
         ? 'إعادة تفعيل حساب هذا الموظف ليتمكن من تسجيل البيانات من جهازه'
         : 'منع جهاز هذا الموظف من تسجيل بيانات جديدة (الجهاز يصبح للقراءة فقط)';
       actions =
-        '<button class="sy-act" onclick="openEditModal(\'' + e.id + '\')">✏️ تعديل</button>' + timeBtn +
+        '<button class="sy-act" onclick="openEditModal(\'' + e.id + '\')">✏️ تعديل</button>' + timeBtn + permBtn +
         '<button class="sy-act' + (inactive ? ' sy-act-primary' : ' sy-act-warn') + '" onclick="toggleActive(\'' + e.id + '\')" title="' + escapeHtml(toggleTitle) + '">' +
           (inactive ? '✅ تفعيل الحساب' : '🔒 تعطيل الحساب') +
         '</button>' +
@@ -1035,7 +1091,7 @@ function renderList() {
             '</div>' +
           '</div>' +
           (e.role === 'doctor' && e.doctor_id ? '<div class="emp-info">🔗 مربوط بطبيب في قائمة الأطباء</div>' : '') +
-          pinStatus +
+          pinStatus + permChip +
           '<div class="emp-actions sy-acts">' + actions + '</div>' +
         '</div>' +
       '</div>';
@@ -2730,6 +2786,148 @@ document.addEventListener('DOMContentLoaded', function(){
     window.SyDentPwd.attachAll(['ePin', 'ePinConfirm', 'oNewPin', 'oNewPinConfirm']);
   }
 });
+</script>
+<script id="empPermsJs">
+/* M228: صلاحياتُ كل موظف — فوق صلاحيات دوره، لا بدلاً منها.
+   الافتراضيُّ = دورُه كما هو اليوم (SyDentNavBlocked من sidebar.js · حذفُ المريض للمالك).
+   clinic_employees.permissions يحمل فقط ما قلبه المالك ({مفتاح: true|false})، وبلا قلبٍ = NULL.
+   الموظفون · الإعدادات · الاشتراك للمالك فقط دائماً (فيها رقمُ سرّ القفل والحساب) — ليست مفاتيح.
+   التطبيقُ على جهاز الموظف: SyDentLock (القائمة الجانبية · guardPage · الحجبُ المبكر · data-perm). */
+(function () {
+  'use strict';
+  var GROUPS = [
+    { t: 'الرئيسية', items: [['patients', 'المرضى'], ['appointments', 'المواعيد']] },
+    { t: 'السريري', items: [['treatments', 'قائمة العلاجات'], ['doctors', 'أطباء العيادة'], ['labs', 'المخابر']] },
+    { t: 'التصوير الشعاعي', items: [['radiology', 'أرشيف الأشعة والصور السريرية']] },
+    { t: 'المحاسبة', items: [['accounting', 'المحاسبة'], ['expenses', 'المصاريف'], ['payouts', 'الرواتب والدفعات'], ['provider-reports', 'التقارير']] },
+    { t: 'الإدارة', items: [['inventory', 'المخزون'], ['audit-log', 'سجل النشاطات'], [null, 'الموظفون']] },
+    { t: 'النظام', items: [[null, 'الإعدادات'], [null, 'الاشتراك']] },
+    { t: 'إجراءات حساسة', items: [['act.delete-patient', 'حذف مريض']] }
+  ];
+  var KEYS = [];
+  GROUPS.forEach(function (g) { g.items.forEach(function (it) { if (it[0]) KEYS.push(it[0]); }); });
+  var S = { emp: null, draft: {}, busy: false };
+
+  function byId(id) { return document.getElementById(id); }
+  function toast(m, err) { if (typeof window.showToast === 'function') window.showToast(m, !!err); }
+  function esc(x) { return String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function readOnly() { return !!(window.SyDentSub && window.SyDentSub.blockReadOnly && window.SyDentSub.blockReadOnly()); }
+  function isMissing(e) { return /42703|PGRST204|permissions|schema cache/i.test(((e && e.message) || '') + ' ' + ((e && e.code) || '')); }
+  function clean(p) {
+    var out = {};
+    if (!p || typeof p !== 'object' || Array.isArray(p)) return out;
+    KEYS.forEach(function (k) { if (typeof p[k] === 'boolean') out[k] = p[k]; });
+    return out;
+  }
+  /* ما يخالف الدورَ فعلاً — تخصيصٌ صار مطابقاً للدور (بعد تغيير دور الموظف) لا يُعدّ ولا يُعلَّم */
+  function realOverrides(p, role) {
+    var c = clean(p), out = {};
+    Object.keys(c).forEach(function (k) { if (c[k] !== roleDefault(role, k)) out[k] = c[k]; });
+    return out;
+  }
+  function countOverrides(p, role) { return Object.keys(role ? realOverrides(p, role) : clean(p)).length; }
+  /* ما يعطيه الدورُ اليوم بلا أي تخصيص */
+  function roleDefault(role, key) {
+    if (role === 'owner') return true;
+    if (key === 'act.delete-patient') return false;
+    var b = (window.SyDentNavBlocked && window.SyDentNavBlocked[role]) || null;
+    if (!b) return false;
+    return b.indexOf(key) < 0;
+  }
+  function effective(role, draft, key) {
+    return Object.prototype.hasOwnProperty.call(draft, key) ? draft[key] : roleDefault(role, key);
+  }
+  function roleName(emp) {
+    return (typeof roleLabelExt === 'function') ? roleLabelExt(emp.role, emp.provider_type) : emp.role;
+  }
+
+  function render() {
+    var emp = S.emp; if (!emp) return;
+    var html = '';
+    GROUPS.forEach(function (g) {
+      html += '<div class="pm-grp"><div class="pm-grp-t">' + esc(g.t) + '</div>';
+      g.items.forEach(function (it) {
+        var key = it[0], label = it[1];
+        if (!key) {
+          html += '<div class="pm-row"><div class="pm-lbl">' + esc(label) + '</div><span class="pm-lock">🔒 للمالك فقط</span></div>';
+          return;
+        }
+        var on = effective(emp.role, S.draft, key);
+        var custom = Object.prototype.hasOwnProperty.call(S.draft, key);
+        html += '<div class="pm-row"><div class="pm-lbl">' + esc(label) + (custom ? '<span class="pm-custom">مخصّص</span>' : '') + '</div>' +
+          '<button type="button" class="pm-sw" role="switch" aria-checked="' + (on ? 'true' : 'false') + '" aria-label="' + esc(label) + '" onclick="permToggle(\'' + key + '\')"></button></div>';
+      });
+      html += '</div>';
+    });
+    byId('pmList').innerHTML = html;
+    var n = Object.keys(S.draft).length;
+    byId('pmSub').textContent = 'تبدأ من صلاحيات دوره (' + roleName(emp) + ')' + (n ? ' — ' + (n === 1 ? 'صلاحية واحدة مخصّصة' : n + ' صلاحيات مخصّصة') : '');
+  }
+
+  function open(empId) {
+    if (readOnly()) return;
+    var list = (typeof employees !== 'undefined' && Array.isArray(employees)) ? employees : [];
+    var emp = list.find(function (e) { return e.id === empId; });
+    if (!emp || emp.role === 'owner' || emp.has_system_access !== true) return;
+    if (!Object.prototype.hasOwnProperty.call(emp, 'permissions') || !window.SyDentNavBlocked) {
+      toast('⚠️ الصلاحيات غير متاحة بعد على هذا الحساب', true);
+      return;
+    }
+    S.emp = emp; S.draft = realOverrides(emp.permissions, emp.role); S.busy = false;
+    byId('pmTitle').textContent = '🛡️ الصلاحيات: ' + (emp.name || '');
+    byId('pmErr').textContent = '';
+    byId('pmSave').disabled = false;
+    render();
+    byId('permModal').classList.add('show');
+  }
+  function close() { var m = byId('permModal'); if (m) m.classList.remove('show'); S.emp = null; S.draft = {}; }
+  function toggle(key) {
+    if (!S.emp || KEYS.indexOf(key) < 0) return;
+    var next = !effective(S.emp.role, S.draft, key);
+    if (next === roleDefault(S.emp.role, key)) delete S.draft[key]; else S.draft[key] = next;
+    render();
+  }
+  function reset() { if (!S.emp) return; S.draft = {}; render(); }
+  async function save() {
+    if (readOnly() || !S.emp || S.busy) return;
+    var emp = S.emp, u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null;
+    if (!u || !window.sb) return;
+    var before = clean(emp.permissions), after = clean(S.draft);
+    var value = Object.keys(after).length ? after : null;
+    S.busy = true; byId('pmSave').disabled = true; byId('pmErr').textContent = '';
+    try {
+      var r = await window.sb.from('clinic_employees').update({ permissions: value }).eq('id', emp.id).eq('owner_id', u);
+      if (r.error) throw r.error;
+    } catch (e) {
+      console.warn('emp-perms save:', e);
+      byId('pmErr').textContent = isMissing(e) ? 'الصلاحيات غير متاحة بعد على هذا الحساب.' : 'تعذّر الحفظ — تحقّق من الاتصال وحاول ثانيةً.';
+      S.busy = false; byId('pmSave').disabled = false;
+      return;
+    }
+    emp.permissions = value;
+    try {
+      if (typeof window.logAudit === 'function') {
+        await window.logAudit('employee.permissions', {
+          entityId: emp.id,
+          description: 'تعديل صلاحيات الموظف: ' + emp.name,
+          oldValue: { permissions: Object.keys(before).length ? before : null },
+          newValue: { permissions: value }
+        });
+      }
+    } catch (e) { /* السجلّ لا يُفشل الحفظ */ }
+    var name = emp.name;
+    close();
+    if (typeof renderList === 'function') renderList();
+    toast('✓ حُفظت صلاحيات ' + name);
+  }
+
+  window.SyEmpPerms = { GROUPS: GROUPS, KEYS: KEYS, clean: clean, realOverrides: realOverrides, countOverrides: countOverrides, roleDefault: roleDefault, effective: effective, _state: S };
+  window.openPermModal = open;
+  window.closePermModal = close;
+  window.permToggle = toggle;
+  window.permReset = reset;
+  window.savePerms = save;
+})();
 </script>
 
 </body>
