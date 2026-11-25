@@ -1532,6 +1532,16 @@ function supHistBegin(){ if (_supLiveRef === null) _supLiveRef = supMap; supMap 
 function supHistEnd(){ if (_supLiveRef !== null) { supMap = _supLiveRef; _supLiveRef = null; } }
 function supExists(code){ return !!supMap[String(code)]; }
 function supCodes(){ return Object.keys(supMap).filter(isSupTooth); }
+/* ج3 (البيريو): الأسنانُ الزائدة الموجودة الآن بمضيفٍ دائم (الأرباع 1–4) — من الخريطة **الحيّة** حتى بالعرض
+   التاريخي (كـperioIsExtracted)، بلا المقلوع. لا عمودَ لها بجدول القياسات: ملاحظةٌ لكلٍّ منها بصندوق «أسنان زائدة». */
+function supPerioCodes(){
+  var m = _supLiveRef || supMap, saved = teethMap;
+  var live = (window.__historyMode && typeof liveTeethMapRef !== 'undefined' && liveTeethMapRef) ? liveTeethMapRef : null;
+  if (live) teethMap = live;
+  try {
+    return Object.keys(m).filter(function(c){ return isSupTooth(c) && Math.floor(supHost(c) / 10) <= 4 && !isExtractionDone(c); }).sort();
+  } finally { teethMap = saved; }
+}
 /* السنُّ الظاهر بالمخطط مكانَ رقمٍ دائم/لبني (التسنينُ المختلط يبدّل المواضع 1–5) */
 function supTwin(n){ n = parseInt(n, 10); var p = n % 10; if (p < 1 || p > 5) return null; return n >= 51 ? n - 40 : n + 40; }
 function supActiveHas(n){ n = parseInt(n, 10); return activeUpper().indexOf(n) !== -1 || activeLower().indexOf(n) !== -1; }

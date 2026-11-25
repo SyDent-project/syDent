@@ -11,6 +11,9 @@
       (المشغولُ معطّل) · الإضافةُ صفٌّ SN واحد (existing_current — لا مراقبة) · الإزالةُ تُرفض وعليه علاج.
    ⑥ الملفات: M226 (SN · بلا SXM/SXD · البيريو يقبل الرموز · التحويلُ والزنادُ موقوفٌ ثم مُعاد) · المحمّلان · patients.html ·
       الخيارُ أ غائبٌ عن الكود · التحديدُ المتعدد والفحصُ الأولي يرفضانه بالإصدار الأول · الإنكليزية.
+   ⑧ ج3 (M227 · القرارُ المعدَّل 25 ت٢): لا عمودَ بجدول البيريو — صندوقُ «أسنان زائدة» للموجود الحيّ بمضيفٍ دائم (لا المقلوعُ
+      ولا اللبني) · ملاحظةُ ما أُزيل باقيةٌ بفحصها · المسودةُ لفحصها وحده · الحفظُ يكتب المتغيّرَ فقط · المقارنةُ للقراءة ·
+      الطباعة · النسخُ للحيّ وحده · نصُّ الطبيب مُهرَّب وخارجُ المترجم · M227 · الإنكليزية.
    --self-test: طفراتٌ متعمَّدة يجب أن يُسقط كلٌّ منها توكيداً واحداً على الأقل (#342). بلا jsdom ⇒ تخطٍّ بـ0. */
 const fs = require('fs'), path = require('path'), cp = require('child_process'), vm = require('vm');
 const ROOT = path.resolve(__dirname, '..');
@@ -20,7 +23,7 @@ const { JSDOM, VirtualConsole } = require('jsdom');
 const SELF = process.argv.includes('--self-test');
 cp.execFileSync('node', [path.join(__dirname, 'dom-smoke', 'build-harness.js')], { stdio: 'ignore' });
 const HARNESS = fs.readFileSync(path.join(__dirname, 'dom-smoke', '.out', 'harness.html'), 'utf8');
-const FILES = ['pp-dental.js', 'pp-modules.js', 'patient-profile.html', 'patients.html', 'patient-profile.css', 'i18n-en.js', 'migrations/226_supernumerary_tooth.sql', 'scripts/validate.sh',
+const FILES = ['pp-dental.js', 'pp-modules.js', 'patient-profile.html', 'patients.html', 'patient-profile.css', 'i18n-en.js', 'migrations/226_supernumerary_tooth.sql', 'migrations/227_perio_sup_notes.sql', 'scripts/validate.sh',
   'supabase-init.js', 'portal.html'];
 /* ج2: مواضعُ عرض السن بالمنصة — كلٌّ يمرّ بـSyTooth (العددُ الأدنى لاستدعاءاته بالملف) */
 const SITES = { 'pp-plan.js': 8, 'pp-timeline.js': 4, 'pp-appt.js': 9, 'pp-core.js': 6, 'pp-clinical.js': 6, 'pp-extras.js': 8, 'pp-consent.js': 8, 'pp-wa.js': 2, 'pp-xray.js': 16,
@@ -128,6 +131,34 @@ async function measure(F, label) {
   await ev("examStamp(131,'M')");
   r.examStamps = ev("(function(){ var w=window.__WRITES.filter(function(x){return x.table==='teeth_status';}); return w.length===1 && w[0].payload.tooth_num==='131' && w[0].payload.surface==='M' && w[0].payload.treatment_key==='cond-caries'; })()");
   ev("examSelectedKey=null; window.__examMode=false;");
+  /* ⑧ ج3: ملاحظةُ السن الزائد بفحص اللثة */
+  ev("var _pp=document.createElement('div'); _pp.id='tab-perio'; _pp.innerHTML='<div id=\"perioStats\"></div><div class=\"card\"><div id=\"perioSupBox\" hidden></div></div>'; document.body.appendChild(_pp);");
+  set({ '241': { WHOLE: 'extracted', __status: { WHOLE: 'completed' } } }, ['131', '164', '241', '511']);
+  r.perioLiveCodes = ev("isExtractionDone(241) && JSON.stringify(supPerioCodes())==='[\"131\",\"164\"]'");
+  r.perioHistoryLive = ev("(function(){ var tm=teethMap; supHistBegin(); window.__historyMode=true; liveTeethMapRef=tm; teethMap={};"
+    + " var ok=JSON.stringify(supPerioCodes())==='[\"131\",\"164\"]'; teethMap=tm; liveTeethMapRef=null; window.__historyMode=false; supHistEnd(); return ok && supCodes().length===4; })()");
+  ev("perioCompare=false; perioCmpExam=null; perioSupDraft=null; perioCurrent={ id:'E2', exam_date:'2026-11-20', sup_notes:{ '131':'جيب 5', '284':'قديمة' } }; perioSupRender();");
+  r.perioBox = ev("(function(){ var b=document.getElementById('perioSupBox'), rows=Array.from(b.querySelectorAll('.perio-sup-row')).map(function(e){return e.getAttribute('data-sup-row');});"
+    + " return !b.hidden && rows.join()==='131,164,284' && !!b.querySelector('[data-sup-row=\"284\"] .perio-sup-gone') && !b.querySelector('[data-sup-row=\"131\"] .perio-sup-gone')"
+    + " && b.querySelector('input[data-sup=\"131\"]').value==='جيب 5' && b.querySelector('[data-sup-row=\"164\"] .perio-sup-name').textContent==='سن زائد حنكي 16' && b.querySelector('input[data-sup=\"164\"]').getAttribute('maxlength')==='300'; })()");
+  await ev("(async function(){ var b=document.getElementById('perioSupBox'), i1=b.querySelector('input[data-sup=\"164\"]'), i2=b.querySelector('input[data-sup=\"284\"]');"
+    + " i1.value='\"><img src=x>'; perioSupInput(i1); if (i2) { i2.value='  '; perioSupInput(i2); } window.__WRITES.length=0; await _perioSave_inner();"
+    + " window.__P3=window.__WRITES.filter(function(x){return x.table==='perio_exams';}); window.__WRITES.length=0; await _perioSave_inner();"
+    + " window.__P3b=window.__WRITES.filter(function(x){return x.table==='perio_exams';}).length; })()");
+  r.perioSaveChangedOnly = ev("(function(){ var w=window.__P3; return w.length===1 && w[0].op==='update' && JSON.stringify(w[0].payload)===JSON.stringify({ sup_notes:{ '131':'جيب 5', '164':'\"><img src=x>' } })"
+    + " && perioCurrent.sup_notes['164']==='\"><img src=x>' && !perioCurrent.sup_notes['284'] && perioSupDraft===null && window.__P3b===0; })()");
+  ev("perioSupRender();");
+  r.perioEscaped = ev("!document.querySelector('#perioSupBox img') && document.querySelector('#perioSupBox input[data-sup=\"164\"]').value==='\"><img src=x>'");
+  r.perioDraftPerExam = ev("(function(){ var i=document.querySelector('#perioSupBox input[data-sup=\"131\"]'); i.value='مسودة'; perioSupInput(i); var a=perioSupNotesNow()['131']==='مسودة';"
+    + " var keep=perioCurrent; perioCurrent={ id:'E1', exam_date:'2026-10-01', sup_notes:{ '131':'قبل' } }; var b=perioSupNotesNow()['131']==='قبل'; perioCurrent=keep; perioSupDraft=null; return a && b; })()");
+  ev("perioCompare=true; perioCmpExam={ id:'E1', exam_date:'2026-10-01', sup_notes:{ '131':'قبل' } }; perioSupRender();");
+  r.perioCompareReadOnly = ev("(function(){ var b=document.getElementById('perioSupBox'), ins=b.querySelectorAll('.perio-sup-in'), pv=b.querySelector('[data-sup-row=\"131\"] .perio-sup-prev');"
+    + " var ro=Array.prototype.every.call(ins,function(x){return x.readOnly;}); ins[0].value='تغيير'; perioSupInput(ins[0]);"
+    + " return ro && perioSupDraft===null && !!pv && !!pv.querySelector('span[data-i18n-skip]') && pv.querySelector('span[data-i18n-skip]').textContent==='قبل'; })()");
+  r.perioPrint = ev("(function(){ var h=perioSupPrintHtml(); return h.indexOf('سن زائد بين 12 و13')!==-1 && h.indexOf('<span data-i18n-skip>جيب 5</span>')!==-1 && h.indexOf('<span data-i18n-skip>قبل</span>')!==-1 && h.indexOf('<img')===-1; })()");
+  ev("perioCompare=false; perioCmpExam=null; supReset(); perioCurrent={ id:'E3', exam_date:'2026-11-25', sup_notes:null }; perioSupRender();");
+  r.perioNoSupNoBox = ev("document.getElementById('perioSupBox').hidden && document.getElementById('perioSupBox').innerHTML==='' && perioSupPrintHtml()===''");
+  r.perioClean = ev("JSON.stringify(perioSupClean({ '131':'  ', '511':'x', '13':'y', '164':new Array(402).join('a') }))===JSON.stringify({ '164':new Array(301).join('a') }) && perioSupClean({})===null && perioSupClean(null)===null");
   r.noJsErrors = ev('(window.__ERRORS||[]).length === 0');
   /* ⑥ الملفات */
   const M = F['migrations/226_supernumerary_tooth.sql'], PH = F['patient-profile.html'], PT = F['patients.html'], PD = F['pp-dental.js'], PM = F['pp-modules.js'];
@@ -148,6 +179,17 @@ async function measure(F, label) {
   r.newSessionLists = /html \+= '<div class="nse-row nse-sup">';/.test(PD) && /onclick="nsePick\(' \+ c \+ '\)">' \+ escapeHtml\(supName\(c\)\)/.test(PD);   /* ج2: «جلسة جديدة» تعرض أسنانَه الزائدة باسمها */
   r.removeSparesDenture = /\.eq\('tooth_num', tn\)\.neq\('surface', 'DENTURE'\);   \/\* M202: نمطُ كلِّ محوٍ بلا سطح \*\//.test(PD);
   r.cssLane = /#upperJaw\.sup-lane > \.tooth-cell\{padding-bottom:56px;\}/.test(F['patient-profile.css']) && /#lowerJaw > \.sup-cell\{align-self:flex-start;\}/.test(F['patient-profile.css']);
+  /* ⑧ ج3 — المصادر: لا عمود · التحميلُ والنسخُ وإعادةُ الفتح · M227 */
+  const M7 = F['migrations/227_perio_sup_notes.sql'];
+  r.perioNoColumn = /function perioIsMolar\(t\)\{ return \(t % 10\) >= 6; \}/.test(PM) && !/supMorph/.test(PM)
+    && /document\.getElementById\('perioUpper'\)\.innerHTML = perioArchHtml\(UPPER_T, 'حنكي'\);/.test(PM) && /<div class="perio-sup-box" id="perioSupBox" hidden><\/div>/.test(PH);
+  r.perioWiring = /\.select\('id, provider_id, exam_date, notes, sup_notes, created_at'\)/.test(PM) && /if \(perioInited\) \{ perioSupRender\(\); return; \}/.test(PM)
+    && /perioSupDraft = null;   \/\* ج3/.test(PM) && /if \(_live\.indexOf\(k\) !== -1\) _cp\[k\] = _src\[k\];/.test(PM)
+    && /perioPrintArch\(LOWER_T, 'لساني', perioSrc, perioCompare \? perioCmpRows : null\)\n    \+ perioSupPrintHtml\(\)\n/.test(PM);
+  r.migM227 = !!M7 && /k !~ '\^\[1-4\]\[1-8\]\[1-4\]\$'/.test(M7) && /length\(v #>> '\{\}'\) > 300/.test(M7) && /length\(btrim\(v #>> '\{\}'\)\) = 0/.test(M7)
+    && /REVOKE ALL ON FUNCTION public\._perio_sup_notes_ok\(jsonb\) FROM PUBLIC, anon;/.test(M7) && /ADD COLUMN IF NOT EXISTS sup_notes JSONB/.test(M7)
+    && /CHECK \(public\._perio_sup_notes_ok\(sup_notes\)\)/.test(M7) && /RAISE EXCEPTION 'M227/.test(M7)
+    && /ADD CONSTRAINT perio_measurements_tooth_num_check\n  CHECK \(tooth_num >= 11 AND tooth_num <= 48\);/.test(M7);
   r.gate = /prove-supernumerary\.js" --self-test/.test(F['scripts/validate.sh']);
   /* ⑦ ج2 — SyTooth: مصدرُ الاسم بالمنصة = رمزُ المخطط حرفياً (كلُّ 0–999) · مرآةُ البوابة العامة · كلُّ موضع عرضٍ يمرّ به */
   const SI = F['supabase-init.js'], i0 = SI.indexOf('window.SyTooth = (function'), i1 = SI.indexOf('})();', i0) + 5;
@@ -186,6 +228,9 @@ async function measure(F, label) {
     && tr('سن زائد لساني 46') === 'Supernumerary tooth lingual to 46' && tr('✅ أُضيف سن زائد وحشي 18 — انقره لتسجيل علاجاته') === '✅ Added a supernumerary tooth distal to 18 — click it to record its treatments'
     && tr('قُلع — اضغط لإعادته') === 'Extracted — tap to restore it' && tr('سن زائد') === 'Supernumerary tooth' && tr('إزالة السن الزائد') === 'Remove the supernumerary tooth' && tr('مكان السن الزائد حول السن 12') === 'Where is the supernumerary tooth around tooth 12'
     && /^The supernumerary tooth between 12 and 13 has recorded treatments \(2\)\./.test(tr('على سن زائد بين 12 و13 علاجاتٌ مسجّلة (2). أزلها أولاً من نافذته، ثم أزل السن الزائد.') || '');
+  r.english3 = tr('🦷 أسنان زائدة') === '🦷 Supernumerary teeth' && tr('أسنان زائدة') === 'Supernumerary teeth' && tr('لم يعد موجوداً') === 'no longer present' && tr('ملاحظة…') === 'Note…'
+    && tr('ملاحظة سن زائد حنكي 16') === 'Note on the supernumerary tooth palatal to 16' && tr('ملاحظة سن زائد بين 12 و13') === 'Note on the supernumerary tooth between 12 and 13'
+    && tr('كان (1/10/2026):') === 'Was (1/10/2026):' && /^A supernumerary tooth is not in the measurement table/.test(tr('السن الزائد لا يدخل جدول القياسات — اكتب ملاحظتك عليه هنا (جيب، نزف، حركة…)') || '');
   w.close();
   return r;
 }
@@ -219,6 +264,25 @@ const MUT = [
   ['migration keeps SXM', rep('migrations/226_supernumerary_tooth.sql', "'SPACER'::text, 'SOCKET'::text, 'COND'::text, 'SN'::text, 'DENTURE'::text,", "'SPACER'::text, 'SOCKET'::text, 'COND'::text, 'SN'::text, 'SXM'::text, 'DENTURE'::text,")],
   ['migration conversion ≠ UI scheme', rep('migrations/226_supernumerary_tooth.sql', "           ELSE (h + 1) * 10 + 1 END", "           ELSE h * 10 + 2 END")],
   ['english name dropped', rep('i18n-en.js', "if (m) return 'between ' + m[1] + ' and ' + m[2];", "if (m) return p;")],
+  ['perio: extracted supernumerary gets a note row', rep('pp-dental.js', "&& Math.floor(supHost(c) / 10) <= 4 && !isExtractionDone(c); }).sort();", "&& Math.floor(supHost(c) / 10) <= 4; }).sort();")],
+  ['perio: primary host included', rep('pp-dental.js', "return isSupTooth(c) && Math.floor(supHost(c) / 10) <= 4 && !isExtractionDone(c);", "return isSupTooth(c) && !isExtractionDone(c);")],
+  ['perio: history reads the emptied map', rep('pp-dental.js', "  var m = _supLiveRef || supMap, saved = teethMap;", "  var m = supMap, saved = teethMap;")],
+  ['perio: draft leaks to another exam', rep('pp-modules.js', "  if (perioSupDraft && perioSupDraft.exam === perioCurrent.id) return perioSupDraft.notes;", "  if (perioSupDraft) return perioSupDraft.notes;")],
+  ['perio: note never saved', rep('pp-modules.js', "  if (!perioSupSame(supNotes, perioCurrent.sup_notes)) {", "  if (false) {")],
+  ['perio: writes on every save', rep('pp-modules.js', "  if (!perioSupSame(supNotes, perioCurrent.sup_notes)) {", "  if (true) {")],
+  ['perio: empty note saved', rep('pp-modules.js', "    if (v && n < 40) { out[k] = v; n++; }", "    if (n < 40) { out[k] = v; n++; }")],
+  ['perio: no length cap', rep('pp-modules.js', "var v = typeof o[k] === 'string' ? o[k].trim().slice(0, PERIO_SUP_MAX) : '';", "var v = typeof o[k] === 'string' ? o[k].trim() : '';")],
+  ['perio: note not escaped', rep('pp-modules.js', "value=\"' + escapeHtml(v) + '\"'", "value=\"' + v + '\"'")],
+  ['perio: compare editable', rep('pp-modules.js', "  var ro = perioCompare || !!(window.SyDentSub", "  var ro = false || !!(window.SyDentSub")],
+  ['perio: removed tooth note hidden', rep('pp-modules.js', "  Object.keys(cur).concat(Object.keys(prev)).forEach(", "  [].forEach(")],
+  ['perio: copy carries an extracted tooth', rep('pp-modules.js', "if (_live.indexOf(k) !== -1) _cp[k] = _src[k];", "_cp[k] = _src[k];")],
+  ['perio: print drops the notes', rep('pp-modules.js', "    + perioSupPrintHtml()\n", "\n")],
+  ['perio: doctor text through the translator', rep('pp-modules.js', "(prev[s.code] ? '<span data-i18n-skip>' + escapeHtml(prev[s.code])", "(prev[s.code] ? '<span>' + escapeHtml(prev[s.code])")],
+  ['perio: tab reopened stale', rep('pp-modules.js', "  if (perioInited) { perioSupRender(); return; }", "  if (perioInited) { return; }")],
+  ['perio: a column again', rep('pp-modules.js', "function perioIsMolar(t){ return (t % 10) >= 6; }", "function perioIsMolar(t){ return (supMorph(t) % 10) >= 6; }")],
+  ['M227 keeps supernumerary codes in perio', rep('migrations/227_perio_sup_notes.sql', "  CHECK (tooth_num >= 11 AND tooth_num <= 48);", "  CHECK (tooth_num >= 11 AND tooth_num <= 484);")],
+  ['M227 validator callable by anon', rep('migrations/227_perio_sup_notes.sql', "REVOKE ALL ON FUNCTION public._perio_sup_notes_ok(jsonb) FROM PUBLIC, anon;", "")],
+  ['english note label dropped', rep('i18n-en.js', "    [R('^ملاحظة سن زائد ' + PL + '$'), function (m, p) { return 'Note on the ' + sup(p); }],", "")],
   ['not in the gate', rep('scripts/validate.sh', 'prove-supernumerary.js" --self-test', 'prove-supernumerary.js"')]
 ];
 

@@ -722,6 +722,24 @@ body.ai-on #aiHubBtn{display:inline-block;}
 .perio-stats{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px;font-size:12.5px;font-weight:700;}
 .perio-stats span{padding:4px 12px;border:1px solid var(--border);border-radius:999px;background:var(--bg3);color:var(--text);}
 .perio-legend{font-size:11px;color:var(--text2);margin-top:6px;line-height:1.8;}
+/* ج3: ملاحظةُ السنّ الزائد — صندوقٌ تحت الجدول، سطرٌ لكلِّ سن (الاسم فوق الحقل على الشاشات الضيقة) */
+.perio-sup-box{margin:10px 0 2px;padding:10px 12px;border:1px solid #4338ca;border-radius:10px;background:var(--bg3);min-width:0;}
+.perio-sup-box[hidden]{display:none;}
+:root[data-theme="dark"] .perio-sup-box{border-color:#818cf8;}
+.perio-sup-title{font-size:13px;font-weight:800;color:#4338ca;}
+:root[data-theme="dark"] .perio-sup-title{color:#c7d2fe;}
+.perio-sup-hint{font-size:11px;color:var(--text2);margin:2px 0 8px;line-height:1.6;}
+.perio-sup-row{display:grid;grid-template-columns:15rem minmax(0,1fr);gap:4px 10px;align-items:center;padding:4px 0;border-top:1px dashed var(--border);}
+.perio-sup-hint + .perio-sup-row{border-top:none;}
+.perio-sup-name{font-size:12.5px;font-weight:700;color:var(--text);min-width:0;overflow-wrap:anywhere;}
+.perio-sup-gone{font-size:10.5px;font-weight:700;color:var(--text2);border:1px solid var(--border);border-radius:999px;padding:0 7px;white-space:nowrap;}
+.perio-sup-in{width:100%;min-width:0;box-sizing:border-box;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-family:'Cairo',sans-serif;font-size:12.5px;}
+.perio-sup-in[readonly]{opacity:.85;}
+.perio-sup-prev{grid-column:2;font-size:11px;color:var(--text2);overflow-wrap:anywhere;}
+@media (max-width:600px){
+  .perio-sup-row{grid-template-columns:minmax(0,1fr);}
+  .perio-sup-prev{grid-column:1;}
+}
 .topt{padding:14px 12px;border-radius:10px;border:2px solid var(--border);background:transparent;color:var(--text);font-family:'Cairo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-align:center;transition:all .2s;}
 .topt:hover{background:rgba(var(--green-rgb),.08);}
 
