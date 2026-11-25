@@ -401,6 +401,11 @@ button:disabled { opacity: .6; cursor: wait; }
 }
 /* M141-ب: وضعُ القراءة — مولَّد من سجلّ الصفحة بـcheck-mirrors (V11) */
 html[data-sub-level="read"] :is([onclick*="openModal("],[onclick*="deleteCurrent("],[onclick*="savePayout("]){display:none !important;}
+/* M228: الطبيبُ يرى دفعاتِه هو فقط — عرضٌ بلا تسجيلٍ ولا تعديل (مثل حصر تقارير الأطباء) */
+.pay-self-note{display:none;}
+html.pay-self .pay-self-note{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--text2);}
+html.pay-self .sd-page-head__actions [onclick*="openModal("]{display:none !important;}
+html.pay-self .payouts-table .table-row[role="button"]{cursor:default;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
 <link rel="stylesheet" href="theme.css?v=20261125e">
@@ -428,6 +433,8 @@ html[data-sub-level="read"] :is([onclick*="openModal("],[onclick*="deleteCurrent
   </div>
 
   <div class="content">
+
+    <div class="info-box pay-self-note" role="note">🔒 تعرض هذه الصفحة دفعاتك أنت فقط.</div>
 
     <!-- Stats strip -->
     <div class="stats-strip">
@@ -636,6 +643,38 @@ var doctors     = [];     // clinic_doctors rows (all, active + inactive)
 var sessions    = [];     // ledger_sessions for production calculation
 
 var employeeFilter = 'all';  // 'all' or provider_id
+
+/* M228: الطبيبُ الذي فتح له المالكُ هذه الصفحة يرى دفعاتِه هو فقط، عرضاً بلا تسجيلٍ ولا تعديلٍ ولا حذف —
+   كما تحصر تقاريرُ الأطباء الطبيبَ بنفسه. الحصرُ بالاستعلام نفسه (لا تصل دفعاتُ غيره للجهاز) ثم بالعميل.
+   null = ليس وضعَ الطبيب ⇒ الصفحة كما هي. طبيبٌ بلا هويةٍ معروفة ⇒ لا دفعات (إغلاقٌ آمن). */
+var _selfScope = null;   // { doctorId, employeeId }
+function payIsSelfOnly() { return _selfScope !== null; }
+async function resolveSelfScope() {
+  var L = window.SyDentLock;
+  if (!L || typeof L.isDoctor !== 'function' || !L.isDoctor()) { _selfScope = null; return; }
+  try { if (typeof L.loadEmployees === 'function') await L.loadEmployees(); } catch (e) {}
+  var did = (typeof L.getEffectiveDoctorId === 'function') ? L.getEffectiveDoctorId() : (typeof L.getDoctorId === 'function' ? L.getDoctorId() : null);
+  var eid = (typeof L.getEmployeeId === 'function') ? L.getEmployeeId() : null;
+  _selfScope = { doctorId: did || null, employeeId: eid || null };
+}
+function _payScope(q, withEmployee) {
+  if (!_selfScope) return q;
+  var parts = [];
+  if (_selfScope.doctorId) parts.push('provider_id.eq.' + _selfScope.doctorId);
+  if (withEmployee && _selfScope.employeeId) parts.push('employee_id.eq.' + _selfScope.employeeId);
+  if (!parts.length) return q.is('id', null);   // لا هوية ⇒ لا صفوف
+  return q.or(parts.join(','));
+}
+function _isMine(po) {
+  if (!_selfScope) return true;
+  return (!!_selfScope.doctorId && po.provider_id === _selfScope.doctorId) ||
+         (!!_selfScope.employeeId && po.employee_id === _selfScope.employeeId);
+}
+function _isMeEntry(d) {
+  if (!_selfScope) return true;
+  return (!!_selfScope.doctorId && d.doctorId === _selfScope.doctorId) ||
+         (!!_selfScope.employeeId && d.employeeId === _selfScope.employeeId);
+}
 var methodFilter   = 'all';  // 'all' | مفتاحٌ من pay-methods.js (cash · bank · check · other · shamcash · syriatel · mtn · online — M158)
 var modalMethod    = null;   // 'cash' | 'bank' | 'check' | 'other' | null
 var modalSource    = 'drawer';   // M165: 'drawer' | 'outside' — يُحفظ مع «نقد» فقط (SyDentPayMethods.sourceForStore)
@@ -777,6 +816,9 @@ async function init() {
     // 12 Sep 2026 — mirrors expenses.html). The old default (current month)
     // hid older payouts behind a silent filter; "إعادة ضبط" clears it.
 
+    await resolveSelfScope();   /* M228 */
+    if (payIsSelfOnly()) document.documentElement.classList.add('pay-self');
+
     await loadAll();
 
     // Apply prefill from query string (?provider=xxx&from=...&to=...)
@@ -811,6 +853,13 @@ async function payLiveRefresh() {
 
 // Load all required data in parallel for speed
 async function loadAll() {
+  if (payIsSelfOnly()) {   /* M228: الجلساتُ والإجازاتُ تخدم اقتراحَ دفعةٍ جديدة فقط — لا تُحمَّل للطبيب */
+    await Promise.all([loadDoctors(), loadPayouts()]);
+    doctors = doctors.filter(_isMeEntry);
+    payouts = payouts.filter(_isMine);
+    sessions = [];
+    return;
+  }
   await Promise.all([
     loadDoctors(),
     loadPayouts(),
@@ -1060,24 +1109,24 @@ async function loadDoctors() {
 async function loadPayouts() {
   // Phase 7.2 / Migration 17 + 18: try with all new columns, fall back if missing.
   // Migration 18 added employee_id; Migration 17 added payment_method + breakdown_*
-  var res = await window.SyDentFetchAll(function(){ return window.sb.from('provider_payouts')
+  var res = await window.SyDentFetchAll(function(){ return _payScope(window.sb.from('provider_payouts')
     .select('id, provider_id, employee_id, period_start, period_end, paid_at, amount, currency, notes, payment_method, cash_source, breakdown_salary, breakdown_share, breakdown_bonus, created_at')
-    .eq('owner_id', currentUser.id)
+    .eq('owner_id', currentUser.id), true)
     .order('paid_at', { ascending: false }); });
 
   // Pre-Migration-18 fallback: drop employee_id
   if (res.error && /42703|employee_id/i.test((res.error.message || '') + ' ' + (res.error.code || ''))) {
-    res = await window.SyDentFetchAll(function(){ return window.sb.from('provider_payouts')
+    res = await window.SyDentFetchAll(function(){ return _payScope(window.sb.from('provider_payouts')
       .select('id, provider_id, period_start, period_end, paid_at, amount, currency, notes, payment_method, breakdown_salary, breakdown_share, breakdown_bonus, created_at')
-      .eq('owner_id', currentUser.id)
+      .eq('owner_id', currentUser.id), false)
       .order('paid_at', { ascending: false }); });
   }
 
   // Pre-Migration-17 fallback: drop payment_method + breakdown_*
   if (res.error && /42703|payment_method|breakdown_/i.test((res.error.message || '') + ' ' + (res.error.code || ''))) {
-    res = await window.SyDentFetchAll(function(){ return window.sb.from('provider_payouts')
+    res = await window.SyDentFetchAll(function(){ return _payScope(window.sb.from('provider_payouts')
       .select('id, provider_id, period_start, period_end, paid_at, amount, notes, created_at')
-      .eq('owner_id', currentUser.id)
+      .eq('owner_id', currentUser.id), false)
       .order('paid_at', { ascending: false }); });
   }
 
@@ -1570,6 +1619,7 @@ function toggleBreakdownRow(id) {
 // MODAL — Add / Edit
 // ═══════════════════════════════════════════════════════════════════════════
 function openModal(prefillProviderId, prefillFrom, prefillTo) {
+  if (payIsSelfOnly()) return;   /* M228: عرضٌ فقط للطبيب */
   $('editingId').value = '';
   $('modalTitle').textContent = 'دفعة جديدة';
   $('deleteBtn').style.display = 'none';
@@ -1612,7 +1662,8 @@ function openModal(prefillProviderId, prefillFrom, prefillTo) {
 }
 
 function openEditModal(id) {
-  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;   /* M141-ب: الصفُّ/البطاقة بيانات — يبقى ظاهراً ولا يفتح نموذجاً */
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
+  if (payIsSelfOnly()) return;   /* M228: الصفُّ بيانات — يبقى ظاهراً ولا يفتح نموذجاً للطبيب */   /* M141-ب: الصفُّ/البطاقة بيانات — يبقى ظاهراً ولا يفتح نموذجاً */
   var po = payouts.find(function(p){ return p.id === id; });
   if (!po) { showToast('⚠️ الدفعة غير موجودة', true); return; }
 
@@ -2049,6 +2100,7 @@ function onAmountInput() {
 var _savePayoutInFlight = false;
 
 async function savePayout() {
+  if (payIsSelfOnly()) return;   /* M228 */
   var editingId = $('editingId').value;
   var provId    = $('fldProvider').value;
   var from      = $('fldPeriodStart').value;
@@ -2280,6 +2332,7 @@ function pGuarded(name, inner, label) {
 }
 var deleteCurrent = pGuarded('deleteCurrent', _deleteCurrent_inner, 'جارٍ الحذف…');   /* v292 */
 async function _deleteCurrent_inner() {
+  if (payIsSelfOnly()) return;   /* M228 */
   var id = $('editingId').value;
   if (!id) return;
   if (!await SyDialog.confirm({ message: 'حذف هذه الدفعة؟ لا يمكن التراجع.', danger: true })) return;
