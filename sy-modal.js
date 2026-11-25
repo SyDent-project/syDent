@@ -115,6 +115,7 @@
    خطيرٍ وسؤالٍ عادي. هذه على عُدّة النوافذ نفسِها (sy-m) فتَرِث الشكلَ والسلوك.
      SyDialog.confirm({ title, message, confirmText, cancelText, danger })  → Promise<bool>
      SyDialog.prompt({ title, message, value, placeholder, confirmText })   → Promise<string|null>
+       + multiline: true ⇒ حقلٌ متعدد الأسطر (Enter سطرٌ جديد · Ctrl/⌘+Enter حفظ) · maxlength: حدٌّ للنص
      SyDialog.alert({ title, message })                                     → Promise<void>
      SyDialog.choose({ title, message, choices: [{ label, sub }], cancelText }) → Promise<index|null>  (ج2-ب-2: خيارٌ من قائمة)
    ثوابت: لا إغلاقَ بنقرةٍ خارجية (قرارٌ يُتَّخذ لا نافذةُ عرض) · Escape = إلغاء ·
@@ -150,8 +151,13 @@
         '<div class="modal-body">' +
           (o.message ? '<div class="sy-dialog-msg">' + body(o.message) + '</div>' : '') +
           (isPrompt
-            ? '<input type="text" class="sy-dialog-input" value="' + esc(o.value || '') +
-              '" placeholder="' + esc(o.placeholder || '') + '">'
+            ? (o.multiline
+                ? '<textarea class="sy-dialog-input sy-dialog-area" rows="' + (parseInt(o.rows, 10) || 4) + '"' +
+                  (o.maxlength ? ' maxlength="' + (parseInt(o.maxlength, 10) || 0) + '"' : '') +
+                  ' placeholder="' + esc(o.placeholder || '') + '">' + esc(o.value || '') + '</textarea>'
+                : '<input type="text" class="sy-dialog-input" value="' + esc(o.value || '') +
+                  '" placeholder="' + esc(o.placeholder || '') + '"' +
+                  (o.maxlength ? ' maxlength="' + (parseInt(o.maxlength, 10) || 0) + '"' : '') + '>')
             : '') +
           (isChoose
             ? '<div class="sy-dialog-choices">' + (o.choices || []).map(function (c, i) {
@@ -197,10 +203,18 @@
         }
       });
       if (input) {
+        var multi = input.tagName === 'TEXTAREA';
         input.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter') { e.preventDefault(); finish(input.value); }
+          if (e.key !== 'Enter' || e.isComposing) return;
+          if (multi && !(e.ctrlKey || e.metaKey)) return;     /* متعددُ الأسطر: Enter سطرٌ جديد */
+          e.preventDefault(); finish(input.value);
         });
-        setTimeout(function () { try { input.focus(); input.select(); } catch (e) {} }, 30);
+        setTimeout(function () {
+          try {
+            input.focus();
+            if (multi) { var n = input.value.length; input.setSelectionRange(n, n); } else input.select();   /* النصُّ يُكمَل لا يُستبدَل */
+          } catch (e) {}
+        }, 30);
       } else {
         var first = ov.querySelector(kind === 'choose' ? '.sy-dialog-choice' : (o && o.danger ? '.btn-sy-cancel' : '.btn-sy-ok'));
         setTimeout(function () { try { if (first) first.focus(); } catch (e) {} }, 30);

@@ -67,8 +67,11 @@
      • ledger_payments (Phase 2.1 بقرار المالك): إنشاء فقط — واقعة append-only؛
        تعديل/حذف الدفعات online حصراً، والتوزيع (splits/FIFO) يبقى online
        حصراً عبر مسارات الصفحة القائمة — **صفر أرقام مشتقة تُكتب offline**.
+     • ledger_sessions (بقرار المالك 25/11): تعديلُ نصِّ ملاحظة جلسةٍ موجودة فقط (SESSION_EDIT_COLS)
+       لصفٍّ واحدٍ بمعرّفه رآه المستخدم — الكلفةُ والحالةُ والتاريخُ والخطةُ والموعدُ والإنشاءُ والحذف
+       online حصراً (صفر أثرٍ مالي offline).
      أي توسيع = قرار معماري يمرّ بالحارس (check-offline-guard يكسر البناء). */
-  var OUTBOX_TABLES_RE = /\/rest\/v1\/(appointments|audit_log|ledger_payments|patients)(\?|$)/;
+  var OUTBOX_TABLES_RE = /\/rest\/v1\/(appointments|audit_log|ledger_payments|ledger_sessions|patients)(\?|$)/;
   var OUTBOX_METHODS = {
     appointments:    { POST: 1, PATCH: 1, DELETE: 1 },
     audit_log:       { POST: 1 },
@@ -76,18 +79,21 @@
     /* مريض جديد بلا اتصال (بقرار المالك): إنشاء فقط — غير مالي. الاستقبال يسجّل المريض
        ويحجز له موعداً والنت مقطوع. تعديل البطاقة: حقول محدّدة فقط (PATIENT_EDIT_COLS). رقم الملف
        (local_id) يُخصَّص من الخادم لحظة الرفع (انظر allocPatientSeq). */
-    patients:        { POST: 1, PATCH: 1 }
+    patients:        { POST: 1, PATCH: 1 },
+    ledger_sessions: { PATCH: 1 }
   };
   /* تعديل بطاقة مريض بلا اتصال: حقول الهوية والملف الطبي حصراً. جدول المرضى يحمل أيضاً
      حقولاً مشتقة من المال (payment · payment_manual · last_visit) وبيانات المخطط والعائلة —
      أي تعديل يمسّ حقلاً خارج هذه القائمة يبقى online حصراً (صفر أرقام مشتقة تُكتب offline).
      الحذف online حصراً دائماً. */
   var PATIENT_EDIT_COLS = { name: 1, phone: 1, dob: 1, gender: 1, allergies: 1, notes: 1, status: 1, medical_flags: 1, medical_flags_other: 1, referral_source: 1, referred_by_patient_id: 1, referrer_name: 1 };
+  /* ملاحظةُ الجلسة بلا اتصال: هذا الحقل وحده — أي حقلٍ آخر بالحمولة يُرفض كأي كتابةٍ تتطلب اتصالاً. */
+  var SESSION_EDIT_COLS = { notes: 1 };
   var REFUSE_OFFLINE = { refuse: true };
   /* كلاهما عمود id من نوع uuid بقيمة افتراضية — الحقن العميلي آمن
      (Migration 64 يؤكد payment_id::uuid)؛ audit_log لا يُحقن (id تسلسلي). */
   var UUID_INJECT_TABLES = { appointments: 1, ledger_payments: 1, patients: 1 };
-  var OVERLAY_TABLES = { appointments: 1, ledger_payments: 1, patients: 1 };
+  var OVERLAY_TABLES = { appointments: 1, ledger_payments: 1, patients: 1, ledger_sessions: 1 };
   var _db = null, _putCount = 0, _lastWriteToast = 0, _lastQueueToast = 0;
   var _outboxListeners = [], _getAuthHeaders = null, _onSynced = null, _draining = false;
 
@@ -564,7 +570,7 @@
     return sameVal(a, b);
   }
   function conflictCheck(rec, auth) {
-    if (!rec || (rec.table !== 'appointments' && rec.table !== 'patients') || rec.force) return Promise.resolve('ok');
+    if (!rec || (rec.table !== 'appointments' && rec.table !== 'patients' && rec.table !== 'ledger_sessions') || rec.force) return Promise.resolve('ok');
     if (rec.method !== 'PATCH' && rec.method !== 'DELETE') return Promise.resolve('ok');
     var id = idFromUrl(rec.url);
     if (!id) return Promise.resolve('ok');
@@ -717,7 +723,7 @@
       return rows.filter(function (r) { return r && uid && r.uid === uid; }).map(function (r) {
         var row = null;
         try { var b = JSON.parse(r.body || 'null'); row = Array.isArray(b) ? (b[0] || null) : b; } catch (e) {}
-        return { id: r.id, table: r.table, method: r.method, status: r.status || 'pending',
+        return { id: r.id, table: r.table, kind: r.table === 'ledger_sessions' ? 'session-note' : r.table, method: r.method, status: r.status || 'pending',
                  attempts: r.attempts || 0, createdAt: r.createdAt || 0, lastError: r.lastError || '', row: row, who: r.who || '' };
       });
     });
@@ -869,7 +875,7 @@
     /* تعديل صف مريض أونلاين خارج المهلة: كتاباته كثيرة ومتنوعة (المخطط · حالة الدفع · العائلة)
        ضمن تدفقات متعددة الخطوات — لا تُقطع. */
     var guarded = !!(table && table !== 'audit_log' && OUTBOX_METHODS[table] && OUTBOX_METHODS[table][method] &&
-                     !(table === 'patients' && method === 'PATCH'));
+                     !((table === 'patients' || table === 'ledger_sessions') && method === 'PATCH'));   /* الجلساتُ كذلك: إكمالٌ · خطةٌ · ربطُ موعد */
     var sendInput = input, sendInit = init, fp = null, ids = null, reused = false, rows = null;
     if (guarded && method === 'POST' && UUID_INJECT_TABLES[table] && typeof input === 'string' &&
         init && typeof init.body === 'string' && isPlainInsert(url, headerOf(input, init, 'prefer'))) {
@@ -1015,11 +1021,24 @@
             rec.who = String((row && row.name) || patchAll.name || '');
           });
         }
+        if (qTable === 'ledger_sessions' && method === 'PATCH') {
+          /* ملاحظةُ جلسةٍ موجودة: notes وحدها، لصفٍّ واحدٍ بمعرّفه رآه المستخدم (أساسُ كشف التعارض عند الرفع).
+             حمولةٌ فيها أي حقلٍ آخر، أو بلا معرّف، أو لصفٍّ لم يُقرأ ⇒ رفضٌ كأي كتابةٍ تتطلب اتصالاً. */
+          var sid = idFromUrl(url), sPatch = (echoRows && echoRows[0]) || null;
+          withBase = (sid && sPatch && Object.keys(sPatch).length ? seenRow(qUid, 'ledger_sessions', sid) : Promise.reject(REFUSE_OFFLINE)).then(function (row) {
+            if (!row) throw REFUSE_OFFLINE;
+            for (var c in sPatch) if (!SESSION_EDIT_COLS[c]) throw REFUSE_OFFLINE;
+            if (sameDeep(row.notes, sPatch.notes)) { rec.noop = true; return; }
+            rec.body = JSON.stringify({ notes: sPatch.notes == null ? null : String(sPatch.notes) });
+            rec.base = { notes: row.notes == null ? null : row.notes };
+            rec.who = String(row.type || row.description || '') + (row.date ? ' · ' + String(row.date).slice(0, 10) : '');
+          });
+        }
         return withBase.then(function () { return rec.noop ? null : outboxAdd(rec); }).then(function () {
           if (rec.noop) return synthWriteResponse(method, rec.headers.prefer, rec.headers.accept, echoRows, idFromUrl(url));
           bgArm(qUid, headerOf(input, init, 'apikey'));
           var now = Date.now();
-          if ((qTable === 'appointments' || qTable === 'ledger_payments' || qTable === 'patients') && now - _lastQueueToast > 2500) {
+          if ((qTable === 'appointments' || qTable === 'ledger_payments' || qTable === 'patients' || qTable === 'ledger_sessions') && now - _lastQueueToast > 2500) {
             _lastQueueToast = now;
             var qMsg = (qTable === 'ledger_payments')
               ? '📴 حُفظت الدفعة بلا اتصال — ستُرفع تلقائياً عند عودة الإنترنت'
@@ -6727,15 +6746,16 @@ window.SyDentAccountDelete = (function () {
         (r.date ? ' · ' + iso(r.date) : '');
     }
     if (op.table === 'patients') return op.method === 'POST' ? 'مريض جديد' : 'تعديل بطاقة مريض';
+    if (op.kind === 'session-note') return 'تعديل ملاحظة جلسة';   /* 25/11: ملاحظةُ جلسةٍ بلا اتصال (الوحدةُ تسمّي النوع) */
     var kind = op.method === 'POST' ? 'موعد جديد' : (op.method === 'DELETE' ? 'حذف موعد' : 'تعديل موعد');
     var when = r.date ? ' · ' + iso(r.date + (r.time ? ' ' + hhmm(r.time) : '')) : '';
     return kind + when;
   }
   function opReason(op) {
     var e = op.lastError || '', why;
-    var pat = op.table === 'patients';
-    if (e === 'CONFLICT changed') return pat ? 'عُدّلت بطاقة المريض من جهاز آخر بعد تعديلك' : 'عُدّل الموعد من جهاز آخر بعد تعديلك';
-    if (e === 'CONFLICT gone') return pat ? 'حُذف المريض من جهاز آخر' : 'حُذف الموعد من جهاز آخر';
+    var pat = op.table === 'patients', note = op.kind === 'session-note';
+    if (e === 'CONFLICT changed') return pat ? 'عُدّلت بطاقة المريض من جهاز آخر بعد تعديلك' : (note ? 'عُدّلت ملاحظة الجلسة من جهاز آخر بعد تعديلك' : 'عُدّل الموعد من جهاز آخر بعد تعديلك');
+    if (e === 'CONFLICT gone') return pat ? 'حُذف المريض من جهاز آخر' : (note ? 'حُذفت الجلسة من جهاز آخر' : 'حُذف الموعد من جهاز آخر');
     if (e.indexOf('23503') !== -1) why = 'السجل المرتبط بها حُذف من جهاز آخر';
     else if (e.indexOf('23505') !== -1) why = 'تتعارض مع سجل موجود على الخادم';
     else if (e.indexOf('HTTP 403') !== -1 || e.indexOf('42501') !== -1) why = 'لا صلاحية لتنفيذها';
@@ -6788,7 +6808,7 @@ window.SyDentAccountDelete = (function () {
           ? [{ k: 'drop', label: 'حذف العملية', sub: 'تُحذف من هذا الجهاز ولا تُرفع' }]
           : op.lastError === 'CONFLICT changed'
           ? [{ k: 'force', label: 'تطبيق تعديلي', sub: 'يُكتب فوق ما عُدّل من الجهاز الآخر' },
-             { k: 'drop', label: 'حذف العملية', sub: op.table === 'patients' ? 'تبقى البطاقة كما هي على الخادم' : 'يبقى الموعد كما هو على الخادم' }]
+             { k: 'drop', label: 'حذف العملية', sub: op.table === 'patients' ? 'تبقى البطاقة كما هي على الخادم' : (op.kind === 'session-note' ? 'تبقى ملاحظة الجلسة كما هي على الخادم' : 'يبقى الموعد كما هو على الخادم') }]
           : op.lastError === 'CONFLICT gone'
             ? [{ k: 'drop', label: 'حذف العملية', sub: 'تُحذف من هذا الجهاز ولا تُرفع' }]
             : [{ k: 'retry', label: 'إعادة المحاولة', sub: 'تُرفع الآن من جديد' },

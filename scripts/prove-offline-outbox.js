@@ -1104,6 +1104,88 @@ async function runAll(src, opt_sw, only) {
     const lit = /var PATIENT_EDIT_COLS = \{([^}]*)\}/.exec(src);
     ok('d9: no money-derived field is in the offline-editable list', !!lit && !/payment|last_visit|balance|family|flags:|dentition|teeth/.test(lit[1].replace('medical_flags', '')), lit && lit[1]);
   }
+  /* ══ تطوير 10 (بند 15 · 25/11): ملاحظةُ الجلسة بلا اتصال — notes وحدها، لجلسةٍ رآها المستخدم ══ */
+  if (!only || only === 'd10') {
+    const S = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    const ROW = { id: S, doctor_id: U1, patient_id: 'p1', type: 'حشوة', date: '2026-11-20', status: 'completed', cost: 100, currency: 'SYP', notes: 'قديمة' };
+    const LIST = SB + '/rest/v1/ledger_sessions?select=*&patient_id=eq.p1';
+    const ONE = SB + '/rest/v1/ledger_sessions?id=eq.' + S + '&doctor_id=eq.' + U1;
+    const HJ = { 'Content-Type': 'application/json' };
+    const mk10 = (opt) => { const w = { srv: Object.assign({}, ROW), sent: [] };
+      const net = async (u, i) => { const m = i.method || 'GET';
+        if (m === 'GET') { if (u.indexOf('select=id') !== -1) return json(w.srv ? [w.srv] : []); return json([ROW]); }
+        w.sent.push({ m, u: u.replace(SB, ''), body: i.body ? JSON.parse(i.body) : null, init: i });
+        if (m === 'PATCH' && w.srv && i.body) Object.assign(w.srv, JSON.parse(i.body));   /* الخادمُ يطبّق ما وصله */
+        return json(null, 204); };
+      w.t = mkTab(src, U1, net, newIDB(), opt); return w; };
+    const prime = async w => { await w.t.SyDentOffline.fetch(LIST, G); await sleep(25); };
+    const edit = async (w, body, method, url) => { w.t.navigator.onLine = false; let err = null, res = null;
+      try { res = await w.t.SyDentOffline.fetch(url || ONE, { method: method || 'PATCH', headers: HJ, body: body === undefined ? undefined : JSON.stringify(body) }); } catch (e) { err = e; }
+      w.t.navigator.onLine = true; return { err, res }; };
+    const q = async w => (await w.t.SyDentOffline._outboxAll());
+
+    let w = mk10(); await prime(w);
+    let r = await edit(w, { notes: 'جديدة\nسطر ثانٍ' });
+    let ops = await q(w);
+    ok('d10: a session note edited offline is queued and answered as saved', !r.err && r.res && r.res.status === 204 && ops.length === 1);
+    ok('d10: the queued body is the note alone, with the note the user saw kept for the conflict check',
+      ops[0] && ops[0].body === JSON.stringify({ notes: 'جديدة\nسطر ثانٍ' }) && ops[0].base && ops[0].base.notes === 'قديمة' && ops[0].who === 'حشوة · 2026-11-20', ops[0] && JSON.stringify(ops[0]));
+    w.t.navigator.onLine = false; r = await w.t.SyDentOffline.fetch(LIST, G); w.t.navigator.onLine = true;
+    ok('d10: the edited note shows in the session list offline', (await r.json())[0].notes === 'جديدة\nسطر ثانٍ');
+
+    w = mk10(); await prime(w);
+    for (const body of [{ notes: 'x', cost: 5 }, { status: 'planned' }, { cost: 0 }, { date: '2026-11-25' }, { plan_option: 'B' }, { appointment_id: null }, { currency: 'USD' }, { phase: 2 }]) {
+      r = await edit(w, body);
+      ok('d10: «' + Object.keys(body).join('+') + '» on a session is never written offline', !!r.err && /يتطلب|اتصال/.test(r.err.message) && (await q(w)).length === 0);
+    }
+    r = await edit(w, { doctor_id: U1, patient_id: 'p1', type: 'حشوة', cost: 1, notes: 'n' }, 'POST', SB + '/rest/v1/ledger_sessions');
+    ok('d10: creating a session offline is refused', !!r.err && (await q(w)).length === 0);
+    r = await edit(w, undefined, 'DELETE');
+    ok('d10: deleting a session offline is refused', !!r.err && (await q(w)).length === 0);
+    r = await edit(w, { notes: 'x' }, 'PATCH', SB + '/rest/v1/ledger_sessions?patient_id=eq.p1');
+    ok('d10: a note edit not aimed at one session by its id is refused', !!r.err && (await q(w)).length === 0);
+    r = await edit(w, { notes: 'قديمة' });
+    ok('d10: saving the same note succeeds and queues nothing', !r.err && (await q(w)).length === 0);
+    w = mk10();
+    r = await edit(w, { notes: 'n' });
+    ok('d10: a session never read on this device is refused (no base to protect another device\'s note)', !!r.err && (await q(w)).length === 0);
+
+    /* الرفع */
+    w = mk10(); await prime(w); await edit(w, { notes: 'م1' });
+    let d = await w.t.SyDentOffline.drain();
+    ok('d10: unchanged on the server → the note alone is uploaded', d.synced === 1 && w.sent.length === 1 && JSON.stringify(w.sent[0].body) === '{"notes":"م1"}' && w.sent[0].m === 'PATCH');
+    w = mk10(); await prime(w); await edit(w, { notes: 'م1' }); w.srv.notes = 'من جهاز آخر';
+    d = await w.t.SyDentOffline.drain(); ops = await q(w);
+    ok('d10: the note changed from another device → conflict, not uploaded', w.sent.length === 0 && ops.length === 1 && ops[0].lastError === 'CONFLICT changed');
+    w = mk10(); await prime(w); await edit(w, { notes: 'م1' }); w.srv.status = 'planned'; w.srv.cost = 300;
+    d = await w.t.SyDentOffline.drain();
+    ok('d10: cost or status changed elsewhere → the note still uploads (it touches nothing else)', d.synced === 1 && JSON.stringify(w.sent[0].body) === '{"notes":"م1"}');
+    w = mk10(); await prime(w); await edit(w, { notes: 'م1' }); await edit(w, { notes: 'م2' });
+    d = await w.t.SyDentOffline.drain();
+    ok('d10: two edits in a row upload in order without a false conflict', d.synced === 2 && w.sent.map(x => x.body.notes).join(',') === 'م1,م2');
+    w = mk10(); await prime(w); await edit(w, { notes: 'م1' }); w.srv = null;
+    d = await w.t.SyDentOffline.drain(); ops = await q(w);
+    ok('d10: the session was deleted elsewhere → conflict', w.sent.length === 0 && ops[0].lastError === 'CONFLICT gone');
+
+    /* أونلاين: كتاباتُ الجلسات تمرّ كما هي بلا مهلة قطع (إكمال · خطة · ربط موعد) */
+    w = mk10(); const initO = { method: 'PATCH', headers: HJ, body: JSON.stringify({ status: 'completed' }) };
+    await w.t.SyDentOffline.fetch(ONE, initO);
+    ok('d10: online, a session update is forwarded exactly as given, with no save timeout', w.sent.length === 1 && w.sent[0].init === initO && !w.sent[0].init.signal);
+
+    /* النافذة: النوعُ بالاسم والتعارضُ بلغة الملاحظة — والتوصيل لا يذكر جدول الجلسات */
+    const wu = mk10({ wire: true }); await prime(wu); await edit(wu, { notes: 'م1' }); wu.srv.notes = 'أخرى'; await wu.t.SyDentOffline.drain();
+    wu.t.dialogs = []; wu.t.script = [0, null];
+    wu.t.byId('sydent-sync-badge').onclick(); await sleep(120);
+    const c0 = wu.t.dialogs[0] && wu.t.dialogs[0].o.choices[0], d2 = wu.t.dialogs[1];
+    ok('d10: the review window names a session-note edit and its session', !!c0 && /تعديل ملاحظة جلسة/.test(c0.label) && c0.sub === 'حشوة · 2026-11-20', c0 && JSON.stringify(c0));
+    ok('d10: … and explains the conflict in note terms', !!d2 && /عُدّلت ملاحظة الجلسة من جهاز آخر/.test(d2.o.message) && d2.o.choices[1].sub === 'تبقى ملاحظة الجلسة كما هي على الخادم', d2 && JSON.stringify(d2.o));
+    const tr10 = englishEngine();
+    ['تعديل ملاحظة جلسة', 'عُدّلت ملاحظة الجلسة من جهاز آخر بعد تعديلك', 'حُذفت الجلسة من جهاز آخر', 'تبقى ملاحظة الجلسة كما هي على الخادم'].forEach(x => {
+      const e = tr10(x); ok('d10: «' + x + '» passes the English engine', e != null && !AR.test(e)); });
+    const lit = /var SESSION_EDIT_COLS = \{([^}]*)\}/.exec(src);
+    ok('d10: the offline-editable session fields are the note alone', !!lit && lit[1].trim() === 'notes: 1', lit && lit[1]);
+  }
+
 
   return fails;
 }
@@ -1112,9 +1194,20 @@ const MUTATIONS = [
   ['d9: field gate removed (payment status writable offline)', s => s.replace("for (var c in keep) if (!PATIENT_EDIT_COLS[c]) throw REFUSE_OFFLINE;", '')],
   ['d9: payment added to the offline-editable fields', s => s.replace("var PATIENT_EDIT_COLS = { name: 1,", "var PATIENT_EDIT_COLS = { payment: 1, name: 1,")],
   ['d9: unchanged fields not dropped (the form\'s payment status blocks every edit)', s => s.replace("if (seen && sameDeep(row[c], patchAll[c])) return;", '')],
-  ['d9: patient edits skip the conflict check', s => s.replace("if (!rec || (rec.table !== 'appointments' && rec.table !== 'patients') || rec.force) return Promise.resolve('ok');", "if (!rec || rec.table !== 'appointments' || rec.force) return Promise.resolve('ok');")],
+  ['d9: patient edits skip the conflict check', s => s.replace("if (!rec || (rec.table !== 'appointments' && rec.table !== 'patients' && rec.table !== 'ledger_sessions') || rec.force) return Promise.resolve('ok');", "if (!rec || (rec.table !== 'appointments' && rec.table !== 'ledger_sessions') || rec.force) return Promise.resolve('ok');")],
   ['d9: list fields compared as text only', s => s.replace("if (!sameDeep(srv[c], rec.base[c]) && !(rec.method === 'PATCH' && sameDeep(srv[c], patch[c]))) return 'changed';", "if (false) return 'changed';")],
-  ['d9: online patient updates put under the timeout', s => s.replace(" &&\n                     !(table === 'patients' && method === 'PATCH'));", ');')],
+  ['d9: online patient updates put under the timeout', s => s.replace("!((table === 'patients' || table === 'ledger_sessions') && method === 'PATCH'));", "!(table === 'ledger_sessions' && method === 'PATCH'));")],
+  ['d10: online session updates put under the timeout', s => s.replace("!((table === 'patients' || table === 'ledger_sessions') && method === 'PATCH'));", "!(table === 'patients' && method === 'PATCH'));")],
+  ['d10: field gate removed (cost writable offline)', s => s.replace("for (var c in sPatch) if (!SESSION_EDIT_COLS[c]) throw REFUSE_OFFLINE;", '')],
+  ['d10: status added to the offline-editable session fields', s => s.replace("var SESSION_EDIT_COLS = { notes: 1 };", "var SESSION_EDIT_COLS = { notes: 1, status: 1 };")],
+  ['d10: creating sessions allowed offline', s => s.replace("ledger_sessions: { PATCH: 1 }", "ledger_sessions: { PATCH: 1, POST: 1 }")],
+  ['d10: deleting sessions allowed offline', s => s.replace("ledger_sessions: { PATCH: 1 }", "ledger_sessions: { PATCH: 1, DELETE: 1 }")],
+  ['d10: an unread session accepted (no base)', s => s.replace("            if (!row) throw REFUSE_OFFLINE;\n            for (var c in sPatch)", "            row = row || {};\n            for (var c in sPatch)")],
+  ['d10: session notes skip the conflict check', s => s.replace("if (!rec || (rec.table !== 'appointments' && rec.table !== 'patients' && rec.table !== 'ledger_sessions') || rec.force) return Promise.resolve('ok');", "if (!rec || (rec.table !== 'appointments' && rec.table !== 'patients') || rec.force) return Promise.resolve('ok');")],
+  ['d10: base not kept (another device\'s note overwritten)', s => s.replace("            rec.base = { notes: row.notes == null ? null : row.notes };\n", '')],
+  ['d10: the edited note hidden offline', s => s.replace("var OVERLAY_TABLES = { appointments: 1, ledger_payments: 1, patients: 1, ledger_sessions: 1 };", "var OVERLAY_TABLES = { appointments: 1, ledger_payments: 1, patients: 1 };")],
+  ['d10: a list-wide note edit accepted', s => s.replace("withBase = (sid && sPatch && Object.keys(sPatch).length ? seenRow(", "withBase = (sPatch && Object.keys(sPatch).length ? seenRow(").replace("            if (!row) throw REFUSE_OFFLINE;\n            for (var c in sPatch)", "            row = row || {};\n            for (var c in sPatch)")],
+  ['d10: review shows a note edit as an appointment edit', s => s.replace("if (op.kind === 'session-note') return 'تعديل ملاحظة جلسة';", '')],
   ['d8: worker uploads edits too', null, sw => sw.replace("op.status === 'failed' || op.method !== 'POST' || !BG_TABLES[op.table]) return false;", "op.status === 'failed' || !BG_TABLES[op.table]) return false;")],
   ['d8: worker uploads patient rows', null, sw => sw.replace("var BG_TABLES = { appointments: 1, audit_log: 1 };", "var BG_TABLES = { appointments: 1, audit_log: 1, patients: 1 };")],
   ['d8: expired token used', null, sw => sw.replace("if (!bg || !bg.token || !bg.apikey || !(bg.exp * 1000 - Date.now() > 30000)) return 0;", "if (!bg || !bg.token || !bg.apikey) return 0;")],
@@ -1135,7 +1228,7 @@ const MUTATIONS = [
   ['d6: a waiting operation offered «retry» instead of only delete', s => s.replace("var acts = !isBad(op)\n          ? [{ k: 'drop', label: 'حذف العملية', sub: 'تُحذف من هذا الجهاز ولا تُرفع' }]\n          : op.lastError === 'CONFLICT changed'", "var acts = op.lastError === 'CONFLICT changed'")],
   ['d6: click no longer uploads first', s => s.replace("var pre = offline ? Promise.resolve(null) : O.drain().catch(function () { return null; });", 'var pre = Promise.resolve(null);')],
   ['d6: audit entries listed', s => s.replace("var all = ops.filter(function (o) { return o.table !== 'audit_log'; });", 'var all = ops;')],
-  ['d5: conflict check skipped', s => s.replace("if (!rec || (rec.table !== 'appointments' && rec.table !== 'patients') || rec.force) return Promise.resolve('ok');", "return Promise.resolve('ok');")],
+  ['d5: conflict check skipped', s => s.replace("if (!rec || (rec.table !== 'appointments' && rec.table !== 'patients' && rec.table !== 'ledger_sessions') || rec.force) return Promise.resolve('ok');", "return Promise.resolve('ok');")],
   ['d5: edit of a deleted appointment counted as done', s => s.replace("if (!rows.length) return rec.method === 'DELETE' ? 'done' : 'gone';", "if (!rows.length) return rec.method === 'DELETE' ? 'done' : 'ok';")],
   ['d5: my own earlier edit seen as someone else\'s', s => s.replace("try { var p = JSON.parse(o.body || '{}'); for (var c in p) if (Object.prototype.hasOwnProperty.call(p, c)) found[c] = p[c]; } catch (e) {}", '')],
   ['d5: same change by the other device treated as a conflict', s => s.replace(" && !(rec.method === 'PATCH' && sameDeep(srv[c], patch[c]))) return 'changed';", ") return 'changed';")],
@@ -1146,7 +1239,7 @@ const MUTATIONS = [
   ['d4: any uncached patient history faked as empty', s => s.replace("if (m && !wantsObj && rowsOf('patients').some(function (r) { return r.id === m[1]; })) {", 'if (m && !wantsObj) {')],
   ['d4: file number not taken from the server', s => s.replace("return allocPatientSeq(rec, auth).then(function () { return conflictCheck(rec, auth); })", "return conflictCheck(rec, auth)")],
   ['d4: number allocated again on every retry', s => s.replace("rec.seqDone = true;", '')],
-  ['d4: patients deletable offline', s => s.replace("patients:        { POST: 1, PATCH: 1 }\n  };", "patients:        { POST: 1, PATCH: 1, DELETE: 1 }\n  };")],
+  ['d4: patients deletable offline', s => s.replace("patients:        { POST: 1, PATCH: 1 },\n", "patients:        { POST: 1, PATCH: 1, DELETE: 1 },\n")],
   ['d4: unreachable counter ignored (upload with a guessed number)', s => s.replace("method: 'POST', headers: h, body: JSON.stringify({ n: rows.length })\n    }).then(function (res) {", "method: 'POST', headers: h, body: JSON.stringify({ n: rows.length })\n    }).catch(function () { return { ok: false, status: 0 }; }).then(function (res) {")],
   ['d4: bulk import cut by the timeout', s => s.replace("if (guarded && small && !(sendInit && sendInit.signal)", 'if (guarded && !(sendInit && sendInit.signal)')],
   ['d4: queued rows of another account readable', s => s.replace("ops = ops.filter(function (o) { return o && o.uid === uid; });\n      if (!ops.length) return null;\n      var wantsObj", "if (!ops.length) return null;\n      var wantsObj")],
@@ -1201,7 +1294,7 @@ const finish = code => { FINISHED = true; process.exit(code); };
       const m = mut ? mut(LIVE) : LIVE, msw = swMut ? swMut(SW) : SW;
       if (m === LIVE && msw === SW) { console.log('⛔ طفرة لم تُطبَّق (المرساة تغيّرت): ' + name); finish(1); }
       /* كل طفرة تُشغَّل على قسم خطوتها وحده (اسمها يبدأ بـ sN:) — التشغيل الكامل جرى أعلاه */
-      let f; try { f = await runAll(m, msw, name.slice(0, 2)); } catch (e) { f = ['threw: ' + e.message]; }
+      let f; try { f = await runAll(m, msw, name.split(':')[0]);   /* «d10:» ليس «d1» */ } catch (e) { f = ['threw: ' + e.message]; }
       if (!f.length) { console.log('⛔ طفرة لم تُكشف: ' + name); finish(1); }
     }
     console.log('✅ مثبت الأوفلاين: كل التوكيدات خضراء + ' + MUTATIONS.length + ' طفرات مكشوفة');
