@@ -94,6 +94,7 @@ AFTER_SNAPSHOT = [
     'migrations/225_consent_planned_only.sql',       # after 224: _consent_sync replaced in place — PLANNED rows only again (a performed treatment gets no consent); the cancelled-consent coverage of 224 stays
     'migrations/226_supernumerary_tooth.sql',        # after 209: SN in / SXM·SXD out of both surface checks, perio accepts supernumerary codes, SX test rows converted (history trigger paused inside); no function kept, no grant
     'migrations/227_perio_sup_notes.sql',            # after 226: perio_exams.sup_notes (+ _perio_sup_notes_ok CHECK, EXECUTE authenticated/service_role only) and perio_measurements back to 11–48
+    'migrations/228_staff_permissions.sql',          # clinic_employees.permissions (+ _staff_permissions_ok CHECK: closed keys, boolean values, never on the owner row; EXECUTE authenticated/service_role only)
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',
