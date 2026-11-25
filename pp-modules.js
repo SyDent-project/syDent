@@ -2158,7 +2158,7 @@ function perioPrintArch(arr, lingLabel, src, cmp){
     + '<tr><td style="' + lb + '">انحسار — ' + lingLabel + '</td>' + recCells(PERIO_L) + '</tr>'
     + '<tr><td style="' + lb + '">CAL — ' + lingLabel + '</td>' + calCells(PERIO_L) + '</tr>'
     + '<tr><td style="' + lb + '">نزف — ' + lingLabel + '</td>' + bopCells(PERIO_L) + '</tr>'
-    + '<tr><td style="' + lb + '">الحركة</td>' + mob + '</tr>'
+    + '<tr><td style="' + lb + '" data-en="Mobility">الحركة</td>' + mob + '</tr>'
     + '<tr><td style="' + lb + '">التشعب</td>' + furc + '</tr>'
     + '</table>';
 }

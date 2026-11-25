@@ -4308,3 +4308,64 @@ if (window.SyI18nPatterns) window.SyI18nPatterns.push(
     [R('^على سن زائد ' + PL + ' علاجاتٌ مسجّلة \\((\\d+)\\)\\. أزلها أولاً من نافذته، ثم أزل السن الزائد\\.$'), function (m, p, n) { return 'The ' + sup(p) + ' has recorded treatments (' + n + '). Remove them from its window first, then remove the supernumerary tooth.'; }]
   );
 })();
+
+/* ── مخطط اللثة (البيريو): الجدول · المؤشّرات · المقارنة · الإشعارات · الطباعة — كانت عربيةً بالواجهة الإنكليزية ── */
+(function () {
+  var D = window.SyI18nDict;
+  function was(x) { return x ? ' (was ' + x + ')' : ''; }
+  var DT = '(\\d{1,2}/\\d{1,2}/\\d{4}|\\d{4}-\\d{2}-\\d{2})', R = function (s) { return new RegExp(s); };   /* تاريخُ fmtD — لا يلتقط نصّاً عربياً آخر يبدأ بـ«مقابل» */
+  Object.assign(D, {
+    'عمق — دهليزي': 'Depth — Buccal', 'عمق — حنكي': 'Depth — Palatal', 'عمق — لساني': 'Depth — Lingual',
+    'نزف — دهليزي': 'BOP — Buccal', 'نزف — حنكي': 'BOP — Palatal', 'نزف — لساني': 'BOP — Lingual',
+    'انحسار — دهليزي': 'Recession — Buccal', 'انحسار — حنكي': 'Recession — Palatal', 'انحسار — لساني': 'Recession — Lingual',
+    'تشعب (1-3) — أرحاء': 'Furcation (1-3) — Molars', 'الحركة (0-3)': 'Mobility (0-3)', 'التشعب': 'Furcation',
+    '✕ إنهاء المقارنة': '✕ End comparison', 'لم يُقَس سابقاً': 'not measured before', 'جديد (لم يُقَس سابقاً)': 'New (not measured before)',
+    'نزف جديد (لم يكن ينزف)': 'New bleeding (was not bleeding)', 'توقف النزف (كان ينزف)': 'Bleeding stopped (was bleeding)',
+    'لا يوجد فحص أسبق للمقارنة': 'No earlier exam to compare with', '⚠️ حدّد تاريخ الفحص': '⚠️ Set the exam date',
+    '✅ أُنشئ فحص اللثة': '✅ Perio exam created', '🗑 حُذف الفحص': '🗑 Exam deleted',
+    'تعديلات غير محفوظة': 'Unsaved changes', 'لديك تعديلات غير محفوظة — تجاهلها والانتقال؟': 'You have unsaved changes — discard them and switch?',
+    'تجاهل وانتقال': 'Discard and switch', 'لديك تعديلات غير محفوظة — المتابعة بدونها؟': 'You have unsaved changes — continue without them?', 'متابعة بدونها': 'Continue without them',
+    '⚠️ يلزم تطبيق Migration 77 (مخطط اللثة)': '⚠️ Migration 77 (perio chart) must be applied',
+    '⚠️ حُفظ الجسّ فقط — يلزم تطبيق Migration 93 لحفظ الانحسار والتشعب': '⚠️ Only probing was saved — Migration 93 must be applied to save recession and furcation',
+    'حالة اللثة مستقرة مقارنة بالفحص السابق.': 'Gum condition is stable compared with the previous exam.',
+    'نزف عند السبر (٪)': 'Bleeding on probing (%)', 'مواقع 4–5 مم': 'Sites 4–5 mm', 'مواقع ≥6 مم': 'Sites ≥6 mm', 'CAL ≥5 مم': 'CAL ≥5 mm',
+    'في الجداول:': 'In the tables:', 'تحسّن (عمقٌ أقل) ·': 'improved (shallower) ·',
+    '● نزف عند السبر · × سن مقلوع · القيم بالملم (أنسي · وسط · وحشي) · CAL = العمق + الانحسار (الانحسار الفارغ = 0) · التشعب على الأرحاء: 1=I · 2=II · 3=III · — لا ينطبق':
+      '● bleeding on probing · × extracted tooth · values in mm (mesial · mid · distal) · CAL = depth + recession (empty recession = 0) · furcation on molars: 1=I · 2=II · 3=III · — not applicable'
+  });
+  window.SyI18nPatterns.push(
+    /* المؤشّرات (وفي المقارنة «(كان …)») */
+    [/^أسنان مفحوصة: (\d+)$/, 'Teeth examined: $1'],
+    [/^نزف BOP: (\d+)٪(?: \(كان (\d+)٪\))?$/, function (m, a, b) { return 'BOP: ' + a + '%' + was(b ? b + '%' : ''); }],
+    [/^مواقع ≥(\d)مم: (\d+)(?: \(كان (\d+)\))?$/, function (m, k, a, b) { return 'Sites ≥' + k + ' mm: ' + a + was(b); }],
+    [/^CAL ≥5مم: (\d+)(?: \(كان (\d+)\))?$/, function (m, a, b) { return 'CAL ≥5 mm: ' + a + was(b); }],
+    [R('^مقابل ' + DT + ':$'), 'vs $1:'],
+    [R('^مقابل ' + DT + '( — .+)?$'), function (m, d, n) { return 'vs ' + d + (n || ''); }],
+    [/^▼ تحسّن (\d+)$/, '▼ improved $1'],
+    [/^▲ تراجع (\d+)$/, '▲ worse $1'],
+    [/^· ثبات (\d+)(?: · نزف: توقّف (\d+) \/ جديد (\d+))?$/, function (m, s, a, b) { return '· same ' + s + (a != null ? ' · bleeding: stopped ' + a + ' / new ' + b : ''); }],
+    [/^كان: (\d+)$/, 'Was: $1'],
+    [/^كان: (\d+) — الآن فارغ$/, 'Was: $1 — now empty'],
+    [/^كان (\d+)$/, 'was $1'],
+    /* الإشعاراتُ والحوارات */
+    [/^🔍 مقارنة بفحص (.+)$/, '🔍 Comparing with the exam of $1'],
+    [/^حذف فحص (.+) نهائياً مع كل قياساته؟$/, 'Delete the exam of $1 permanently with all its measurements?'],
+    [/^💾 حُفظ فحص اللثة \((\d+) سناً\)$/, function (m, n) { return '💾 Perio exam saved (' + n + (n === '1' ? ' tooth)' : ' teeth)'); }],
+    [/^⚠️ تعذّر نسخ القيم: (.+)$/, '⚠️ Could not copy the values: $1'],
+    /* طباعةُ المقارنة */
+    [R('^مقارنة: ' + DT + ' ← ' + DT + '$'), 'Comparison: $1 → $2'],
+    [/^تحسّنت حالة اللثة: نقص عمق الجيب في (\d+) موقعاً(?:، وزاد في (\d+))?\.$/, function (m, a, b) { return 'Gums improved: pocket depth decreased at ' + a + ' site(s)' + (b ? ', and increased at ' + b : '') + '.'; }],
+    [/^تحتاج اللثة متابعة: زاد عمق الجيب في (\d+) موقعاً(?:، ونقص في (\d+))?\.$/, function (m, a, b) { return 'Gums need follow-up: pocket depth increased at ' + a + ' site(s)' + (b ? ', and decreased at ' + b : '') + '.'; }],
+    [/^تراجع \(عمقٌ أكبر\) — مقابل فحص (.+)$/, 'worse (deeper) — vs the exam of $1']
+  );
+})();
+
+/* ── بطاقة المريض: حالاتٌ فارغة بقيت عربية بالواجهة الإنكليزية (وجدها مسحُ البيريو 25/11) ── */
+Object.assign(window.SyI18nDict, {
+  'مراسلة المريض عبر WhatsApp': 'Message the patient on WhatsApp',
+  'لا يوجد موعد قادم': 'No upcoming appointment', 'لم يُحجز له أي موعد بعد': 'No appointment booked yet', '📅 حجز موعد': '📅 Book an appointment',
+  'لا توجد مواعيد لهذا المريض بعد': 'No appointments for this patient yet',
+  'الجلسات المسجّلة بلا موعد تظهر بتبويب الجلسات.': 'Sessions recorded without an appointment appear in the Sessions tab.',
+  'لا توجد أحداث بعد لهذا المريض': 'No events for this patient yet',
+  'ابدأ بتسجيل جلسة، موعد، أو دفعة من التبويبات الأخرى': 'Start by recording a session, an appointment or a payment from the other tabs'
+});

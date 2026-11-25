@@ -198,6 +198,37 @@ function run(F) {
   ok(["'⚠️ السن ' + toothRef(_bn) + ' لم يعد مؤهلاً ('", "'⚠️ خطأ بالسن ' + toothRef(_bn) + ': '", "'⚠️ خطأ حفظ السن ' + toothRef(_bn) + ': '", "'⚠️ تسجيل جلسة السن ' + toothRef(_bn) + ' فشل: '", "'🔩 قلعُ السن ' + toothRef(_bn) + ' ما زال مخطّطاً"].every(x => PDx.includes(x))
     && /function toothRef\(n\)\{ return isSupTooth\(n\) \? 'الزائد ' \+ supPlace\(n\) : n; \}/.test(PDx)
     && ["'⚠️ أسنان غير مؤهلة لهذا العلاج: ' + bad.join('، ')", "bad.push((typeof toothRef === 'function' ? toothRef(units[i].n) : units[i].n) + ' (' + v.msg + ')')", "'↩️ أُلغي تحديد السن ' + (typeof toothRef === 'function' ? toothRef(last.n) : last.n) + ' ('"].every(x => PMx.includes(x)), 'batch: the error patterns match the strings the code actually builds');
+
+  /* (٧) 25/11: مخطط اللثة بالإنجليزية — الجدول · المؤشّرات (وبالمقارنة «(كان …)») · المقارنة · الإشعارات · الطباعة */
+  const PERIO = [
+    ['عمق — دهليزي', 'Depth — Buccal'], ['نزف — حنكي', 'BOP — Palatal'], ['انحسار — لساني', 'Recession — Lingual'], ['تشعب (1-3) — أرحاء', 'Furcation (1-3) — Molars'],
+    ['الحركة (0-3)', 'Mobility (0-3)'], ['التشعب', 'Furcation'],
+    ['أسنان مفحوصة: 32', 'Teeth examined: 32'], ['نزف BOP: 12٪', 'BOP: 12%'], ['نزف BOP: 0٪ (كان 7٪)', 'BOP: 0% (was 7%)'],
+    ['مواقع ≥4مم: 3 (كان 1)', 'Sites ≥4 mm: 3 (was 1)'], ['مواقع ≥6مم: 0', 'Sites ≥6 mm: 0'], ['CAL ≥5مم: 2 (كان 0)', 'CAL ≥5 mm: 2 (was 0)'],
+    ['مقابل 1/10/2026:', 'vs 1/10/2026:'], ['▼ تحسّن 3', '▼ improved 3'], ['▲ تراجع 1', '▲ worse 1'], ['· ثبات 14 · نزف: توقّف 1 / جديد 2', '· same 14 · bleeding: stopped 1 / new 2'],
+    ['مقابل 1/10/2026 — د. سامي', 'vs 1/10/2026 — د. سامي'], ['✕ إنهاء المقارنة', '✕ End comparison'], ['كان: 4', 'Was: 4'], ['كان: 4 — الآن فارغ', 'Was: 4 — now empty'],
+    ['جديد (لم يُقَس سابقاً)', 'New (not measured before)'], ['نزف جديد (لم يكن ينزف)', 'New bleeding (was not bleeding)'], ['توقف النزف (كان ينزف)', 'Bleeding stopped (was bleeding)'],
+    ['🔍 مقارنة بفحص 1/10/2026', '🔍 Comparing with the exam of 1/10/2026'], ['لا يوجد فحص أسبق للمقارنة', 'No earlier exam to compare with'],
+    ['حذف فحص 1/10/2026 نهائياً مع كل قياساته؟', 'Delete the exam of 1/10/2026 permanently with all its measurements?'],
+    ['💾 حُفظ فحص اللثة (12 سناً)', '💾 Perio exam saved (12 teeth)'], ['💾 حُفظ فحص اللثة (1 سناً)', '💾 Perio exam saved (1 tooth)'],
+    ['لديك تعديلات غير محفوظة — تجاهلها والانتقال؟', 'You have unsaved changes — discard them and switch?'],
+    ['مقارنة: 1/10/2026 ← 20/11/2026', 'Comparison: 1/10/2026 → 20/11/2026'],
+    ['تحسّنت حالة اللثة: نقص عمق الجيب في 3 موقعاً، وزاد في 1.', 'Gums improved: pocket depth decreased at 3 site(s), and increased at 1.'],
+    ['تحتاج اللثة متابعة: زاد عمق الجيب في 4 موقعاً.', 'Gums need follow-up: pocket depth increased at 4 site(s).'],
+    ['نزف عند السبر (٪)', 'Bleeding on probing (%)'], ['تراجع (عمقٌ أكبر) — مقابل فحص 1/10/2026', 'worse (deeper) — vs the exam of 1/10/2026'],
+    ['● نزف عند السبر · × سن مقلوع · القيم بالملم (أنسي · وسط · وحشي) · CAL = العمق + الانحسار (الانحسار الفارغ = 0) · التشعب على الأرحاء: 1=I · 2=II · 3=III · — لا ينطبق',
+     '● bleeding on probing · × extracted tooth · values in mm (mesial · mid · distal) · CAL = depth + recession (empty recession = 0) · furcation on molars: 1=I · 2=II · 3=III · — not applicable']
+  ];
+  const badP = PERIO.filter(([ar, en]) => t(ar) !== en);
+  ok(badP.length === 0, 'perio: chart, stats, compare, toasts and print translate' + (badP.length ? ' — ' + badP.map(([ar]) => '«' + ar + '» ⇒ «' + t(ar) + '»').slice(0, 2).join(' | ') : ''));
+  /* أنماطُ «مقابل/مقارنة» مقصورةٌ على تاريخ fmtD — نصٌّ عربي آخر يبدأ بها لا يُلتقط نصفَ ترجمة */
+  ok(['مقابل الدفعة', 'مقارنة: الفحص ← اليوم'].every(x => t(x) === null || /^مقا/.test(t(x))), 'perio: the «vs»/«comparison» patterns only take a date');
+  /* الأنماطُ مربوطةٌ بالكود — تغييرُ صياغةٍ بـpp-modules يحمرّ هنا */
+  const PMp = F['pp-modules.js'];
+  ok(["'<span>أسنان مفحوصة: '", "نزف BOP: ' + pct + '٪' + (cp ? ' (كان ' + cp.pct + '٪)'", "مواقع ≥4مم: ' + w4 + (cp ? ' (كان '", "CAL ≥5مم: ' + cal5", "مقابل ' + fmtD(cp.date) + ': <b class=\"cmp-better-t\">▼ تحسّن '",
+      "· ثبات ' + cp.same", "' · نزف: توقّف ' + cp.bopStop + ' / جديد ' + cp.bopNew", "showToast('🔍 مقارنة بفحص ' + fmtD(prev.exam_date));", "'حذف فحص ' + fmtD(perioCurrent.exam_date) + ' نهائياً مع كل قياساته؟'",
+      "showToast('💾 حُفظ فحص اللثة (' + rows.length + ' سناً)');", "مقارنة: ' + fmtD(cp.date) + ' ← ' + fmtD(perioCurrent.exam_date)", "' موقعاً' + (cp.worse ? '، وزاد في '",
+      "'\" data-en=\"Mobility\">الحركة</td>'"].every(x => PMp.includes(x)), 'perio: the patterns match the strings the code builds');
   return out;
 }
 
@@ -223,7 +254,14 @@ const MUTANTS = [
   ['batch: unknown reason half-translated', 'i18n-en.js', "[new RegExp('^⚠️ السن (\\\\d+): ' + WHY_RE + '$')", "[new RegExp('^⚠️ السن (\\\\d+): (.+)$')"],
   ['batch: technical error text dropped', 'i18n-en.js', "'⚠️ Error saving tooth $1: $2'", "'⚠️ Error saving tooth $1'"],
   ['batch: a fixed toast loses its entry', 'i18n-en.js', "'لا شيء للتراجع عنه': 'Nothing to undo',", ''],
-  ['batch: the code rewords an error toast', 'pp-dental.js', "' فشل: '", "' لم ينجح: '"]
+  ['batch: the code rewords an error toast', 'pp-dental.js', "' فشل: '", "' لم ينجح: '"],
+  ['perio: a grid label loses its entry', 'i18n-en.js', "'عمق — دهليزي': 'Depth — Buccal', ", ''],
+  ['perio: the stats pattern is dropped', 'i18n-en.js', /\n    \[\/\^نزف BOP[^\n]*\n/, '\n'],
+  ['perio: «was» lost in compare', 'i18n-en.js', "return 'BOP: ' + a + '%' + was(b ? b + '%' : '');", "return 'BOP: ' + a + '%';"],
+  ['perio: tooth always plural', 'i18n-en.js', "(n === '1' ? ' tooth)' : ' teeth)')", "' teeth)'"],
+  ['perio: the «vs» pattern takes any text', 'i18n-en.js', "[R('^مقابل ' + DT + '( — .+)?$')", "[R('^مقابل (.+?)( — .+)?$')"],
+  ['perio: mobility printed as movement', 'pp-modules.js', '" data-en="Mobility">الحركة</td>', '">الحركة</td>'],
+  ['perio: the code rewords a toast', 'pp-modules.js', "showToast('🔍 مقارنة بفحص '", "showToast('🔍 مقارنة مع فحص '"]
 ];
 const self = process.argv.includes('--self-test');
 let pass = 0, fail = 0;
