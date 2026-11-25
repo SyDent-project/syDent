@@ -4369,3 +4369,13 @@ Object.assign(window.SyI18nDict, {
   'لا توجد أحداث بعد لهذا المريض': 'No events for this patient yet',
   'ابدأ بتسجيل جلسة، موعد، أو دفعة من التبويبات الأخرى': 'Start by recording a session, an appointment or a payment from the other tabs'
 });
+
+/* ── 25/11 (بند 15): تعديلُ ملاحظة الجلسة من بطاقة المريض — ويعمل بلا اتصال ── */
+Object.assign(window.SyI18nDict, {
+  'ملاحظة الجلسة': 'Session note', 'اكتب ملاحظة الجلسة…': 'Write the session note…', 'تعديل الملاحظة': 'Edit the note',
+  '🔒 حسابك غير نشط — لا يمكن تعديل الجلسات': '🔒 Your account is inactive — sessions cannot be edited',
+  '✅ حُفظت ملاحظة الجلسة': '✅ Session note saved', '✅ حُذفت ملاحظة الجلسة': '✅ Session note removed', '⚠️ تعذّر حفظ الملاحظة': '⚠️ Could not save the note',
+  'تعديل ملاحظة جلسة': 'Session note edit', 'عُدّلت ملاحظة الجلسة من جهاز آخر بعد تعديلك': 'The session note was edited on another device after your edit',
+  'حُذفت الجلسة من جهاز آخر': 'The session was deleted on another device', 'تعديل جلسة': 'Edit session'
+});
+window.SyI18nDict['تبقى ملاحظة الجلسة كما هي على الخادم'] = 'The session note stays as it is on the server';

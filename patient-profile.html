@@ -4410,7 +4410,10 @@ function renderSessions() {
     }
     var detHtml = '';
     if (!_isBlank(desc))    detHtml += '<div class="sess-desc"' + ((_fuC && typeof fuStepEnAttr === 'function') ? fuStepEnAttr(desc) : '') + '>' + escapeHtml(desc) + '</div>';   /* ج2-ج: خطوةُ المتابعة الملتبسة بإنجليزيتها */
-    if (!_isBlank(s.notes)) detHtml += '<div class="sess-note">📝 ' + escapeHtml(s.notes) + '</div>';
+    /* 25/11: ملاحظةُ الجلسة تُعدَّل من مكانها (✏️ / «＋ ملاحظة») — النصُّ وحده، وتعمل بلا اتصال أيضاً */
+    if (!_isBlank(s.notes)) detHtml += '<div class="sess-note">📝 <span data-i18n-skip>' + escapeHtml(s.notes) + '</span>'
+      + ' <button type="button" class="sess-note-btn" data-sub-write onclick="sessNoteEdit(\'' + s.id + '\')" title="تعديل الملاحظة" aria-label="تعديل الملاحظة">✏️</button></div>';
+    else detHtml += '<button type="button" class="sess-note-btn sess-note-add" data-sub-write onclick="sessNoteEdit(\'' + s.id + '\')">＋ ملاحظة</button>';
     if (apptBadge || labBadge) detHtml += '<div class="sess-links">' + apptBadge + labBadge + '</div>';
     // v478: التاريخُ أرقاماً وتحته وقتُ التسجيل إن سُجّلت الجلسة بيومها (SyDT.cellRec — لا وقتَ مُخترَع)
     var dateHtml = (window.SyDT) ? SyDT.cellRec(s.date, s.created_at) : escapeHtml(fmtD(s.date));
@@ -4863,6 +4866,33 @@ async function _saveEditedPatient_inner() {
 }
 
 /* ── Delete Session / Payment ── */
+/* 25/11 (بند 15): تعديلُ نصِّ ملاحظة جلسةٍ موجودة — الحقلُ وحده (لا كلفة ولا حالة ولا تاريخ)، فيعمل
+   بلا اتصال أيضاً: طبقةُ الأوفلاين تطابره (notes وحدها، كشفُ التعارض عند الرفع) وتعرضه فوراً. */
+var SESS_NOTE_MAX = 2000;
+var sessNoteEdit = ppGuarded('sessNoteEdit', _sessNoteEdit_inner, 'جارٍ الحفظ…');
+async function _sessNoteEdit_inner(id) {
+  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;   /* M141-ب */
+  if (window.SyDentLock && window.SyDentLock.isDoctorAccountInactive && window.SyDentLock.isDoctorAccountInactive()) {
+    showToast('🔒 حسابك غير نشط — لا يمكن تعديل الجلسات');
+    return;
+  }
+  var sess = (sessions || []).find(function(x){ return x.id === id; });
+  if (!sess) return;
+  var old = sess.notes == null ? '' : String(sess.notes);
+  var head = (sess.type || sess.description || '') + (sess.date ? ' — ' + fmtD(sess.date) : '');
+  var v = await SyDialog.prompt({ title: 'ملاحظة الجلسة', message: head, value: old, multiline: true, rows: 5,
+    maxlength: SESS_NOTE_MAX, placeholder: 'اكتب ملاحظة الجلسة…', confirmText: 'حفظ' });
+  if (v == null) return;
+  v = String(v).replace(/\r\n/g, '\n').trim().slice(0, SESS_NOTE_MAX);
+  if (v === old.trim()) return;
+  var nv = v || null;
+  var r = await window.sb.from('ledger_sessions').update({ notes: nv }).eq('id', id).eq('doctor_id', currentUser.id);
+  if (r.error) { console.warn('sessNoteEdit:', r.error); showToast('⚠️ ' + (r.error.message || 'تعذّر حفظ الملاحظة')); return; }
+  sess.notes = nv;
+  renderSessions(); renderRecentSessions(); renderTimeline();
+  if (window.logAudit) window.logAudit('session.edit', { entityId: id, patientId: patientId, patientName: (patient && patient.name) || '', field: 'notes' });
+  if (!(window.navigator && window.navigator.onLine === false)) showToast(nv ? '✅ حُفظت ملاحظة الجلسة' : '✅ حُذفت ملاحظة الجلسة');   /* بلا اتصال: رسالةُ الطابور تقول ذلك */
+}
 var delSession = ppGuarded('delSession', _delSession_inner, 'جارٍ الحذف…');   /* v284: قفل + انشغال */
 async function _delSession_inner(id, opts) {
   // Phase 4.1: defense-in-depth — block destructive ops if locked doctor is inactive

@@ -5,11 +5,13 @@
 #   • patients: POST (مريض جديد) + PATCH لحقول الهوية والملف الطبي حصراً (PATIENT_EDIT_COLS) — بقرار المالك.
 #     حالة الدفع وآخر زيارة والمخطط والعائلة والحذف: online حصراً.
 #   • ledger_payments: POST فقط (إنشاء) — تعديل/حذف online حصراً.
+#   • ledger_sessions (بقرار المالك 25/11): PATCH لعمود notes وحده (SESSION_EDIT_COLS) لصفٍّ رآه المستخدم —
+#     الإنشاء والحذف والكلفة والحالة والتاريخ والخطة online حصراً.
 #   • حقن UUID: appointments + ledger_payments فقط (كلاهما id uuid — Migration 64).
 #   • حظر مطلق بكامل supabase-init.js: payment_splits / realloc_patient_splits /
 #     buildFifoSplits — التوزيع المالي online حصراً بمسارات الصفحات، بلا نسخة رابعة.
-#   • ledger_sessions: محظورة داخل الموديول وداخل قسم توصيل الأوفلاين
-#     (قراءتها القديمة بكود onboarding خارجهما مشروعة).
+#   • ledger_sessions: داخل الموديول بعقد الملاحظة أعلاه فقط؛ محظورة بقسم توصيل الأوفلاين
+#     (يسمّيها الموديول «session-note» للنافذة — قراءتها القديمة بكود onboarding خارجهما مشروعة).
 #   • sw.js: صفر أي رمز مالي إطلاقاً + deny-list + GET فقط.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -40,12 +42,21 @@ if [ -z "$MOD" ]; then
   echo "X ماركرا الموديول غير موجودين"; bad=1
 else
   LVARS=$(grep -oE 'ledger_[a-z_]+' <<< "$MOD" | sort -u | tr '\n' ' ')
-  if [ -n "$LVARS" ] && [ "$LVARS" != "ledger_payments " ]; then
-    echo "X الموديول يذكر جداول ledger_* غير الدفعات: $LVARS"; bad=1
+  if [ -n "$LVARS" ] && [ "$LVARS" != "ledger_payments ledger_sessions " ]; then
+    echo "X الموديول يذكر جداول ledger_* غير الدفعات والجلسات: $LVARS"; bad=1
   fi
-  # whitelist الثلاثية حرفياً على سطر التعريف نفسه (بلا جدول رابع)
-  grep 'var OUTBOX_TABLES_RE' <<< "$MOD" | grep -F '(appointments|audit_log|ledger_payments|patients)(' >/dev/null \
-    || { echo "X whitelist الطابور تغيّرت عن الرباعية"; bad=1; }
+  # whitelist الخماسية حرفياً على سطر التعريف نفسه (بلا جدول سادس)
+  grep 'var OUTBOX_TABLES_RE' <<< "$MOD" | grep -F '(appointments|audit_log|ledger_payments|ledger_sessions|patients)(' >/dev/null \
+    || { echo "X whitelist الطابور تغيّرت عن الخماسية"; bad=1; }
+  # الجلسات: تعديلٌ فقط (لا إنشاء ولا حذف) · notes وحدها · بوابةُ الحقول · لا حقنَ UUID · لا مهلةَ تقطع كتاباتها أونلاين
+  grep -qF 'ledger_sessions: { PATCH: 1 }' <<< "$MOD" \
+    || { echo "X عقد (الجلسات = تعديل الملاحظة فقط) كُسر"; bad=1; }
+  grep -qF 'var SESSION_EDIT_COLS = { notes: 1 };' <<< "$MOD" \
+    || { echo "X حقول تعديل الجلسة offline تغيّرت عن notes وحدها"; bad=1; }
+  grep -qF "for (var c in sPatch) if (!SESSION_EDIT_COLS[c]) throw REFUSE_OFFLINE;" <<< "$MOD" \
+    || { echo "X بوابة حقول ملاحظة الجلسة offline مفقودة"; bad=1; }
+  grep -qF "!((table === 'patients' || table === 'ledger_sessions') && method === 'PATCH'));" <<< "$MOD" \
+    || { echo "X تعديلات الجلسات أونلاين صارت تحت مهلة القطع"; bad=1; }
   grep -qF 'patients:        { POST: 1, PATCH: 1 }' <<< "$MOD" \
     || { echo "X عقد (المريض = إنشاء + تعديل، بلا حذف) كُسر"; bad=1; }
   # تعديل المريض offline: حقول الهوية والملف الطبي حرفياً — لا payment ولا last_visit ولا أي حقل مشتق
@@ -71,7 +82,7 @@ if grep -q 'ledger_sessions' <<< "$WIRE"; then
 fi
 
 if [ "$bad" -eq 0 ]; then
-  echo "✅ حارس PWA v2: الجدار سليم (الطابور = مواعيد+تدقيق+دفعات-إنشاء-فقط+مريض-إنشاء-وتعديل-هوية؛ التوزيع online حصراً؛ صفر splits/realloc/FIFO بكامل الطبقة)"
+  echo "✅ حارس PWA v2: الجدار سليم (الطابور = مواعيد+تدقيق+دفعات-إنشاء-فقط+مريض-إنشاء-وتعديل-هوية+ملاحظة-جلسة؛ التوزيع online حصراً؛ صفر splits/realloc/FIFO بكامل الطبقة)"
 else
   echo "⛔ حارس PWA: خرق بالجدار المالي"; exit 1
 fi

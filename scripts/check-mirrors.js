@@ -2315,7 +2315,7 @@ try {
     'saveManualSplits', 'ppSendWaReminder', 'waTplSaveCurrent', 'waTplDeleteSelected', 'ppWaAiDraft', 'ppWaComposeSend', 'savePaymentPlan',
     'openRxTemplatesModal', 'rxAddItemRow', 'savePrescription', 'openPostOpTemplatesModal', 'ppPostOpAiSuggest', 'savePostOpNote',
     'openPostOpTemplateEdit', 'savePostOpTemplate', 'confirmMaterialDeduction', 'setSessionPhase', 'setSessionOption', 'adoptPlanOption', 'removeDxNote', 'openAltBridgePicker', 'openImplantAltBridgePicker', 'aiPlanOptPick', 'completeSessionFromProfile', 'ppSessionOpenLab',
-    'delSession', 'openSplitEditor', 'delPayment', 'delAdjustment', 'advanceLabOrder', 'redoLabOrder', 'undoLabStage' /* M206: تراجعٌ عن مرحلة مخبر */, 'editLabOrder', 'delLabOrder',
+    'delSession', 'sessNoteEdit' /* 25/11: ملاحظةُ الجلسة — data-sub-write + أولُ سطرٍ blockReadOnly */, 'openSplitEditor', 'delPayment', 'delAdjustment', 'advanceLabOrder', 'redoLabOrder', 'undoLabStage' /* M206: تراجعٌ عن مرحلة مخبر */, 'editLabOrder', 'delLabOrder',
     'deletePrescription', 'rxEditTemplate', 'deleteRxTemplate', 'deletePostOpNote', 'deletePostOpTemplate', 'removeImplant', 'undoExtraction',
     'clearToothStatus', 'removeSpacerUnit', 'dentRemoveUnit' /* M202: إزالةُ الجهاز المتحرك */, 'removeSocket', 'removeCondition', 'supAdd', 'supRemove' /* ج1: إضافةُ السن الزائد وإزالتُه */, 'deleteImplantLog', 'linkToFamily', 'deleteImplantTemplate', 'batchSetStatus',
     'batchPickTx', 'examSetStatus', 'examSetMonths', 'examPick', 'planWa', 'planSetStatus', 'removePendingPP', 'unlinkSessionFromApptPP',
