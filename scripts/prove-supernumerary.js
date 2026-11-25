@@ -28,7 +28,7 @@ const FILES = ['pp-dental.js', 'pp-modules.js', 'patient-profile.html', 'patient
 /* ج2: مواضعُ عرض السن بالمنصة — كلٌّ يمرّ بـSyTooth (العددُ الأدنى لاستدعاءاته بالملف) */
 const SITES = { 'pp-plan.js': 8, 'pp-timeline.js': 4, 'pp-appt.js': 9, 'pp-core.js': 6, 'pp-clinical.js': 6, 'pp-extras.js': 8, 'pp-consent.js': 8, 'pp-wa.js': 2, 'pp-xray.js': 16,
   'appt-modal.js': 10, 'appt-followup.js': 2, 'fu-unbooked.js': 2, 'appt-time.js': 4, 'index.html': 10, 'labs.html': 8, 'lab-redo.js': 2, 'radiology.html': 4,
-  'provider-reports.html': 6, 'acc-daysheet.js': 2, 'huddle-flags.js': 3, 'patients.html': 2, 'xray-viewer.js': 4, 'lab-slip.js': 4, 'patient-profile.html': 4 };   /* عددُ «window.SyTooth» بالملف حرفياً — موضعٌ يعود للرقم الخام يُنقصه */   /* عددُ «window.SyTooth» بالملف حرفياً — موضعٌ يعود للرقم الخام يُنقصه */
+  'provider-reports.html': 6, 'acc-daysheet.js': 2, 'huddle-flags.js': 3, 'patients.html': 2, 'xray-viewer.js': 4, 'lab-slip.js': 4, 'patient-profile.html': 6 };   /* عددُ «window.SyTooth» بالملف حرفياً — موضعٌ يعود للرقم الخام يُنقصه */   /* عددُ «window.SyTooth» بالملف حرفياً — موضعٌ يعود للرقم الخام يُنقصه */
 Object.keys(SITES).forEach(f => { if (!FILES.includes(f)) FILES.push(f); });
 const LIVE = {}; FILES.forEach(f => { LIVE[f] = fs.readFileSync(path.join(ROOT, f), 'utf8'); });
 

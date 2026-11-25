@@ -229,10 +229,34 @@ function run(F) {
       "· ثبات ' + cp.same", "' · نزف: توقّف ' + cp.bopStop + ' / جديد ' + cp.bopNew", "showToast('🔍 مقارنة بفحص ' + fmtD(prev.exam_date));", "'حذف فحص ' + fmtD(perioCurrent.exam_date) + ' نهائياً مع كل قياساته؟'",
       "showToast('💾 حُفظ فحص اللثة (' + rows.length + ' سناً)');", "مقارنة: ' + fmtD(cp.date) + ' ← ' + fmtD(perioCurrent.exam_date)", "' موقعاً' + (cp.worse ? '، وزاد في '",
       "'\" data-en=\"Mobility\">الحركة</td>'"].every(x => PMp.includes(x)), 'perio: the patterns match the strings the code builds');
+
+  /* (٨) 25/11: بطاقةُ المريض — خطةُ العلاج وجدولُ الجلسات والمدفوعات والسجلّ ونوافذُها. اسمُ العلاج بيانُ العيادة: يبقى كما هو */
+  const CARD = [
+    ['🗓️ زيارات الخطة', '🗓️ Plan visits'], ['المرحلة الأولى', 'Stage 1'], ['بلا مرحلة', 'No stage'], ['ترتيب / بديل', 'Order / alternative'], ['م2', 'S2'],
+    ['🗓️ زيارة 1', '🗓️ Visit 1'], ['2 بند · 1,200 ل.س', '2 items · 1,200 SYP'], ['1 بند · 300 $', '1 item · 300 $'],
+    ['↩︎ 1 بند كان مربوطاً بموعدٍ أُلغي أو فات أو انتهى دون إنجازه — عاد «بلا زيارة» ليُجدوَل من جديد.', '↩︎ 1 item was linked to an appointment that was cancelled, missed or ended without it — back to «No visit» to be scheduled again.'],
+    ['🔬 2 طلب مخبر مفتوح — اضغط للعرض', '🔬 2 open lab orders — tap to view'],  ['غير مدفوع', 'Unpaid'], ['بندٌ بديل — لا يُجدوَل ولا يدخل الزيارات قبل اعتماد الخيار ب', 'An alternative item — not scheduled and not in visits until option B is adopted'], ['📅 موعد منتهٍ', '📅 Appointment ended'],
+    ['⚠️ على المريض ل.س', '⚠️ Owed by the patient (SYP)'], ['مخطط (لم يُنجز)', 'Planned (not done)'], ['✏️ توزيع', '✏️ Allocate'],
+    ['حشوة — السن 36', 'Filling — tooth 36'], ['دفعة: 150 ل.س', 'Payment: 150 SYP'],
+    ['🗓️ زيارة جديدة — المرحلة الثانية', '🗓️ New visit — Stage 2'], ['2 علاج سيُربط • 1,200 ل.س', '2 treatments to link • 1,200 SYP'], ['حشوة • السن 36', 'Filling • tooth 36'],
+    ['تأكيد إكمال العلاج', 'Confirm completing the treatment'], ['العلاج: حشوة', 'Treatment: Filling'], ['التكلفة: 300 ل.س', 'Cost: 300 SYP'],
+    ['✅ حشوة • سن 16 (إطباقي)', '✅ Filling • tooth 16 (Occlusal)'], ['📋 حشوة • سن زائد بين 12 و13', '📋 Filling • supernumerary tooth between 12 and 13'],
+    ['5/11/2026 • متبقي على الجلسة:', '5/11/2026 • left on the session:'],
+    ['✓ اعتماد الخيار ب', '✓ Adopt option B'], ['+ 1 بند مشترك (أدناه)', '+ 1 shared item (below)'], ['3 بنود', '3 items'], ['🔀 يضمّ بدائل — أ: 900 · ب: 1,500', '🔀 Includes alternatives — A: 900 · B: 1,500'],
+    ['🔀 هذا البند من «الخيار ج» — إنجازُه يعني اعتماد هذا الخيار.', '🔀 This item belongs to «Option C» — completing it adopts that option.'], ['– زرعة (سن 36) [ب]', '– زرعة (tooth 36) [B]'], ['150 من 150 ل.س', '150 of 150 SYP'],
+    ['لا مراسلات بعد — كل ما تُرسله لهذا المريض من زر «واتساب» (روشتة · تعليمات · خطة · تذكير…) يُسجَّل هنا بتاريخه ونصّه.', 'No messages yet — everything you send this patient with the «WhatsApp» button (prescription · instructions · plan · reminder…) is logged here with its date and text.']
+  ];
+  const badC = CARD.filter(([ar, en]) => t(ar) !== en);
+  ok(badC.length === 0, 'patient card: plan, sessions, payments, log and their dialogs translate' + (badC.length ? ' — ' + badC.map(([ar]) => '«' + ar + '» ⇒ «' + t(ar) + '»').slice(0, 2).join(' | ') : ''));
+  /* اسمُ علاجٍ مجهول يبقى كما هو والسنُّ وحده يُترجم — لا اختلاقَ لاسم */
+  /* كلماتٌ مفردة ملتبسة تبقى خارج القاموس المشترك — إنجليزيتُها بـdata-en بموضعها */
+  ok(['المرحلة', 'بديل', 'أ', 'ب', 'ج', 'إكمال', 'الدفع'].every(w => t(w) === null || t(w) === w) && F['pp-plan.js'].includes('data-en="Stage">المرحلة</span>') && F['pp-plan.js'].includes('data-en="Alternative">بديل</span>') && F['pp-plan.js'].includes("var en = ({ 'أ': 'A', 'ب': 'B', 'ج': 'C' })[lbl];") && F['pp-plan.js'].includes("(en ? ' data-en=\"' + en + '\"' : '')")
+    && F['patient-profile.html'].includes('<th data-en="Payment">الدفع</th>') && F['patient-profile.html'].includes('<span class="sy-act-lbl" data-en="Complete"> إكمال</span>'), 'patient card: ambiguous single words carry their own data-en, not the shared dictionary');
+  ok(t('حشوة مخصّصة للعيادة — السن 21') === 'حشوة مخصّصة للعيادة — tooth 21' && t('تاج زركون • سن 11') === 'تاج زركون • tooth 11', 'patient card: an unknown treatment name stays exactly as the clinic wrote it');
   return out;
 }
 
-const FILES = ['theme.js', 'i18n-en.js', 'pp-dental.js', 'pp-modules.js'].concat(...MODULES.map(m => m.files));
+const FILES = ['theme.js', 'i18n-en.js', 'pp-dental.js', 'pp-modules.js', 'pp-plan.js', 'patient-profile.html'].concat(...MODULES.map(m => m.files));
 const F0 = {}; FILES.forEach(f => { F0[f] = R(f); });
 const MUTANTS = [
   ['a row title loses its entry', 'i18n-en.js', "  'الشهر حتى اليوم': 'Month to date',\n", ''],
@@ -261,7 +285,12 @@ const MUTANTS = [
   ['perio: tooth always plural', 'i18n-en.js', "(n === '1' ? ' tooth)' : ' teeth)')", "' teeth)'"],
   ['perio: the «vs» pattern takes any text', 'i18n-en.js', "[R('^مقابل ' + DT + '( — .+)?$')", "[R('^مقابل (.+?)( — .+)?$')"],
   ['perio: mobility printed as movement', 'pp-modules.js', '" data-en="Mobility">الحركة</td>', '">الحركة</td>'],
-  ['perio: the code rewords a toast', 'pp-modules.js', "showToast('🔍 مقارنة بفحص '", "showToast('🔍 مقارنة مع فحص '"]
+  ['perio: the code rewords a toast', 'pp-modules.js', "showToast('🔍 مقارنة بفحص '", "showToast('🔍 مقارنة مع فحص '"],
+  ['card: a plan label loses its entry', 'i18n-en.js', "'🗓️ زيارات الخطة': '🗓️ Plan visits', ", ''],
+  ['card: items always plural', 'i18n-en.js', "return cnt(n, 'item', 'items') + ' · '", "return n + ' items · '"],
+  ['card: an ambiguous single word enters the shared dictionary', 'i18n-en.js', "'الخيار أ': 'Option A',", "'الخيار أ': 'Option A', 'بديل': 'Alternative',"],
+  ['card: the option letter loses its data-en', 'pp-plan.js', "(en ? ' data-en=\"' + en + '\"' : '')", "''"],
+  ['card: the tooth pattern swallows the treatment name', 'i18n-en.js', "[/^(.+) — (?:السن|سن) (\\d+)$/, '$1 — tooth $2'],", "[/^(.+) — (?:السن|سن) (\\d+)$/, 'Treatment — tooth $2'],"]
 ];
 const self = process.argv.includes('--self-test');
 let pass = 0, fail = 0;
