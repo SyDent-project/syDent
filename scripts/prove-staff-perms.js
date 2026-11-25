@@ -14,7 +14,7 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.resolve(__dirname, '..');
-const FILES = ['supabase-init.js', 'sidebar.js', 'employees.html', 'patients.html', 'patient-profile.html', 'accounting.html',
+const FILES = ['supabase-init.js', 'payouts.html', 'sidebar.js', 'employees.html', 'patients.html', 'patient-profile.html', 'accounting.html',
   'expenses.html', 'payouts.html', 'audit-log.html', 'i18n-en.js', 'migrations/228_staff_permissions.sql'];
 const base = {};
 FILES.forEach(f => { base[f] = fs.readFileSync(path.join(ROOT, f), 'utf8'); });
@@ -193,6 +193,29 @@ async function suite(F) {
   ['الصلاحيات', 'للمالك فقط', 'إجراءات حساسة', 'أرشيف الأشعة والصور السريرية', 'حذف مريض', 'العودة لصلاحيات الدور', 'صلاحية واحدة مخصّصة عن دوره', 'مخصّص']
     .forEach(k => ok(D.indexOf("'" + k + "': ") > -1, 'dictionary: ' + k));
   ok(/\[\/\^تبدأ من صلاحيات دوره \\\(\(\.\+\?\)\\\)\$\//.test(D) && /'🛡️ \$1 permissions customised from their role'/.test(D), 'dictionary patterns for runtime text');
+  /* ═══ (٤) الرواتب للطبيب: دفعاتُه هو فقط، عرضاً ═══ */
+  const P = F['payouts.html'];
+  const a = P.indexOf('var _selfScope = null;'), b = P.indexOf('function _isMeEntry(d) {');
+  const pc = { console };
+  vm.createContext(pc);
+  vm.runInContext(P.slice(a, P.indexOf('\n}\n', b) + 3) + '\nthis.api={_payScope,_isMine,_isMeEntry,payIsSelfOnly,set:function(v){_selfScope=v;}};', pc);
+  const q = () => { const o = { calls: [] }; o.or = (x) => { o.calls.push(['or', x]); return o; }; o.is = (c, v) => { o.calls.push(['is', c, v]); return o; }; return o; };
+  pc.api.set(null);
+  ok(pc.api._payScope(q(), true).calls.length === 0 && pc.api._isMine({ provider_id: 'x' }) && !pc.api.payIsSelfOnly(), 'payouts: owner/secretary see the page as before');
+  pc.api.set({ doctorId: 'D1', employeeId: 'E1' });
+  ok(JSON.stringify(pc.api._payScope(q(), true).calls) === '[["or","provider_id.eq.D1,employee_id.eq.E1"]]', 'payouts: the query itself is scoped to the doctor');
+  ok(JSON.stringify(pc.api._payScope(q(), false).calls) === '[["or","provider_id.eq.D1"]]', 'payouts: legacy query without employee_id stays valid');
+  ok(pc.api._isMine({ provider_id: 'D1' }) && pc.api._isMine({ employee_id: 'E1' }) && !pc.api._isMine({ provider_id: 'D2' }) && !pc.api._isMine({ employee_id: 'E2' }), 'payouts: client filter keeps only his rows');
+  ok(pc.api._isMeEntry({ doctorId: 'D1' }) && !pc.api._isMeEntry({ doctorId: 'D2', employeeId: 'E2' }), 'payouts: staff list reduced to himself');
+  pc.api.set({ doctorId: null, employeeId: null });
+  ok(JSON.stringify(pc.api._payScope(q(), true).calls) === '[["is","id",null]]' && !pc.api._isMine({ provider_id: null, employee_id: null }), 'payouts: unknown doctor identity ⇒ nothing (fail closed)');
+  ok(/await resolveSelfScope\(\);   \/\* M228 \*\/\n    if \(payIsSelfOnly\(\)\) document\.documentElement\.classList\.add\('pay-self'\);\n\n    await loadAll\(\);/.test(P), 'payouts: scope resolved before the first load');
+  ok(/if \(payIsSelfOnly\(\)\) \{[^]*?doctors = doctors\.filter\(_isMeEntry\);\n    payouts = payouts\.filter\(_isMine\);/.test(P), 'payouts: self mode filters after loading too');
+  ['function openModal(prefillProviderId, prefillFrom, prefillTo) {\n  if (payIsSelfOnly()) return;', "if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;\n  if (payIsSelfOnly()) return;", 'async function savePayout() {\n  if (payIsSelfOnly()) return;', 'async function _deleteCurrent_inner() {\n  if (payIsSelfOnly()) return;']
+    .forEach(x => ok(P.indexOf(x) > -1, 'payouts: write path closed for the doctor — ' + x.slice(0, 30)));
+  ok((P.match(/_payScope\(window\.sb\.from\('provider_payouts'\)/g) || []).length === 3, 'payouts: all three query shapes scoped');
+  ok(/html\.pay-self \.sd-page-head__actions \[onclick\*="openModal\("\]\{display:none !important;\}/.test(P) && /class="info-box pay-self-note"/.test(P), 'payouts: new-payout button hidden + note shown');
+  ok(D.indexOf("'تعرض هذه الصفحة دفعاتك أنت فقط.': ") > -1, 'dictionary: payouts note');
 }
 
 const rep = (f, a, b) => F => { const o = Object.assign({}, F); o[f] = F[f].split(a).join(b); return o; };
@@ -216,6 +239,10 @@ const MUTANTS = [
   ['delete still owner-only', rep('patients.html', "window.SyDentLock.can('act.delete-patient', false)", "window.SyDentLock.isOwner()")],
   ['payouts ignores the grant', rep('payouts.html', "if (role !== 'owner' && !_permOpen) {", "if (role !== 'owner') {")],
   ['stale override kept', rep('employees.html', "S.draft = realOverrides(emp.permissions, emp.role);", "S.draft = clean(emp.permissions);")],
+  ['payouts query not scoped', rep('payouts.html', "  if (!_selfScope) return q;\n  var parts = [];", "  return q;\n  var parts = [];")],
+  ['payouts unknown identity sees all', rep('payouts.html', "  if (!parts.length) return q.is('id', null);", "  if (!parts.length) return q;")],
+  ['payouts client filter dropped', rep('payouts.html', "    payouts = payouts.filter(_isMine);\n", '')],
+  ['payouts doctor can still delete', rep('payouts.html', "async function _deleteCurrent_inner() {\n  if (payIsSelfOnly()) return;   /* M228 */\n", "async function _deleteCurrent_inner() {\n")],
   ['dictionary misses a string', rep('i18n-en.js', "'العودة لصلاحيات الدور': ", "'العودة للدور': ")]
 ];
 
