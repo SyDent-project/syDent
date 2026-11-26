@@ -190,9 +190,9 @@ async function suite(F) {
   ok(/onclick="openPermModal\(\\'' \+ e\.id \+ '\\'\)">🛡️ الصلاحيات<\/button>/.test(F['employees.html']) && /\(e\.role !== 'owner' && hasAccess\)/.test(F['employees.html']), 'card button only for staff who sign in');
   ok(/\[onclick\*="openPermModal\("\],\[onclick\*="savePerms\("\]/.test(F['employees.html']), 'read-only mode hides open + save');
   const D = F['i18n-en.js'];
-  ['الصلاحيات', 'للمالك فقط', 'إجراءات حساسة', 'أرشيف الأشعة والصور السريرية', 'حذف مريض', 'العودة لصلاحيات الدور', 'صلاحية واحدة مخصّصة عن دوره', 'مخصّص']
-    .forEach(k => ok(D.indexOf("'" + k + "': ") > -1, 'dictionary: ' + k));
-  ok(/\[\/\^تبدأ من صلاحيات دوره \\\(\(\.\+\?\)\\\)\$\//.test(D) && /'🛡️ \$1 permissions customised from their role'/.test(D), 'dictionary patterns for runtime text');
+  ['الصلاحيات', 'للمالك فقط', 'إجراءات حساسة', 'أرشيف الأشعة والصور السريرية', 'حذف مريض', 'استعادة الافتراضي', 'صلاحية واحدة مخصّصة عن الدور', 'مخصّص']
+    .forEach(k => ok(D.indexOf("'" + k + "': ") > -1 || D.indexOf('"' + k + '": ') > -1, 'dictionary: ' + k));
+  ok(/\[\/\^تبدأ من صلاحيات الدور \\\(\(\.\+\?\)\\\)\$\//.test(D) && /'🛡️ \$1 permissions customised from the role'/.test(D), 'dictionary patterns for runtime text');
   /* ═══ (٤) الرواتب للطبيب: دفعاتُه هو فقط، عرضاً ═══ */
   const P = F['payouts.html'];
   const a = P.indexOf('var _selfScope = null;'), b = P.indexOf('function _isMeEntry(d) {');
@@ -216,6 +216,7 @@ async function suite(F) {
   ok((P.match(/_payScope\(window\.sb\.from\('provider_payouts'\)/g) || []).length === 3, 'payouts: all three query shapes scoped');
   ok(/html\.pay-self \.sd-page-head__actions \[onclick\*="openModal\("\]\{display:none !important;\}/.test(P) && /class="info-box pay-self-note"/.test(P), 'payouts: new-payout button hidden + note shown');
   ok(D.indexOf("'تعرض هذه الصفحة دفعاتك أنت فقط.': ") > -1, 'dictionary: payouts note');
+  ok(/onclick="permReset\(\)">استعادة الافتراضي<\/button>/.test(F['employees.html']) && !/عن دوره|صلاحيات دوره \(|من قائمته الجانبية/.test(F['employees.html'].replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')), 'wording: «استعادة الافتراضي» and neutral role phrases (no he/she)');
 }
 
 const rep = (f, a, b) => F => { const o = Object.assign({}, F); o[f] = F[f].split(a).join(b); return o; };
@@ -243,7 +244,8 @@ const MUTANTS = [
   ['payouts unknown identity sees all', rep('payouts.html', "  if (!parts.length) return q.is('id', null);", "  if (!parts.length) return q;")],
   ['payouts client filter dropped', rep('payouts.html', "    payouts = payouts.filter(_isMine);\n", '')],
   ['payouts doctor can still delete', rep('payouts.html', "async function _deleteCurrent_inner() {\n  if (payIsSelfOnly()) return;   /* M228 */\n", "async function _deleteCurrent_inner() {\n")],
-  ['dictionary misses a string', rep('i18n-en.js', "'العودة لصلاحيات الدور': ", "'العودة للدور': ")]
+  ['dictionary misses a string', rep('i18n-en.js', "'صلاحية واحدة مخصّصة عن الدور': ", "'صلاحية واحدة': ")],
+  ['old wording back', rep('employees.html', "'تبدأ من صلاحيات الدور ('", "'تبدأ من صلاحيات دوره ('")]
 ];
 
 (async () => {

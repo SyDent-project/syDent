@@ -556,11 +556,11 @@ html[data-sub-level="read"] :is([onclick*="openAddModal("],[onclick*="saveEmploy
     </div>
     <div class="modal-body">
       <div id="pmList"></div>
-      <div class="pm-note">الصفحة المُطفأة تختفي من قائمته الجانبية، وإن فُتح رابطها مباشرةً تظهر شاشة 🔒. يصل التغيير إلى جهازه فوراً ويُسجَّل في سجل النشاطات.</div>
+      <div class="pm-note">الصفحة المُطفأة تختفي من القائمة الجانبية على جهاز الموظف، وإن فُتح رابطها مباشرةً تظهر شاشة 🔒. يصل التغيير فوراً ويُسجَّل في سجل النشاطات.</div>
       <div class="modal-msg err" id="pmErr"></div>
     </div>
     <div class="modal-footer">
-      <button type="button" class="pm-reset" onclick="permReset()">العودة لصلاحيات الدور</button>
+      <button type="button" class="pm-reset" onclick="permReset()">استعادة الافتراضي</button>
       <button type="button" class="btn btn-outline" onclick="closePermModal()">إلغاء</button>
       <button type="button" class="btn btn-primary" id="pmSave" onclick="savePerms()">حفظ</button>
     </div>
@@ -1055,7 +1055,7 @@ function renderList() {
       ? '<button class="sy-act" onclick="openPermModal(\'' + e.id + '\')">🛡️ الصلاحيات</button>' : '';
     var permN = (e.role !== 'owner' && hasAccess) ? window.SyEmpPerms.countOverrides(e.permissions, e.role) : 0;
     var permChip = permN
-      ? '<div class="emp-pin-status emp-perm-chip">🛡️ ' + (permN === 1 ? 'صلاحية واحدة مخصّصة عن دوره' : permN + ' صلاحيات مخصّصة عن دوره') + '</div>' : '';
+      ? '<div class="emp-pin-status emp-perm-chip">🛡️ ' + (permN === 1 ? 'صلاحية واحدة مخصّصة عن الدور' : permN + ' صلاحيات مخصّصة عن الدور') + '</div>' : '';
     if (e.role === 'owner') {
       actions =
         '<button class="sy-act" onclick="openOwnerPinModal()">🔐 تغيير رقم سرّي</button>' + timeBtn;
@@ -2861,7 +2861,7 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     byId('pmList').innerHTML = html;
     var n = Object.keys(S.draft).length;
-    byId('pmSub').textContent = 'تبدأ من صلاحيات دوره (' + roleName(emp) + ')' + (n ? ' — ' + (n === 1 ? 'صلاحية واحدة مخصّصة' : n + ' صلاحيات مخصّصة') : '');
+    byId('pmSub').textContent = 'تبدأ من صلاحيات الدور (' + roleName(emp) + ')' + (n ? ' — ' + (n === 1 ? 'صلاحية واحدة مخصّصة' : n + ' صلاحيات مخصّصة') : '');
   }
 
   function open(empId) {
