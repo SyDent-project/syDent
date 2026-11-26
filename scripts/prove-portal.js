@@ -52,7 +52,7 @@ const fnBody = (sql) => { const i = sql.indexOf('CREATE OR REPLACE FUNCTION publ
 /* ── pp-portal.js in a vm with stub DOM ─────────────────────────────── */
 function loadPP(src, opt) {
   opt = opt || {};
-  const FN = ['ppPortalLink', 'ppPortalIsLive', 'ppPortalIsExpired', 'ppPortalWhen', 'ppPortalShowsText', 'ppPortalLiveRow', 'ppPortalRender', 'ppPortalFill', 'ppPortalMsgText', 'ppPortalErr'];
+  const FN = ['ppPortalLink', 'ppPortalIsLive', 'ppPortalIsForever', 'ppPortalIsExpired', 'ppPortalWhen', 'ppPortalShowsText', 'ppPortalLiveRow', 'ppPortalRender', 'ppPortalFill', 'ppPortalMsgText', 'ppPortalErr'];
   const els = { portalRow: { style: {} }, iPortal: { innerHTML: '' } };
   const ctx = {
     window: { sb: null }, document: { getElementById: id => els[id] || null }, console: { warn() {} },
@@ -135,7 +135,7 @@ function suite(S) {
   /* (٢) portal.html standalone + read-only */
   ok(!/src="(supabase-init|sidebar|theme|sy-modal)\.js|href="theme\.css/.test(portal) && portal.indexOf('?v=') < 0 && portal.indexOf('/vendor/supabase-') > -1 && /name="robots" content="noindex"/.test(portal), 'portal.html: standalone, token-free, vendor supabase, noindex');
   const rpcs = [...portal.matchAll(/sb\.rpc\('([a-z_]+)'/g)].map(m => m[1]);
-  ok(rpcs.length === 6 && rpcs.slice().sort().join() === 'portal_appt_change,portal_confirm,portal_consent_sign,portal_consents,portal_info,portal_slots' && /sb\.rpc\('portal_consents', \{ p_token: TOKEN \}\)/.test(portal) && /sb\.rpc\('portal_consent_sign', \{ p_token: TOKEN, p_consent: id, p_signature: sig, p_name: name, p_relation: rel === RELATIONS\[0\] \? null : rel \}\)/.test(portal) && /sb\.rpc\('portal_slots', \{ p_token: TOKEN, p_appt: id \}\)/.test(portal) && /sb\.rpc\('portal_info', \{ p_token: TOKEN \}\)/.test(portal) && /sb\.rpc\('portal_confirm', \{ p_token: TOKEN, p_appt: id \}\)/.test(portal) && /sb\.rpc\('portal_appt_change', \{ p_token: TOKEN, p_appt: id, p_kind: kind, p_reason: reason \|\| null,/.test(portal), 'portal.html: exactly six RPCs — portal_info + portal_slots + portal_consents (reads) · portal_confirm, portal_appt_change and portal_consent_sign (the three named writes, M220)');
+  ok(rpcs.length === 8 && rpcs.slice().sort().join() === 'portal_appt_change,portal_book_request,portal_book_slots,portal_confirm,portal_consent_sign,portal_consents,portal_info,portal_slots' && /sb\.rpc\('portal_book_slots', \{ p_token: TOKEN \}\)/.test(portal) && /sb\.rpc\('portal_book_request', \{ p_token: TOKEN, p_date: d, p_time: t, p_note: note \|\| null \}\)/.test(portal) && /sb\.rpc\('portal_consents', \{ p_token: TOKEN \}\)/.test(portal) && /sb\.rpc\('portal_consent_sign', \{ p_token: TOKEN, p_consent: id, p_signature: sig, p_name: name, p_relation: rel === RELATIONS\[0\] \? null : rel \}\)/.test(portal) && /sb\.rpc\('portal_slots', \{ p_token: TOKEN, p_appt: id \}\)/.test(portal) && /sb\.rpc\('portal_info', \{ p_token: TOKEN \}\)/.test(portal) && /sb\.rpc\('portal_confirm', \{ p_token: TOKEN, p_appt: id \}\)/.test(portal) && /sb\.rpc\('portal_appt_change', \{ p_token: TOKEN, p_appt: id, p_kind: kind, p_reason: reason \|\| null,/.test(portal), 'portal.html: exactly eight RPCs — portal_info + portal_slots + portal_consents + portal_book_slots (reads) · portal_confirm, portal_appt_change, portal_consent_sign and portal_book_request (the four named writes, M220 · M229)');
   ok(!/\.from\(|\.insert\(|\.update\(|\.delete\(|\.upsert\(|sessionStorage|indexedDB/.test(portal) && portal.replace(/localStorage\.(getItem|setItem)\(KEY/g, '').indexOf('localStorage') < 0 && /var KEY = 'sydent_theme';/.test(portal), 'portal.html: no table access at all (writes only through the two narrow RPCs); the only browser storage is the theme key (sydent_theme)');
   ok(/\[\?&\]t=\(\[0-9a-fA-F\]\{64\}\)/.test(portal), 'portal.html: token read as 64 hex only');
   const smsg = literal(portal, 'var STATUS_MSG', '{', '}');
@@ -155,7 +155,7 @@ function suite(S) {
   ok(/\.theme-btn\{\n  position:absolute; top:calc\(8px \+ env\(safe-area-inset-top, 0px\)\)/.test(portal) && !/\.theme-btn\{[^}]*position:fixed/.test(portal), 'mobile: the theme button scrolls with the page (was fixed and covered content) and clears the notch');
   const rpcCalls = f => [...f.matchAll(/sb\.rpc\('[a-z_]+'/g)].length;
   const timedCalls = f => [...f.matchAll(/withTimeout\(sb\.rpc\('[a-z_]+'/g)].length;
-  ok(rpcCalls(portal) === 6 && timedCalls(portal) === 6 && rpcCalls(intake) === timedCalls(intake) && rpcCalls(intake) >= 2 && [portal, intake].every(f => /var sb = \(window\.supabase && window\.supabase\.createClient\) \?/.test(f) && (f.match(/if \(!sb\) throw new Error\('vendor'\);/g) || []).length === rpcCalls(f)), 'network: every RPC on both pages is timed out and guarded against a vendor script that failed to load');
+  ok(rpcCalls(portal) === 8 && timedCalls(portal) === 8 && rpcCalls(intake) === timedCalls(intake) && rpcCalls(intake) >= 2 && [portal, intake].every(f => /var sb = \(window\.supabase && window\.supabase\.createClient\) \?/.test(f) && (f.match(/if \(!sb\) throw new Error\('vendor'\);/g) || []).length === rpcCalls(f)), 'network: every RPC on both pages is timed out and guarded against a vendor script that failed to load');
   ok(/min-height:44px/.test(portal) && /<div class="pl-row"><div class="pl-name">/.test(portal) && /\.pl-cost\{white-space:nowrap;/.test(portal) && !/<table>/.test(portal) && /id="slowNote"/.test(portal) && /clearTimeout\(slowT\);/.test(portal), 'mobile: 44px tap targets · the plan is a two-column list whose cost is never clipped · a slow-link note after 6s');
   ok(themeBlock(portal).length > 500 && themeBlock(portal) === themeBlock(intake) && /id="themeBtn" onclick="toggleTheme\(\)"/.test(portal) && /id="themeBtn" onclick="toggleTheme\(\)"/.test(intake) && /:root\[data-theme="dark"\]\{/.test(portal), 'theme: dark palette + toggle block byte-identical on portal.html and intake.html; both carry the button');
   /* (٣) الهجرة */
@@ -258,7 +258,9 @@ function suite(S) {
   ok(Lc.ctx.ppPortalMsgText('L') === 'رابطك L يا سامر خالد', 'template: clinic override wins');
   ok(/يعرض للمريض: المواعيد · خطة العلاج · التعليمات والروشتات/.test(Lp.ctx.ppPortalShowsText()) && /الرصيد/.test(loadPP(pp, { rows: [], cs: { portal_show_balance: true } }).ctx.ppPortalShowsText()), 'hint: send button names the sections the clinic enabled (balance only when on)');
   ok(/\.eq\('id', live\.id\)\.eq\('owner_id', currentUser\.id\)\.is\('revoked_at', null\)/.test(slice(pp, 'ppPortalRevoke')) && /SyDialog\.confirm\(/.test(slice(pp, 'ppPortalRevoke')) && /danger: true/.test(slice(pp, 'ppPortalRevoke')), 'revoke: confirmed, owner-scoped, live-row-scoped update');
-  ok(/if \(live\) \{[\s\S]*?\.update\(\{ expires_at: exp, renewed_at: new Date\(\)\.toISOString\(\)/.test(slice(pp, 'ppPortalEnsureLive')) && /\.is\('revoked_at', null\)/.test(slice(pp, 'ppPortalEnsureLive')), 'renew: resend extends the live row, never mints a second token');
+  ok(/if \(live\) \{[\s\S]*?\.update\(\{ expires_at: exp, renewed_at: new Date\(\)\.toISOString\(\)/.test(slice(pp, 'ppPortalEnsureLive')) && /\.is\('revoked_at', null\)/.test(slice(pp, 'ppPortalEnsureLive'))
+    && /if \(live && exp === undefined && !ppPortalIsExpired\(live\)\) return live;\s+if \(exp === undefined\) \{ exp = await ppPortalAskExpiry\(\); if \(!exp\) return null; \}/.test(slice(pp, 'ppPortalEnsureLive')),
+    'renew (M229): the chosen expiry is written on the live row (same token); resend/copy reuse a live link untouched; a new or expired link asks for its validity first');
   ok(/ppWaComposeOpen\('إرسال رابط بوابة المريض', ppPortalMsgText\(link\), false, null, '', 'portal'\)/.test(pp) && /ppMsgLog\('portal'/.test(pp), 'send: v408 composer with kind portal; copy logs under portal');
   ok(/subscription_read_only\|sub_gate\|row-level security/.test(slice(pp, 'ppPortalErr')) && /Migration 180/.test(slice(pp, 'ppPortalErr')), 'errors: read-only and pre-migration messages');
   /* portal.html sections */
@@ -625,10 +627,104 @@ async function suite217(S) {
   ok(/متابعة — زراعة/.test(o2) && !/ضمن العلاج|pl-cost/.test(o2) && /<div class="pl-cost">0 <span class="cur">/.test(o3) && !/ضمن العلاج/.test(o3),
     'M217 page: without the balance switch no cost column at all (the flag shows nothing on its own); only a real true flag counts');
 }
-async function run(S) { pass = 0; fail = 0; suite(S); await suite187(S); await suite189(S); await suite190(S); await suite191(S); await suite205(S); await suite215(S); await suite217(S); return { pass, fail }; }
+/* M229 (27/11/2026): حجزُ موعدٍ من البوابة لمريضٍ بلا موعدٍ قادم (يصل booking_requests كرابط الحجز) + صلاحيةُ الرابط
+   يختارها الطبيب (30 يوماً · تاريخ محدد · دائمة = 'infinity') */
+async function suite229(S) {
+  const { portal, pp, mig229, apb, boot, smod, ppc } = S;
+  const fnOf = n => { const i = mig229.indexOf('CREATE OR REPLACE FUNCTION public.' + n + '('); return i < 0 ? '' : mig229.slice(i, mig229.indexOf('END; $$;', i)).replace(/--[^\n]*/g, ''); };
+  const bs = fnOf('portal_book_slots'), br = fnOf('portal_book_request');
+  /* (أ) القاعدة */
+  ok(/ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'web'/.test(mig229) && /CHECK \(source IN \('web', 'portal'\)\)/.test(mig229) && /patient_id UUID REFERENCES public\.patients\(id\) ON DELETE SET NULL/.test(mig229)
+    && /CHECK \(phone ~ '\^\\\+\?\[0-9\]\{8,15\}\$' OR \(source = 'portal' AND phone = ''\)\)/.test(mig229), 'M229 table: source web|portal (every existing row = web) · patient_id SET NULL · an empty phone only on a portal row');
+  ok(/LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public/.test(bs) && !/\b(INSERT\s+INTO|UPDATE\s+public\.|DELETE\s+FROM)\b/i.test(bs) && /LANGUAGE plpgsql SECURITY DEFINER SET search_path = public/.test(br) && !/STABLE/.test(br),
+    'M229: the read is STABLE with zero writes; the request is a plain definer write');
+  ok([bs, br].every(f => /p_token !~ '\^\[0-9a-f\]\{64\}\$'/.test(f) && /pp\.revoked_at IS NULL AND pp\.expires_at >= now\(\)/.test(f) && /_intake_clinic_open\(v\.owner_id\)/.test(f)
+    && /COALESCE\(\(SELECT c\.portal_show_appts FROM public\.clinic_settings c WHERE c\.owner_id = v\.owner_id\), true\)/.test(f) && /FROM public\.booking_clinic_info\(v\.owner_id\) LIMIT 1;\s+IF NOT FOUND THEN RETURN jsonb_build_object\('ok', false, 'reason', 'disabled'\); END IF;/.test(f)),
+    'M229 gates (both): token shape · live link · open clinic · appointments shown · the clinic\'s online booking on');
+  ok([bs, br].every(f => /x\.doctor_id = v\.owner_id AND x\.patient_id = v\.patient_id AND x\.is_planned = false\s+AND x\.date >= v_today AND COALESCE\(x\.status, 'pending'\) NOT IN \('cancelled', 'broken', 'completed', 'no_show'\)/.test(f))
+    && /RETURN jsonb_build_object\('ok', false, 'reason', 'has_appt'\)/.test(br) && /br\.patient_id = v\.patient_id AND br\.status = 'pending'\) THEN\s+RETURN jsonb_build_object\('ok', true, 'reason', 'already'\)/.test(br),
+    'M229: only without an upcoming appointment, one pending request per patient');
+  ok(/PERFORM pg_advisory_xact_lock\(hashtext\('portal-book:' \|\| v\.owner_id::text \|\| ':' \|\| v\.patient_id::text\)\);/.test(br) && /interval '24 hours'\) >= 3/.test(br) && /= v_today\) >= 40 THEN\s+RETURN jsonb_build_object\('ok', false, 'reason', 'rate_limited'\)/.test(br),
+    'M229: per-patient lock (no double request) · 3 / patient / 24 h · the clinic\'s 40 / day cap');
+  ok(/IF p_date < v_today OR p_date > v_today \+ LEAST\(GREATEST\(COALESCE\(bi\.max_days_ahead, 30\), 1\), 60\) THEN/.test(br) && /PERFORM pg_advisory_xact_lock\(hashtext\('portal-slot:' \|\| v\.owner_id::text \|\| ':' \|\| p_date::text\)\);\s+IF NOT EXISTS \(SELECT 1 FROM public\._portal_free_slots\(v\.owner_id, '00000000-0000-0000-0000-000000000000'::uuid, bi\.slot_minutes, p_date, p_date\) f\s+WHERE f\.d = p_date AND f\.t = p_time\) THEN/.test(br)
+    && /_portal_free_slots\(v\.owner_id, '00000000-0000-0000-0000-000000000000'::uuid, bi\.slot_minutes,/.test(bs),
+    'M229: the same free-slot grid as the change picker (M189/M223) — offered and re-validated under the per-clinic-and-day lock');
+  ok(/INSERT INTO public\.booking_requests \(clinic_id, patient_name, phone, requested_date, requested_time, duration, note, source, patient_id\)\s+VALUES \(v\.owner_id, v_name, v_phone, p_date, p_time, bi\.slot_minutes, v_note, 'portal', v\.patient_id\)/.test(br)
+    && /EXCEPTION WHEN unique_violation THEN\s+RETURN jsonb_build_object\('ok', false, 'reason', 'slot_taken'\)/.test(br) && /\[\[:cntrl:\]\]\+/.test(br) && /, 300\), ''\)/.test(br),
+    'M229: lands in booking_requests (source portal · his card) · a race on the slot ⇒ slot_taken · the note cleaned and capped');
+  ok(/INSERT INTO public\.audit_log/.test(br) && /'appointment\.portal_request', 'booking_request', v_id/.test(br) && /INSERT INTO public\.patient_messages \(owner_id, patient_id, kind, channel, body, sent_by\)\s+VALUES \(v\.owner_id, v\.patient_id, 'portal', 'portal', v_body, 'المريض \(البوابة\)'\)/.test(br),
+    'M229: every request audited and logged in المراسلات');
+  ok(/REVOKE ALL ON FUNCTION public\.portal_book_slots\(text\) FROM PUBLIC;\nGRANT EXECUTE ON FUNCTION public\.portal_book_slots\(text\) TO anon, authenticated;/.test(mig229) && /REVOKE ALL ON FUNCTION public\.portal_book_request\(text, date, time, text\) FROM PUBLIC;\nGRANT EXECUTE ON FUNCTION public\.portal_book_request\(text, date, time, text\) TO anon, authenticated;/.test(mig229)
+    && !/CREATE POLICY/i.test(mig229) && /'migrations\/228_staff_permissions\.sql',[^\n]*\n    'migrations\/229_portal_book_request\.sql',/.test(boot), 'M229: grants exactly like the other portal RPCs · no policy · registered after M228');
+  ok(/AND br\.reviewed_at > now\(\) - interval '7 days'/.test(bs) && /ORDER BY br\.created_at DESC LIMIT 1/.test(bs), 'M229: a rejection shows for 7 days, and only while it is his latest request');
+  /* (ب) الصفحة */
+  const base229 = { status: 'ok', clinic_name: 'عيادة', clinic_phone: '0933123456', patient_name: 'سامر', show: { appts: true }, appts: { upcoming: [], past: [] } };
+  const days = [{ d: '2026-11-28', times: ['08:00', '08:30'] }, { d: '2026-11-30', times: ['10:00'] }];
+  let resp = { ok: true, id: 'x' }, slotsResp = { ok: true, dur: 30, rejected: false, days };
+  const page = (inf) => loadPortalRpc(portal, JSON.parse(JSON.stringify(inf || base229)), async n => n === 'portal_book_slots' ? { data: slotsResp } : { data: resp });
+  const tick = async () => { await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r)); };
+  let R = page(); await R.ctx.loadBook(); let o = R.els.app.innerHTML;
+  ok(R.calls.some(c => c[0] === 'portal_book_slots') && /id="bookOpen" onclick="openBook\(\)">📅 حجز موعد</.test(o) && !/wa\.me/.test(o.slice(o.indexOf('مواعيدك'))) , 'M229 page: no upcoming appointment + booking open ⇒ «📅 حجز موعد» (the WhatsApp request steps aside)');
+  R.ctx.openBook(); o = R.els.app.innerHTML;
+  ok(/حجز موعد جديد/.test(o) && /السبت<small>28\/11<\/small>/.test(o) && /pickTime\('08:30'\)/.test(o) && /id="chgGo" disabled onclick="submitBook\(this\)"/.test(o), 'M229 page: the panel — day strip, free times, send disabled until a time is chosen');
+  R.ctx.pickDay('2026-11-30'); R.ctx.pickTime('10:00'); o = R.els.app.innerHTML;
+  ok(/✓ الإثنين 30\/11 الساعة 10:00/.test(o) && /id="chgGo" onclick="submitBook\(this\)"/.test(o), 'M229 page: choosing a time names it and enables send');
+  await R.ctx.submitBook(null);
+  const call = R.calls.filter(c => c[0] === 'portal_book_request').pop(); o = R.els.app.innerHTML;
+  ok(call && call[1].p_date === '2026-11-30' && call[1].p_time === '10:00' && call[1].p_token === 'ab'.repeat(32) && /⏳ طلب موعدك يوم الإثنين 30\/11 الساعة 10:00 قيد المراجعة لدى العيادة/.test(o) && /وصل طلبك إلى عيادة ✓/.test(o) && !/bookOpen/.test(o),
+    'M229 flow: the chosen slot is sent; the page then reads «طلب موعدك … قيد المراجعة» (no second button)');
+  resp = { ok: false, reason: 'slot_taken' };
+  R = page(); await R.ctx.loadBook(); R.ctx.openBook(); R.ctx.pickDay('2026-11-30'); R.ctx.pickTime('10:00');
+  const before = R.calls.filter(c => c[0] === 'portal_book_slots').length;
+  await R.ctx.submitBook(null); o = R.els.app.innerHTML;
+  ok(R.calls.filter(c => c[0] === 'portal_book_slots').length === before + 1 && /لم يعد متاحاً/.test(o) && /id="chgPanel"/.test(o) && R.ctx.OPEN_CHG.time === null, 'M229 flow: slot taken meanwhile ⇒ fresh slots, the panel stays open, the choice cleared, said plainly');
+  slotsResp = { ok: true, pending: { d: '2026-11-28', t: '08:00' } };
+  R = page(); await R.ctx.loadBook(); o = R.els.app.innerHTML;
+  ok(/⏳ طلب موعدك يوم السبت 28\/11 الساعة 08:00 قيد المراجعة/.test(o) && !/bookOpen/.test(o), 'M229 page: an open request is shown back, never a second button');
+  slotsResp = { ok: true, rejected: true, days };
+  R = page(); await R.ctx.loadBook(); o = R.els.app.innerHTML;
+  ok(/لم تتمكّن عيادة من تلبية طلبك الأخير/.test(o) && /bookOpen/.test(o), 'M229 page: a rejection (7 days) is said, and he can pick again');
+  slotsResp = { ok: false, reason: 'disabled' };
+  R = page(); await R.ctx.loadBook(); o = R.els.app.innerHTML;
+  ok(!/bookOpen/.test(o) && /📱 طلب موعد عبر واتساب/.test(o), 'M229 page: booking off ⇒ the WhatsApp request as before');
+  slotsResp = { ok: true, days: [] };
+  R = page(); await R.ctx.loadBook(); o = R.els.app.innerHTML;
+  ok(!/bookOpen/.test(o) && /لا أوقات متاحة للحجز حالياً/.test(o) && /📱 طلب موعد عبر واتساب/.test(o), 'M229 page: no free time ⇒ said, WhatsApp offered');
+  R = page(Object.assign({}, base229, { appts: { upcoming: [{ id: '11111111-1111-4111-8111-111111111111', date: '2026-12-01', time: '10:00', status: 'confirmed', confirmation: 'confirmed' }], past: [] } }));
+  await R.ctx.loadBook(); o = R.els.app.innerHTML;
+  ok(!R.calls.some(c => c[0] === 'portal_book_slots') && !/bookOpen/.test(o), 'M229 page: with an upcoming appointment nothing is asked and no booking button shows');
+  R = page(Object.assign({}, base229, { show: { appts: false } })); await R.ctx.loadBook();
+  ok(!R.calls.some(c => c[0] === 'portal_book_slots'), 'M229 page: appointments hidden ⇒ no booking read');
+  ok(/screenPortal\(\);\s+loadBook\(\);/.test(portal) && /fmtDateTime\(INFO\.expires_at\) \? '، صالحة حتى '/.test(portal), 'M229 page: the read runs after the first paint; a permanent link never prints an empty «صالحة حتى»');
+  /* (ج) العيادة */
+  ok(/if \(req\.source === 'portal'\) statusChip \+= ' <span class="list-badge"[^>]*>🔐 من البوابة<\/span>';/.test(apb) && /if \(req\.patient_id\) \{\s+window\._bookingConfirmCtx\.patientId = req\.patient_id;/.test(apb) && /'🔐 حجز من بوابة المريض'/.test(apb),
+    'M229 clinic: a portal request is marked «🔐 من البوابة» and its confirmation links his card directly');
+  /* (د) الصلاحية */
+  const live = { id: 'r1', token: 'ab'.repeat(32), expires_at: 'infinity', revoked_at: null, created_at: '2026-11-27T10:00:00Z' };
+  const L = loadPP(pp, { rows: [live] }); L.ctx.ppPortalRender(); const h = L.els.iPortal.innerHTML;
+  ok(/🟢 نشط — دائم/.test(h) && !/نشط حتى/.test(h) && L.ctx.ppPortalIsForever(live) && !L.ctx.ppPortalIsExpired(live) && /ppPortalRenew\(\)/.test(h) && /ppPortalRevoke\(\)/.test(h), 'M229 card: a permanent link reads «🟢 نشط — دائم», never expires, still renew/stop');
+  const ask = async (pick, prompts) => {
+    const c = { Date, String, Number, Math, RegExp, showToast() {}, ppPortalWhen: x => String(x).slice(0, 10), PP_PORTAL_DAYS: 30, PP_PORTAL_FOREVER: 'infinity',
+      SyDialog: { choose: async () => pick, prompt: async () => prompts.shift() } };
+    vm.createContext(c); vm.runInContext(slice(pp, 'ppPortalYmd') + '\n' + slice(pp, 'ppPortalAskExpiry'), c);
+    return c.ppPortalAskExpiry();
+  };
+  const d30 = await ask(0, []), forever = await ask(2, []), none = await ask(null, []);
+  const y = new Date().getFullYear() + 1, set = await ask(1, ['bad', y + '-02-30', y + '-03-15']), back = await ask(1, [null]);
+  const e = new Date(set);
+  ok(Math.abs(new Date(d30).getTime() - Date.now() - 30 * 86400000) < 60000 && forever === 'infinity' && none === null && back === null
+    && e.getFullYear() === y && e.getMonth() === 2 && e.getDate() === 15 && e.getHours() === 23 && e.getMinutes() === 59,
+    'M229 card: 30 days · «دائمة» = infinity · a chosen date runs to the end of that day (bad or impossible dates asked again) · cancel = nothing changes');
+  ok(/var exp = await ppPortalAskExpiry\(\);\s+if \(!exp\) \{ _ppPortalBusy = false; return; \}\s+var row = await ppPortalEnsureLive\(exp\);/.test(slice(pp, 'ppPortalRenew')) && /if \(!row\) \{ _ppPortalBusy = false; return; \}/.test(slice(pp, 'ppPortalSend')) && /if \(!row\) \{ _ppPortalBusy = false; return; \}/.test(slice(pp, 'ppPortalCopyLink')),
+    'M229 card: «تجديد» always asks; send/copy stop cleanly when the question is cancelled');
+  ok(/var row = await ppPortalEnsureLiveQuiet\(\);/.test(ppc) && /return ppPortalEnsureLive\(live && !ppPortalIsExpired\(live\) \? undefined : new Date\(Date\.now\(\) \+ PP_PORTAL_DAYS \* 86400000\)\.toISOString\(\)\);/.test(slice(pp, 'ppPortalEnsureLiveQuiet')),
+    'M229 card: signing on the clinic device never asks (its tab is already open) — a live link as is, else the default 30 days');
+  ok(/'<input type="' \+ \(o\.inputType === 'date' \? 'date' : 'text'\) \+ '" class="sy-dialog-input"/.test(smod), 'M229 dialog: SyDialog.prompt offers a date field (becomes the unified DD/MM/YYYY field)');
+}
+async function run(S) { pass = 0; fail = 0; suite(S); await suite187(S); await suite189(S); await suite190(S); await suite191(S); await suite205(S); await suite215(S); await suite217(S); await suite229(S); return { pass, fail }; }
 const FILES = { portal: 'portal.html', pp: 'pp-portal.js', mig: 'migrations/180_patient_portal.sql', pph: 'patient-profile.html', ppcss: 'patient-profile.css',
   cb: 'scripts/cache-bust.sh', ppwa: 'pp-wa.js', stg: 'settings.html', cc: 'scripts/check-colors.js', cmb: 'scripts/check-modal-behaviour.js', schema: 'db/schema.sql', plan: 'pp-plan.js', intake: 'intake.html', mig181: 'migrations/181_portal_intake_state.sql', mig182: 'migrations/182_portal_confirm.sql',
-  mig187: 'migrations/187_portal_history_changes.sql', mig188: 'migrations/188_portal_requests_hardening.sql', mig189: 'migrations/189_portal_slot_picker.sql', mig190: 'migrations/190_portal_cancel_approve.sql', mig191: 'migrations/191_portal_rejected_notice.sql', mig205: 'migrations/205_portal_info_arch_teeth.sql', mig215: 'migrations/215_portal_plan_skip_followups.sql', mig217: 'migrations/217_portal_history_followups.sql', hdb: 'scripts/portal-history-db.sql', boot: 'scripts/db-bootstrap.py', theme: 'theme.css', cra: 'scripts/check-row-actions.js', apcss: 'appointments.css', apo: 'appt-portal.js', apb: 'appt-booking.js', appts: 'appointments.html', side: 'sidebar.js', audit: 'audit-log.html' };
+  mig187: 'migrations/187_portal_history_changes.sql', mig188: 'migrations/188_portal_requests_hardening.sql', mig189: 'migrations/189_portal_slot_picker.sql', mig190: 'migrations/190_portal_cancel_approve.sql', mig191: 'migrations/191_portal_rejected_notice.sql', mig205: 'migrations/205_portal_info_arch_teeth.sql', mig215: 'migrations/215_portal_plan_skip_followups.sql', mig217: 'migrations/217_portal_history_followups.sql', hdb: 'scripts/portal-history-db.sql', boot: 'scripts/db-bootstrap.py', theme: 'theme.css', cra: 'scripts/check-row-actions.js', apcss: 'appointments.css', apo: 'appt-portal.js', apb: 'appt-booking.js', appts: 'appointments.html', side: 'sidebar.js', audit: 'audit-log.html', mig229: 'migrations/229_portal_book_request.sql', smod: 'sy-modal.js', ppc: 'pp-consent.js' };
 const base = {}; Object.keys(FILES).forEach(k => { base[k] = read(FILES[k]); });
 
 (async () => {
@@ -734,6 +830,26 @@ if (process.argv.includes('--self-test')) {
     ['rejection notice not rendered', 'portal', "if (chg && !a.open_request && a.last_rejected && a.can_change !== false) h +=", "if (false) h +="],
     ['rejection notice unescaped', 'portal', "esc(tplMsg('rejected', a))", "tplMsg('rejected', a)"],
     ['default template stored verbatim', 'stg', "return (!v || v === DEFAULT_PORTAL_MSGS[key]) ? null : v;", "return v || null;"],
+    /* 27/11 · M229 */
+    ['booking allowed with an upcoming appointment', 'mig229', "    RETURN jsonb_build_object('ok', false, 'reason', 'has_appt');", "    NULL;"],
+    ['second pending request allowed', 'mig229', "              WHERE br.clinic_id = v.owner_id AND br.patient_id = v.patient_id AND br.status = 'pending') THEN\n    RETURN jsonb_build_object('ok', true, 'reason', 'already');", "              WHERE false) THEN\n    RETURN jsonb_build_object('ok', true, 'reason', 'already');"],
+    ['booked slot not re-validated', 'mig229', "  IF NOT EXISTS (SELECT 1 FROM public._portal_free_slots(v.owner_id, '00000000-0000-0000-0000-000000000000'::uuid, bi.slot_minutes, p_date, p_date) f\n                  WHERE f.d = p_date AND f.t = p_time) THEN", "  IF false THEN"],
+    ['booking without the per-day lock', 'mig229', "  PERFORM pg_advisory_xact_lock(hashtext('portal-slot:' || v.owner_id::text || ':' || p_date::text));\n", ""],
+    ['booking ignores the clinic\'s booking switch', 'mig229', "  SELECT * INTO bi FROM public.booking_clinic_info(v.owner_id) LIMIT 1;\n  IF NOT FOUND THEN RETURN jsonb_build_object('ok', false, 'reason', 'disabled'); END IF;\n\n  -- one patient", "  SELECT * INTO bi FROM public.booking_clinic_info(v.owner_id) LIMIT 1;\n\n  -- one patient"],
+    ['booking works on an expired link', 'mig229', "   WHERE pp.token = p_token AND pp.revoked_at IS NULL AND pp.expires_at >= now() LIMIT 1;\n  IF NOT FOUND OR NOT public._intake_clinic_open(v.owner_id) THEN RETURN jsonb_build_object('ok', false, 'reason', 'unavailable'); END IF;\n  IF NOT COALESCE((SELECT c.portal_show_appts FROM public.clinic_settings c WHERE c.owner_id = v.owner_id), true) THEN\n    RETURN jsonb_build_object('ok', false, 'reason', 'disabled');\n  END IF;\n  SELECT * INTO bi FROM public.booking_clinic_info(v.owner_id) LIMIT 1;\n  IF NOT FOUND THEN RETURN jsonb_build_object('ok', false, 'reason', 'disabled'); END IF;\n\n  -- one", "   WHERE pp.token = p_token AND pp.revoked_at IS NULL LIMIT 1;\n  IF NOT FOUND OR NOT public._intake_clinic_open(v.owner_id) THEN RETURN jsonb_build_object('ok', false, 'reason', 'unavailable'); END IF;\n  IF NOT COALESCE((SELECT c.portal_show_appts FROM public.clinic_settings c WHERE c.owner_id = v.owner_id), true) THEN\n    RETURN jsonb_build_object('ok', false, 'reason', 'disabled');\n  END IF;\n  SELECT * INTO bi FROM public.booking_clinic_info(v.owner_id) LIMIT 1;\n  IF NOT FOUND THEN RETURN jsonb_build_object('ok', false, 'reason', 'disabled'); END IF;\n\n  -- one"],
+    ['empty phone allowed on web rows', 'mig229', "OR (source = 'portal' AND phone = '')", "OR phone = ''"],
+    ['request not logged in المراسلات', 'mig229', "  INSERT INTO public.patient_messages (owner_id, patient_id, kind, channel, body, sent_by)\n  VALUES (v.owner_id, v.patient_id, 'portal', 'portal', v_body, 'المريض (البوابة)');\n\n  RETURN jsonb_build_object('ok', true, 'id', v_id);", "  RETURN jsonb_build_object('ok', true, 'id', v_id);"],
+    ['rejection shown forever on the portal', 'mig229', "AND br.reviewed_at > now() - interval '7 days'", "AND true"],
+    ['booking button beside an upcoming appointment', 'portal', "return !!(s && s.appts && !(Array.isArray(up) && up.length));", "return !!(s && s.appts);"],
+    ['second request button over a pending one', 'portal', "  if (B.pending) return h + ", "  if (false) return h + "],
+    ['book send enabled without a time', 'portal', "(OPEN_CHG.time ? '' : ' disabled')", "''"],
+    ['booked slot not sent', 'portal', "p_date: d, p_time: t, p_note: note || null }), 20000);", "p_date: null, p_time: null, p_note: note || null }), 20000);"],
+    ['booking slot taken leaves a stale choice', 'portal', "      if (OPEN_CHG) OPEN_CHG.time = null;\n      _bookBusy = false;", "      _bookBusy = false;"],
+    ['portal request not linked to its card', 'apb', "    window._bookingConfirmCtx.patientId = req.patient_id;\n", ""],
+    ['resend silently re-dates the link', 'pp', "  if (live && exp === undefined && !ppPortalIsExpired(live)) return live;\n", "  if (live && exp === undefined && !ppPortalIsExpired(live)) exp = new Date(Date.now() + PP_PORTAL_DAYS * 86400000).toISOString();\n"],
+    ['chosen date ends at midnight', 'pp', "new Date(+m[1], +m[2] - 1, +m[3], 23, 59, 59)", "new Date(+m[1], +m[2] - 1, +m[3])"],
+    ['permanent link reads «نشط حتى»', 'pp', "(ppPortalIsForever(live) ? '🟢 نشط — دائم' : ", "(false ? '🟢 نشط — دائم' : "],
+    ['permanent maps to 30 days', 'pp', "  if (i === 2) return PP_PORTAL_FOREVER;", "  if (i === 2) return def.toISOString();"],
     ['theme block drifts between the two public pages', 'intake', "--text:#e1f4ee; --text2:#8a9ab5; --green:#2ee89e; --green2:#26d48e;", "--text:#e1f4ee; --text2:#8a9ab5; --green:#2ee89f; --green2:#26d48e;"]
   ];
   let bit = 0;

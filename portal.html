@@ -37,6 +37,9 @@ window.withTimeout = function(p, ms){
   portal_appt_change(token, appointment_id, kind, reason, pref, note, date, time) (M187 · M189) — cancel / ask to
   change it (a real free slot from portal_slots — read-only — when the clinic has booking hours), only when the
   clinic switched it on, before its cutoff, rate-limited, audited and logged in المراسلات. The doctor approves.
+  M229: with NO upcoming appointment, portal_book_request(token, date, time, note) asks for one (a free slot from
+  portal_book_slots — read-only) only while the clinic's online booking is on; it lands in booking_requests like
+  book.html (one pending per patient, rate-limited, audited, logged) and the clinic confirms it there.
   Everything else is read-only; the other outbound actions are WhatsApp/phone links. Sections arrive only
   when the clinic's switch for them is on (server-side gate); the page only shapes UX.
 -->
@@ -437,21 +440,7 @@ function changePanel(a, kind){
     if (S.loading || !S.days) {
       h += '<div class="empty" id="slotLoading">جارٍ تحميل الأوقات المتاحة…</div>';
     } else {
-      var day = OPEN_CHG.day || S.days[0].d, dayRow = null;
-      S.days.forEach(function(x){ if (x.d === day) dayRow = x; });
-      if (!dayRow) { dayRow = S.days[0]; day = dayRow.d; }
-      OPEN_CHG.day = day;
-      if (S.days.length > 4) h += '<div class="chg-sub" style="margin:0;">⟵ اسحب لرؤية أيام أخرى</div>';
-      h += '<div class="slot-days" id="slotDays" role="group" aria-label="اليوم">' + S.days.map(function(x){
-          var p = String(x.d).split('-'), on = x.d === day;
-          return '<button type="button" class="chip' + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="pickDay(\'' + esc(x.d) + '\')">'
-            + esc(DAYS_AR[new Date(+p[0], +p[1] - 1, +p[2]).getDay()]) + '<small>' + esc(p[2] + '/' + p[1]) + '</small></button>';
-        }).join('') + '</div>'
-        + '<div class="slot-times" id="slotTimes" role="group" aria-label="الوقت">' + dayRow.times.map(function(t){
-          var on = OPEN_CHG.time === t && OPEN_CHG.day === day;
-          return '<button type="button" class="chip' + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="pickTime(\'' + esc(t) + '\')">' + esc(t) + '</button>';
-        }).join('') + '</div>'
-        + '<div class="slot-pick" id="slotPick">' + (OPEN_CHG.time ? '✓ ' + esc(dayLabel(OPEN_CHG.day)) + ' الساعة ' + esc(OPEN_CHG.time) : 'اختر وقتاً') + '</div>';
+      h += slotPicker(S.days);
     }
   } else {
     h += '<div class="chg-q">طلب تغيير موعد يوم ' + esc(when) + '</div>'
@@ -466,6 +455,54 @@ function changePanel(a, kind){
     + '<button type="button" class="btn btn-sm btn-ghost-sm" onclick="closeChange()">تراجع</button>'
     + '</div></div>';
   return h;
+}
+/* M189 · M229: the day strip + free times — shared by the change panel and the new-booking panel (state in OPEN_CHG) */
+function slotPicker(days){
+  var h = '';
+  var day = OPEN_CHG.day || days[0].d, dayRow = null;
+  days.forEach(function(x){ if (x.d === day) dayRow = x; });
+  if (!dayRow) { dayRow = days[0]; day = dayRow.d; }
+  OPEN_CHG.day = day;
+  if (days.length > 4) h += '<div class="chg-sub" style="margin:0;">⟵ اسحب لرؤية أيام أخرى</div>';
+  h += '<div class="slot-days" id="slotDays" role="group" aria-label="اليوم">' + days.map(function(x){
+      var p = String(x.d).split('-'), on = x.d === day;
+      return '<button type="button" class="chip' + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="pickDay(\'' + esc(x.d) + '\')">'
+        + esc(DAYS_AR[new Date(+p[0], +p[1] - 1, +p[2]).getDay()]) + '<small>' + esc(p[2] + '/' + p[1]) + '</small></button>';
+    }).join('') + '</div>'
+    + '<div class="slot-times" id="slotTimes" role="group" aria-label="الوقت">' + dayRow.times.map(function(t){
+      var on = OPEN_CHG.time === t && OPEN_CHG.day === day;
+      return '<button type="button" class="chip' + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="pickTime(\'' + esc(t) + '\')">' + esc(t) + '</button>';
+    }).join('') + '</div>'
+    + '<div class="slot-pick" id="slotPick">' + (OPEN_CHG.time ? '✓ ' + esc(dayLabel(OPEN_CHG.day)) + ' الساعة ' + esc(OPEN_CHG.time) : 'اختر وقتاً') + '</div>';
+  return h;
+}
+/* M229: a patient with no upcoming appointment requests one — it lands in booking_requests (the P5 path of book.html)
+   and the clinic confirms / edits / rejects it there. BOOK = the portal_book_slots reply: null · {loading} · {ok:false} ·
+   {has_appt} · {pending:{d,t}} · {days, rejected} */
+var BOOK = null;
+function waBookBtn(){
+  return waPhone() ? '<a class="btn btn-wa" href="' + waHref('مرحباً، أنا ' + ((INFO && INFO.patient_name) || '') + '. أرغب بحجز موعد. شكراً.') + '" target="_blank" rel="noopener">📱 طلب موعد عبر واتساب</a>' : '';
+}
+function bookBlock(){
+  var B = BOOK, h = '<div class="empty">لا مواعيد قادمة</div>';
+  if (!B || B.loading) return h;
+  if (!B.ok || B.has_appt) return '<div class="empty">لا مواعيد قادمة' + (waPhone() ? ' — يمكنك طلب موعد عبر واتساب العيادة' : '') + '</div>' + waBookBtn();
+  if (B.pending) return h + '<div class="meta yellow" id="bookPending">⏳ طلب موعدك يوم ' + esc(dayLabel(B.pending.d)) + ' الساعة ' + esc(B.pending.t) + ' قيد المراجعة لدى العيادة</div>';
+  var days = Array.isArray(B.days) ? B.days : [];
+  if (B.rejected) h += '<div class="warn">لم تتمكّن ' + esc(clinicName()) + ' من تلبية طلبك الأخير — اختر وقتاً آخر أو تواصل مع العيادة.</div>';
+  if (!days.length) return h + '<div class="warn">لا أوقات متاحة للحجز حالياً — تواصل مع العيادة.</div>' + waBookBtn();
+  if (OPEN_CHG && OPEN_CHG.kind === 'book') return h + bookPanel(days);
+  return h + '<button type="button" class="btn btn-go" id="bookOpen" onclick="openBook()">📅 حجز موعد</button>';
+}
+function bookPanel(days){
+  return '<div class="chg-panel" id="chgPanel"><div class="chg-q">حجز موعد جديد</div>'
+    + '<div class="chg-sub">اختر يوماً ووقتاً متاحاً — يصل طلبك للعيادة لتؤكّده لك.</div>'
+    + slotPicker(days)
+    + '<textarea id="chgText" maxlength="300" oninput="if (OPEN_CHG) OPEN_CHG.note = this.value" aria-label="ملاحظة للعيادة (اختياري)" placeholder="سبب الزيارة أو ملاحظة للعيادة (اختياري)">' + esc((OPEN_CHG && OPEN_CHG.note) || '') + '</textarea>'
+    + '<div class="acts">'
+    + '<button type="button" class="btn btn-sm btn-ok-sm" id="chgGo"' + (OPEN_CHG.time ? '' : ' disabled') + ' onclick="submitBook(this)">إرسال الطلب</button>'
+    + '<button type="button" class="btn btn-sm btn-ghost-sm" onclick="closeChange()">تراجع</button>'
+    + '</div></div>';
 }
 /* M205: where a treatment sits — the tooth, or the jaw; a removable denture also names the teeth it replaces
    (ledger_sessions.unit_teeth). «كامل» = every tooth from 7 to 7 of that jaw. Server values are validated, never trusted. */
@@ -524,8 +561,8 @@ function sectionAppts(d){
   var past = (d && Array.isArray(d.past)) ? d.past : [];
   var h = '<div class="card"><div class="sec-title"><span class="ic">📅</span>مواعيدك</div>';
   h += '<div class="sub-title">القادمة</div>';
-  h += up.length ? up.map(function(a){ return apptCard(a, true); }).join('') : '<div class="empty">لا مواعيد قادمة' + (waPhone() ? ' — يمكنك طلب موعد عبر واتساب العيادة' : '') + '</div>';
-  if (!up.length && waPhone()) h += '<a class="btn btn-wa" href="' + waHref('مرحباً، أنا ' + ((INFO && INFO.patient_name) || '') + '. أرغب بحجز موعد. شكراً.') + '" target="_blank" rel="noopener">📱 طلب موعد</a>';
+  if (up.length) h += up.map(function(a){ return apptCard(a, true); }).join('');
+  else h += bookBlock();   /* M229: no upcoming appointment ⇒ the patient requests one (booking_requests, like book.html) */
   if (past.length) {
     h += '<details><summary>المواعيد السابقة (' + past.length + ')</summary>'
       + past.map(function(a){ return apptCard(a, false); }).join('') + '</details>';
@@ -634,7 +671,7 @@ function sectionIntake(ik){
 function screenPortal(){
   var show = INFO.show || {};
   var h = '<div class="card"><h1>' + esc(clinicName()) + '</h1>'
-    + '<p class="sub">مرحباً ' + esc(firstName() || 'بك') + ' 👋 — هذه صفحتك الخاصة' + (INFO.expires_at ? '، صالحة حتى ' + esc(fmtDateTime(INFO.expires_at).slice(0, 10)) : '') + '.</p>'
+    + '<p class="sub">مرحباً ' + esc(firstName() || 'بك') + ' 👋 — هذه صفحتك الخاصة' + (fmtDateTime(INFO.expires_at) ? '، صالحة حتى ' + esc(fmtDateTime(INFO.expires_at).slice(0, 10)) : '') + '.</p>'
     + (waPhone() ? '<a class="btn btn-wa" href="' + waHref('مرحباً، أنا ' + ((INFO && INFO.patient_name) || '') + '.') + '" target="_blank" rel="noopener">📱 تواصل مع العيادة عبر واتساب</a>' : '')
     + '</div>';
   h += sectionConsents();   /* M220: ما ينتظر توقيعَ المريض أولاً */
@@ -926,6 +963,66 @@ async function loadSlots(id){
   } catch (e) { SLOTS[id] = { err: 'network' }; }
   if (OPEN_CHG && OPEN_CHG.id === id) screenPortal();
 }
+/* M229: the new-booking read — only when appointments are shown and none is upcoming */
+function needBook(){ var s = INFO && INFO.show, up = INFO && INFO.appts && INFO.appts.upcoming; return !!(s && s.appts && !(Array.isArray(up) && up.length)); }
+async function loadBook(){
+  if (!needBook()) return;
+  BOOK = { loading: true };
+  try {
+    if (!sb) throw new Error('vendor');
+    var res = await withTimeout(sb.rpc('portal_book_slots', { p_token: TOKEN }), 20000);
+    if (res.error) throw res.error;
+    BOOK = (res.data && typeof res.data === 'object') ? res.data : { ok: false };
+  } catch (e) { BOOK = { ok: false, reason: 'network' }; }
+  if (BOOK.ok === false && OPEN_CHG && OPEN_CHG.kind === 'book') OPEN_CHG = null;
+  screenPortal();
+}
+function openBook(){
+  OPEN_CHG = { id: 'book', kind: 'book', day: null, time: null, note: '' };
+  screenPortal();
+  var p = document.getElementById('chgPanel'); if (p && p.scrollIntoView) p.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+var _bookBusy = false;
+async function submitBook(btn){
+  if (_bookBusy || !TOKEN || !INFO || !OPEN_CHG || OPEN_CHG.kind !== 'book' || !OPEN_CHG.day || !OPEN_CHG.time) return;
+  var d = OPEN_CHG.day, t = OPEN_CHG.time, txt = document.getElementById('chgText');
+  var note = txt ? String(txt.value || '').trim().slice(0, 300) : '';
+  var label = btn ? btn.textContent : '';
+  _bookBusy = true;
+  if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الإرسال…'; }
+  try {
+    if (!sb) throw new Error('vendor');
+    var res = await withTimeout(sb.rpc('portal_book_request', { p_token: TOKEN, p_date: d, p_time: t, p_note: note || null }), 20000);
+    if (res.error) throw res.error;
+    var out = res.data || {};
+    if (out.ok && out.reason !== 'already') {
+      OPEN_CHG = null; BOOK = { ok: true, pending: { d: d, t: t } };
+      screenPortal();
+      flash('note', 'وصل طلبك إلى ' + clinicName() + ' ✓ — موعدك المطلوب يوم ' + dayLabel(d) + ' الساعة ' + t + '، وستؤكّده العيادة لك.', true);
+    } else if (out.ok || out.reason === 'has_appt') {
+      OPEN_CHG = null; _bookBusy = false;
+      await loadBook();
+      flash('note', out.ok ? 'لديك طلب موعد قيد المراجعة لدى العيادة.' : 'لديك موعد قادم — أعد تحميل الصفحة لرؤيته.', true);
+      return;
+    } else if (out.reason === 'slot_taken') {
+      if (OPEN_CHG) OPEN_CHG.time = null;
+      _bookBusy = false;
+      await loadBook();   /* re-render first — the notice is inserted into the fresh page */
+      flash('warn', 'هذا الوقت لم يعد متاحاً — اختر وقتاً آخر.');
+      return;
+    } else if (out.reason === 'disabled') {
+      OPEN_CHG = null; BOOK = { ok: false }; screenPortal();
+      flash('warn', 'الحجز من هنا غير مفعّل حالياً — تواصل مع العيادة.');
+    } else {
+      if (btn) { btn.disabled = false; btn.textContent = label; }
+      flash('warn', out.reason === 'rate_limited' ? 'وصلت إلى الحدّ اليومي من الطلبات — تواصل مع العيادة مباشرة.' : 'تعذّر الإرسال — أعد تحميل الصفحة أو تواصل مع العيادة.');
+    }
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+    flash('warn', 'تعذّر الاتصال — تحقق من الإنترنت ثم أعد المحاولة.');
+  }
+  _bookBusy = false;
+}
 function findAppt(id){ var r = null; ((INFO.appts && INFO.appts.upcoming) || []).forEach(function(x){ if (x.id === id) r = x; }); return r; }
 /* the strip is rebuilt on every pick — keep the chosen day in view (it reset to the first days before) */
 function keepDayVisible(){ var on = document.querySelector('#slotDays .chip.on'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
@@ -1022,6 +1119,7 @@ window.onbeforeprint = function(){ document.querySelectorAll('details').forEach(
     if (row.status === 'revoked') { screenDead('الرابط موقوف', STATUS_MSG.revoked, '⛔'); return; }
     if (row.status !== 'ok') { screenDead('الرابط غير متاح', STATUS_MSG.unavailable, '🔗'); return; }
     screenPortal();
+    loadBook();   /* M229: ثانويّ — بلا موعدٍ قادم فقط */
     loadXrays();   /* M193: ثانويّ — لا يؤخّر الصفحة */
     loadConsents();   /* M220: ثانويّ — لا يؤخّر الصفحة */
   } catch (e) {

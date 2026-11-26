@@ -2410,7 +2410,7 @@ Object.assign(window.SyI18nDict, {
   "📝 قالب رسالة استمارة المريض": "📝 Patient form message template",
   "💡 {intake_link} رابط الاستمارة الخاص بالمريض — يُولَّد عند الإرسال من بطاقته ويُرفق تلقائياً برسالة تأكيد الحجز.": "💡 {intake_link} the patient's own form link — generated when sent from their card and attached automatically to the booking confirmation message.",
   "🔗 قالب رسالة بوابة المريض": "🔗 Patient portal message template",
-  "💡 {portal_link} رابط البوابة الخاص بالمريض — يُولَّد عند الإرسال من بطاقته (صلاحية 30 يوماً قابلة للتجديد).": "💡 {portal_link} the patient's own portal link — generated when sent from their card (valid 30 days, renewable).",
+  "💡 {portal_link} رابط البوابة الخاص بالمريض — يُولَّد عند الإرسال من بطاقته (صلاحيته تختارها عند الإرسال: 30 يوماً · تاريخ محدد · دائمة).": "💡 {portal_link} the patient's own portal link — generated when sent from their card (you choose how long it stays valid when sending: 30 days · a set date · permanent).",
   "حفظ الإعدادات": "Save the settings",
   "معاينة الرسائل": "Preview the messages",
   "استعادة القوالب الافتراضية": "Restore the default templates",
@@ -4503,3 +4503,36 @@ if (window.SyI18nPatterns) window.SyI18nPatterns.push(
     [/^([\d,.]+) من ([\d,.]+) (ل\.س|\$)$/, function (m, a, b, c) { return a + ' of ' + b + ' ' + (c === '$' ? '$' : 'SYP'); }]
   );
 })();
+
+/* ── 27/11/2026 · M229: صفُّ «بوابة المريض» بالبطاقة وصلاحيتُه (30 يوماً · تاريخ · دائمة) + طلبُ الموعد من البوابة بصفحة المواعيد ── */
+Object.assign(window.SyI18nDict, {
+  'نشط حتى': 'Active until',
+  'نشط — دائم': 'Active — permanent',
+  'إعادة الإرسال': 'Resend',
+  'نسخ الرابط': 'Copy link',
+  'تجديد': 'Renew',
+  'إيقاف': 'Stop',
+  'رابط جديد': 'New link',
+  'تجديد وإرسال': 'Renew and send',
+  'انتهت صلاحية الرابط': 'Link expired',
+  'أُوقف الرابط': 'Link stopped',
+  'إيقاف الرابط فوراً — لن يفتح عند المريض': 'Stop the link now — it will no longer open for the patient',
+  'تغيير الصلاحية: 30 يوماً · تاريخ محدد · دائمة': 'Change validity: 30 days · a set date · permanent',
+  'تم نسخ رابط البوابة': 'Portal link copied',
+  'صلاحية رابط البوابة': 'Portal link validity',
+  'إلى متى يبقى الرابط يعمل عند المريض؟ تستطيع إيقافه بأي وقت.': 'How long should the link keep working for the patient? You can stop it any time.',
+  '30 يوماً': '30 days',
+  'حتى تاريخ أختاره': 'Until a date I choose',
+  'يعمل حتى نهاية اليوم الذي تحدّده': 'Works until the end of the day you set',
+  'لا تنتهي — حتى توقفها أنت': 'Never expires — until you stop it',
+  'آخر يوم يعمل فيه الرابط': 'Last day the link works',
+  'اختر التاريخ — يبقى الرابط صالحاً حتى نهاية ذلك اليوم.': 'Pick the date — the link stays valid until the end of that day.',
+  'اختر تاريخاً صحيحاً بعد اليوم': 'Pick a valid date after today',
+  'جُدّد الرابط حتى': 'Link renewed until',
+  'صار الرابط دائماً — حتى توقفه': 'The link is now permanent — until you stop it',
+  'من البوابة': 'From the portal',
+  'طلب من بوابة المريض — مربوط ببطاقته': 'Request from the patient portal — linked to their card'
+});
+window.SyI18nPatterns.push(
+  [/^🔐 من بوابة المريض — سيُربط الموعد ببطاقته: (.+)$/, '🔐 From the patient portal — the appointment will be linked to their card: $1']
+);

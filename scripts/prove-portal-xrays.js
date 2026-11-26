@@ -74,9 +74,9 @@ async function suite(F) {
   /* (٣) الصفحة */
   const P = F['portal.html'];
   const rpcs = [...P.matchAll(/sb\.rpc\('([a-z_]+)'/g)].map(m => m[1]).sort().join();
-  ok(rpcs === 'portal_appt_change,portal_confirm,portal_consent_sign,portal_consents,portal_info,portal_slots' /* M220: بابا الموافقات — لا علاقة لهما بالأشعة */ && /var res = await withTimeout\(sb\.functions\.invoke\('portal-xray', \{ body: \{ t: TOKEN \} \}\), 20000\);/.test(P) && /if \(!sb \|\| !sb\.functions \|\| !TOKEN\) return;/.test(P),
+  ok(rpcs === 'portal_appt_change,portal_book_request,portal_book_slots,portal_confirm,portal_consent_sign,portal_consents,portal_info,portal_slots' /* M220: بابا الموافقات · M229: بابا الحجز — لا علاقة لها بالأشعة */ && /var res = await withTimeout\(sb\.functions\.invoke\('portal-xray', \{ body: \{ t: TOKEN \} \}\), 20000\);/.test(P) && /if \(!sb \|\| !sb\.functions \|\| !TOKEN\) return;/.test(P),
      'page: no new RPC — one timed Edge call, guarded');
-  ok(/screenPortal\(\);\n    loadXrays\(\);   \/\* M193/.test(P) && !/^document\.addEventListener/m.test(P), 'page: X-rays load after the page (never delay it) · no global listeners');
+  ok(/screenPortal\(\);\n    loadBook\(\);   \/\* M229[^\n]*\n    loadXrays\(\);   \/\* M193/.test(P) && !/await loadXrays\(\)/.test(P) && !/^document\.addEventListener/m.test(P), 'page: X-rays load after the page (never delay it) · no global listeners');
   const sx = fnSrc(P, 'function sectionXrays(){'), xrf = fnSrc(P, 'function xrFresh(){');
   const c = { esc: s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'), fmtYmd: s => s, Date, String, Array, XR: null, XR_TYPES: { bitewing: 'مجنّحة' } };
   vm.createContext(c); vm.runInContext(['function ptSupPlace(n){', 'function ptToothNum(t){'].map(g => fnSrc(P, g)).join('\n') + xrf + sx, c);   /* ج2: أسنانُ الصورة الزائدة باسمها */
@@ -111,7 +111,7 @@ const MUTANTS = [
   ['long-lived links', rep('supabase/functions/portal-xray/index.ts', 'const SIGN_SECONDS = 900;', 'const SIGN_SECONDS = 604800;')],
   ['failed signatures kept', rep('supabase/functions/portal-xray/index.ts', 'items: items.filter((i) => byPath[String(i.path)]).map(', 'items: items.map(')],
   ['non-https URL rendered', rep('portal.html', "    if (!/^https:\\/\\//.test(String(it.url || ''))) return '';\n", '')],
-  ['page blocked on X-rays', rep('portal.html', '    screenPortal();\n    loadXrays();', '    await loadXrays();\n    screenPortal();')],
+  ['page blocked on X-rays', rep('portal.html', '    screenPortal();\n    loadBook();', '    await loadXrays();\n    screenPortal();\n    loadBook();')],
   ['settings default on', rep('settings.html', "row ? row.portal_show_xrays === true : false;", "row ? row.portal_show_xrays !== false : true;")],
   ['share without guard', rep('pp-extras.js', "async function pfToggleShare(id){\n  if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;", 'async function pfToggleShare(id){')]
 ];

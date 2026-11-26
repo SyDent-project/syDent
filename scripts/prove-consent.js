@@ -109,7 +109,7 @@ function mkCard(F, opt) {
     showToast: m => toasts.push(m), escapeHtml: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
     fmtD: x => String(x).slice(0, 10), openModal: id => el(id).classList.add('open'), closeModal: id => el(id).classList.remove('open'),
     SyDialog: w.SyDialog, ppPortalSend: () => { w._sent = (w._sent || 0) + 1; },
-    ppPortalEnsureLive: () => { w._ensured = (w._ensured || 0) + 1; return opt.portalFails ? Promise.reject(new Error('net')) : Promise.resolve({ token: 'a'.repeat(64) }); },
+    ppPortalEnsureLiveQuiet: () => { w._ensured = (w._ensured || 0) + 1; return opt.portalFails ? Promise.reject(new Error('net')) : Promise.resolve({ token: 'a'.repeat(64) }); },
     ppPortalLink: t => 'https://sydent.app/portal.html?t=' + t, ppPortalRender: () => {}, ppPortalErr: () => 'ERR-PORTAL',
     setTimeout: (f, ms) => { timers.push([f, ms]); return timers.length; }, clearTimeout: () => {}, CLINIC_SETTINGS_WA: { clinic_name: 'عيادة' } };
   ctx.open = w.open; w.setTimeout = ctx.setTimeout;
@@ -343,7 +343,7 @@ async function suiteAlerts(F) {
     S.rows().push(ROW(CID, 'pending', { session_ids: ['p1'] })); await fire(S);
     ok(S.opened.length === 1 && S.w._ensured === 1 && S.win.location.href === 'https://sydent.app/portal.html?t=' + 'a'.repeat(64) + '&c=' + CID && S.win.opener === null && !S.win.closed,
       'card: «sign here» opens the patient\'s portal on that very consent, detached from the clinic tab');
-    ok(/var w = null;\s+try \{ w = window\.open\('', '_blank'\); \} catch \(e\) \{ w = null; \}\s+try \{\s+var row = await ppPortalEnsureLive\(\);/.test(F['pp-consent.js']), 'card: the tab is opened inside the click, before any network wait (else the browser blocks it)');
+    ok(/var w = null;\s+try \{ w = window\.open\('', '_blank'\); \} catch \(e\) \{ w = null; \}\s+try \{\s+var row = await ppPortalEnsureLiveQuiet\(\);/.test(F['pp-consent.js']), 'card: the tab is opened inside the click, before any network wait (else the browser blocks it)');
     /* (د) «إرسال الرابط» */
     const W = mkCard(F, { rows: [], sessions: [], keys: ['extracted'], pick: 1 });
     await W.ctx.ppConsentLoad(); await tick(); plan(W, 'p1'); W.rows().push(ROW('n1', 'pending', { session_ids: ['p1'] })); await fire(W);
@@ -552,7 +552,7 @@ const MUTANTS = [
   ['dialog on every card open', rep('pp-consent.js', "      if (first) PP_CONSENTS.forEach(function (c) { _ppConsentAsked[c.id] = true; });   /* ما وُجد عند الفتح يعرضه الصفُّ بلا حوار */\n      else fresh = PP_CONSENTS.filter(", "      fresh = PP_CONSENTS.filter(")],
   ['«later» opens the portal anyway', rep('pp-consent.js', "  if (pick === 0) ppConsentSignHere(list[0].id);", "  ppConsentSignHere(list[0].id);")],
   ['«send» does nothing', rep('pp-consent.js', "  else if (pick === 1) ppConsentSend();", "")],
-  ['sign-here tab opened after the network wait', rep('pp-consent.js', "  var w = null;\n  try { w = window.open('', '_blank'); } catch (e) { w = null; }\n  try {\n    var row = await ppPortalEnsureLive();", "  var w = null;\n  try {\n    var row = await ppPortalEnsureLive();\n    try { w = window.open('', '_blank'); } catch (e) { w = null; }")],
+  ['sign-here tab opened after the network wait', rep('pp-consent.js', "  var w = null;\n  try { w = window.open('', '_blank'); } catch (e) { w = null; }\n  try {\n    var row = await ppPortalEnsureLiveQuiet();", "  var w = null;\n  try {\n    var row = await ppPortalEnsureLiveQuiet();\n    try { w = window.open('', '_blank'); } catch (e) { w = null; }")],
   ['sign-here opens the portal without the consent', rep('pp-consent.js', "? '&c=' + id : '');", "? '' : '');")],
   ['sign-here passes raw text into the link', rep('pp-consent.js', "(/^[0-9a-f-]{36}$/i.test(String(id || '')) ? '&c=' + id : '')", "(id ? '&c=' + id : '')")],
   ['sign-here keeps a handle on the clinic tab', rep('pp-consent.js', "try { w.opener = null; } catch (e2) {} ", "")],
