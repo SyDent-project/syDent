@@ -1200,7 +1200,9 @@ async function _examStamp_inner(n, clickedSurface) {
        الكسرُ على ذلك الجذر، والسطحيةُ **تُرفض** (المودالُ لا يعرضها على الجذر أصلاً) ·
        وإلا السطحُ المنقور حرفياً. */
     var _clk = clickedSurface || '';
-    if (t.cond_scope === 'apical') s = /^R[123]$/.test(_clk) ? _clk : condApicalSlot(n);
+    if (t.cond_scope === 'apical') {   /* 28/11: حول ذروي ⇒ على الجذر دائماً: الجذرُ المنقور، وإلا الجذرُ الأول (كالصفّ الأساسي بالمودال) — جذرٌ آخر بنقرةٍ عليه */
+      var _rl = condRootList(n); s = _rl.indexOf(_clk) !== -1 ? _clk : 'R1';
+    }
     else if (t.cond_scope === 'tooth' || !_clk || _clk === 'WHOLE' || _clk === 'CROWN_FULL') s = COND_SURFACE;
     else if (/^R[123]$/.test(_clk)) {
       if (t.cond_scope === 'both') s = _clk;

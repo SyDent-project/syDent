@@ -590,8 +590,8 @@ with sync_playwright() as p:
     rows = {(r["t"], r["k"]): r["s"] for r in ex_more["rows"]}
     check("v434: كسرٌ على الجذر R1 يُسجَّل جذرياً لا تاجياً",
           rows.get(("15", "cond-fracture")) == "R1", ex_more["rows"])
-    check("v434: الخراجُ (حالةٌ سنّية) يبقى على السطح المحجوز COND",
-          rows.get(("14", "cond-abscess")) == "COND", ex_more["rows"])
+    check("28/11: الخراجُ يُسجَّل على الجذر مهما كان السطح المنقور (كان COND)",
+          rows.get(("14", "cond-abscess")) == "R1", ex_more["rows"])
     check("v434: التماسُ المفتوح يُرفض على الإطباقي برسالةٍ تشرح نقطة التماس",
           "الإنسي" in ex_more["refusedToast"] and ex_more["refusedNoWrite"], ex_more)
     check("v434: التماسُ المفتوح يُقبل على الإنسي",
