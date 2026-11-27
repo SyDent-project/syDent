@@ -26,10 +26,11 @@ function suite(F) {
   ok(c.f && c.f('2026-10-01') === '01/10/2026' && c.f('') === '' && c.f(null) === '', '(١) display DD/MM/YYYY');
   ok(c.m && c.m('011') === '01/1' && c.m('01/102') === '01/10/2' && c.m('01/10/20261') === '01/10/2026' && c.m('1/10/2026') === '1/10/2026' && c.m('٠١١') === '01/1', '(١) auto-mask, never fighting manual separators');
   /* (٢) */
-  ok(/Object\.defineProperty\(el, 'value', \{ configurable: true,\s*get: function \(\) \{ return iso; \},\s*set: function \(v\) \{ show\(parse\(v\) \|\| ''\); \} \}\);/.test(M), '(٢) value read/write stays YYYY-MM-DD for every existing caller');
+  ok(/Object\.defineProperty\(el, 'value', \{ configurable: true,\s*get: function \(\) \{ return iso; \},\s*set: function \(v\) \{ (?:if \(resetT\) \{ clearTimeout\(resetT\); resetT = 0; \} )?show\(parse\(v\) \|\| ''\); \} \}\);/.test(M), '(٢) value read/write stays YYYY-MM-DD for every existing caller');
   ok(/document\.addEventListener\('input', function \(e\) \{ var t = e\.target; if \(t && t\.__syDfTyped && e\.isTrusted\) t\.__syDfTyped\(\); \}, true\);/.test(M), '(٢) typing parsed in the capture phase, before page listeners');
   ok(/pick\.addEventListener\('change', function \(\) \{\s*show\(P\.get\.call\(pick\) \|\| ''\);\s*el\.dispatchEvent\(new Event\('input', \{ bubbles: true \}\)\);\s*el\.dispatchEvent\(new Event\('change', \{ bubbles: true \}\)\);/.test(M), '(٢) picking fires input + change on the field');
   ok(/el\.form\.addEventListener\('reset'/.test(M) && /iso = r \|\| '';/.test(M), '(٢) form reset re-syncs · incomplete typing reads as "" (like the native field)');
+  ok(/set: function \(v\) \{ if \(resetT\) \{ clearTimeout\(resetT\); resetT = 0; \} show\(parse\(v\) \|\| ''\); \}/.test(M) && /resetT = setTimeout\(function \(\) \{ resetT = 0; show\(/.test(M), '(٢) a value written right after form.reset() survives (the deferred restore is cancelled) — new appointment / booking-request confirm kept losing their date');
   /* (٣) */
   ok(/el\.classList\.contains\('sy-df-pick'\)\)\) return;/.test(M) && /pick\.__syDf = true;/.test(M) && /root\.matches\('input\[type="date"\]:not\(\.sy-df-pick\)'\)/.test(M) && /querySelectorAll\('input\[type="date"\]:not\(\.sy-df-pick\)'\)/.test(M),
      '(٣) the companion picker is never enhanced (no observer loop)');
@@ -49,6 +50,7 @@ const MUTANTS = [
   ['value getter returns display text', rep('theme.js', "      get: function () { return iso; },", "      get: function () { return P.get.call(el); },")],
   ['typing parsed after page listeners', rep('theme.js', "t.__syDfTyped(); }, true);", "t.__syDfTyped(); }, false);")],
   ['picker change silent', rep('theme.js', "      el.dispatchEvent(new Event('change', { bubbles: true }));\n    });", "    });")],
+  ['reset wipes a value set right after it', rep('theme.js', "set: function (v) { if (resetT) { clearTimeout(resetT); resetT = 0; } show(", "set: function (v) { show(")],
   ['observer loop', rep('theme.js', "    pick.__syDf = true;", "    pick.__syDfX = true;")],
   ['picker stretchable', rep('theme.js', "width:38px !important;min-width:0 !important;max-width:38px !important;", "width:38px;min-width:0;")],
   ['payouts rule misses the field', rep('payouts.html', '.date-range input[type="date"], .date-range input.sy-df-in {', '.date-range input[type="date"] {')]

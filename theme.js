@@ -975,10 +975,11 @@
     el.setAttribute('inputmode', 'numeric'); el.setAttribute('autocomplete', 'off'); el.setAttribute('dir', 'ltr');
     if (!el.getAttribute('placeholder')) el.setAttribute('placeholder', 'يوم/شهر/سنة');
     if (!el.getAttribute('title')) el.setAttribute('title', 'يوم/شهر/سنة — أو اضغط 📅');
+    var resetT = 0;
     function show(i) { iso = i; P.set.call(el, fmt(i)); P.set.call(pick, i || ''); el.classList.remove('sy-df-bad'); }
     Object.defineProperty(el, 'value', { configurable: true,
       get: function () { return iso; },
-      set: function (v) { show(parse(v) || ''); } });
+      set: function (v) { if (resetT) { clearTimeout(resetT); resetT = 0; } show(parse(v) || ''); } });   /* قيمةٌ كُتبت بعد reset مباشرةً تبقى — الاستعادةُ المؤجَّلة كانت تمسحها (موعدٌ جديد/تأكيدُ طلب حجز بلا تاريخ) */
     el.__syDfTyped = function () {
       var raw = P.get.call(el), m = mask(raw);
       if (m !== raw) P.set.call(el, m);
@@ -1005,7 +1006,7 @@
     }
     mirror();
     if (typeof MutationObserver === 'function') new MutationObserver(mirror).observe(el, { attributes: true, attributeFilter: ['disabled', 'readonly', 'hidden', 'style', 'min', 'max'] });
-    if (el.form) el.form.addEventListener('reset', function () { setTimeout(function () { show(parse(el.getAttribute('value')) || ''); }, 0); });
+    if (el.form) el.form.addEventListener('reset', function () { if (resetT) clearTimeout(resetT); resetT = setTimeout(function () { resetT = 0; show(parse(el.getAttribute('value')) || ''); }, 0); });
     show(iso);
   }
   /* الكتابةُ تُفسَّر قبل أي مستمعٍ للصفحة على الحقل (التقاطٌ على المستند يسبق مرحلة الهدف). */
