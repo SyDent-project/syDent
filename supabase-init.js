@@ -3247,7 +3247,8 @@
   // Closed list — mirrored by the DB validator _staff_permissions_ok (M228).
   var PERM_KEYS = ['patients', 'appointments', 'treatments', 'doctors', 'labs', 'radiology',
                    'accounting', 'expenses', 'payouts', 'provider-reports', 'inventory', 'audit-log',
-                   'act.delete-patient'];
+                   'act.delete-patient',
+                   'dash.income'];   // M232: «إيراد اليوم» on the dashboard — off for staff unless granted
   // page file (without .html) → its key; patient-profile follows the patients list
   var PERM_PAGES = { 'patients': 'patients', 'patient-profile': 'patients', 'appointments': 'appointments',
                      'treatments': 'treatments', 'doctors': 'doctors', 'labs': 'labs', 'radiology': 'radiology',
@@ -3286,7 +3287,7 @@
   //   • ACCT_OPEN: pages open to the accountant by default (the owner may still close any).
   //   • 'accounting' is never grantable to anyone else; 'provider-reports' is for doctors
   //     (their own figures) and the accountant — never grantable to other staff.
-  var ACCT_OPEN = ['accounting', 'expenses', 'payouts', 'provider-reports'];
+  var ACCT_OPEN = ['accounting', 'expenses', 'payouts', 'provider-reports', 'dash.income'];
   function isAccountant() {
     if (getRole() !== 'secretary') return false;
     var eid = getEmployeeId();
@@ -3335,7 +3336,7 @@
     if (isAccountant()) out = out.filter(function(id){ return ACCT_OPEN.indexOf(id) < 0; });   // M230
     var o = getPermOverrides();
     Object.keys(o).forEach(function(k){
-      if (k.indexOf('act.') === 0) return;
+      if (k.indexOf('.') >= 0) return;   // act.* / dash.* are not pages
       (PERM_NAV[k] || [k]).forEach(function(id){
         var i = out.indexOf(id);
         if (o[k] && i >= 0) out.splice(i, 1);
