@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-/* backup-restore.js — turns a clinic's «💾 نسخة احتياطية» Excel file (format sydent-backup/2,
-   written by dashBackupBuild in index.html) back into SQL that restores the rows it holds.
+/* backup-restore.js — turns a clinic's «💾 نسخة احتياطية» Excel file (format sydent-backup/3, or
+   the older /2; written by dashBackupBuild in index.html) back into SQL that restores the rows it holds.
 
    Restore is additive: every row is inserted with ON CONFLICT DO NOTHING, so rows still in the
    database (including ones edited after the backup) are left alone and only missing rows come
@@ -28,7 +28,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const FORMAT = 'sydent-backup/2';
+const FORMAT = 'sydent-backup/3';
+const FORMATS = ['sydent-backup/2', FORMAT];   // /2: no long-text sheet (cells over 32000 characters were cut)
+const LONG_SHEET = 'نصوص طويلة';
+const LONG_MARK = /^⟦sydent-long:(\d+)⟧$/;
 const META_ROWS = 3;   // الصيغة · الحساب · تاريخ النسخة
 
 function loadXLSX() {
@@ -62,7 +65,24 @@ function readBackup(XLSX, buf) {
   const notes = aoa(names[0]);
   // notes[0] = headers; then the meta rows
   const meta = notes.slice(1, 1 + META_ROWS);
-  if (!meta[0] || meta[0][1] !== FORMAT) throw new Error('not a ' + FORMAT + ' backup (format cell: ' + (meta[0] && meta[0][1]) + ')');
+  if (!meta[0] || FORMATS.indexOf(meta[0][1]) < 0) throw new Error('not a ' + FORMAT + ' backup (format cell: ' + (meta[0] && meta[0][1]) + ')');
+  /* long texts: the last sheet holds (number, part, text); a cell that is exactly a marker of a
+     number found there takes the joined parts back. A marker with no parts is an error, not data. */
+  const longs = new Map();
+  if (names.indexOf(LONG_SHEET) > 0) {
+    aoa(LONG_SHEET).slice(1).filter(x => x && x[0] !== null).forEach(x => {
+      const k = String(x[0]);
+      if (!longs.has(k)) longs.set(k, []);
+      longs.get(k)[Number(x[1]) - 1] = (x[2] === null || x[2] === undefined) ? '' : String(x[2]);
+    });
+    longs.forEach((parts, k) => { for (let i = 0; i < parts.length; i++) if (parts[i] === undefined) throw new Error('long text ' + k + ': part ' + (i + 1) + ' is missing'); });
+  }
+  const whole = v => {
+    const m = (typeof v === 'string') ? v.match(LONG_MARK) : null;
+    if (!m) return v;
+    if (!longs.has(m[1])) throw new Error('long text ' + m[1] + ' is referenced but not in the «' + LONG_SHEET + '» sheet');
+    return longs.get(m[1]).join('');
+  };
   const uid = String(meta[1][1] || '');
   const stamp = String(meta[2][1] || '');
   const tables = [], skipped = [];
@@ -76,7 +96,7 @@ function readBackup(XLSX, buf) {
     const head = grid[0] || [];
     const rows = grid.slice(1).filter(x => x && x.some(v => v !== null)).map(x => {
       const o = {};
-      head.forEach((h, i) => { if (h !== null) o[h] = (i < x.length ? x[i] : null); });
+      head.forEach((h, i) => { if (h !== null) o[h] = whole(i < x.length ? x[i] : null); });
       return o;
     });
     if (rows.length !== Number(r[2])) throw new Error(r[1] + ': notes say ' + r[2] + ' rows, sheet has ' + rows.length);
@@ -125,8 +145,8 @@ end $f$;
    ordered by id, so a row can sit in an earlier file than the row it points at; two files that
    each hold a row the other one needs can then never be inserted in either order. parentsFirst
    keeps the backup order and only moves each row after the row it points at.
-   prove-backup-restore checks this list against the self foreign keys in db/schema.sql. */
-const SELF_PARENT = { ledger_sessions: 'parent_id' };
+   prove-backup-restore checks this list against the self foreign keys in db/schema.sql and migrations/. */
+const SELF_PARENT = { ledger_sessions: 'parent_id', patients: 'referred_by_patient_id' };
 function parentsFirst(rows, col) {
   const byId = new Map();
   rows.forEach(r => { if (r.id !== null && r.id !== undefined) byId.set(String(r.id), r); });
@@ -201,4 +221,4 @@ function main() {
 if (require.main === module) {
   try { main(); } catch (e) { console.error('✗ ' + e.message); process.exit(1); }
 }
-module.exports = { loadXLSX, readBackup, plan, HELPERS, FORMAT, SELF_PARENT, parentsFirst };
+module.exports = { loadXLSX, readBackup, plan, HELPERS, FORMAT, FORMATS, LONG_SHEET, SELF_PARENT, parentsFirst };

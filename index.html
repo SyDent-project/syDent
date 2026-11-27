@@ -4453,14 +4453,18 @@ async function nlAsk(){
 // ── NL-ANALYTICS-END ──────────────────────────────────────────────────
 
 // ═══ نسخة احتياطية محلية (زر «💾 نسخة احتياطية» بالهيدر — للمالك حصراً) ═══
-// BACKUP-BEGIN — صيغة sydent-backup/2 قابلةٌ للاسترجاع (scripts/backup-restore.js):
+// BACKUP-BEGIN — صيغة sydent-backup/3 قابلةٌ للاسترجاع (scripts/backup-restore.js):
 // • ورقة «ملاحظات» أولاً: الصيغة + معرّف الحساب + التاريخ، ثم صفٌّ لكل ورقة بيانات
 //   بنفس ترتيب الأوراق (اسم الورقة · اسم الجدول · عدد الصفوف) — الاسترجاع يقرأ الجدول من هنا.
 // • القيمة الفارغة null تبقى خليةً فارغة، والنص الفارغ '' يبقى نصاً — فلا يختلطان عند الاسترجاع.
-// • قراءة بحتة مصفّاة بعمود المالك ومقسومة على صفحات 1000 صف. أعمدة الأسرار (رموز القفل
-//   وتجزئاتها والتوكنات) لا تُصدَّر. جدولٌ يتعذّر قراءته يُذكر بالملاحظات بدل إسقاط النسخة.
+// • قراءة بحتة مصفّاة بعمود المالك ومقسومة على صفحات 1000 صف، مرتّبةً دائماً بمفتاحٍ فريد
+//   (id، أو العنصر الرابع بالقائمة للجداول التي لا id لها) — صفحاتٌ بلا ترتيبٍ ثابت تكرّر صفوفاً
+//   وتُسقط أخرى. أعمدة الأسرار (رموز القفل وتجزئاتها والتوكنات) لا تُصدَّر. جدولٌ يتعذّر قراءته
+//   يُذكر بالملاحظات، والمالك يُنبَّه بأسماء الجداول الناقصة — لا رسالة نجاحٍ على نسخةٍ ناقصة.
+// • النص الأطول من خلية Excel (توقيع مرسوم مثلاً) لا يُقصّ: يُقسم أجزاءً بورقة «نصوص طويلة»
+//   الأخيرة، ومكانه بالخلية علامةٌ ⟦sydent-long:N⟧ يعيد الاسترجاع وصلها.
 // • الصور والملفات (الأشعة والمستندات) ليست بالملف — تبقى بالتخزين السحابي.
-var DASH_BACKUP_FORMAT = 'sydent-backup/2';
+var DASH_BACKUP_FORMAT = 'sydent-backup/3';
 var DASH_BACKUP_TABLES = [
   ['clinic_settings', 'owner_id', 'إعدادات العيادة'],
   ['clinic_doctors', 'owner_id', 'الأطباء'],
@@ -4470,11 +4474,15 @@ var DASH_BACKUP_TABLES = [
   ['treatments', 'doctor_id', 'كتالوج العلاجات'],
   ['treatment_bundles', 'owner_id', 'حزم العلاجات'],
   ['treatment_price_history', 'owner_id', 'سجل الأسعار'],
-  ['patient_seq', 'owner_id', 'ترقيم المرضى'],
+  ['patient_seq', 'owner_id', 'ترقيم المرضى', ['owner_id']],
   ['patients', 'doctor_id', 'المرضى'],
   ['patient_intakes', 'owner_id', 'استمارات المرضى'],
+  ['patient_portals', 'owner_id', 'روابط بوابة المريض'],
+  ['consent_templates', 'owner_id', 'قوالب الموافقات'],
+  ['patient_consents', 'owner_id', 'موافقات المرضى'],
   ['appointments', 'doctor_id', 'المواعيد'],
   ['schedule_blocks', 'doctor_id', 'حجوزات الجدول'],
+  ['staff_leaves', 'owner_id', 'إجازات الموظفين'],
   ['booking_requests', 'clinic_id', 'طلبات الحجز'],
   ['portal_requests', 'owner_id', 'طلبات البوابة'],
   ['ledger_sessions', 'doctor_id', 'الجلسات'],
@@ -4482,7 +4490,7 @@ var DASH_BACKUP_TABLES = [
   ['payment_splits', 'doctor_id', 'توزيع الدفعات'],
   ['payment_plans', 'doctor_id', 'خطط التقسيط'],
   ['account_adjustments', 'doctor_id', 'تسويات الحسابات'],
-  ['teeth_status', 'doctor_id', 'حالة الأسنان'],
+  ['teeth_status', 'doctor_id', 'حالة الأسنان', ['patient_id', 'tooth_num', 'surface']],
   ['teeth_status_history', 'doctor_id', 'سجل الأسنان'],
   ['perio_exams', 'doctor_id', 'فحوص اللثة'],
   ['perio_measurements', 'doctor_id', 'قياسات اللثة'],
@@ -4521,45 +4529,59 @@ var DASH_BACKUP_TABLES = [
   ['treatment_materials', 'owner_id', 'مواد العلاجات']
 ];
 var DASH_BACKUP_SECRET = /pin|hash|token|secret|password/i;
-function _dashBackupCell(v) {
+var DASH_BACKUP_LONG_SHEET = 'نصوص طويلة';
+var DASH_BACKUP_LONG_PART = 30000;                                   // حدّ خلية Excel 32767 محرفاً
+function _dashBackupCell(v, longs) {
   if (v === null || v === undefined) return null;                    // خلية فارغة = null
   if (typeof v === 'object') v = JSON.stringify(v);                  // jsonb ومصفوفات
-  return (typeof v === 'string' && v.length > 32000) ? v.slice(0, 32000) : v;   // حدّ خلية Excel
+  if (typeof v !== 'string' || v.length <= DASH_BACKUP_LONG_PART) return v;
+  longs.n++;
+  for (var i = 0, part = 1; i < v.length; i += DASH_BACKUP_LONG_PART, part++) longs.rows.push([longs.n, part, v.slice(i, i + DASH_BACKUP_LONG_PART)]);
+  return '⟦sydent-long:' + longs.n + '⟧';
 }
 // صرفة: (معرّف الحساب، الطابع، نتائج القراءة [{ t, rows | error }]) ⇒ أوراق المصنّف
 function dashBackupBuild(uid, stamp, results) {
-  var sheets = [], notes = [];
+  var sheets = [], notes = [], longs = { n: 0, rows: [] };
   results.forEach(function (res) {
     var t = res.t;
     if (res.error) { notes.push([t[2], t[0], '', 'تعذّرت القراءة']); return; }
     var rows = res.rows || [], cols = [];
     rows.forEach(function (r) { Object.keys(r).forEach(function (k) { if (cols.indexOf(k) < 0 && !DASH_BACKUP_SECRET.test(k)) cols.push(k); }); });
-    sheets.push({ name: t[2], headers: cols, rows: rows.map(function (r) { return cols.map(function (k) { return _dashBackupCell(r[k]); }); }) });
+    sheets.push({ name: t[2], headers: cols, rows: rows.map(function (r) { return cols.map(function (k) { return _dashBackupCell(r[k], longs); }); }) });
     notes.push([t[2], t[0], rows.length, '']);
   });
   sheets.unshift({ name: 'ملاحظات', headers: ['الورقة', 'الجدول', 'عدد الصفوف', 'ملاحظة'],
     rows: [['الصيغة', DASH_BACKUP_FORMAT, '', ''], ['الحساب', uid, '', ''], ['تاريخ النسخة', stamp, '', '']].concat(notes) });
+  if (longs.rows.length) sheets.push({ name: DASH_BACKUP_LONG_SHEET, headers: ['الرقم', 'الجزء', 'النص'], rows: longs.rows });
   return sheets;
 }
-// BACKUP-END
-var _dashBackupBusy = false;
-function dashBackupInit() {
-  var btn = document.getElementById('dashBackupBtn');
-  if (btn) btn.hidden = !nlIsOwner();
-}
-async function _dashBackupRead(table, col, uid) {
-  var out = [], from = 0, PAGE = 1000, ordered = true;
+// قراءة جدولٍ كاملاً صفحةً صفحة. الترتيب بمفتاحٍ فريد شرطٌ: بدونه لا تضمن القاعدة أن الصفحة
+// الثانية تكمل الأولى. خطأ القراءة يُرمى كما هو — لا إعادة محاولةٍ بلا ترتيب.
+async function dashBackupRead(sb, t, uid) {
+  var out = [], from = 0, PAGE = 1000, keys = t[3] || ['id'];
   for (;;) {
-    var q = window.sb.from(table).select('*').eq(col, uid);
-    if (ordered) q = q.order('id', { ascending: true });
+    var q = sb.from(t[0]).select('*').eq(t[1], uid);
+    keys.forEach(function (k) { q = q.order(k, { ascending: true }); });
     var r = await q.range(from, from + PAGE - 1);
-    if (r.error && ordered && from === 0) { ordered = false; continue; }   // جدول بلا عمود id
     if (r.error) throw r.error;
     var rows = r.data || [];
     out = out.concat(rows);
     if (rows.length < PAGE) return out;
     from += PAGE;
   }
+}
+// صرفة: نتائج القراءة + نوع الملف المحفوظ ⇒ { ok, msg } للمالك
+function dashBackupVerdict(results, kind) {
+  var failed = results.filter(function (r) { return r.error; }).map(function (r) { return r.t[0]; });
+  if (kind !== 'xlsx') return { ok: false, msg: '⚠️ الملف الذي نزل ليس نسخة احتياطية صالحة — احذفه وحاول مجدداً' };
+  if (failed.length) return { ok: false, failed: failed, msg: '⚠️ النسخة ناقصة — تعذّرت قراءة ' + failed.length + ' من ' + results.length + ' جدولاً. احذف الملف وحاول مجدداً' };
+  return { ok: true, msg: '💾 نزّلت النسخة الاحتياطية — احفظ الملف بمكان آمن' };
+}
+// BACKUP-END
+var _dashBackupBusy = false;
+function dashBackupInit() {
+  var btn = document.getElementById('dashBackupBtn');
+  if (btn) btn.hidden = !nlIsOwner();
 }
 async function dashBackup() {
   if (_dashBackupBusy || !nlIsOwner()) return;
@@ -4568,6 +4590,7 @@ async function dashBackup() {
   _dashBackupBusy = true;
   if (btn) btn.disabled = true;
   try {
+    await window.SyDentXlsx.load();                                  // بلا مكتبة Excel لا نسخة — لا سقوط على ملفٍّ نصّي لا يُسترجع
     var u = await window.sb.auth.getUser();
     var uid = (u && u.data && u.data.user) ? u.data.user.id : null;
     if (!uid) throw new Error('no user');
@@ -4575,12 +4598,14 @@ async function dashBackup() {
     for (var i = 0; i < DASH_BACKUP_TABLES.length; i++) {
       var t = DASH_BACKUP_TABLES[i];
       if (btn) btn.textContent = '⏳ ' + (i + 1) + '/' + DASH_BACKUP_TABLES.length;
-      try { results.push({ t: t, rows: await _dashBackupRead(t[0], t[1], uid) }); }
+      try { results.push({ t: t, rows: await dashBackupRead(window.sb, t, uid) }); }
       catch (e) { results.push({ t: t, error: true }); }
     }
+    if (results.every(function (r) { return r.error; })) throw new Error('nothing read');
     var sheets = dashBackupBuild(uid, window.SyDentXlsx.stamp(new Date()), results);
-    await window.SyDentXlsx.save({ filename: 'sydent-backup-' + window.SyDentXlsx.today(), sheets: sheets });
-    showToast('💾 نزّلت النسخة الاحتياطية — احفظ الملف بمكان آمن');
+    var kind = await window.SyDentXlsx.save({ filename: 'sydent-backup-' + window.SyDentXlsx.today(), sheets: sheets });
+    var v = dashBackupVerdict(results, kind);
+    showToast(v.msg, !v.ok, v.ok ? 0 : 9000);                          // التحذير يبقى ريثما يُقرأ
   } catch (e) {
     showToast('⚠️ تعذّر إنشاء النسخة الاحتياطية — حاول مجدداً', true);
   } finally {

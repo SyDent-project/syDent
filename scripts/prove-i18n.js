@@ -68,6 +68,8 @@ function run(F) {
   ok(t('أرسل طلب التجربة المجانية ←') === 'Request your free trial →', 'surrounding symbols kept, the «next» arrow flips');
   ok(t('❌ البريد أو كلمة المرور غير صحيحة') === '❌ Incorrect email or password', 'a prefixed message is translated by its core');
   ok(t('وفّر ~17%') === 'Save ~17%' && t('🦷 حتى 150 مريض') === '🦷 Up to 150 patients' && t('≈ 25 ل.س / شهر') === '≈ 25 SYP / month', 'runtime patterns: savings, limits, per-month price with the currency');
+  ok(t('⚠️ النسخة ناقصة — تعذّرت قراءة 3 من 61 جدولاً. احذف الملف وحاول مجدداً') === '⚠️ The backup is incomplete — 3 of 61 tables could not be read. Delete the file and try again'
+    && t('⚠️ الملف الذي نزل ليس نسخة احتياطية صالحة — احذفه وحاول مجدداً') === "⚠️ The file that downloaded isn't a valid backup — delete it and try again", 'backup warnings (partial file with its counts · text fallback) come out in English');
   ok(t('أحمد الخطيب') === 'أحمد الخطيب', 'text with no entry (a patient name) is left as is');
   const A = engine(F['theme.js'], F['i18n-en.js'], 'book.html', 'en');
   ok(A.window.SyI18n.lang === 'ar' && A.window.SyI18n.chosen === 'en', 'pages not translated yet stay Arabic even when English is chosen');
@@ -88,6 +90,7 @@ const MUTANTS = [
   ['arrow not flipped', 'theme.js', "return c === '←' ? '→' : '←';", "return c;"],
   ['English forced on every page', 'theme.js', 'var on = lang === \'en\' && ready;', 'var on = lang === \'en\';'],
   ['pattern dropped', 'i18n-en.js', "  [/^حتى (\\d+) مريض$/, 'Up to $1 patients'],\n", ''],
+  ['backup partial-file warning loses its pattern', 'i18n-en.js', "'The backup is incomplete — $1 of $2 tables could not be read. Delete the file and try again'", "'النسخة ناقصة'"],
   ['untranslated value', 'i18n-en.js', "'Most popular'", "'الأكثر شعبية'"],
   ['root URL not treated as the dashboard', 'theme.js', ".replace(/\\.html$/, '') || 'index';", ".replace(/\\.html$/, '');"],
   ['language button mounted on untranslated pages', 'theme.js', "if (ready) window.addEventListener('load'", "window.addEventListener('load'"]
