@@ -41,7 +41,7 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('landing.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261128a"></script>
+<script src="theme.js?v=20261128b"></script>
 <style>
   :root {
     --bg-primary: #0a1628;
@@ -757,23 +757,23 @@
 .al-count{margin-inline-start:auto;background:var(--red-bg);color:var(--red-ink);border:1px solid var(--red-bd);font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261128a">
+<link rel="stylesheet" href="theme.css?v=20261128b">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261128a"></script>
-<script src="sy-modal.js?v=20261128a"></script>
-<script src="appt-followup.js?v=20261128a"></script>
-<script src="pt-reliability.js?v=20261128a"></script>
-<script src="consent-pending.js?v=20261128a"></script>
-<script src="fu-unbooked.js?v=20261128a"></script>
-<script src="huddle-flags.js?v=20261128a"></script>
-<script src="pay-methods.js?v=20261128a"></script>
-<script src="acc-daysheet.js?v=20261128a"></script>
-<script src="dash-yesterday.js?v=20261128a"></script>
-<script src="dash-goal.js?v=20261128a"></script>
-<script src="sched-blocks.js?v=20261128a"></script>
-<script src="dash-gaps.js?v=20261128a"></script>
-<script src="sidebar.js?v=20261128a"></script>
-<script src="inv-order.js?v=20261128a"></script>
+<script src="supabase-init.js?v=20261128b"></script>
+<script src="sy-modal.js?v=20261128b"></script>
+<script src="appt-followup.js?v=20261128b"></script>
+<script src="pt-reliability.js?v=20261128b"></script>
+<script src="consent-pending.js?v=20261128b"></script>
+<script src="fu-unbooked.js?v=20261128b"></script>
+<script src="huddle-flags.js?v=20261128b"></script>
+<script src="pay-methods.js?v=20261128b"></script>
+<script src="acc-daysheet.js?v=20261128b"></script>
+<script src="dash-yesterday.js?v=20261128b"></script>
+<script src="dash-goal.js?v=20261128b"></script>
+<script src="sched-blocks.js?v=20261128b"></script>
+<script src="dash-gaps.js?v=20261128b"></script>
+<script src="sidebar.js?v=20261128b"></script>
+<script src="inv-order.js?v=20261128b"></script>
 </head>
 <body>
 <script>
@@ -951,7 +951,7 @@
       <form class="dash-search" onsubmit="return dashSearchGo(event)" role="search">
         <input class="search-bar" id="dashSearch" type="search" placeholder="🔍  بحث عن مريض…" autocomplete="off" enterkeyhint="search" aria-label="بحث عن مريض" />
       </form>
-      <button type="button" class="btn btn-outline" id="dashBackupBtn" onclick="dashBackup()" hidden title="تنزيل نسخة احتياطية من بيانات العيادة إلى هذا الجهاز (ملف Excel)">💾 نسخة احتياطية</button>
+      <button type="button" class="btn btn-outline" id="dashBackupBtn" onclick="dashBackupMenu()" hidden title="نسخة احتياطية من بيانات العيادة: تنزيل ملف Excel جديد أو فحص ملف سابق">💾 نسخة احتياطية</button>
       <a href="patients.html?open=new" class="btn btn-primary" data-doctor-inactive-block data-sub-write>＋ مريض جديد</a>
     </div>
   </div>
@@ -4465,6 +4465,7 @@ async function nlAsk(){
 //   الأخيرة، ومكانه بالخلية علامةٌ ⟦sydent-long:N⟧ يعيد الاسترجاع وصلها.
 // • الصور والملفات (الأشعة والمستندات) ليست بالملف — تبقى بالتخزين السحابي.
 var DASH_BACKUP_FORMAT = 'sydent-backup/3';
+var DASH_BACKUP_FORMATS = ['sydent-backup/2', DASH_BACKUP_FORMAT];   // ما يقبله «فحص ملف نسخة» (والاسترجاع)
 var DASH_BACKUP_TABLES = [
   ['clinic_settings', 'owner_id', 'إعدادات العيادة'],
   ['clinic_doctors', 'owner_id', 'الأطباء'],
@@ -4557,10 +4558,10 @@ function dashBackupBuild(uid, stamp, results) {
 }
 // قراءة جدولٍ كاملاً صفحةً صفحة. الترتيب بمفتاحٍ فريد شرطٌ: بدونه لا تضمن القاعدة أن الصفحة
 // الثانية تكمل الأولى. خطأ القراءة يُرمى كما هو — لا إعادة محاولةٍ بلا ترتيب.
-async function dashBackupRead(sb, t, uid) {
+async function dashBackupRead(sb, t, uid, cols) {
   var out = [], from = 0, PAGE = 1000, keys = t[3] || ['id'];
   for (;;) {
-    var q = sb.from(t[0]).select('*').eq(t[1], uid);
+    var q = sb.from(t[0]).select(cols || '*').eq(t[1], uid);
     keys.forEach(function (k) { q = q.order(k, { ascending: true }); });
     var r = await q.range(from, from + PAGE - 1);
     if (r.error) throw r.error;
@@ -4576,6 +4577,71 @@ function dashBackupVerdict(results, kind) {
   if (kind !== 'xlsx') return { ok: false, msg: '⚠️ الملف الذي نزل ليس نسخة احتياطية صالحة — احذفه وحاول مجدداً' };
   if (failed.length) return { ok: false, failed: failed, msg: '⚠️ النسخة ناقصة — تعذّرت قراءة ' + failed.length + ' من ' + results.length + ' جدولاً. احذف الملف وحاول مجدداً' };
   return { ok: true, msg: '💾 نزّلت النسخة الاحتياطية — احفظ الملف بمكان آمن' };
+}
+// ── «فحص ملف نسخة»: قراءة بحتة — يقرأ الملف ويقارن مفاتيح صفوفه بما في المنصة الآن، ولا يكتب شيئاً ──
+// صرفة: مصنّف Excel ⇒ { format, uid, stamp, tables: [{ table, sheet, head, rows }], skipped, broken } أو null لملفٍ ليس نسخة.
+// نفس قراءة scripts/backup-restore.js (readBackup): أوراق البيانات تتبع ورقة «ملاحظات» بترتيب صفوفها.
+function dashBackupParse(X, wb) {
+  var names = (wb && wb.SheetNames) || [];
+  var aoa = function (n) { return X.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: null, blankrows: true }); };
+  var notes = names.length ? aoa(names[0]) : [];
+  var fmt = notes[1] ? notes[1][1] : null;
+  if (DASH_BACKUP_FORMATS.indexOf(fmt) < 0) return null;
+  var out = { format: fmt, uid: String((notes[2] || [])[1] || ''), stamp: String((notes[3] || [])[1] || ''), tables: [], skipped: [], broken: false }, si = 1;
+  notes.slice(4).forEach(function (r) {
+    if (!r || !r[1]) return;
+    if (r[2] === null || r[2] === '') { out.skipped.push(String(r[1])); return; }
+    var sheet = names[si++];
+    if (!sheet || sheet === DASH_BACKUP_LONG_SHEET) { out.broken = true; return; }
+    var grid = aoa(sheet);
+    var rows = grid.slice(1).filter(function (x) { return x && x.some(function (v) { return v !== null; }); });
+    if (rows.length !== Number(r[2])) out.broken = true;
+    out.tables.push({ table: String(r[1]), sheet: String(r[0] || sheet), head: grid[0] || [], rows: rows });
+  });
+  return out;
+}
+function _dashBackupKeyOf(keys, get) { return keys.map(function (k) { var v = get(k); return v === null || v === undefined ? '' : String(v); }).join('|'); }
+// صرفة: (الملف المقروء، { جدول: [صفوف المنصة بأعمدة المفتاح] }) ⇒ ملخّص المقارنة
+function dashBackupDiff(parsed, live) {
+  var rep = { stamp: parsed.stamp, tables: parsed.tables.length, rows: 0, missing: 0, added: 0, items: [], skipped: parsed.skipped.length, broken: parsed.broken, uncompared: 0 };
+  parsed.tables.forEach(function (tb) {
+    rep.rows += tb.rows.length;
+    var t = DASH_BACKUP_TABLES.filter(function (x) { return x[0] === tb.table; })[0], now = live[tb.table];
+    var keys = t ? (t[3] || ['id']) : null, idx = keys ? keys.map(function (k) { return tb.head.indexOf(k); }) : [];
+    if (t && now && !tb.rows.length) { rep.added += now.length; return; }               // ورقة فارغة: لا عناوين فيها
+    if (!t || !now || idx.some(function (i) { return i < 0; })) { if (tb.rows.length) rep.uncompared++; return; }
+    var have = {};
+    now.forEach(function (r) { have[_dashBackupKeyOf(keys, function (k) { return r[k]; })] = 1; });
+    var miss = 0;
+    tb.rows.forEach(function (x) { if (!have[_dashBackupKeyOf(keys, function (k) { return x[idx[keys.indexOf(k)]]; })]) miss++; });
+    rep.missing += miss;
+    rep.added += Math.max(0, now.length - (tb.rows.length - miss));
+    if (miss) rep.items.push({ sheet: t[2], missing: miss, of: tb.rows.length });
+  });
+  rep.items.sort(function (a, b) { return b.missing - a.missing; });
+  return rep;
+}
+// صرفة: ملخّص المقارنة ⇒ أسطر النتيجة للمالك (كل سطرٍ نصٌّ مستقل بالحوار)
+// تاريخ النسخة للعرض: يوم/شهر/سنة ثم الوقت، معزولَ الاتجاه كي لا ينقلب ترتيبه داخل السطر العربي
+function dashBackupStamp(s) {
+  s = String(s || '').replace(/^(\d{4})-(\d\d)-(\d\d)/, '$3/$2/$1');
+  return s ? '\u2066' + s + '\u2069' : '—';
+}
+function dashBackupReport(rep) {
+  var L = ['تاريخ النسخة: ' + dashBackupStamp(rep.stamp), 'الجداول: ' + rep.tables + ' · الصفوف: ' + rep.rows], MAX = 10;
+  if (rep.skipped) L.push('⚠️ جداول لم تُقرأ وقت النسخ: ' + rep.skipped + ' — هذه النسخة ناقصة');
+  if (rep.broken) L.push('⚠️ الملف معدَّل أو تالف: محتواه لا يطابق ورقة الملاحظات');
+  if (!rep.missing) L.push(rep.uncompared === rep.tables && rep.rows ? 'تعذّرت المقارنة مع المنصة' : '✓ كل صفوف الملف موجودة الآن بالمنصة');
+  else {
+    L.push('صفوف بالملف غير موجودة الآن: ' + rep.missing);
+    rep.items.slice(0, MAX).forEach(function (it) { L.push('• ' + it.sheet + ': ' + it.missing + ' من ' + it.of); });
+    if (rep.items.length > MAX) L.push('و ' + (rep.items.length - MAX) + ' جداول أخرى');
+  }
+  if (rep.added) L.push('أُضيف بعد تاريخ النسخة: ' + rep.added + ' صفاً');
+  if (rep.uncompared && rep.uncompared !== rep.tables) L.push('جداول لم تُقارَن: ' + rep.uncompared);
+  if (rep.missing) L.push('لاسترجاع الناقص تواصل مع الدعم وأرسل لهم هذا الملف.');
+  L.push('الفحص للقراءة فقط — لم يتغيّر شيء.');
+  return L;
 }
 // BACKUP-END
 var _dashBackupBusy = false;
@@ -4608,6 +4674,66 @@ async function dashBackup() {
     showToast(v.msg, !v.ok, v.ok ? 0 : 9000);                          // التحذير يبقى ريثما يُقرأ
   } catch (e) {
     showToast('⚠️ تعذّر إنشاء النسخة الاحتياطية — حاول مجدداً', true);
+  } finally {
+    _dashBackupBusy = false;
+    if (btn) { btn.disabled = false; btn.textContent = oldLabel || '💾 نسخة احتياطية'; }
+  }
+}
+
+// الزر يفتح خيارين: تنزيل نسخة جديدة، أو فحص ملف سابق. الاسترجاع نفسه عن طريق الدعم (لا كتابة من هنا).
+async function dashBackupMenu() {
+  if (_dashBackupBusy || !nlIsOwner()) return;
+  var pick = await window.SyDialog.choose({
+    title: 'النسخة الاحتياطية',
+    message: 'الملف يحوي بيانات العيادة بلا الصور والأشعة. استرجاع البيانات من ملف يتم عن طريق الدعم.',
+    choices: [
+      { label: '💾 تنزيل نسخة جديدة', sub: 'ملف Excel يُحفظ على هذا الجهاز' },
+      { label: '🔍 فحص ملف نسخة', sub: 'يعرض تاريخه ومحتواه وما ينقص منه الآن — بلا أي تعديل' }
+    ]
+  });
+  if (pick === 0) return dashBackup();
+  if (pick === 1) dashBackupPickFile();
+}
+function dashBackupPickFile() {
+  var inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  inp.style.display = 'none';
+  inp.id = 'dashBackupFile';
+  inp.addEventListener('change', function () {
+    var f = inp.files && inp.files[0];
+    if (inp.parentNode) inp.parentNode.removeChild(inp);
+    if (f) dashBackupCheck(f);
+  });
+  var old = document.getElementById('dashBackupFile');
+  if (old && old.parentNode) old.parentNode.removeChild(old);
+  document.body.appendChild(inp);
+  inp.click();
+}
+async function dashBackupCheck(file) {
+  if (_dashBackupBusy || !nlIsOwner()) return;
+  var btn = document.getElementById('dashBackupBtn');
+  var oldLabel = btn ? btn.textContent : '';
+  var say = function (title, lines) { return window.SyDialog.alert({ title: title, message: lines.join('\n') }); };
+  _dashBackupBusy = true;
+  if (btn) btn.disabled = true;
+  try {
+    var X = await window.SyDentXlsx.load(), parsed = null;
+    try { parsed = dashBackupParse(X, X.read(new Uint8Array(await file.arrayBuffer()), { type: 'array' })); } catch (e) { parsed = null; }
+    if (!parsed) { await say('فحص ملف نسخة', ['هذا الملف ليس نسخة احتياطية من SyDent.', 'اختر الملف الذي نزّلته من زر «نسخة احتياطية» (sydent-backup-….xlsx).']); return; }
+    var u = await window.sb.auth.getUser();
+    var uid = (u && u.data && u.data.user) ? u.data.user.id : null;
+    if (!uid) throw new Error('no user');
+    if (parsed.uid !== uid) { await say('فحص ملف نسخة', ['هذا الملف نسخة من حساب عيادة أخرى، فلا يُقارَن ببيانات هذا الحساب.', 'تاريخ النسخة: ' + dashBackupStamp(parsed.stamp)]); return; }
+    var live = {};
+    for (var i = 0; i < parsed.tables.length; i++) {
+      var tb = parsed.tables[i], t = DASH_BACKUP_TABLES.filter(function (x) { return x[0] === tb.table; })[0];
+      if (btn) btn.textContent = '🔍 ' + (i + 1) + '/' + parsed.tables.length;
+      if (t) live[tb.table] = await dashBackupRead(window.sb, t, uid, (t[3] || ['id']).join(','));
+    }
+    await say('نتيجة فحص الملف', dashBackupReport(dashBackupDiff(parsed, live)));
+  } catch (e) {
+    showToast('⚠️ تعذّر فحص الملف — تحقق من الاتصال وحاول مجدداً', true, 6000);
   } finally {
     _dashBackupBusy = false;
     if (btn) { btn.disabled = false; btn.textContent = oldLabel || '💾 نسخة احتياطية'; }
