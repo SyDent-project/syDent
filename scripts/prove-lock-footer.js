@@ -17,7 +17,7 @@ function suite(F) {
   ok(/if \(!btn && !document\.getElementById\('sbDoctorName'\)\) return;/.test(rh) && !/\n    if \(!btn\) return;\n    var role/.test(rh), '(١) the label is computed even without a header button');
   const iFoot = rh.indexOf("var foot = document.getElementById('sbDoctorName');"), iRet = rh.indexOf('    if (!btn) return;\n    if (inactive)');
   ok(iFoot > rh.indexOf('var label') && iRet > iFoot, '(١) footer written after the label is resolved, before the button-only part');
-  ok(/if \(foot && !ownerMode\) \{\s*foot\.textContent = '';\s*foot\.appendChild\(document\.createTextNode\(label\)\);\s*foot\.appendChild\(document\.createElement\('br'\)\);\s*foot\.appendChild\(document\.createTextNode\(ROLE_LABELS\[role\] \|\| ''\)\);\s*foot\.setAttribute\('data-sy-person', role\);/.test(rh), '(١) staff only · text nodes (no HTML injection) · marked as resolved');
+  ok(/if \(foot && !ownerMode\) \{\s*foot\.textContent = '';\s*foot\.appendChild\(document\.createTextNode\(label\)\);\s*foot\.appendChild\(document\.createElement\('br'\)\);\s*foot\.appendChild\(document\.createTextNode\(roleLabelNow\(\)\)\);\s*foot\.setAttribute\('data-sy-person', role\);/.test(rh), '(١) staff only · text nodes (no HTML injection) · marked as resolved');
   const blk = S.slice(S.indexOf("  const nameEl = document.getElementById('sbDoctorName');"), S.indexOf('  // Clinic name in the brand sub-line.'));
   ok(!/\.innerHTML\s*=/.test(blk), '(٢) the sidebar no longer writes the name as HTML');
   ok(/if \(nameEl && !\(_staff && nameEl\.hasAttribute\('data-sy-person'\)\)\)/.test(blk), '(٢) never overwrites a resolved staff name with the owner\'s');
@@ -40,12 +40,17 @@ function suite(F) {
   el = runSidebar({ isOwner: () => false, getRole: () => 'doctor', ROLE_LABELS: { doctor: 'الطبيب' }, refreshHeaderButton: () => { refreshed++; } });
   ok(el.text === 'الطبيب' && refreshed === 1 && el.text.indexOf('صاحب الحساب') < 0, '(٣) switched doctor ⇒ role placeholder (never the owner\'s name) and a name refresh');
   const fb = rh.slice(iFoot, iRet);
-  function runFoot(ownerMode, label, role) {
-    const { el, doc } = mkDom(); const ctx = { document: doc, ownerMode, label, role, ROLE_LABELS: { doctor: 'الطبيب', secretary: 'السكرتيرة' } };
+  function runFoot(ownerMode, label, role, acct) {
+    const { el, doc } = mkDom(); const L = { doctor: 'الطبيب', secretary: 'السكرتيرة' };
+    const ctx = { document: doc, ownerMode, label, role, ROLE_LABELS: L, roleLabelNow: () => (acct ? 'المحاسب' : (L[role] || role)) };   /* M230: الاسمُ من roleLabelNow */
     vm.createContext(ctx); vm.runInContext(fb, ctx); return el;
   }
   el = runFoot(false, 'د. ريم <b>X</b>', 'doctor');
   ok(el.text === 'د. ريم <b>X</b>\nالطبيب' && el.attrs['data-sy-person'] === 'doctor' && el.kids[0].t === 'د. ريم <b>X</b>', '(٣) doctor ⇒ own name + role, tags kept as literal text');
+  el = runFoot(false, 'سمير', 'secretary', true);
+  ok(el.text === 'سمير\nالمحاسب', '(٣) the accountant is named «المحاسب», not «السكرتيرة» (M230)');
+  el = runSidebar({ isOwner: () => false, getRole: () => 'secretary', ROLE_LABELS: { secretary: 'السكرتيرة' }, roleLabelNow: () => 'المحاسب', refreshHeaderButton: () => {} });
+  ok(el.text === 'المحاسب', '(٣) sidebar placeholder follows roleLabelNow');
   el = runFoot(true, 'د. أيهم', 'owner');
   ok(el.kids.length === 0 && !('data-sy-person' in el.attrs), '(٣) owner ⇒ the header refresh leaves the footer alone');
 }
@@ -55,7 +60,7 @@ const MUTANTS = [
   ['name injected as HTML', rep('supabase-init.js', '      foot.appendChild(document.createTextNode(label));', "      foot.innerHTML = label;")],
   ['no footer without a header button', rep('supabase-init.js', "    if (!btn && !document.getElementById('sbDoctorName')) return;", '    if (!btn) return;')],
   ['sidebar overwrites the staff name', rep('sidebar.js', "  if (nameEl && !(_staff && nameEl.hasAttribute('data-sy-person'))) {", '  if (nameEl) {')],
-  ['sidebar shows the owner to staff', rep('sidebar.js', "    const _line1 = _staff ? ((_L.ROLE_LABELS && _L.ROLE_LABELS[_L.getRole()]) || '') : name;", '    const _line1 = name;')],
+  ['sidebar shows the owner to staff', rep('sidebar.js', "    const _line1 = _staff ? ((typeof _L.roleLabelNow === 'function' ? _L.roleLabelNow() : (_L.ROLE_LABELS && _L.ROLE_LABELS[_L.getRole()])) || '') : name;", '    const _line1 = name;')],
   ['sidebar back to innerHTML', rep('sidebar.js', "    nameEl.textContent = '';\n    nameEl.appendChild(document.createTextNode(_line1));", "    nameEl.innerHTML = _line1;")]
 ];
 suite(base);

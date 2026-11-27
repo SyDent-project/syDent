@@ -2595,6 +2595,8 @@ Object.assign(window.SyI18nDict, {
   "مساعدة كرسي": "Chair assistant",
   "سكرتيرة": "Secretary",
   "آخر (محاسب/عامل/إلخ)": "Other (accountant/worker/etc.)",
+  "آخر (عامل/إلخ)": "Other (worker/etc.)",
+  "موظف آخر (عامل/إلخ)": "Other staff (worker/etc.)",
   "المالك (Owner) لا يمكن إضافته يدوياً — حساب الـ Owner محفوظ تلقائياً.": "The owner can't be added manually — the owner account is kept automatically.",
   "نموذج التعويض": "Pay model",
   "% من الإنتاج (طبيب مع نسبة)": "% of production (dentist on commission)",
@@ -4390,21 +4392,22 @@ Object.assign(window.SyI18nDict, {
   'إجراءات حساسة': 'Sensitive actions',
   'أرشيف الأشعة والصور السريرية': 'X-ray archive and clinical photos',
   'حذف مريض': 'Delete a patient',
-  'العودة لصلاحيات الدور': 'Back to the role\'s permissions',
-  'الصفحة المُطفأة تختفي من قائمته الجانبية، وإن فُتح رابطها مباشرةً تظهر شاشة 🔒. يصل التغيير إلى جهازه فوراً ويُسجَّل في سجل النشاطات.': 'A page switched off disappears from their side menu, and opening its link directly shows the 🔒 screen. The change reaches their device right away and is recorded in the activity log.',
-  'صلاحية واحدة مخصّصة عن دوره': 'One permission customised from their role',
+  'الصفحة المُطفأة تختفي من القائمة الجانبية على جهاز الموظف، وإن فُتح رابطها مباشرةً تظهر شاشة 🔒. يصل التغيير فوراً ويُسجَّل في سجل النشاطات.': 'A page switched off disappears from the side menu on the staff member\'s device, and opening its link directly shows the 🔒 screen. The change applies right away and is recorded in the activity log.',
+  'صلاحية واحدة مخصّصة عن الدور': 'One permission customised from the role',
   'الصلاحيات غير متاحة بعد على هذا الحساب': 'Permissions are not available on this account yet',
   'الصلاحيات غير متاحة بعد على هذا الحساب.': 'Permissions are not available on this account yet.',
   'تعذّر الحفظ — تحقّق من الاتصال وحاول ثانيةً.': 'Could not save — check the connection and try again.',
-  'تعرض هذه الصفحة دفعاتك أنت فقط.': 'This page shows only your own payouts.'
+  'تعرض هذه الصفحة دفعاتك أنت فقط.': 'This page shows only your own payouts.',
+  /* M230: the accountant employee type */
+  'محاسب': 'Accountant', 'المحاسب': 'Accountant', 'للمالك والمحاسب': 'Owner and accountant only'
 });
 if (window.SyI18nPatterns) window.SyI18nPatterns.push(
   [/^🛡️ الصلاحيات: (.*)$/, '🛡️ Permissions: $1'],
   [/^✓ حُفظت صلاحيات (.*)$/, '✓ Permissions saved for $1'],
-  [/^🛡️ (\d+) صلاحيات مخصّصة عن دوره$/, '🛡️ $1 permissions customised from their role'],
-  [/^تبدأ من صلاحيات دوره \((.+?)\) — صلاحية واحدة مخصّصة$/, 'Starts from their role\'s permissions ($1) — one customised'],
-  [/^تبدأ من صلاحيات دوره \((.+?)\) — (\d+) صلاحيات مخصّصة$/, 'Starts from their role\'s permissions ($1) — $2 customised'],
-  [/^تبدأ من صلاحيات دوره \((.+?)\)$/, 'Starts from their role\'s permissions ($1)']
+  [/^🛡️ (\d+) صلاحيات مخصّصة عن الدور$/, '🛡️ $1 permissions customised from the role'],
+  [/^تبدأ من صلاحيات الدور \((.+?)\) — صلاحية واحدة مخصّصة$/, 'Starts from the role\'s permissions ($1) — one customised'],
+  [/^تبدأ من صلاحيات الدور \((.+?)\) — (\d+) صلاحيات مخصّصة$/, 'Starts from the role\'s permissions ($1) — $2 customised'],
+  [/^تبدأ من صلاحيات الدور \((.+?)\)$/, 'Starts from the role\'s permissions ($1)']
 );
 
 /* ── 25/11: بطاقة المريض بالإنجليزية — خطةُ العلاج وجدولُ الجلسات والمدفوعات والسجلّ وأقسامُها الفارغة
