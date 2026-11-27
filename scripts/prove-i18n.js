@@ -70,6 +70,22 @@ function run(F) {
   ok(t('وفّر ~17%') === 'Save ~17%' && t('🦷 حتى 150 مريض') === '🦷 Up to 150 patients' && t('≈ 25 ل.س / شهر') === '≈ 25 SYP / month', 'runtime patterns: savings, limits, per-month price with the currency');
   ok(t('⚠️ النسخة ناقصة — تعذّرت قراءة 3 من 61 جدولاً. احذف الملف وحاول مجدداً') === '⚠️ The backup is incomplete — 3 of 61 tables could not be read. Delete the file and try again'
     && t('⚠️ الملف الذي نزل ليس نسخة احتياطية صالحة — احذفه وحاول مجدداً') === "⚠️ The file that downloaded isn't a valid backup — delete it and try again", 'backup warnings (partial file with its counts · text fallback) come out in English');
+  /* «فحص ملف نسخة»: every line the report can show, and every sheet name it can list, through the engine */
+  {
+    const ixb = F['index.html'].slice(F['index.html'].indexOf('// BACKUP-BEGIN'), F['index.html'].indexOf('// BACKUP-END'));
+    const B = new Function(ixb + '; return { DASH_BACKUP_TABLES, dashBackupReport };')();
+    const items = B.DASH_BACKUP_TABLES.map((x, i) => ({ sheet: x[2], missing: i + 1, of: i + 7 }));
+    const lines = [].concat(
+      B.dashBackupReport({ stamp: '2026-11-28 00:10', tables: 61, rows: 4512, missing: 0, added: 0, items: [], skipped: 0, broken: false, uncompared: 0 }),
+      B.dashBackupReport({ stamp: '2026-11-28 00:10', tables: 61, rows: 4512, missing: 9, added: 5, items: items.slice(0, 12), skipped: 2, broken: true, uncompared: 3 }),
+      B.dashBackupReport({ stamp: '', tables: 2, rows: 5, missing: 0, added: 0, items: [], skipped: 0, broken: false, uncompared: 2 }),
+      items.map(it => '• ' + it.sheet + ': ' + it.missing + ' من ' + it.of));
+    const src = F['index.html'].slice(F['index.html'].indexOf('async function dashBackupMenu'), F['index.html'].indexOf('loadDashboard();\ndashBackupInit();'));
+    for (const m of src.matchAll(/'((?:[^'\\\n]|\\.)*[\u0600-\u06FF](?:[^'\\\n]|\\.)*)'/g)) if (!/\s$/.test(m[1])) lines.push(m[1]);   // a piece that ends in a space is the start of a line proven above
+    const left = lines.filter(l => { const o = t(l); return o == null || AR.test(o.replace(/«[^»]*»/g, '')); });
+    ok(lines.length > 90 && left.length === 0, 'backup file check: all ' + lines.length + ' report lines, sheet names and dialog texts come out in English' + (left.length ? ' — left: ' + left[0] + ' → ' + t(left[0]) : ''));
+    ok(t('• المرضى: 2 من 20') === '• Patients: 2 of 20' && t('الجداول: 61 · الصفوف: 4512') === 'Tables: 61 · Rows: 4512', 'backup file check: the numbers stay the same');
+  }
   ok(t('أحمد الخطيب') === 'أحمد الخطيب', 'text with no entry (a patient name) is left as is');
   const A = engine(F['theme.js'], F['i18n-en.js'], 'book.html', 'en');
   ok(A.window.SyI18n.lang === 'ar' && A.window.SyI18n.chosen === 'en', 'pages not translated yet stay Arabic even when English is chosen');
@@ -90,6 +106,8 @@ const MUTANTS = [
   ['arrow not flipped', 'theme.js', "return c === '←' ? '→' : '←';", "return c;"],
   ['English forced on every page', 'theme.js', 'var on = lang === \'en\' && ready;', 'var on = lang === \'en\';'],
   ['pattern dropped', 'i18n-en.js', "  [/^حتى (\\d+) مريض$/, 'Up to $1 patients'],\n", ''],
+  ['backup check: a sheet name loses its entry', 'i18n-en.js', "  'موافقات المرضى': 'Patient consents',\n", ''],
+  ['backup check: missing-rows line loses its pattern', 'i18n-en.js', "  [/^• (.+): (\\d+) من (\\d+)$/, '• $1: $2 of $3'],\n", ''],
   ['backup partial-file warning loses its pattern', 'i18n-en.js', "'The backup is incomplete — $1 of $2 tables could not be read. Delete the file and try again'", "'النسخة ناقصة'"],
   ['untranslated value', 'i18n-en.js', "'Most popular'", "'الأكثر شعبية'"],
   ['root URL not treated as the dashboard', 'theme.js', ".replace(/\\.html$/, '') || 'index';", ".replace(/\\.html$/, '');"],

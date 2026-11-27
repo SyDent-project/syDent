@@ -41,7 +41,7 @@ const FAILED = 'appointments';
 
 function api(ix) {
   const block = ix.slice(ix.indexOf('// BACKUP-BEGIN'), ix.indexOf('// BACKUP-END'));
-  return new Function(block + '; return { DASH_BACKUP_TABLES, dashBackupBuild, DASH_BACKUP_FORMAT, dashBackupRead, dashBackupVerdict, DASH_BACKUP_LONG_SHEET };')();
+  return new Function(block + '; return { DASH_BACKUP_TABLES, dashBackupBuild, DASH_BACKUP_FORMAT, DASH_BACKUP_FORMATS, dashBackupRead, dashBackupVerdict, DASH_BACKUP_LONG_SHEET, dashBackupParse, dashBackupDiff, dashBackupReport };')();
 }
 function restoreMod(src) {
   const m = { exports: {} };
@@ -106,6 +106,36 @@ function run(ix, rs) {
   let oldOk = false;
   try { oldOk = R.readBackup(X, X.write(wb3, { type: 'buffer', bookType: 'xlsx' })).tables[0].rows.length === 2; } catch (e) {}
   ok(oldOk && A.DASH_BACKUP_FORMAT === R.FORMAT, 'files of the previous format still restore; both sides agree on the current one');
+
+  /* «فحص ملف نسخة»: the page reads the file the way the restore does, and compares keys only */
+  const P = A.dashBackupParse(X, X.read(buf, { type: 'buffer' }));
+  ok(P && P.uid === b.uid && P.stamp === b.stamp && P.skipped.join() === b.skipped.join() && !P.broken
+    && P.tables.map(t => t.table + ':' + t.rows.length).join() === b.tables.map(t => t.table + ':' + t.rows.length).join(), 'the page parses the file exactly as the restore script does (account, date, tables, row counts, failed tables)');
+  ok(JSON.stringify(A.DASH_BACKUP_FORMATS) === JSON.stringify(R.FORMATS), 'page and restore accept the same formats');
+  ok(A.dashBackupParse(X, X.read(X.write(wb3, { type: 'buffer', bookType: 'xlsx' }), { type: 'buffer' })).format === 'sydent-backup/2', 'a file of the previous format can be checked too');
+  const other = X.utils.book_new();
+  X.utils.book_append_sheet(other, X.utils.aoa_to_sheet([['الاسم', 'الهاتف'], ['مريض', '09']]), 'المرضى');
+  ok(A.dashBackupParse(X, other) === null && A.dashBackupParse(X, X.utils.book_new()) === null, 'a workbook that is not a backup is refused');
+  const cut = X.read(buf, { type: 'buffer' });
+  cut.Sheets[cut.SheetNames[2]] = X.utils.aoa_to_sheet([Object.keys(FIX.patients[0])]);
+  ok(A.dashBackupParse(X, cut).broken === true, 'a sheet whose rows no longer match the notes marks the file as edited or damaged');
+  const keysOf = (t, rows) => rows.map(r => { const o = {}; (A.DASH_BACKUP_TABLES.find(x => x[0] === t)[3] || ['id']).forEach(k => o[k] = r[k]); return o; });
+  const liveAll = {};
+  Object.keys(FIX).forEach(t => liveAll[t] = keysOf(t, FIX[t]));
+  const eq = A.dashBackupDiff(P, liveAll);
+  ok(eq.missing === 0 && eq.added === 0 && eq.items.length === 0 && eq.uncompared === 0 && eq.rows === 7 && eq.skipped === 1, 'file and platform identical ⇒ nothing missing, nothing added');
+  const liveLess = Object.assign({}, liveAll, { patients: keysOf('patients', FIX.patients.slice(0, 1)).concat([{ id: 'p9' }, { id: 'p10' }]), teeth_status: [] });
+  const less = A.dashBackupDiff(P, liveLess);
+  ok(less.missing === 2 && less.added === 2 && less.items.map(i => i.sheet + ':' + i.missing + '/' + i.of).sort().join() === 'المرضى:1/2,حالة الأسنان:1/1', 'rows deleted since the backup are counted per sheet (by id, or by the table key), rows added since are counted apart');
+  const un = A.dashBackupDiff(P, { patients: liveAll.patients });
+  ok(un.uncompared === 4 && un.missing === 0, 'a table the platform could not answer for is reported as not compared, not as missing');
+  const rl = A.dashBackupReport(less), rq = A.dashBackupReport(eq);
+  ok(rl[0] === 'تاريخ النسخة: \u206620/10/2026 10:00\u2069' && rl.indexOf('صفوف بالملف غير موجودة الآن: 2') > 0 && rl.indexOf('• المرضى: 1 من 2') > 0 && rl.indexOf('أُضيف بعد تاريخ النسخة: 2 صفاً') > 0 && /الدعم/.test(rl[rl.length - 2]) && /للقراءة فقط/.test(rl[rl.length - 1]), 'report: date, missing per sheet, added, where to go, read-only');
+  ok(rq.some(l => /^✓/.test(l)) && rq.some(l => /لم تُقرأ وقت النسخ: 1/.test(l)) && !rq.some(l => /الدعم/.test(l)), 'report: nothing missing says so, and still warns about a table the backup failed to read');
+  const many = A.dashBackupReport({ stamp: 'x', tables: 20, rows: 99, missing: 15, added: 0, skipped: 0, broken: false, uncompared: 0, items: Array.from({ length: 15 }, (_, i) => ({ sheet: 's' + i, missing: 1, of: 2 })) });
+  ok(many.filter(l => /^• /.test(l)).length === 10 && many.indexOf('و 5 جداول أخرى') > 0, 'report: a long list is cut to ten sheets with the rest counted');
+  const chk = ix.slice(ix.indexOf('async function dashBackupMenu'), ix.indexOf('loadDashboard();\ndashBackupInit();'));
+  ok(chk.length > 500 && !/\.(insert|update|upsert|delete|rpc)\s*\(/.test(chk) && /if \(parsed\.uid !== uid\)/.test(chk) && /nlIsOwner\(\)/.test(chk) && /onclick="dashBackupMenu\(\)"/.test(ix), 'the file check writes nothing, is the owner\'s only, and refuses another account\'s file');
 
   /* table list */
   const T = A.DASH_BACKUP_TABLES, pos = n => T.findIndex(t => t[0] === n);
@@ -199,6 +229,20 @@ const MUTANTS = [
   ['read error swallowed', 'ix', 'if (r.error) throw r.error;', 'if (r.error) return out;'],
   ['partial backup reported as success', 'ix', 'if (failed.length) return { ok: false,', 'if (0) return { ok: false,'],
   ['text fallback reported as success', 'ix', "if (kind !== 'xlsx') return { ok: false,", "if (0) return { ok: false,"],
+  ['check: page reads sheets out of step with the notes', 'ix', "var sheet = names[si++];", "var sheet = names[si];"],
+  ['check: failed table counted as a sheet', 'ix', "if (r[2] === null || r[2] === '') { out.skipped.push(String(r[1])); return; }", ''],
+  ['check: non-backup workbook accepted', 'ix', 'if (DASH_BACKUP_FORMATS.indexOf(fmt) < 0) return null;', ''],
+  ['check: old format refused', 'ix', "var DASH_BACKUP_FORMATS = ['sydent-backup/2', DASH_BACKUP_FORMAT];", 'var DASH_BACKUP_FORMATS = [DASH_BACKUP_FORMAT];'],
+  ['check: edited file not flagged', 'ix', 'if (rows.length !== Number(r[2])) out.broken = true;', ''],
+  ['check: keyless table compared by id', 'ix', "var keys = t ? (t[3] || ['id']) : null,", "var keys = t ? ['id'] : null,"],
+  ['check: missing rows not counted', 'ix', 'rep.missing += miss;', ''],
+  ['check: unanswered table counted as missing', 'ix', "if (!t || !now || idx.some(function (i) { return i < 0; })) { if (tb.rows.length) rep.uncompared++; return; }", "if (!t || idx.some(function (i) { return i < 0; })) { return; } now = now || [];"],
+  ['check: added rows not counted', 'ix', 'rep.added += Math.max(0, now.length - (tb.rows.length - miss));', ''],
+  ['check: report hides the missing count', 'ix', "L.push('صفوف بالملف غير موجودة الآن: ' + rep.missing);", ''],
+  ['check: report says all present when rows are missing', 'ix', "if (!rep.missing) L.push(", "if (rep.missing >= 0) L.push("],
+  ['check: another account\'s file compared', 'ix', 'if (parsed.uid !== uid) {', 'if (false) {'],
+  ['check: the page writes', 'ix', "await say('نتيجة فحص الملف',", "window.sb.from('patients').insert([]); await say('نتيجة فحص الملف',"],
+  ['check: date left to flip inside the Arabic line', 'ix', "return s ? '\\u2066' + s + '\\u2069' : '—';", "return s || '—';"],
   ['verdict not used by the button', 'ix', 'showToast(v.msg, !v.ok', "showToast('💾', false"],
   ['parents-first sort unstable by depth', 'rs', 'a[0] - b[0] || a[1] - b[1]', 'a[1] - b[1]']
 ];
