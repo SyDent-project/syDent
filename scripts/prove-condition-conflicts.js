@@ -161,9 +161,39 @@ async function assertions(src) {
   /* I — v612: اختيارُ حالةٍ سريرية بمودال السن ⇒ مظهرُ توثيقٍ لا جلسة: زرُّ «حفظ» وسمةُ data-cond-ui، وعلاجٌ ⇒ «حفظ كجلسة» بلا سمة */
   w.__examMode = false; await w.openToothModal(47, 'O'); w.pickToothTreatment('cond-caries', 'تسوس (نخر)');
   const btn = w.document.querySelector('#toothFoot .btn-save-m'), st2 = w.document.getElementById('toothStep2');
-  T('I1 حالةٌ ⇒ «حفظ» + data-cond-ui', btn.textContent === 'حفظ' && st2.getAttribute('data-cond-ui') === '1', btn.textContent + '/' + st2.getAttribute('data-cond-ui'));
+  T('I1 تشخيصٌ ⇒ «حفظ التشخيص» + data-cond-ui', btn.textContent === 'حفظ التشخيص' && st2.getAttribute('data-cond-ui') === '1', btn.textContent + '/' + st2.getAttribute('data-cond-ui'));
+  w.backToStep1(); w.pickToothTreatment('cond-calculus', 'قلح');
+  T('I1b حالةٌ سريرية ⇒ «حفظ» + data-cond-ui', btn.textContent === 'حفظ' && st2.getAttribute('data-cond-ui') === '1', btn.textContent + '/' + st2.getAttribute('data-cond-ui'));
   w.backToStep1(); w.pickToothTreatment(comp.id, comp.name);
   T('I2 علاجٌ ⇒ «حفظ كجلسة» بلا سمة', btn.textContent === 'حفظ كجلسة' && !st2.hasAttribute('data-cond-ui'), btn.textContent + '/' + st2.getAttribute('data-cond-ui'));
+  /* J — 27/11: التشخيص ← العلاج. (١) تشخيصٌ قائم ← «اختر علاجه» ← العلاجُ المخطّط يحمله dx_key صريحاً ·
+     (٢) تشخيصُ السن كاملاً يُربط بعلاجٍ على سطحٍ آخر: يُحمل ويُضمّ صفُّه (يُحذف) · (٣) لبّي + حول ذروي يتعايشان · (٤) نصُّ تشخيص الجلسة */
+  w.closeModal('toothModal'); w.teethMap = {}; w.teethDx = {}; w.sessions = []; w.__TOASTS.length = 0;
+  await save(w, 36, 'O', 'cond-caries', 'condition');
+  await w.openToothModal(36, 'O');
+  T('J1 بطاقةُ السن تعرض التشخيص «لم يُحدَّد بعد» وزرَّ اختيار علاجه', !!w.document.querySelector('#toothDxCard .dx-go') && /لم يُحدَّد بعد/.test(w.document.getElementById('toothDxCard').textContent), (w.document.getElementById('toothDxCard') || {}).textContent);
+  w.dxChooseTx('36', 'O', 'cond-caries');
+  const sgJ = Array.from(w.document.querySelectorAll('#dxSuggestBox .dx-sg')).map(b => b.getAttribute('data-tx'));
+  T('J2 مقترحاتُ التسوّس من كتالوج العيادة وزرُّ «إغلاق» لتشخيصٍ قائم', sgJ.indexOf(comp.id) === 0 && btn.textContent === 'إغلاق', JSON.stringify(sgJ) + '/' + btn.textContent);
+  w.dxPickNext(comp.id); installDb(w); await w.saveToothTreatment();
+  T('J3 المتابعةُ تفتح نموذجَ العلاج مخطّطاً ولافتةُ التشخيص فوقه', w.pendingToothStatus === comp.id && w.pendingTreatStatus === 'planned' && /تسوس/.test((w.document.getElementById('dxBanner') || {}).textContent || ''), w.pendingToothStatus + '/' + w.pendingTreatStatus);
+  const lJ = installDb(w); await w.saveToothTreatment();
+  const upJ = lJ.filter(x => x.table === 'teeth_status' && x.op === 'upsert');
+  T('J4 صفُّ العلاج المخطّط يحمل dx_key صريحاً', upJ.length === 1 && upJ[0].payload.treatment_key === comp.id && upJ[0].payload.status === 'planned' && upJ[0].payload.dx_key === 'O:cond-caries' && dx(36).O === 'O:cond-caries', JSON.stringify(upJ));
+  w.closeModal('toothModal'); w.teethMap = {}; w.teethDx = {}; w.sessions = [];
+  await w.openToothModal(15, 'O'); w.pickToothTreatment('cond-pulp-necrosis', 'تموّت لب');
+  T('J5 التشخيصُ اللبّي يُرسى على خانة السن', w.currentSurface === 'COND', w.currentSurface);
+  installDb(w); await w.saveToothTreatment();
+  await w.openToothModal(15, 'O'); w.pickToothTreatment('cond-apical', 'التهاب حول ذروي');
+  T('J6 حول ذروي مع لبّيٍّ قائم ⇒ على الجذر لا استبدال', w.currentSurface === 'R1', w.currentSurface);
+  installDb(w); await w.saveToothTreatment();
+  T('J7 التشخيصان يتعايشان', m(15).COND === 'cond-pulp-necrosis' && m(15).R1 === 'cond-apical', JSON.stringify(m(15)));
+  await w.openToothModal(15, 'O'); w.pickToothTreatment(crown.id, crown.name); w.dxLink('COND', 'cond-pulp-necrosis'); w.pickStatus('planned');
+  const lK = installDb(w); await w.saveToothTreatment();
+  const upK = lK.filter(x => x.table === 'teeth_status' && x.op === 'upsert'), delK = lK.filter(x => x.table === 'teeth_status' && x.op === 'delete' && x.eq.surface === 'COND');
+  T('J8 ربطٌ يدوي عبر الأسطح: العلاجُ يحمل تشخيصَ السن كاملاً وصفُّه يُضمّ', upK.length === 1 && /(^|,)COND:cond-pulp-necrosis(,|$)/.test(upK[0].payload.dx_key || '') && delK.length === 1 && !m(15).COND && m(15).R1 === 'cond-apical', JSON.stringify([upK, delK, m(15)]));
+  T('J9 نصُّ تشخيص الجلسة من الملاحظة حين لا صفَّ قائماً', w.dxSessionText({ tooth_num: '99', surface: 'O', treatment_key: 'x', notes: 'ملاحظة — سبب العلاج: تسوس (نخر)' }) === 'تسوس (نخر)' && w.dxSessionText({ notes: 'بلا تشخيص' }) === '');
+  w.closeModal('toothModal');
   T('I3 CSS يخفي حقولَ الجلسة للحالة', /#toothStep2\[data-cond-ui="1"\] \.form-group:has\(> #toothDate\)/.test(w.__CSS || fs.readFileSync(path.join(ROOT, 'patient-profile.css'), 'utf8')));
   w.closeModal('toothModal');
   T('Z لا أخطاءَ بالصفحة', w.__ERRORS.length === 0, w.__ERRORS.join(' | '));
@@ -171,6 +201,9 @@ async function assertions(src) {
 }
 
 const MUTANTS = [
+  ['M10 الربطُ لا يُحمل على صفّ العلاج', "row.dx_key = dxJoin(dxPairs(row.dx_key || '').concat(_same, f.pairs)); carry = f.pairs.slice();", "carry = f.pairs.slice();"],
+  ['M11 حول ذروي يستبدل اللبّي', "return (c && c.cond_grp !== 'apex') ? 'R1' : COND_SURFACE;", "return COND_SURFACE;"],
+  ['M12 الصفُّ المضموم لا يُحذف', "if (p.sf === row.surface || sm[p.sf] !== p.key ||", "if (true || p.sf === row.surface || sm[p.sf] !== p.key ||"],
   ['M1 التاجُ يترك الحالات', "    return isConditionKey(sm[k]) || landed;\n  });\n  if (!del.length) return '';\n  var pairs = dxCollectSubsumed(tn, del);\n  var r = await window.sb.from('teeth_status').delete()\n    .eq('doctor_id', currentUser.id).eq('patient_id', pid || patientId).eq('tooth_num', tn).in('surface', del);\n  if (r.error) { console.warn('subsumeCrownSurfaces:'", "    return landed;\n  });\n  if (!del.length) return '';\n  var pairs = dxCollectSubsumed(tn, del);\n  var r = await window.sb.from('teeth_status').delete()\n    .eq('doctor_id', currentUser.id).eq('patient_id', pid || patientId).eq('tooth_num', tn).in('surface', del);\n  if (r.error) { console.warn('subsumeCrownSurfaces:'"],
   ['M2 التاجُ المخطّط يمحو الحشوات', "var _cdx = await subsumeCrownSurfaces(currentTooth, isExtractionLandedStatus(pendingTreatStatus), patientId);", "var _cdx = await subsumeCrownSurfaces(currentTooth, true, patientId);"],
   ['M3 الزرعةُ لا تحمل الحالات', "return { handled: false, implantWiped: true, implantDx: _iDx };", "return { handled: false, implantWiped: true, implantDx: '' };"],

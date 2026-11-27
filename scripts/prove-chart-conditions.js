@@ -80,7 +80,7 @@ function measure(w) {
   r.driftLingualOcclusalOnly = dArrow(F(45, false)) === null && !!dArrow(O(45, false)) && dArrow(O(45, false)).dy < -5;   /* السفلي: اللسانيُّ أعلى الإطباقي */
   r.driftLabialAnterior = !!dArrow(O(43, false)) && dArrow(O(43, false)).dy > 5;
   r.retainedNoTriangle = syms(F(13, true)) === 0 && !!F(13, true).querySelector('.root-part') && !F(13, true).querySelector('[fill^="url(#cg"]');
-  r.libraryThirteen = w.COND_LIBRARY.length === 13;   /* ج1: «سن زائد» خرج من المكتبة — صار سنّاً مستقلاً */
+  r.libraryThirteen = w.COND_LIBRARY.length === 17 && w.COND_LIBRARY.filter(t => t.cond_kind === 'dx' && t.category === 'diagnosis').length === 10 && w.COND_LIBRARY.filter(t => t.cond_kind === 'cond' && t.category === 'condition').length === 7;   /* 27/11: المكتبة 17 = 10 تشخيصات (+4 لبّ/حول ذروي) + 7 حالات سريرية ·   /* ج1: «سن زائد» خرج من المكتبة — صار سنّاً مستقلاً */
   /* v581 (بلاغُ المالك بأربع صور): مركّبُ MOD يُرسم بكل حرف · الدهليزيُّ بالأمامي لا يُرى إطباقياً · حزامُ الحنكي الأمامي
      لا يمتدّ على الإنسي/الوحشي · سهمُ الانزياح الوجهي عند الجذر · إزالةُ التماس تزيل صفَّ الجار المقابل */
   set({ '38': { MOD: 'cond-caries', __status: { MOD: 'condition' } }, '11': { B: 'cond-wear', __status: { B: 'condition' } },

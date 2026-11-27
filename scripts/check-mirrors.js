@@ -2336,7 +2336,7 @@ try {
     'stmtSetPreset', 'printStatement', 'copyStatement', 'printPrescription', 'copyPrescription', 'printPostOp', 'copyPostOp',
     'resetTimelineFilters', 'ppConsentOpen', 'ppConsentPrint' /* M219: عرضُ الموافقات وطباعتُها قراءة */, 'pfOpenFile', 'aiPlanCopy', 'aiPlanPrint', 'aiReferralCopy', 'aiReferralPrint', 'aiSeqCopy', 'ppWaComposeCopy', 'labAiCopy', 'labSlipPrint', 'ppApptOpenInCalendar', 'ppMsgSetFilter', 'ppMsgToggle', 'ppIntakeOpenReview', 'ppIntakePrint', 'planRowCtlToggle'];   /* v597: فتحُ لوحة المرحلة/البديل — عرضٌ بحت */
   // حقولٌ وأزرارٌ تعيش داخل نوافذ/أوضاع كتابةٍ مداخلُها مخفية أو محروسة (أو حقول اللثة المقفلة بـreadOnly)
-  const PP_INERT = ['toothUnitsChanged', 'draftSetEraserSize', 'pfOnFilesPicked', 'onAdjKindChange', 'sessApptChanged', 'snTplApply', 'snTplGlowSync', 'refTplApply',
+  const PP_INERT = ['dxChooseTx', 'dxUnlink', 'dxLink', 'dxPickNext', 'dxPickSite' /* 27/11: التشخيص ← العلاج — داخل نافذة السن (لا تُفتح بوضع القراءة) */, 'toothUnitsChanged', 'draftSetEraserSize', 'pfOnFilesPicked', 'onAdjKindChange', 'sessApptChanged', 'snTplApply', 'snTplGlowSync', 'refTplApply',
     'onApptPlannedToggle', 'onProviderChange', 'implantApplyTemplate', 'labTplApply', 'labToothHint' /* ج2: عرضٌ بلا كتابة */, 'onLabApptChange', 'labTplGlowSync', 'waTplApply', 'planRecalc',
     'rxApplyTemplate', 'postOpApplyTemplate', 'postOpApplyLibrary', 'onSplitInputChange', 'backToStep1', 'switchTxTab', 'toggleSurfaceChip', 'toggleRootChip',
     'selectAllRootChips', 'pickToothTreatment', 'supOpenPicker', 'supClosePicker' /* ج1: منتقي المكان داخل نافذة السن (مدخلُها محروس) */, 'regQuadToggle', 'regQuadAll', 'regArchToggle', 'regArchAll', 'bridgeExtraAdj', 'nsePick',

@@ -1712,3 +1712,51 @@ button.fu-state:hover{filter:brightness(1.08);}
   .sess-table tbody tr.fu-row{padding-inline-start:26px;border-inline-start:3px solid var(--border);}
   .sess-table tr.fu-row > td.sc-type{padding-inline-start:0;}
 }
+
+/* ═══ DX: التشخيص ← العلاج ═══ */
+.tx-dx-lead{color:var(--red) !important;}
+.tx-dx-row{align-items:center;margin:0 0 12px;padding:8px 10px;border:1px dashed var(--red-bd);border-radius:10px;background:rgba(var(--red-rgb),0.03);}
+.tx-dx-row:empty{display:none;}
+.tx-dx-row .tx-cond-lead,.tx-dx-row .tx-tab-dx{margin-top:0 !important;}
+#toothStep2[data-cond-ui="1"] .form-group:has(#toothStatusPicker),#toothStep2[data-cond-ui="1"] .form-group:has(#toothDate){display:none !important;}
+.cond-note{font-size:12.5px;color:var(--text2);background:rgba(var(--purple-rgb),0.07);border:1px dashed var(--border);border-radius:10px;padding:9px 11px;margin:0 0 12px;line-height:1.6;}
+.tx-tab-dx{margin-top:8px;border-color:var(--red) !important;color:var(--red) !important;background:rgba(var(--red-rgb),0.07) !important;font-weight:700;}
+.tx-tab-dx.tx-tab-active{background:var(--red) !important;color:var(--on-accent) !important;}
+.tx-dx-hint{background:rgba(var(--red-rgb),0.06) !important;}
+.dx-card{border:1px solid var(--border);border-radius:12px;background:var(--bg2);margin:0 0 12px;overflow:hidden;}
+.dx-card-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;font-size:13px;font-weight:800;color:var(--text);border-bottom:1px solid var(--border);}
+.dx-card-head small{font-size:11px;font-weight:500;color:var(--text2);}
+.dx-card-item{padding:9px 12px;display:flex;flex-direction:column;gap:6px;}
+.dx-card-item + .dx-card-item{border-top:1px dashed var(--border);}
+.dx-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:13px;}
+.dx-k{flex:0 0 auto;color:var(--text2);font-size:12px;}
+.dx-v{text-align:end;font-weight:600;color:var(--text);overflow-wrap:anywhere;}
+.dx-v-dx{color:var(--red);font-weight:700;}
+.dx-v-cost{color:var(--green);font-weight:800;direction:ltr;unicode-bidi:isolate;}
+.dx-v-none{color:var(--text3);font-weight:500;}
+.dx-st{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;border:1px solid var(--border);color:var(--text2);margin-inline-start:4px;}
+.dx-st-planned{border-color:var(--red-bd);color:var(--red);background:var(--red-soft);}
+.dx-st-completed{border-color:var(--green);color:var(--green);background:rgba(var(--green-rgb),0.08);}
+.dx-go{align-self:flex-start;font-family:inherit;font-size:12px;font-weight:700;padding:7px 12px;min-height:36px;border-radius:8px;border:1px solid var(--red);background:rgba(var(--red-rgb),0.07);color:var(--red);cursor:pointer;}
+.dx-card-foot{padding:8px 12px;border-top:1px dashed var(--border);font-size:12px;color:var(--text2);}
+.dx-card-foot b{color:var(--purple);font-weight:700;}
+.dx-suggest{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:10px 12px;margin:0 0 12px;}
+.dx-suggest-lbl{font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px;}
+.dx-suggest-lbl small{font-weight:500;color:var(--text2);font-size:11.5px;}
+.dx-suggest-row{display:flex;flex-wrap:wrap;gap:8px;}
+.dx-sg{display:inline-flex;align-items:center;gap:7px;font-family:inherit;font-size:13px;font-weight:600;padding:8px 12px;min-height:40px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;}
+.dx-sg .sw{width:14px;height:14px;border-radius:4px;border:1px solid rgba(0,0,0,.25);}
+.dx-sg .pr{font-size:11.5px;color:var(--green);font-weight:800;direction:ltr;unicode-bidi:isolate;}
+.dx-sg.selected{border-color:var(--green);background:rgba(var(--green-rgb),0.10);box-shadow:0 0 0 2px rgba(var(--green-rgb),0.25);}
+.dx-suggest-hint{font-size:11.5px;color:var(--text2);margin-top:8px;line-height:1.5;}
+.dx-banner{display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:var(--red);background:rgba(var(--red-rgb),0.07);border:1px solid var(--red-bd);border-radius:10px;padding:8px 10px;margin:-6px 0 12px;}
+.dx-b-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+.dx-b-ask{color:var(--text2);font-weight:600;}
+.dx-b-chip{display:inline-flex;align-items:center;gap:4px;font-family:inherit;font-size:12px;font-weight:700;padding:4px 9px;border-radius:999px;border:1px solid var(--red-bd);background:var(--bg);color:var(--red);}
+button.dx-b-chip{cursor:pointer;min-height:32px;}
+.dx-b-add{border-style:dashed;color:var(--text);border-color:var(--border);}
+#toothStep2[data-dx-ui="1"] .form-group:has(#toothStatusPicker),#toothStep2[data-dx-ui="1"] .form-group:has(#toothDate){display:none !important;}
+#toothStep2[data-dx-ui="1"] #toothStep2Title{color:var(--red) !important;}
+.sess-dx{font-size:11.5px;color:var(--red);margin-top:2px;}
+.exam-bar .exam-dx-lbl{color:var(--red) !important;}
+.exam-bar .exam-tx-dx.selected{box-shadow:0 0 0 3px rgba(var(--red-rgb),.35) !important;background:rgba(var(--red-rgb),.08) !important;outline-color:var(--red) !important;}

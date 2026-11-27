@@ -1745,7 +1745,7 @@ async function runDashFin(sc) {
     const pd = read('pp-dental.js');
     const core = read('pp-core.js');
     const lib = /var COND_DEFS = \[([\s\S]*?)\n\];/.exec(pd);
-    const libOk = !!lib && (lib[1].match(/\bid:'cond-/g) || []).length === 13   /* C3: +غير بازغ · v578: +تسوس/تآكل/انزياح · v580: +سن زائد · ج1: «سن زائد» صار سنّاً مستقلاً لا حالة */
+    const libOk = !!lib && (lib[1].match(/\bid:'cond-/g) || []).length === 17   /* 27/11: +4 تشخيصات لبّ/حول ذروي — المكتبة تشخيصٌ (kind:'dx') وحالةٌ سريرية */   /* C3: +غير بازغ · v578: +تسوس/تآكل/انزياح · v580: +سن زائد · ج1: «سن زائد» صار سنّاً مستقلاً لا حالة */
       && !/price\s*:\s*[1-9]/.test(/var COND_LIBRARY = COND_DEFS\.map[\s\S]*?\}\);/.exec(pd)[0]);
     const chokeOk = /return \(typeof getCondition === 'function'\) \? getCondition\(id\) : null;/.test(core)
       && /for \(var i=0; i<TREATMENTS\.length; i\+\+\) if \(TREATMENTS\[i\]\.id === id\) return TREATMENTS\[i\];/.test(core);
@@ -1787,7 +1787,7 @@ async function runDashFin(sc) {
         && /scope:'surface'/.test(line('cond-calculus'))
         && /scope:'surface'/.test(line('cond-recession'))
         && /scope:'surface'/.test(line('cond-sensitivity'))
-        && /scope:'tooth'/.test(line('cond-abscess')) && /anchor:'apex'/.test(line('cond-abscess'))
+        && /scope:'apical'/.test(line('cond-abscess')) && /anchor:'apex'/.test(line('cond-abscess'))   /* 27/11: حول ذروي ⇒ الجذرُ المنقور أو خانةُ السن */
         && /only:\['M','D'\]/.test(line('cond-open-contact'))
         && /function condAnchorFor\(anat, key, def\)/.test(pd)
         && /if \(\/\^R\[123\]\$\/\.test\(key\)\)/.test(pd)
