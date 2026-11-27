@@ -3,14 +3,17 @@
    ───────────────────────────────────────────────────────────────────────
    الدورة: إرسالُ رابطٍ مرمَّز (portal.html?t=…) من مودال الرسالة الحرة (المرجع v408) أو نسخُه
    ← المريضُ يقرأ من هاتفه (مواعيده · خطته المعتمدة · رصيده إن سُمح · تعليماته وروشتاته
-   · استمارته المعلّقة) ← العيادة تجدّد الصلاحية (30 يوماً) أو توقف الرابط من الصفّ نفسه.
+   · استمارته المعلّقة) ← العيادة تجدّد الصلاحية أو توقف الرابط من الصفّ نفسه.
+   M229: الصلاحيةُ يختارها الطبيب عند إنشاء الرابط أو تجديده — 30 يوماً · تاريخٌ محدد · دائمة ('infinity'
+   بالقاعدة: كلُّ فحوص `expires_at >= now()` تبقى كما هي). إعادةُ الإرسال/النسخ لرابطٍ نشط لا تغيّر صلاحيته.
    الحقيقة: صفٌّ حيٌّ واحد لكل مريض (revoked_at IS NULL) يُعاد استعماله؛ الإيقافُ يختمه
    ويُنشئ الإرسالُ التالي صفّاً جديداً بتوكنٍ جديد. القراءةُ عند المريض عبر portal_info وحدها.
    يُحمَّل بعد pp-intake.js. يعتمد على: patient · patientId · currentUser · showToast ·
    escapeHtml · fmtD · ppWaComposeOpen · ppMsgLog · logAudit · SyDialog · CLINIC_SETTINGS_WA ·
    PP_BOOKING_PLAN_OK. صفرُ مستمعات addEventListener (سجلّ وضع القراءة بـcheck-mirrors).
    ═══════════════════════════════════════════════════════════════════════ */
-var PP_PORTAL_DAYS = 30;         /* صلاحيةُ الرابط — تطابق DEFAULT القاعدة (M180) */
+var PP_PORTAL_DAYS = 30;         /* الصلاحيةُ الافتراضية — تطابق DEFAULT القاعدة (M180) */
+var PP_PORTAL_FOREVER = 'infinity';   /* M229: رابطٌ دائم — يبقى حتى يوقفه الطبيب */
 var PP_PORTAL_ROWS = null;       /* null = لم تُحمَّل بعد */
 var PP_PORTAL = null;            /* أحدثُ صفّ لهذا المريض (حيٌّ أو موقوف) */
 var _ppPortalBusy = false;
@@ -21,8 +24,9 @@ function ppPortalLink(token) {
   return base + '/portal.html?t=' + token;
 }
 function ppPortalIsLive(row) { return !!(row && !row.revoked_at); }
+function ppPortalIsForever(row) { return !!(row && /^infinity$/i.test(String(row.expires_at || ''))); }
 function ppPortalIsExpired(row) {
-  return !!(row && row.expires_at && new Date(row.expires_at).getTime() < Date.now());
+  return !!(row && row.expires_at && !ppPortalIsForever(row) && new Date(row.expires_at).getTime() < Date.now());
 }
 function ppPortalWhen(iso) {
   if (!iso) return '';
@@ -77,7 +81,7 @@ function ppPortalRender() {
   /* الأزرارُ بسماتٍ حرفية (لا تركيبٍ ديناميكي للاسم) — سجلُّ وضع القراءة بـcheck-mirrors يقرأ الاسمَ من المصدر */
   var B_SEND  = '<button type="button" class="btn btn-outline btn-sm pp-intake-btn" onclick="ppPortalSend()" title="' + escapeHtml(ppPortalShowsText()) + '">';
   var B_COPY  = '<button type="button" class="btn btn-outline btn-sm pp-intake-btn" onclick="ppPortalCopyLink()">نسخ الرابط</button>';
-  var B_RENEW = '<button type="button" class="btn btn-outline btn-sm pp-intake-btn" onclick="ppPortalRenew()" title="تمديد الصلاحية ' + PP_PORTAL_DAYS + ' يوماً من الآن">🔁 تجديد</button>';
+  var B_RENEW = '<button type="button" class="btn btn-outline btn-sm pp-intake-btn" onclick="ppPortalRenew()" title="تغيير الصلاحية: ' + PP_PORTAL_DAYS + ' يوماً · تاريخ محدد · دائمة">🔁 تجديد</button>';
   var B_STOP  = '<button type="button" class="btn btn-outline btn-sm pp-intake-btn pp-portal-stop" onclick="ppPortalRevoke()" title="إيقاف الرابط فوراً — لن يفتح عند المريض">⛔ إيقاف</button>';
   if (!live && !last) {
     h = '<span class="pp-intake-st">لم يُرسل بعد</span>' + B_SEND + '🔗 إرسال رابط البوابة</button>';
@@ -87,7 +91,7 @@ function ppPortalRender() {
     h = '<span class="pp-intake-st pp-intake-exp">⌛ انتهت صلاحية الرابط ' + escapeHtml(ppPortalWhen(live.expires_at)) + '</span>'
       + B_SEND + '🔁 تجديد وإرسال</button>' + B_STOP;
   } else {
-    h = '<span class="pp-intake-st pp-intake-new">🟢 نشط حتى ' + escapeHtml(ppPortalWhen(live.expires_at)) + '</span>'
+    h = '<span class="pp-intake-st pp-intake-new">' + (ppPortalIsForever(live) ? '🟢 نشط — دائم' : '🟢 نشط حتى ' + escapeHtml(ppPortalWhen(live.expires_at))) + '</span>'
       + B_SEND + 'إعادة الإرسال</button>' + B_COPY + B_RENEW + B_STOP;
   }
   el.innerHTML = h;
@@ -107,12 +111,36 @@ function ppPortalAudit(what, extra) {
       description: what + ' رابط بوابة المريض', newValue: extra || null });
   } catch (e) {}
 }
-async function ppPortalEnsureLive() {
+/* M229: سؤالُ الصلاحية — 30 يوماً · تاريخ محدد · دائمة ⇒ ISO · 'infinity' · null (تراجع) */
+function ppPortalYmd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+async function ppPortalAskExpiry() {
+  var def = new Date(Date.now() + PP_PORTAL_DAYS * 86400000);
+  var i = await SyDialog.choose({ title: 'صلاحية رابط البوابة', message: 'إلى متى يبقى الرابط يعمل عند المريض؟ تستطيع إيقافه بأي وقت.',
+    choices: [{ label: PP_PORTAL_DAYS + ' يوماً', sub: 'حتى ' + ppPortalWhen(def.toISOString()) },
+              { label: 'حتى تاريخ أختاره', sub: 'يعمل حتى نهاية اليوم الذي تحدّده' },
+              { label: 'دائمة', sub: 'لا تنتهي — حتى توقفها أنت' }] });
+  if (i === 0) return def.toISOString();
+  if (i === 2) return PP_PORTAL_FOREVER;
+  if (i !== 1) return null;
+  var tomorrow = new Date(Date.now() + 86400000);
+  for (;;) {
+    var v = await SyDialog.prompt({ title: 'آخر يوم يعمل فيه الرابط', message: 'اختر التاريخ — يبقى الرابط صالحاً حتى نهاية ذلك اليوم.',
+      inputType: 'date', min: ppPortalYmd(tomorrow), value: ppPortalYmd(def), confirmText: 'حفظ' });
+    if (v === null) return null;
+    var m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    var end = m ? new Date(+m[1], +m[2] - 1, +m[3], 23, 59, 59) : null;
+    if (end && end.getMonth() === +m[2] - 1 && end.getTime() > Date.now()) return end.toISOString();
+    showToast('⚠️ اختر تاريخاً صحيحاً بعد اليوم');
+  }
+}
+/* exp: undefined ⇒ رابطٌ نشط يُعاد استعماله كما هو (إعادةُ الإرسال/النسخ) · قيمة ⇒ تُكتب صلاحيتُه (إنشاء/تجديد) */
+async function ppPortalEnsureLive(exp) {
   var live = ppPortalLiveRow();
+  if (live && exp === undefined && !ppPortalIsExpired(live)) return live;
+  if (exp === undefined) { exp = await ppPortalAskExpiry(); if (!exp) return null; }
   var by = await ppPortalBy();
-  var exp = new Date(Date.now() + PP_PORTAL_DAYS * 86400000).toISOString();
   if (live) {
-    /* رابطٌ قائم: الإرسالُ يجدّد صلاحيته ولا يغيّر توكنه (الرسالةُ السابقة تبقى صالحة) */
+    /* رابطٌ قائم: الصلاحيةُ الجديدة تُكتب عليه ولا يتغيّر توكنه (الرسالةُ السابقة تبقى صالحة) */
     var u = await window.sb.from('patient_portals').update({ expires_at: exp, renewed_at: new Date().toISOString(), created_by: by || live.created_by || null })
       .eq('id', live.id).eq('owner_id', currentUser.id).is('revoked_at', null)
       .select(PP_PORTAL_SELECT).single();
@@ -128,6 +156,11 @@ async function ppPortalEnsureLive() {
   PP_PORTAL = ins.data;
   ppPortalAudit('إنشاء', { expires_at: exp });
   return ins.data;
+}
+/* M229: بلا سؤال — رابطٌ نشط كما هو، وإلا رابطٌ بالصلاحية الافتراضية (التوقيعُ على جهاز العيادة: نافذتُه مفتوحةٌ قبلها) */
+function ppPortalEnsureLiveQuiet() {
+  var live = ppPortalLiveRow();
+  return ppPortalEnsureLive(live && !ppPortalIsExpired(live) ? undefined : new Date(Date.now() + PP_PORTAL_DAYS * 86400000).toISOString());
 }
 /* M180: القالبُ من الإعدادات (whatsapp_portal_template) — NULL = الافتراضي (مرآة بايت-بايت: settings · pp-portal) */
 var PP_DEFAULT_PORTAL_TPL =
@@ -158,6 +191,7 @@ async function ppPortalSend() {
   _ppPortalBusy = true;
   try {
     var row = await ppPortalEnsureLive();
+    if (!row) { _ppPortalBusy = false; return; }
     ppPortalRender();
     var link = ppPortalLink(row.token);
     ppWaComposeOpen('إرسال رابط بوابة المريض', ppPortalMsgText(link), false, null, '', 'portal');
@@ -169,6 +203,7 @@ async function ppPortalCopyLink() {
   _ppPortalBusy = true;
   try {
     var row = await ppPortalEnsureLive();
+    if (!row) { _ppPortalBusy = false; return; }
     ppPortalRender();
     var link = ppPortalLink(row.token);
     if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(link); }
@@ -182,17 +217,19 @@ async function ppPortalCopyLink() {
   } catch (e) { console.warn('ppPortalCopyLink:', e); showToast(ppPortalErr(e)); }
   _ppPortalBusy = false;
 }
-/* ── التجديد: تمديدُ الصلاحية 30 يوماً من الآن بلا تغيير التوكن ──────────── */
+/* ── التجديد: صلاحيةٌ جديدة يختارها الطبيب (30 يوماً · تاريخ · دائمة) بلا تغيير التوكن ── */
 async function ppPortalRenew() {
   if (_ppPortalBusy) return;
   var live = ppPortalLiveRow();
   if (!live) { showToast('⚠️ لا رابط قائم — أرسل رابطاً جديداً'); return; }
   _ppPortalBusy = true;
   try {
-    var row = await ppPortalEnsureLive();
+    var exp = await ppPortalAskExpiry();
+    if (!exp) { _ppPortalBusy = false; return; }
+    var row = await ppPortalEnsureLive(exp);
     ppPortalRender();
     ppPortalAudit('تجديد', { expires_at: row.expires_at });
-    showToast('🔁 جُدّد الرابط حتى ' + ppPortalWhen(row.expires_at));
+    showToast(ppPortalIsForever(row) ? '🔁 صار الرابط دائماً — حتى توقفه' : '🔁 جُدّد الرابط حتى ' + ppPortalWhen(row.expires_at));
   } catch (e) { console.warn('ppPortalRenew:', e); showToast(ppPortalErr(e)); }
   _ppPortalBusy = false;
 }

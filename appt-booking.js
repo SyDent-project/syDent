@@ -114,6 +114,8 @@ function bookingCard(req, isPending) {
   var pastChip = (isPending && bookingIsPast(req))
     ? ' <span class="list-badge" style="background:rgba(var(--red-rgb),0.14);color:var(--red);">⏰ فات وقته</span>' : '';
   var statusChip = '';
+  /* M229: طلبٌ من بوابة المريض — مربوطٌ ببطاقته (patient_id) */
+  if (req.source === 'portal') statusChip += ' <span class="list-badge" title="طلب من بوابة المريض — مربوط ببطاقته">🔐 من البوابة</span>';
   if (req.status === 'confirmed') statusChip = ' <span class="list-badge status-confirmed">✅ مؤكّد</span>';
   if (req.status === 'rejected')  statusChip = ' <span class="list-badge" style="opacity:0.7;">✖ مرفوض</span>';
   var actions = isPending
@@ -208,7 +210,9 @@ async function confirmBookingRequest(id, editMode) {
     durSel.appendChild(opt);
     durSel.value = durVal;
   }
-  var noteParts = ['📞 ' + (req.phone || '') + ' — حجز إلكتروني'];
+  var noteParts = [req.source === 'portal'
+    ? '🔐 حجز من بوابة المريض' + (req.phone ? ' · 📞 ' + req.phone : '')
+    : '📞 ' + (req.phone || '') + ' — حجز إلكتروني'];
   if (req.note) noteParts.push(req.note);
   document.getElementById('fNotes').value = noteParts.join('\n');
   if (editMode) {
@@ -217,6 +221,13 @@ async function confirmBookingRequest(id, editMode) {
     if (tEl) { try { tEl.focus(); } catch (e) {} }
   } else {
     showToast('أكمل تفاصيل الموعد ثم احفظ لتأكيد الطلب');
+  }
+  // M229: a portal request already names its patient card — link it directly («تغيير» still reopens the search)
+  if (req.patient_id) {
+    window._bookingConfirmCtx.patientId = req.patient_id;
+    var _brBox = document.getElementById('bookingResolveBox');
+    if (_brBox) { _brBox.style.display = ''; bookingResolveConfirmedUI('🔐 من بوابة المريض — سيُربط الموعد ببطاقته: ' + (req.patient_name || '')); }
+    return;
   }
   // P5+: show the patient-resolution box (match existing OR create new) so the
   // confirmed appointment ends up linked to a real patient card (phone → reminders).

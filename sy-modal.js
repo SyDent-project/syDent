@@ -116,6 +116,7 @@
      SyDialog.confirm({ title, message, confirmText, cancelText, danger })  → Promise<bool>
      SyDialog.prompt({ title, message, value, placeholder, confirmText })   → Promise<string|null>
        + multiline: true ⇒ حقلٌ متعدد الأسطر (Enter سطرٌ جديد · Ctrl/⌘+Enter حفظ) · maxlength: حدٌّ للنص
+       + inputType: 'date' ⇒ حقلُ تاريخٍ (يصير الحقلَ الموحّد DD/MM/YYYY تلقائياً · القيمةُ YYYY-MM-DD) · min: أولُ يومٍ مسموح
      SyDialog.alert({ title, message })                                     → Promise<void>
      SyDialog.choose({ title, message, choices: [{ label, sub }], cancelText }) → Promise<index|null>  (ج2-ب-2: خيارٌ من قائمة)
    ثوابت: لا إغلاقَ بنقرةٍ خارجية (قرارٌ يُتَّخذ لا نافذةُ عرض) · Escape = إلغاء ·
@@ -155,7 +156,8 @@
                 ? '<textarea class="sy-dialog-input sy-dialog-area" rows="' + (parseInt(o.rows, 10) || 4) + '"' +
                   (o.maxlength ? ' maxlength="' + (parseInt(o.maxlength, 10) || 0) + '"' : '') +
                   ' placeholder="' + esc(o.placeholder || '') + '">' + esc(o.value || '') + '</textarea>'
-                : '<input type="text" class="sy-dialog-input" value="' + esc(o.value || '') +
+                : '<input type="' + (o.inputType === 'date' ? 'date' : 'text') + '" class="sy-dialog-input" value="' + esc(o.value || '') +
+                  (o.inputType === 'date' && o.min ? '" min="' + esc(o.min) : '') +
                   '" placeholder="' + esc(o.placeholder || '') + '"' +
                   (o.maxlength ? ' maxlength="' + (parseInt(o.maxlength, 10) || 0) + '"' : '') + '>')
             : '') +

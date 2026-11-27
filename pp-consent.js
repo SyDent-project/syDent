@@ -124,11 +124,11 @@ async function ppConsentAsk(list) {
 async function ppConsentSignHere(id) {
   if (window.SyDentSub && window.SyDentSub.blockReadOnly()) return;
   if (!patient || !patientId) return;
-  if (typeof ppPortalEnsureLive !== 'function' || typeof ppPortalLink !== 'function') { showToast('⚠️ بوابة المريض غير متاحة على هذا الحساب'); return; }
+  if (typeof ppPortalEnsureLiveQuiet !== 'function' || typeof ppPortalLink !== 'function') { showToast('⚠️ بوابة المريض غير متاحة على هذا الحساب'); return; }
   var w = null;
   try { w = window.open('', '_blank'); } catch (e) { w = null; }
   try {
-    var row = await ppPortalEnsureLive();
+    var row = await ppPortalEnsureLiveQuiet();   /* M229: لا سؤالَ صلاحية هنا — النافذةُ فُتحت ضمن النقرة */
     if (typeof ppPortalRender === 'function') ppPortalRender();
     var link = ppPortalLink(row.token) + (/^[0-9a-f-]{36}$/i.test(String(id || '')) ? '&c=' + id : '');
     if (w) { try { w.opener = null; } catch (e2) {} w.location.href = link; }
