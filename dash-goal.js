@@ -202,7 +202,7 @@
       qs.push(sb.from('treatments').select('id, name, price, currency').eq('doctor_id', uid));
       var m0 = today.slice(0, 8) + '01';
       qs.push(window.SyDentFetchAll(function(){ return sb.from('ledger_sessions').select('id,cost,status,currency,date').eq('doctor_id', uid).eq('status', 'completed').gte('date', m0).lte('date', today); }));
-      qs.push(sb.from('ledger_payments').select('amount,date,currency').eq('doctor_id', uid).eq('date', today));   /* v533: استعلامُ «إيراد اليوم» حرفياً */
+      if (!ctx.noCollected) qs.push(sb.from('ledger_payments').select('amount,date,currency').eq('doctor_id', uid).eq('date', today));   /* M232: بلا صلاحية «إيراد اليوم» لا يُقرأ المقبوض ولا يُعرض · v533: استعلامُ «إيراد اليوم» حرفياً */
       var rs = await Promise.all(qs);
       if (rs[0].error) console.warn('SyDentGoal planned:', rs[0].error); else planned = rs[0].data || [];
       if (rs[1].error) console.warn('SyDentGoal treatments:', rs[1].error); else treatments = rs[1].data || [];
