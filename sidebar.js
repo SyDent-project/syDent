@@ -890,7 +890,7 @@ async function refreshSidebarDynamic() {
   const _L = window.SyDentLock;
   const _staff = !!(_L && typeof _L.isOwner === 'function' && !_L.isOwner());
   if (nameEl && !(_staff && nameEl.hasAttribute('data-sy-person'))) {
-    const _line1 = _staff ? ((_L.ROLE_LABELS && _L.ROLE_LABELS[_L.getRole()]) || '') : name;
+    const _line1 = _staff ? ((typeof _L.roleLabelNow === 'function' ? _L.roleLabelNow() : (_L.ROLE_LABELS && _L.ROLE_LABELS[_L.getRole()])) || '') : name;
     const _line2 = _staff ? '' : role;
     nameEl.textContent = '';
     nameEl.appendChild(document.createTextNode(_line1));

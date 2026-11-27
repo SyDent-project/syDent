@@ -346,7 +346,8 @@ html[data-sub-level="read"] :is([onclick*="openAddModal("],[onclick*="saveEmploy
           <option value="doctor:hygienist">متدرب/مساعد</option>
           <option value="doctor:assistant">مساعدة كرسي</option>
           <option value="secretary:secretary">سكرتيرة</option>
-          <option value="secretary:other">آخر (محاسب/عامل/إلخ)</option>
+          <option value="secretary:accountant">محاسب</option>
+          <option value="secretary:other">آخر (عامل/إلخ)</option>
         </select>
         <div class="hint">المالك (Owner) لا يمكن إضافته يدوياً — حساب الـ Owner محفوظ تلقائياً.</div>
       </div>
@@ -676,6 +677,7 @@ function roleLabelExt(role, providerType) {
     return 'طبيب';  // doctor or null/undefined → default
   }
   if (role === 'secretary') {
+    if (providerType === 'accountant') return 'محاسب';
     if (providerType === 'other') return 'موظف آخر';
     return 'سكرتيرة';  // 'secretary' or null/undefined → default
   }
@@ -688,6 +690,7 @@ function roleIconExt(role, providerType) {
     return '🦷';  // doctor → tooth icon
   }
   if (role === 'secretary') {
+    if (providerType === 'accountant') return '🧮';
     if (providerType === 'other') return '👥';
     return '👩‍💼';  // secretary → office worker
   }
@@ -1053,7 +1056,7 @@ function renderList() {
     /* M228: الصلاحيات — لمن يدخل النظام فقط (المالك صلاحياته كاملة · «تتبع راتب فقط» لا يدخل النظام) */
     var permBtn = (e.role !== 'owner' && hasAccess)
       ? '<button class="sy-act" onclick="openPermModal(\'' + e.id + '\')">🛡️ الصلاحيات</button>' : '';
-    var permN = (e.role !== 'owner' && hasAccess) ? window.SyEmpPerms.countOverrides(e.permissions, e.role) : 0;
+    var permN = (e.role !== 'owner' && hasAccess) ? window.SyEmpPerms.countOverrides(e.permissions, e.role, e.provider_type) : 0;
     var permChip = permN
       ? '<div class="emp-pin-status emp-perm-chip">🛡️ ' + (permN === 1 ? 'صلاحية واحدة مخصّصة عن الدور' : permN + ' صلاحيات مخصّصة عن الدور') + '</div>' : '';
     if (e.role === 'owner') {
@@ -1227,6 +1230,7 @@ function defaultCompensationForProviderType(pt) {
   if (pt === 'assistant') return 'salary';
   if (pt === 'secretary') return 'salary';
   if (pt === 'other') return 'salary';
+  if (pt === 'accountant') return 'salary';
   return 'salary';
 }
 
@@ -1473,7 +1477,7 @@ function openEditModal(id) {
   } else if (emp.role === 'secretary') {
     // For secretary employees, the sub-type is either 'secretary' or 'other'.
     // Anything else (legacy) collapses to 'secretary'.
-    var subForSec = (providerType === 'other') ? 'other' : 'secretary';
+    var subForSec = (providerType === 'other' || providerType === 'accountant') ? providerType : 'secretary';   /* M230: +محاسب */
     compositeValue = 'secretary:' + subForSec;
   } else {
     compositeValue = 'secretary:secretary';  // safe fallback
@@ -1619,7 +1623,7 @@ async function saveEmployee() {
         docProviderTypeField = 'doctor';
       }
     } else if (role === 'secretary') {
-      if (['secretary','other'].indexOf(docProviderTypeField) === -1) {
+      if (['secretary','other','accountant'].indexOf(docProviderTypeField) === -1) {
         docProviderTypeField = 'secretary';
       }
     } else {
@@ -2047,6 +2051,7 @@ async function saveEmployee() {
           if (docProviderTypeField === 'hygienist') return 'متدرب/مساعد';
           if (docProviderTypeField === 'assistant') return 'مساعدة كرسي';
           if (docProviderTypeField === 'secretary') return 'سكرتيرة';
+          if (docProviderTypeField === 'accountant') return 'محاسب';
           if (docProviderTypeField === 'other') return 'موظف';
           return 'موظف';
         })();
@@ -2080,7 +2085,7 @@ async function saveEmployee() {
         // re-edit after running Migration 15. This path is rare but defensive.
         if (insDoc.error && /23514|provider_type/i.test(
               (insDoc.error.message || '') + ' ' + (insDoc.error.code || ''))) {
-          if (insDocPayload.provider_type === 'secretary' || insDocPayload.provider_type === 'other') {
+          if (insDocPayload.provider_type === 'secretary' || insDocPayload.provider_type === 'other' || insDocPayload.provider_type === 'accountant') {
             console.warn('Phase 6 X: Migration 15 not applied — coercing provider_type to "assistant" so the row creates');
             var coerced = Object.assign({}, insDocPayload);
             coerced.provider_type = 'assistant';
@@ -2205,7 +2210,7 @@ async function saveEmployee() {
         // Phase 6 X retry: Migration 15 CHECK constraint may be old.
         if (syncRes.error && /23514|provider_type/i.test(
               (syncRes.error.message || '') + ' ' + (syncRes.error.code || ''))) {
-          if (updatePayload.provider_type === 'secretary' || updatePayload.provider_type === 'other') {
+          if (updatePayload.provider_type === 'secretary' || updatePayload.provider_type === 'other' || updatePayload.provider_type === 'accountant') {
             console.warn('Phase 6 X: Migration 15 not applied — coercing provider_type to "assistant" for UPDATE');
             var coercedUpd = Object.assign({}, updatePayload);
             coercedUpd.provider_type = 'assistant';
@@ -2305,9 +2310,11 @@ async function saveEmployee() {
       var origProviderType = origDoctorRow ? (origDoctorRow.provider_type || 'doctor') : null;
       var wasClinical = origProviderType
                         && origProviderType !== 'secretary'
-                        && origProviderType !== 'other';
+                        && origProviderType !== 'other'
+                        && origProviderType !== 'accountant';
       var nowNonClinical = docProviderTypeField === 'secretary' ||
-                           docProviderTypeField === 'other';
+                           docProviderTypeField === 'other' ||
+                           docProviderTypeField === 'accountant';
       var skipCase4 = !!pendingDeactivateDoctorId;   // Case 3 already handled it
 
       if (editingId && origEmp && origEmp.doctor_id && wasClinical && nowNonClinical && !skipCase4) {
@@ -2331,7 +2338,7 @@ async function saveEmployee() {
           window.logAudit('doctor.edit', {
             entityId: origEmp.doctor_id,
             description: 'فصل بطاقة الطبيب بعد تغيير نوع الموظف لـ ' +
-                         (docProviderTypeField === 'secretary' ? 'سكرتيرة' : 'موظف آخر'),
+                         (docProviderTypeField === 'secretary' ? 'سكرتيرة' : (docProviderTypeField === 'accountant' ? 'محاسب' : 'موظف آخر')),
             oldValue: { provider_type: origProviderType, is_active: true, linked: true },
             newValue: { provider_type: docProviderTypeField, is_active: false, linked: false,
                         reason: 'clinical_to_non_clinical' }
@@ -2820,22 +2827,32 @@ document.addEventListener('DOMContentLoaded', function(){
     return out;
   }
   /* ما يخالف الدورَ فعلاً — تخصيصٌ صار مطابقاً للدور (بعد تغيير دور الموظف) لا يُعدّ ولا يُعلَّم */
-  function realOverrides(p, role) {
+  function realOverrides(p, role, ptype) {
     var c = clean(p), out = {};
-    Object.keys(c).forEach(function (k) { if (c[k] !== roleDefault(role, k)) out[k] = c[k]; });
+    Object.keys(c).forEach(function (k) { if (grantable(role, k, ptype) && c[k] !== roleDefault(role, k, ptype)) out[k] = c[k]; });
     return out;
   }
-  function countOverrides(p, role) { return Object.keys(role ? realOverrides(p, role) : clean(p)).length; }
+  function countOverrides(p, role, ptype) { return Object.keys(role ? realOverrides(p, role, ptype) : clean(p)).length; }
   /* ما يعطيه الدورُ اليوم بلا أي تخصيص */
-  function roleDefault(role, key) {
+  /* M230 — مرآةُ SyDentLock: «المحاسبة» للمالك والمحاسب فقط · «التقارير» للطبيب (أرقامُه هو) وللمحاسب —
+     لا تُمنحان لغيرهم. والمحاسبُ تُفتح له صفحاتُ المال افتراضاً. */
+  var ACCT_OPEN = ['accounting', 'expenses', 'payouts', 'provider-reports'];
+  function grantable(role, key, ptype) {
+    if (key === 'accounting') return ptype === 'accountant';
+    if (key === 'provider-reports') return role === 'doctor' || ptype === 'accountant';
+    return true;
+  }
+  function roleDefault(role, key, ptype) {
     if (role === 'owner') return true;
+    if (ptype === 'accountant' && ACCT_OPEN.indexOf(key) >= 0) return true;
     if (key === 'act.delete-patient') return false;
     var b = (window.SyDentNavBlocked && window.SyDentNavBlocked[role]) || null;
     if (!b) return false;
     return b.indexOf(key) < 0;
   }
-  function effective(role, draft, key) {
-    return Object.prototype.hasOwnProperty.call(draft, key) ? draft[key] : roleDefault(role, key);
+  function effective(role, draft, key, ptype) {
+    if (!grantable(role, key, ptype)) return false;
+    return Object.prototype.hasOwnProperty.call(draft, key) ? draft[key] : roleDefault(role, key, ptype);
   }
   function roleName(emp) {
     return (typeof roleLabelExt === 'function') ? roleLabelExt(emp.role, emp.provider_type) : emp.role;
@@ -2852,7 +2869,11 @@ document.addEventListener('DOMContentLoaded', function(){
           html += '<div class="pm-row"><div class="pm-lbl">' + esc(label) + '</div><span class="pm-lock">🔒 للمالك فقط</span></div>';
           return;
         }
-        var on = effective(emp.role, S.draft, key);
+        if (!grantable(emp.role, key, emp.provider_type)) {
+          html += '<div class="pm-row"><div class="pm-lbl">' + esc(label) + '</div><span class="pm-lock">🔒 للمالك والمحاسب</span></div>';
+          return;
+        }
+        var on = effective(emp.role, S.draft, key, emp.provider_type);
         var custom = Object.prototype.hasOwnProperty.call(S.draft, key);
         html += '<div class="pm-row"><div class="pm-lbl">' + esc(label) + (custom ? '<span class="pm-custom">مخصّص</span>' : '') + '</div>' +
           '<button type="button" class="pm-sw" role="switch" aria-checked="' + (on ? 'true' : 'false') + '" aria-label="' + esc(label) + '" onclick="permToggle(\'' + key + '\')"></button></div>';
@@ -2873,7 +2894,7 @@ document.addEventListener('DOMContentLoaded', function(){
       toast('⚠️ الصلاحيات غير متاحة بعد على هذا الحساب', true);
       return;
     }
-    S.emp = emp; S.draft = realOverrides(emp.permissions, emp.role); S.busy = false;
+    S.emp = emp; S.draft = realOverrides(emp.permissions, emp.role, emp.provider_type); S.busy = false;
     byId('pmTitle').textContent = '🛡️ الصلاحيات: ' + (emp.name || '');
     byId('pmErr').textContent = '';
     byId('pmSave').disabled = false;
@@ -2883,8 +2904,9 @@ document.addEventListener('DOMContentLoaded', function(){
   function close() { var m = byId('permModal'); if (m) m.classList.remove('show'); S.emp = null; S.draft = {}; }
   function toggle(key) {
     if (!S.emp || KEYS.indexOf(key) < 0) return;
-    var next = !effective(S.emp.role, S.draft, key);
-    if (next === roleDefault(S.emp.role, key)) delete S.draft[key]; else S.draft[key] = next;
+    if (!grantable(S.emp.role, key, S.emp.provider_type)) return;
+    var next = !effective(S.emp.role, S.draft, key, S.emp.provider_type);
+    if (next === roleDefault(S.emp.role, key, S.emp.provider_type)) delete S.draft[key]; else S.draft[key] = next;
     render();
   }
   function reset() { if (!S.emp) return; S.draft = {}; render(); }
@@ -2892,7 +2914,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if (readOnly() || !S.emp || S.busy) return;
     var emp = S.emp, u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null;
     if (!u || !window.sb) return;
-    var before = clean(emp.permissions), after = clean(S.draft);
+    var before = clean(emp.permissions), after = realOverrides(S.draft, emp.role, emp.provider_type);
     var value = Object.keys(after).length ? after : null;
     S.busy = true; byId('pmSave').disabled = true; byId('pmErr').textContent = '';
     try {
@@ -2921,7 +2943,7 @@ document.addEventListener('DOMContentLoaded', function(){
     toast('✓ حُفظت صلاحيات ' + name);
   }
 
-  window.SyEmpPerms = { GROUPS: GROUPS, KEYS: KEYS, clean: clean, realOverrides: realOverrides, countOverrides: countOverrides, roleDefault: roleDefault, effective: effective, _state: S };
+  window.SyEmpPerms = { GROUPS: GROUPS, KEYS: KEYS, clean: clean, realOverrides: realOverrides, grantable: grantable, countOverrides: countOverrides, roleDefault: roleDefault, effective: effective, _state: S };
   window.openPermModal = open;
   window.closePermModal = close;
   window.permToggle = toggle;

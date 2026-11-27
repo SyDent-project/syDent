@@ -2595,6 +2595,8 @@ Object.assign(window.SyI18nDict, {
   "مساعدة كرسي": "Chair assistant",
   "سكرتيرة": "Secretary",
   "آخر (محاسب/عامل/إلخ)": "Other (accountant/worker/etc.)",
+  "آخر (عامل/إلخ)": "Other (worker/etc.)",
+  "موظف آخر (عامل/إلخ)": "Other staff (worker/etc.)",
   "المالك (Owner) لا يمكن إضافته يدوياً — حساب الـ Owner محفوظ تلقائياً.": "The owner can't be added manually — the owner account is kept automatically.",
   "نموذج التعويض": "Pay model",
   "% من الإنتاج (طبيب مع نسبة)": "% of production (dentist on commission)",
@@ -4395,7 +4397,9 @@ Object.assign(window.SyI18nDict, {
   'الصلاحيات غير متاحة بعد على هذا الحساب': 'Permissions are not available on this account yet',
   'الصلاحيات غير متاحة بعد على هذا الحساب.': 'Permissions are not available on this account yet.',
   'تعذّر الحفظ — تحقّق من الاتصال وحاول ثانيةً.': 'Could not save — check the connection and try again.',
-  'تعرض هذه الصفحة دفعاتك أنت فقط.': 'This page shows only your own payouts.'
+  'تعرض هذه الصفحة دفعاتك أنت فقط.': 'This page shows only your own payouts.',
+  /* M230: the accountant employee type */
+  'محاسب': 'Accountant', 'المحاسب': 'Accountant', 'للمالك والمحاسب': 'Owner and accountant only'
 });
 if (window.SyI18nPatterns) window.SyI18nPatterns.push(
   [/^🛡️ الصلاحيات: (.*)$/, '🛡️ Permissions: $1'],

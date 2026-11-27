@@ -3274,18 +3274,45 @@
       return (c && typeof c.e === 'string') ? c : null;
     } catch(e) { return null; }
   }
-  function writePermCache(empId, perms) {
+  function writePermCache(empId, perms, ptype) {
     try {
       if (!empId) localStorage.removeItem(LS_PERMS);
-      else localStorage.setItem(LS_PERMS, JSON.stringify({ e: empId, p: cleanPerms(perms) }));
+      else localStorage.setItem(LS_PERMS, JSON.stringify({ e: empId, p: cleanPerms(perms), t: (typeof ptype === 'string' ? ptype : null) }));
     } catch(e) {}
   }
+  // M230 — the ACCOUNTANT (employee type, device role 'secretary'): the only employee who sees
+  // the clinic's money as a whole. Owner's rule (27/11): everyone else sees only their own
+  // payouts, and the accounting page is for the owner and the accountant alone.
+  //   • ACCT_OPEN: pages open to the accountant by default (the owner may still close any).
+  //   • 'accounting' is never grantable to anyone else; 'provider-reports' is for doctors
+  //     (their own figures) and the accountant — never grantable to other staff.
+  var ACCT_OPEN = ['accounting', 'expenses', 'payouts', 'provider-reports'];
+  function isAccountant() {
+    if (getRole() !== 'secretary') return false;
+    var eid = getEmployeeId();
+    var c = readPermCache();
+    return !!(eid && c && c.e === eid && c.t === 'accountant');
+  }
+  function permGrantable(key) {
+    if (key === 'accounting') return isAccountant();
+    if (key === 'provider-reports') return getRole() === 'doctor' || isAccountant();
+    return true;
+  }
+  // What the role gives before any override: the caller's role default, plus the accountant's pages.
+  function permDefault(key, roleDefault) {
+    if (isAccountant() && ACCT_OPEN.indexOf(key) >= 0) return true;
+    return !!roleDefault;
+  }
   // The overrides that apply on this device right now ({} for the owner).
+  // A key this person can never be granted is dropped here — one choke point for the
+  // sidebar, guardPage, can() and the early block.
   function getPermOverrides() {
     if (getRole() === 'owner') return {};
     var eid = getEmployeeId();
     var c = readPermCache();
-    return (eid && c && c.e === eid) ? cleanPerms(c.p) : {};
+    var o = (eid && c && c.e === eid) ? cleanPerms(c.p) : {};
+    Object.keys(o).forEach(function(k){ if (!permGrantable(k)) delete o[k]; });
+    return o;
   }
   // true/false when the owner flipped this key for the locked employee, else null (= role default).
   function permOverride(key) {
@@ -3296,7 +3323,7 @@
   function can(key, roleDefault) {
     if (getRole() === 'owner') return true;
     var o = permOverride(key);
-    return o !== null ? o : !!roleDefault;
+    return o !== null ? o : permDefault(key, roleDefault);
   }
   function currentPageKey() {
     var f = String((window.location && window.location.pathname) || '').split('/').pop().replace(/\.html$/i, '').toLowerCase();
@@ -3305,6 +3332,7 @@
   // Sidebar: the role's hidden ids (sidebar.js BLOCKED), adjusted by the overrides.
   function applyPermsToNav(blocked) {
     var out = (blocked || []).slice();
+    if (isAccountant()) out = out.filter(function(id){ return ACCT_OPEN.indexOf(id) < 0; });   // M230
     var o = getPermOverrides();
     Object.keys(o).forEach(function(k){
       if (k.indexOf('act.') === 0) return;
@@ -3316,6 +3344,12 @@
     });
     return out;
   }
+  // The current mode's name for the person on this device («المحاسب» is a secretary-role employee type).
+  function roleLabelNow() {
+    if (isAccountant()) return 'المحاسب';
+    var r = getRole();
+    return ROLE_LABELS[r] || r;
+  }
   // Fresh overrides from the employees list → cache; a change re-applies the page.
   function syncPermsFromList() {
     if (getRole() === 'owner') return;
@@ -3323,9 +3357,11 @@
     if (!eid || !_allEmployeesListCache) return;
     var emp = _allEmployeesListCache.find(function(e){ return e.id === eid; });
     if (!emp || !Object.prototype.hasOwnProperty.call(emp, 'permissions')) return;   // column not there yet → keep the cache
-    var before = getPermOverrides();
-    writePermCache(eid, emp.permissions);
-    if (!permsEqual(before, emp.permissions)) window.location.reload();
+    var c0 = readPermCache();
+    var same = !!c0 && c0.e === eid && permsEqual(c0.p, emp.permissions) && (c0.t === 'accountant') === (emp.provider_type === 'accountant');
+    if (!c0 || c0.e !== eid) same = permsEqual({}, emp.permissions) && emp.provider_type !== 'accountant';   // first sync: reload only if something applies
+    writePermCache(eid, emp.permissions, emp.provider_type);
+    if (!same) window.location.reload();
   }
   // Live: the owner saves on his device → this employee's device follows (SyLive holds while typing).
   function watchPerms() {
@@ -3616,7 +3652,7 @@
         localStorage.setItem(LS_EMPLOYEE_ID, newEmployeeId);
         // M228: the new person's overrides travel with the switch (the next page starts right)
         var _pe = (_allEmployeesListCache || []).find(function(e){ return e.id === newEmployeeId; });
-        writePermCache(newEmployeeId, _pe ? _pe.permissions : null);
+        writePermCache(newEmployeeId, _pe ? _pe.permissions : null, _pe ? _pe.provider_type : null);
       }
     } catch(e) {
       console.error('[SyDentLock] applyRole failed:', e);
@@ -3674,7 +3710,7 @@
     // M228: the owner may open or close this page for the locked employee
     var key = currentPageKey();
     var ov = key ? permOverride(key) : null;
-    var allowed = ov !== null ? ov : allowedRoles.indexOf(role) >= 0;
+    var allowed = ov !== null ? ov : permDefault(key, allowedRoles.indexOf(role) >= 0);
     if (!allowed) {
       showBlockedScreen(role);
       return false;
@@ -3688,7 +3724,7 @@
           '<div style="font-size:72px;margin-bottom:16px;">🔒</div>' +
           '<div style="font-size:22px;font-weight:800;color:var(--text,#e1f4ee);margin-bottom:10px;">لا تملك صلاحية</div>' +
           '<div style="font-size:14px;color:var(--text2,#8a9ab5);margin-bottom:28px;max-width:360px;line-height:1.7;">' +
-            'الوضع الحالي (' + (ROLE_LABELS[role] || role) + ') لا يسمح بالوصول إلى هذه الصفحة.' +
+            'الوضع الحالي (' + roleLabelNow() + ') لا يسمح بالوصول إلى هذه الصفحة.' +
           '</div>' +
           '<a href="index.html" style="padding:12px 24px;background:var(--green,var(--green));border-radius:10px;color:var(--on-accent);font-size:14px;font-weight:800;text-decoration:none;margin-bottom:10px;">' +
             '↩ العودة للصفحة الرئيسية' +
@@ -3758,7 +3794,7 @@
       // the flag (defense-in-depth: prevents accidental lockout if an UPDATE
       // somehow flips an owner's access to false — Rule #16).
       var res = await window.sb.from('clinic_employees')
-        .select('id, name, role, doctor_id, pin_hash, is_active, has_system_access, permissions')
+        .select('id, name, role, doctor_id, pin_hash, is_active, has_system_access, permissions, provider_type')
         .eq('owner_id', user.id)
         .or('has_system_access.eq.true,role.eq.owner')
         .order('role', { ascending: true })
@@ -4072,7 +4108,7 @@
       foot.textContent = '';
       foot.appendChild(document.createTextNode(label));
       foot.appendChild(document.createElement('br'));
-      foot.appendChild(document.createTextNode(ROLE_LABELS[role] || ''));
+      foot.appendChild(document.createTextNode(roleLabelNow()));
       foot.setAttribute('data-sy-person', role);
     }
     if (!btn) return;
@@ -5683,6 +5719,8 @@
     // M228: per-employee permissions
     PERM_KEYS: PERM_KEYS.slice(),
     can: can,
+    isAccountant: isAccountant,
+    roleLabelNow: roleLabelNow,
     permOverride: permOverride,
     getPermOverrides: getPermOverrides,
     applyPermsToNav: applyPermsToNav,

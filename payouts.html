@@ -644,16 +644,20 @@ var sessions    = [];     // ledger_sessions for production calculation
 
 var employeeFilter = 'all';  // 'all' or provider_id
 
-/* M228: الطبيبُ الذي فتح له المالكُ هذه الصفحة يرى دفعاتِه هو فقط، عرضاً بلا تسجيلٍ ولا تعديلٍ ولا حذف —
+/* M228 · M230: الموظفُ (غيرُ المحاسب) الذي فتح له المالكُ هذه الصفحة يرى دفعاتِه هو فقط، عرضاً بلا تسجيلٍ ولا تعديلٍ ولا حذف —
    كما تحصر تقاريرُ الأطباء الطبيبَ بنفسه. الحصرُ بالاستعلام نفسه (لا تصل دفعاتُ غيره للجهاز) ثم بالعميل.
    null = ليس وضعَ الطبيب ⇒ الصفحة كما هي. طبيبٌ بلا هويةٍ معروفة ⇒ لا دفعات (إغلاقٌ آمن). */
 var _selfScope = null;   // { doctorId, employeeId }
 function payIsSelfOnly() { return _selfScope !== null; }
 async function resolveSelfScope() {
   var L = window.SyDentLock;
-  if (!L || typeof L.isDoctor !== 'function' || !L.isDoctor()) { _selfScope = null; return; }
-  try { if (typeof L.loadEmployees === 'function') await L.loadEmployees(); } catch (e) {}
+  /* M230 (قرار المالك 27/11): كلُّ من ليس المالكَ ولا المحاسبَ يرى دفعاتِه هو فقط — طبيباً كان أو سكرتيرةً أو غيرَهما. */
+  if (!L || typeof L.isOwner !== 'function' || L.isOwner()) { _selfScope = null; return; }
+  if (typeof L.isAccountant === 'function' && L.isAccountant()) { _selfScope = null; return; }
+  var emp = null;
+  try { if (typeof L.getCurrentEmployee === 'function') emp = await L.getCurrentEmployee(); } catch (e) {}
   var did = (typeof L.getEffectiveDoctorId === 'function') ? L.getEffectiveDoctorId() : (typeof L.getDoctorId === 'function' ? L.getDoctorId() : null);
+  if (!did && emp && emp.doctor_id) did = emp.doctor_id;   // بطاقةُ طبيبٍ مربوطة بأي دور
   var eid = (typeof L.getEmployeeId === 'function') ? L.getEmployeeId() : null;
   _selfScope = { doctorId: did || null, employeeId: eid || null };
 }
@@ -758,6 +762,7 @@ function providerTypeLabel(pt) {
   if (pt === 'hygienist') return '🩺 متدرب';
   if (pt === 'assistant') return '🤝 مساعدة';
   if (pt === 'secretary') return '👩‍💼 سكرتيرة';
+  if (pt === 'accountant') return '🧮 محاسب';
   if (pt === 'other')     return '👥 أخر';
   return '🦷 طبيب';  // legacy default
 }
@@ -805,7 +810,7 @@ async function init() {
              ? window.SyDentLock.getRole()
              : 'owner';
     /* M228: an employee the owner opened this page for passes (guardPage above decided the same) */
-    var _permOpen = !!(window.SyDentLock && window.SyDentLock.permOverride && window.SyDentLock.permOverride('payouts') === true);
+    var _permOpen = !!(window.SyDentLock && window.SyDentLock.can && window.SyDentLock.can('payouts', false));   /* M230: the accountant's default too */
     if (role !== 'owner' && !_permOpen) {
       console.warn('[payouts] non-owner role detected:', role, '— redirecting to index');
       window.location.href = 'index.html';

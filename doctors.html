@@ -379,7 +379,7 @@ async function loadDoctors(opts) {
     // Degraded mode: keep the old behavior so the owner is not locked out.
     doctors = allRows.filter(function(d){
       var pt = d.provider_type || 'doctor';
-      return pt !== 'secretary' && pt !== 'other';
+      return pt !== 'secretary' && pt !== 'other' && pt !== 'accountant';
     });
   } else {
     // Primary path: link-based filter (self-healing).
@@ -517,7 +517,7 @@ function renderList() {
     } else if (d.provider_type === 'secretary') {
       typeBadge = '<span class="role-badge tone tone-yellow" title="سكرتيرة">👩‍💼 سكرتيرة</span>';
     } else if (d.provider_type === 'other') {
-      typeBadge = '<span class="role-badge tone tone-gray" title="موظف آخر (محاسب/عامل/إلخ)">👥 موظف آخر</span>';
+      typeBadge = '<span class="role-badge tone tone-gray" title="موظف آخر (عامل/إلخ)">👥 موظف آخر</span>';
     }
 
     var sharePart = (d.share_percent !== null && d.share_percent !== undefined) ? ('<b>النسبة:</b> ' + d.share_percent + '%') : '';

@@ -96,6 +96,7 @@ AFTER_SNAPSHOT = [
     'migrations/227_perio_sup_notes.sql',            # after 226: perio_exams.sup_notes (+ _perio_sup_notes_ok CHECK, EXECUTE authenticated/service_role only) and perio_measurements back to 11–48
     'migrations/228_staff_permissions.sql',          # clinic_employees.permissions (+ _staff_permissions_ok CHECK: closed keys, boolean values, never on the owner row; EXECUTE authenticated/service_role only)
     'migrations/229_portal_book_request.sql',       # booking_requests.source/patient_id (+ phone may be '' on a portal row) · portal_book_slots (STABLE) + portal_book_request (anon, token-gated)
+    'migrations/230_accountant_employee_type.sql',  # clinic_employees.provider_type gains 'accountant' (ce_provider_type_valid replaced in place; clinic_doctors untouched: non-clinical, no doctor row)
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',
