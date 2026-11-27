@@ -98,6 +98,7 @@ AFTER_SNAPSHOT = [
     'migrations/229_portal_book_request.sql',       # booking_requests.source/patient_id (+ phone may be '' on a portal row) · portal_book_slots (STABLE) + portal_book_request (anon, token-gated)
     'migrations/230_accountant_employee_type.sql',  # clinic_employees.provider_type gains 'accountant' (ce_provider_type_valid replaced in place; clinic_doctors untouched: non-clinical, no doctor row)
     'migrations/231_dx_key_note_marker.sql',         # after 179: teeth_status_dx_key_check replaced in place — each pair may carry the v610 «!» note marker
+    'migrations/232_perm_dash_income.sql',          # after 228: _staff_permissions_ok replaced in place — the closed key list gains 'dash.income' (same grants, same CHECK)
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',

@@ -14,7 +14,7 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.resolve(__dirname, '..');
-const FILES = ['supabase-init.js', 'payouts.html', 'migrations/230_accountant_employee_type.sql', 'sidebar.js', 'employees.html', 'patients.html', 'patient-profile.html', 'accounting.html',
+const FILES = ['supabase-init.js', 'payouts.html', 'migrations/230_accountant_employee_type.sql', 'migrations/232_perm_dash_income.sql', 'index.html', 'dash-goal.js', 'sidebar.js', 'employees.html', 'patients.html', 'patient-profile.html', 'accounting.html',
   'expenses.html', 'payouts.html', 'audit-log.html', 'i18n-en.js', 'migrations/228_staff_permissions.sql'];
 const base = {};
 FILES.forEach(f => { base[f] = fs.readFileSync(path.join(ROOT, f), 'utf8'); });
@@ -173,7 +173,7 @@ async function suite(F) {
 
   /* ═══ (٣) التوصيل ═══ */
   const lk = lockCtx(F, { role: 'owner' });
-  const sqlKeys = ((F['migrations/228_staff_permissions.sql'].match(/k NOT IN \(([\s\S]*?)\)/) || [])[1] || '').match(/'[^']+'/g) || [];
+  const sqlKeys = ((F['migrations/232_perm_dash_income.sql'].match(/k NOT IN \(([\s\S]*?)\)/) || [])[1] || '').match(/'[^']+'/g) || [];
   const clientKeys = Array.from(lk.api.PERM_KEYS).slice().sort().join();
   ok(sqlKeys.map(x => x.slice(1, -1)).sort().join() === clientKeys, 'DB validator keys = SyDentLock.PERM_KEYS');
   ok(empCtx(F, { employees: [], nav }).SyEmpPerms.KEYS.slice().sort().join() === clientKeys, 'employees window keys = SyDentLock.PERM_KEYS');
@@ -287,6 +287,33 @@ async function suite(F) {
   ok(/docProviderTypeField === 'other' \|\|\n\s+docProviderTypeField === 'accountant';/.test(EH), 'employee form: accountant is non-clinical (no doctor card)');
   ok(D.indexOf("'محاسب': 'Accountant'") > -1 && D.indexOf("'للمالك والمحاسب': ") > -1 && D.indexOf('"آخر (عامل/إلخ)": ') > -1, 'dictionary: accountant strings');
   ok(/typeof _L\.roleLabelNow === 'function' \? _L\.roleLabelNow\(\)/.test(F['sidebar.js']), 'sidebar footer names the accountant');
+  /* ═══ (٦) M232 — «إيراد اليوم» بلوحة التحكم ═══ */
+  c = lockCtx(F, { role: 'secretary', emp: 'E1', store: cache('E1', {}, 'secretary') });
+  ok(c.api.can('dash.income', false) === false, 'dashboard income: off for staff by default');
+  c = lockCtx(F, { role: 'doctor', emp: 'E1', store: cache('E1', { 'dash.income': true }, 'doctor') });
+  ok(c.api.can('dash.income', false) === true && JSON.stringify(c.api.applyPermsToNav(nav.doctor)) === JSON.stringify(nav.doctor), 'dashboard income: a grant shows it and never touches the sidebar');
+  c = lockCtx(F, { role: 'secretary', emp: 'A1', store: cache('A1', {}, 'accountant') });
+  ok(c.api.can('dash.income', false) === true, 'dashboard income: on for the accountant by default');
+  c = lockCtx(F, { role: 'secretary', emp: 'A1', store: cache('A1', { 'dash.income': false }, 'accountant') });
+  ok(c.api.can('dash.income', false) === false, 'dashboard income: the owner can switch it off for the accountant');
+  ok(c.api.applyPermsToNav(nav.secretary).indexOf('dash.income') < 0, 'dashboard income: switching it off adds nothing to the sidebar list');
+  c = lockCtx(F, { role: 'owner', emp: null });
+  ok(c.api.can('dash.income', false) === true, 'dashboard income: the owner always sees it');
+  e = empCtx(F, { employees: emps3, nav });
+  e.openPermModal('S2');
+  ok(/aria-checked="false" aria-label="إيراد اليوم"/.test(e.els.pmList.innerHTML), 'window: «إيراد اليوم» row, off for a secretary');
+  e.permToggle('dash.income');
+  ok(e.SyEmpPerms._state.draft['dash.income'] === true, 'window: granting it is an override');
+  e = empCtx(F, { employees: emps3, nav });
+  e.openPermModal('A1');
+  ok(/aria-checked="true" aria-label="إيراد اليوم"/.test(e.els.pmList.innerHTML), 'window: on for the accountant');
+  const IX = F['index.html'];
+  ok(/const _incOk = !window\.SyDentLock \|\| typeof window\.SyDentLock\.can !== 'function' \|\| window\.SyDentLock\.can\('dash\.income', false\);/.test(IX)
+    && /const _pfPays = _dashSettle\(!_incOk \? Promise\.resolve\(\{ data: \[\], error: null \}\) : window\.sb\.from\('ledger_payments'\)/.test(IX), 'dashboard: without the permission today\'s payments are not even read');
+  ok(/if \(!_incOk\) \{ var _incCard = document\.getElementById\('kpiIncome'\); if \(_incCard\) _incCard\.remove\(\);/.test(IX) && /<a class="kpi" id="kpiIncome" href="accounting\.html">/.test(IX), 'dashboard: the card is removed, not just emptied');
+  ok(/noCollected: !\(!window\.SyDentLock \|\| typeof window\.SyDentLock\.can !== 'function' \|\| window\.SyDentLock\.can\('dash\.income', false\)\)/.test(IX)
+    && /if \(!ctx\.noCollected\) qs\.push\(sb\.from\('ledger_payments'\)/.test(F['dash-goal.js']), 'goal card: «المقبوض اليوم» follows the same permission');
+  ok(/'بعد تغيير دوره إلى ' \+ _newTypeLbl \+ '،/.test(EH) && /providerTypeFromRole === 'accountant'\) \? 'محاسب'/.test(EH), 'doctor→accountant confirm names the chosen type');
 }
 
 const rep = (f, a, b) => F => { const o = Object.assign({}, F); o[f] = F[f].split(a).join(b); return o; };
@@ -300,7 +327,7 @@ const MUTANTS = [
   ['page not hidden under the cover', rep('supabase-init.js', "      document.documentElement.classList.add('sd-perm-blocked');\n", '')],
   ['patient card not covered', rep('supabase-init.js', "'patient-profile': 'patients', ", '')],
   ['reload loop', rep('supabase-init.js', "    if (!same) window.location.reload();", "    window.location.reload();")],
-  ['DB key list drifts', rep('migrations/228_staff_permissions.sql', "'audit-log','act.delete-patient'", "'audit-log','settings','act.delete-patient'")],
+  ['DB key list drifts', rep('migrations/232_perm_dash_income.sql', "'audit-log','act.delete-patient'", "'audit-log','settings','act.delete-patient'")],
   ['owner row may be overridden', rep('migrations/228_staff_permissions.sql', " AND (role <> 'owner' OR permissions IS NULL)", '')],
   ['sidebar ignores overrides', rep('sidebar.js', "blocked = window.SyDentLock.applyPermsToNav(blocked);", "blocked = blocked;")],
   ['window lets the owner in', rep('employees.html', "if (!emp || emp.role === 'owner' || emp.has_system_access !== true) return;", "if (!emp) return;")],
@@ -326,6 +353,12 @@ const MUTANTS = [
   ['accountant scoped to himself', rep('payouts.html', "  if (typeof L.isAccountant === 'function' && L.isAccountant()) { _selfScope = null; return; }\n", '')],
   ['linked card ignored', rep('payouts.html', "  if (!did && emp && emp.doctor_id) did = emp.doctor_id;", '')],
   ['migration without accountant', rep('migrations/230_accountant_employee_type.sql', "'other','accountant'));", "'other'));")],
+  ['dashboard income on by default', rep('employees.html', "if (key === 'act.delete-patient' || key === 'dash.income') return false;", "if (key === 'act.delete-patient') return false;")],
+  ['dashboard income read without permission', rep('index.html', "const _pfPays = _dashSettle(!_incOk ? Promise.resolve({ data: [], error: null }) : window.sb", "const _pfPays = _dashSettle(window.sb")],
+  ['dashboard card left in place', rep('index.html', " if (_incCard) _incCard.remove();", '')],
+  ['goal card still reads the collected', rep('dash-goal.js', "if (!ctx.noCollected) qs.push(sb.from('ledger_payments')", "qs.push(sb.from('ledger_payments')")],
+  ['accountant without dashboard income', rep('supabase-init.js', "'provider-reports', 'dash.income'];\n  function isAccountant() {", "'provider-reports'];\n  function isAccountant() {")],
+  ['dash key leaks into the sidebar', rep('supabase-init.js', "      if (k.indexOf('.') >= 0) return;   // act.* / dash.* are not pages\n", '')],
   ['dictionary misses a string', rep('i18n-en.js', "'صلاحية واحدة مخصّصة عن الدور': ", "'صلاحية واحدة': ")],
   ['old wording back', rep('employees.html', "'تبدأ من صلاحيات الدور ('", "'تبدأ من صلاحيات دوره ('")]
 ];
