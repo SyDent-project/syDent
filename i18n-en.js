@@ -621,6 +621,7 @@ Object.assign(window.SyI18nDict, {
   'تنزيل نسخة احتياطية من بيانات العيادة إلى هذا الجهاز (ملف Excel)': "Download a backup of the clinic's data to this device (Excel file)",
   'نزّلت النسخة الاحتياطية — احفظ الملف بمكان آمن': 'Backup downloaded — keep the file somewhere safe',
   'تعذّر إنشاء النسخة الاحتياطية — حاول مجدداً': "Couldn't create the backup — try again",
+  'الملف الذي نزل ليس نسخة احتياطية صالحة — احذفه وحاول مجدداً': "The file that downloaded isn't a valid backup — delete it and try again",
   'بحث عن مريض…': 'Search for a patient…',
   'بحث عن مريض': 'Search for a patient',
   'اسم عيادتك حالياً:': 'Your clinic is currently named:',
@@ -878,6 +879,7 @@ Object.assign(window.SyI18nDict, {
   'تعذّر الوصول لخدمة الذكاء الاصطناعي — حاول بعد قليل': "Couldn't reach the AI service — try again shortly"
 });
 window.SyI18nPatterns.push(
+  [/^النسخة ناقصة — تعذّرت قراءة (\d+) من (\d+) جدولاً\. احذف الملف وحاول مجدداً$/, 'The backup is incomplete — $1 of $2 tables could not be read. Delete the file and try again'],
   [/^لديك اليوم (\d+) (?:موعداً|مواعيد|موعد)$/, 'You have $1 appointments today'],
   [/^لديك اليوم موعد واحد$/, 'You have 1 appointment today'],
   [/^لديك اليوم موعدان$/, 'You have 2 appointments today'],
