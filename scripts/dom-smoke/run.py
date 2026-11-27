@@ -63,7 +63,7 @@ with sync_playwright() as p:
     check("شريحةُ الحالات آخرَ الشريط بسطرها المستقل (v433: «حطها لحالها»)",
           len(opened["tabs"]) > 1 and "حالات سريرية" in opened["tabs"][-1], opened["tabs"])
     check("سطرُ الفصل وعنوانُ «وسمٌ سريري» فوقها", opened["break"] and opened["lead"], opened)
-    check("المكتبةُ الثلاث عشرة داخل قائمة العلاجات المسموحة (C3: +غير بازغ · v578: +تسوس/تآكل/انزياح · ج1: «سن زائد» صار سنّاً مستقلاً)", opened["conds"] == 13, opened["conds"])
+    check("المكتبةُ الثلاث عشرة داخل قائمة العلاجات المسموحة (C3: +غير بازغ · v578: +تسوس/تآكل/انزياح · ج1: «سن زائد» صار سنّاً مستقلاً)", opened["conds"] == 17, opened["conds"])
     # ── v577 (قرار المالك بصورة، 5 ت١ 2026): نافذةُ السن بمنتصف الشاشة دائماً على الحاسوب — لا إرساءَ جانبياً ──
     cen = page.evaluate("""async () => {
       /* المخططُ مرسومٌ فعلاً (وإلا فالإرساءُ يخرج مبكراً ولا يُقاس شيء) — سنٌّ بأقصى اليمين وأخرى بأقصى اليسار */
@@ -87,10 +87,21 @@ with sync_playwright() as p:
                hint: !!c.querySelector('.tx-cond-hint'), errors: window.__ERRORS };
     }""")
     named = [b for b in tab["buttons"] if "سليم" not in b and "سن زائد" not in b]   # ج1: «➕ سن زائد» زرُّ إجراءٍ بصفّ الإجراءات لا حالة
-    check("نقرُ الشريحة يعرض الحالات الثلاث عشرة فعلاً", len(named) == 13, tab["buttons"])
+    check("نقرُ الشريحة يعرض الحالات السريرية السبع فعلاً (27/11: التشخيصاتُ بصفّها)", len(named) == 7 and not any("تسوس" in b or "خراج" in b for b in named), tab["buttons"])
+    dxt = page.evaluate("""() => {
+      const row = document.getElementById('txDxRow'), btn = row && row.querySelector('.tx-tab-dx');
+      const before = !!btn && row.compareDocumentPosition(document.getElementById('txTabs')) & Node.DOCUMENT_POSITION_FOLLOWING;
+      switchTxTab('diagnosis');
+      const c = document.getElementById('toothOptsContainer');
+      return { has: !!btn, before: !!before, active: !!btn && btn.classList.contains('tx-tab-active'),
+               buttons: Array.from(c.querySelectorAll('button.topt')).map(b => b.textContent.trim()), hint: !!c.querySelector('.tx-dx-hint') };
+    }""")
+    dxn = [b for b in dxt["buttons"] if "سليم" not in b and "سن زائد" not in b]
+    check("27/11: صفُّ «التشخيص» فوق أنواع العلاج، ونقرُه يعرض التشخيصات العشرة بسطر تعريفها", dxt["has"] and dxt["before"] and dxt["active"] and len(dxn) == 10 and dxt["hint"] and any("تسوس" in b for b in dxn) and any("تموّت لب" in b for b in dxn), dxt)
     check("سطرُ التعريف فوق الشبكة", tab["hint"])
 
-    if len(named) != 13:
+    page.evaluate("() => switchTxTab('condition')")   # الرحلةُ تتابع من شريحة الحالات السريرية
+    if len(named) != 7:
         # لا جدوى من متابعة النقر بلا أزرار — تقريرٌ نظيف بدل انهيار
         for o in oks:
             print("  ✓ " + o)
@@ -350,7 +361,7 @@ with sync_playwright() as p:
       await examStamp(26, 'O');
       const w2 = window.__WRITES.filter(x => x.table === 'teeth_status'); window.__examMode = false;
       r.cariesExamO = w2.length === 1 && w2[0].payload.surface === 'O' && w2[0].payload.treatment_key === 'cond-caries' && w2[0].payload.status === 'condition';
-      r.lib13 = COND_LIBRARY.length === 13 && COND_LIBRARY.every(c => c.price === 0);
+      r.lib13 = COND_LIBRARY.length === 17 && COND_LIBRARY.every(c => c.price === 0);   /* 27/11: 10 تشخيصات + 7 حالات — كلُّها بصفر سعر */
       return r;
     }""")
     check("v578: الجذرُ المتبقّي بلا مثلث بالمنظرين (الجذورُ وحدَها هي الرمز)", v578["retainedNoSym"], v578)
@@ -530,7 +541,9 @@ with sync_playwright() as p:
     }""")
     check("الفحصُ الأولي: صفُّ الحالات ظاهر", ex["rowShown"])
     check("الفحصُ الأولي: الحالاتُ الثلاث عشرة بصفٍّ مستقلٍّ عن علاجات العيادة",
-          len(ex["names"]) == 13 and ex["separate"], ex["names"])
+          len(ex["names"]) == 7 and ex["separate"], ex["names"])
+    exdx = page.evaluate("() => Array.from(document.querySelectorAll('#examDxPalette .exam-tx')).map(b => b.textContent.trim())")
+    check("27/11 الفحصُ الأولي: صفُّ «تشخيص» مستقلٌّ بعشرة تشخيصات لا يتكرّر أيٌّ منها بصفّ الحالات", len(exdx) == 10 and all(n not in ex["names"] for n in exdx), exdx)
 
     ex_pick = page.evaluate("""() => {
       const btn = Array.from(document.querySelectorAll('#examCondPalette .exam-tx')).find(b => b.textContent.indexOf('قلح') >= 0);

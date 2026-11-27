@@ -1244,6 +1244,7 @@ Object.assign(window.SyI18nDict, {
   "حيث تنقر": "where you click",
   ": السطح المنقور للقلح والحساسية والارتداد والبقعة، والجذر المنقور للكسر، والإنسي/الوحشي للتماس المفتوح.": ": the clicked surface for calculus, sensitivity, recession and stain; the clicked root for a fracture; mesial/distal for an open contact.",
   "🩺 حالات سريرية": "🩺 Clinical findings",
+  "🔬 تشخيص": "🔬 Diagnosis",
   "☑️ تحديد متعدد — اختر الحالة والعلاج ثم انقر المواضع (أسطح/جذور السن الواحد تُدمج بجلسة واحدة)": "☑️ Multi-select — choose the status and treatment, then click the sites (surfaces/roots of one tooth merge into one session)",
   "أسنان:": "Teeth:",
   "✔ تطبيق": "✔ Apply",
@@ -4539,3 +4540,114 @@ Object.assign(window.SyI18nDict, {
 window.SyI18nPatterns.push(
   [/^🔐 من بوابة المريض — سيُربط الموعد ببطاقته: (.+)$/, '🔐 From the patient portal — the appointment will be linked to their card: $1']
 );
+
+/* ═══ 27/11 — «التشخيص ← العلاج» (نافذة السن · بطاقة ملخّص السن · الفحص الأولي · سطر التشخيص بالجلسات).
+   أسماءُ مكتبة التشخيصات والحالات تُترجَم هنا (كانت تبقى عربية)، والأسطرُ المركّبة «اسم — موضع» بأنماط.
+   مفتاحٌ موجودٌ مسبقاً لا يُستبدل. أسماءُ علاجات العيادة بياناتٌ تمرّ كما هي. ═══ */
+(function () {
+  var D = window.SyI18nDict, P = window.SyI18nPatterns;
+  function add(o) { Object.keys(o).forEach(function (k) { if (D[k] == null) D[k] = o[k]; }); }
+  function tr(x) { x = String(x == null ? '' : x).trim(); return D[x] != null ? D[x] : x; }
+  var NAMES = {
+      "كسر": "Fracture",
+      "حساسية عاجية": "Dentin hypersensitivity",
+      "قلح": "Calculus",
+      "انحسار لثوي": "Gingival recession",
+      "خراج": "Abscess",
+      "جذر متبقٍّ (بقايا جذر)": "Retained root",
+      "انطمار": "Impaction",
+      "بقعة بيضاء (إزالة تمعدن)": "White spot (demineralisation)",
+      "تماس مفتوح (فراغ بين سنّين)": "Open contact (gap between teeth)",
+      "غير بازغ": "Unerupted",
+      "تسوس (نخر)": "Caries (decay)",
+      "التهاب لب ردود (عكوس)": "Reversible pulpitis",
+      "التهاب لب غير ردود": "Irreversible pulpitis",
+      "تموّت لب": "Pulp necrosis",
+      "التهاب حول ذروي": "Apical periodontitis",
+      "تآكل (سحل / تآكل حمضي)": "Wear (attrition / erosion)",
+      "انزياح / ميلان": "Drift / tipping"
+  };
+  add(NAMES);
+  add({
+      "تشخيص · علاج · كلفة": "Diagnosis · treatment · cost",
+      "التشخيص": "Diagnosis",
+      "التشخيص:": "Diagnosis:",
+      "الكلفة": "Cost",
+      "لم يُحدَّد بعد": "Not chosen yet",
+      "بلا تشخيص مسجَّل": "No diagnosis recorded",
+      "عولج": "Treated",
+      "＋ اختر علاج هذا التشخيص": "＋ Choose a treatment for this diagnosis",
+      "🔬 التشخيص:": "🔬 Diagnosis:",
+      "تشخيص السن (سبب العلاج)": "Tooth diagnosis (the reason for treatment)",
+      "🩺 حالة سريرية:": "🩺 Clinical finding:",
+      "حالة سريرية:": "Clinical finding:",
+      "حالة سريرية": "Clinical finding",
+      "حالات سريرية (توثيق بلا تكلفة)": "Clinical findings (recorded with no cost)",
+      "إلغاء الربط": "Unlink",
+      "تشخيصٌ آخر على السن:": "Another diagnosis on this tooth:",
+      "🔬 هل هذا علاجٌ لتشخيصٍ مسجَّل؟": "🔬 Is this the treatment for a recorded diagnosis?",
+      "💡 العلاج المناسب لهذا التشخيص": "💡 Suitable treatment for this diagnosis",
+      "📍 موضع التشخيص": "📍 Diagnosis site",
+      "حفظ التشخيص": "Save diagnosis",
+      "حفظ التشخيص ومتابعة العلاج ←": "Save diagnosis and continue to treatment →",
+      "متابعة إلى العلاج ←": "Continue to treatment →",
+      "اختر الحالة (موجود / مراقبة)": "Choose the status (existing / watch)",
+      "اختر العلاج أو التشخيص أو الحالة السريرية": "Choose the treatment, diagnosis or clinical finding",
+      "انقر الأسطح على المخطط": "Click the surfaces on the chart",
+      "— توثيقٌ على المخطط فقط: بلا علاجٍ ولا كلفة ولا سطرٍ بالحساب.": "— recorded on the chart only: no treatment, no cost and no account line.",
+      "حالةٌ سريرية للتوثيق فقط — بلا علاجٍ ولا تكلفة ولا سطرٍ بالحساب.": "A clinical finding is for the record only — no treatment, no cost and no account line.",
+      "تُسجَّل": "It is recorded",
+      "حيث نقرت": "where you clicked",
+      ": القلحُ والانحسارُ والبقعةُ والتآكلُ على السطح المنقور، و«التماس المفتوح» على الإنسي أو الوحشي، و«غير بازغ» للسن كاملاً.": ": calculus, recession, white spot and wear on the clicked surface, «open contact» on the mesial or distal, and «unerupted» for the whole tooth.",
+      "التشخيص هو سببُ العلاج.": "The diagnosis is the reason for the treatment.",
+      "سجّله ثم اختر علاجه، فيظهران معاً على السن وبخطة العلاج مع الكلفة.": "Record it, then choose its treatment — both show together on the tooth and in the treatment plan with the cost.",
+      "التسوّسُ والكسرُ والحساسيةُ على": "Caries, fracture and sensitivity go on",
+      "السطح المنقور": "the clicked surface",
+      "· تشخيصُ اللب": "· a pulpal diagnosis",
+      "للسن كاملاً": "on the whole tooth",
+      "· الخراجُ والالتهابُ حول الذروي": "· abscess and apical periodontitis",
+      "على الجذر المنقور": "on the clicked root",
+      "— ويُسجَّل اللبّي وحول الذروي معاً للسن نفسه.": "— a pulpal and an apical diagnosis are recorded together for the same tooth.",
+      "اختر علاجاً لتنتقل إلى تخطيطه مباشرةً مربوطاً بهذا التشخيص — أو احفظ التشخيص وحده وحدّد علاجه لاحقاً.": "Choose a treatment to go straight to planning it, linked to this diagnosis — or save the diagnosis alone and choose its treatment later.",
+      "اختر علاجاً لتنتقل إلى تخطيطه مباشرةً مربوطاً بهذا التشخيص.": "Choose a treatment to go straight to planning it, linked to this diagnosis.",
+      "لا علاجَ مقترحاً متاحاً على هذا السن — اختر العلاج من قائمة العلاجات واربطه بالتشخيص.": "No suggested treatment is available on this tooth — choose the treatment from the treatments list and link it to the diagnosis.",
+      "لا علاجَ مقترحاً متاحاً على هذا السن — احفظ التشخيص ثم اختر العلاج من قائمة العلاجات.": "No suggested treatment is available on this tooth — save the diagnosis, then choose the treatment from the treatments list.",
+      "تشخيص — يُربط بعلاجه": "Diagnosis — linked to its treatment",
+      "🔬 تشخيص — يُسجَّل بلا تكلفة، وتكلفتُه على علاجه": "🔬 Diagnosis — recorded with no cost; the cost is on its treatment",
+      "يزيل هذا التشخيص وحدَه — لا يمسّ العلاجات ولا غيرَه": "Removes this diagnosis only — treatments and everything else stay",
+      "الجذر": "Root",
+      "الجذر الإنسي": "Mesial root",
+      "الجذر الوحشي": "Distal root",
+      "الجذر الدهليزي": "Buccal root",
+      "الجذر الحنكي": "Palatal root",
+      "الجذر الدهليزي الإنسي": "Mesiobuccal root",
+      "الجذر الدهليزي الوحشي": "Distobuccal root",
+      "كل الجذور": "All roots"
+  });
+  function esc(s) { return s.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'); }
+  var N = '(?:' + Object.keys(NAMES).sort(function (a, b) { return b.length - a.length; }).map(esc).join('|') + ')';
+  var ONE = N + '(?: — [^·«»()0-9]+?)?';
+  function one(x) {
+    var m = new RegExp('^(' + N + ')(?: — (.+))?$').exec(String(x).trim());
+    if (!m) return x;
+    return NAMES[m[1]] + (m[2] ? ' — ' + m[2].split(' + ').map(tr).join(' + ') : '');
+  }
+  function list(x) { return String(x).split(' · ').map(one).join(' · '); }
+  function words(x) { return String(x).replace(/[\u0600-\u06FF][\u0600-\u06FF\s]*[\u0600-\u06FF]|[\u0600-\u06FF]/g, function (m) { return tr(m); }); }
+  function area(a) {
+    var m = /^السطح (.+)$/.exec(a);
+    if (m) return words(m[1]) + ' surface';
+    if (a === 'تشخيص — السن كاملاً') return 'diagnosis — whole tooth';
+    if (a === 'حالة سريرية — السن كاملاً') return 'clinical finding — whole tooth';
+    return words(a);
+  }
+  P.push(
+    /* عنوانُ الخطوة الثانية لتشخيصٍ أو حالة: «كسر — السن 36 (السطح إطباقي)» — كاملاً لا خليطاً */
+    [new RegExp('^(' + N + ') — السن (.+?) \\((.+)\\)$'), function (m, n, t, a) { return NAMES[n] + ' — Tooth ' + t + ' (' + area(a) + ')'; }],
+    /* «تسوس (نخر) — إطباقي» · «تموّت لب — السن كاملاً · التهاب حول ذروي — الجذر الإنسي» (بطاقة السن · اللافتة · سطر الجلسة) */
+    [new RegExp('^' + ONE + '(?: · ' + ONE + ')*$'), function (m) { return list(m); }],
+    [new RegExp('^🔬 إزالة تشخيص «(' + N + ')» — (.+)$'), function (m, n, s) { return '🔬 Remove diagnosis «' + NAMES[n] + '» — ' + tr(s); }],
+    [new RegExp('^🩺 إزالة «(' + N + ')» — (.+)$'), function (m, n, s) { return '🩺 Remove «' + NAMES[n] + '» — ' + tr(s); }],
+    [/^⚠️ «(.+)» غير متاح على هذا السن — اختر علاجاً آخر من القائمة$/, '⚠️ «$1» is not available on this tooth — choose another treatment from the list']
+  );
+})();

@@ -1110,18 +1110,20 @@ function renderExamBar() {
   /* v433: صفُّ المكتبة السريرية — مستقلٌّ عن علاجات العيادة بنفس منطق الاختيار (examPick) */
   var cpal = document.getElementById('examCondPalette');
   var crow = document.getElementById('examCondRow');
+  var dpal = document.getElementById('examDxPalette');
+  function _exBtn(t, cls){
+    return '<button type="button" class="exam-tx exam-tx-cond ' + cls + (examSelectedKey === t.id ? ' selected' : '') + '" '
+         + 'style="border-color:' + t.stroke + ';" onclick="examPick(\'' + t.id + '\')">'
+         + '<span class="lbl" style="background:' + t.fill + ';border:1px solid ' + t.stroke + ';"></span>'
+         + '<span>' + escapeHtml(t.name) + '</span></button>';
+  }
   if (cpal && typeof COND_LIBRARY !== 'undefined') {
-    cpal.innerHTML = COND_LIBRARY.map(function(t){
-      return '<button type="button" class="exam-tx exam-tx-cond' + (examSelectedKey === t.id ? ' selected' : '') + '" '
-           + 'style="border-color:' + t.stroke + ';" '
-           + 'onclick="examPick(\'' + t.id + '\')">'
-           + '<span class="lbl" style="background:' + t.fill + ';border:1px solid ' + t.stroke + ';"></span>'
-           + '<span>' + escapeHtml(t.name) + '</span></button>';
-    }).join('');
+    cpal.innerHTML = COND_LIBRARY.filter(function(t){ return t.cond_kind !== 'dx'; }).map(function(t){ return _exBtn(t, ''); }).join('');
+    if (dpal) dpal.innerHTML = COND_LIBRARY.filter(function(t){ return t.cond_kind === 'dx'; }).map(function(t){ return _exBtn(t, 'exam-tx-dx'); }).join('');
     if (crow) crow.style.display = '';
   } else if (crow) { crow.style.display = 'none'; }
   examSyncCount();
-  renderModeSteps('examSteps', ['اختر الحالة (موجود / مراقبة)', 'اختر العلاج أو الحالة السريرية', 'انقر الأسطح على المخطط'],
+  renderModeSteps('examSteps', ['اختر الحالة (موجود / مراقبة)', 'اختر العلاج أو التشخيص أو الحالة السريرية', 'انقر الأسطح على المخطط'],
     examSelectedKey ? 2 : 1);
   modeMiniSync();
 }
@@ -1198,7 +1200,8 @@ async function _examStamp_inner(n, clickedSurface) {
        الكسرُ على ذلك الجذر، والسطحيةُ **تُرفض** (المودالُ لا يعرضها على الجذر أصلاً) ·
        وإلا السطحُ المنقور حرفياً. */
     var _clk = clickedSurface || '';
-    if (t.cond_scope === 'tooth' || !_clk || _clk === 'WHOLE' || _clk === 'CROWN_FULL') s = COND_SURFACE;
+    if (t.cond_scope === 'apical') s = /^R[123]$/.test(_clk) ? _clk : condApicalSlot(n);
+    else if (t.cond_scope === 'tooth' || !_clk || _clk === 'WHOLE' || _clk === 'CROWN_FULL') s = COND_SURFACE;
     else if (/^R[123]$/.test(_clk)) {
       if (t.cond_scope === 'both') s = _clk;
       else { showToast('🩺 «' + t.name + '» حالةٌ سطحية — انقر السطحَ التاجيَّ المطلوب لا الجذر'); return; }

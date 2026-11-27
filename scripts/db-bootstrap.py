@@ -97,6 +97,7 @@ AFTER_SNAPSHOT = [
     'migrations/228_staff_permissions.sql',          # clinic_employees.permissions (+ _staff_permissions_ok CHECK: closed keys, boolean values, never on the owner row; EXECUTE authenticated/service_role only)
     'migrations/229_portal_book_request.sql',       # booking_requests.source/patient_id (+ phone may be '' on a portal row) · portal_book_slots (STABLE) + portal_book_request (anon, token-gated)
     'migrations/230_accountant_employee_type.sql',  # clinic_employees.provider_type gains 'accountant' (ce_provider_type_valid replaced in place; clinic_doctors untouched: non-clinical, no doctor row)
+    'migrations/231_dx_key_note_marker.sql',         # after 179: teeth_status_dx_key_check replaced in place — each pair may carry the v610 «!» note marker
 ]
 PLAN = (['db/schema.sql',
          'migrations/bootstrap/01_storage_rebuild.sql',

@@ -14,6 +14,21 @@ const HARNESS = fs.readFileSync(path.join(__dirname, 'dom-smoke', '.out', 'harne
 const SRC = { 'pp-dental.js': fs.readFileSync(path.join(ROOT, 'pp-dental.js'), 'utf8'), 'pp-modules.js': fs.readFileSync(path.join(ROOT, 'pp-modules.js'), 'utf8') };
 const PPH = fs.readFileSync(path.join(ROOT, 'patient-profile.html'), 'utf8');
 const MIG = fs.readFileSync(path.join(ROOT, 'migrations', '179_teeth_status_dx.sql'), 'utf8');
+const MIG231 = fs.readFileSync(path.join(ROOT, 'migrations', '231_dx_key_note_marker.sql'), 'utf8');
+/* M231: ما يكتبه dxJoin (ومنه ملاحظةُ v610 «!» وزوجُ «لبّي + حول ذروي») يجب أن يقبله قيدُ القاعدة — القيدُ يُقرأ من ملف الهجرة نفسه */
+function constraintAccepts(w, sql) {
+  const m = /ADD CONSTRAINT teeth_status_dx_key_check\s+CHECK \(dx_key IS NULL OR \(length\(dx_key\) <= 400 AND dx_key ~ '([^']+)'\)\);/.exec(sql.replace(/^--.*$/gm, ''));
+  if (!m) return false;
+  const re = new RegExp(m[1]);
+  const written = [
+    w.dxJoin([{ sf: 'O', key: 'cond-caries' }]),
+    w.dxJoin([{ sf: 'O', key: 'cond-fracture', pending: true }]),
+    w.dxJoin([{ sf: 'COND', key: 'cond-pulp-necrosis' }, { sf: 'R1', key: 'cond-apical' }]),
+    w.dxJoin([{ sf: 'M', key: 'cond-caries' }, { sf: 'D', key: 'cond-wear', pending: true }])
+  ];
+  return written[1] === 'O:!cond-fracture' && written.every(x => re.test(x))
+    && ['O:!!cond-x', 'O:cond-', '!O:cond-caries', 'O:cond-caries,', 'O:Cond-caries'].every(x => !re.test(x));
+}
 
 function boot(src, label) {
   let html = HARNESS;
@@ -106,6 +121,7 @@ async function measure(w, pph) {
     && /teethDx\[n\]\[s\] = t\.dx_key/.test(pph);
   r.migration = /CREATE TRIGGER trg_teeth_status_dx BEFORE INSERT OR UPDATE ON public\.teeth_status/.test(MIG) && /OLD\.treatment_key LIKE 'cond-%'/.test(MIG)
     && /teeth_status_dx_key_check/.test(MIG) && /NEW\.dx_key, *\n? *CASE WHEN TG_OP/.test(MIG);
+  r.constraint = constraintAccepts(w, MIG231);
   r.noJsErrors = (w.__ERRORS || []).length === 0;
   return r;
 }
@@ -144,6 +160,8 @@ async function measure(w, pph) {
   const pphMut = PPH.replace('v605: صفُّ حالةٍ سريرية لا يمثّل جلسةً قط', 'v605-removed');
   const pw = await boot(SRC, 'mut-delsession'); const pr = await measure(pw, pphMut);
   if (!pr.delSessionGuard) { bites++; console.log('  🦷 delsession-guard-removed → delSessionGuard'); } else console.error('  ✗ طفرة delsession-guard-removed مرّت');
-  console.log(`prove-chart-dx mutants: ${bites}/${MUT.length + 1}`);
-  process.exit(bites === MUT.length + 1 ? 0 : 1);
+  /* طفرةُ الهجرة: قيدُ M179 القديم (بلا «!») يجب أن يُرفض */
+  if (!constraintAccepts(pw, MIG231.split('!?cond-').join('cond-'))) { bites++; console.log('  🦷 constraint-without-note-marker → constraint'); } else console.error('  ✗ طفرة constraint-without-note-marker مرّت');
+  console.log(`prove-chart-dx mutants: ${bites}/${MUT.length + 2}`);
+  process.exit(bites === MUT.length + 2 ? 0 : 1);
 })().catch(e => { console.error(e); process.exit(1); });

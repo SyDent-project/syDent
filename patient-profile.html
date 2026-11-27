@@ -23,43 +23,43 @@
      تستهلك النتيجة مرةً واحدة (معرّفٌ بصيغة uuid حصراً ⇒ بطاقةُ العرض التجريبي لا تقرأ شيئاً). -->
 <script>window.__syEarly=function(sb,uid){try{var id=new URL(location.href).searchParams.get('id');if(!id||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))return;window.__ppPatientPre={uid:uid,id:id,p:sb.from('patients').select('*').eq('id',id).eq('doctor_id',uid).single().then(function(r){return r;},function(e){return{data:null,error:e};})};}catch(e){}};</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261127d"></script>
+<script src="theme.js?v=20261127e"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261127d"></script>
-<script src="sy-modal.js?v=20261127d"></script>
-<script src="appt-followup.js?v=20261127d"></script>
-<script src="lab-redo.js?v=20261127d"></script>
-<script src="lab-stages.js?v=20261127d"></script>
-<script src="lab-status.js?v=20261127d"></script>
-<script src="lab-shade.js?v=20261127d"></script>
-<script src="lab-due.js?v=20261127d"></script>
-<script src="lab-slip.js?v=20261127d"></script>
-<script src="lab-files.js?v=20261127d"></script>
-<script src="pay-methods.js?v=20261127d"></script>
-<script src="appt-conflict.js?v=20261127d"></script>
-<script src="sidebar.js?v=20261127d"></script>
-<script src="ref-pick.js?v=20261127d"></script>
-<script src="inv-consume.js?v=20261127d"></script>
-<script src="inv-trace.js?v=20261127d"></script>
-<script src="timepicker.js?v=20261127d"></script>
-<script src="pp-modules.js?v=20261127d"></script>
-<script src="pp-wa.js?v=20261127d"></script>
-<script src="pp-clinical.js?v=20261127d"></script>
-<script src="pp-dental.js?v=20261127d"></script>
-<script src="pp-denture.js?v=20261127d"></script>
-<script src="pp-denture-svc.js?v=20261127d"></script>
-<script src="pp-followup.js?v=20261127d"></script>
-<script src="pp-plan.js?v=20261127d"></script>
-<script src="pp-timeline.js?v=20261127d"></script>
-<script src="pp-appt.js?v=20261127d"></script>
-<script src="pp-core.js?v=20261127d"></script>
-<script src="pp-extras.js?v=20261127d"></script>
-<script src="pp-intake.js?v=20261127d"></script>
-<script src="pp-portal.js?v=20261127d"></script>
-<script src="pp-consent.js?v=20261127d"></script>
-<script src="xray-viewer.js?v=20261127d"></script>
-<script src="pp-xray.js?v=20261127d"></script>
-<link rel="stylesheet" href="patient-profile.css?v=20261127d">
+<script src="supabase-init.js?v=20261127e"></script>
+<script src="sy-modal.js?v=20261127e"></script>
+<script src="appt-followup.js?v=20261127e"></script>
+<script src="lab-redo.js?v=20261127e"></script>
+<script src="lab-stages.js?v=20261127e"></script>
+<script src="lab-status.js?v=20261127e"></script>
+<script src="lab-shade.js?v=20261127e"></script>
+<script src="lab-due.js?v=20261127e"></script>
+<script src="lab-slip.js?v=20261127e"></script>
+<script src="lab-files.js?v=20261127e"></script>
+<script src="pay-methods.js?v=20261127e"></script>
+<script src="appt-conflict.js?v=20261127e"></script>
+<script src="sidebar.js?v=20261127e"></script>
+<script src="ref-pick.js?v=20261127e"></script>
+<script src="inv-consume.js?v=20261127e"></script>
+<script src="inv-trace.js?v=20261127e"></script>
+<script src="timepicker.js?v=20261127e"></script>
+<script src="pp-modules.js?v=20261127e"></script>
+<script src="pp-wa.js?v=20261127e"></script>
+<script src="pp-clinical.js?v=20261127e"></script>
+<script src="pp-dental.js?v=20261127e"></script>
+<script src="pp-denture.js?v=20261127e"></script>
+<script src="pp-denture-svc.js?v=20261127e"></script>
+<script src="pp-followup.js?v=20261127e"></script>
+<script src="pp-plan.js?v=20261127e"></script>
+<script src="pp-timeline.js?v=20261127e"></script>
+<script src="pp-appt.js?v=20261127e"></script>
+<script src="pp-core.js?v=20261127e"></script>
+<script src="pp-extras.js?v=20261127e"></script>
+<script src="pp-intake.js?v=20261127e"></script>
+<script src="pp-portal.js?v=20261127e"></script>
+<script src="pp-consent.js?v=20261127e"></script>
+<script src="xray-viewer.js?v=20261127e"></script>
+<script src="pp-xray.js?v=20261127e"></script>
+<link rel="stylesheet" href="patient-profile.css?v=20261127e">
 <style>
 /* v270: رأسُ البطاقة للمريض ثنائي العملة — سطرٌ لكل طبقة بوسمه ولونه (كانت الطبقة
    الثانية مخفيّةً بتلميحِ hover لا يراه أحد). صفحيٌّ عمداً لا في patient-profile.css. */
@@ -84,7 +84,7 @@
 :root[data-theme="light"] .perio-arch-title.perio-arch-lower{border-top:2px dashed #7d8fa6;}   /* v345: أوضح بالفاتح */
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261127d">
+<link rel="stylesheet" href="theme.css?v=20261127e">
 </head>
 <body>
 <script>
@@ -320,6 +320,10 @@
         <div class="exam-cond-note" id="examCondNote" style="display:none;">🩺 حالة سريرية — توثيق بلا تكلفة ولا سطر بالحساب، وتُسجَّل <b>حيث تنقر</b>: السطح المنقور للقلح والحساسية والارتداد والبقعة، والجذر المنقور للكسر، والإنسي/الوحشي للتماس المفتوح.</div>
         <div class="exam-row"><span class="exam-row-lbl">🦷 علاجات العيادة</span><div class="exam-tx-wrap"><div class="tx-tabs mode-tx-tabs" id="examTxTabs"></div><div class="exam-palette" id="examPalette"></div></div></div>
         <!-- v433: المكتبة السريرية بصفٍّ مستقلٍّ تحت علاجات العيادة (طلب المالك: أهمّ شيء بالفحص الأولي) -->
+        <div class="exam-cond-row exam-dx-row" id="examDxRow">
+          <span class="exam-cond-lbl exam-dx-lbl">🔬 تشخيص</span>
+          <div class="exam-palette" id="examDxPalette"></div>
+        </div>
         <div class="exam-cond-row" id="examCondRow">
           <span class="exam-cond-lbl">🩺 حالات سريرية</span>
           <div class="exam-palette" id="examCondPalette"></div>
@@ -1233,6 +1237,7 @@
           <div id="toothSurfaceChipsLabel" style="font-size:12px;color:var(--text2);margin-bottom:8px;">الأسطح المشمولة بالترميم <span style="opacity:0.7;">(اضغط لإضافة/إزالة سطح)</span>:</div>
           <div id="toothSurfaceChipsRow" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
         </div></div>
+        <div class="tx-tabs tx-dx-row" id="txDxRow"></div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
           <span>اختر نوع العلاج:</span>
           <a href="treatments.html" data-role-block="doctor secretary" data-perm="treatments" style="font-size:11px;color:var(--green);text-decoration:none;">إدارة العلاجات</a>
@@ -4411,7 +4416,10 @@ function renderSessions() {
     var detHtml = '';
     if (!_isBlank(desc))    detHtml += '<div class="sess-desc"' + ((_fuC && typeof fuStepEnAttr === 'function') ? fuStepEnAttr(desc) : '') + '>' + escapeHtml(desc) + '</div>';   /* ج2-ج: خطوةُ المتابعة الملتبسة بإنجليزيتها */
     /* 25/11: ملاحظةُ الجلسة تُعدَّل من مكانها (✏️ / «＋ ملاحظة») — النصُّ وحده، وتعمل بلا اتصال أيضاً */
-    if (!_isBlank(s.notes)) detHtml += '<div class="sess-note">📝 <span data-i18n-skip>' + escapeHtml(s.notes) + '</span>'
+    var _nt = s.notes, _dxM = /(?:^|\s—\s)سبب العلاج: (.+)$/.exec(_nt || ''), _dxT = (typeof dxSessionText === 'function') ? dxSessionText(s) : (_dxM ? _dxM[1] : '');
+    if (_dxM) _nt = (_nt || '').slice(0, _dxM.index);   /* 27/11: التشخيصُ بسطره المستقل — لا يتكرّر داخل الملاحظة */
+    if (_dxT) detHtml += '<div class="sess-dx">🔬 التشخيص: <b>' + escapeHtml(_dxT) + '</b></div>';
+    if (!_isBlank(_nt)) detHtml += '<div class="sess-note">📝 <span data-i18n-skip>' + escapeHtml(_nt) + '</span>'
       + ' <button type="button" class="sess-note-btn" data-sub-write onclick="sessNoteEdit(\'' + s.id + '\')" title="تعديل الملاحظة" aria-label="تعديل الملاحظة">✏️</button></div>';
     else detHtml += '<button type="button" class="sess-note-btn sess-note-add" data-sub-write onclick="sessNoteEdit(\'' + s.id + '\')">＋ ملاحظة</button>';
     if (apptBadge || labBadge) detHtml += '<div class="sess-links">' + apptBadge + labBadge + '</div>';
