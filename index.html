@@ -1629,6 +1629,8 @@ async function loadDashboard() {
   /* M232: «إيراد اليوم» صلاحيةٌ لكل موظف — مطفأةٌ افتراضاً لغير المالك (والمحاسب). بلا صلاحية: لا يُقرأ الرقم ولا تُرسم بطاقتُه. */
   const _incOk = !window.SyDentLock || typeof window.SyDentLock.can !== 'function' || window.SyDentLock.can('dash.income', false);
   if (!_incOk) { var _incCard = document.getElementById('kpiIncome'); if (_incCard) _incCard.remove(); document.documentElement.classList.add('dash-no-income'); }
+  /* قرار المالك 28/11: «ملخّص أمس» (مقبوضُ أمس وحالُ الصندوق) تحت المفتاح نفسه — تُزال بطاقتُه فلا يُحمَّل (الحمّالُ يتخطّى غيابَ ydBody). */
+  if (!_incOk) { var _ydCardEl = document.getElementById('ydCard'); if (_ydCardEl) _ydCardEl.remove(); }
   const _pfPays = _dashSettle(!_incOk ? Promise.resolve({ data: [], error: null }) : window.sb.from('ledger_payments').select('amount,date,currency')
     .eq('doctor_id', uid).eq('date', today));
   const _pfFlags = _dashSettle((window.SyDentHuddle && window.SyDentFlags) ? window.SyDentFlags.load(uid) : null);
