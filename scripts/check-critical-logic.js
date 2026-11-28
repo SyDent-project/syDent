@@ -1819,7 +1819,7 @@ async function runDashFin(sc) {
       if (!/def\.cond_anchor === 'cej'/.test(pd)) return false;
       /* v576: الرموزُ إطباقياً بالراية cond_occ وحدها (الكسر + التماس) — نداءاتُ conditionSymbolSvg
          خمسة: التعريف · الوجهي · اللافتة · الإطباقي (سطح) · الإطباقي (COND)؛ والبوابةُ بالراية */
-      if ((pd.match(/conditionSymbolSvg\(/g) || []).length !== 7) return false;   /* v581: + مركزُ اتحاد المركّب بالمنظرين */
+      if ((pd.match(/conditionSymbolSvg\(/g) || []).length !== 8) return false;   /* v581: + مركزُ اتحاد المركّب بالمنظرين · 28/11: + حول ذروي قديم بخانة السن ⇒ رمزٌ عند كل ذروة */
       if (!/function condRectsFor\(rects, key\)/.test(pd) || (pd.match(/condRectsFor\(/g) || []).length !== 3) return false;   /* v581: التعريف + وجهي + إطباقي */
       if (!/I:\[antX\+cap,iEdgeY,antW-2\*cap,iHv\], L:\[antX\+cap,lFillY,antW-2\*cap,lHv\]/.test(pd)) return false;   /* v581: حزامُ الأمامي مُضيَّق */
       if (/condRectsFor\(_oRects, \(ant && _ok === 'B'\)/.test(pd)) return false;   /* v581: دهليزيُّ الأمامي لا يُرى من الأعلى */

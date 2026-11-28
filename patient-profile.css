@@ -1760,3 +1760,12 @@ button.dx-b-chip{cursor:pointer;min-height:32px;}
 .sess-dx{font-size:11.5px;color:var(--red);margin-top:2px;}
 .exam-bar .exam-dx-lbl{color:var(--red) !important;}
 .exam-bar .exam-tx-dx.selected{box-shadow:0 0 0 3px rgba(var(--red-rgb),.35) !important;background:rgba(var(--red-rgb),.08) !important;outline-color:var(--red) !important;}
+
+/* 28/11: سطرُ التشخيص داخل تلميح المخطط — التلميحُ داكنٌ بالوضعين، فالنصُّ فاتحٌ دائماً (كان var(--text2): رماديٌّ داكن بالوضع الفاتح) */
+.dx-tip{color:var(--text2);}
+.chart-tip .dx-tip{color:rgba(255,255,255,.82);}
+.chart-tip .dx-tip.dx-note{color:var(--red);}
+/* ربطُ العلاج المخطّط بموعد (نافذة السن) */
+.dx-appt select{width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-family:Cairo,sans-serif;font-size:14px;}
+.dx-appt-hint{font-size:11.5px;color:var(--text2);margin-top:5px;}
+.dx-suggest-lbl small{font-weight:500;color:var(--text2);}

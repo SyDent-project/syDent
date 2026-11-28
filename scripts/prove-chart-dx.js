@@ -138,7 +138,7 @@ async function measure(w, pph) {
     ['pp-dental.js', 'no-composite-carry', "if (!isConditionKey(pendingToothStatus)) _dxCarry = _dxCarry.concat(dxCollectSubsumed(currentTooth, _toDel));", ""],
     ['pp-dental.js', 'pending-not-drawn', "if ((pend || p.pending) && !v[p.sf]) v[p.sf] = p.key;", "if (false) v[p.sf] = p.key;"],   /* v610: مرساةٌ محدَّثة */
     ['pp-dental.js', 'drawn-when-completed', "if ((pend || p.pending) && !v[p.sf]) v[p.sf] = p.key;", "if (!v[p.sf]) v[p.sf] = p.key;"],   /* v610 */
-    ['pp-dental.js', 'tip-same-label', "color:var(--text2);\">· عولج: ' + escapeHtml(dxNames(num, surface, done))", "color:var(--text2);\">· التشخيص: ' + escapeHtml(dxNames(num, surface, done))"],   /* v610 */
+    ['pp-dental.js', 'tip-same-label', "font-size:11px;\">· عولج: ' + escapeHtml(dxNames(num, surface, done))", "font-size:11px;\">· التشخيص: ' + escapeHtml(dxNames(num, surface, done))"],   /* v610 */
     ['pp-dental.js', 'no-session-note', "notes: (spacerUnitForLedger || bridgeUnitForLedger || _socketSave) ? notes : dxSessionNote(currentTooth, currentSurface, notes),", "notes: notes,"],
     ['pp-dental.js', 'clear-no-restore', "if (!_wErr) { for (var _dbk in _dxBack) await dxRestoreAfterRemoval(currentTooth, _dbk, _dxBack[_dbk]); }", "if (false) {}"],
     ['pp-dental.js', 'full-clear-restores', "if (!!sm[currentSurface]) surfacesToClear.forEach(", "if (true) surfacesToClear.forEach("],

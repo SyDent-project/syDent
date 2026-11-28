@@ -4730,6 +4730,18 @@ window.SyI18nPatterns.push(
     [new RegExp('^' + ONE + '(?: · ' + ONE + ')*$'), function (m) { return list(m); }],
     [new RegExp('^🔬 إزالة تشخيص «(' + N + ')» — (.+)$'), function (m, n, s) { return '🔬 Remove diagnosis «' + NAMES[n] + '» — ' + tr(s); }],
     [new RegExp('^🩺 إزالة «(' + N + ')» — (.+)$'), function (m, n, s) { return '🩺 Remove «' + NAMES[n] + '» — ' + tr(s); }],
-    [/^⚠️ «(.+)» غير متاح على هذا السن — اختر علاجاً آخر من القائمة$/, '⚠️ «$1» is not available on this tooth — choose another treatment from the list']
+    [/^⚠️ «(.+)» غير متاح على هذا السن — اختر علاجاً آخر من القائمة$/, '⚠️ «$1» is not available on this tooth — choose another treatment from the list'],
+    /* 28/11: التشخيص على الجذر · ربط العلاج المخطّط بموعد */
+    [/^⚠️ لم يُسجَّل التشخيص على (.+) — الجذرُ يحمل علاجاً أو تشخيصاً آخر$/, function (m, r) { return '⚠️ The diagnosis was not recorded on ' + r.split(' + ').map(tr).join(' + ') + ' — that root already carries a treatment or another diagnosis'; }]
   );
+  add({
+    '📍 جذر التشخيص': '📍 Diagnosis root',
+    '(جذرٌ أو أكثر)': '(one root or more)',
+    '— بلا موعد —': '— No appointment —',
+    '＋ موعد جديد…': '＋ New appointment…',
+    'العلاج المخطّط يُحفظ مربوطاً بالموعد ويظهر ضمنه.': 'The planned treatment is saved linked to the appointment and shows inside it.',
+    '📅 أكمل بيانات الموعد — العلاج المخطّط مربوطٌ به': '📅 Complete the appointment details — the planned treatment is linked to it',
+    '📅 حُفظ العلاج المخطّط مربوطاً بالموعد': '📅 The planned treatment was saved linked to the appointment',
+    '❌ حُفظ العلاج المخطّط لكن تعذّر ربطه بالموعد — اربطه من نافذة الموعد': '❌ The planned treatment was saved but could not be linked to the appointment — link it from the appointment window'
+  });
 })();
