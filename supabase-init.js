@@ -34,6 +34,11 @@
      أكثر من 35 ثانية بلا نتيجة فوق نسخةٍ حاضرة بالكاش). بلا نسخة مكاشة =
      انتظار الشبكة لآخرها تماماً كالسلوك السابق ⇒ التغيير إضافيّ صرف. */
   var NET_RESCUE_MS = 6000;
+  /* قراءةٌ علقت بلا ردّ (سوكيت معلَّق على شبكة موبايل: لا رفض ولا جواب) وليس لها نسخةٌ بالكاش كانت تنتظر
+     أبداً — فتبقى الصفحةُ على هيكلها الفارغ حتى يعيد المستخدمُ تحميلها (بلاغ المالك 28/11: صفحةُ المواعيد تفتح
+     «شهر» فارغاً). القراءةُ (GET) آمنةُ الإعادة: بعد كلٍّ من هاتين المهلتين، إن لم يصل ردٌّ بعد، يُطلق طلبٌ ثانٍ
+     على اتصالٍ جديد بجانب الأول، وأولُ ردٍّ يفوز. الطلبُ الأول لا يُقطع، وفشلُ الإعادة لا يُسقط شيئاً ⇒ إضافيّ صرف. */
+  var NET_RETRY_AT_MS = [10000, 25000];
   /* حدّان زمنيان للبيانات المخزّنة على الجهاز (كانت بلا أي مدة):
      • OFFLINE_MAX_MS — أقصى مدة عمل بلا اتصال: إن مضى أكثر منها على آخر قراءة
        ناجحة من الخادم (= آخر مرة قبِل فيها الخادم هذه الجلسة) لا يُخدَم شيء من الكاش
@@ -1195,7 +1200,14 @@
           return hit;
         });
       });
-    return Promise.race([netBranch, rescueBranch]);
+    var never = new Promise(function () {});
+    var retryBranches = NET_RETRY_AT_MS.map(function (ms) {
+      return new Promise(function (r) { setTimeout(r, ms); }).then(function () {
+        if (netDone || (window.navigator && window.navigator.onLine === false)) return never;
+        return doNetwork().then(function (res) { netDone = true; return res; }, function () { return never; });
+      });
+    });
+    return Promise.race([netBranch, rescueBranch].concat(retryBranches));
     }
   }
 
