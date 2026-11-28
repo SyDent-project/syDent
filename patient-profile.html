@@ -23,43 +23,43 @@
      تستهلك النتيجة مرةً واحدة (معرّفٌ بصيغة uuid حصراً ⇒ بطاقةُ العرض التجريبي لا تقرأ شيئاً). -->
 <script>window.__syEarly=function(sb,uid){try{var id=new URL(location.href).searchParams.get('id');if(!id||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))return;window.__ppPatientPre={uid:uid,id:id,p:sb.from('patients').select('*').eq('id',id).eq('doctor_id',uid).single().then(function(r){return r;},function(e){return{data:null,error:e};})};}catch(e){}};</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261128c"></script>
+<script src="theme.js?v=20261128e"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261128c"></script>
-<script src="sy-modal.js?v=20261128c"></script>
-<script src="appt-followup.js?v=20261128c"></script>
-<script src="lab-redo.js?v=20261128c"></script>
-<script src="lab-stages.js?v=20261128c"></script>
-<script src="lab-status.js?v=20261128c"></script>
-<script src="lab-shade.js?v=20261128c"></script>
-<script src="lab-due.js?v=20261128c"></script>
-<script src="lab-slip.js?v=20261128c"></script>
-<script src="lab-files.js?v=20261128c"></script>
-<script src="pay-methods.js?v=20261128c"></script>
-<script src="appt-conflict.js?v=20261128c"></script>
-<script src="sidebar.js?v=20261128c"></script>
-<script src="ref-pick.js?v=20261128c"></script>
-<script src="inv-consume.js?v=20261128c"></script>
-<script src="inv-trace.js?v=20261128c"></script>
-<script src="timepicker.js?v=20261128c"></script>
-<script src="pp-modules.js?v=20261128c"></script>
-<script src="pp-wa.js?v=20261128c"></script>
-<script src="pp-clinical.js?v=20261128c"></script>
-<script src="pp-dental.js?v=20261128c"></script>
-<script src="pp-denture.js?v=20261128c"></script>
-<script src="pp-denture-svc.js?v=20261128c"></script>
-<script src="pp-followup.js?v=20261128c"></script>
-<script src="pp-plan.js?v=20261128c"></script>
-<script src="pp-timeline.js?v=20261128c"></script>
-<script src="pp-appt.js?v=20261128c"></script>
-<script src="pp-core.js?v=20261128c"></script>
-<script src="pp-extras.js?v=20261128c"></script>
-<script src="pp-intake.js?v=20261128c"></script>
-<script src="pp-portal.js?v=20261128c"></script>
-<script src="pp-consent.js?v=20261128c"></script>
-<script src="xray-viewer.js?v=20261128c"></script>
-<script src="pp-xray.js?v=20261128c"></script>
-<link rel="stylesheet" href="patient-profile.css?v=20261128c">
+<script src="supabase-init.js?v=20261128e"></script>
+<script src="sy-modal.js?v=20261128e"></script>
+<script src="appt-followup.js?v=20261128e"></script>
+<script src="lab-redo.js?v=20261128e"></script>
+<script src="lab-stages.js?v=20261128e"></script>
+<script src="lab-status.js?v=20261128e"></script>
+<script src="lab-shade.js?v=20261128e"></script>
+<script src="lab-due.js?v=20261128e"></script>
+<script src="lab-slip.js?v=20261128e"></script>
+<script src="lab-files.js?v=20261128e"></script>
+<script src="pay-methods.js?v=20261128e"></script>
+<script src="appt-conflict.js?v=20261128e"></script>
+<script src="sidebar.js?v=20261128e"></script>
+<script src="ref-pick.js?v=20261128e"></script>
+<script src="inv-consume.js?v=20261128e"></script>
+<script src="inv-trace.js?v=20261128e"></script>
+<script src="timepicker.js?v=20261128e"></script>
+<script src="pp-modules.js?v=20261128e"></script>
+<script src="pp-wa.js?v=20261128e"></script>
+<script src="pp-clinical.js?v=20261128e"></script>
+<script src="pp-dental.js?v=20261128e"></script>
+<script src="pp-denture.js?v=20261128e"></script>
+<script src="pp-denture-svc.js?v=20261128e"></script>
+<script src="pp-followup.js?v=20261128e"></script>
+<script src="pp-plan.js?v=20261128e"></script>
+<script src="pp-timeline.js?v=20261128e"></script>
+<script src="pp-appt.js?v=20261128e"></script>
+<script src="pp-core.js?v=20261128e"></script>
+<script src="pp-extras.js?v=20261128e"></script>
+<script src="pp-intake.js?v=20261128e"></script>
+<script src="pp-portal.js?v=20261128e"></script>
+<script src="pp-consent.js?v=20261128e"></script>
+<script src="xray-viewer.js?v=20261128e"></script>
+<script src="pp-xray.js?v=20261128e"></script>
+<link rel="stylesheet" href="patient-profile.css?v=20261128e">
 <style>
 /* v270: رأسُ البطاقة للمريض ثنائي العملة — سطرٌ لكل طبقة بوسمه ولونه (كانت الطبقة
    الثانية مخفيّةً بتلميحِ hover لا يراه أحد). صفحيٌّ عمداً لا في patient-profile.css. */
@@ -84,7 +84,7 @@
 :root[data-theme="light"] .perio-arch-title.perio-arch-lower{border-top:2px dashed #7d8fa6;}   /* v345: أوضح بالفاتح */
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261128c">
+<link rel="stylesheet" href="theme.css?v=20261128e">
 </head>
 <body>
 <script>
