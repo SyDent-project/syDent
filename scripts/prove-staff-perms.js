@@ -301,18 +301,20 @@ async function suite(F) {
   ok(c.api.can('dash.income', false) === true, 'dashboard income: the owner always sees it');
   e = empCtx(F, { employees: emps3, nav });
   e.openPermModal('S2');
-  ok(/aria-checked="false" aria-label="إيراد اليوم"/.test(e.els.pmList.innerHTML), 'window: «إيراد اليوم» row, off for a secretary');
+  ok(/aria-checked="false" aria-label="إيراد اليوم وملخّص أمس"/.test(e.els.pmList.innerHTML), 'window: «إيراد اليوم» row, off for a secretary');
   e.permToggle('dash.income');
   ok(e.SyEmpPerms._state.draft['dash.income'] === true, 'window: granting it is an override');
   e = empCtx(F, { employees: emps3, nav });
   e.openPermModal('A1');
-  ok(/aria-checked="true" aria-label="إيراد اليوم"/.test(e.els.pmList.innerHTML), 'window: on for the accountant');
+  ok(/aria-checked="true" aria-label="إيراد اليوم وملخّص أمس"/.test(e.els.pmList.innerHTML), 'window: on for the accountant');
   const IX = F['index.html'];
   ok(/const _incOk = !window\.SyDentLock \|\| typeof window\.SyDentLock\.can !== 'function' \|\| window\.SyDentLock\.can\('dash\.income', false\);/.test(IX)
     && /const _pfPays = _dashSettle\(!_incOk \? Promise\.resolve\(\{ data: \[\], error: null \}\) : window\.sb\.from\('ledger_payments'\)/.test(IX), 'dashboard: without the permission today\'s payments are not even read');
   ok(/if \(!_incOk\) \{ var _incCard = document\.getElementById\('kpiIncome'\); if \(_incCard\) _incCard\.remove\(\);/.test(IX) && /<a class="kpi" id="kpiIncome" href="accounting\.html">/.test(IX), 'dashboard: the card is removed, not just emptied');
   ok(/noCollected: !\(!window\.SyDentLock \|\| typeof window\.SyDentLock\.can !== 'function' \|\| window\.SyDentLock\.can\('dash\.income', false\)\)/.test(IX)
     && /if \(!ctx\.noCollected\) qs\.push\(sb\.from\('ledger_payments'\)/.test(F['dash-goal.js']), 'goal card: «المقبوض اليوم» follows the same permission');
+  ok(/if \(!_incOk\) \{ var _ydCardEl = document\.getElementById\('ydCard'\); if \(_ydCardEl\) _ydCardEl\.remove\(\); \}/.test(IX) && IX.indexOf("getElementById('ydCard'); if (_ydCardEl)") < IX.indexOf('window.SyDentYesterday.load(') && /if \(_ydBody && window\.SyDentYesterday\) \{/.test(IX), 'dashboard: «ملخّص أمس» is removed before its loader, which then reads nothing');
+  ok(D.indexOf("'إيراد اليوم وملخّص أمس': ") > -1, 'dictionary: the switch label');
   ok(/'بعد تغيير دوره إلى ' \+ _newTypeLbl \+ '،/.test(EH) && /providerTypeFromRole === 'accountant'\) \? 'محاسب'/.test(EH), 'doctor→accountant confirm names the chosen type');
 }
 
@@ -359,6 +361,7 @@ const MUTANTS = [
   ['goal card still reads the collected', rep('dash-goal.js', "if (!ctx.noCollected) qs.push(sb.from('ledger_payments')", "qs.push(sb.from('ledger_payments')")],
   ['accountant without dashboard income', rep('supabase-init.js', "'provider-reports', 'dash.income'];\n  function isAccountant() {", "'provider-reports'];\n  function isAccountant() {")],
   ['dash key leaks into the sidebar', rep('supabase-init.js', "      if (k.indexOf('.') >= 0) return;   // act.* / dash.* are not pages\n", '')],
+  ['yesterday card left for staff', rep('index.html', " if (_ydCardEl) _ydCardEl.remove();", '')],
   ['dictionary misses a string', rep('i18n-en.js', "'صلاحية واحدة مخصّصة عن الدور': ", "'صلاحية واحدة': ")],
   ['old wording back', rep('employees.html', "'تبدأ من صلاحيات الدور ('", "'تبدأ من صلاحيات دوره ('")]
 ];

@@ -4481,7 +4481,8 @@ Object.assign(window.SyI18nDict, {
   'تعذّر الحفظ — تحقّق من الاتصال وحاول ثانيةً.': 'Could not save — check the connection and try again.',
   'تعرض هذه الصفحة دفعاتك أنت فقط.': 'This page shows only your own payouts.',
   /* M230: the accountant employee type */
-  'محاسب': 'Accountant', 'المحاسب': 'Accountant', 'للمالك والمحاسب': 'Owner and accountant only'
+  'محاسب': 'Accountant', 'المحاسب': 'Accountant', 'للمالك والمحاسب': 'Owner and accountant only',
+  'إيراد اليوم وملخّص أمس': "Today's revenue and yesterday's summary"
 });
 if (window.SyI18nPatterns) window.SyI18nPatterns.push(
   [/^🛡️ الصلاحيات: (.*)$/, '🛡️ Permissions: $1'],
