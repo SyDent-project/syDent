@@ -16,13 +16,13 @@
 /* ── Modal ── v447: التعريف المحلي حُذف — الصفحة على عُدّة SyDent الموحّدة
    (SYDENT MODAL KIT بـtheme.css بالفئة sy-m، والسلوك بـsidebar.js). */
  to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261128b"></script>
+<script src="theme.js?v=20261128c"></script>
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261128b"></script>
-<script src="sy-modal.js?v=20261128b"></script>
-<script src="sidebar.js?v=20261128b"></script>
-<script src="staff-leaves.js?v=20261128b"></script>
-<script src="emp-time.js?v=20261128b"></script>
+<script src="supabase-init.js?v=20261128c"></script>
+<script src="sy-modal.js?v=20261128c"></script>
+<script src="sidebar.js?v=20261128c"></script>
+<script src="staff-leaves.js?v=20261128c"></script>
+<script src="emp-time.js?v=20261128c"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -273,7 +273,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 html[data-sub-level="read"] :is([onclick*="openAddModal("],[onclick*="saveEmployee("],[onclick*="removeAllLockPins("],[onclick*="saveOwnerPin("],[onclick*="openOwnerPinModal("],[onclick*="openEditModal("],[onclick*="toggleActive("],[onclick*="deleteEmployee("],[onclick*="openStaffTime("],[onclick*="saveStaffHours("],[onclick*="stAddLeave("],[onchange*="saveStaffAllowance("],[onclick*="openPermModal("],[onclick*="savePerms("],.drag-handle){display:none !important;}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261128b">
+<link rel="stylesheet" href="theme.css?v=20261128c">
 </head>
 <body>
 <div class="main" id="sbMainContent">
@@ -1795,9 +1795,10 @@ async function saveEmployee() {
           var cardActive = doctorCard ? (doctorCard.is_active !== false) : false;
           var cardIsClinical = doctorCard ? providerTypeTakesAppointments(doctorCard.provider_type || 'doctor') : false;
           if (cardActive && cardIsClinical) {
+            var _newTypeLbl = (providerTypeFromRole === 'accountant') ? 'محاسب' : (providerTypeFromRole === 'other' ? 'موظف آخر' : 'سكرتيرة');
             var deactivateMsg =
               '🩺 د. ' + (origEmp.name) + ' مرتبط ببطاقة طبيب نشطة.\n\n' +
-              'بعد تغيير دوره إلى سكرتيرة، هل تريد إلغاء تنشيط بطاقة الطبيب أيضاً؟\n\n' +
+              'بعد تغيير دوره إلى ' + _newTypeLbl + '، هل تريد إلغاء تنشيط بطاقة الطبيب أيضاً؟\n\n' +
               '• السجلات التاريخية ستبقى محفوظة في كل الأحوال\n' +
               '• إذا اخترت "موافق" — البطاقة في صفحة الأطباء ستصبح غير نشطة\n' +
               '• إذا اخترت "إلغاء" — البطاقة تبقى مربوطة وستتحوّل لنوع "سكرتيرة"';
@@ -2809,6 +2810,7 @@ document.addEventListener('DOMContentLoaded', function(){
     { t: 'المحاسبة', items: [['accounting', 'المحاسبة'], ['expenses', 'المصاريف'], ['payouts', 'الرواتب والدفعات'], ['provider-reports', 'التقارير']] },
     { t: 'الإدارة', items: [['inventory', 'المخزون'], ['audit-log', 'سجل النشاطات'], [null, 'الموظفون']] },
     { t: 'النظام', items: [[null, 'الإعدادات'], [null, 'الاشتراك']] },
+    { t: 'لوحة التحكم', items: [['dash.income', 'إيراد اليوم']] },   /* M232 */
     { t: 'إجراءات حساسة', items: [['act.delete-patient', 'حذف مريض']] }
   ];
   var KEYS = [];
@@ -2836,7 +2838,7 @@ document.addEventListener('DOMContentLoaded', function(){
   /* ما يعطيه الدورُ اليوم بلا أي تخصيص */
   /* M230 — مرآةُ SyDentLock: «المحاسبة» للمالك والمحاسب فقط · «التقارير» للطبيب (أرقامُه هو) وللمحاسب —
      لا تُمنحان لغيرهم. والمحاسبُ تُفتح له صفحاتُ المال افتراضاً. */
-  var ACCT_OPEN = ['accounting', 'expenses', 'payouts', 'provider-reports'];
+  var ACCT_OPEN = ['accounting', 'expenses', 'payouts', 'provider-reports', 'dash.income'];
   function grantable(role, key, ptype) {
     if (key === 'accounting') return ptype === 'accountant';
     if (key === 'provider-reports') return role === 'doctor' || ptype === 'accountant';
@@ -2845,7 +2847,7 @@ document.addEventListener('DOMContentLoaded', function(){
   function roleDefault(role, key, ptype) {
     if (role === 'owner') return true;
     if (ptype === 'accountant' && ACCT_OPEN.indexOf(key) >= 0) return true;
-    if (key === 'act.delete-patient') return false;
+    if (key === 'act.delete-patient' || key === 'dash.income') return false;   /* ليست صفحات: مطفأةٌ ما لم تُمنح */
     var b = (window.SyDentNavBlocked && window.SyDentNavBlocked[role]) || null;
     if (!b) return false;
     return b.indexOf(key) < 0;

@@ -41,7 +41,7 @@
 <script>try{if(!localStorage.getItem('sydent.auth'))location.replace('landing.html');}catch(e){}</script>
 <script>try{var _pa=localStorage.getItem('sydent.padm'),_ps=localStorage.getItem('sydent.auth');if(_pa&&_ps&&_ps.indexOf(_pa)>-1){if(sessionStorage.getItem('sydent.padm.hop')){sessionStorage.removeItem('sydent.padm.hop');}else{sessionStorage.setItem('sydent.padm.hop','1');location.replace('admin.html');}}}catch(e){}</script>
 <!-- Theme system: MUST load before inline <style> to apply data-theme synchronously and prevent FOUC. -->
-<script src="theme.js?v=20261128b"></script>
+<script src="theme.js?v=20261128c"></script>
 <style>
   :root {
     --bg-primary: #0a1628;
@@ -171,6 +171,7 @@
      والفرقُ المتبقّي (أقل من نصف صف) تمتصّه القائمتان الطويلتان لا فراغٌ تحت عمود (بلاغ المالك 29/9).
      يمين: المواعيد · الانتظار · الفجوات؛ يسار: الأكثر نشاطاً · ملخّص أمس · الإنتاج مقابل الهدف. */
   .dash-grid .col > #todayApptsCard,.dash-grid .col > #actPatientsCard{flex:1;}
+  html.dash-no-income .kpis{grid-template-columns:repeat(3,1fr);}   /* M232 */
   @media(max-width:920px){.kpis{grid-template-columns:1fr 1fr;}.dash-grid{grid-template-columns:1fr;}}
   @media(max-width:560px){.kpis{grid-template-columns:1fr 1fr;gap:10px;}.kpi{padding:13px 13px;}}
 
@@ -757,23 +758,23 @@
 .al-count{margin-inline-start:auto;background:var(--red-bg);color:var(--red-ink);border:1px solid var(--red-bd);font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px}
 </style>
 <!-- Theme system: loads AFTER inline <style> so light-mode :root overrides the dark defaults above. -->
-<link rel="stylesheet" href="theme.css?v=20261128b">
+<link rel="stylesheet" href="theme.css?v=20261128c">
 <script src="/vendor/supabase-2.110.8.min.js"></script>
-<script src="supabase-init.js?v=20261128b"></script>
-<script src="sy-modal.js?v=20261128b"></script>
-<script src="appt-followup.js?v=20261128b"></script>
-<script src="pt-reliability.js?v=20261128b"></script>
-<script src="consent-pending.js?v=20261128b"></script>
-<script src="fu-unbooked.js?v=20261128b"></script>
-<script src="huddle-flags.js?v=20261128b"></script>
-<script src="pay-methods.js?v=20261128b"></script>
-<script src="acc-daysheet.js?v=20261128b"></script>
-<script src="dash-yesterday.js?v=20261128b"></script>
-<script src="dash-goal.js?v=20261128b"></script>
-<script src="sched-blocks.js?v=20261128b"></script>
-<script src="dash-gaps.js?v=20261128b"></script>
-<script src="sidebar.js?v=20261128b"></script>
-<script src="inv-order.js?v=20261128b"></script>
+<script src="supabase-init.js?v=20261128c"></script>
+<script src="sy-modal.js?v=20261128c"></script>
+<script src="appt-followup.js?v=20261128c"></script>
+<script src="pt-reliability.js?v=20261128c"></script>
+<script src="consent-pending.js?v=20261128c"></script>
+<script src="fu-unbooked.js?v=20261128c"></script>
+<script src="huddle-flags.js?v=20261128c"></script>
+<script src="pay-methods.js?v=20261128c"></script>
+<script src="acc-daysheet.js?v=20261128c"></script>
+<script src="dash-yesterday.js?v=20261128c"></script>
+<script src="dash-goal.js?v=20261128c"></script>
+<script src="sched-blocks.js?v=20261128c"></script>
+<script src="dash-gaps.js?v=20261128c"></script>
+<script src="sidebar.js?v=20261128c"></script>
+<script src="inv-order.js?v=20261128c"></script>
 </head>
 <body>
 <script>
@@ -1031,7 +1032,7 @@
       <div class="kpi-num" id="statApptToday">—</div>
       <div class="kpi-foot"><span class="kpi-delta up" id="statApptUpcoming"></span></div>
     </a>
-    <a class="kpi" href="accounting.html">
+    <a class="kpi" id="kpiIncome" href="accounting.html">
       <div class="kpi-top">
         <div class="kpi-ic o"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/></svg></div>
         <div class="kpi-label">إيراد اليوم</div>
@@ -1625,7 +1626,10 @@ async function loadDashboard() {
   const _pfAppts = _dashSettle(window.sb.from('appointments').select('*')
     .eq('doctor_id', uid).eq('date', today).order('time', { ascending: true }));
   const _pfOps = _dashSettle(loadDashOperatoriesCache(uid));
-  const _pfPays = _dashSettle(window.sb.from('ledger_payments').select('amount,date,currency')
+  /* M232: «إيراد اليوم» صلاحيةٌ لكل موظف — مطفأةٌ افتراضاً لغير المالك (والمحاسب). بلا صلاحية: لا يُقرأ الرقم ولا تُرسم بطاقتُه. */
+  const _incOk = !window.SyDentLock || typeof window.SyDentLock.can !== 'function' || window.SyDentLock.can('dash.income', false);
+  if (!_incOk) { var _incCard = document.getElementById('kpiIncome'); if (_incCard) _incCard.remove(); document.documentElement.classList.add('dash-no-income'); }
+  const _pfPays = _dashSettle(!_incOk ? Promise.resolve({ data: [], error: null }) : window.sb.from('ledger_payments').select('amount,date,currency')
     .eq('doctor_id', uid).eq('date', today));
   const _pfFlags = _dashSettle((window.SyDentHuddle && window.SyDentFlags) ? window.SyDentFlags.load(uid) : null);
   /* غرفةُ الانتظار ترسم بطاقتها وحدها وتحتاج ذاكرةَ الكراسي فقط (شاراتُ الكرسي) — تبدأ بعدها مباشرة. */
@@ -1784,7 +1788,8 @@ async function loadDashboard() {
     if (_glBody && window.SyDentGoal) {
       var _gl = await window.SyDentGoal.load(window.sb, uid, { today: today, appts: apptsToday, workDays: _dashCfgWa && _dashCfgWa.booking_work_days,
         goals: { SYP: _dashCfgWa && _dashCfgWa.production_goal_syp, USD: _dashCfgWa && _dashCfgWa.production_goal_usd },
-        baseCur: _dashCfgWa && _dashCfgWa.currency, multi: !!(_dashCfgWa && _dashCfgWa.multi_currency_enabled) });
+        baseCur: _dashCfgWa && _dashCfgWa.currency, multi: !!(_dashCfgWa && _dashCfgWa.multi_currency_enabled),
+        noCollected: !(!window.SyDentLock || typeof window.SyDentLock.can !== 'function' || window.SyDentLock.can('dash.income', false)) });   /* M232 */
       if (_glDay) _glDay.textContent = 'اليوم · الشهر';
       _glBody.innerHTML = window.SyDentGoal.render(_gl, { owner: nlIsOwner() });   /* xss-ok: نصوصٌ مُهرَّبة بالوحدة */
     }
@@ -1869,7 +1874,8 @@ async function loadDashboard() {
     label = _incFmt(incBag.SYP);
     unit  = (typeof curLbl === 'function') ? curLbl() : 'ل.س';
   }
-  document.getElementById('statIncome').textContent = label;
+  var _incEl = document.getElementById('statIncome');
+  if (_incEl) _incEl.textContent = label;
   var _unitEl = document.getElementById('statIncomeUnit');
   if (_unitEl) _unitEl.textContent = unit;
 
